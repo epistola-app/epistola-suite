@@ -2,6 +2,18 @@
 
 A document suite application built with Spring Boot 4.0.0 and Kotlin.
 
+## Project Structure
+
+```
+epistola-suite/
+├── apps/
+│   └── epistola/          # Main Spring Boot application
+├── modules/
+│   └── editor/            # Vite-based editor component (embeddable)
+├── build.gradle.kts       # Root build configuration
+└── settings.gradle.kts    # Module includes
+```
+
 ## Getting Started
 
 ### Prerequisites
@@ -16,16 +28,16 @@ A document suite application built with Spring Boot 4.0.0 and Kotlin.
 
 This will:
 - Configure asdf in your shell (bash/zsh) if not already done
-- Install the required tool versions (Java Temurin 25)
+- Install the required tool versions (Java Temurin 25, Node.js 24)
 
 ### Build and Run
 
 ```bash
-# Build the project
+# Build the entire project
 ./gradlew build
 
 # Run the application
-./gradlew bootRun
+./gradlew :apps:epistola:bootRun
 ```
 
 ### Docker
@@ -33,13 +45,31 @@ This will:
 Build a Docker image:
 
 ```bash
-./gradlew bootBuildImage
+./gradlew :apps:epistola:bootBuildImage
 ```
 
 Run the container:
 
 ```bash
-docker run --rm -p 8080:8080 epistola-suite:0.0.1-SNAPSHOT
+docker run --rm -p 8080:8080 epistola:0.0.1-SNAPSHOT
+```
+
+## Modules
+
+### apps/epistola
+
+The main Spring Boot application that serves the document suite.
+
+### modules/editor
+
+A Vite-based TypeScript editor component that builds as a library and is embedded in the main application. The built assets are served from `/editor/`.
+
+To develop the editor standalone:
+
+```bash
+cd modules/editor
+npm install
+npm run dev
 ```
 
 ## Development
