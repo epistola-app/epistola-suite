@@ -1,0 +1,41 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "labels": ["dependencies"],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "ignorePaths": [
+    "**/test/resources/**"
+  ],
+  "packageRules": [
+    {
+      "description": "Group Kotlin-related updates",
+      "matchPackagePatterns": ["^org.jetbrains.kotlin"],
+      "groupName": "Kotlin"
+    },
+    {
+      "description": "Group GraalVM-related updates",
+      "matchPackagePatterns": ["^org.graalvm"],
+      "groupName": "GraalVM"
+    },
+    {
+      "description": "Group test dependencies",
+      "matchPackagePatterns": ["^io.mockk", "junit"],
+      "groupName": "test dependencies"
+    },
+    {
+      "description": "Auto-merge patch updates for non-major dependencies",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    }
+  ],
+  "gradle": {
+    "fileMatch": [
+      "(^|/)build\\.gradle\\.kts$",
+      "(^|/)settings\\.gradle\\.kts$"
+    ]
+  }
+}
