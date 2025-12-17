@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class EpistolaSuiteApplication
 
 fun main(args: Array<String>) {
-	runApplication<EpistolaSuiteApplication>(*args)
+    runApplication<EpistolaSuiteApplication>(*args)
 }

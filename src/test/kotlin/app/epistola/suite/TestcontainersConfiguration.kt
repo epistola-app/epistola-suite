@@ -10,16 +10,11 @@ import org.testcontainers.utility.DockerImageName
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
 
-	@Bean
-	@ServiceConnection
-	fun grafanaLgtmContainer(): LgtmStackContainer {
-		return LgtmStackContainer(DockerImageName.parse("grafana/otel-lgtm:latest"))
-	}
+    @Bean
+    @ServiceConnection
+    fun grafanaLgtmContainer(): LgtmStackContainer = LgtmStackContainer(DockerImageName.parse("grafana/otel-lgtm:latest"))
 
-	@Bean
-	@ServiceConnection
-	fun postgresContainer(): PostgreSQLContainer {
-		return PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
-	}
-
+    @Bean
+    @ServiceConnection
+    fun postgresContainer(): PostgreSQLContainer = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
 }
