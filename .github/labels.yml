@@ -93,6 +93,11 @@
   color: ffffff
   description: This will not be worked on
 
+# CI/CD Labels
+- name: publish
+  color: "5319e7"
+  description: Triggers Docker image build for PR (used by CI)
+
 # Breaking Changes
 - name: "breaking change"
   color: b60205
