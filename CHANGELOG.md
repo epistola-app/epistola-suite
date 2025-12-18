@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- Docker image signing with Cosign (keyless OIDC)
+  - All published images are cryptographically signed using Sigstore
+  - SBOM attestation attached to images using CycloneDX format
+  - Verify signatures: `cosign verify ghcr.io/epistola-app/epistola-suite:<tag> --certificate-identity-regexp='.*' --certificate-oidc-issuer='https://token.actions.githubusercontent.com'`
+  - Verify SBOM attestation: `cosign verify-attestation ghcr.io/epistola-app/epistola-suite:<tag> --type cyclonedx --certificate-identity-regexp='.*' --certificate-oidc-issuer='https://token.actions.githubusercontent.com'`
 - Helm chart for Kubernetes deployment
   - Published to OCI registry at `oci://ghcr.io/epistola-app/charts/epistola`
   - Separate versioning from the application using `chart-X.Y.Z` tags

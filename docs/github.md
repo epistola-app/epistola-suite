@@ -15,6 +15,7 @@ This document explains how GitHub is configured for the Epistola Suite project, 
   - [Labels](#labels)
 - [Pull Requests](#pull-requests)
 - [Security](#security)
+  - [Docker Image Signing](#docker-image-signing)
 - [GitHub Discussions](#github-discussions)
 - [Repository Settings](#repository-settings)
 
@@ -64,6 +65,8 @@ All workflows are defined in `.github/workflows/`.
    - `ghcr.io/epistola-app/epistola-suite:<version>` (e.g., `1.2.3`)
    - `ghcr.io/epistola-app/epistola-suite:<sha>` (git commit SHA)
    - `ghcr.io/epistola-app/epistola-suite:latest`
+5. Signs the image using Cosign (keyless OIDC)
+6. Attaches SBOM attestation to the image
 
 #### On PR with `publish` Label
 1. Builds Docker image
@@ -263,6 +266,36 @@ Do NOT create public issues for security vulnerabilities.
 
 GitHub's private vulnerability reporting must be enabled in repository settings:
 - Settings → Security → Private vulnerability reporting → Enable
+
+### Docker Image Signing
+
+All published Docker images are cryptographically signed using [Cosign](https://docs.sigstore.dev/cosign/overview/) with keyless OIDC signing via GitHub Actions.
+
+#### Verify Image Signature
+
+```bash
+cosign verify ghcr.io/epistola-app/epistola-suite:<tag> \
+  --certificate-identity-regexp='.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+```
+
+#### Verify SBOM Attestation
+
+The SBOM (CycloneDX format) is attached as a signed attestation to each image:
+
+```bash
+cosign verify-attestation ghcr.io/epistola-app/epistola-suite:<tag> \
+  --type cyclonedx \
+  --certificate-identity-regexp='.*' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+```
+
+#### Download SBOM from Image
+
+```bash
+cosign download attestation ghcr.io/epistola-app/epistola-suite:<tag> \
+  | jq -r '.payload' | base64 -d | jq '.predicate'
+```
 
 ---
 

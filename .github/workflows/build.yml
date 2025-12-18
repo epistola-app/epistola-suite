@@ -86,6 +86,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write  # Required for Cosign keyless signing
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -112,6 +113,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
 
       - name: Bump version and create tag
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -142,15 +146,25 @@ jobs:
 
       - name: Tag and push Docker image (PR)
         if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish')
+        id: push_pr
         env:
           VERSION: ${{ steps.version.outputs.version }}
           PR_TAG: ${{ steps.previoustag.outputs.tag }}-pr-${{ github.event.pull_request.number }}-${{ github.run_number }}
         run: |
           docker tag epistola:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG | cut -d'@' -f2)" >> $GITHUB_OUTPUT
+
+      - name: Sign Docker image (PR)
+        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish')
+        env:
+          DIGEST: ${{ steps.push_pr.outputs.digest }}
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Tag and push Docker image (main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: push_main
         env:
           VERSION: ${{ steps.version.outputs.version }}
           NEW_TAG: ${{ steps.tag.outputs.new_version }}
@@ -161,6 +175,21 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG | cut -d'@' -f2)" >> $GITHUB_OUTPUT
+
+      - name: Sign Docker image (main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DIGEST: ${{ steps.push_main.outputs.digest }}
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+
+      - name: Attest SBOM to Docker image (main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DIGEST: ${{ steps.push_main.outputs.digest }}
+        run: |
+          cosign attest --yes --predicate apps/epistola/build/sbom/bom.json --type cyclonedx ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Rename SBOMs with version
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
