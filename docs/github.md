@@ -9,6 +9,7 @@ This document explains how GitHub is configured for the Epistola Suite project, 
   - [Docker Publishing](#docker-publishing)
   - [Label Sync](#label-sync)
 - [Versioning and Releases](#versioning-and-releases)
+- [SBOM (Software Bill of Materials)](#sbom-software-bill-of-materials)
 - [Issue Management](#issue-management)
   - [Issue Templates](#issue-templates)
   - [Labels](#labels)
@@ -118,6 +119,9 @@ Releases are automated:
 2. CI creates a new Git tag based on commit messages
 3. Docker image is built and pushed with the new version
 4. The `latest` tag is updated
+5. GitHub Release is created with:
+   - Auto-generated release notes
+   - SBOM file attached (`epistola-{version}-sbom.json`)
 
 To create a major release with breaking changes:
 ```
@@ -125,6 +129,19 @@ feat!: redesign authentication API
 
 BREAKING CHANGE: The /auth endpoint now requires OAuth2 tokens instead of API keys.
 ```
+
+---
+
+## SBOM (Software Bill of Materials)
+
+CycloneDX SBOMs are generated for both backend and frontend dependencies and attached to each release.
+
+| Release Artifact | Contents |
+|------------------|----------|
+| `epistola-backend-{version}-sbom.json` | Backend (Kotlin/Java) dependencies |
+| `epistola-editor-{version}-sbom.json` | Frontend (TypeScript/npm) dependencies |
+
+For detailed SBOM documentation, see [docs/sbom.md](sbom.md).
 
 ---
 

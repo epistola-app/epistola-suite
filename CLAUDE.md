@@ -40,6 +40,9 @@ epistola-suite/
 
 # Build Docker image
 ./gradlew :apps:epistola:bootBuildImage
+
+# Generate SBOM (Software Bill of Materials)
+./gradlew :apps:epistola:generateSbom
 ```
 
 ## Code Style

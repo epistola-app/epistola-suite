@@ -1,9 +1,12 @@
+import org.cyclonedx.model.Component
+
 plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
     id("org.springframework.boot")
     id("io.spring.dependency-management")
     id("org.graalvm.buildtools.native")
+    id("org.cyclonedx.bom")
 }
 
 dependencies {
@@ -54,4 +57,30 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Configure CycloneDX SBOM generation for backend dependencies
+tasks.cyclonedxDirectBom {
+    projectType = Component.Type.APPLICATION
+    includeBomSerialNumber = true
+    includeLicenseText = false
+    jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
+}
+
+// Copy SBOM to JAR resources for Docker embedding
+val copySbomToResources by tasks.registering(Copy::class) {
+    dependsOn(tasks.cyclonedxDirectBom)
+    from(layout.buildDirectory.file("sbom/bom.json"))
+    into(layout.buildDirectory.dir("resources/main/META-INF/sbom"))
+}
+
+tasks.processResources {
+    dependsOn(copySbomToResources)
+}
+
+// Convenience task for generating SBOM standalone
+tasks.register("generateSbom") {
+    group = "verification"
+    description = "Generate CycloneDX SBOM for backend dependencies"
+    dependsOn(tasks.cyclonedxDirectBom)
 }

@@ -31,3 +31,11 @@ val copyDistToResources by tasks.registering(Copy::class) {
 tasks.named("processResources") {
     dependsOn(copyDistToResources)
 }
+
+val npmSbom by tasks.registering(com.github.gradle.node.npm.task.NpmTask::class) {
+    dependsOn(tasks.npmInstall)
+    args.set(listOf("run", "sbom"))
+    inputs.file("package.json")
+    inputs.file("package-lock.json").optional()
+    outputs.file(layout.buildDirectory.file("sbom.json"))
+}

@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- SBOM (Software Bill of Materials) generation using CycloneDX
+  - Backend SBOM: `./gradlew :apps:epistola:generateSbom`
+  - Frontend SBOM: `./gradlew :modules:editor:npmSbom`
+  - Both SBOMs attached to GitHub Releases (`epistola-backend-{version}-sbom.json`, `epistola-editor-{version}-sbom.json`)
+  - Backend SBOM embedded in Docker images at `META-INF/sbom/bom.json`
+- GitHub Releases are now created automatically with release notes and SBOM attachment
 - Open source community infrastructure
   - CONTRIBUTING.md with development workflow, commit conventions, and code style guidelines
   - CODE_OF_CONDUCT.md based on Contributor Covenant v2.1
