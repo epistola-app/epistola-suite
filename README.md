@@ -56,6 +56,34 @@ Run the container:
 docker run --rm -p 8080:8080 epistola:0.0.1-SNAPSHOT
 ```
 
+### Helm Chart
+
+The application can be deployed to Kubernetes using the Helm chart published to the OCI registry.
+
+Install from the OCI registry:
+
+```bash
+helm install epistola oci://ghcr.io/epistola-app/charts/epistola --version <version>
+```
+
+Upgrade an existing release:
+
+```bash
+helm upgrade epistola oci://ghcr.io/epistola-app/charts/epistola --version <version>
+```
+
+Customize the deployment with values:
+
+```bash
+helm install epistola oci://ghcr.io/epistola-app/charts/epistola \
+  --version <version> \
+  --set image.tag=1.0.0 \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=epistola.example.com
+```
+
+See `charts/epistola/values.yaml` for all available configuration options.
+
 ## Modules
 
 ### apps/epistola
@@ -104,6 +132,10 @@ The project uses GitHub Actions for CI/CD:
 - **Docker images** are published to ghcr.io:
   - On main: tagged with semantic version (based on conventional commits), SHA, and `latest`
   - On PRs with `publish` label: tagged with `{version}-pr-{number}-{run}`
+- **Helm charts** are published to ghcr.io OCI registry:
+  - Triggered when changes are detected in the `charts/` directory
+  - Tagged with `chart-X.Y.Z` (separate versioning from the app)
+  - Published to `oci://ghcr.io/epistola-app/charts`
 
 ### Conventional Commits
 
@@ -111,6 +143,8 @@ Version bumps are determined automatically from commit messages:
 - `feat:` - minor version bump
 - `fix:` - patch version bump
 - `feat!:` or `fix!:` with `BREAKING CHANGE` - major version bump
+
+Both the app and Helm chart follow this convention. The Helm chart version is only bumped when changes are made to the `charts/` directory.
 
 ## License
 

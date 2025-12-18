@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- Helm chart for Kubernetes deployment
+  - Published to OCI registry at `oci://ghcr.io/epistola-app/charts/epistola`
+  - Separate versioning from the application using `chart-X.Y.Z` tags
+  - Automatic version bumping based on conventional commits for changes in `charts/` directory
+  - Includes: Deployment, Service, Ingress (optional), HPA (optional), ServiceAccount, ConfigMap
+  - Trivy security scanning for Kubernetes misconfigurations
+  - Spring Boot Actuator health probes (liveness/readiness) configured
 - SBOM (Software Bill of Materials) generation using CycloneDX
   - Backend SBOM: `./gradlew :apps:epistola:generateSbom`
   - Frontend SBOM: `./gradlew :modules:editor:npmSbom`

@@ -1,0 +1,153 @@
+name: Helm Chart
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'charts/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'charts/**'
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  lint:
+    name: Lint Helm Chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Lint Helm chart
+        run: helm lint charts/epistola
+
+      - name: Scan Helm chart for misconfigurations
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'charts/epistola'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+  release:
+    name: Release Helm Chart
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for chart changes
+        id: chart-changes
+        run: |
+          # Get the previous chart tag or use initial commit
+          PREV_CHART_TAG=$(git tag -l "chart-*" --sort=-v:refname | head -n 1)
+          if [ -z "$PREV_CHART_TAG" ]; then
+            # No previous chart tag, check if charts/ directory exists
+            if [ -d "charts/" ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "No previous chart tag found, will create initial release"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "No charts directory found"
+            fi
+          else
+            # Count commits affecting charts/ since last chart tag
+            CHART_COMMITS=$(git log --oneline ${PREV_CHART_TAG}..HEAD -- charts/ | wc -l | tr -d ' ')
+            if [ "$CHART_COMMITS" -gt 0 ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+              echo "Chart changes detected: $CHART_COMMITS commits since $PREV_CHART_TAG"
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+              echo "No chart changes detected since $PREV_CHART_TAG"
+            fi
+          fi
+
+      - name: Bump chart version and create tag
+        if: steps.chart-changes.outputs.changed == 'true'
+        id: chart-tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: "chart-"
+          default_bump: patch
+          fetch_all_tags: true
+
+      - name: Set up Helm
+        if: steps.chart-changes.outputs.changed == 'true'
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Update Chart.yaml version
+        if: steps.chart-changes.outputs.changed == 'true'
+        run: |
+          NEW_VERSION="${{ steps.chart-tag.outputs.new_version }}"
+          sed -i "s/^version:.*/version: ${NEW_VERSION}/" charts/epistola/Chart.yaml
+
+          # Optionally sync appVersion with latest app tag
+          APP_VERSION=$(git tag -l "v*" --sort=-v:refname | head -n 1 | sed 's/^v//')
+          if [ -n "$APP_VERSION" ]; then
+            sed -i "s/^appVersion:.*/appVersion: \"${APP_VERSION}\"/" charts/epistola/Chart.yaml
+          fi
+
+          echo "Updated Chart.yaml:"
+          cat charts/epistola/Chart.yaml
+
+      - name: Lint Helm chart
+        if: steps.chart-changes.outputs.changed == 'true'
+        run: helm lint charts/epistola
+
+      - name: Log in to Container Registry
+        if: steps.chart-changes.outputs.changed == 'true'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package Helm chart
+        if: steps.chart-changes.outputs.changed == 'true'
+        run: |
+          mkdir -p .helm-packages
+          helm package charts/epistola --destination .helm-packages
+
+      - name: Push Helm chart to OCI registry
+        if: steps.chart-changes.outputs.changed == 'true'
+        run: |
+          helm push .helm-packages/epistola-${{ steps.chart-tag.outputs.new_version }}.tgz oci://ghcr.io/epistola-app/charts
+
+      - name: Create Helm Chart Release
+        if: steps.chart-changes.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.chart-tag.outputs.new_tag }}
+          name: Helm Chart ${{ steps.chart-tag.outputs.new_version }}
+          body: |
+            ## Helm Chart Release ${{ steps.chart-tag.outputs.new_version }}
+
+            ### Installation
+            ```bash
+            helm install epistola oci://ghcr.io/epistola-app/charts/epistola --version ${{ steps.chart-tag.outputs.new_version }}
+            ```
+
+            ### Upgrade
+            ```bash
+            helm upgrade epistola oci://ghcr.io/epistola-app/charts/epistola --version ${{ steps.chart-tag.outputs.new_version }}
+            ```
+          files: |
+            .helm-packages/epistola-${{ steps.chart-tag.outputs.new_version }}.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
