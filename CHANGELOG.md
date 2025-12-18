@@ -1,5 +1,16 @@
 # Epistola Suite Changelog
 
+## [Unreleased]
+
+### Added
+- Open source community infrastructure
+  - CONTRIBUTING.md with development workflow, commit conventions, and code style guidelines
+  - CODE_OF_CONDUCT.md based on Contributor Covenant v2.1
+  - SECURITY.md with vulnerability reporting guidelines and 48-hour response SLA
+  - GitHub issue templates (bug report, feature request, documentation)
+  - Pull request template with checklist
+  - Issue template config linking to GitHub Discussions for questions
+
 ## [0.0.1-SNAPSHOT] - 2025-12-17
 
 ### Added

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/sdegroot/epistola-suite/discussions
+    about: Please ask questions and discuss ideas here instead of opening an issue.
+  - name: Security Vulnerabilities
+    url: https://github.com/sdegroot/epistola-suite/security/advisories/new
+    about: Please report security vulnerabilities privately using GitHub's security advisory feature.
