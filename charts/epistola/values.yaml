@@ -28,16 +28,20 @@ serviceAccount:
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
-  # fsGroup: 2000
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 1000
+  allowPrivilegeEscalation: false
 
 service:
   type: ClusterIP
@@ -94,17 +98,16 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 
 # Additional volumes on the output Deployment definition.
-volumes: []
-# - name: foo
-#   secret:
-#     secretName: mysecret
-#     optional: false
+# Note: tmp-dir is required for readOnlyRootFilesystem since Java needs a writable /tmp
+volumes:
+  - name: tmp-dir
+    emptyDir: {}
 
 # Additional volumeMounts on the output Deployment definition.
-volumeMounts: []
-# - name: foo
-#   mountPath: "/etc/foo"
-#   readOnly: true
+# Note: /tmp mount is required for readOnlyRootFilesystem since Java needs a writable /tmp
+volumeMounts:
+  - name: tmp-dir
+    mountPath: /tmp
 
 nodeSelector: {}
 

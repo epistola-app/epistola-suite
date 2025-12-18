@@ -5,6 +5,7 @@
 ### Fixed
 - Labels sync workflow now works with private repositories by adding `contents: read` permission
 - Docker image build in CI now explicitly sets image name to `epistola-suite` via `--imageName` flag to ensure consistent naming across build and push steps
+- Helm chart security scan failures (AVD-KSV-0014, AVD-KSV-0118): added proper pod and container security contexts with `readOnlyRootFilesystem`, `seccompProfile`, `allowPrivilegeEscalation: false`, and capability drops
 
 ### Added
 - Scheduled security scan workflow (daily) with dynamic vulnerability badge
