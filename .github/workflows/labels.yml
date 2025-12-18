@@ -13,6 +13,7 @@ jobs:
     name: Sync labels
     runs-on: ubuntu-latest
     permissions:
+      contents: read # Required to checkout repository (especially for private repos)
       issues: write # Required to manage labels
     steps:
       - name: Checkout

@@ -13,84 +13,84 @@
 
 # Issue Type Labels
 - name: bug
-  color: d73a4a
+  color: "d73a4a"
   description: Something isn't working
 
 - name: feature
-  color: 28a745
+  color: "28a745"
   description: New feature request
 
 - name: documentation
-  color: 0075ca
+  color: "0075ca"
   description: Documentation improvements
 
 - name: question
-  color: d876e3
+  color: "d876e3"
   description: Further information is requested
 
 # Priority Labels
 - name: "priority: critical"
-  color: b60205
+  color: "b60205"
   description: Must be fixed ASAP
 
 - name: "priority: high"
-  color: d93f0b
+  color: "d93f0b"
   description: High priority issue
 
 - name: "priority: low"
-  color: fef2c0
+  color: "fef2c0"
   description: Low priority issue
 
 # Status Labels
 - name: "status: blocked"
-  color: d73a4a
+  color: "d73a4a"
   description: Blocked by another issue or external factor
 
 - name: "status: in progress"
-  color: fbca04
+  color: "fbca04"
   description: Currently being worked on
 
 - name: "status: needs review"
-  color: 1d76db
+  color: "1d76db"
   description: Needs code review
 
 - name: "status: needs triage"
-  color: ededed
+  color: "ededed"
   description: Needs initial assessment
 
 # Component Labels
 - name: backend
-  color: f9a825
+  color: "f9a825"
   description: Kotlin/Spring Boot related
 
 - name: frontend
-  color: 00bcd4
+  color: "00bcd4"
   description: TypeScript/Vite editor related
 
 - name: infrastructure
-  color: 666666
+  color: "666666"
   description: CI/CD, Docker, deployment
 
 # Contributor Labels
 - name: "good first issue"
-  color: 7057ff
+  color: "7057ff"
   description: Good for newcomers
 
 - name: "help wanted"
-  color: 0e8a16
+  color: "0e8a16"
   description: Extra attention needed
 
 # Resolution Labels
 - name: duplicate
-  color: cccccc
+  color: "cccccc"
   description: This issue or pull request already exists
 
 - name: invalid
-  color: e4e669
+  color: "e4e669"
   description: This doesn't seem right
 
 - name: wontfix
-  color: ffffff
+  color: "ffffff"
   description: This will not be worked on
 
 # CI/CD Labels
@@ -100,5 +100,5 @@
 
 # Breaking Changes
 - name: "breaking change"
-  color: b60205
+  color: "b60205"
   description: Introduces breaking changes

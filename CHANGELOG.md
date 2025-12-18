@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- Labels sync workflow now works with private repositories by adding `contents: read` permission
 - Docker image build in CI now explicitly sets image name to `epistola-suite` via `--imageName` flag to ensure consistent naming across build and push steps
 
 ### Added
