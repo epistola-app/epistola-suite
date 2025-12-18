@@ -23,7 +23,8 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 Epistola Suite is a document suite application with:
 - **Backend**: Spring Boot 4.0.0 + Kotlin 2.3.0 (JDK 25)
-- **Frontend**: Vite + TypeScript editor module (Node.js 24)
+- **Frontend**: Server-side rendered using Thymeleaf + HTMX
+- **Client Components**: Vite + TypeScript editor module (Node.js 24) for rich editing
 - **Architecture**: Multi-module Gradle monorepo
 
 ## Project Structure
@@ -31,13 +32,20 @@ Epistola Suite is a document suite application with:
 ```
 epistola-suite/
 ├── apps/
-│   └── epistola/          # Main Spring Boot application
+│   └── epistola/          # Main Spring Boot application (Thymeleaf + HTMX views)
 ├── modules/
-│   └── editor/            # Vite-based TypeScript editor (embeddable)
+│   └── editor/            # Rich text editor component (Vite + TypeScript)
 ├── docs/                  # Documentation
 ├── scripts/               # Setup scripts
 └── build.gradle.kts       # Root build configuration
 ```
+
+## Frontend Architecture
+
+The frontend uses a **server-side rendering** approach:
+- **Thymeleaf**: Template engine for rendering HTML on the server
+- **HTMX**: For dynamic interactions without full page reloads
+- **Client components**: Embedded modules (like the editor) for features requiring rich client-side interactivity
 
 ## Build Commands
 
@@ -71,8 +79,9 @@ epistola-suite/
 - Run `./gradlew ktlintFormat` before committing if needed
 - EditorConfig is configured for consistent formatting
 
-### TypeScript
-- Located in `modules/editor/`
+### TypeScript (Client Components)
+- Located in `modules/editor/` and other client-side modules
+- Used only for rich interactive components that require client-side logic
 - Follow existing patterns in the codebase
 
 ## Commit Conventions

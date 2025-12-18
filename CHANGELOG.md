@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+- Updated documentation to reflect server-side rendering architecture (Thymeleaf + HTMX) instead of implying a Vite/TypeScript SPA frontend
+  - CLAUDE.md: Added Frontend Architecture section, clarified project overview and structure
+  - README.md: Added Architecture section, updated project description and modules
+  - CONTRIBUTING.md: Added Thymeleaf + HTMX code style section, updated frontend label description
+  - .github/labels.yml: Updated frontend label description
+
 ### Fixed
 - Labels sync workflow now works with private repositories by adding `contents: read` permission
 - Docker image build in CI now explicitly sets image name to `epistola-suite` via `--imageName` flag to ensure consistent naming across build and push steps

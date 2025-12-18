@@ -65,7 +65,7 @@
 
 - name: frontend
   color: "00bcd4"
-  description: TypeScript/Vite editor related
+  description: Thymeleaf/HTMX/UI related
 
 - name: infrastructure
   color: "666666"

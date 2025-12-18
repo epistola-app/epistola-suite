@@ -114,8 +114,13 @@ git config --get commit.gpgsign  # Should return "true"
 - Run `./gradlew ktlintFormat` to auto-fix
 - EditorConfig is configured for consistent formatting
 
-#### TypeScript (Frontend)
-- Follow existing patterns in the `modules/editor` directory
+#### Thymeleaf + HTMX (Frontend)
+- Server-side rendered templates in `apps/epistola/src/main/resources/templates/`
+- Use HTMX attributes for dynamic interactions
+- Follow existing patterns in the codebase
+
+#### TypeScript (Client Components)
+- For rich interactive components like the editor in `modules/editor/`
 - EditorConfig ensures consistent indentation
 
 ### Testing Requirements
@@ -158,7 +163,7 @@ Labels are automatically managed via [`.github/labels.yml`](.github/labels.yml).
 | `good first issue` | Good for newcomers |
 | `help wanted` | Extra attention needed |
 | `backend` | Kotlin/Spring Boot related |
-| `frontend` | TypeScript/Vite related |
+| `frontend` | Thymeleaf/HTMX/UI related |
 | `priority: critical/high/low` | Issue priority |
 | `status: blocked/in progress` | Current status |
 

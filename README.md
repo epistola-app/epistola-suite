@@ -4,19 +4,26 @@
 [![Security Scan](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/epistola-app/epistola-suite/main/.github/badges/trivy.json)](https://github.com/epistola-app/epistola-suite/actions/workflows/security-scan.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-A document suite application built with Spring Boot 4.0.0 and Kotlin.
+A document suite application built with Spring Boot 4.0.0 and Kotlin, featuring server-side rendered views with Thymeleaf and HTMX.
 
 ## Project Structure
 
 ```
 epistola-suite/
 ├── apps/
-│   └── epistola/          # Main Spring Boot application
+│   └── epistola/          # Main Spring Boot application (Thymeleaf + HTMX)
 ├── modules/
-│   └── editor/            # Vite-based editor component (embeddable)
+│   └── editor/            # Rich text editor component (Vite + TypeScript)
 ├── build.gradle.kts       # Root build configuration
 └── settings.gradle.kts    # Module includes
 ```
+
+## Architecture
+
+The frontend uses a **server-side rendering** approach:
+- **Thymeleaf**: Template engine for rendering HTML on the server
+- **HTMX**: For dynamic interactions without full page reloads
+- **Client components**: Embedded JavaScript modules (like the editor) for features requiring rich client-side interactivity
 
 ## Getting Started
 
@@ -92,11 +99,11 @@ See `charts/epistola/values.yaml` for all available configuration options.
 
 ### apps/epistola
 
-The main Spring Boot application that serves the document suite.
+The main Spring Boot application that serves the document suite. Uses Thymeleaf for server-side HTML rendering and HTMX for dynamic interactions.
 
 ### modules/editor
 
-A Vite-based TypeScript editor component that builds as a library and is embedded in the main application. The built assets are served from `/editor/`.
+A Vite-based TypeScript editor component that builds as a library and is embedded in the main application for rich text editing functionality. The built assets are served from `/editor/`.
 
 To develop the editor standalone:
 
