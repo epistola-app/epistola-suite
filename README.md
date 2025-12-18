@@ -30,6 +30,7 @@ This will:
 - Configure asdf in your shell (bash/zsh) if not already done
 - Install the required tool versions (Java Temurin 25, Node.js 24)
 - Install Git hooks (commitlint for conventional commit validation)
+- Configure SSH commit signing (if using SSH remote)
 
 ### Build and Run
 

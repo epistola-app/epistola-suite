@@ -91,6 +91,21 @@ docs: update installation instructions
 - Add `!` after type: `feat!: remove deprecated API`
 - Or add `BREAKING CHANGE:` in the commit footer
 
+### Commit Signing
+
+Commits should be signed using SSH keys. The `./scripts/init.sh` script configures this automatically.
+
+To verify signing is enabled:
+```bash
+git config --get commit.gpgsign  # Should return "true"
+```
+
+**Important:** Your SSH key must be added to GitHub as a **signing key** (not just authentication):
+1. Go to GitHub → Settings → SSH and GPG keys
+2. Click "New SSH key"
+3. Select **"Signing Key"** as the key type
+4. Paste your public key
+
 ### Code Style
 
 #### Kotlin (Backend)

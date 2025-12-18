@@ -71,6 +71,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 **Git hook**: Commit messages are validated by commitlint. Invalid messages will be rejected.
 
+**Commit signing**: SSH commit signing is enabled. Commits will be signed automatically.
+
 **Important**: Never include references to Claude or AI in commit messages.
 
 ## Testing

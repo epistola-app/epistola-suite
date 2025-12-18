@@ -62,8 +62,67 @@ npm install --prefix .husky
 # Configure Git to use .husky for hooks
 git config core.hooksPath .husky
 
+# Configure SSH commit signing
+configure_commit_signing() {
+    local remote_url
+    remote_url=$(git remote get-url origin 2>/dev/null || echo "")
+
+    # Only configure if using SSH remote
+    if [[ ! "$remote_url" =~ ^git@ ]]; then
+        echo ""
+        echo "NOTE: Repository uses HTTPS remote. SSH commit signing not configured."
+        echo "To enable signing, switch to SSH remote or configure manually."
+        return
+    fi
+
+    # Extract host from SSH URL (e.g., git@github.com:user/repo.git -> github.com)
+    local ssh_host
+    ssh_host=$(echo "$remote_url" | sed -n 's/^git@\([^:]*\):.*/\1/p')
+
+    # Get the identity file that SSH would use for this host
+    local ssh_key
+    ssh_key=$(ssh -G "$ssh_host" 2>/dev/null | grep "^identityfile " | head -1 | awk '{print $2}')
+
+    # Expand ~ to $HOME
+    ssh_key="${ssh_key/#\~/$HOME}"
+
+    # Append .pub for the public key
+    local ssh_pub_key="${ssh_key}.pub"
+
+    if [[ ! -f "$ssh_pub_key" ]]; then
+        echo ""
+        echo "WARNING: Could not find SSH public key for $ssh_host"
+        echo "Commit signing not configured."
+        return
+    fi
+
+    # Check if already configured
+    if git config --get commit.gpgsign >/dev/null 2>&1; then
+        echo "Commit signing already configured"
+        return
+    fi
+
+    echo "Configuring SSH commit signing..."
+    git config gpg.format ssh
+    git config user.signingkey "$ssh_pub_key"
+    git config commit.gpgsign true
+
+    echo "Commit signing enabled using: $ssh_pub_key"
+    echo ""
+    echo "IMPORTANT: Ensure your SSH key is added to GitHub as a signing key:"
+    echo "  1. Go to GitHub → Settings → SSH and GPG keys"
+    echo "  2. Click 'New SSH key', select 'Signing Key' type"
+    echo "  3. Paste your public key (shown below):"
+    echo ""
+    cat "$ssh_pub_key"
+    echo ""
+}
+
+configure_commit_signing
+
 echo ""
 echo "Done. Active tools:"
 asdf current
 echo ""
 echo "Git hooks configured (conventional commit validation)"
+echo "Commit signing configured (SSH)"
