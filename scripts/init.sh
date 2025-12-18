@@ -75,23 +75,24 @@ configure_commit_signing() {
         return
     fi
 
-    # Extract host from SSH URL (e.g., git@github.com:user/repo.git -> github.com)
-    local ssh_host
-    ssh_host=$(echo "$remote_url" | sed -n 's/^git@\([^:]*\):.*/\1/p')
-
-    # Get the identity file that SSH would use for this host
+    # Detect the SSH key actually used for authentication by running git fetch with verbose SSH
+    echo "Detecting SSH key used for authentication..."
     local ssh_key
-    ssh_key=$(ssh -G "$ssh_host" 2>/dev/null | grep "^identityfile " | head -1 | awk '{print $2}')
+    ssh_key=$(GIT_SSH_COMMAND="ssh -v" git fetch 2>&1 | grep "Server accepts key:" | head -1 | awk '{print $5}')
 
-    # Expand ~ to $HOME
-    ssh_key="${ssh_key/#\~/$HOME}"
+    if [[ -z "$ssh_key" ]]; then
+        echo ""
+        echo "WARNING: Could not detect SSH key used for GitHub authentication."
+        echo "Commit signing not configured."
+        return
+    fi
 
     # Append .pub for the public key
     local ssh_pub_key="${ssh_key}.pub"
 
     if [[ ! -f "$ssh_pub_key" ]]; then
         echo ""
-        echo "WARNING: Could not find SSH public key for $ssh_host"
+        echo "WARNING: Could not find public key: $ssh_pub_key"
         echo "Commit signing not configured."
         return
     fi
