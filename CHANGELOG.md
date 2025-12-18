@@ -8,6 +8,10 @@
   - Frontend SBOM: `./gradlew :modules:editor:npmSbom`
   - Both SBOMs attached to GitHub Releases (`epistola-backend-{version}-sbom.json`, `epistola-editor-{version}-sbom.json`)
   - Backend SBOM embedded in Docker images at `META-INF/sbom/bom.json`
+- Automatic vulnerability scanning using Trivy
+  - Scans both backend and frontend SBOMs on every build
+  - Fails build on critical vulnerabilities
+  - Vulnerability reports uploaded as CI artifacts
 - GitHub Releases are now created automatically with release notes and SBOM attachment
 - Open source community infrastructure
   - CONTRIBUTING.md with development workflow, commit conventions, and code style guidelines

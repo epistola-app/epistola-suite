@@ -86,17 +86,36 @@ docker run --rm epistola:latest \
 
 ## Vulnerability Scanning
 
-You can use the SBOM with various security tools:
+### Automatic Scanning (CI/CD)
 
-### Trivy
+Trivy automatically scans both SBOMs on every push and pull request:
+
+- **Scans**: Backend and frontend SBOMs
+- **Fails on**: Critical vulnerabilities
+- **Reports**: Uploaded as workflow artifacts (`vulnerability-reports`)
+
+### Local Scanning
+
+#### Trivy
 
 ```bash
+# Install Trivy
+brew install trivy
+
+# Scan backend
 trivy sbom apps/epistola/build/sbom/bom.json
+
+# Scan with severity filter
+trivy sbom --severity CRITICAL,HIGH apps/epistola/build/sbom/bom.json
 ```
 
-### Grype
+#### Grype
 
 ```bash
+# Install Grype
+brew install grype
+
+# Scan backend
 grype sbom:apps/epistola/build/sbom/bom.json
 ```
 
@@ -106,11 +125,13 @@ Upload the SBOM to [Dependency-Track](https://dependencytrack.org/) for continuo
 
 ## CI/CD Integration
 
-SBOMs are automatically generated during CI/CD:
+SBOMs are automatically generated and scanned during CI/CD:
 
-1. **On every build**: Both SBOMs generated and uploaded as workflow artifacts
-2. **On release**: Both SBOMs attached to the GitHub Release
-3. **Docker image**: Backend SBOM embedded in the container
+1. **On every build**: Both SBOMs generated and scanned for vulnerabilities
+2. **Vulnerability gate**: Build fails if critical vulnerabilities are found
+3. **On release**: Both SBOMs attached to the GitHub Release
+4. **Docker image**: Backend SBOM embedded in the container
+5. **Artifacts**: SBOMs and vulnerability reports uploaded for 7 days
 
 ## Further Reading
 

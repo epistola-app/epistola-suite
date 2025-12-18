@@ -39,6 +39,26 @@ jobs:
       - name: Generate SBOMs
         run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
 
+      - name: Scan backend SBOM for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'apps/epistola/build/sbom/bom.json'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
+          output: 'backend-vulnerability-report.txt'
+
+      - name: Scan frontend SBOM for vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'modules/editor/build/sbom.json'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
+          output: 'frontend-vulnerability-report.txt'
+
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -46,6 +66,16 @@ jobs:
           path: |
             apps/epistola/build/sbom/bom.json
             modules/editor/build/sbom.json
+          retention-days: 7
+
+      - name: Upload vulnerability reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vulnerability-reports
+          path: |
+            backend-vulnerability-report.txt
+            frontend-vulnerability-report.txt
           retention-days: 7
 
   docker:
