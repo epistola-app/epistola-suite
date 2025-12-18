@@ -1,5 +1,8 @@
 # Epistola Suite
 
+[![Build and Publish](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml/badge.svg)](https://github.com/epistola-app/epistola-suite/actions/workflows/build.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL_3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 A document suite application built with Spring Boot 4.0.0 and Kotlin.
 
 ## Project Structure
