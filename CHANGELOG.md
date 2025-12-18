@@ -11,6 +11,7 @@
   - Pull request template with checklist
   - Issue template config linking to GitHub Discussions for questions
   - Automated label management via GitHub Actions (`.github/labels.yml`)
+  - Comprehensive GitHub documentation (`docs/github.md`) covering CI/CD, releases, labels, and workflows
 - Initial project setup with Spring Boot 4.0.0 and Kotlin 2.3.0
 - Multi-module Gradle structure with apps/epistola and modules/editor
 - Vite-based editor module with TypeScript, embeddable in the Java application
