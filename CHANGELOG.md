@@ -6,7 +6,11 @@
 - Docker image build in CI now explicitly sets image name to `epistola-suite` via `--imageName` flag to ensure consistent naming across build and push steps
 
 ### Added
-- README badges for CI build status and AGPL-3.0 license
+- Scheduled security scan workflow (daily) with dynamic vulnerability badge
+  - Runs Trivy scans on SBOMs daily at 6 AM UTC
+  - Updates badge in `.github/badges/trivy.json` showing vulnerability count
+  - Automatically creates GitHub issue when critical vulnerabilities are detected
+- README badges for CI build status, security scan, and AGPL-3.0 license
 - Manual trigger for Helm chart workflow via `workflow_dispatch` with optional `force_release` input
 - Docker image signing with Cosign (keyless OIDC)
   - All published images are cryptographically signed using Sigstore

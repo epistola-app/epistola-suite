@@ -1,0 +1,129 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:      # Manual trigger
+
+jobs:
+  scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate SBOMs
+        run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
+
+      - name: Scan backend SBOM for vulnerabilities
+        id: trivy-backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'apps/epistola/build/sbom/bom.json'
+          format: 'json'
+          output: 'backend-results.json'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan frontend SBOM for vulnerabilities
+        id: trivy-frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'modules/editor/build/sbom.json'
+          format: 'json'
+          output: 'frontend-results.json'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Generate badge JSON
+        id: badge
+        run: |
+          # Count vulnerabilities from both scans
+          BACKEND_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' backend-results.json 2>/dev/null || echo 0)
+          BACKEND_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' backend-results.json 2>/dev/null || echo 0)
+          FRONTEND_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' frontend-results.json 2>/dev/null || echo 0)
+          FRONTEND_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' frontend-results.json 2>/dev/null || echo 0)
+
+          TOTAL_CRITICAL=$((BACKEND_CRITICAL + FRONTEND_CRITICAL))
+          TOTAL_HIGH=$((BACKEND_HIGH + FRONTEND_HIGH))
+
+          echo "critical=$TOTAL_CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$TOTAL_HIGH" >> $GITHUB_OUTPUT
+
+          # Determine badge color and message
+          if [ "$TOTAL_CRITICAL" -gt 0 ]; then
+            COLOR="critical"
+            MESSAGE="${TOTAL_CRITICAL} critical, ${TOTAL_HIGH} high"
+          elif [ "$TOTAL_HIGH" -gt 0 ]; then
+            COLOR="important"
+            MESSAGE="${TOTAL_HIGH} high"
+          else
+            COLOR="success"
+            MESSAGE="0 vulnerabilities"
+          fi
+
+          # Create shields.io endpoint JSON
+          mkdir -p .github/badges
+          cat > .github/badges/trivy.json << EOF
+          {"schemaVersion":1,"label":"vulnerabilities","message":"${MESSAGE}","color":"${COLOR}"}
+          EOF
+
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+          echo "message=$MESSAGE" >> $GITHUB_OUTPUT
+
+      - name: Commit badge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/trivy.json
+          if git diff --staged --quiet; then
+            echo "No changes to badge"
+          else
+            git commit -m "chore: update security badge [skip ci]"
+            git push
+          fi
+
+      - name: Create issue if critical vulnerabilities found
+        if: steps.badge.outputs.critical > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const critical = ${{ steps.badge.outputs.critical }};
+            const high = ${{ steps.badge.outputs.high }};
+
+            // Check if an open issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,vulnerability'
+            });
+
+            const existingIssue = issues.data.find(i => i.title.includes('Critical vulnerabilities detected'));
+
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Critical vulnerabilities detected (${critical} critical, ${high} high)`,
+                body: `The daily security scan has detected critical vulnerabilities.\n\n- **Critical**: ${critical}\n- **High**: ${high}\n\nPlease review the [latest security scan](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/workflows/security-scan.yml) for details.`,
+                labels: ['security', 'vulnerability']
+              });
+            }
