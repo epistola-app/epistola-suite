@@ -142,7 +142,9 @@ jobs:
         run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
 
       - name: Build Docker image
-        run: ./gradlew :apps:epistola:bootBuildImage
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew :apps:epistola:bootBuildImage --imageName=epistola-suite:$VERSION
 
       - name: Tag and push Docker image (PR)
         if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish')
@@ -151,7 +153,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           PR_TAG: ${{ steps.previoustag.outputs.tag }}-pr-${{ github.event.pull_request.number }}-${{ github.run_number }}
         run: |
-          docker tag epistola:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
+          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
           echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG | cut -d'@' -f2)" >> $GITHUB_OUTPUT
 
@@ -169,9 +171,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           NEW_TAG: ${{ steps.tag.outputs.new_version }}
         run: |
-          docker tag epistola:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG
-          docker tag epistola:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker tag epistola:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG
+          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

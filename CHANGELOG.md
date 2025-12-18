@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Docker image build in CI now explicitly sets image name to `epistola-suite` via `--imageName` flag to ensure consistent naming across build and push steps
+
 ### Added
 - Docker image signing with Cosign (keyless OIDC)
   - All published images are cryptographically signed using Sigstore
