@@ -1,0 +1,99 @@
+# GitHub Labels Configuration
+# This file is the source of truth for repository labels.
+# Labels are automatically synced via .github/workflows/labels.yml
+#
+# Color reference (no # prefix):
+#   Red shades:    d73a4a, b60205, e99695
+#   Orange shades: f9a825, d93f0b, fbca04
+#   Yellow shades: fef2c0, f9d0c4
+#   Green shades:  0e8a16, 28a745, 7ee787
+#   Blue shades:   0075ca, 1d76db, 0366d6, 00bcd4
+#   Purple shades: 7057ff, 5319e7, d876e3
+#   Gray shades:   cccccc, 666666, ededed
+
+# Issue Type Labels
+- name: bug
+  color: d73a4a
+  description: Something isn't working
+
+- name: feature
+  color: 28a745
+  description: New feature request
+
+- name: documentation
+  color: 0075ca
+  description: Documentation improvements
+
+- name: question
+  color: d876e3
+  description: Further information is requested
+
+# Priority Labels
+- name: "priority: critical"
+  color: b60205
+  description: Must be fixed ASAP
+
+- name: "priority: high"
+  color: d93f0b
+  description: High priority issue
+
+- name: "priority: low"
+  color: fef2c0
+  description: Low priority issue
+
+# Status Labels
+- name: "status: blocked"
+  color: d73a4a
+  description: Blocked by another issue or external factor
+
+- name: "status: in progress"
+  color: fbca04
+  description: Currently being worked on
+
+- name: "status: needs review"
+  color: 1d76db
+  description: Needs code review
+
+- name: "status: needs triage"
+  color: ededed
+  description: Needs initial assessment
+
+# Component Labels
+- name: backend
+  color: f9a825
+  description: Kotlin/Spring Boot related
+
+- name: frontend
+  color: 00bcd4
+  description: TypeScript/Vite editor related
+
+- name: infrastructure
+  color: 666666
+  description: CI/CD, Docker, deployment
+
+# Contributor Labels
+- name: "good first issue"
+  color: 7057ff
+  description: Good for newcomers
+
+- name: "help wanted"
+  color: 0e8a16
+  description: Extra attention needed
+
+# Resolution Labels
+- name: duplicate
+  color: cccccc
+  description: This issue or pull request already exists
+
+- name: invalid
+  color: e4e669
+  description: This doesn't seem right
+
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+
+# Breaking Changes
+- name: "breaking change"
+  color: b60205
+  description: Introduces breaking changes

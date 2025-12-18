@@ -131,6 +131,8 @@ Run tests locally:
 
 ## Issue Labels
 
+Labels are automatically managed via [`.github/labels.yml`](.github/labels.yml). Key labels include:
+
 | Label | Description |
 |-------|-------------|
 | `bug` | Something isn't working |
@@ -140,6 +142,10 @@ Run tests locally:
 | `help wanted` | Extra attention needed |
 | `backend` | Kotlin/Spring Boot related |
 | `frontend` | TypeScript/Vite related |
+| `priority: critical/high/low` | Issue priority |
+| `status: blocked/in progress` | Current status |
+
+See the [labels config](.github/labels.yml) for the complete list.
 
 ## Questions?
 

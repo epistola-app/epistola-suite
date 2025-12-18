@@ -10,6 +10,7 @@
   - GitHub issue templates (bug report, feature request, documentation)
   - Pull request template with checklist
   - Issue template config linking to GitHub Discussions for questions
+  - Automated label management via GitHub Actions (`.github/labels.yml`)
 
 ## [0.0.1-SNAPSHOT] - 2025-12-17
 
