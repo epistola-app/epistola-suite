@@ -54,5 +54,16 @@ asdf install
 
 # Ensure shims are updated
 asdf reshim
+
+# Install npm dependencies for Git hooks (in .husky/)
+echo "Setting up Git hooks..."
+npm install --prefix .husky
+
+# Configure Git to use .husky for hooks
+git config core.hooksPath .husky
+
+echo ""
 echo "Done. Active tools:"
 asdf current
+echo ""
+echo "Git hooks configured (conventional commit validation)"

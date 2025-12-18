@@ -13,6 +13,7 @@
   - Automated label management via GitHub Actions (`.github/labels.yml`)
   - Comprehensive GitHub documentation (`docs/github.md`) covering CI/CD, releases, labels, and workflows
   - CLAUDE.md with project-specific instructions for Claude Code AI assistant
+  - Git hooks with Husky and commitlint for conventional commit validation
 - Initial project setup with Spring Boot 4.0.0 and Kotlin 2.3.0
 - Multi-module Gradle structure with apps/epistola and modules/editor
 - Vite-based editor module with TypeScript, embeddable in the Java application

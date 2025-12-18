@@ -1,0 +1,1 @@
+npx --prefix .husky commitlint --config .husky/commitlint.config.js --edit $1

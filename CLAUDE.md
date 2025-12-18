@@ -69,6 +69,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 **Breaking changes**: Use `feat!:` or `fix!:` or add `BREAKING CHANGE:` in footer.
 
+**Git hook**: Commit messages are validated by commitlint. Invalid messages will be rejected.
+
 **Important**: Never include references to Claude or AI in commit messages.
 
 ## Testing

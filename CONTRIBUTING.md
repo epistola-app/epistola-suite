@@ -67,6 +67,8 @@ Use descriptive branch names with these prefixes:
 
 We use [Conventional Commits](https://www.conventionalcommits.org/). This enables automatic semantic versioning.
 
+> **Note:** Commit messages are validated by a Git hook (commitlint). If your commit is rejected, check the error message and adjust your commit message format.
+
 **Format:** `<type>: <description>`
 
 | Type | Description |

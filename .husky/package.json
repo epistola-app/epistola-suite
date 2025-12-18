@@ -1,0 +1,11 @@
+{
+  "name": "epistola-suite-hooks",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Git hooks for Epistola Suite",
+  "devDependencies": {
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "husky": "^9.1.7"
+  }
+}
