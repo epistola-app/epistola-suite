@@ -15,6 +15,8 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,6 +37,70 @@ jobs:
 
       - name: Build and test
         run: ./gradlew build
+
+      - name: Generate coverage report
+        run: ./gradlew koverXmlReport
+
+      - name: Generate coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: coverage
+        run: |
+          # Parse coverage percentage from Kover XML report
+          REPORT_FILE="build/reports/kover/report.xml"
+          if [ -f "$REPORT_FILE" ]; then
+            # Extract instruction coverage from the summary counter (last INSTRUCTION counter in report)
+            COVERED=$(grep -o 'type="INSTRUCTION"[^/]*' "$REPORT_FILE" | tail -1 | grep -oP 'covered="\K[0-9]+')
+            MISSED=$(grep -o 'type="INSTRUCTION"[^/]*' "$REPORT_FILE" | tail -1 | grep -oP 'missed="\K[0-9]+')
+
+            if [ -n "$COVERED" ] && [ -n "$MISSED" ]; then
+              TOTAL=$((COVERED + MISSED))
+              if [ "$TOTAL" -gt 0 ]; then
+                PERCENTAGE=$((COVERED * 100 / TOTAL))
+              else
+                PERCENTAGE=0
+              fi
+            else
+              PERCENTAGE=0
+            fi
+          else
+            PERCENTAGE=0
+          fi
+
+          echo "percentage=$PERCENTAGE" >> $GITHUB_OUTPUT
+
+          # Determine badge color based on coverage
+          if [ "$PERCENTAGE" -ge 80 ]; then
+            COLOR="brightgreen"
+          elif [ "$PERCENTAGE" -ge 60 ]; then
+            COLOR="green"
+          elif [ "$PERCENTAGE" -ge 40 ]; then
+            COLOR="yellow"
+          elif [ "$PERCENTAGE" -ge 20 ]; then
+            COLOR="orange"
+          else
+            COLOR="red"
+          fi
+
+          # Create shields.io endpoint JSON
+          mkdir -p .github/badges
+          cat > .github/badges/coverage.json << EOF
+          {"schemaVersion":1,"label":"coverage","message":"${PERCENTAGE}%","color":"${COLOR}"}
+          EOF
+
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+
+      - name: Commit coverage badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/coverage.json
+          if git diff --staged --quiet; then
+            echo "No changes to coverage badge"
+          else
+            git commit -m "chore: update coverage badge [skip ci]"
+            git push
+          fi
 
       - name: Generate SBOMs
         run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom

@@ -7,6 +7,7 @@ ktlint = "14.0.1"
 node-gradle = "7.1.0"
 htmx-spring-boot = "5.0.0"
 cyclonedx = "3.1.0"
+kover = "0.9.1"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -20,3 +21,4 @@ graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 node-gradle = { id = "com.github.node-gradle.node", version.ref = "node-gradle" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }

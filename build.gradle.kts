@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ktlint)
     alias(libs.plugins.node.gradle) apply false
     alias(libs.plugins.cyclonedx) apply false
+    alias(libs.plugins.kover)
 }
 
 group = "app.epistola"
@@ -42,6 +43,42 @@ configure(subprojects.filter { it.path.startsWith(":apps") }) {
     configurations {
         named("compileOnly") {
             extendsFrom(configurations.getByName("annotationProcessor"))
+        }
+    }
+}
+
+// Configure Kover for test coverage
+dependencies {
+    kover(project(":apps:epistola"))
+}
+
+kover {
+    reports {
+        total {
+            xml {
+                onCheck = false
+            }
+            html {
+                onCheck = false
+            }
+        }
+        filters {
+            excludes {
+                // Exclude Spring Boot AOT generated code
+                packages(
+                    "org.springframework.*",
+                    "io.micrometer.*",
+                    "org.flywaydb.*",
+                    "com.zaxxer.*"
+                )
+                // Exclude Spring AOT generated classes
+                classes(
+                    "*__BeanDefinitions",
+                    "*__BeanFactoryRegistrations",
+                    "*__TestContext*",
+                    "*\$\$*"
+                )
+            }
         }
     }
 }

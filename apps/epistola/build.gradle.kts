@@ -7,6 +7,7 @@ plugins {
     id("io.spring.dependency-management")
     id("org.graalvm.buildtools.native")
     id("org.cyclonedx.bom")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 dependencies {

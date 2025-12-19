@@ -15,6 +15,10 @@
 - Helm chart security scan failures (AVD-KSV-0014, AVD-KSV-0118): added proper pod and container security contexts with `readOnlyRootFilesystem`, `seccompProfile`, `allowPrivilegeEscalation: false`, and capability drops
 
 ### Added
+- Test coverage reporting using Kover with dynamic badge
+  - Generates coverage reports via `./gradlew koverXmlReport`
+  - Coverage badge updated automatically on main branch builds
+  - Badge displayed in README alongside build and security badges
 - Scheduled security scan workflow (daily) with dynamic vulnerability badge
   - Runs Trivy scans on SBOMs daily at 6 AM UTC
   - Updates badge in `.github/badges/trivy.json` showing vulnerability count
