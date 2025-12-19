@@ -4,7 +4,7 @@ plugins {
 }
 
 node {
-    download.set(false) // relies on PATH (github actions, asdf)
+    download.set(false) // relies on PATH (github actions, mise)
 }
 
 tasks.named<com.github.gradle.node.npm.task.NpmTask>("npmInstall") {

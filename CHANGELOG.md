@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Changed
+- Migrated version management from asdf to mise for faster tool installation
+
 - Updated documentation to reflect server-side rendering architecture (Thymeleaf + HTMX) instead of implying a Vite/TypeScript SPA frontend
   - CLAUDE.md: Added Frontend Architecture section, clarified project overview and structure
   - README.md: Added Architecture section, updated project description and modules
@@ -65,4 +67,4 @@
 - GitHub Actions CI/CD pipeline with build, test, and Docker image publishing to ghcr.io
 - Automatic semantic versioning using github-tag-action based on conventional commits
 - ktlint for consistent code style
-- README with getting started guide using asdf for version management
+- README with getting started guide using mise for version management

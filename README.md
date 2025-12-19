@@ -30,7 +30,7 @@ The frontend uses a **server-side rendering** approach:
 
 ### Prerequisites
 
-1. Install [asdf](https://asdf-vm.com/guide/getting-started.html) version manager
+1. Install [mise](https://mise.jdx.dev/getting-started.html) version manager
 
 2. Run the init script to set up your development environment:
 
@@ -39,7 +39,7 @@ The frontend uses a **server-side rendering** approach:
 ```
 
 This will:
-- Configure asdf in your shell (bash/zsh) if not already done
+- Configure mise in your shell (bash/zsh) if not already done
 - Install the required tool versions (Java Temurin 25, Node.js 24)
 - Install Git hooks (commitlint for conventional commit validation)
 - Configure SSH commit signing (if using SSH remote)

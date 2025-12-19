@@ -10,7 +10,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 
 For development setup instructions, see the [README](README.md). In short:
 
-1. Install [asdf](https://asdf-vm.com/) version manager
+1. Install [mise](https://mise.jdx.dev/) version manager
 2. Run `./scripts/init.sh` to set up tools
 3. Build with `./gradlew build`
 4. Run with `./gradlew :apps:epistola:bootRun`

@@ -4,56 +4,40 @@ set -euo pipefail
 configure_shell() {
     local shell_name
     shell_name=$(basename "$SHELL")
-    local asdf_source
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        asdf_source=". $(brew --prefix asdf)/libexec/asdf.sh"
-    else
-        asdf_source=". \$HOME/.asdf/asdf.sh"
-    fi
+    local mise_activate='eval "$(mise activate '"$shell_name"')"'
 
     case "$shell_name" in
         zsh)
-            if ! grep -q "asdf.sh" ~/.zshrc 2>/dev/null; then
-                echo -e "\n# asdf version manager\n$asdf_source" >> ~/.zshrc
-                echo "Added asdf to ~/.zshrc"
+            if ! grep -q "mise activate" ~/.zshrc 2>/dev/null; then
+                echo -e "\n# mise version manager\n$mise_activate" >> ~/.zshrc
+                echo "Added mise to ~/.zshrc"
             fi
             ;;
         bash)
             local rc_file=~/.bashrc
             [[ "$OSTYPE" == "darwin"* ]] && rc_file=~/.bash_profile
-            if ! grep -q "asdf.sh" "$rc_file" 2>/dev/null; then
-                echo -e "\n# asdf version manager\n$asdf_source" >> "$rc_file"
-                echo "Added asdf to $rc_file"
+            if ! grep -q "mise activate" "$rc_file" 2>/dev/null; then
+                echo -e "\n# mise version manager\n$mise_activate" >> "$rc_file"
+                echo "Added mise to $rc_file"
             fi
             ;;
         *)
-            echo "Unknown shell: $shell_name. Please add asdf to your shell config manually."
+            echo "Unknown shell: $shell_name. Please add mise to your shell config manually."
             ;;
     esac
-
-    # Source asdf for current session
-    eval "$asdf_source"
 }
 
-if ! command -v asdf >/dev/null; then
-    echo "asdf is not installed."
-    echo "Please install it first: https://asdf-vm.com/guide/getting-started.html"
+if ! command -v mise >/dev/null; then
+    echo "mise is not installed."
+    echo "Please install it first: https://mise.jdx.dev/getting-started.html"
     exit 1
 fi
 
 # Configure shell if not already done
 configure_shell
 
-# Install required plugins (idempotent)
-asdf plugin add java    >/dev/null 2>&1 || true
-asdf plugin add nodejs  >/dev/null 2>&1 || true
-
-# Install versions from .tool-versions
-asdf install
-
-# Ensure shims are updated
-asdf reshim
+# Install versions from .mise.toml
+mise install
 
 # Install npm dependencies for Git hooks (in .husky/)
 echo "Setting up Git hooks..."
@@ -123,7 +107,9 @@ configure_commit_signing
 
 echo ""
 echo "Done. Active tools:"
-asdf current
+mise current
 echo ""
 echo "Git hooks configured (conventional commit validation)"
 echo "Commit signing configured (SSH)"
+echo ""
+echo "NOTE: Restart your shell to activate mise."
