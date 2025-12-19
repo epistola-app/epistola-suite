@@ -40,15 +40,18 @@
                         <th>Last Modified</th>
                     </tr>
                 </thead>
-                <tbody id="template-rows" th:fragment="rows">
-                    <tr th:each="template : ${templates}">
-                        <td th:text="${template.id}"></td>
-                        <td th:text="${template.name}"></td>
-                        <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(templates)}">
-                        <td colspan="3" class="empty-message">No templates yet. Create one above.</td>
-                    </tr>
+                <tbody id="template-rows">
+                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
+                    <th:block th:fragment="rows">
+                        <tr th:each="template : ${templates}">
+                            <td th:text="${template.id}"></td>
+                            <td th:text="${template.name}"></td>
+                            <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(templates)}">
+                            <td colspan="3" class="empty-message">No templates yet. Create one above.</td>
+                        </tr>
+                    </th:block>
                 </tbody>
             </table>
         </section>

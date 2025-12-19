@@ -1,6 +1,7 @@
 package app.epistola.suite.templates
 
-import app.epistola.suite.htmx.render
+import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.redirect
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -28,11 +29,12 @@ class DocumentTemplateHandler(
         createHandler.handle(command)
 
         val templates = listHandler.handle(ListDocumentTemplates())
-        return request.render(
-            template = "templates/list",
-            fragment = "rows",
-            model = mapOf("templates" to templates),
-            redirectOnSuccess = "/templates",
-        )
+        return request.htmx {
+            fragment("templates/list", "rows") {
+                "templates" to templates
+            }
+            trigger("templateCreated")
+            onNonHtmx { redirect("/templates") }
+        }
     }
 }

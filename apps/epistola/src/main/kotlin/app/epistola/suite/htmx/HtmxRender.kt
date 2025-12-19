@@ -58,3 +58,33 @@ fun ServerRequest.renderTemplate(
     }
     return ServerResponse.ok().render(templatePath, model)
 }
+
+/**
+ * Creates an HTMX-aware response using a Kotlin DSL.
+ *
+ * Supports:
+ * - Single and multiple fragments (Out-of-Band swaps)
+ * - Conditional rendering logic
+ * - Response headers (trigger, pushUrl, reswap, retarget)
+ * - Non-HTMX fallback handling
+ *
+ * Example usage:
+ * ```kotlin
+ * return request.htmx {
+ *     fragment("templates/list", "rows") {
+ *         "templates" to templates
+ *     }
+ *     oob("components/toast", "success") {
+ *         "message" to "Saved!"
+ *     }
+ *     trigger("itemSaved")
+ *     onNonHtmx { redirect("/templates") }
+ * }
+ * ```
+ *
+ * @param block The DSL builder block
+ * @return A ServerResponse appropriate for the request type
+ */
+fun ServerRequest.htmx(block: HtmxResponseBuilder.() -> Unit): ServerResponse {
+    return HtmxResponseBuilder(this).apply(block).build()
+}

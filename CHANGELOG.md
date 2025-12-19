@@ -6,6 +6,12 @@
 - HTMX utilities for WebMvc.fn functional endpoints
   - `ServerRequest.isHtmx` extension property for detecting HTMX requests
   - `ServerRequest.render()` helper for HTMX-aware template rendering
+  - `ServerRequest.htmx { }` Kotlin DSL for advanced responses:
+    - Multiple fragments with Out-of-Band (OOB) swaps
+    - Conditional rendering logic
+    - Response headers: `trigger()`, `pushUrl()`, `reswap()`, `retarget()`
+    - Non-HTMX fallback with `onNonHtmx { }`
+  - `HxSwap` enum for all HTMX swap modes
   - Additional extensions: `htmxTrigger`, `htmxTarget`, `htmxBoosted`, etc.
 - Command-based architecture with JDBI for database access
   - Vertical slices: organize by feature (commands/, queries/) not by layer
