@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Templates - Epistola</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
     <main>
@@ -12,7 +13,11 @@
 
         <section class="form-section">
             <h2>Create New Template</h2>
-            <form th:action="@{/templates}" method="post">
+            <form th:action="@{/templates}" method="post"
+                  hx-post="/templates"
+                  hx-target="#template-rows"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="if(event.detail.successful) this.reset()">
                 <div class="form-group">
                     <label for="name">Name</label>
                     <input type="text" id="name" name="name" required placeholder="Template name">
@@ -35,7 +40,7 @@
                         <th>Last Modified</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="template-rows" th:fragment="rows">
                     <tr th:each="template : ${templates}">
                         <td th:text="${template.id}"></td>
                         <td th:text="${template.name}"></td>

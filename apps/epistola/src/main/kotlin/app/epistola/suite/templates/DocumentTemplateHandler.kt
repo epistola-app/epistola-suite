@@ -26,6 +26,13 @@ class DocumentTemplateHandler(
             content = formData.getFirst("content")?.takeIf { it.isNotBlank() },
         )
         createHandler.handle(command)
-        return ServerResponse.seeOther(URI.create("/templates")).build()
+
+        val isHtmxRequest = request.headers().firstHeader("HX-Request") == "true"
+        return if (isHtmxRequest) {
+            val templates = listHandler.handle(ListDocumentTemplates())
+            ServerResponse.ok().render("templates/list :: rows", mapOf("templates" to templates))
+        } else {
+            ServerResponse.seeOther(URI.create("/templates")).build()
+        }
     }
 }

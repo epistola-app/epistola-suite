@@ -92,4 +92,35 @@ class DocumentTemplateRoutesTest {
         }
         assertThat(count).isEqualTo(1)
     }
+
+    @Test
+    fun `POST templates with HTMX returns table rows fragment`() {
+        jdbi.useHandle<Exception> { handle ->
+            handle.execute("DELETE FROM document_templates")
+        }
+
+        val headers = HttpHeaders()
+        headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+        headers.set("HX-Request", "true")
+
+        val formData = LinkedMultiValueMap<String, String>()
+        formData.add("name", "HTMX Template")
+        formData.add("content", "HTMX content")
+
+        val request = HttpEntity(formData, headers)
+        val response = restTemplate.postForEntity("/templates", request, String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("HTMX Template")
+        // Fragment should not contain full page structure
+        assertThat(response.body).doesNotContain("<!DOCTYPE html>")
+        assertThat(response.body).doesNotContain("<head>")
+
+        val count = jdbi.withHandle<Long, Exception> { handle ->
+            handle.createQuery("SELECT COUNT(*) FROM document_templates WHERE name = 'HTMX Template'")
+                .mapTo(Long::class.java)
+                .one()
+        }
+        assertThat(count).isEqualTo(1)
+    }
 }

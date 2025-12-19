@@ -11,6 +11,7 @@
 - Document Templates page with Thymeleaf rendering
   - New `/templates` endpoint displaying a table of document templates
   - Form to create new templates directly on the page (POST /templates)
+  - HTMX integration for seamless form submission without page reload
   - Uses Spring WebMvc.fn functional endpoints (RouterFunction + Handler pattern)
   - Basic security configuration permitting public access to templates page
   - CSS styling for table and form components
