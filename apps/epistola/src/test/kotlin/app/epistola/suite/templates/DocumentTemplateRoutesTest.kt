@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
-class DocumentTemplateControllerTest {
+class DocumentTemplateRoutesTest {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 

@@ -5,6 +5,7 @@
 ### Added
 - Document Templates page with Thymeleaf rendering
   - New `/templates` endpoint displaying a table of document templates
+  - Uses Spring WebMvc.fn functional endpoints (RouterFunction + Handler pattern)
   - Basic security configuration permitting public access to templates page
   - CSS styling for table components
 
