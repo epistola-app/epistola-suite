@@ -69,14 +69,14 @@ kover {
                     "org.springframework.*",
                     "io.micrometer.*",
                     "org.flywaydb.*",
-                    "com.zaxxer.*"
+                    "com.zaxxer.*",
                 )
                 // Exclude Spring AOT generated classes
                 classes(
                     "*__BeanDefinitions",
                     "*__BeanFactoryRegistrations",
                     "*__TestContext*",
-                    "*\$\$*"
+                    "*\$\$*",
                 )
             }
         }
