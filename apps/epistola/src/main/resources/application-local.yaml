@@ -3,8 +3,6 @@ spring:
     url: jdbc:postgresql://127.0.0.1:4001/epistola
     username: epistola
     password: epistola
-  main:
-    lazy-initialization: true # for faster startup times
 
   batch:
     job:

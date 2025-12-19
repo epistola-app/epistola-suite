@@ -3,11 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- Command-based architecture with JDBI for database access
+  - Vertical slices: organize by feature (commands/, queries/) not by layer
+  - JDBI 3.49.0 with Kotlin and Postgres plugins
+  - Query handlers pattern for read operations
 - Document Templates page with Thymeleaf rendering
   - New `/templates` endpoint displaying a table of document templates
   - Uses Spring WebMvc.fn functional endpoints (RouterFunction + Handler pattern)
   - Basic security configuration permitting public access to templates page
   - CSS styling for table components
+  - Flyway migration for document_templates table
 
 ### Changed
 - Migrated version management from asdf to mise for faster tool installation
