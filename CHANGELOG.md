@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Added
+- HTMX utilities for WebMvc.fn functional endpoints
+  - `ServerRequest.isHtmx` extension property for detecting HTMX requests
+  - `ServerRequest.render()` helper for HTMX-aware template rendering
+  - Additional extensions: `htmxTrigger`, `htmxTarget`, `htmxBoosted`, etc.
 - Command-based architecture with JDBI for database access
   - Vertical slices: organize by feature (commands/, queries/) not by layer
   - JDBI 3.49.0 with Kotlin and Postgres plugins

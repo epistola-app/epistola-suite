@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.htmx.render
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -7,7 +8,6 @@ import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
-import java.net.URI
 
 @Component
 class DocumentTemplateHandler(
@@ -27,12 +27,12 @@ class DocumentTemplateHandler(
         )
         createHandler.handle(command)
 
-        val isHtmxRequest = request.headers().firstHeader("HX-Request") == "true"
-        return if (isHtmxRequest) {
-            val templates = listHandler.handle(ListDocumentTemplates())
-            ServerResponse.ok().render("templates/list :: rows", mapOf("templates" to templates))
-        } else {
-            ServerResponse.seeOther(URI.create("/templates")).build()
-        }
+        val templates = listHandler.handle(ListDocumentTemplates())
+        return request.render(
+            template = "templates/list",
+            fragment = "rows",
+            model = mapOf("templates" to templates),
+            redirectOnSuccess = "/templates",
+        )
     }
 }
