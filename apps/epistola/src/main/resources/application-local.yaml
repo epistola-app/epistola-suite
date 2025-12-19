@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:4001/epistola
+    username: epistola
+    password: epistola
+  main:
+    lazy-initialization: true # for faster startup times
+
+  batch:
+    job:
+      enabled: false # disabled until necessary
+  devtools:
+    restart:
+      enabled: true
+      poll-interval: 2000ms
+      quiet-period: 1000ms
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  logging:
+    export:
+      otlp:
+        enabled: false
+  tracing:
+    export:
+      enabled: false

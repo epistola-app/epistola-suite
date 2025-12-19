@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- Document Templates page with Thymeleaf rendering
+  - New `/templates` endpoint displaying a table of document templates
+  - Basic security configuration permitting public access to templates page
+  - CSS styling for table components
+
 ### Changed
 - Migrated version management from asdf to mise for faster tool installation
 
