@@ -10,7 +10,11 @@ import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpEntity
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.util.LinkedMultiValueMap
 
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -60,5 +64,32 @@ class DocumentTemplateRoutesTest {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("Document Templates")
         assertThat(response.body).doesNotContain("Invoice Template")
+    }
+
+    @Test
+    fun `POST templates creates new template and redirects`() {
+        jdbi.useHandle<Exception> { handle ->
+            handle.execute("DELETE FROM document_templates")
+        }
+
+        val headers = HttpHeaders()
+        headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+
+        val formData = LinkedMultiValueMap<String, String>()
+        formData.add("name", "New Template")
+        formData.add("content", "New content")
+
+        val request = HttpEntity(formData, headers)
+        val response = restTemplate.postForEntity("/templates", request, String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("New Template")
+
+        val count = jdbi.withHandle<Long, Exception> { handle ->
+            handle.createQuery("SELECT COUNT(*) FROM document_templates WHERE name = 'New Template'")
+                .mapTo(Long::class.java)
+                .one()
+        }
+        assertThat(count).isEqualTo(1)
     }
 }

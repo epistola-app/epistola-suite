@@ -10,6 +10,9 @@ import org.springframework.web.servlet.function.router
 class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
-        GET("/templates", handler::list)
+        "/templates".nest {
+            GET("", handler::list)
+            POST("", handler::create)
+        }
     }
 }

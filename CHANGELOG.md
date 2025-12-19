@@ -7,11 +7,13 @@
   - Vertical slices: organize by feature (commands/, queries/) not by layer
   - JDBI 3.49.0 with Kotlin and Postgres plugins
   - Query handlers pattern for read operations
+  - CreateDocumentTemplate command with handler for write operations
 - Document Templates page with Thymeleaf rendering
   - New `/templates` endpoint displaying a table of document templates
+  - Form to create new templates directly on the page (POST /templates)
   - Uses Spring WebMvc.fn functional endpoints (RouterFunction + Handler pattern)
   - Basic security configuration permitting public access to templates page
-  - CSS styling for table components
+  - CSS styling for table and form components
   - Flyway migration for document_templates table
 
 ### Changed

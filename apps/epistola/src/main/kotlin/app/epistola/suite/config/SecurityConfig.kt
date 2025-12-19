@@ -11,13 +11,13 @@ import org.springframework.security.web.SecurityFilterChain
 class SecurityConfig {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-//        http
-//            .authorizeHttpRequests { authorize ->
-//                authorize
-//                    .requestMatchers("/templates/**", "/css/**", "/js/**", "/actuator/health").permitAll()
-//                    .anyRequest().authenticated()
-//            }
-//            . formLogin { }
+        http
+            .authorizeHttpRequests { authorize ->
+                authorize.anyRequest().permitAll()
+            }
+            .csrf { csrf ->
+                csrf.disable()
+            }
 
         return http.build()
     }
