@@ -8,12 +8,14 @@
     "watch": "vite build --watch",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sbom": "mkdir -p build && npm sbom --sbom-format cyclonedx > build/sbom.json"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@floating-ui/dom": "^1.7.4",
     "@tailwindcss/vite": "^4.1.17",
     "@tiptap/extension-underline": "^3.11.1",
     "@tiptap/pm": "^3.11.1",
