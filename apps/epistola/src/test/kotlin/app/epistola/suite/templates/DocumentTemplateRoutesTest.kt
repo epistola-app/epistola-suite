@@ -1,6 +1,8 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.TestcontainersConfiguration
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -26,20 +28,17 @@ class DocumentTemplateRoutesTest {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var createDocumentTemplateHandler: CreateDocumentTemplateHandler
+
     @BeforeEach
     fun setUp() {
         jdbi.useHandle<Exception> { handle ->
             handle.execute("DELETE FROM document_templates")
-            handle.execute(
-                """
-                INSERT INTO document_templates (name, content, created_at, last_modified)
-                VALUES
-                    ('Invoice Template', 'Invoice content', NOW(), NOW()),
-                    ('Contract Template', 'Contract content', NOW(), NOW()),
-                    ('Letter Template', 'Letter content', NOW(), NOW())
-                """,
-            )
         }
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Invoice Template", "Invoice content"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Contract Template", "Contract content"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Letter Template", "Letter content"))
     }
 
     @Test
