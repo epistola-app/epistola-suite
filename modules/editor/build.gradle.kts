@@ -1,6 +1,22 @@
 plugins {
     `java-library`
     id("com.github.node-gradle.node")
+    kotlin("jvm")
+    kotlin("plugin.spring")
+    id("io.spring.dependency-management")
+}
+
+dependencyManagement {
+    imports {
+        // TODO: figure out how we can do this another way
+        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.0")
+    }
+}
+
+dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-autoconfigure")
+    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 }
 
 node {

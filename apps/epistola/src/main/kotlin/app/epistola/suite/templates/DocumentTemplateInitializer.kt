@@ -32,18 +32,18 @@ class DocumentTemplateInitializer(
     }
 
     private fun seedTemplates() {
-        SEED_TEMPLATES.forEach { (name, content) ->
-            createHandler.handle(CreateDocumentTemplate(name, content))
+        SEED_TEMPLATES.forEach { name ->
+            createHandler.handle(CreateDocumentTemplate(name))
         }
     }
 
     companion object {
         private val SEED_TEMPLATES = listOf(
-            "Invoice Template" to "Standard invoice template for billing clients.",
-            "Contract Template" to "General contract template for agreements.",
-            "Letter Template" to "Formal letter template for correspondence.",
-            "Report Template" to "Business report template with sections.",
-            "Proposal Template" to "Project proposal template for pitches.",
+            "Invoice Template",
+            "Contract Template",
+            "Letter Template",
+            "Report Template",
+            "Proposal Template",
         )
     }
 }

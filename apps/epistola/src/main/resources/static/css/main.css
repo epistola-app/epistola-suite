@@ -1,34 +1,30 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
 body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     line-height: 1.6;
     color: #333;
     background-color: #f5f5f5;
+    margin: 0;
 }
 
-main {
+/* Scoped styles for regular pages (not editor) */
+main.regular {
     max-width: 900px;
     margin: 2rem auto;
     padding: 0 1rem;
 }
 
-h1 {
+main.regular h1 {
     margin-bottom: 1.5rem;
     color: #1a1a1a;
 }
 
-h2 {
+main.regular h2 {
     margin-bottom: 1rem;
     color: #333;
     font-size: 1.25rem;
 }
 
-section {
+main.regular section {
     margin-bottom: 2rem;
 }
 
@@ -89,8 +85,8 @@ button[type="submit"]:hover {
     background-color: #357abd;
 }
 
-/* Table styles */
-table {
+/* Table styles (scoped to regular pages) */
+main.regular table {
     width: 100%;
     border-collapse: collapse;
     background-color: #fff;
@@ -99,32 +95,32 @@ table {
     overflow: hidden;
 }
 
-th,
-td {
+main.regular th,
+main.regular td {
     padding: 0.75rem 1rem;
     text-align: left;
 }
 
-th {
+main.regular th {
     background-color: #f8f9fa;
     font-weight: 600;
     color: #495057;
     border-bottom: 2px solid #dee2e6;
 }
 
-td {
+main.regular td {
     border-bottom: 1px solid #e9ecef;
 }
 
-tbody tr:hover {
+main.regular tbody tr:hover {
     background-color: #f8f9fa;
 }
 
-tbody tr:last-child td {
+main.regular tbody tr:last-child td {
     border-bottom: none;
 }
 
-.empty-message {
+main.regular .empty-message {
     text-align: center;
     color: #6c757d;
     font-style: italic;

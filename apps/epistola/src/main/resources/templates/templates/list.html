@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
-    <main>
+    <main class="regular">
         <h1>Document Templates</h1>
 
         <section class="form-section">
@@ -21,10 +21,6 @@
                 <div class="form-group">
                     <label for="name">Name</label>
                     <input type="text" id="name" name="name" required placeholder="Template name">
-                </div>
-                <div class="form-group">
-                    <label for="content">Content</label>
-                    <textarea id="content" name="content" rows="4" placeholder="Template content (optional)"></textarea>
                 </div>
                 <button type="submit">Create Template</button>
             </form>
@@ -47,6 +43,7 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>Last Modified</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="template-rows">
@@ -56,9 +53,12 @@
                             <td th:text="${template.id}"></td>
                             <td th:text="${template.name}"></td>
                             <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td>
+                                <a th:href="@{/templates/{id}/edit(id=${template.id})}" class="btn btn-small">Edit</a>
+                            </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(templates)}">
-                            <td colspan="3" class="empty-message">No templates yet. Create one above.</td>
+                            <td colspan="4" class="empty-message">No templates yet. Create one above.</td>
                         </tr>
                     </th:block>
                 </tbody>

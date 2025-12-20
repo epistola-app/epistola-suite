@@ -4,16 +4,21 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
+import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.ObjectMapper
 
 @Component
 class DocumentTemplateHandler(
     private val listHandler: ListDocumentTemplatesHandler,
     private val createHandler: CreateDocumentTemplateHandler,
+    private val getHandler: GetDocumentTemplateHandler,
+    private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val templates = listHandler.handle(ListDocumentTemplates())
@@ -35,7 +40,6 @@ class DocumentTemplateHandler(
         val formData = request.params()
         val command = CreateDocumentTemplate(
             name = formData.getFirst("name") ?: throw IllegalArgumentException("Name is required"),
-            content = formData.getFirst("content")?.takeIf { it.isNotBlank() },
         )
         createHandler.handle(command)
 
@@ -47,5 +51,25 @@ class DocumentTemplateHandler(
             trigger("templateCreated")
             onNonHtmx { redirect("/templates") }
         }
+    }
+
+    fun edit(request: ServerRequest): ServerResponse {
+        val id = request.pathVariable("id").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+
+        val template = getHandler.handle(GetDocumentTemplate(id))
+            ?: return ServerResponse.notFound().build()
+
+        // Serialize the EditorTemplate content to JSON for the frontend
+        val templateJson = template.content?.let { objectMapper.writeValueAsString(it) } ?: "{}"
+
+        return ServerResponse.ok().render(
+            "templates/edit",
+            mapOf(
+                "templateId" to id,
+                "templateName" to template.name,
+                "templateJson" to templateJson,
+            ),
+        )
     }
 }

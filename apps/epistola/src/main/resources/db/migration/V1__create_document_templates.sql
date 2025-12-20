@@ -1,7 +1,7 @@
 CREATE TABLE document_templates (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    content TEXT,
+    content jsonb,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

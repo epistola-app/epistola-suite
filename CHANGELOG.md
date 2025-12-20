@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- Editor development modes for live reload
+  - **Standalone mode** (`npm run dev`): Full Vite HMR for developing the editor in isolation
+  - **Integrated mode** (`npm run watch`): Continuous builds for embedding in Thymeleaf pages
+  - Editor module includes Kotlin/Spring auto-configuration
+  - Vite watch auto-starts when `epistola.editor.dev-server.auto-start=true`
+  - Spring Boot serves editor files from filesystem in `local` profile for fast iteration
+  - Development workflow: run Spring Boot with `local` profile, editor rebuilds on file changes
+- Editor component integration with Thymeleaf templates
+    - Library build mode for the React editor (`mountEditor()` API)
+    - Editor can be embedded in Thymeleaf pages while sharing the app layout
+    - New `/templates/{id}/edit` route to open the visual template editor
+    - REST API endpoints for saving template content (`PUT /api/templates/{id}`)
+    - CSS isolation to prevent style conflicts between editor and parent page
+    - Edit links added to the templates list page
 - HTMX utilities for WebMvc.fn functional endpoints
   - `ServerRequest.isHtmx` extension property for detecting HTMX requests
   - `ServerRequest.render()` helper for HTMX-aware template rendering
@@ -24,7 +38,6 @@
 - Document Templates page with Thymeleaf rendering
   - New `/templates` endpoint displaying a table of document templates
   - Form to create new templates directly on the page (POST /templates)
-  - HTMX integration for seamless form submission without page reload
   - Uses Spring WebMvc.fn functional endpoints (RouterFunction + Handler pattern)
   - Basic security configuration permitting public access to templates page
   - CSS styling for table and form components
