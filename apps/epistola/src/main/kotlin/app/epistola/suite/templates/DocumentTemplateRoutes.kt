@@ -12,6 +12,7 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
         "/templates".nest {
             GET("", handler::list)
+            GET("/search", handler::search)
             POST("", handler::create)
         }
     }

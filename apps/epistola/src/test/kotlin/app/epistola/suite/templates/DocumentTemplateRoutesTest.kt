@@ -1,6 +1,10 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.TestcontainersConfiguration
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
+import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -26,20 +30,20 @@ class DocumentTemplateRoutesTest {
     @Autowired
     private lateinit var jdbi: Jdbi
 
+    @Autowired
+    private lateinit var createDocumentTemplateHandler: CreateDocumentTemplateHandler
+
+    @Autowired
+    private lateinit var listDocumentTemplatesHandler: ListDocumentTemplatesHandler
+
     @BeforeEach
     fun setUp() {
         jdbi.useHandle<Exception> { handle ->
             handle.execute("DELETE FROM document_templates")
-            handle.execute(
-                """
-                INSERT INTO document_templates (name, content, created_at, last_modified)
-                VALUES
-                    ('Invoice Template', 'Invoice content', NOW(), NOW()),
-                    ('Contract Template', 'Contract content', NOW(), NOW()),
-                    ('Letter Template', 'Letter content', NOW(), NOW())
-                """,
-            )
         }
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Invoice Template", "Invoice content"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Contract Template", "Contract content"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Letter Template", "Letter content"))
     }
 
     @Test
@@ -67,6 +71,44 @@ class DocumentTemplateRoutesTest {
     }
 
     @Test
+    fun `GET templates search filters by name`() {
+        val headers = HttpHeaders()
+        headers.set("HX-Request", "true")
+
+        val request = HttpEntity<Void>(headers)
+        val response = restTemplate.exchange(
+            "/templates/search?q=Invoice",
+            org.springframework.http.HttpMethod.GET,
+            request,
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Invoice Template")
+        assertThat(response.body).doesNotContain("Contract Template")
+        assertThat(response.body).doesNotContain("Letter Template")
+    }
+
+    @Test
+    fun `GET templates search with empty query returns all templates`() {
+        val headers = HttpHeaders()
+        headers.set("HX-Request", "true")
+
+        val request = HttpEntity<Void>(headers)
+        val response = restTemplate.exchange(
+            "/templates/search",
+            org.springframework.http.HttpMethod.GET,
+            request,
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Invoice Template")
+        assertThat(response.body).contains("Contract Template")
+        assertThat(response.body).contains("Letter Template")
+    }
+
+    @Test
     fun `POST templates creates new template and redirects`() {
         jdbi.useHandle<Exception> { handle ->
             handle.execute("DELETE FROM document_templates")
@@ -85,11 +127,34 @@ class DocumentTemplateRoutesTest {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("New Template")
 
-        val count = jdbi.withHandle<Long, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM document_templates WHERE name = 'New Template'")
-                .mapTo(Long::class.java)
-                .one()
+        val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(searchTerm = "New Template"))
+        assertThat(templates).hasSize(1)
+    }
+
+    @Test
+    fun `POST templates with HTMX returns table rows fragment`() {
+        jdbi.useHandle<Exception> { handle ->
+            handle.execute("DELETE FROM document_templates")
         }
-        assertThat(count).isEqualTo(1)
+
+        val headers = HttpHeaders()
+        headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+        headers.set("HX-Request", "true")
+
+        val formData = LinkedMultiValueMap<String, String>()
+        formData.add("name", "HTMX Template")
+        formData.add("content", "HTMX content")
+
+        val request = HttpEntity(formData, headers)
+        val response = restTemplate.postForEntity("/templates", request, String::class.java)
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("HTMX Template")
+        // Fragment should not contain full page structure
+        assertThat(response.body).doesNotContain("<!DOCTYPE html>")
+        assertThat(response.body).doesNotContain("<head>")
+
+        val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(searchTerm = "HTMX Template"))
+        assertThat(templates).hasSize(1)
     }
 }

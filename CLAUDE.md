@@ -76,7 +76,8 @@ The frontend uses a **server-side rendering** approach:
 
 ### Kotlin
 - **Linter**: ktlint (enforced in CI)
-- Run `./gradlew ktlintFormat` before committing if needed
+- **Always run `./gradlew ktlintFormat`** after making Kotlin changes to auto-fix formatting
+- **Always run `./gradlew ktlintCheck`** before committing to verify code style
 - EditorConfig is configured for consistent formatting
 
 ### TypeScript (Client Components)
@@ -128,9 +129,10 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 1. **Read existing code first** - Understand patterns before modifying
 2. **Run tests** - `./gradlew test` before and after changes
-3. **Check style** - `./gradlew ktlintCheck` for Kotlin
-4. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
-5. **Small commits** - Commit logical units of work separately
+3. **Format code** - `./gradlew ktlintFormat` after making Kotlin changes
+4. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
+5. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
+6. **Small commits** - Commit logical units of work separately
 
 ## Don'ts
 

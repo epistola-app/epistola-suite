@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Templates - Epistola</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
     <main>
@@ -12,7 +13,11 @@
 
         <section class="form-section">
             <h2>Create New Template</h2>
-            <form th:action="@{/templates}" method="post">
+            <form th:action="@{/templates}" method="post"
+                  hx-post="/templates"
+                  hx-target="#template-rows"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="if(event.detail.successful) this.reset()">
                 <div class="form-group">
                     <label for="name">Name</label>
                     <input type="text" id="name" name="name" required placeholder="Template name">
@@ -27,6 +32,15 @@
 
         <section>
             <h2>Existing Templates</h2>
+            <div class="search-box">
+                <input type="search"
+                       name="q"
+                       placeholder="Search templates..."
+                       hx-get="/templates/search"
+                       hx-trigger="input changed delay:300ms, search"
+                       hx-target="#template-rows"
+                       hx-swap="innerHTML">
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -35,15 +49,18 @@
                         <th>Last Modified</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr th:each="template : ${templates}">
-                        <td th:text="${template.id}"></td>
-                        <td th:text="${template.name}"></td>
-                        <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(templates)}">
-                        <td colspan="3" class="empty-message">No templates yet. Create one above.</td>
-                    </tr>
+                <tbody id="template-rows">
+                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
+                    <th:block th:fragment="rows">
+                        <tr th:each="template : ${templates}">
+                            <td th:text="${template.id}"></td>
+                            <td th:text="${template.name}"></td>
+                            <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(templates)}">
+                            <td colspan="3" class="empty-message">No templates yet. Create one above.</td>
+                        </tr>
+                    </th:block>
                 </tbody>
             </table>
         </section>

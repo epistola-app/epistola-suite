@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- HTMX utilities for WebMvc.fn functional endpoints
+  - `ServerRequest.isHtmx` extension property for detecting HTMX requests
+  - `ServerRequest.render()` helper for HTMX-aware template rendering
+  - `ServerRequest.htmx { }` Kotlin DSL for advanced responses:
+    - Multiple fragments with Out-of-Band (OOB) swaps
+    - Conditional rendering logic
+    - Response headers: `trigger()`, `pushUrl()`, `reswap()`, `retarget()`
+    - Non-HTMX fallback with `onNonHtmx { }`
+  - `HxSwap` enum for all HTMX swap modes
+  - Additional extensions: `htmxTrigger`, `htmxTarget`, `htmxBoosted`, etc.
 - Command-based architecture with JDBI for database access
   - Vertical slices: organize by feature (commands/, queries/) not by layer
   - JDBI 3.49.0 with Kotlin and Postgres plugins
@@ -11,6 +21,7 @@
 - Document Templates page with Thymeleaf rendering
   - New `/templates` endpoint displaying a table of document templates
   - Form to create new templates directly on the page (POST /templates)
+  - HTMX integration for seamless form submission without page reload
   - Uses Spring WebMvc.fn functional endpoints (RouterFunction + Handler pattern)
   - Basic security configuration permitting public access to templates page
   - CSS styling for table and form components
