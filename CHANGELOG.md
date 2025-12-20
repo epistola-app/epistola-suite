@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- Form validation for tenant and template creation
+  - Validation in command constructors using `require()` for fail-fast behavior
+  - Name is required (non-blank) and max 255 characters
+  - Inline error display below form fields using HTMX retarget/reswap
+  - CSS styles for error states (red border, error message styling)
+  - Form value preservation on validation error
 - Testing documentation (`docs/testing.md`) covering test infrastructure, patterns, and best practices
   - Test framework overview (JUnit 5, Testcontainers, Spring Boot Test, AssertJ, Kover)
   - Guide to BaseIntegrationTest and TestFixture DSL usage

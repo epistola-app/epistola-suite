@@ -6,6 +6,7 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.EditorTemplate
 import app.epistola.suite.templates.model.Margins
 import app.epistola.suite.templates.model.PageSettings
+import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -15,7 +16,12 @@ import java.util.UUID
 data class CreateDocumentTemplate(
     val tenantId: Long,
     val name: String,
-) : Command<DocumentTemplate>
+) : Command<DocumentTemplate> {
+    init {
+        validate("name", name.isNotBlank()) { "Name is required" }
+        validate("name", name.length <= 255) { "Name must be 255 characters or less" }
+    }
+}
 
 @Component
 class CreateDocumentTemplateHandler(

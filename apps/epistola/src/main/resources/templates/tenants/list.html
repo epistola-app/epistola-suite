@@ -11,20 +11,24 @@
     <main class="regular">
         <h1>Tenants</h1>
 
-        <section class="form-section">
-            <h2>Create New Tenant</h2>
-            <form th:action="@{/tenants}" method="post"
-                  hx-post="/tenants"
-                  hx-target="#tenant-rows"
-                  hx-swap="innerHTML"
-                  hx-on::after-request="if(event.detail.successful) this.reset()">
-                <div class="form-group">
-                    <label for="name">Name</label>
-                    <input type="text" id="name" name="name" required placeholder="Tenant name">
-                </div>
-                <button type="submit">Create Tenant</button>
-            </form>
-        </section>
+        <div id="create-form" th:fragment="create-form">
+            <section class="form-section">
+                <h2>Create New Tenant</h2>
+                <form th:action="@{/tenants}" method="post"
+                      hx-post="/tenants"
+                      hx-target="#tenant-rows"
+                      hx-swap="innerHTML"
+                      hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" name="name" required placeholder="Tenant name"
+                               th:value="${formData?.name}">
+                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                    </div>
+                    <button type="submit">Create Tenant</button>
+                </form>
+            </section>
+        </div>
 
         <section>
             <h2>Existing Tenants</h2>

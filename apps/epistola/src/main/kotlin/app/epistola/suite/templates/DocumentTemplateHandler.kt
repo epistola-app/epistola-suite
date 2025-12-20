@@ -1,11 +1,13 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -43,11 +45,25 @@ class DocumentTemplateHandler(
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val formData = request.params()
-        val command = CreateDocumentTemplate(
-            tenantId = tenantId,
-            name = formData.getFirst("name") ?: throw IllegalArgumentException("Name is required"),
-        )
+        val name = request.params().getFirst("name")?.trim().orEmpty()
+
+        val command = try {
+            CreateDocumentTemplate(tenantId = tenantId, name = name)
+        } catch (e: ValidationException) {
+            val formData = mapOf("name" to name)
+            val errors = mapOf(e.field to e.message)
+            return request.htmx {
+                fragment("templates/list", "create-form") {
+                    "tenantId" to tenantId
+                    "formData" to formData
+                    "errors" to errors
+                }
+                retarget("#create-form")
+                reswap(HxSwap.OUTER_HTML)
+                onNonHtmx { redirect("/tenants/$tenantId/templates") }
+            }
+        }
+
         mediator.send(command)
 
         val templates = mediator.query(ListDocumentTemplates(tenantId = tenantId))

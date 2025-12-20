@@ -1,10 +1,12 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -30,10 +32,24 @@ class TenantHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val formData = request.params()
-        val command = CreateTenant(
-            name = formData.getFirst("name") ?: throw IllegalArgumentException("Name is required"),
-        )
+        val name = request.params().getFirst("name")?.trim().orEmpty()
+
+        val command = try {
+            CreateTenant(name = name)
+        } catch (e: ValidationException) {
+            val formData = mapOf("name" to name)
+            val errors = mapOf(e.field to e.message)
+            return request.htmx {
+                fragment("tenants/list", "create-form") {
+                    "formData" to formData
+                    "errors" to errors
+                }
+                retarget("#create-form")
+                reswap(HxSwap.OUTER_HTML)
+                onNonHtmx { redirect("/") }
+            }
+        }
+
         mediator.send(command)
 
         val tenants = mediator.query(ListTenants())

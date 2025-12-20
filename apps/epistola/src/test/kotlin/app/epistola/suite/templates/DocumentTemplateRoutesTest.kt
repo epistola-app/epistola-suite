@@ -194,4 +194,115 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(templates).hasSize(1)
         }
     }
+
+    @Test
+    fun `POST templates with empty name returns validation error`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("name", "")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Name is required")
+            assertThat(response.body).contains("form-error")
+
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = testTenant.id))
+            assertThat(templates).isEmpty()
+        }
+    }
+
+    @Test
+    fun `POST templates with blank name returns validation error`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("name", "   ")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Name is required")
+
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = testTenant.id))
+            assertThat(templates).isEmpty()
+        }
+    }
+
+    @Test
+    fun `POST templates with name exceeding 255 characters returns validation error`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("name", "a".repeat(256))
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Name must be 255 characters or less")
+
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = testTenant.id))
+            assertThat(templates).isEmpty()
+        }
+    }
+
+    @Test
+    fun `POST templates validation error preserves form value`() = fixture {
+        lateinit var testTenant: Tenant
+
+        given {
+            testTenant = tenant("Test Tenant")
+        }
+
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("name", "a".repeat(256))
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            // The form should contain the submitted value (trimmed but preserved)
+            assertThat(response.body).contains("value=\"${"a".repeat(256)}\"")
+        }
+    }
 }
