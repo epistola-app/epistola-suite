@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- Testing documentation (`docs/testing.md`) covering test infrastructure, patterns, and best practices
+  - Test framework overview (JUnit 5, Testcontainers, Spring Boot Test, AssertJ, Kover)
+  - Guide to BaseIntegrationTest and TestFixture DSL usage
+  - HTTP/route testing patterns including HTMX header handling
+  - Testcontainers configuration and troubleshooting tips
 - Command/Query Bus (Mediator pattern) for centralized message dispatching
   - `Command<R>` and `Query<R>` marker interfaces for type-safe message passing
   - `CommandHandler` and `QueryHandler` interfaces for handler implementations
