@@ -13,6 +13,9 @@
     - Non-HTMX fallback with `onNonHtmx { }`
   - `HxSwap` enum for all HTMX swap modes
   - Additional extensions: `htmxTrigger`, `htmxTarget`, `htmxBoosted`, etc.
+- Automatic PR labeling based on changed files
+  - Labels PRs with `backend`, `frontend`, `infrastructure`, or `documentation` based on file paths
+  - Uses `actions/labeler@v5` with sync-labels to keep labels up-to-date
 - Command-based architecture with JDBI for database access
   - Vertical slices: organize by feature (commands/, queries/) not by layer
   - JDBI 3.49.0 with Kotlin and Postgres plugins

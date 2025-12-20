@@ -1,0 +1,36 @@
+# GitHub Pull Request Labeler Configuration
+# Labels are automatically applied based on changed files
+# See: https://github.com/actions/labeler
+
+# Component Labels
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'apps/epistola/**'
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'modules/editor/**'
+
+infrastructure:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+          - 'charts/**'
+          - 'Dockerfile'
+          - 'Dockerfile.*'
+          - 'docker-compose.yml'
+          - 'docker-compose.*.yml'
+          - 'docker-compose*.yml'
+          - 'build.gradle.kts'
+          - 'settings.gradle.kts'
+          - 'gradle/**'
+
+# Type Labels
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - '*.md'
+          - '!CHANGELOG.md'
