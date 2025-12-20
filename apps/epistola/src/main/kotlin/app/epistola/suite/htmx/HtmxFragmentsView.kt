@@ -6,8 +6,6 @@ import org.springframework.stereotype.Component
 import org.springframework.web.servlet.View
 import org.springframework.web.servlet.ViewResolver
 import org.thymeleaf.spring6.SpringTemplateEngine
-import org.thymeleaf.spring6.view.ThymeleafViewResolver
-import java.io.StringWriter
 import java.util.Locale
 
 /**

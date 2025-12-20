@@ -12,19 +12,17 @@ data class CreateDocumentTemplate(
 
 @Component
 class CreateDocumentTemplateHandler(private val jdbi: Jdbi) {
-    fun handle(command: CreateDocumentTemplate): DocumentTemplate {
-        return jdbi.withHandle<DocumentTemplate, Exception> { handle ->
-            handle.createQuery(
-                """
+    fun handle(command: CreateDocumentTemplate): DocumentTemplate = jdbi.withHandle<DocumentTemplate, Exception> { handle ->
+        handle.createQuery(
+            """
                 INSERT INTO document_templates (name, content, created_at, last_modified)
                 VALUES (:name, :content, NOW(), NOW())
                 RETURNING *
                 """,
-            )
-                .bind("name", command.name)
-                .bind("content", command.content)
-                .mapTo<DocumentTemplate>()
-                .one()
-        }
+        )
+            .bind("name", command.name)
+            .bind("content", command.content)
+            .mapTo<DocumentTemplate>()
+            .one()
     }
 }

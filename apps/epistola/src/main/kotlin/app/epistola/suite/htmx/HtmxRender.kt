@@ -21,17 +21,15 @@ fun ServerRequest.render(
     fragment: String? = null,
     model: Map<String, Any> = emptyMap(),
     redirectOnSuccess: String? = null,
-): ServerResponse {
-    return when {
-        isHtmx && fragment != null -> {
-            ServerResponse.ok().render("$template :: $fragment", model)
-        }
-        !isHtmx && redirectOnSuccess != null -> {
-            ServerResponse.seeOther(URI.create(redirectOnSuccess)).build()
-        }
-        else -> {
-            ServerResponse.ok().render(template, model)
-        }
+): ServerResponse = when {
+    isHtmx && fragment != null -> {
+        ServerResponse.ok().render("$template :: $fragment", model)
+    }
+    !isHtmx && redirectOnSuccess != null -> {
+        ServerResponse.seeOther(URI.create(redirectOnSuccess)).build()
+    }
+    else -> {
+        ServerResponse.ok().render(template, model)
     }
 }
 
@@ -85,6 +83,4 @@ fun ServerRequest.renderTemplate(
  * @param block The DSL builder block
  * @return A ServerResponse appropriate for the request type
  */
-fun ServerRequest.htmx(block: HtmxResponseBuilder.() -> Unit): ServerResponse {
-    return HtmxResponseBuilder(this).apply(block).build()
-}
+fun ServerRequest.htmx(block: HtmxResponseBuilder.() -> Unit): ServerResponse = HtmxResponseBuilder(this).apply(block).build()

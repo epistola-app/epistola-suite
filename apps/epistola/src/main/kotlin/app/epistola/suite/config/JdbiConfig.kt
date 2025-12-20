@@ -10,9 +10,7 @@ import javax.sql.DataSource
 @Configuration
 class JdbiConfig {
     @Bean
-    fun jdbi(dataSource: DataSource): Jdbi {
-        return Jdbi.create(dataSource)
-            .installPlugin(KotlinPlugin())
-            .installPlugin(PostgresPlugin())
-    }
+    fun jdbi(dataSource: DataSource): Jdbi = Jdbi.create(dataSource)
+        .installPlugin(KotlinPlugin())
+        .installPlugin(PostgresPlugin())
 }

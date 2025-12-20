@@ -213,9 +213,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
         )
     }
 
-    private fun mergedModel(): Map<String, Any> {
-        return fragments.flatMap { it.model.entries }.associate { it.key to it.value }
-    }
+    private fun mergedModel(): Map<String, Any> = fragments.flatMap { it.model.entries }.associate { it.key to it.value }
 }
 
 /**
