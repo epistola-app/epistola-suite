@@ -41,9 +41,9 @@ class DocumentTemplateRoutesTest {
         jdbi.useHandle<Exception> { handle ->
             handle.execute("DELETE FROM document_templates")
         }
-        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Invoice Template", "Invoice content"))
-        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Contract Template", "Contract content"))
-        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Letter Template", "Letter content"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Invoice Template"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Contract Template"))
+        createDocumentTemplateHandler.handle(CreateDocumentTemplate("Letter Template"))
     }
 
     @Test

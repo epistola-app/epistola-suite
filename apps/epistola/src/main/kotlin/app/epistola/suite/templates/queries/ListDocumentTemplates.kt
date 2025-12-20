@@ -13,25 +13,24 @@ data class ListDocumentTemplates(
 
 @Component
 class ListDocumentTemplatesHandler(private val jdbi: Jdbi) {
-    fun handle(query: ListDocumentTemplates): List<DocumentTemplate> =
-        jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
-            val sql = buildString {
-                append("SELECT id, name, content, created_at, last_modified FROM document_templates WHERE 1=1")
-                if (!query.searchTerm.isNullOrBlank()) {
-                    append(" AND name ILIKE :searchTerm")
-                }
-                append(" ORDER BY last_modified DESC")
-                append(" LIMIT :limit OFFSET :offset")
-            }
-
-            val jdbiQuery = handle.createQuery(sql)
+    fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
+        val sql = buildString {
+            append("SELECT id, name, content, created_at, last_modified FROM document_templates WHERE 1=1")
             if (!query.searchTerm.isNullOrBlank()) {
-                jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+                append(" AND name ILIKE :searchTerm")
             }
-            jdbiQuery
-                .bind("limit", query.limit)
-                .bind("offset", query.offset)
-                .mapTo<DocumentTemplate>()
-                .list()
+            append(" ORDER BY last_modified DESC")
+            append(" LIMIT :limit OFFSET :offset")
         }
+
+        val jdbiQuery = handle.createQuery(sql)
+        if (!query.searchTerm.isNullOrBlank()) {
+            jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+        }
+        jdbiQuery
+            .bind("limit", query.limit)
+            .bind("offset", query.offset)
+            .mapTo<DocumentTemplate>()
+            .list()
+    }
 }

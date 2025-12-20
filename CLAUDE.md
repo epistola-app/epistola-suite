@@ -107,6 +107,12 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 **Important**: Never include references to Claude or AI in commit messages.
 
+## JSON Handling
+
+- **Jackson 3** (`tools.jackson.*`) is used for JSON serialization
+- JDBI uses `jdbi3-jackson3` plugin for JSONB column mapping
+- Import from `tools.jackson.databind.ObjectMapper`, not `com.fasterxml.jackson`
+
 ## Testing
 
 - **Requires Docker** - Tests use Testcontainers

@@ -2,15 +2,18 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplateHandler
+import app.epistola.suite.templates.model.EditorTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.MediaType
+import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.RouterFunction
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
+import tools.jackson.databind.ObjectMapper
 
 @Configuration
 class DocumentTemplateApiRoutes(private val handler: DocumentTemplateApiHandler) {
@@ -23,10 +26,11 @@ class DocumentTemplateApiRoutes(private val handler: DocumentTemplateApiHandler)
     }
 }
 
-@org.springframework.stereotype.Component
+@Component
 class DocumentTemplateApiHandler(
     private val getHandler: GetDocumentTemplateHandler,
     private val updateHandler: UpdateDocumentTemplateHandler,
+    private val objectMapper: ObjectMapper,
 ) {
     fun get(request: ServerRequest): ServerResponse {
         val id = request.pathVariable("id").toLongOrNull()
@@ -52,10 +56,11 @@ class DocumentTemplateApiHandler(
         val id = request.pathVariable("id").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
-        // Read the request body as the template content JSON
-        val content = request.body(String::class.java)
+        // Read and parse the request body as EditorTemplate
+        val body = request.body(String::class.java)
+        val editorTemplate = objectMapper.readValue(body, EditorTemplate::class.java)
 
-        val updated = updateHandler.handle(UpdateDocumentTemplate(id, content))
+        val updated = updateHandler.handle(UpdateDocumentTemplate(id, editorTemplate))
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
