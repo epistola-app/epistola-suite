@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.mediator.Command
+import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.EditorTemplate
 import app.epistola.suite.templates.model.Margins
@@ -13,14 +15,14 @@ import java.util.UUID
 data class CreateDocumentTemplate(
     val tenantId: Long,
     val name: String,
-)
+) : Command<DocumentTemplate>
 
 @Component
 class CreateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-) {
-    fun handle(command: CreateDocumentTemplate): DocumentTemplate {
+) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
+    override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
         // Create a default EditorTemplate for new documents
         val editorTemplate = EditorTemplate(
             id = UUID.randomUUID().toString(),

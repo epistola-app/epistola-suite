@@ -1,5 +1,7 @@
 package app.epistola.suite.tenants.queries
 
+import app.epistola.suite.mediator.Query
+import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.tenants.Tenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -7,11 +9,13 @@ import org.springframework.stereotype.Component
 
 data class ListTenants(
     val searchTerm: String? = null,
-)
+) : Query<List<Tenant>>
 
 @Component
-class ListTenantsHandler(private val jdbi: Jdbi) {
-    fun handle(query: ListTenants): List<Tenant> = jdbi.withHandle<List<Tenant>, Exception> { handle ->
+class ListTenantsHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<ListTenants, List<Tenant>> {
+    override fun handle(query: ListTenants): List<Tenant> = jdbi.withHandle<List<Tenant>, Exception> { handle ->
         val sql = buildString {
             append("SELECT id, name, created_at FROM tenants WHERE 1=1")
             if (!query.searchTerm.isNullOrBlank()) {

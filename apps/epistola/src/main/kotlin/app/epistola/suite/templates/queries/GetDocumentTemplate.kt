@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.mediator.Query
+import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.DocumentTemplate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -8,11 +10,13 @@ import org.springframework.stereotype.Component
 data class GetDocumentTemplate(
     val tenantId: Long,
     val id: Long,
-)
+) : Query<DocumentTemplate?>
 
 @Component
-class GetDocumentTemplateHandler(private val jdbi: Jdbi) {
-    fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+class GetDocumentTemplateHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<GetDocumentTemplate, DocumentTemplate?> {
+    override fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, tenant_id, name, content, created_at, last_modified

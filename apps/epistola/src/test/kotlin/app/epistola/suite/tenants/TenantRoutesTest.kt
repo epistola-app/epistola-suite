@@ -22,77 +22,109 @@ class TenantRoutesTest : BaseIntegrationTest() {
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `GET homepage returns tenant list page`() {
-        createTenant("Acme Corp")
-        createTenant("Globex Inc")
+    fun `GET homepage returns tenant list page`() = fixture {
+        given {
+            tenant("Acme Corp")
+            tenant("Globex Inc")
+        }
 
-        val response = restTemplate.getForEntity("/", String::class.java)
+        whenever {
+            restTemplate.getForEntity("/", String::class.java)
+        }
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("Tenants")
-        assertThat(response.body).contains("Acme Corp")
-        assertThat(response.body).contains("Globex Inc")
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Tenants")
+            assertThat(response.body).contains("Acme Corp")
+            assertThat(response.body).contains("Globex Inc")
+        }
     }
 
     @Test
-    fun `GET homepage returns empty table when no tenants exist`() {
-        deleteAllTenants()
+    fun `GET homepage returns empty table when no tenants exist`() = fixture {
+        given {
+            noTenants()
+        }
 
-        val response = restTemplate.getForEntity("/", String::class.java)
+        whenever {
+            restTemplate.getForEntity("/", String::class.java)
+        }
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("Tenants")
-        assertThat(response.body).contains("No tenants yet")
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Tenants")
+            assertThat(response.body).contains("No tenants yet")
+        }
     }
 
     @Test
-    fun `GET tenants search filters by name`() {
-        createTenant("Acme Corp")
-        createTenant("Globex Inc")
+    fun `GET tenants search filters by name`() = fixture {
+        given {
+            tenant("Acme Corp")
+            tenant("Globex Inc")
+        }
 
-        val headers = HttpHeaders()
-        headers.set("HX-Request", "true")
+        whenever {
+            val headers = HttpHeaders()
+            headers.set("HX-Request", "true")
+            val request = HttpEntity<Void>(headers)
+            restTemplate.exchange(
+                "/tenants/search?q=Acme",
+                org.springframework.http.HttpMethod.GET,
+                request,
+                String::class.java,
+            )
+        }
 
-        val request = HttpEntity<Void>(headers)
-        val response = restTemplate.exchange(
-            "/tenants/search?q=Acme",
-            org.springframework.http.HttpMethod.GET,
-            request,
-            String::class.java,
-        )
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("Acme Corp")
-        assertThat(response.body).doesNotContain("Globex Inc")
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Acme Corp")
+            assertThat(response.body).doesNotContain("Globex Inc")
+        }
     }
 
     @Test
-    fun `POST tenants creates new tenant`() {
-        val headers = HttpHeaders()
-        headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
-        headers.set("HX-Request", "true")
+    fun `POST tenants creates new tenant`() = fixture {
+        whenever {
+            val headers = HttpHeaders()
+            headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
+            headers.set("HX-Request", "true")
+            val formData = LinkedMultiValueMap<String, String>()
+            formData.add("name", "New Tenant")
+            val request = HttpEntity(formData, headers)
+            restTemplate.postForEntity("/tenants", request, String::class.java)
+        }
 
-        val formData = LinkedMultiValueMap<String, String>()
-        formData.add("name", "New Tenant")
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("New Tenant")
 
-        val request = HttpEntity(formData, headers)
-        val response = restTemplate.postForEntity("/tenants", request, String::class.java)
-
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("New Tenant")
-
-        // Clean up tenant created via HTTP (not tracked by base class)
-        val createdTenant = listTenantsHandler.handle(ListTenants("New Tenant")).first()
-        deleteTenantHandler.handle(DeleteTenant(createdTenant.id))
+            // Clean up tenant created via HTTP (not tracked by fixture)
+            val createdTenant = mediator.query(ListTenants("New Tenant")).first()
+            mediator.send(DeleteTenant(createdTenant.id))
+        }
     }
 
     @Test
-    fun `tenant row links to templates page`() {
-        val tenant = createTenant("Test Tenant")
+    fun `tenant row links to templates page`() = fixture {
+        lateinit var tenant: Tenant
 
-        val response = restTemplate.getForEntity("/", String::class.java)
+        given {
+            tenant = tenant("Test Tenant")
+        }
 
-        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-        assertThat(response.body).contains("/tenants/${tenant.id}/templates")
+        whenever {
+            restTemplate.getForEntity("/", String::class.java)
+        }
+
+        then {
+            val response = result<org.springframework.http.ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("/tenants/${tenant.id}/templates")
+        }
     }
 }

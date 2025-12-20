@@ -1,33 +1,49 @@
 package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.tenants.commands.DeleteTenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
 class TenantCommandsTest : BaseIntegrationTest() {
     @Test
-    fun `CreateTenant creates tenant with name`() {
-        val tenant = createTenant("Acme Corp")
+    fun `CreateTenant creates tenant with name`() = fixture {
+        whenever {
+            createTenant("Acme Corp")
+        }
 
-        assertThat(tenant.id).isPositive()
-        assertThat(tenant.name).isEqualTo("Acme Corp")
-        assertThat(tenant.createdAt).isNotNull()
+        then {
+            val tenant = result<Tenant>()
+            assertThat(tenant.id).isPositive()
+            assertThat(tenant.name).isEqualTo("Acme Corp")
+            assertThat(tenant.createdAt).isNotNull()
+        }
     }
 
     @Test
-    fun `DeleteTenant removes tenant by id`() {
-        val tenant = createTenant("To Delete")
+    fun `DeleteTenant removes tenant by id`() = fixture {
+        var tenantId: Long = 0
 
-        val deleted = deleteTenantHandler.handle(DeleteTenant(tenant.id))
+        given {
+            tenantId = tenant("To Delete").id
+        }
 
-        assertThat(deleted).isTrue()
+        whenever {
+            deleteTenant(tenantId)
+        }
+
+        then {
+            assertThat(result<Boolean>()).isTrue()
+        }
     }
 
     @Test
-    fun `DeleteTenant returns false for non-existent id`() {
-        val deleted = deleteTenantHandler.handle(DeleteTenant(99999))
+    fun `DeleteTenant returns false for non-existent id`() = fixture {
+        whenever {
+            deleteTenant(99999)
+        }
 
-        assertThat(deleted).isFalse()
+        then {
+            assertThat(result<Boolean>()).isFalse()
+        }
     }
 }

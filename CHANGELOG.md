@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Added
+- Command/Query Bus (Mediator pattern) for centralized message dispatching
+  - `Command<R>` and `Query<R>` marker interfaces for type-safe message passing
+  - `CommandHandler` and `QueryHandler` interfaces for handler implementations
+  - `Mediator` interface with `send()` for commands and `query()` for queries
+  - `SpringMediator` auto-discovers handlers via Spring's `ApplicationContext`
+  - Decouples consumers from handlers enabling future cross-cutting concerns
+- TestFixture Kotlin DSL for given-when-then style integration tests
+  - Type-safe DSL with `@DslMarker` annotation to prevent scope leakage
+  - `GivenContext` for test data setup with automatic cleanup
+  - `WhenContext` for executing actions under test
+  - `ThenContext` with `result<T>()` helper for type-safe result access
+  - Automatic tenant cleanup after each test to ensure isolation
 - Tenant management UI on homepage
   - Homepage (`/`) displays list of tenants with name and creation date
   - Form to create new tenants directly on the page

@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.mediator.Query
+import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.DocumentTemplate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -10,11 +12,13 @@ data class ListDocumentTemplates(
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-)
+) : Query<List<DocumentTemplate>>
 
 @Component
-class ListDocumentTemplatesHandler(private val jdbi: Jdbi) {
-    fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
+class ListDocumentTemplatesHandler(
+    private val jdbi: Jdbi,
+) : QueryHandler<ListDocumentTemplates, List<DocumentTemplate>> {
+    override fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
             append("SELECT id, tenant_id, name, content, created_at, last_modified FROM document_templates WHERE tenant_id = :tenantId")
             if (!query.searchTerm.isNullOrBlank()) {

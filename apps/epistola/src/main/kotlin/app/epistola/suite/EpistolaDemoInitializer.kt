@@ -1,11 +1,9 @@
 package app.epistola.suite
 
+import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import app.epistola.suite.tenants.commands.CreateTenant
-import app.epistola.suite.tenants.commands.CreateTenantHandler
 import app.epistola.suite.tenants.queries.ListTenants
-import app.epistola.suite.tenants.queries.ListTenantsHandler
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -13,14 +11,12 @@ import org.springframework.stereotype.Component
 
 @Component
 class EpistolaDemoInitializer(
-    private val listTenantsHandler: ListTenantsHandler,
-    private val createTenantHandler: CreateTenantHandler,
-    private val createTemplateHandler: CreateDocumentTemplateHandler,
+    private val mediator: Mediator,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
     override fun run(args: ApplicationArguments) {
-        val existingTenants = listTenantsHandler.handle(ListTenants())
+        val existingTenants = mediator.query(ListTenants())
 
         if (existingTenants.isEmpty()) {
             log.info("Seeding demo data...")
@@ -32,11 +28,11 @@ class EpistolaDemoInitializer(
     }
 
     private fun seedDemoData() {
-        val tenant = createTenantHandler.handle(CreateTenant(name = DEMO_TENANT_NAME))
+        val tenant = mediator.send(CreateTenant(name = DEMO_TENANT_NAME))
         log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
         SEED_TEMPLATES.forEach { name ->
-            createTemplateHandler.handle(CreateDocumentTemplate(tenantId = tenant.id, name = name))
+            mediator.send(CreateDocumentTemplate(tenantId = tenant.id, name = name))
         }
         log.info("Created {} demo templates for tenant '{}'", SEED_TEMPLATES.size, tenant.name)
     }

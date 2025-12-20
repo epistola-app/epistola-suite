@@ -2,12 +2,10 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
+import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
-import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
-import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -15,14 +13,12 @@ import tools.jackson.databind.ObjectMapper
 
 @Component
 class DocumentTemplateHandler(
-    private val listHandler: ListDocumentTemplatesHandler,
-    private val createHandler: CreateDocumentTemplateHandler,
-    private val getHandler: GetDocumentTemplateHandler,
+    private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templates = listHandler.handle(ListDocumentTemplates(tenantId = tenantId))
+        val templates = mediator.query(ListDocumentTemplates(tenantId = tenantId))
         return ServerResponse.ok().render(
             "templates/list",
             mapOf(
@@ -35,7 +31,7 @@ class DocumentTemplateHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
         val searchTerm = request.param("q").orElse(null)
-        val templates = listHandler.handle(ListDocumentTemplates(tenantId = tenantId, searchTerm = searchTerm))
+        val templates = mediator.query(ListDocumentTemplates(tenantId = tenantId, searchTerm = searchTerm))
         return request.htmx {
             fragment("templates/list", "rows") {
                 "tenantId" to tenantId
@@ -52,9 +48,9 @@ class DocumentTemplateHandler(
             tenantId = tenantId,
             name = formData.getFirst("name") ?: throw IllegalArgumentException("Name is required"),
         )
-        createHandler.handle(command)
+        mediator.send(command)
 
-        val templates = listHandler.handle(ListDocumentTemplates(tenantId = tenantId))
+        val templates = mediator.query(ListDocumentTemplates(tenantId = tenantId))
         return request.htmx {
             fragment("templates/list", "rows") {
                 "tenantId" to tenantId
@@ -70,7 +66,7 @@ class DocumentTemplateHandler(
         val id = request.pathVariable("id").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
-        val template = getHandler.handle(GetDocumentTemplate(tenantId = tenantId, id = id))
+        val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
             ?: return ServerResponse.notFound().build()
 
         // Serialize the EditorTemplate content to JSON for the frontend

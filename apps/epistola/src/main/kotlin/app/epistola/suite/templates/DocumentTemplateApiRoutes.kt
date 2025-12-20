@@ -1,10 +1,9 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.UpdateDocumentTemplateHandler
 import app.epistola.suite.templates.model.EditorTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
-import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.MediaType
@@ -28,8 +27,7 @@ class DocumentTemplateApiRoutes(private val handler: DocumentTemplateApiHandler)
 
 @Component
 class DocumentTemplateApiHandler(
-    private val getHandler: GetDocumentTemplateHandler,
-    private val updateHandler: UpdateDocumentTemplateHandler,
+    private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
 ) {
     fun get(request: ServerRequest): ServerResponse {
@@ -37,7 +35,7 @@ class DocumentTemplateApiHandler(
         val id = request.pathVariable("id").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
-        val template = getHandler.handle(GetDocumentTemplate(tenantId = tenantId, id = id))
+        val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -62,7 +60,7 @@ class DocumentTemplateApiHandler(
         val body = request.body(String::class.java)
         val editorTemplate = objectMapper.readValue(body, EditorTemplate::class.java)
 
-        val updated = updateHandler.handle(UpdateDocumentTemplate(tenantId = tenantId, id = id, content = editorTemplate))
+        val updated = mediator.send(UpdateDocumentTemplate(tenantId = tenantId, id = id, content = editorTemplate))
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()

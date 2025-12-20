@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.mediator.Command
+import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.EditorTemplate
 import org.jdbi.v3.core.Jdbi
@@ -11,14 +13,14 @@ data class UpdateDocumentTemplate(
     val tenantId: Long,
     val id: Long,
     val content: EditorTemplate,
-)
+) : Command<DocumentTemplate?>
 
 @Component
 class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-) {
-    fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
+) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
+    override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
         val contentJson = objectMapper.writeValueAsString(command.content)
 
         return jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
