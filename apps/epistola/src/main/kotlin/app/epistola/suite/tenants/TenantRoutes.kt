@@ -1,4 +1,4 @@
-package app.epistola.suite.templates
+package app.epistola.suite.tenants
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -7,14 +7,13 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 @Configuration
-class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
+class TenantRoutes(private val handler: TenantHandler) {
     @Bean
-    fun templateRoutes(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/templates".nest {
-            GET("", handler::list)
+    fun tenantRouterFunction(): RouterFunction<ServerResponse> = router {
+        GET("/", handler::list)
+        "/tenants".nest {
             GET("/search", handler::search)
             POST("", handler::create)
-            GET("/{id}/edit", handler::edit)
         }
     }
 }

@@ -9,12 +9,16 @@
 </head>
 <body>
     <main class="regular">
+        <nav class="breadcrumb">
+            <a th:href="@{/}">Tenants</a> &raquo; Templates
+        </nav>
+
         <h1>Document Templates</h1>
 
         <section class="form-section">
             <h2>Create New Template</h2>
-            <form th:action="@{/templates}" method="post"
-                  hx-post="/templates"
+            <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post"
+                  th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
                   hx-target="#template-rows"
                   hx-swap="innerHTML"
                   hx-on::after-request="if(event.detail.successful) this.reset()">
@@ -32,7 +36,7 @@
                 <input type="search"
                        name="q"
                        placeholder="Search templates..."
-                       hx-get="/templates/search"
+                       th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})}"
                        hx-trigger="input changed delay:300ms, search"
                        hx-target="#template-rows"
                        hx-swap="innerHTML">
@@ -54,7 +58,7 @@
                             <td th:text="${template.name}"></td>
                             <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                             <td>
-                                <a th:href="@{/templates/{id}/edit(id=${template.id})}" class="btn btn-small">Edit</a>
+                                <a th:href="@{/tenants/{tenantId}/templates/{id}/edit(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">Edit</a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(templates)}">

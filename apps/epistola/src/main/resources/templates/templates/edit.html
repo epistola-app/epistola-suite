@@ -56,7 +56,7 @@
         <header class="editor-header">
             <h1 th:text="${templateName}">Template Name</h1>
             <div class="editor-header-actions">
-                <a th:href="@{/templates}">Back to Templates</a>
+                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Back to Templates</a>
             </div>
         </header>
 
@@ -67,6 +67,7 @@
         /*<![CDATA[*/
         window.TEMPLATE_JSON = /*[[${templateJson}]]*/ '{}';
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
+        window.TENANT_ID = /*[[${tenantId}]]*/ '';
         /*]]>*/
     </script>
     <script type="module">
@@ -75,13 +76,14 @@
         const container = document.getElementById('editor-container');
         const templateData = JSON.parse(window.TEMPLATE_JSON);
         const templateId = window.TEMPLATE_ID;
+        const tenantId = window.TENANT_ID;
 
         mountEditor({
             container: container,
             template: templateData,
             onSave: async (template) => {
                 try {
-                    const response = await fetch('/api/templates/' + templateId, {
+                    const response = await fetch('/api/tenants/' + tenantId + '/templates/' + templateId, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',

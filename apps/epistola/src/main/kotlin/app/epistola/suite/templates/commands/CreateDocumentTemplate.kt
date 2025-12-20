@@ -11,6 +11,7 @@ import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 data class CreateDocumentTemplate(
+    val tenantId: Long,
     val name: String,
 )
 
@@ -34,11 +35,12 @@ class CreateDocumentTemplateHandler(
         return jdbi.withHandle<DocumentTemplate, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO document_templates (name, content, created_at, last_modified)
-                VALUES (:name, :content::jsonb, NOW(), NOW())
+                INSERT INTO document_templates (tenant_id, name, content, created_at, last_modified)
+                VALUES (:tenantId, :name, :content::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
             )
+                .bind("tenantId", command.tenantId)
                 .bind("name", command.name)
                 .bind("content", contentJson)
                 .mapTo<DocumentTemplate>()

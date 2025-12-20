@@ -6,6 +6,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetDocumentTemplate(
+    val tenantId: Long,
     val id: Long,
 )
 
@@ -14,12 +15,13 @@ class GetDocumentTemplateHandler(private val jdbi: Jdbi) {
     fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, name, content, created_at, last_modified
+                SELECT id, tenant_id, name, content, created_at, last_modified
                 FROM document_templates
-                WHERE id = :id
+                WHERE id = :id AND tenant_id = :tenantId
                 """,
         )
             .bind("id", query.id)
+            .bind("tenantId", query.tenantId)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)

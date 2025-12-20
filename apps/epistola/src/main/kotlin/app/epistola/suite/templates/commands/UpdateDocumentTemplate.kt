@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class UpdateDocumentTemplate(
+    val tenantId: Long,
     val id: Long,
     val content: EditorTemplate,
 )
@@ -25,11 +26,12 @@ class UpdateDocumentTemplateHandler(
                 """
                 UPDATE document_templates
                 SET content = :content::jsonb, last_modified = NOW()
-                WHERE id = :id
+                WHERE id = :id AND tenant_id = :tenantId
                 RETURNING *
                 """,
             )
                 .bind("id", command.id)
+                .bind("tenantId", command.tenantId)
                 .bind("content", contentJson)
                 .mapTo<DocumentTemplate>()
                 .findOne()

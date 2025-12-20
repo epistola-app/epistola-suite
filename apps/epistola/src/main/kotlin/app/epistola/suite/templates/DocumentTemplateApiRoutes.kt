@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper
 class DocumentTemplateApiRoutes(private val handler: DocumentTemplateApiHandler) {
     @Bean
     fun templateApiRoutes(): RouterFunction<ServerResponse> = router {
-        "/api/templates".nest {
+        "/api/tenants/{tenantId}/templates".nest {
             GET("/{id}", handler::get)
             PUT("/{id}", handler::update)
         }
@@ -33,10 +33,11 @@ class DocumentTemplateApiHandler(
     private val objectMapper: ObjectMapper,
 ) {
     fun get(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
         val id = request.pathVariable("id").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
-        val template = getHandler.handle(GetDocumentTemplate(id))
+        val template = getHandler.handle(GetDocumentTemplate(tenantId = tenantId, id = id))
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -53,6 +54,7 @@ class DocumentTemplateApiHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
         val id = request.pathVariable("id").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
@@ -60,7 +62,7 @@ class DocumentTemplateApiHandler(
         val body = request.body(String::class.java)
         val editorTemplate = objectMapper.readValue(body, EditorTemplate::class.java)
 
-        val updated = updateHandler.handle(UpdateDocumentTemplate(id, editorTemplate))
+        val updated = updateHandler.handle(UpdateDocumentTemplate(tenantId = tenantId, id = id, content = editorTemplate))
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok()
@@ -73,4 +75,7 @@ class DocumentTemplateApiHandler(
                 ),
             )
     }
+
+    private fun resolveTenantId(request: ServerRequest): Long = request.pathVariable("tenantId").toLongOrNull()
+        ?: throw IllegalArgumentException("Invalid tenant ID")
 }

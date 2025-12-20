@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenants - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <main class="regular">
+        <h1>Tenants</h1>
+
+        <section class="form-section">
+            <h2>Create New Tenant</h2>
+            <form th:action="@{/tenants}" method="post"
+                  hx-post="/tenants"
+                  hx-target="#tenant-rows"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="if(event.detail.successful) this.reset()">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required placeholder="Tenant name">
+                </div>
+                <button type="submit">Create Tenant</button>
+            </form>
+        </section>
+
+        <section>
+            <h2>Existing Tenants</h2>
+            <div class="search-box">
+                <input type="search"
+                       name="q"
+                       placeholder="Search tenants..."
+                       hx-get="/tenants/search"
+                       hx-trigger="input changed delay:300ms, search"
+                       hx-target="#tenant-rows"
+                       hx-swap="innerHTML">
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tenant-rows">
+                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
+                    <th:block th:fragment="rows">
+                        <tr th:each="tenant : ${tenants}">
+                            <td th:text="${tenant.id}"></td>
+                            <td th:text="${tenant.name}"></td>
+                            <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td>
+                                <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="btn btn-small">Templates</a>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(tenants)}">
+                            <td colspan="4" class="empty-message">No tenants yet. Create one above.</td>
+                        </tr>
+                    </th:block>
+                </tbody>
+            </table>
+        </section>
+    </main>
+</body>
+</html>

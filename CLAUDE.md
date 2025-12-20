@@ -27,6 +27,10 @@ Epistola Suite is a document suite application with:
 - **Client Components**: Vite + TypeScript editor module (Node.js 24) for rich editing
 - **Architecture**: Multi-module Gradle monorepo
 
+## Production Status
+
+**This project is NOT yet in production.** Breaking changes to database schema, APIs, and architecture are acceptable without migration paths. When the project goes to production, this section will be updated.
+
 ## Project Structure
 
 ```

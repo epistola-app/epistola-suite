@@ -6,6 +6,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListDocumentTemplates(
+    val tenantId: Long,
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
@@ -15,7 +16,7 @@ data class ListDocumentTemplates(
 class ListDocumentTemplatesHandler(private val jdbi: Jdbi) {
     fun handle(query: ListDocumentTemplates): List<DocumentTemplate> = jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, name, content, created_at, last_modified FROM document_templates WHERE 1=1")
+            append("SELECT id, tenant_id, name, content, created_at, last_modified FROM document_templates WHERE tenant_id = :tenantId")
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND name ILIKE :searchTerm")
             }
@@ -24,6 +25,7 @@ class ListDocumentTemplatesHandler(private val jdbi: Jdbi) {
         }
 
         val jdbiQuery = handle.createQuery(sql)
+            .bind("tenantId", query.tenantId)
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

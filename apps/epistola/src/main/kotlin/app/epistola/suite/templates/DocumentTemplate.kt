@@ -6,6 +6,7 @@ import java.time.OffsetDateTime
 
 data class DocumentTemplate(
     val id: Long,
+    val tenantId: Long,
     val name: String,
     @Json val content: EditorTemplate?,
     val createdAt: OffsetDateTime,

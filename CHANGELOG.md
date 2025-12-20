@@ -3,6 +3,22 @@
 ## [Unreleased]
 
 ### Added
+- Tenant management UI on homepage
+  - Homepage (`/`) displays list of tenants with name and creation date
+  - Form to create new tenants directly on the page
+  - Search functionality to filter tenants by name
+  - Each tenant links to their templates at `/tenants/{id}/templates`
+  - Templates list shows breadcrumb navigation back to tenants
+  - All template URLs are now tenant-scoped: `/tenants/{tenantId}/templates`
+  - API endpoints are tenant-scoped: `/api/tenants/{tenantId}/templates/{id}`
+- Multi-tenancy support for tenant isolation
+  - New `Tenant` entity with `id`, `name`, and `createdAt` fields
+  - `CreateTenant` and `DeleteTenant` commands for tenant management (internal use)
+  - All `DocumentTemplate` records now belong to a tenant (required foreign key)
+  - Tenant-scoped queries and commands prevent cross-tenant data access
+  - Database migrations create `tenants` table and add `tenant_id` to `document_templates`
+  - Default tenant (id=1) created for existing data during migration
+  - Cascade delete: removing a tenant deletes all its templates
 - Editor development modes for live reload
   - **Standalone mode** (`npm run dev`): Full Vite HMR for developing the editor in isolation
   - **Integrated mode** (`npm run watch`): Continuous builds for embedding in Thymeleaf pages
