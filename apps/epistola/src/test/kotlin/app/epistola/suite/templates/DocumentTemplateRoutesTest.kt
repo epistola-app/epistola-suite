@@ -3,6 +3,8 @@ package app.epistola.suite.templates
 import app.epistola.suite.TestcontainersConfiguration
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
+import app.epistola.suite.templates.queries.SearchDocumentTemplates
+import app.epistola.suite.templates.queries.SearchDocumentTemplatesHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -30,6 +32,9 @@ class DocumentTemplateRoutesTest {
 
     @Autowired
     private lateinit var createDocumentTemplateHandler: CreateDocumentTemplateHandler
+
+    @Autowired
+    private lateinit var searchDocumentTemplatesHandler: SearchDocumentTemplatesHandler
 
     @BeforeEach
     fun setUp() {
@@ -84,12 +89,8 @@ class DocumentTemplateRoutesTest {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("New Template")
 
-        val count = jdbi.withHandle<Long, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM document_templates WHERE name = 'New Template'")
-                .mapTo(Long::class.java)
-                .one()
-        }
-        assertThat(count).isEqualTo(1)
+        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(name = "New Template"))
+        assertThat(templates).hasSize(1)
     }
 
     @Test
@@ -115,11 +116,7 @@ class DocumentTemplateRoutesTest {
         assertThat(response.body).doesNotContain("<!DOCTYPE html>")
         assertThat(response.body).doesNotContain("<head>")
 
-        val count = jdbi.withHandle<Long, Exception> { handle ->
-            handle.createQuery("SELECT COUNT(*) FROM document_templates WHERE name = 'HTMX Template'")
-                .mapTo(Long::class.java)
-                .one()
-        }
-        assertThat(count).isEqualTo(1)
+        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(name = "HTMX Template"))
+        assertThat(templates).hasSize(1)
     }
 }
