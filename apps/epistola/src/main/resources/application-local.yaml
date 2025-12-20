@@ -25,3 +25,8 @@ management:
   tracing:
     export:
       enabled: false
+
+epistola:
+  editor:
+    dev-server:
+      auto-start: true

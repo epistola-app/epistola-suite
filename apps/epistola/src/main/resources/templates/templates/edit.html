@@ -73,7 +73,6 @@
         import { mountEditor } from '/editor/template-editor.js';
 
         const container = document.getElementById('editor-container');
-        // Parse the JSON string into an object
         const templateData = JSON.parse(window.TEMPLATE_JSON);
         const templateId = window.TEMPLATE_ID;
 
@@ -91,7 +90,6 @@
                     });
 
                     if (response.ok) {
-                        // Show success feedback
                         console.log('Template saved successfully');
                     } else {
                         console.error('Failed to save template:', response.statusText);

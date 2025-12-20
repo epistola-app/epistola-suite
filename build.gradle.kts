@@ -25,7 +25,7 @@ subprojects {
 }
 
 // Configure Kotlin for all Kotlin subprojects
-configure(subprojects.filter { it.path.startsWith(":apps") }) {
+configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith(":modules") }) {
     apply(plugin = "org.jetbrains.kotlin.jvm")
 
     configure<JavaPluginExtension> {

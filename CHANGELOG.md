@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- Editor development modes for live reload
+  - **Standalone mode** (`npm run dev`): Full Vite HMR for developing the editor in isolation
+  - **Integrated mode** (`npm run watch`): Continuous builds for embedding in Thymeleaf pages
+  - Editor module includes Kotlin/Spring auto-configuration
+  - Vite watch auto-starts when `epistola.editor.dev-server.auto-start=true`
+  - Spring Boot serves editor files from filesystem in `local` profile for fast iteration
+  - Development workflow: run Spring Boot with `local` profile, editor rebuilds on file changes
 - Editor component integration with Thymeleaf templates
     - Library build mode for the React editor (`mountEditor()` API)
     - Editor can be embedded in Thymeleaf pages while sharing the app layout

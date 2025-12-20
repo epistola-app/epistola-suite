@@ -10,6 +10,11 @@ export default defineConfig({
     // Define process.env for browser compatibility (some deps check NODE_ENV)
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
+  server: {
+    port: 5173,
+    cors: true,
+    origin: 'http://localhost:5173',
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/lib.tsx'),
