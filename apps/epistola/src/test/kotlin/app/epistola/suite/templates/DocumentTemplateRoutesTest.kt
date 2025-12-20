@@ -1,40 +1,29 @@
 package app.epistola.suite.templates
 
-import app.epistola.suite.TestcontainersConfiguration
+import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.tenants.commands.CreateTenant
-import app.epistola.suite.tenants.commands.CreateTenantHandler
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 
-@Import(TestcontainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
-class DocumentTemplateRoutesTest {
+class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
-
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
-    @Autowired
-    private lateinit var createTenantHandler: CreateTenantHandler
 
     @Autowired
     private lateinit var createDocumentTemplateHandler: CreateDocumentTemplateHandler
@@ -46,11 +35,7 @@ class DocumentTemplateRoutesTest {
 
     @BeforeEach
     fun setUp() {
-        jdbi.useHandle<Exception> { handle ->
-            handle.execute("DELETE FROM document_templates")
-            handle.execute("DELETE FROM tenants")
-        }
-        testTenant = createTenantHandler.handle(CreateTenant("Test Tenant"))
+        testTenant = createTenant("Test Tenant")
     }
 
     private fun createSampleTemplates() {

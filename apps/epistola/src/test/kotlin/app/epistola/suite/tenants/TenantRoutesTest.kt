@@ -1,48 +1,30 @@
 package app.epistola.suite.tenants
 
-import app.epistola.suite.TestcontainersConfiguration
-import app.epistola.suite.tenants.commands.CreateTenant
-import app.epistola.suite.tenants.commands.CreateTenantHandler
+import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.tenants.commands.DeleteTenant
+import app.epistola.suite.tenants.queries.ListTenants
 import org.assertj.core.api.Assertions.assertThat
-import org.jdbi.v3.core.Jdbi
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.resttestclient.TestRestTemplate
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 
-@Import(TestcontainersConfiguration::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
-class TenantRoutesTest {
+class TenantRoutesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
-    @Autowired
-    private lateinit var jdbi: Jdbi
-
-    @Autowired
-    private lateinit var createTenantHandler: CreateTenantHandler
-
-    @BeforeEach
-    fun setUp() {
-        jdbi.useHandle<Exception> { handle ->
-            handle.execute("DELETE FROM document_templates")
-            handle.execute("DELETE FROM tenants")
-        }
-    }
-
     @Test
     fun `GET homepage returns tenant list page`() {
-        createTenantHandler.handle(CreateTenant("Acme Corp"))
-        createTenantHandler.handle(CreateTenant("Globex Inc"))
+        createTenant("Acme Corp")
+        createTenant("Globex Inc")
 
         val response = restTemplate.getForEntity("/", String::class.java)
 
@@ -54,6 +36,8 @@ class TenantRoutesTest {
 
     @Test
     fun `GET homepage returns empty table when no tenants exist`() {
+        deleteAllTenants()
+
         val response = restTemplate.getForEntity("/", String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
@@ -63,8 +47,8 @@ class TenantRoutesTest {
 
     @Test
     fun `GET tenants search filters by name`() {
-        createTenantHandler.handle(CreateTenant("Acme Corp"))
-        createTenantHandler.handle(CreateTenant("Globex Inc"))
+        createTenant("Acme Corp")
+        createTenant("Globex Inc")
 
         val headers = HttpHeaders()
         headers.set("HX-Request", "true")
@@ -96,11 +80,15 @@ class TenantRoutesTest {
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("New Tenant")
+
+        // Clean up tenant created via HTTP (not tracked by base class)
+        val createdTenant = listTenantsHandler.handle(ListTenants("New Tenant")).first()
+        deleteTenantHandler.handle(DeleteTenant(createdTenant.id))
     }
 
     @Test
     fun `tenant row links to templates page`() {
-        val tenant = createTenantHandler.handle(CreateTenant("Test Tenant"))
+        val tenant = createTenant("Test Tenant")
 
         val response = restTemplate.getForEntity("/", String::class.java)
 
