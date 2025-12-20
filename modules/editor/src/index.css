@@ -1,5 +1,40 @@
 @import "tailwindcss";
 
+/*
+ * CSS Isolation for embedded editor
+ *
+ * When embedded, the editor is mounted in a .template-editor-root container.
+ * We use CSS containment to isolate the editor's styles from the parent page.
+ */
+
+/* Root container styling for embedded mode */
+.template-editor-root {
+  /* Reset inherited styles to create a clean slate */
+  all: initial;
+  display: block;
+
+  /* Re-apply essential defaults */
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #1f2937;
+
+  /* Ensure the editor takes full height of its container */
+  height: 100%;
+  width: 100%;
+
+  /* Contain styles and layout */
+  contain: layout style;
+}
+
+/* Apply Tailwind's preflight only within the editor root */
+.template-editor-root *,
+.template-editor-root *::before,
+.template-editor-root *::after {
+  box-sizing: border-box;
+}
+
+/* Standalone mode (mounted to #root) */
 :root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
