@@ -6,8 +6,6 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
-import app.epistola.suite.templates.queries.SearchDocumentTemplates
-import app.epistola.suite.templates.queries.SearchDocumentTemplatesHandler
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -15,7 +13,6 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class DocumentTemplateHandler(
     private val listHandler: ListDocumentTemplatesHandler,
-    private val searchHandler: SearchDocumentTemplatesHandler,
     private val createHandler: CreateDocumentTemplateHandler,
 ) {
     fun list(request: ServerRequest): ServerResponse {
@@ -25,7 +22,7 @@ class DocumentTemplateHandler(
 
     fun search(request: ServerRequest): ServerResponse {
         val searchTerm = request.param("q").orElse(null)
-        val templates = searchHandler.handle(SearchDocumentTemplates(searchTerm = searchTerm))
+        val templates = listHandler.handle(ListDocumentTemplates(searchTerm = searchTerm))
         return request.htmx {
             fragment("templates/list", "rows") {
                 "templates" to templates

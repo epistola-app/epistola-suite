@@ -3,8 +3,8 @@ package app.epistola.suite.templates
 import app.epistola.suite.TestcontainersConfiguration
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplateHandler
-import app.epistola.suite.templates.queries.SearchDocumentTemplates
-import app.epistola.suite.templates.queries.SearchDocumentTemplatesHandler
+import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.templates.queries.ListDocumentTemplatesHandler
 import org.assertj.core.api.Assertions.assertThat
 import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.BeforeEach
@@ -34,7 +34,7 @@ class DocumentTemplateRoutesTest {
     private lateinit var createDocumentTemplateHandler: CreateDocumentTemplateHandler
 
     @Autowired
-    private lateinit var searchDocumentTemplatesHandler: SearchDocumentTemplatesHandler
+    private lateinit var listDocumentTemplatesHandler: ListDocumentTemplatesHandler
 
     @BeforeEach
     fun setUp() {
@@ -127,7 +127,7 @@ class DocumentTemplateRoutesTest {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("New Template")
 
-        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(searchTerm = "New Template"))
+        val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(searchTerm = "New Template"))
         assertThat(templates).hasSize(1)
     }
 
@@ -154,7 +154,7 @@ class DocumentTemplateRoutesTest {
         assertThat(response.body).doesNotContain("<!DOCTYPE html>")
         assertThat(response.body).doesNotContain("<head>")
 
-        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(searchTerm = "HTMX Template"))
+        val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(searchTerm = "HTMX Template"))
         assertThat(templates).hasSize(1)
     }
 }
