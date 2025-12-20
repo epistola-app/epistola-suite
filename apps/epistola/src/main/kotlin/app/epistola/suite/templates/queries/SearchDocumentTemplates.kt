@@ -6,7 +6,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class SearchDocumentTemplates(
-    val name: String? = null,
+    val searchTerm: String? = null,
 )
 
 @Component
@@ -15,15 +15,15 @@ class SearchDocumentTemplatesHandler(private val jdbi: Jdbi) {
         return jdbi.withHandle<List<DocumentTemplate>, Exception> { handle ->
             val sql = buildString {
                 append("SELECT * FROM document_templates WHERE 1=1")
-                if (query.name != null) {
-                    append(" AND name = :name")
+                if (!query.searchTerm.isNullOrBlank()) {
+                    append(" AND name ILIKE :searchTerm")
                 }
-                append(" ORDER BY name")
+                append(" ORDER BY last_modified DESC")
             }
 
             val jdbiQuery = handle.createQuery(sql)
-            if (query.name != null) {
-                jdbiQuery.bind("name", query.name)
+            if (!query.searchTerm.isNullOrBlank()) {
+                jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
             }
             jdbiQuery.mapTo<DocumentTemplate>().list()
         }

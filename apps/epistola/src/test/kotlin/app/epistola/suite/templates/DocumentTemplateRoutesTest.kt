@@ -71,6 +71,44 @@ class DocumentTemplateRoutesTest {
     }
 
     @Test
+    fun `GET templates search filters by name`() {
+        val headers = HttpHeaders()
+        headers.set("HX-Request", "true")
+
+        val request = HttpEntity<Void>(headers)
+        val response = restTemplate.exchange(
+            "/templates/search?q=Invoice",
+            org.springframework.http.HttpMethod.GET,
+            request,
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Invoice Template")
+        assertThat(response.body).doesNotContain("Contract Template")
+        assertThat(response.body).doesNotContain("Letter Template")
+    }
+
+    @Test
+    fun `GET templates search with empty query returns all templates`() {
+        val headers = HttpHeaders()
+        headers.set("HX-Request", "true")
+
+        val request = HttpEntity<Void>(headers)
+        val response = restTemplate.exchange(
+            "/templates/search",
+            org.springframework.http.HttpMethod.GET,
+            request,
+            String::class.java,
+        )
+
+        assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+        assertThat(response.body).contains("Invoice Template")
+        assertThat(response.body).contains("Contract Template")
+        assertThat(response.body).contains("Letter Template")
+    }
+
+    @Test
     fun `POST templates creates new template and redirects`() {
         jdbi.useHandle<Exception> { handle ->
             handle.execute("DELETE FROM document_templates")
@@ -89,7 +127,7 @@ class DocumentTemplateRoutesTest {
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.body).contains("New Template")
 
-        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(name = "New Template"))
+        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(searchTerm = "New Template"))
         assertThat(templates).hasSize(1)
     }
 
@@ -116,7 +154,7 @@ class DocumentTemplateRoutesTest {
         assertThat(response.body).doesNotContain("<!DOCTYPE html>")
         assertThat(response.body).doesNotContain("<head>")
 
-        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(name = "HTMX Template"))
+        val templates = searchDocumentTemplatesHandler.handle(SearchDocumentTemplates(searchTerm = "HTMX Template"))
         assertThat(templates).hasSize(1)
     }
 }

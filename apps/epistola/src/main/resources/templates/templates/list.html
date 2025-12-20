@@ -32,6 +32,15 @@
 
         <section>
             <h2>Existing Templates</h2>
+            <div class="search-box">
+                <input type="search"
+                       name="q"
+                       placeholder="Search templates..."
+                       hx-get="/templates/search"
+                       hx-trigger="input changed delay:300ms, search"
+                       hx-target="#template-rows"
+                       hx-swap="innerHTML">
+            </div>
             <table>
                 <thead>
                     <tr>
