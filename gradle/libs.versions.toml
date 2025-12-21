@@ -9,6 +9,7 @@ htmx-spring-boot = "5.0.0"
 cyclonedx = "3.1.0"
 kover = "0.9.1"
 jdbi = "3.51.0"
+json-schema-validator = "3.0.0"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -17,6 +18,7 @@ jdbi-core = { module = "org.jdbi:jdbi3-core", version.ref = "jdbi" }
 jdbi-kotlin = { module = "org.jdbi:jdbi3-kotlin", version.ref = "jdbi" }
 jdbi-postgres = { module = "org.jdbi:jdbi3-postgres", version.ref = "jdbi" }
 jdbi-jackson3 = { module = "org.jdbi:jdbi3-jackson3", version.ref = "jdbi" }
+json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

@@ -5,10 +5,10 @@ import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
- * Editor template structure matching the frontend editor's Template type.
- * This is the content structure stored in the database as JSON.
+ * Template model structure matching the frontend editor's Template type.
+ * This is the visual layout structure stored in the database as JSON.
  */
-data class EditorTemplate(
+data class TemplateModel(
     val id: String,
     val name: String,
     val version: Int = 1,
@@ -56,16 +56,16 @@ data class DocumentStyles(
 )
 
 enum class TextAlign {
-    @com.fasterxml.jackson.annotation.JsonProperty("left")
+    @JsonProperty("left")
     Left,
 
-    @com.fasterxml.jackson.annotation.JsonProperty("center")
+    @JsonProperty("center")
     Center,
 
-    @com.fasterxml.jackson.annotation.JsonProperty("right")
+    @JsonProperty("right")
     Right,
 
-    @com.fasterxml.jackson.annotation.JsonProperty("justify")
+    @JsonProperty("justify")
     Justify,
 }
 
@@ -151,16 +151,16 @@ data class TableBlock(
 }
 
 enum class BorderStyle {
-    @com.fasterxml.jackson.annotation.JsonProperty("none")
+    @JsonProperty("none")
     None,
 
-    @com.fasterxml.jackson.annotation.JsonProperty("all")
+    @JsonProperty("all")
     All,
 
-    @com.fasterxml.jackson.annotation.JsonProperty("horizontal")
+    @JsonProperty("horizontal")
     Horizontal,
 
-    @com.fasterxml.jackson.annotation.JsonProperty("vertical")
+    @JsonProperty("vertical")
     Vertical,
 }
 

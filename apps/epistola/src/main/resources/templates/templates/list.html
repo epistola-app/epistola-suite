@@ -62,7 +62,7 @@
                             <td th:text="${template.name}"></td>
                             <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                             <td>
-                                <a th:href="@{/tenants/{tenantId}/templates/{id}/edit(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">Edit</a>
+                                <a th:href="@{/tenants/{tenantId}/templates/{id}/editor(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">Edit</a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(templates)}">

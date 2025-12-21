@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- Extended document templates with data model and examples support
+  - Renamed `content` column to `templateModel` (visual layout definition)
+  - Added `dataModel` column for JSON Schema definitions
+  - Added `dataExamples` column for named JSON examples that validate against the schema
+  - JSON Schema validation using networknt/json-schema-validator 3.0.0 (Jackson 3 compatible)
+  - `PATCH /tenants/{tenantId}/templates/{id}` endpoint for partial updates
+  - Strict validation: examples must conform to schema, schema changes validate existing examples
 - Form validation for tenant and template creation
   - Validation in command constructors using `require()` for fail-fast behavior
   - Name is required (non-blank) and max 255 characters
@@ -52,7 +59,7 @@
 - Editor component integration with Thymeleaf templates
     - Library build mode for the React editor (`mountEditor()` API)
     - Editor can be embedded in Thymeleaf pages while sharing the app layout
-    - New `/templates/{id}/edit` route to open the visual template editor
+    - New `/templates/{id}/editor` route to open the visual template editor
     - REST API endpoints for saving template content (`PUT /api/templates/{id}`)
     - CSS isolation to prevent style conflicts between editor and parent page
     - Edit links added to the templates list page

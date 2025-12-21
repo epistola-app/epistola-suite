@@ -14,7 +14,9 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             GET("", handler::list)
             GET("/search", handler::search)
             POST("", handler::create)
-            GET("/{id}/edit", handler::edit)
+            GET("/{id}/editor", handler::editor)
+            GET("/{id}", handler::get)
+            PATCH("/{id}", handler::update)
         }
     }
 }

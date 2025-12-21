@@ -110,3 +110,44 @@ export interface PreviewOverrides {
   conditionals: Record<string, 'data' | 'show' | 'hide'>;
   loops: Record<string, number | 'data'>;
 }
+
+// JSON types (matches ObjectNode on backend)
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonObject
+  | JsonArray;
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+export type JsonArray = JsonValue[];
+
+// Named example data set that adheres to the template's dataModel schema
+export interface DataExample {
+  name: string;
+  data: JsonObject;
+}
+
+// Full document template response from API
+export interface DocumentTemplateResponse {
+  id: number;
+  name: string;
+  templateModel: Template | null;
+  dataModel: JsonObject | null; // JSON Schema
+  dataExamples: DataExample[];
+  createdAt: string;
+  lastModified: string;
+}
+
+// Validation error from schema validation
+export interface ValidationError {
+  message: string;
+  path: string;
+}
+
+// Error response when validation fails
+export interface ValidationErrorResponse {
+  errors: Record<string, ValidationError[]>;
+}
