@@ -83,12 +83,12 @@
             template: templateData,
             onSave: async (template) => {
                 try {
-                    const response = await fetch('/api/tenants/' + tenantId + '/templates/' + templateId, {
-                        method: 'PUT',
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
+                        method: 'PATCH',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify(template)
+                        body: JSON.stringify({ templateModel: template })
                     });
 
                     if (response.ok) {
