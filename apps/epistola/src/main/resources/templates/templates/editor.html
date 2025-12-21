@@ -65,7 +65,7 @@
 
     <script th:inline="javascript">
         /*<![CDATA[*/
-        window.TEMPLATE_JSON = /*[[${templateJson}]]*/ '{}';
+        window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
         window.TENANT_ID = /*[[${tenantId}]]*/ '';
         /*]]>*/
@@ -74,7 +74,7 @@
         import { mountEditor } from '/editor/template-editor.js';
 
         const container = document.getElementById('editor-container');
-        const templateData = JSON.parse(window.TEMPLATE_JSON);
+        const templateData = window.TEMPLATE_MODEL;
         const templateId = window.TEMPLATE_ID;
         const tenantId = window.TENANT_ID;
 

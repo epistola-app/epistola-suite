@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+- Simplified template editor data passing by using Thymeleaf's native JavaScript serialization
+  - Removed unnecessary JSON stringify/parse roundtrip in template handler
+  - `templateModel` is now passed directly to the view and serialized by Thymeleaf
+
 ### Added
 - Extended document templates with data model and examples support
   - Renamed `content` column to `templateModel` (visual layout definition)

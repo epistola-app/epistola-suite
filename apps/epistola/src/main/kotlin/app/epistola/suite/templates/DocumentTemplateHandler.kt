@@ -101,16 +101,13 @@ class DocumentTemplateHandler(
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
             ?: return ServerResponse.notFound().build()
 
-        // Serialize the TemplateModel to JSON for the frontend
-        val templateJson = template.templateModel?.let { objectMapper.writeValueAsString(it) } ?: "{}"
-
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
                 "tenantId" to tenantId,
                 "templateId" to id,
                 "templateName" to template.name,
-                "templateJson" to templateJson,
+                "templateModel" to (template.templateModel ?: emptyMap<String, Any>()),
             ),
         )
     }
@@ -149,6 +146,7 @@ class DocumentTemplateHandler(
         return try {
             val updated = mediator.send(
                 UpdateDocumentTemplate(
+
                     tenantId = tenantId,
                     id = id,
                     templateModel = updateRequest.templateModel,
