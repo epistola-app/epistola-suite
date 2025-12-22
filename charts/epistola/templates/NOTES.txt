@@ -1,3 +1,4 @@
+{{- $dbType := include "epistola.database.effectiveType" . }}
 1. Get the application URL by running these commands:
 {{- if .Values.ingress.enabled }}
 {{- range $host := .Values.ingress.hosts }}
@@ -19,4 +20,44 @@
   export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
   echo "Visit http://127.0.0.1:8080 to use your application"
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+{{- if eq $dbType "cnpg" }}
+
+2. Database: A CloudNativePG cluster "{{ include "epistola.cnpg.clusterName" . }}" is being created.
+
+   Wait for the cluster to be ready:
+   kubectl wait --for=condition=Ready cluster/{{ include "epistola.cnpg.clusterName" . }} --namespace {{ .Release.Namespace }} --timeout=300s
+
+   Get database credentials:
+   kubectl get secret {{ include "epistola.cnpg.secretName" . }} --namespace {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d
+
+   Connect to the database (requires kubectl-cnpg plugin):
+   kubectl cnpg psql {{ include "epistola.cnpg.clusterName" . }} --namespace {{ .Release.Namespace }}
+{{- else if eq $dbType "cnpgExisting" }}
+
+2. Database: Using existing CloudNativePG cluster "{{ .Values.database.cnpgExisting.clusterName }}".
+   Ensure the cluster exists and is ready in namespace {{ .Release.Namespace }}.
+{{- else if eq $dbType "external" }}
+
+2. Database: Configured to use external PostgreSQL at {{ .Values.database.external.host }}:{{ .Values.database.external.port }}.
+{{- else if eq $dbType "external-legacy" }}
+
+2. Database: Configured to use external PostgreSQL at {{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}.
+
+   WARNING: You are using the deprecated postgresql.* configuration.
+   Please migrate to the new database.* configuration:
+
+   database:
+     type: "external"
+     external:
+       host: "{{ .Values.postgresql.host }}"
+       port: {{ .Values.postgresql.port }}
+       database: "{{ .Values.postgresql.database }}"
+       username: "{{ .Values.postgresql.username }}"
+       existingSecret: "{{ .Values.postgresql.existingSecret }}"
+       secretKey: "{{ .Values.postgresql.secretKey }}"
+{{- else }}
+
+2. Database: No database is configured. Set database.type or use config.env to configure manually.
 {{- end }}

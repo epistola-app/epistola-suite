@@ -15,3 +15,5 @@ keywords:
   - document-suite
   - spring-boot
   - kotlin
+  - postgresql
+  - cloudnativepg

@@ -123,17 +123,70 @@ config:
   env: {}
   # Example:
   #   JAVA_OPTS: "-Xmx512m"
-  #   SPRING_DATASOURCE_URL: "jdbc:postgresql://db:5432/epistola"
 
-# PostgreSQL database configuration
+# Database configuration
+# Supported types:
+#   - none: No database configuration (use config.env for manual setup)
+#   - external: External PostgreSQL (manual host/port/credentials)
+#   - cnpg: Create a new CloudNativePG Cluster (requires CNPG operator)
+#   - cnpgExisting: Use existing CloudNativePG Cluster credentials
+database:
+  type: "none"
+
+  # External PostgreSQL configuration (type: external)
+  external:
+    host: ""
+    port: 5432
+    database: epistola
+    username: epistola
+    # Name of existing secret containing the password
+    existingSecret: ""
+    # Key in the secret containing the password
+    secretKey: password
+
+  # CloudNativePG Cluster configuration (type: cnpg)
+  cnpg:
+    # Cluster name (defaults to release fullname + "-db")
+    name: ""
+    # Number of PostgreSQL instances
+    instances: 1
+    # PostgreSQL major version
+    postgresVersion: 17
+    # Database to create
+    database: epistola
+    # Application user to create (owner of the database)
+    owner: epistola
+    # Storage configuration
+    storage:
+      size: 8Gi
+      storageClass: ""
+    # Resource requests/limits for PostgreSQL pods
+    resources: {}
+    #   requests:
+    #     memory: 256Mi
+    #     cpu: 100m
+    #   limits:
+    #     memory: 1Gi
+    #     cpu: 1000m
+    # Additional PostgreSQL parameters
+    parameters: {}
+    #   max_connections: "100"
+    #   shared_buffers: "256MB"
+
+  # Existing CNPG Cluster configuration (type: cnpgExisting)
+  cnpgExisting:
+    # Name of the existing CNPG cluster
+    clusterName: ""
+    # Secret name (defaults to <clusterName>-app)
+    secretName: ""
+
+# DEPRECATED: Use database.type: external and database.external.* instead
+# Kept for backward compatibility
 postgresql:
-  # Set to true to use external PostgreSQL
   enabled: false
   host: ""
   port: 5432
   database: epistola
   username: epistola
-  # Name of existing secret containing the password
   existingSecret: ""
-  # Key in the secret containing the password
   secretKey: password

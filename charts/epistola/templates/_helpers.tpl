@@ -60,3 +60,40 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Get the CNPG cluster name
+*/}}
+{{- define "epistola.cnpg.clusterName" -}}
+{{- if .Values.database.cnpg.name }}
+{{- .Values.database.cnpg.name }}
+{{- else }}
+{{- printf "%s-db" (include "epistola.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Get the CNPG secret name for app credentials
+*/}}
+{{- define "epistola.cnpg.secretName" -}}
+{{- if eq .Values.database.type "cnpgExisting" }}
+{{- if .Values.database.cnpgExisting.secretName }}
+{{- .Values.database.cnpgExisting.secretName }}
+{{- else }}
+{{- printf "%s-app" .Values.database.cnpgExisting.clusterName }}
+{{- end }}
+{{- else }}
+{{- printf "%s-app" (include "epistola.cnpg.clusterName" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Determine effective database type (handles legacy postgresql.enabled)
+*/}}
+{{- define "epistola.database.effectiveType" -}}
+{{- if and .Values.postgresql.enabled (eq .Values.database.type "none") }}
+{{- "external-legacy" }}
+{{- else }}
+{{- .Values.database.type }}
+{{- end }}
+{{- end }}

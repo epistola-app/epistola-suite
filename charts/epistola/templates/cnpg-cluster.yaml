@@ -1,0 +1,32 @@
+{{- if eq .Values.database.type "cnpg" }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "epistola.cnpg.clusterName" . }}
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.database.cnpg.instances }}
+
+  postgresql:
+    {{- with .Values.database.cnpg.parameters }}
+    parameters:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+
+  bootstrap:
+    initdb:
+      database: {{ .Values.database.cnpg.database }}
+      owner: {{ .Values.database.cnpg.owner }}
+
+  storage:
+    size: {{ .Values.database.cnpg.storage.size }}
+    {{- if .Values.database.cnpg.storage.storageClass }}
+    storageClass: {{ .Values.database.cnpg.storage.storageClass }}
+    {{- end }}
+
+  {{- with .Values.database.cnpg.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

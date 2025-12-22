@@ -8,6 +8,13 @@
   - `templateModel` is now passed directly to the view and serialized by Thymeleaf
 
 ### Added
+- CloudNativePG (CNPG) support in Helm chart for PostgreSQL database management
+  - Three database modes: `cnpg` (create cluster), `cnpgExisting` (use existing), `external` (manual config)
+  - New `database.type` configuration with discriminator pattern
+  - Automatic CNPG Cluster resource creation when `database.type: cnpg`
+  - Support for consuming existing CNPG cluster credentials
+  - Backward compatibility with deprecated `postgresql.*` configuration
+  - Post-install notes with cluster status and connection commands
 - Extended document templates with data model and examples support
   - Renamed `content` column to `templateModel` (visual layout definition)
   - Added `dataModel` column for JSON Schema definitions

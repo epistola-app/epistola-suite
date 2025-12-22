@@ -45,7 +45,37 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.config.profiles | quote }}
             {{- end }}
-            {{- if .Values.postgresql.enabled }}
+            {{- $dbType := include "epistola.database.effectiveType" . }}
+            {{- /* CNPG mode - use CNPG secret with jdbc-uri */}}
+            {{- if or (eq $dbType "cnpg") (eq $dbType "cnpgExisting") }}
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "epistola.cnpg.secretName" . }}
+                  key: jdbc-uri
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "epistola.cnpg.secretName" . }}
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "epistola.cnpg.secretName" . }}
+                  key: password
+            {{- /* External PostgreSQL mode (new config) */}}
+            {{- else if eq $dbType "external" }}
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://{{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: {{ .Values.database.external.username | quote }}
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "database.external.existingSecret is required when database.type is 'external'" .Values.database.external.existingSecret }}
+                  key: {{ .Values.database.external.secretKey }}
+            {{- /* Legacy PostgreSQL mode (backward compatibility) */}}
+            {{- else if eq $dbType "external-legacy" }}
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://{{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}"
             - name: SPRING_DATASOURCE_USERNAME
@@ -53,7 +83,7 @@ spec:
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.postgresql.existingSecret }}
+                  name: {{ required "postgresql.existingSecret is required when postgresql.enabled is true" .Values.postgresql.existingSecret }}
                   key: {{ .Values.postgresql.secretKey }}
             {{- end }}
             {{- range $key, $value := .Values.config.env }}
