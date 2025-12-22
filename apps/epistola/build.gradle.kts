@@ -90,3 +90,11 @@ tasks.register("generateSbom") {
     description = "Generate CycloneDX SBOM for backend dependencies"
     dependsOn(tasks.cyclonedxDirectBom)
 }
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+    environment.set(
+        mapOf(
+            "BP_JVM_VERSION" to "25",
+        ),
+    )
+}
