@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- pnpm workspaces for frontend module management
+  - Root `pnpm-workspace.yaml` orchestrates all modules in `modules/`
+  - Unified dependency management and build commands from repo root
+  - `pnpm build` builds all modules, `pnpm --filter @epistola/<module> build` for specific modules
+- Import maps for shared JavaScript dependencies to avoid duplicate bundling
+  - `modules/vendor` package uses Rollup to bundle React, ReactDOM, Zustand, and Immer as proper ESM with named exports
+  - Custom entry wrappers ensure CJS packages export named bindings (not just default)
+  - Editor module excludes shared dependencies via Vite externals (~750KB vs ~1.1MB bundle)
+  - Thymeleaf import map fragment (`fragments/importmap.html`) for browser-native dependency resolution
+  - Shared dependencies loaded once and cached, reducing page load time for multiple interactive components
+
 ### Changed
 - Simplified template editor data passing by using Thymeleaf's native JavaScript serialization
   - Removed unnecessary JSON stringify/parse roundtrip in template handler

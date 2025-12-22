@@ -20,16 +20,12 @@ dependencies {
 
 node {
     download.set(false) // relies on PATH (github actions, mise)
+    nodeProjectDir.set(file("${rootProject.projectDir}"))
 }
 
-tasks.named<com.github.gradle.node.npm.task.NpmTask>("npmInstall") {
-    inputs.file("package.json")
-    inputs.file("package-lock.json").optional()
-}
-
-val npmBuild by tasks.registering(com.github.gradle.node.npm.task.NpmTask::class) {
-    dependsOn(tasks.npmInstall)
-    args.set(listOf("run", "build"))
+val pnpmBuild by tasks.registering(com.github.gradle.node.pnpm.task.PnpmTask::class) {
+    dependsOn(tasks.named("pnpmInstall"))
+    args.set(listOf("--filter", "@epistola/editor", "build"))
     inputs.dir("src")
     inputs.file("package.json")
     inputs.file("vite.config.ts")
@@ -38,7 +34,7 @@ val npmBuild by tasks.registering(com.github.gradle.node.npm.task.NpmTask::class
 }
 
 val copyDistToResources by tasks.registering(Copy::class) {
-    dependsOn(npmBuild)
+    dependsOn(pnpmBuild)
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
 }
@@ -47,10 +43,9 @@ tasks.named("processResources") {
     dependsOn(copyDistToResources)
 }
 
-val npmSbom by tasks.registering(com.github.gradle.node.npm.task.NpmTask::class) {
-    dependsOn(tasks.npmInstall)
-    args.set(listOf("run", "sbom"))
+val pnpmSbom by tasks.registering(com.github.gradle.node.pnpm.task.PnpmTask::class) {
+    dependsOn(tasks.named("pnpmInstall"))
+    args.set(listOf("--filter", "@epistola/editor", "sbom"))
     inputs.file("package.json")
-    inputs.file("package-lock.json").optional()
     outputs.file(layout.buildDirectory.file("sbom.json"))
 }

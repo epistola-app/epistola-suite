@@ -17,6 +17,7 @@ if (buildNativeImage) {
 }
 
 dependencies {
+    implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")

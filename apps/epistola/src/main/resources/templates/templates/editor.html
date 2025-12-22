@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
+    <!-- Import map must be before any module scripts -->
+    <th:block th:replace="~{fragments/importmap :: importmap}" />
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
     <style>
