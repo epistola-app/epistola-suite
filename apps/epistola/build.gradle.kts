@@ -5,9 +5,15 @@ plugins {
     kotlin("plugin.spring")
     id("org.springframework.boot")
     id("io.spring.dependency-management")
-    id("org.graalvm.buildtools.native")
+    id("org.graalvm.buildtools.native") apply false
     id("org.cyclonedx.bom")
     id("org.jetbrains.kotlinx.kover")
+}
+
+// Conditionally apply native plugin only when building native images
+val buildNativeImage = providers.gradleProperty("nativeImage").orNull?.toBoolean() ?: false
+if (buildNativeImage) {
+    apply(plugin = "org.graalvm.buildtools.native")
 }
 
 dependencies {
@@ -91,6 +97,9 @@ tasks.register("generateSbom") {
     dependsOn(tasks.cyclonedxDirectBom)
 }
 
+// Docker image configuration
+// Default: JVM image (recommended, stable)
+// Use -PnativeImage=true to build a native image (currently broken due to JDBI/Kotlin reflection)
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
     environment.set(
         mapOf(

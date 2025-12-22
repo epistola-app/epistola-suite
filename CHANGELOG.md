@@ -8,6 +8,10 @@
   - `templateModel` is now passed directly to the view and serialized by Thymeleaf
 
 ### Added
+- Docker image build configuration with JVM and native options
+  - JVM image (default): `./gradlew bootBuildImage`
+  - Native image (disabled): `./gradlew bootBuildImage -PnativeImage=true` - broken due to JDBI/Kotlin reflection ([jdbi#2475](https://github.com/jdbi/jdbi/issues/2475))
+  - Images signed with Cosign and SBOM attested
 - CloudNativePG (CNPG) support in Helm chart for PostgreSQL database management
   - Three database modes: `cnpg` (create cluster), `cnpgExisting` (use existing), `external` (manual config)
   - New `database.type` configuration with discriminator pattern

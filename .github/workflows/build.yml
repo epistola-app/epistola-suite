@@ -145,35 +145,60 @@ jobs:
           retention-days: 7
 
   docker:
-    name: Build and Push Docker Image
+    name: Build and Push ${{ matrix.variant }} Docker Image
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'publish')
     permissions:
       contents: write
       packages: write
-      id-token: write  # Required for Cosign keyless signing
+      id-token: write
+    strategy:
+      matrix:
+        include:
+          - variant: JVM
+            gradle-args: ''
+            image-suffix: ''
+            enabled: true
+          - variant: Native
+            gradle-args: -PnativeImage=true
+            image-suffix: '-native'
+            # Disabled: JDBI/Kotlin reflection doesn't work with GraalVM native images
+            # See: https://github.com/jdbi/jdbi/issues/2475
+            enabled: false
+      fail-fast: false
     steps:
+      - name: Check if variant is enabled
+        if: ${{ !matrix.enabled }}
+        run: |
+          echo "::notice::${{ matrix.variant }} build is disabled"
+          exit 0
+
       - name: Checkout
+        if: ${{ matrix.enabled }}
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up JDK 25
+        if: ${{ matrix.enabled }}
         uses: actions/setup-java@v4
         with:
           java-version: '25'
           distribution: 'temurin'
 
       - name: Set up Node.js
+        if: ${{ matrix.enabled }}
         uses: actions/setup-node@v4
         with:
           node-version: '24'
 
       - name: Setup Gradle
+        if: ${{ matrix.enabled }}
         uses: gradle/actions/setup-gradle@v4
 
       - name: Log in to Container Registry
+        if: ${{ matrix.enabled }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -181,10 +206,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Cosign
+        if: ${{ matrix.enabled }}
         uses: sigstore/cosign-installer@v3
 
       - name: Bump version and create tag
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         id: tag
         uses: mathieudutour/github-tag-action@v6.2
         with:
@@ -192,75 +218,85 @@ jobs:
           default_bump: patch
 
       - name: Get previous tag (PR)
-        if: github.event_name == 'pull_request'
+        if: ${{ matrix.enabled && github.event_name == 'pull_request' }}
         id: previoustag
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
           echo "tag=${PREV_TAG#v}" >> $GITHUB_OUTPUT
 
+      - name: Get latest tag (main, native only)
+        if: ${{ matrix.enabled && matrix.variant == 'Native' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        id: latesttag
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "tag=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
+
       - name: Get project version
+        if: ${{ matrix.enabled }}
         id: version
         run: |
           VERSION=$(./gradlew properties -q | grep "^version:" | awk '{print $2}')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate SBOMs
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' }}
         run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
 
       - name: Build Docker image
+        if: ${{ matrix.enabled }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: ./gradlew :apps:epistola:bootBuildImage --imageName=epistola-suite:$VERSION
+        run: ./gradlew :apps:epistola:bootBuildImage ${{ matrix.gradle-args }} --imageName=epistola-suite:$VERSION${{ matrix.image-suffix }}
 
       - name: Tag and push Docker image (PR)
-        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish')
+        if: ${{ matrix.enabled && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish') }}
         id: push_pr
         env:
           VERSION: ${{ steps.version.outputs.version }}
           PR_TAG: ${{ steps.previoustag.outputs.tag }}-pr-${{ github.event.pull_request.number }}-${{ github.run_number }}
+          SUFFIX: ${{ matrix.image-suffix }}
         run: |
-          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG
-          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG | cut -d'@' -f2)" >> $GITHUB_OUTPUT
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG$SUFFIX
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PR_TAG$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
 
       - name: Sign Docker image (PR)
-        if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish')
+        if: ${{ matrix.enabled && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish') }}
         env:
           DIGEST: ${{ steps.push_pr.outputs.digest }}
-        run: |
-          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Tag and push Docker image (main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.enabled && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         id: push_main
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          NEW_TAG: ${{ steps.tag.outputs.new_version }}
+          NEW_TAG: ${{ matrix.variant == 'JVM' && steps.tag.outputs.new_version || steps.latesttag.outputs.tag }}
+          SUFFIX: ${{ matrix.image-suffix }}
         run: |
-          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG
-          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker tag epistola-suite:$VERSION ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG | cut -d'@' -f2)" >> $GITHUB_OUTPUT
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG$SUFFIX
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
 
       - name: Sign Docker image (main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.enabled && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           DIGEST: ${{ steps.push_main.outputs.digest }}
-        run: |
-          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Attest SBOM to Docker image (main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           DIGEST: ${{ steps.push_main.outputs.digest }}
-        run: |
-          cosign attest --yes --predicate apps/epistola/build/sbom/bom.json --type cyclonedx ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+        run: cosign attest --yes --predicate apps/epistola/build/sbom/bom.json --type cyclonedx ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Rename SBOMs with version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         env:
           NEW_TAG: ${{ steps.tag.outputs.new_version }}
         run: |
@@ -268,7 +304,7 @@ jobs:
           cp modules/editor/build/sbom.json modules/editor/build/epistola-editor-${NEW_TAG}-sbom.json
 
       - name: Create GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.new_tag }}
