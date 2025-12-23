@@ -1,6 +1,5 @@
 plugins {
     `java-library`
-    id("com.github.node-gradle.node")
     kotlin("jvm")
     kotlin("plugin.spring")
     id("io.spring.dependency-management")
@@ -18,34 +17,34 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 }
 
-node {
-    download.set(false) // relies on PATH (github actions, mise)
-    nodeProjectDir.set(file("${rootProject.projectDir}"))
-}
+val verifyFrontendBuild by tasks.registering {
+    description = "Verifies that the frontend build output exists"
+    group = "verification"
 
-val pnpmBuild by tasks.registering(com.github.gradle.node.pnpm.task.PnpmTask::class) {
-    dependsOn(tasks.named("pnpmInstall"))
-    args.set(listOf("--filter", "@epistola/editor", "build"))
-    inputs.dir("src")
-    inputs.file("package.json")
-    inputs.file("vite.config.ts")
-    inputs.file("tsconfig.json")
-    outputs.dir("dist")
+    doLast {
+        val distDir = file("dist")
+        if (!distDir.exists() || !distDir.isDirectory) {
+            throw GradleException(
+                """
+                Frontend build output not found at: ${distDir.absolutePath}
+
+                Please run the frontend build first:
+                  pnpm install && pnpm build
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 val copyDistToResources by tasks.registering(Copy::class) {
-    dependsOn(pnpmBuild)
+    dependsOn(verifyFrontendBuild)
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
+
+    // Ensure task re-runs if output directory is missing
+    outputs.upToDateWhen { layout.buildDirectory.dir("resources/main/META-INF/resources/editor").get().asFile.exists() }
 }
 
 tasks.named("processResources") {
     dependsOn(copyDistToResources)
-}
-
-val pnpmSbom by tasks.registering(com.github.gradle.node.pnpm.task.PnpmTask::class) {
-    dependsOn(tasks.named("pnpmInstall"))
-    args.set(listOf("--filter", "@epistola/editor", "sbom"))
-    inputs.file("package.json")
-    outputs.file(layout.buildDirectory.file("sbom.json"))
 }

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+- Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration
+  - Frontend: `pnpm install && pnpm build` builds all modules in `modules/`
+  - Backend: `./gradlew build` compiles, tests, and packages (requires frontend built first)
+  - Gradle verifies frontend is built before packaging, failing with helpful error if not
+  - Removed node-gradle plugin dependency for cleaner Gradle configuration
+  - CI workflow updated to run pnpm build before Gradle with proper caching
+
 ### Added
 - pnpm workspaces for frontend module management
   - Root `pnpm-workspace.yaml` orchestrates all modules in `modules/`

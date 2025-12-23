@@ -1,26 +1,33 @@
 plugins {
     `java-library`
-    id("com.github.node-gradle.node")
 }
 
-node {
-    download.set(false)
-    nodeProjectDir.set(file("${rootProject.projectDir}"))
-}
+val verifyFrontendBuild by tasks.registering {
+    description = "Verifies that the frontend build output exists"
+    group = "verification"
 
-val pnpmBuild by tasks.registering(com.github.gradle.node.pnpm.task.PnpmTask::class) {
-    dependsOn(tasks.named("pnpmInstall"))
-    args.set(listOf("--filter", "@epistola/vendor", "build"))
-    inputs.file("package.json")
-    inputs.file("rollup.config.js")
-    inputs.dir("entries")
-    outputs.dir("dist")
+    doLast {
+        val distDir = file("dist")
+        if (!distDir.exists() || !distDir.isDirectory) {
+            throw GradleException(
+                """
+                Frontend build output not found at: ${distDir.absolutePath}
+
+                Please run the frontend build first:
+                  pnpm install && pnpm build
+                """.trimIndent(),
+            )
+        }
+    }
 }
 
 val copyDistToResources by tasks.registering(Copy::class) {
-    dependsOn(pnpmBuild)
+    dependsOn(verifyFrontendBuild)
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/vendor"))
+
+    // Ensure task re-runs if output directory is missing
+    outputs.upToDateWhen { layout.buildDirectory.dir("resources/main/META-INF/resources/vendor").get().asFile.exists() }
 }
 
 tasks.named("processResources") {

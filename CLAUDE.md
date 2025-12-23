@@ -53,9 +53,18 @@ The frontend uses a **server-side rendering** approach:
 
 ## Build Commands
 
+The build is split into two phases: **frontend (pnpm)** and **backend (Gradle)**.
+
 ```bash
-# Full build (compiles, tests, checks)
+# Frontend build (must run first)
+pnpm install
+pnpm build
+
+# Backend build (requires frontend built first)
 ./gradlew build
+
+# Combined build
+pnpm install && pnpm build && ./gradlew build
 
 # Run the application
 ./gradlew :apps:epistola:bootRun
@@ -74,6 +83,19 @@ The frontend uses a **server-side rendering** approach:
 
 # Generate SBOM (Software Bill of Materials)
 ./gradlew :apps:epistola:generateSbom
+pnpm --filter @epistola/editor sbom
+```
+
+### Development Workflow
+
+For live frontend development with hot reload:
+
+```bash
+# Terminal 1: Spring Boot with local profile (serves from filesystem)
+./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'
+
+# Terminal 2: Watch mode (rebuilds dist/ on file changes)
+pnpm --filter @epistola/editor watch
 ```
 
 ## Code Style
