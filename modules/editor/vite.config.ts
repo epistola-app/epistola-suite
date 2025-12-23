@@ -37,7 +37,7 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/lib.tsx'),
+      entry: resolve(__dirname, 'src/main/typescript/lib.tsx'),
       name: 'TemplateEditor',
       fileName: 'template-editor',
       formats: ['es'],
