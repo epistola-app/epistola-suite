@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+    Import map for shared JavaScript dependencies.
+    Include this fragment in <head> BEFORE any <script type="module"> tags.
+
+    Usage: <th:block th:replace="~{fragments/importmap :: importmap}" />
+-->
+<script type="importmap" th:fragment="importmap">
+{
+  "imports": {
+    "react": "/vendor/react.js",
+    "react-dom": "/vendor/react-dom.js",
+    "react-dom/client": "/vendor/react-dom-client.js",
+    "react/jsx-runtime": "/vendor/react-jsx-runtime.js",
+    "zustand": "/vendor/zustand.js",
+    "zustand/middleware/immer": "/vendor/zustand-middleware-immer.js",
+    "immer": "/vendor/immer.js",
+    "@tiptap/core": "/vendor/tiptap-core.js",
+    "@tiptap/react": "/vendor/tiptap-react.js",
+    "@tiptap/starter-kit": "/vendor/tiptap-starter-kit.js",
+    "@tiptap/extension-underline": "/vendor/tiptap-extension-underline.js",
+    "@dnd-kit/core": "/vendor/dnd-kit-core.js",
+    "@dnd-kit/sortable": "/vendor/dnd-kit-sortable.js",
+    "@dnd-kit/utilities": "/vendor/dnd-kit-utilities.js",
+    "@floating-ui/dom": "/vendor/floating-ui-dom.js",
+    "uuid": "/vendor/uuid.js"
+  }
+}
+</script>
+</html>

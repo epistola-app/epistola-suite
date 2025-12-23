@@ -32,6 +32,27 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -103,7 +124,9 @@ jobs:
           fi
 
       - name: Generate SBOMs
-        run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
+        run: |
+          ./gradlew :apps:epistola:generateSbom
+          pnpm --filter @epistola/editor sbom
 
       - name: Scan backend SBOM for vulnerabilities
         uses: aquasecurity/trivy-action@master
@@ -193,6 +216,32 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install pnpm
+        if: ${{ matrix.enabled }}
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        if: ${{ matrix.enabled }}
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        if: ${{ matrix.enabled }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install frontend dependencies
+        if: ${{ matrix.enabled }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        if: ${{ matrix.enabled }}
+        run: pnpm build
+
       - name: Setup Gradle
         if: ${{ matrix.enabled }}
         uses: gradle/actions/setup-gradle@v4
@@ -241,7 +290,9 @@ jobs:
 
       - name: Generate SBOMs
         if: ${{ matrix.enabled && matrix.variant == 'JVM' }}
-        run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
+        run: |
+          ./gradlew :apps:epistola:generateSbom
+          pnpm --filter @epistola/editor sbom
 
       - name: Build Docker image
         if: ${{ matrix.enabled }}

@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.spring.dependency.management) apply false
     alias(libs.plugins.graalvm.native) apply false
     alias(libs.plugins.ktlint)
-    alias(libs.plugins.node.gradle) apply false
     alias(libs.plugins.cyclonedx) apply false
     alias(libs.plugins.kover)
 }

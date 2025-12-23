@@ -3,6 +3,26 @@
 ## [Unreleased]
 
 ### Changed
+- Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration
+  - Frontend: `pnpm install && pnpm build` builds all modules in `modules/`
+  - Backend: `./gradlew build` compiles, tests, and packages (requires frontend built first)
+  - Gradle verifies frontend is built before packaging, failing with helpful error if not
+  - Removed node-gradle plugin dependency for cleaner Gradle configuration
+  - CI workflow updated to run pnpm build before Gradle with proper caching
+
+### Added
+- pnpm workspaces for frontend module management
+  - Root `pnpm-workspace.yaml` orchestrates all modules in `modules/`
+  - Unified dependency management and build commands from repo root
+  - `pnpm build` builds all modules, `pnpm --filter @epistola/<module> build` for specific modules
+- Import maps for shared JavaScript dependencies to avoid duplicate bundling
+  - `modules/vendor` package uses Rollup to bundle React, ReactDOM, Zustand, and Immer as proper ESM with named exports
+  - Custom entry wrappers ensure CJS packages export named bindings (not just default)
+  - Editor module excludes shared dependencies via Vite externals (~750KB vs ~1.1MB bundle)
+  - Thymeleaf import map fragment (`fragments/importmap.html`) for browser-native dependency resolution
+  - Shared dependencies loaded once and cached, reducing page load time for multiple interactive components
+
+### Changed
 - Simplified template editor data passing by using Thymeleaf's native JavaScript serialization
   - Removed unnecessary JSON stringify/parse roundtrip in template handler
   - `templateModel` is now passed directly to the view and serialized by Thymeleaf

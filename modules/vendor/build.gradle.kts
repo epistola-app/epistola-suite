@@ -1,20 +1,5 @@
 plugins {
     `java-library`
-    kotlin("jvm")
-    kotlin("plugin.spring")
-    id("io.spring.dependency-management")
-}
-
-dependencyManagement {
-    imports {
-        // TODO: figure out how we can do this another way
-        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.0")
-    }
-}
-
-dependencies {
-    implementation("org.springframework.boot:spring-boot-starter")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 }
 
 val verifyFrontendBuild by tasks.registering {
@@ -39,10 +24,10 @@ val verifyFrontendBuild by tasks.registering {
 val copyDistToResources by tasks.registering(Copy::class) {
     dependsOn(verifyFrontendBuild)
     from("dist")
-    into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
+    into(layout.buildDirectory.dir("resources/main/META-INF/resources/vendor"))
 
     // Ensure task re-runs if output directory is missing
-    outputs.upToDateWhen { layout.buildDirectory.dir("resources/main/META-INF/resources/editor").get().asFile.exists() }
+    outputs.upToDateWhen { layout.buildDirectory.dir("resources/main/META-INF/resources/vendor").get().asFile.exists() }
 }
 
 tasks.named("processResources") {
