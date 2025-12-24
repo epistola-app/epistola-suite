@@ -1,0 +1,108 @@
+# GitHub Project Configuration
+# This file is the source of truth for the project structure.
+# Changes are synced via .github/workflows/project-sync.yml
+#
+# To modify the project:
+# 1. Edit this file
+# 2. Push to main branch
+# 3. The workflow will sync changes to GitHub Projects
+
+project:
+  title: "Epistola Suite Backlog"
+  owner: "epistola-app"
+  description: "Product backlog and roadmap for Epistola Suite"
+
+  # Link this repository to the project
+  repositories:
+    - epistola-suite
+
+fields:
+  # Status workflow (kanban)
+  - name: Status
+    type: single_select
+    options:
+      - name: "Backlog"
+        color: GRAY
+        description: "Not yet prioritized"
+      - name: "Ready"
+        color: BLUE
+        description: "Ready to be worked on"
+      - name: "In Progress"
+        color: YELLOW
+        description: "Currently being worked on"
+      - name: "Blocked"
+        color: RED
+        description: "Blocked by dependency or external factor"
+      - name: "In Review"
+        color: PURPLE
+        description: "In code review or QA"
+      - name: "Done"
+        color: GREEN
+        description: "Completed"
+
+  # Priority
+  - name: Priority
+    type: single_select
+    options:
+      - name: "P0 Critical"
+        color: RED
+        description: "Must be done immediately"
+      - name: "P1 High"
+        color: ORANGE
+        description: "Important, do soon"
+      - name: "P2 Medium"
+        color: YELLOW
+        description: "Normal priority"
+      - name: "P3 Low"
+        color: GRAY
+        description: "Nice to have"
+
+  # Size estimation
+  - name: Size
+    type: single_select
+    options:
+      - name: "XS"
+        color: GREEN
+        description: "< 2 hours"
+      - name: "S"
+        color: BLUE
+        description: "Half day"
+      - name: "M"
+        color: YELLOW
+        description: "1-2 days"
+      - name: "L"
+        color: ORANGE
+        description: "3-5 days"
+      - name: "XL"
+        color: RED
+        description: "> 1 week"
+
+  # Item type
+  - name: Type
+    type: single_select
+    options:
+      - name: "Feature"
+        color: GREEN
+        description: "New functionality"
+      - name: "Bug"
+        color: RED
+        description: "Something broken"
+      - name: "Alert"
+        color: ORANGE
+        description: "Security or monitoring alert"
+      - name: "Tech Debt"
+        color: PURPLE
+        description: "Code quality improvement"
+      - name: "Chore"
+        color: GRAY
+        description: "Maintenance task"
+
+  # Tracking fields
+  - name: "Target Date"
+    type: date
+
+  - name: "Started At"
+    type: date
+
+  - name: "Blocked Reason"
+    type: text

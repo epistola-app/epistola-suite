@@ -8,6 +8,7 @@ This document explains how GitHub is configured for the Epistola Suite project, 
   - [Build and Test](#build-and-test)
   - [Docker Publishing](#docker-publishing)
   - [Label Sync](#label-sync)
+  - [Project Sync](#project-sync)
 - [Versioning and Releases](#versioning-and-releases)
 - [SBOM (Software Bill of Materials)](#sbom-software-bill-of-materials)
 - [Issue Management](#issue-management)
@@ -17,6 +18,7 @@ This document explains how GitHub is configured for the Epistola Suite project, 
 - [Security](#security)
   - [Docker Image Signing](#docker-image-signing)
 - [GitHub Discussions](#github-discussions)
+- [Bot Account](#bot-account)
 - [Repository Settings](#repository-settings)
 
 ---
@@ -88,6 +90,37 @@ All workflows are defined in `.github/workflows/`.
 - Strict mode: removes labels not defined in the config
 
 **To add/modify labels:** Edit `.github/labels.yml` and push to `main`.
+
+### Project Sync
+
+**File:** `.github/workflows/project-sync.yml`
+
+**Triggers:**
+- On push to `main` when `.github/project.yml` changes
+- Manual trigger via Actions UI
+
+**What it does:**
+- Creates or updates the "Epistola Suite Backlog" GitHub Project
+- Syncs custom fields (Status, Priority, Size, Type, etc.)
+- Links the repository to the project
+
+**Configuration:** `.github/project.yml`
+
+This workflow requires a Personal Access Token with `project` scope, stored as the `EPISTOLA_BOT_PROJECT_MGT` secret. See [Bot Account](#bot-account) for setup.
+
+**To modify project fields:** Edit `.github/project.yml` and push to `main`.
+
+#### Project Fields
+
+| Field | Type | Options |
+|-------|------|---------|
+| Status | Single select | Backlog, Ready, In Progress, Blocked, In Review, Done |
+| Priority | Single select | P0 Critical, P1 High, P2 Medium, P3 Low |
+| Size | Single select | XS, S, M, L, XL |
+| Type | Single select | Feature, Bug, Alert, Tech Debt, Chore |
+| Target Date | Date | Expected delivery date |
+| Started At | Date | When work began (for cycle time) |
+| Blocked Reason | Text | Why the item is blocked |
 
 ---
 
@@ -313,6 +346,52 @@ Use Discussions for:
 
 ---
 
+## Bot Account
+
+The project uses a dedicated bot account (`epistola-bot`) for CI/CD operations that require elevated permissions, specifically for GitHub Projects v2 management.
+
+### Why a Bot Account?
+
+GitHub's default `GITHUB_TOKEN` doesn't support Projects v2 API operations. Using a bot account instead of a personal account:
+
+- Decouples CI/CD from individual user accounts
+- Provides a clear audit trail
+- Survives employee turnover
+- Can have scoped permissions
+
+### Setup (One-Time)
+
+1. **Create bot account:**
+   - Create a new GitHub account (e.g., `epistola-bot`)
+   - Use a dedicated email address
+
+2. **Invite to organization:**
+   - Go to https://github.com/orgs/epistola-app/people
+   - Invite as Member with repository access
+
+3. **Create PAT under bot account:**
+   - Log in as the bot
+   - Go to https://github.com/settings/tokens?type=beta
+   - Create fine-grained PAT with:
+     - Resource owner: `epistola-app`
+     - Repository access: `epistola-suite`
+     - Organization permissions: Projects (Read/Write)
+   - Expiration: 90 days
+
+4. **Add secret to repository:**
+   - Add PAT as `EPISTOLA_BOT_PROJECT_MGT` secret
+
+### Token Rotation
+
+The bot's PAT expires after 90 days. Set a calendar reminder to:
+
+1. Log in as the bot account
+2. Create a new PAT with the same permissions
+3. Update the `EPISTOLA_BOT_PROJECT_MGT` secret
+4. Revoke the old token
+
+---
+
 ## Repository Settings
 
 ### Required Settings
@@ -351,7 +430,10 @@ No custom secrets required. The workflows use:
 |------|---------|
 | `.github/workflows/build.yml` | CI/CD: build, test, Docker publish |
 | `.github/workflows/labels.yml` | Label synchronization |
+| `.github/workflows/project-sync.yml` | GitHub Project synchronization |
 | `.github/labels.yml` | Label definitions |
+| `.github/project.yml` | GitHub Project configuration |
+| `.github/scripts/sync-project.mjs` | Project sync script |
 | `.github/ISSUE_TEMPLATE/config.yml` | Issue template configuration |
 | `.github/ISSUE_TEMPLATE/bug_report.yml` | Bug report form |
 | `.github/ISSUE_TEMPLATE/feature_request.yml` | Feature request form |

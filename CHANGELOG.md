@@ -8,6 +8,11 @@
   - `pnpm run setup:github-mcp` script guides fine-grained PAT creation with minimal permissions
   - MCP wrapper script validates token availability before starting server
   - `.mcp.json` configuration for Claude Code integration (safe to commit, no secrets)
+- GitHub Project configuration as code (`.github/project.yml`)
+  - Declarative project field definitions synced via GitHub Actions workflow
+  - Custom fields: Status (kanban), Priority (P0-P3), Size (XS-XL), Type, Target Date, Started At, Blocked Reason
+  - Automatic project creation and field synchronization on config changes
+  - Bot account authentication for project management
 
 ### Changed
 - Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration
