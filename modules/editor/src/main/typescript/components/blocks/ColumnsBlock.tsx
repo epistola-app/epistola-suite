@@ -1,17 +1,33 @@
 import { useDroppable } from "@dnd-kit/core";
-import type { ColumnsBlock, Column } from "../../types/template";
-import { BlockRenderer } from "./BlockRenderer";
-import { useEditorStore } from "../../store/editorStore";
+import { Plus } from "lucide-react";
+import { useId } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useEditorStore } from "../../store/editorStore";
+import type { Column, ColumnsBlock } from "../../types/template";
+import { Button } from "../ui/button";
+import { Label } from "../ui/label";
+import { Slider } from "../ui/slider";
+import { BlockRenderer } from "./BlockRenderer";
+import { BlockHeader } from "./BlockHeader";
 
 interface ColumnsBlockProps {
   block: ColumnsBlock;
   isSelected?: boolean;
+  dragAttributes?: React.HTMLAttributes<HTMLDivElement>;
+  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBlockProps) {
+export function ColumnsBlockComponent({
+  block,
+  isSelected = false,
+  dragAttributes,
+  dragListeners,
+  onDelete,
+}: ColumnsBlockProps) {
   const updateBlock = useEditorStore((state) => state.updateBlock);
 
+  const columnGapInputId = useId();
   const gap = block.gap ?? 16;
 
   const handleAddColumn = () => {
@@ -45,28 +61,34 @@ export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBloc
   };
 
   return (
-    <div
-      className={`rounded-lg border ${isSelected ? "bg-gray-50 border-dashed border-gray-300" : "border-transparent"}`}
-    >
+    <div className={`rounded-lg bg-emerald-50 ring ring-emerald-300`}>
+      <BlockHeader
+        title="COLUMNS"
+        isSelected={isSelected}
+        dragAttributes={dragAttributes}
+        dragListeners={dragListeners}
+        onDelete={onDelete}
+      />
       {isSelected && (
         <div className="px-3 pt-2 pb-1 space-y-2">
-          <div className="text-xs text-gray-400 font-medium">COLUMNS</div>
           <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-600">Gap:</label>
-            <input
-              type="number"
-              value={gap}
-              onChange={(e) => handleUpdateGap(Number(e.target.value))}
-              className="w-16 px-2 py-1 text-xs border border-gray-300 rounded"
-              min="0"
-            />
-            <span className="text-xs text-gray-500">px</span>
-            <button
-              onClick={handleAddColumn}
-              className="ml-auto px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              + Add Column
-            </button>
+            <div className="flex items-center gap-2">
+              <Label htmlFor={columnGapInputId}>Gap (px):</Label>
+              <Slider
+                value={[Number(gap) || 4]}
+                id={columnGapInputId}
+                onValueChange={(values) => handleUpdateGap(values[0])}
+                min={0}
+                max={100}
+                step={1}
+                className="w-40 **:data-[slot=slider-track]:bg-white **:data-[slot=slider-track]:ring-emerald-400 "
+              />
+              <span className="text-xs text-primary">{Number(gap) || 4}px</span>
+            </div>
+
+            <Button variant="indigo" size="sm" onClick={handleAddColumn} className="ml-auto">
+              <Plus className="size-4 shrink-0" /> Add Column
+            </Button>
           </div>
         </div>
       )}
@@ -78,12 +100,11 @@ export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBloc
         }}
         className="p-2"
       >
-        {block.columns.map((column, columnIndex) => (
+        {block.columns.map((column) => (
           <ColumnComponent
             key={column.id}
             column={column}
             blockId={block.id}
-            columnIndex={columnIndex}
             isSelected={isSelected}
             onRemove={() => handleRemoveColumn(column.id)}
             onUpdateSize={(size) => handleUpdateColumnSize(column.id, size)}
@@ -98,7 +119,6 @@ export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBloc
 interface ColumnComponentProps {
   column: Column;
   blockId: string;
-  columnIndex: number;
   isSelected?: boolean;
   onRemove: () => void;
   onUpdateSize: (size: number) => void;
@@ -108,7 +128,6 @@ interface ColumnComponentProps {
 function ColumnComponent({
   column,
   blockId,
-  columnIndex: _columnIndex,
   isSelected,
   onRemove,
   onUpdateSize,

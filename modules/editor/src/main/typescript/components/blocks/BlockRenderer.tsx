@@ -58,17 +58,65 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
   const renderBlockContent = () => {
     switch (block.type) {
       case "text":
-        return <TextBlockComponent block={block} isSelected={isSelected} />;
+        return (
+          <TextBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
       case "container":
-        return <ContainerBlockComponent block={block} isSelected={isSelected} />;
+        return (
+          <ContainerBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
       case "conditional":
-        return <ConditionalBlockComponent block={block} isSelected={isSelected} />;
+        return (
+          <ConditionalBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
       case "loop":
-        return <LoopBlockComponent block={block} isSelected={isSelected} />;
+        return (
+          <LoopBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
       case "columns":
-        return <ColumnsBlockComponent block={block} isSelected={isSelected} />;
+        return (
+          <ColumnsBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
       case "table":
-        return <TableBlockComponent block={block} isSelected={isSelected} />;
+        return (
+          <TableBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
       default:
         return <div>Unknown block type</div>;
     }
@@ -80,31 +128,11 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
         ref={setDragRef}
         onClick={handleClick}
         className={`
-          group relative rounded-lg border-2 transition-all
+          rounded-lg border-2 transition-all
           ${isSelected ? "border-blue-500 shadow-md" : "border-transparent hover:border-gray-300"}
           ${isDragging ? "opacity-50" : ""}
         `}
       >
-        {/* Drag Handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100
-                     cursor-grab p-1 text-gray-400 hover:text-gray-600 transition-opacity"
-        >
-          ⋮⋮
-        </div>
-
-        {/* Delete Button */}
-        <button
-          onClick={handleDelete}
-          className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100
-                     w-5 h-5 bg-red-500 text-white rounded-full text-xs
-                     hover:bg-red-600 transition-opacity flex items-center justify-center"
-        >
-          ×
-        </button>
-
         {/* Block Content */}
         {renderBlockContent()}
       </div>
