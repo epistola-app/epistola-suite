@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { resolve } from 'path'
+import path, { resolve } from 'path'
 
 // Shared dependencies loaded via import map - excluded from bundle
 const EXTERNALS = [
@@ -22,11 +22,21 @@ const EXTERNALS = [
   '@floating-ui/dom',
   '@fontsource/inter',
   'uuid',
+  '@radix-ui/react-slot',
+  'class-variance-authority',
+  'clsx',
+  'lucide-react',
+  'tailwind-merge'
 ]
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src/main/typescript"),
+    },
+  },
   define: {
     // Define process.env for browser compatibility (some deps check NODE_ENV)
     'process.env.NODE_ENV': JSON.stringify('production'),
