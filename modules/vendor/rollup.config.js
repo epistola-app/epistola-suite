@@ -13,6 +13,14 @@ const plugins = [
   terser(),
 ];
 
+// Suppress "use client" directive warnings from React Server Components
+function onwarn(warning, warn) {
+  if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('"use client"')) {
+    return;
+  }
+  warn(warning);
+}
+
 export default [
   // React core - uses wrapper for proper named exports
   {
@@ -161,4 +169,102 @@ export default [
     external: ['react'],
     plugins,
   },
-];
+  // radix-ui/react-accordion
+  {
+    input: 'node_modules/@radix-ui/react-accordion/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-accordion.js', format: 'esm' },
+    external: ['react', 'react-dom', '@radix-ui/react-slot'],
+    plugins,
+  },
+  // radix-ui/react-dialog
+  {
+    input: 'node_modules/@radix-ui/react-dialog/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-dialog.js', format: 'esm' },
+    external: ['react', 'react-dom', '@radix-ui/react-slot'],
+    plugins,
+  },
+  // radix-ui/react-label
+  {
+    input: 'node_modules/@radix-ui/react-label/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-label.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+  // radix-ui/react-popover
+  {
+    input: 'node_modules/@radix-ui/react-popover/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-popover.js', format: 'esm' },
+    external: ['react', 'react-dom', '@radix-ui/react-slot'],
+    plugins,
+  },
+  // radix-ui/react-select
+  {
+    input: 'node_modules/@radix-ui/react-select/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-select.js', format: 'esm' },
+    external: ['react', 'react-dom', '@radix-ui/react-slot'],
+    plugins,
+  },
+  // radix-ui/react-separator
+  {
+    input: 'node_modules/@radix-ui/react-separator/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-separator.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+  // radix-ui/react-slider
+  {
+    input: 'node_modules/@radix-ui/react-slider/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-slider.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+  // radix-ui/react-tabs
+  {
+    input: 'node_modules/@radix-ui/react-tabs/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-tabs.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+  // radix-ui/react-tooltip
+  {
+    input: 'node_modules/@radix-ui/react-tooltip/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-tooltip.js', format: 'esm' },
+    external: ['react', 'react-dom', '@radix-ui/react-slot'],
+    plugins,
+  },
+  // embla-carousel-react
+  {
+    input: 'entries/embla-carousel-react.js',
+    output: { file: 'dist/embla-carousel-react.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
+  // react-resizable-panels
+  {
+    input: 'entries/react-resizable-panels.js',
+    output: { file: 'dist/react-resizable-panels.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+  // radix-ui/react-direction
+  {
+    input: 'node_modules/@radix-ui/react-direction/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-direction.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
+  // motion (framer-motion successor)
+  {
+    input: 'entries/motion.js',
+    output: { file: 'dist/motion.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+  // radix-ui (meta package)
+  {
+    input: 'entries/radix-ui.js',
+    output: { file: 'dist/radix-ui.js', format: 'esm' },
+    external: ['react', 'react-dom'],
+    plugins,
+  },
+].map(config => ({ ...config, onwarn }));
