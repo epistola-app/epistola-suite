@@ -18,7 +18,7 @@ This document explains how GitHub is configured for the Epistola Suite project, 
 - [Security](#security)
   - [Docker Image Signing](#docker-image-signing)
 - [GitHub Discussions](#github-discussions)
-- [Bot Account](#bot-account)
+- [GitHub App for Project Sync](#github-app-for-project-sync)
 - [Repository Settings](#repository-settings)
 
 ---
@@ -106,7 +106,7 @@ All workflows are defined in `.github/workflows/`.
 
 **Configuration:** `.github/project.yml`
 
-This workflow requires a Personal Access Token with `project` scope, stored as the `EPISTOLA_BOT_PROJECT_MGT` secret. See [Bot Account](#bot-account) for setup.
+This workflow uses a GitHub App for authentication since the Projects v2 API is not supported by fine-grained PATs. See [GitHub App for Project Sync](#github-app-for-project-sync) for setup.
 
 **To modify project fields:** Edit `.github/project.yml` and push to `main`.
 
@@ -346,49 +346,65 @@ Use Discussions for:
 
 ---
 
-## Bot Account
+## GitHub App for Project Sync
 
-The project uses a dedicated bot account (`epistola-bot`) for CI/CD operations that require elevated permissions, specifically for GitHub Projects v2 management.
+The project uses a GitHub App for CI/CD operations that require Projects v2 API access. GitHub's default `GITHUB_TOKEN` and fine-grained PATs don't support Projects v2 operations, making a GitHub App the recommended approach.
 
-### Why a Bot Account?
+### Why a GitHub App?
 
-GitHub's default `GITHUB_TOKEN` doesn't support Projects v2 API operations. Using a bot account instead of a personal account:
-
-- Decouples CI/CD from individual user accounts
-- Provides a clear audit trail
-- Survives employee turnover
-- Can have scoped permissions
+- **No user account needed**: App acts as its own identity
+- **Auto-rotating tokens**: Installation tokens expire in 1 hour (more secure than PATs)
+- **Fine-grained permissions**: Only grant exactly what's needed
+- **Better audit trail**: Actions show as `github-app[bot]`
+- **No seat cost**: Apps don't consume organization seats
 
 ### Setup (One-Time)
 
-1. **Create bot account:**
-   - Create a new GitHub account (e.g., `epistola-bot`)
-   - Use a dedicated email address
+1. **Create the GitHub App:**
+   - Go to https://github.com/organizations/epistola-app/settings/apps/new
+   - Configure:
+     - **Name**: `epistola-project-sync` (or similar unique name)
+     - **Homepage URL**: `https://github.com/epistola-app/epistola-suite`
+     - **Webhook**: Uncheck "Active" (not needed)
+     - **Permissions**:
+       - Organization permissions → **Projects**: Read and write
+       - Repository permissions → **Contents**: Read (for linking repos)
+       - Repository permissions → **Metadata**: Read (required)
+     - **Where can this GitHub App be installed?**: Only on this account
 
-2. **Invite to organization:**
-   - Go to https://github.com/orgs/epistola-app/people
-   - Invite as Member with repository access
+2. **Generate credentials:**
+   - After creation, note the **App ID** (shown on the app settings page)
+   - Scroll to "Private keys" and click **Generate a private key**
+   - Download the `.pem` file
 
-3. **Create PAT under bot account:**
-   - Log in as the bot
-   - Go to https://github.com/settings/tokens?type=beta
-   - Create fine-grained PAT with:
-     - Resource owner: `epistola-app`
-     - Repository access: `epistola-suite`
-     - Organization permissions: Projects (Read/Write)
-   - Expiration: 90 days
+3. **Install the app:**
+   - Go to the app settings → **Install App**
+   - Install on `epistola-app` organization
+   - Grant access to `epistola-suite` repository
 
-4. **Add secret to repository:**
-   - Add PAT as `EPISTOLA_BOT_PROJECT_MGT` secret
+4. **Add secrets to repository:**
+   - Go to repository Settings → Secrets and variables → Actions
+   - Add two secrets:
 
-### Token Rotation
+   | Secret Name | Value |
+   |-------------|-------|
+   | `PROJECT_APP_ID` | The App ID from step 2 |
+   | `PROJECT_APP_PRIVATE_KEY` | Full contents of the `.pem` file |
 
-The bot's PAT expires after 90 days. Set a calendar reminder to:
+### How It Works
 
-1. Log in as the bot account
-2. Create a new PAT with the same permissions
-3. Update the `EPISTOLA_BOT_PROJECT_MGT` secret
-4. Revoke the old token
+The `project-sync.yml` workflow uses `actions/create-github-app-token` to generate a short-lived installation token:
+
+```yaml
+- name: Generate GitHub App token
+  uses: actions/create-github-app-token@v1
+  with:
+    app-id: ${{ secrets.PROJECT_APP_ID }}
+    private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+    owner: epistola-app
+```
+
+The token is automatically scoped to the permissions configured in the app and expires after 1 hour.
 
 ---
 
@@ -419,8 +435,11 @@ Recommended settings:
 
 ### Secrets
 
-No custom secrets required. The workflows use:
-- `GITHUB_TOKEN` - Automatically provided by GitHub Actions
+| Secret | Purpose |
+|--------|---------|
+| `GITHUB_TOKEN` | Automatically provided by GitHub Actions |
+| `PROJECT_APP_ID` | GitHub App ID for project sync (see [GitHub App](#github-app-for-project-sync)) |
+| `PROJECT_APP_PRIVATE_KEY` | GitHub App private key for project sync |
 
 ---
 

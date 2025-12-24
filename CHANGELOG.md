@@ -12,7 +12,7 @@
   - Declarative project field definitions synced via GitHub Actions workflow
   - Custom fields: Status (kanban), Priority (P0-P3), Size (XS-XL), Type, Target Date, Started At, Blocked Reason
   - Automatic project creation and field synchronization on config changes
-  - Bot account authentication for project management
+  - GitHub App authentication for project management (fine-grained PATs don't support Projects v2)
 
 ### Changed
 - Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration

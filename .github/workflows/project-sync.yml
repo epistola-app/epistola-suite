@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - '.github/project.yml'
+      - '.github/scripts/sync-project.mjs'
+      - '.github/workflows/project-sync.yml'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -17,6 +19,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.PROJECT_APP_ID }}
+          private-key: ${{ secrets.PROJECT_APP_PRIVATE_KEY }}
+          owner: epistola-app
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -27,5 +37,5 @@ jobs:
 
       - name: Sync project configuration
         env:
-          GH_TOKEN: ${{ secrets.EPISTOLA_BOT_PROJECT_MGT }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: node .github/scripts/sync-project.mjs
