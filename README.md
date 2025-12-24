@@ -136,6 +136,28 @@ This project uses [ktlint](https://pinterest.github.io/ktlint/) for Kotlin code 
 
 Tests use [Testcontainers](https://testcontainers.org/) which requires Docker to be running.
 
+### GitHub MCP (AI-Assisted Development)
+
+This project includes a GitHub MCP server for AI-assisted issue and project management. It enables AI assistants (like Claude Code) to interact with GitHub Issues and Projects.
+
+**Setup:**
+
+```bash
+pnpm run setup:github-mcp
+```
+
+This will:
+1. Open GitHub to create a fine-grained Personal Access Token with minimal permissions
+2. Validate the token
+3. Store it securely in your OS credential manager (macOS Keychain or Windows Credential Vault)
+
+**Features:**
+- Create and manage GitHub Issues
+- Work with Pull Requests
+- Track backlog in GitHub Projects
+
+The configuration is in `.mcp.json` (safe to commit - no secrets stored).
+
 ## CI/CD
 
 The project uses GitHub Actions for CI/CD:

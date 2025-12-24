@@ -1,0 +1,17 @@
+{
+  "name": "@epistola/gh-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub MCP server wrapper with secure credential storage",
+  "type": "module",
+  "scripts": {
+    "setup": "node setup.mjs",
+    "start": "node wrapper.mjs"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

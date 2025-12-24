@@ -172,3 +172,27 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 - Don't commit secrets or credentials
 - Don't modify `.github/workflows/` without understanding the impact
 - Don't change version numbers manually (automated via CI)
+
+## GitHub Integration (MCP)
+
+This project uses a GitHub MCP server for AI-assisted issue and project management. When the MCP server is configured, you have access to GitHub tools for:
+
+- **Issues**: Create, update, list, and search issues
+- **Pull Requests**: Create, list, review, and manage PRs
+- **Projects**: Manage GitHub Projects for backlog tracking
+
+### Using GitHub MCP Tools
+
+When working with the backlog or issues:
+- Use the GitHub MCP tools to create issues for new features or bugs
+- Reference issues in commits when fixing bugs (e.g., "fix: resolve login issue #123")
+- Check existing issues before creating duplicates
+
+### Setup
+
+If the GitHub MCP server is not configured, run:
+```bash
+pnpm run setup:github-mcp
+```
+
+This will guide you through creating a fine-grained PAT with minimal permissions and store it securely in your OS credential manager.

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+- GitHub MCP server integration for AI-assisted issue and project management (`scripts/gh-mcp/`)
+  - Cross-platform secure token storage using OS credential managers (macOS Keychain, Windows Credential Vault)
+  - `pnpm run setup:github-mcp` script guides fine-grained PAT creation with minimal permissions
+  - MCP wrapper script validates token availability before starting server
+  - `.mcp.json` configuration for Claude Code integration (safe to commit, no secrets)
+
 ### Changed
 - Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration
   - Frontend: `pnpm install && pnpm build` builds all modules in `modules/`

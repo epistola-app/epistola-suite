@@ -5,7 +5,8 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
-    "clean": "pnpm -r clean"
+    "clean": "pnpm -r clean",
+    "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

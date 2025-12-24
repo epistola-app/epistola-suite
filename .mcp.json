@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "node",
+      "args": ["./scripts/gh-mcp/wrapper.mjs"]
+    }
+  }
+}
