@@ -12,6 +12,18 @@ export type StyleCategory =
 // Unit types for numeric inputs
 export type CSSUnit = 'px' | 'em' | 'rem' | '%';
 
+// Unit presets for different CSS properties
+export const UNIT_PRESETS = {
+  spacing: ['px', 'em', 'rem'] as const,
+  size: ['px', '%', 'em', 'rem'] as const,
+  fontSize: ['px', 'em', 'rem', 'pt'] as const,
+  lineHeight: ['px', 'em', '%'] as const,
+  borderWidth: ['px', 'em'] as const,
+  borderRadius: ['px', 'em', 'rem', '%'] as const,
+} as const;
+
+export type UnitPresetKey = keyof typeof UNIT_PRESETS;
+
 // Font family options
 export const FONT_FAMILIES = [
   { label: 'System Default', value: 'system-ui, -apple-system, sans-serif' },

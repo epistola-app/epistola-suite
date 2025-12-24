@@ -23,10 +23,24 @@ const EXTERNALS = [
   '@fontsource/inter',
   'uuid',
   '@radix-ui/react-slot',
+  '@radix-ui/react-accordion',
+  '@radix-ui/react-dialog',
+  '@radix-ui/react-label',
+  '@radix-ui/react-popover',
+  '@radix-ui/react-select',
+  '@radix-ui/react-separator',
+  '@radix-ui/react-slider',
+  '@radix-ui/react-tabs',
+  '@radix-ui/react-tooltip',
   'class-variance-authority',
   'clsx',
   'lucide-react',
-  'tailwind-merge'
+  'tailwind-merge',
+  'embla-carousel-react',
+  'react-resizable-panels',
+  '@radix-ui/react-direction',
+  'motion',
+  'radix-ui'
 ]
 
 // https://vite.dev/config/

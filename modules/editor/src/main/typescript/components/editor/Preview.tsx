@@ -62,12 +62,13 @@ export function Preview() {
           <div
             className="mx-auto shadow-md"
             style={{
-              width: '210mm',
-              minHeight: '297mm',
+              width: "210mm",
+              minHeight: "297mm",
               padding: `${template.pageSettings.margins.top}mm ${template.pageSettings.margins.right}mm ${template.pageSettings.margins.bottom}mm ${template.pageSettings.margins.left}mm`,
-              transform: 'scale(0.5)',
-              transformOrigin: 'top center',
-              backgroundColor: template.documentStyles?.backgroundColor || '#ffffff',
+              transform: "scale(0.5)",
+              transformOrigin: "top center",
+              backgroundColor:
+                template.documentStyles?.backgroundColor || "#ffffff",
               fontFamily: template.documentStyles?.fontFamily,
               fontSize: template.documentStyles?.fontSize,
               fontWeight: template.documentStyles?.fontWeight,
