@@ -1,4 +1,5 @@
 import type { TableBlock } from "../../../types/template";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 
 interface BorderControlsProps {
   config: TableBlock;
@@ -10,30 +11,29 @@ export function BorderControls({ config, onChange }: BorderControlsProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-700">Borders</h3>
+      <h3 className="text-sm font-medium text-foreground">Borders</h3>
 
-      <div>
-        <select
-          value={borderStyle}
-          onChange={(e) => onChange(e.target.value as any)}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:border-blue-400"
-        >
-          <option value="none">None</option>
-          <option value="all">All Borders</option>
-          <option value="horizontal">Horizontal Only</option>
-          <option value="vertical">Vertical Only</option>
-        </select>
-      </div>
+      <Select value={borderStyle} onValueChange={onChange}>
+        <SelectTrigger className="w-full bg-white">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">None</SelectItem>
+          <SelectItem value="all">All Borders</SelectItem>
+          <SelectItem value="horizontal">Horizontal Only</SelectItem>
+          <SelectItem value="vertical">Vertical Only</SelectItem>
+        </SelectContent>
+      </Select>
 
       {/* Visual preview */}
-      <div className="p-4 bg-gray-50 rounded-md">
-        <div className="text-xs text-gray-500 mb-2">Preview:</div>
+      <div className="p-4 bg-muted rounded-md">
+        <div className="text-xs text-muted-foreground mb-2">Preview:</div>
         <div
           className={`
-            w-full h-16 bg-white
-            ${borderStyle === "all" ? "border border-gray-400" : ""}
-            ${borderStyle === "horizontal" ? "border-t border-b border-gray-400" : ""}
-            ${borderStyle === "vertical" ? "border-l border-r border-gray-400" : ""}
+            w-full h-16 bg-background
+            ${borderStyle === "all" ? "border border-border" : ""}
+            ${borderStyle === "horizontal" ? "border-t border-b border-border" : ""}
+            ${borderStyle === "vertical" ? "border-l border-r border-border" : ""}
           `}
         >
           <div className="grid grid-cols-2 grid-rows-2 h-full">
@@ -41,9 +41,9 @@ export function BorderControls({ config, onChange }: BorderControlsProps) {
               <div
                 key={i}
                 className={`
-                  ${borderStyle === "all" ? "border border-gray-300" : ""}
-                  ${borderStyle === "horizontal" ? "border-b border-gray-300" : ""}
-                  ${borderStyle === "vertical" ? "border-r border-gray-300" : ""}
+                  ${borderStyle === "all" ? "border border-border" : ""}
+                  ${borderStyle === "horizontal" ? "border-b border-border" : ""}
+                  ${borderStyle === "vertical" ? "border-r border-border" : ""}
                 `}
               />
             ))}

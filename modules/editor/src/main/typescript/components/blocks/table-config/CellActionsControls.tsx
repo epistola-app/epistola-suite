@@ -1,4 +1,5 @@
 import type { TableBlock } from "../../../types/template";
+import { Button } from "../../ui/button";
 import { canMergeCells } from "./tableConfigUtils";
 
 interface CellActionsControlsProps {
@@ -37,51 +38,47 @@ export function CellActionsControls({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-700">Cell Actions</h3>
+      <h3 className="text-sm font-medium text-foreground">Cell Actions</h3>
 
       {selectionCount === 0 && (
-        <div className="text-sm text-gray-500 italic">
+        <div className="text-sm text-muted-foreground italic">
           Select cells in the grid to perform actions
         </div>
       )}
 
       {selectionCount > 0 && (
         <div className="space-y-2">
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-muted-foreground">
             {selectionCount} cell{selectionCount !== 1 ? "s" : ""} selected
           </div>
 
           {/* Merge Cells */}
-          <button
+          <Button
+            variant="outline"
+            className={`w-full justify-center ${
+              canMerge
+                ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+                : ""
+            }`}
             onClick={onMergeCells}
             disabled={!canMerge}
-            className={`
-              w-full px-3 py-2 text-sm rounded border
-              ${
-                canMerge
-                  ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                  : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-              }
-            `}
             title={
               canMerge ? "Merge selected cells" : "Select a rectangular group of cells to merge"
             }
           >
             Merge Cells
-          </button>
+          </Button>
 
           {/* Split Cell */}
-          <button
+          <Button
+            variant="outline"
+            className={`w-full justify-center ${
+              isMergedCell
+                ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+                : ""
+            }`}
             onClick={onSplitCell}
             disabled={!isMergedCell}
-            className={`
-              w-full px-3 py-2 text-sm rounded border
-              ${
-                isMergedCell
-                  ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                  : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-              }
-            `}
             title={
               isMergedCell
                 ? "Split merged cell back to individual cells"
@@ -89,12 +86,13 @@ export function CellActionsControls({
             }
           >
             Split Cell
-          </button>
+          </Button>
 
           {/* Toggle Header */}
-          <button
+          <Button
+            variant="outline"
+            className="w-full justify-center"
             onClick={onToggleHeader}
-            className="w-full px-3 py-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             title={
               hasHeaderRows
                 ? "Remove header styling from selected rows"
@@ -102,7 +100,7 @@ export function CellActionsControls({
             }
           >
             {hasHeaderRows ? "Unset" : "Set as"} Header Row
-          </button>
+          </Button>
         </div>
       )}
     </div>

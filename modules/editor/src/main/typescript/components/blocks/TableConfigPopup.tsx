@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Modal } from "../ui/Modal";
+import { Check, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { Button } from "../ui/button";
 import type { TableBlock } from "../../types/template";
 import { TableGridDesigner } from "./table-config/TableGridDesigner";
 import { TableSizeControls } from "./table-config/TableSizeControls";
@@ -94,54 +96,59 @@ export function TableConfigPopup({ isOpen, config, onClose, onChange }: TableCon
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleCancel} title="Configure Table" size="xl">
-      <div className="flex gap-6">
-        {/* Left: Visual Grid */}
-        <div className="flex-1">
-          <TableGridDesigner
-            config={workingConfig}
-            selectedCells={selectedCells}
-            onCellClick={selectCell}
-          />
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
+      <DialogContent className="sm:max-w-full w-[70vw] h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Configure Table</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex gap-6 flex-1 overflow-hidden">
+          {/* Left: Visual Grid */}
+          <div className="flex-1 overflow-y-auto">
+            <TableGridDesigner
+              config={workingConfig}
+              selectedCells={selectedCells}
+              onCellClick={selectCell}
+            />
+          </div>
+
+          {/* Right: Controls */}
+          <div className="max-w-82 w-full space-y-6 shrink-0 bg-muted/50 rounded-lg p-4">
+            <TableSizeControls
+              config={workingConfig}
+              onAddRow={handleAddRow}
+              onRemoveRow={handleRemoveRow}
+              onAddColumn={handleAddColumn}
+              onRemoveColumn={handleRemoveColumn}
+            />
+
+            <CellActionsControls
+              config={workingConfig}
+              selectedCells={selectedCells}
+              onMergeCells={handleMergeCells}
+              onSplitCell={handleSplitCell}
+              onToggleHeader={handleToggleHeader}
+            />
+
+            <BorderControls config={workingConfig} onChange={handleBorderChange} />
+          </div>
         </div>
 
-        {/* Right: Controls */}
-        <div className="w-64 space-y-6">
-          <TableSizeControls
-            config={workingConfig}
-            onAddRow={handleAddRow}
-            onRemoveRow={handleRemoveRow}
-            onAddColumn={handleAddColumn}
-            onRemoveColumn={handleRemoveColumn}
-          />
-
-          <CellActionsControls
-            config={workingConfig}
-            selectedCells={selectedCells}
-            onMergeCells={handleMergeCells}
-            onSplitCell={handleSplitCell}
-            onToggleHeader={handleToggleHeader}
-          />
-
-          <BorderControls config={workingConfig} onChange={handleBorderChange} />
-        </div>
-      </div>
-
-      {/* Footer buttons */}
-      <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 -mx-6 -mb-6 px-6 pb-6 bg-gray-50">
-        <button
-          onClick={handleCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleApply}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-        >
-          Apply
-        </button>
-      </div>
-    </Modal>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            className="ring ring-neutral-500 hover:ring-neutral-700"
+            onClick={handleCancel}
+          >
+            <X className="size-4" />
+            Cancel
+          </Button>
+          <Button variant="indigo" onClick={handleApply}>
+            <Check className="size-4" />
+            Apply
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
