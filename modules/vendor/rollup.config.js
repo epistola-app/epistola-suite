@@ -126,4 +126,39 @@ export default [
     output: { file: 'dist/uuid.js', format: 'esm' },
     plugins,
   },
+  // radix-ui/react-slot
+  {
+    input: 'node_modules/@radix-ui/react-slot/dist/index.mjs',
+    output: { file: 'dist/radix-ui-react-slot.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
+  // class-variance-authority
+  {
+    input: 'node_modules/class-variance-authority/dist/index.mjs',
+    output: { file: 'dist/class-variance-authority.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
+  // clsx
+  {
+    input: 'node_modules/clsx/dist/clsx.mjs',
+    output: { file: 'dist/clsx.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
+  // lucide-react
+  {
+    input: 'entries/lucide.js',
+    output: { file: 'dist/lucide-react.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
+  // tailwind-merge
+  {
+    input: 'node_modules/tailwind-merge/dist/bundle-mjs.mjs',
+    output: { file: 'dist/tailwind-merge.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
 ];

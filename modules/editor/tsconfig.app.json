@@ -22,7 +22,13 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    /* Shadcn Path */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/main/typescript/*"]
+    }
   },
   "include": ["src/main/typescript"]
 }
