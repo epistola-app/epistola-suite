@@ -1,4 +1,4 @@
-import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from './types';
+import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from "./types";
 
 /**
  * Direct evaluator using new Function()
@@ -15,8 +15,8 @@ import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from '.
  * - Production PDF generation with external data
  */
 export class DirectEvaluator implements ExpressionEvaluator {
-  readonly type = 'direct';
-  readonly name = 'Direct (Fast, Unsandboxed)';
+  readonly type = "direct";
+  readonly name = "Direct (Fast, Unsandboxed)";
   readonly isSandboxed = false;
 
   async initialize(): Promise<void> {
@@ -27,7 +27,7 @@ export class DirectEvaluator implements ExpressionEvaluator {
     const trimmed = expression.trim();
 
     if (!trimmed) {
-      return { success: false, error: 'Expression cannot be empty' };
+      return { success: false, error: "Expression cannot be empty" };
     }
 
     try {
@@ -38,7 +38,7 @@ export class DirectEvaluator implements ExpressionEvaluator {
       const result = fn(...values);
       return { success: true, value: result };
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'Unknown error';
+      const error = e instanceof Error ? e.message : "Unknown error";
       return { success: false, error };
     }
   }

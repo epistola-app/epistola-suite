@@ -1,4 +1,4 @@
-import type { TableBlock } from '../../../types/template';
+import type { TableBlock } from "../../../types/template";
 
 interface TableSizeControlsProps {
   config: TableBlock;
@@ -35,17 +35,15 @@ export function TableSizeControls({
               w-8 h-8 flex items-center justify-center rounded border
               ${
                 canRemoveRow
-                  ? 'border-gray-300 hover:bg-gray-100 text-gray-700'
-                  : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                  ? "border-gray-300 hover:bg-gray-100 text-gray-700"
+                  : "border-gray-200 text-gray-300 cursor-not-allowed"
               }
             `}
-            title={canRemoveRow ? 'Remove row' : 'Must have at least 1 row'}
+            title={canRemoveRow ? "Remove row" : "Must have at least 1 row"}
           >
             −
           </button>
-          <span className="text-sm font-medium text-gray-700 w-8 text-center">
-            {rowCount}
-          </span>
+          <span className="text-sm font-medium text-gray-700 w-8 text-center">{rowCount}</span>
           <button
             onClick={onAddRow}
             className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-100 text-gray-700"
@@ -67,17 +65,15 @@ export function TableSizeControls({
               w-8 h-8 flex items-center justify-center rounded border
               ${
                 canRemoveColumn
-                  ? 'border-gray-300 hover:bg-gray-100 text-gray-700'
-                  : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                  ? "border-gray-300 hover:bg-gray-100 text-gray-700"
+                  : "border-gray-200 text-gray-300 cursor-not-allowed"
               }
             `}
-            title={canRemoveColumn ? 'Remove column' : 'Must have at least 1 column'}
+            title={canRemoveColumn ? "Remove column" : "Must have at least 1 column"}
           >
             −
           </button>
-          <span className="text-sm font-medium text-gray-700 w-8 text-center">
-            {columnCount}
-          </span>
+          <span className="text-sm font-medium text-gray-700 w-8 text-center">{columnCount}</span>
           <button
             onClick={onAddColumn}
             className="w-8 h-8 flex items-center justify-center rounded border border-gray-300 hover:bg-gray-100 text-gray-700"

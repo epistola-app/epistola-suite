@@ -35,9 +35,7 @@ function ColorInput({
   disabled,
 }: ColorInputProps) {
   // Internal state for debouncing
-  const [internalValue, setInternalValue] = React.useState(
-    value ?? defaultValue
-  );
+  const [internalValue, setInternalValue] = React.useState(value ?? defaultValue);
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync internal state when external value changes
@@ -58,7 +56,7 @@ function ColorInput({
         onChange(newValue);
       }, debounceMs);
     },
-    [onChange, debounceMs]
+    [onChange, debounceMs],
   );
 
   // Cleanup timeout on unmount
@@ -94,9 +92,7 @@ function ColorInput({
             className="flex items-center gap-2 h-8 justify-start flex-1"
           >
             <ColorPickerSwatch className="size-4" />
-            <span className="text-xs font-normal text-muted-foreground">
-              {internalValue}
-            </span>
+            <span className="text-xs font-normal text-muted-foreground">{internalValue}</span>
           </Button>
         </ColorPickerTrigger>
         <ColorPickerContent>

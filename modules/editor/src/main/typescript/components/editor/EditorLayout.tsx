@@ -1,11 +1,11 @@
-import { BlockPalette } from './BlockPalette';
-import { Canvas } from './Canvas';
-import { Preview } from './Preview';
-import { StyleSidebar } from '../styling';
-import { useEditorStore } from '../../store/editorStore';
-import { useEvaluator } from '../../context/EvaluatorContext';
-import type { EvaluatorType } from '../../services/expression';
-import type { Template } from '../../types/template';
+import { BlockPalette } from "./BlockPalette";
+import { Canvas } from "./Canvas";
+import { Preview } from "./Preview";
+import { StyleSidebar } from "../styling";
+import { useEditorStore } from "../../store/editorStore";
+import { useEvaluator } from "../../context/EvaluatorContext";
+import type { EvaluatorType } from "../../services/expression";
+import type { Template } from "../../types/template";
 
 interface EditorLayoutProps {
   /** When true, hides the internal header (for embedding in parent layout) */
@@ -43,9 +43,14 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
                 <option value="direct">Direct (Fast)</option>
                 <option value="iframe">Iframe (Sandboxed)</option>
               </select>
-              <span className={`w-2 h-2 rounded-full ${isReady ? 'bg-green-500' : 'bg-yellow-500'}`} title={isReady ? 'Ready' : 'Initializing...'} />
+              <span
+                className={`w-2 h-2 rounded-full ${isReady ? "bg-green-500" : "bg-yellow-500"}`}
+                title={isReady ? "Ready" : "Initializing..."}
+              />
               {evaluator.isSandboxed && (
-                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Secure</span>
+                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
+                  Secure
+                </span>
               )}
             </div>
             <div className="flex gap-2">
@@ -76,7 +81,10 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
               <option value="direct">Direct (Fast)</option>
               <option value="iframe">Iframe (Sandboxed)</option>
             </select>
-            <span className={`w-2 h-2 rounded-full ${isReady ? 'bg-green-500' : 'bg-yellow-500'}`} title={isReady ? 'Ready' : 'Initializing...'} />
+            <span
+              className={`w-2 h-2 rounded-full ${isReady ? "bg-green-500" : "bg-yellow-500"}`}
+              title={isReady ? "Ready" : "Initializing..."}
+            />
           </div>
           <div className="flex gap-2">
             <button

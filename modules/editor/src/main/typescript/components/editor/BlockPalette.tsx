@@ -1,9 +1,9 @@
-import { useDraggable } from '@dnd-kit/core';
-import { v4 as uuidv4 } from 'uuid';
-import type { Block } from '../../types/template';
+import { useDraggable } from "@dnd-kit/core";
+import { v4 as uuidv4 } from "uuid";
+import type { Block } from "../../types/template";
 
 interface BlockTypeConfig {
-  type: Block['type'];
+  type: Block["type"];
   label: string;
   icon: string;
   createBlock: () => Block;
@@ -11,58 +11,58 @@ interface BlockTypeConfig {
 
 const blockTypes: BlockTypeConfig[] = [
   {
-    type: 'text',
-    label: 'Text',
-    icon: 'T',
+    type: "text",
+    label: "Text",
+    icon: "T",
     createBlock: () => ({
       id: uuidv4(),
-      type: 'text',
+      type: "text",
       content: {
-        type: 'doc',
-        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Enter text here...' }] }],
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Enter text here..." }] }],
       },
     }),
   },
   {
-    type: 'container',
-    label: 'Container',
-    icon: '▢',
+    type: "container",
+    label: "Container",
+    icon: "▢",
     createBlock: () => ({
       id: uuidv4(),
-      type: 'container',
+      type: "container",
       children: [],
     }),
   },
   {
-    type: 'conditional',
-    label: 'If',
-    icon: '?',
+    type: "conditional",
+    label: "If",
+    icon: "?",
     createBlock: () => ({
       id: uuidv4(),
-      type: 'conditional',
-      condition: { raw: 'true' },
+      type: "conditional",
+      condition: { raw: "true" },
       children: [],
     }),
   },
   {
-    type: 'loop',
-    label: 'Loop',
-    icon: '↻',
+    type: "loop",
+    label: "Loop",
+    icon: "↻",
     createBlock: () => ({
       id: uuidv4(),
-      type: 'loop',
-      expression: { raw: 'items' },
-      itemAlias: 'item',
+      type: "loop",
+      expression: { raw: "items" },
+      itemAlias: "item",
       children: [],
     }),
   },
   {
-    type: 'columns',
-    label: 'Columns',
-    icon: '▦',
+    type: "columns",
+    label: "Columns",
+    icon: "▦",
     createBlock: () => ({
       id: uuidv4(),
-      type: 'columns',
+      type: "columns",
       gap: 16,
       columns: [
         {
@@ -79,13 +79,13 @@ const blockTypes: BlockTypeConfig[] = [
     }),
   },
   {
-    type: 'table',
-    label: 'Table',
-    icon: '⊞',
+    type: "table",
+    label: "Table",
+    icon: "⊞",
     createBlock: () => ({
       id: uuidv4(),
-      type: 'table',
-      borderStyle: 'all',
+      type: "table",
+      borderStyle: "all",
       rows: [
         {
           id: uuidv4(),
@@ -96,10 +96,10 @@ const blockTypes: BlockTypeConfig[] = [
               children: [
                 {
                   id: uuidv4(),
-                  type: 'text',
+                  type: "text",
                   content: {
-                    type: 'doc',
-                    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Header 1' }] }],
+                    type: "doc",
+                    content: [{ type: "paragraph", content: [{ type: "text", text: "Header 1" }] }],
                   },
                 },
               ],
@@ -109,10 +109,10 @@ const blockTypes: BlockTypeConfig[] = [
               children: [
                 {
                   id: uuidv4(),
-                  type: 'text',
+                  type: "text",
                   content: {
-                    type: 'doc',
-                    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Header 2' }] }],
+                    type: "doc",
+                    content: [{ type: "paragraph", content: [{ type: "text", text: "Header 2" }] }],
                   },
                 },
               ],
@@ -128,10 +128,10 @@ const blockTypes: BlockTypeConfig[] = [
               children: [
                 {
                   id: uuidv4(),
-                  type: 'text',
+                  type: "text",
                   content: {
-                    type: 'doc',
-                    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cell 1' }] }],
+                    type: "doc",
+                    content: [{ type: "paragraph", content: [{ type: "text", text: "Cell 1" }] }],
                   },
                 },
               ],
@@ -141,10 +141,10 @@ const blockTypes: BlockTypeConfig[] = [
               children: [
                 {
                   id: uuidv4(),
-                  type: 'text',
+                  type: "text",
                   content: {
-                    type: 'doc',
-                    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cell 2' }] }],
+                    type: "doc",
+                    content: [{ type: "paragraph", content: [{ type: "text", text: "Cell 2" }] }],
                   },
                 },
               ],
@@ -160,7 +160,7 @@ function DraggableBlockType({ config }: { config: BlockTypeConfig }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-${config.type}`,
     data: {
-      type: 'palette',
+      type: "palette",
       blockType: config.type,
       createBlock: config.createBlock,
     },
@@ -174,7 +174,7 @@ function DraggableBlockType({ config }: { config: BlockTypeConfig }) {
       className={`
         flex flex-col items-center justify-center p-3 rounded-lg border border-gray-200
         bg-white hover:border-blue-400 hover:shadow-sm cursor-grab transition-all
-        ${isDragging ? 'opacity-50' : ''}
+        ${isDragging ? "opacity-50" : ""}
       `}
     >
       <span className="text-xl mb-1">{config.icon}</span>
@@ -186,9 +186,7 @@ function DraggableBlockType({ config }: { config: BlockTypeConfig }) {
 export function BlockPalette() {
   return (
     <div className="p-3 border-b border-gray-200 bg-gray-50">
-      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-        Blocks
-      </h3>
+      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Blocks</h3>
       <div className="grid grid-cols-4 gap-2">
         {blockTypes.map((config) => (
           <DraggableBlockType key={config.type} config={config} />

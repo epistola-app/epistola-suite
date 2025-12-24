@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { useEditorStore } from '../../store/editorStore';
-import { useScope } from '../../context/ScopeContext';
-import { useEvaluator } from '../../context/EvaluatorContext';
-import type { ScopeVariable } from '../../context/ScopeContext';
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useEditorStore } from "../../store/editorStore";
+import { useScope } from "../../context/ScopeContext";
+import { useEvaluator } from "../../context/EvaluatorContext";
+import type { ScopeVariable } from "../../context/ScopeContext";
 
 interface ExpressionEditorProps {
   value: string;
@@ -18,7 +18,7 @@ interface PathInfo {
 }
 
 // Extract all possible paths from an object with type info
-function extractPaths(obj: unknown, prefix = ''): PathInfo[] {
+function extractPaths(obj: unknown, prefix = ""): PathInfo[] {
   const paths: PathInfo[] = [];
 
   if (obj === null || obj === undefined) {
@@ -32,9 +32,9 @@ function extractPaths(obj: unknown, prefix = ''): PathInfo[] {
       const itemPaths = extractPaths(obj[0], `${prefix}[0]`);
       paths.push(...itemPaths);
       // Also suggest .length, .map, .filter, etc.
-      paths.push({ path: `${prefix}.length`, isArray: false, type: 'number' });
+      paths.push({ path: `${prefix}.length`, isArray: false, type: "number" });
     }
-  } else if (typeof obj === 'object') {
+  } else if (typeof obj === "object") {
     for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       const path = prefix ? `${prefix}.${key}` : key;
       const isArray = Array.isArray(value);
@@ -51,18 +51,18 @@ function extractPaths(obj: unknown, prefix = ''): PathInfo[] {
 export function resolveScopeVariable(
   varName: string,
   scopeVars: ScopeVariable[],
-  testData: Record<string, unknown>
+  testData: Record<string, unknown>,
 ): unknown | undefined {
-  const scopeVar = scopeVars.find(v => v.name === varName);
+  const scopeVar = scopeVars.find((v) => v.name === varName);
   if (!scopeVar) return undefined;
 
-  if (scopeVar.type === 'loop-index') {
+  if (scopeVar.type === "loop-index") {
     return 0; // Preview with index 0
   }
 
-  if (scopeVar.type === 'loop-item') {
+  if (scopeVar.type === "loop-item") {
     // Get the first item from the array
-    const arrayPath = scopeVar.arrayPath.split('.');
+    const arrayPath = scopeVar.arrayPath.split(".");
     let arrayValue: unknown = testData;
     for (const part of arrayPath) {
       arrayValue = (arrayValue as Record<string, unknown>)?.[part];
@@ -78,7 +78,7 @@ export function resolveScopeVariable(
 // Build evaluation context with scope variables resolved
 export function buildEvaluationContext(
   data: Record<string, unknown>,
-  scopeVars: ScopeVariable[]
+  scopeVars: ScopeVariable[],
 ): Record<string, unknown> {
   const context: Record<string, unknown> = { ...data };
   for (const scopeVar of scopeVars) {
@@ -90,11 +90,21 @@ export function buildEvaluationContext(
   return context;
 }
 
-export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = false }: ExpressionEditorProps) {
+export function ExpressionEditor({
+  value,
+  onSave,
+  onCancel,
+  filterArraysOnly = false,
+}: ExpressionEditorProps) {
   const [inputValue, setInputValue] = useState(value);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [validation, setValidation] = useState<{ valid: boolean; error?: string; value?: unknown; loading?: boolean }>({ valid: false, loading: true });
+  const [validation, setValidation] = useState<{
+    valid: boolean;
+    error?: string;
+    value?: unknown;
+    loading?: boolean;
+  }>({ valid: false, loading: true });
   const inputRef = useRef<HTMLInputElement>(null);
   const testData = useEditorStore((s) => s.testData);
   const scope = useScope();
@@ -106,9 +116,9 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
 
     // Add scope variables (from loops, etc.)
     for (const scopeVar of scope.variables) {
-      if (scopeVar.type === 'loop-item') {
+      if (scopeVar.type === "loop-item") {
         // Get the array from test data to extract item properties
-        const arrayPath = scopeVar.arrayPath.split('.');
+        const arrayPath = scopeVar.arrayPath.split(".");
         let arrayValue: unknown = testData;
         for (const part of arrayPath) {
           arrayValue = (arrayValue as Record<string, unknown>)?.[part];
@@ -117,7 +127,7 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
         if (Array.isArray(arrayValue) && arrayValue.length > 0) {
           // Add the item variable itself
           const itemSample = arrayValue[0];
-          const itemType = typeof itemSample === 'object' ? 'object' : typeof itemSample;
+          const itemType = typeof itemSample === "object" ? "object" : typeof itemSample;
           paths.unshift({
             path: scopeVar.name,
             isArray: false,
@@ -125,33 +135,35 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
           });
 
           // Add properties of the item
-          if (typeof itemSample === 'object' && itemSample !== null) {
+          if (typeof itemSample === "object" && itemSample !== null) {
             const itemPaths = extractPaths(itemSample, scopeVar.name);
             // Add these at the beginning so they appear first
-            paths.unshift(...itemPaths.map(p => ({
-              ...p,
-              type: `${p.type} (from ${scopeVar.arrayPath})`,
-            })));
+            paths.unshift(
+              ...itemPaths.map((p) => ({
+                ...p,
+                type: `${p.type} (from ${scopeVar.arrayPath})`,
+              })),
+            );
           }
         } else {
           // Array not found or empty, still add the variable
           paths.unshift({
             path: scopeVar.name,
             isArray: false,
-            type: 'loop item',
+            type: "loop item",
           });
         }
-      } else if (scopeVar.type === 'loop-index') {
+      } else if (scopeVar.type === "loop-index") {
         paths.unshift({
           path: scopeVar.name,
           isArray: false,
-          type: 'number (loop index)',
+          type: "number (loop index)",
         });
       }
     }
 
     if (filterArraysOnly) {
-      return paths.filter(p => p.isArray);
+      return paths.filter((p) => p.isArray);
     }
     return paths;
   }, [testData, filterArraysOnly, scope.variables]);
@@ -161,20 +173,18 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
     if (!inputValue.trim()) return allPaths.slice(0, 10);
 
     const lower = inputValue.toLowerCase();
-    return allPaths
-      .filter(p => p.path.toLowerCase().includes(lower))
-      .slice(0, 10);
+    return allPaths.filter((p) => p.path.toLowerCase().includes(lower)).slice(0, 10);
   }, [inputValue, allPaths]);
 
   // Async validation with debouncing
   useEffect(() => {
     if (!isReady) {
-      setValidation({ valid: false, error: 'Evaluator not ready' });
+      setValidation({ valid: false, error: "Evaluator not ready" });
       return;
     }
     const trimmed = inputValue.trim();
     if (!trimmed) {
-      setValidation({ valid: false, error: 'Expression cannot be empty' });
+      setValidation({ valid: false, error: "Expression cannot be empty" });
       return;
     }
 
@@ -216,7 +226,7 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
   }, [suggestions]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       if (showSuggestions && suggestions.length > 0 && selectedIndex < suggestions.length) {
         setInputValue(suggestions[selectedIndex].path);
@@ -224,15 +234,15 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
       } else {
         onSave(inputValue);
       }
-    } else if (e.key === 'Escape') {
+    } else if (e.key === "Escape") {
       onCancel();
-    } else if (e.key === 'ArrowDown') {
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex(i => Math.min(i + 1, suggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
+      setSelectedIndex((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Tab' && suggestions.length > 0) {
+      setSelectedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Tab" && suggestions.length > 0) {
       e.preventDefault();
       setInputValue(suggestions[selectedIndex].path);
       setShowSuggestions(false);
@@ -268,23 +278,29 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
               w-full px-3 py-1.5 text-sm font-mono
               border rounded-md shadow-lg
               focus:outline-none focus:ring-2
-              ${'loading' in validation && validation.loading
-                ? 'border-gray-300 focus:ring-gray-300 bg-gray-50'
-                : validation.valid
-                  ? 'border-green-400 focus:ring-green-300 bg-green-50'
-                  : 'border-red-400 focus:ring-red-300 bg-red-50'}
+              ${
+                "loading" in validation && validation.loading
+                  ? "border-gray-300 focus:ring-gray-300 bg-gray-50"
+                  : validation.valid
+                    ? "border-green-400 focus:ring-green-300 bg-green-50"
+                    : "border-red-400 focus:ring-red-300 bg-red-50"
+              }
             `}
             placeholder="customer.name"
-            style={{ minWidth: '250px' }}
+            style={{ minWidth: "250px" }}
           />
 
           {/* Validation indicator */}
-          <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-sm ${
-            'loading' in validation && validation.loading
-              ? 'text-gray-400'
-              : validation.valid ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {'loading' in validation && validation.loading ? '...' : validation.valid ? '✓' : '✗'}
+          <span
+            className={`absolute right-2 top-1/2 -translate-y-1/2 text-sm ${
+              "loading" in validation && validation.loading
+                ? "text-gray-400"
+                : validation.valid
+                  ? "text-green-600"
+                  : "text-red-600"
+            }`}
+          >
+            {"loading" in validation && validation.loading ? "..." : validation.valid ? "✓" : "✗"}
           </span>
         </div>
 
@@ -305,9 +321,7 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
 
       {/* Error message */}
       {!validation.valid && validation.error && (
-        <div className="mt-1 text-xs text-red-600">
-          {validation.error}
-        </div>
+        <div className="mt-1 text-xs text-red-600">{validation.error}</div>
       )}
 
       {/* Autocomplete suggestions */}
@@ -319,15 +333,15 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
               onClick={() => handleSuggestionClick(suggestion)}
               className={`
                 px-3 py-1.5 text-sm cursor-pointer flex justify-between items-center
-                ${index === selectedIndex ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'}
+                ${index === selectedIndex ? "bg-blue-100 text-blue-800" : "hover:bg-gray-100"}
               `}
             >
               <span className="font-mono">{suggestion.path}</span>
-              <span className={`text-xs ml-2 px-1.5 py-0.5 rounded ${
-                suggestion.isArray
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'bg-gray-100 text-gray-500'
-              }`}>
+              <span
+                className={`text-xs ml-2 px-1.5 py-0.5 rounded ${
+                  suggestion.isArray ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-500"
+                }`}
+              >
                 {suggestion.type}
               </span>
             </div>
@@ -339,25 +353,26 @@ export function ExpressionEditor({ value, onSave, onCancel, filterArraysOnly = f
       )}
 
       {/* Preview of evaluated value */}
-      {'loading' in validation && validation.loading ? (
-        <div className="mt-1 text-xs text-gray-400">
-          Evaluating...
-        </div>
-      ) : validation.valid && (
-        <div className="mt-1 text-xs text-gray-500">
-          Preview: <span className="font-mono text-gray-700">{formatPreviewValue(validation.value)}</span>
-        </div>
+      {"loading" in validation && validation.loading ? (
+        <div className="mt-1 text-xs text-gray-400">Evaluating...</div>
+      ) : (
+        validation.valid && (
+          <div className="mt-1 text-xs text-gray-500">
+            Preview:{" "}
+            <span className="font-mono text-gray-700">{formatPreviewValue(validation.value)}</span>
+          </div>
+        )
       )}
     </div>
   );
 }
 
 function formatPreviewValue(value: unknown): string {
-  if (value === undefined) return 'undefined';
-  if (value === null) return 'null';
-  if (typeof value === 'object') {
+  if (value === undefined) return "undefined";
+  if (value === null) return "null";
+  if (typeof value === "object") {
     const json = JSON.stringify(value);
-    return json.length > 50 ? json.slice(0, 50) + '...' : json;
+    return json.length > 50 ? json.slice(0, 50) + "..." : json;
   }
   return String(value);
 }

@@ -1,5 +1,5 @@
-import type { JSONContent } from '@tiptap/react';
-import type { CSSProperties } from 'react';
+import type { JSONContent } from "@tiptap/react";
+import type { CSSProperties } from "react";
 
 export interface Template {
   id: string;
@@ -19,14 +19,14 @@ export interface DocumentStyles {
   color?: string;
   lineHeight?: string;
   letterSpacing?: string;
-  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  textAlign?: "left" | "center" | "right" | "justify";
   // Background
   backgroundColor?: string;
 }
 
 export interface PageSettings {
-  format: 'A4' | 'Letter' | 'Custom';
-  orientation: 'portrait' | 'landscape';
+  format: "A4" | "Letter" | "Custom";
+  orientation: "portrait" | "landscape";
   margins: { top: number; right: number; bottom: number; left: number };
 }
 
@@ -45,24 +45,24 @@ export interface BaseBlock {
 }
 
 export interface ContainerBlock extends BaseBlock {
-  type: 'container';
+  type: "container";
   children: Block[];
 }
 
 export interface TextBlock extends BaseBlock {
-  type: 'text';
+  type: "text";
   content: JSONContent;
 }
 
 export interface ConditionalBlock extends BaseBlock {
-  type: 'conditional';
+  type: "conditional";
   condition: Expression;
   inverse?: boolean; // if true, shows content when condition is FALSE
   children: Block[]; // blocks shown when condition matches (or inverse matches)
 }
 
 export interface LoopBlock extends BaseBlock {
-  type: 'loop';
+  type: "loop";
   expression: Expression;
   itemAlias: string;
   indexAlias?: string;
@@ -70,7 +70,7 @@ export interface LoopBlock extends BaseBlock {
 }
 
 export interface ColumnsBlock extends BaseBlock {
-  type: 'columns';
+  type: "columns";
   columns: Column[];
   gap?: number; // spacing between columns in pixels
 }
@@ -82,10 +82,10 @@ export interface Column {
 }
 
 export interface TableBlock extends BaseBlock {
-  type: 'table';
+  type: "table";
   rows: TableRow[];
   columnWidths?: number[]; // ratio-based widths for each column
-  borderStyle?: 'none' | 'all' | 'horizontal' | 'vertical';
+  borderStyle?: "none" | "all" | "horizontal" | "vertical";
 }
 
 export interface TableRow {
@@ -107,18 +107,12 @@ export interface Expression {
 }
 
 export interface PreviewOverrides {
-  conditionals: Record<string, 'data' | 'show' | 'hide'>;
-  loops: Record<string, number | 'data'>;
+  conditionals: Record<string, "data" | "show" | "hide">;
+  loops: Record<string, number | "data">;
 }
 
 // JSON types (matches ObjectNode on backend)
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonObject
-  | JsonArray;
+export type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
 export interface JsonObject {
   [key: string]: JsonValue;
 }

@@ -1,16 +1,7 @@
-import { useEditorStore } from '../../store/editorStore';
-import { StyleSection } from './StyleSection';
-import {
-  ColorPicker,
-  SelectInput,
-  NumberInput,
-  ToggleGroup,
-} from './inputs';
-import {
-  FONT_FAMILIES,
-  FONT_WEIGHTS,
-  TEXT_ALIGN_OPTIONS,
-} from '../../types/styles';
+import { useEditorStore } from "../../store/editorStore";
+import { StyleSection } from "./StyleSection";
+import { ColorPicker, SelectInput, NumberInput, ToggleGroup } from "./inputs";
+import { FONT_FAMILIES, FONT_WEIGHTS, TEXT_ALIGN_OPTIONS } from "../../types/styles";
 
 export function DocumentStyleEditor() {
   const documentStyles = useEditorStore((s) => s.template.documentStyles);
@@ -38,7 +29,7 @@ export function DocumentStyleEditor() {
             value={documentStyles?.fontSize}
             onChange={(value) => updateDocumentStyles({ fontSize: value })}
             label="Font Size"
-            units={['px', 'em', 'rem']}
+            units={["px", "em", "rem"]}
             defaultUnit="px"
             min={1}
             placeholder="16"
@@ -59,7 +50,9 @@ export function DocumentStyleEditor() {
         <ToggleGroup
           value={documentStyles?.textAlign}
           onChange={(value) =>
-            updateDocumentStyles({ textAlign: value as 'left' | 'center' | 'right' | 'justify' | undefined })
+            updateDocumentStyles({
+              textAlign: value as "left" | "center" | "right" | "justify" | undefined,
+            })
           }
           options={TEXT_ALIGN_OPTIONS}
           label="Text Align"
@@ -69,7 +62,7 @@ export function DocumentStyleEditor() {
             value={documentStyles?.lineHeight}
             onChange={(value) => updateDocumentStyles({ lineHeight: value })}
             label="Line Height"
-            units={['px', 'em', '%']}
+            units={["px", "em", "%"]}
             defaultUnit="em"
             min={0}
             step={0.1}
@@ -79,7 +72,7 @@ export function DocumentStyleEditor() {
             value={documentStyles?.letterSpacing}
             onChange={(value) => updateDocumentStyles({ letterSpacing: value })}
             label="Letter Spacing"
-            units={['px', 'em']}
+            units={["px", "em"]}
             defaultUnit="px"
             placeholder="0"
           />

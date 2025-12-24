@@ -1,43 +1,43 @@
-import { useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: "sm" | "md" | "lg" | "xl";
   children: ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, size = 'lg', children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, size = "lg", children }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === "Escape" && isOpen) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
+      document.addEventListener("keydown", handleEscape);
       // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-2xl',
-    lg: 'max-w-4xl',
-    xl: 'max-w-6xl',
+    sm: "max-w-md",
+    md: "max-w-2xl",
+    lg: "max-w-4xl",
+    xl: "max-w-6xl",
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -49,7 +49,7 @@ export function Modal({ isOpen, onClose, title, size = 'lg', children }: ModalPr
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center transition-opacity"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.25)' }}
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.25)" }}
       onClick={handleBackdropClick}
     >
       <div
@@ -71,12 +71,7 @@ export function Modal({ isOpen, onClose, title, size = 'lg', children }: ModalPr
             className="text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Close modal"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

@@ -1,7 +1,7 @@
-import { NumberInput } from './NumberInput';
-import { SelectInput } from './SelectInput';
-import { ColorPicker } from './ColorPicker';
-import { BORDER_STYLES } from '../../../types/styles';
+import { NumberInput } from "./NumberInput";
+import { SelectInput } from "./SelectInput";
+import { ColorPicker } from "./ColorPicker";
+import { BORDER_STYLES } from "../../../types/styles";
 
 interface BorderInputProps {
   width: string | undefined;
@@ -28,15 +28,13 @@ export function BorderInput({
 }: BorderInputProps) {
   return (
     <div className="flex flex-col gap-3">
-      {label && (
-        <label className="text-xs text-gray-500 font-medium">{label}</label>
-      )}
+      {label && <label className="text-xs text-gray-500 font-medium">{label}</label>}
       <div className="grid grid-cols-2 gap-2">
         <NumberInput
           value={width}
           onChange={onWidthChange}
           label="Width"
-          units={['px']}
+          units={["px"]}
           defaultUnit="px"
           min={0}
           placeholder="0"
@@ -50,16 +48,12 @@ export function BorderInput({
         />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <ColorPicker
-          value={color}
-          onChange={onColorChange}
-          label="Color"
-        />
+        <ColorPicker value={color} onChange={onColorChange} label="Color" />
         <NumberInput
           value={radius}
           onChange={onRadiusChange}
           label="Radius"
-          units={['px', '%']}
+          units={["px", "%"]}
           defaultUnit="px"
           min={0}
           placeholder="0"

@@ -1,4 +1,4 @@
-import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from './types';
+import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from "./types";
 
 /**
  * Sandboxed evaluator using an iframe
@@ -15,15 +15,18 @@ import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from '.
  * - More secure for untrusted expressions
  */
 export class IframeEvaluator implements ExpressionEvaluator {
-  readonly type = 'iframe';
-  readonly name = 'Iframe Sandbox (Slower, Secure)';
+  readonly type = "iframe";
+  readonly name = "Iframe Sandbox (Slower, Secure)";
   readonly isSandboxed = true;
 
   private iframe: HTMLIFrameElement | null = null;
-  private pendingRequests = new Map<string, {
-    resolve: (result: EvaluationResult) => void;
-    timeout: ReturnType<typeof setTimeout>;
-  }>();
+  private pendingRequests = new Map<
+    string,
+    {
+      resolve: (result: EvaluationResult) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    }
+  >();
   private messageHandler: ((event: MessageEvent) => void) | null = null;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
@@ -102,26 +105,26 @@ export class IframeEvaluator implements ExpressionEvaluator {
           <\/script></body></html>`;
 
     // Create sandboxed iframe using srcdoc (avoids blob URL security issues)
-    this.iframe = document.createElement('iframe');
+    this.iframe = document.createElement("iframe");
     // allow-scripts: enables script execution
     // allow-same-origin: needed for postMessage to work reliably
     // Still sandboxed: no forms, no popups, no top navigation, no pointer-lock, etc.
-    this.iframe.sandbox.add('allow-scripts', 'allow-same-origin');
-    this.iframe.style.display = 'none';
+    this.iframe.sandbox.add("allow-scripts", "allow-same-origin");
+    this.iframe.style.display = "none";
     this.iframe.srcdoc = html;
 
     // Setup message handler
     this.messageHandler = (event: MessageEvent) => {
       // For srcdoc iframes, we can't reliably check event.source
       // Instead, we validate by checking the message structure
-      if (!event.data || typeof event.data !== 'object') {
+      if (!event.data || typeof event.data !== "object") {
         return;
       }
 
       const { id, type, success, value, error } = event.data;
 
       // Handle ready signal
-      if (type === 'ready') {
+      if (type === "ready") {
         return;
       }
 
@@ -139,24 +142,24 @@ export class IframeEvaluator implements ExpressionEvaluator {
       }
     };
 
-    window.addEventListener('message', this.messageHandler);
+    window.addEventListener("message", this.messageHandler);
 
     // Wait for iframe to be ready
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('Iframe sandbox initialization timeout'));
+        reject(new Error("Iframe sandbox initialization timeout"));
       }, 5000);
 
       const readyHandler = (event: MessageEvent) => {
         // For srcdoc iframes, event.source might be the contentWindow
-        if (event.data.type === 'ready') {
+        if (event.data.type === "ready") {
           clearTimeout(timeout);
-          window.removeEventListener('message', readyHandler);
+          window.removeEventListener("message", readyHandler);
           resolve();
         }
       };
 
-      window.addEventListener('message', readyHandler);
+      window.addEventListener("message", readyHandler);
 
       // Append iframe and wait for load
       this.iframe!.onload = () => {
@@ -175,11 +178,11 @@ export class IframeEvaluator implements ExpressionEvaluator {
 
     const trimmed = expression.trim();
     if (!trimmed) {
-      return { success: false, error: 'Expression cannot be empty' };
+      return { success: false, error: "Expression cannot be empty" };
     }
 
     if (!this.iframe?.contentWindow) {
-      return { success: false, error: 'Sandbox not available' };
+      return { success: false, error: "Sandbox not available" };
     }
 
     const id = crypto.randomUUID();
@@ -188,7 +191,7 @@ export class IframeEvaluator implements ExpressionEvaluator {
       // Set timeout for evaluation
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(id);
-        resolve({ success: false, error: 'Evaluation timeout (possible infinite loop)' });
+        resolve({ success: false, error: "Evaluation timeout (possible infinite loop)" });
       }, 1000); // 1 second timeout
 
       this.pendingRequests.set(id, { resolve, timeout });
@@ -196,7 +199,7 @@ export class IframeEvaluator implements ExpressionEvaluator {
       // Send evaluation request
       this.iframe!.contentWindow!.postMessage(
         { id, expression: trimmed, context: this.serializeContext(context) },
-        '*'
+        "*",
       );
     });
   }
@@ -207,7 +210,7 @@ export class IframeEvaluator implements ExpressionEvaluator {
     const result: EvaluationContext = {};
 
     for (const [key, value] of Object.entries(context)) {
-      if (typeof value === 'function' || typeof value === 'symbol') {
+      if (typeof value === "function" || typeof value === "symbol") {
         continue; // Skip non-serializable
       }
       try {
@@ -226,13 +229,13 @@ export class IframeEvaluator implements ExpressionEvaluator {
     // Clear pending requests
     for (const [, pending] of this.pendingRequests) {
       clearTimeout(pending.timeout);
-      pending.resolve({ success: false, error: 'Evaluator disposed' });
+      pending.resolve({ success: false, error: "Evaluator disposed" });
     }
     this.pendingRequests.clear();
 
     // Remove message handler
     if (this.messageHandler) {
-      window.removeEventListener('message', this.messageHandler);
+      window.removeEventListener("message", this.messageHandler);
       this.messageHandler = null;
     }
 

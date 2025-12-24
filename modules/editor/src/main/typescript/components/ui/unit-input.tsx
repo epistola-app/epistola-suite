@@ -7,13 +7,7 @@ import {
   type CSSUnit,
 } from "@/types/styles";
 import { Input } from "./input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
 interface UnitInputProps {
   value?: string;
@@ -58,7 +52,7 @@ function UnitInput({
         }
       }
     },
-    [onChange, unitValue]
+    [onChange, unitValue],
   );
 
   // Handle unit change
@@ -73,7 +67,7 @@ function UnitInput({
         onChange(formatValueWithUnit(num, newUnit as CSSUnit));
       }
     },
-    [onChange, numericValue]
+    [onChange, numericValue],
   );
 
   return (
@@ -89,15 +83,8 @@ function UnitInput({
         disabled={disabled}
         className="h-8 rounded-r-none border-r-0 shadow-none focus-visible:z-10"
       />
-      <Select
-        value={unitValue}
-        onValueChange={handleUnitChange}
-        disabled={disabled}
-      >
-        <SelectTrigger
-          size="sm"
-          className="rounded-l-none shadow-none focus-visible:z-10"
-        >
+      <Select value={unitValue} onValueChange={handleUnitChange} disabled={disabled}>
+        <SelectTrigger size="sm" className="rounded-l-none shadow-none focus-visible:z-10">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
