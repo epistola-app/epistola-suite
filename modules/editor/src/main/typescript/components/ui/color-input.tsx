@@ -78,18 +78,19 @@ function ColorInput({
   }, [onChange, defaultValue]);
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex items-center gap-2 ", className)}>
       <ColorPicker
         value={internalValue}
         onValueChange={handleColorChange}
         defaultFormat="hex"
         disabled={disabled}
+        className="w-full"
       >
         <ColorPickerTrigger asChild>
           <Button
             variant="outline"
             disabled={disabled}
-            className="flex items-center gap-2 h-8 justify-start flex-1"
+            className="flex items-center w-full gap-2 h-8 flex-1"
           >
             <ColorPickerSwatch className="size-4" />
             <span className="text-xs font-normal text-muted-foreground">{internalValue}</span>
