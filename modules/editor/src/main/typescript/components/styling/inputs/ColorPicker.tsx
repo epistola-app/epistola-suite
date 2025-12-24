@@ -5,13 +5,8 @@ interface ColorPickerProps {
   allowEmpty?: boolean;
 }
 
-export function ColorPicker({
-  value,
-  onChange,
-  label,
-  allowEmpty = true,
-}: ColorPickerProps) {
-  const displayValue = value || '#000000';
+export function ColorPicker({ value, onChange, label, allowEmpty = true }: ColorPickerProps) {
+  const displayValue = value || "#000000";
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
@@ -25,9 +20,7 @@ export function ColorPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      {label && (
-        <label className="text-xs text-gray-500">{label}</label>
-      )}
+      {label && <label className="text-xs text-gray-500">{label}</label>}
       <div className="flex items-center gap-2">
         <div className="relative">
           <input
@@ -39,7 +32,7 @@ export function ColorPicker({
         </div>
         <input
           type="text"
-          value={value || ''}
+          value={value || ""}
           onChange={(e) => onChange(e.target.value || undefined)}
           placeholder="#000000"
           className="flex-1 px-2 py-1 text-sm font-mono border border-gray-200 rounded

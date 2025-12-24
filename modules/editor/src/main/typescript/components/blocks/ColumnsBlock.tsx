@@ -1,8 +1,8 @@
-import { useDroppable } from '@dnd-kit/core';
-import type { ColumnsBlock, Column } from '../../types/template';
-import { BlockRenderer } from './BlockRenderer';
-import { useEditorStore } from '../../store/editorStore';
-import { v4 as uuidv4 } from 'uuid';
+import { useDroppable } from "@dnd-kit/core";
+import type { ColumnsBlock, Column } from "../../types/template";
+import { BlockRenderer } from "./BlockRenderer";
+import { useEditorStore } from "../../store/editorStore";
+import { v4 as uuidv4 } from "uuid";
 
 interface ColumnsBlockProps {
   block: ColumnsBlock;
@@ -35,7 +35,7 @@ export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBloc
   const handleUpdateColumnSize = (columnId: string, size: number) => {
     updateBlock(block.id, {
       columns: block.columns.map((col) =>
-        col.id === columnId ? { ...col, size: Math.max(1, size) } : col
+        col.id === columnId ? { ...col, size: Math.max(1, size) } : col,
       ),
     });
   };
@@ -45,7 +45,9 @@ export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBloc
   };
 
   return (
-    <div className={`rounded-lg border ${isSelected ? 'bg-gray-50 border-dashed border-gray-300' : 'border-transparent'}`}>
+    <div
+      className={`rounded-lg border ${isSelected ? "bg-gray-50 border-dashed border-gray-300" : "border-transparent"}`}
+    >
       {isSelected && (
         <div className="px-3 pt-2 pb-1 space-y-2">
           <div className="text-xs text-gray-400 font-medium">COLUMNS</div>
@@ -70,7 +72,7 @@ export function ColumnsBlockComponent({ block, isSelected = false }: ColumnsBloc
       )}
       <div
         style={{
-          display: 'flex',
+          display: "flex",
           gap: `${gap}px`,
           ...block.styles,
         }}
@@ -115,7 +117,7 @@ function ColumnComponent({
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${blockId}-${column.id}`,
     data: {
-      type: 'column',
+      type: "column",
       parentId: blockId,
       columnId: column.id,
       index: column.children.length,
@@ -125,7 +127,7 @@ function ColumnComponent({
   return (
     <div
       style={{ flex: column.size }}
-      className={`rounded border ${isSelected ? 'border-gray-300' : 'border-transparent'}`}
+      className={`rounded border ${isSelected ? "border-gray-300" : "border-transparent"}`}
     >
       {isSelected && (
         <div className="px-2 py-1 bg-gray-100 border-b border-gray-300 flex items-center gap-2">
@@ -152,13 +154,13 @@ function ColumnComponent({
         ref={setNodeRef}
         className={`
           min-h-[100px] p-2
-          ${isOver ? 'bg-blue-50' : ''}
-          ${column.children.length === 0 ? 'flex items-center justify-center' : ''}
+          ${isOver ? "bg-blue-50" : ""}
+          ${column.children.length === 0 ? "flex items-center justify-center" : ""}
         `}
       >
         {column.children.length === 0 ? (
           <span className="text-gray-400 text-sm">
-            {isSelected ? 'Drop blocks here' : 'Empty column'}
+            {isSelected ? "Drop blocks here" : "Empty column"}
           </span>
         ) : (
           <div className="space-y-2">

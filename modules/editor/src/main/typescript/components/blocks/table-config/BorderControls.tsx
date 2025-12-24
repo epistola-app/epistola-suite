@@ -1,12 +1,12 @@
-import type { TableBlock } from '../../../types/template';
+import type { TableBlock } from "../../../types/template";
 
 interface BorderControlsProps {
   config: TableBlock;
-  onChange: (borderStyle: 'none' | 'all' | 'horizontal' | 'vertical') => void;
+  onChange: (borderStyle: "none" | "all" | "horizontal" | "vertical") => void;
 }
 
 export function BorderControls({ config, onChange }: BorderControlsProps) {
-  const borderStyle = config.borderStyle || 'all';
+  const borderStyle = config.borderStyle || "all";
 
   return (
     <div className="space-y-4">
@@ -31,9 +31,9 @@ export function BorderControls({ config, onChange }: BorderControlsProps) {
         <div
           className={`
             w-full h-16 bg-white
-            ${borderStyle === 'all' ? 'border border-gray-400' : ''}
-            ${borderStyle === 'horizontal' ? 'border-t border-b border-gray-400' : ''}
-            ${borderStyle === 'vertical' ? 'border-l border-r border-gray-400' : ''}
+            ${borderStyle === "all" ? "border border-gray-400" : ""}
+            ${borderStyle === "horizontal" ? "border-t border-b border-gray-400" : ""}
+            ${borderStyle === "vertical" ? "border-l border-r border-gray-400" : ""}
           `}
         >
           <div className="grid grid-cols-2 grid-rows-2 h-full">
@@ -41,9 +41,9 @@ export function BorderControls({ config, onChange }: BorderControlsProps) {
               <div
                 key={i}
                 className={`
-                  ${borderStyle === 'all' ? 'border border-gray-300' : ''}
-                  ${borderStyle === 'horizontal' ? 'border-b border-gray-300' : ''}
-                  ${borderStyle === 'vertical' ? 'border-r border-gray-300' : ''}
+                  ${borderStyle === "all" ? "border border-gray-300" : ""}
+                  ${borderStyle === "horizontal" ? "border-b border-gray-300" : ""}
+                  ${borderStyle === "vertical" ? "border-r border-gray-300" : ""}
                 `}
               />
             ))}

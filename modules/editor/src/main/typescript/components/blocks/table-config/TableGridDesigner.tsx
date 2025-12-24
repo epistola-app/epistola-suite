@@ -1,23 +1,19 @@
-import type { TableBlock } from '../../../types/template';
+import type { TableBlock } from "../../../types/template";
 
 interface TableGridDesignerProps {
   config: TableBlock;
   selectedCells: Set<string>;
-  onCellClick: (cellId: string, mode: 'single' | 'toggle' | 'range') => void;
+  onCellClick: (cellId: string, mode: "single" | "toggle" | "range") => void;
 }
 
-export function TableGridDesigner({
-  config,
-  selectedCells,
-  onCellClick,
-}: TableGridDesignerProps) {
+export function TableGridDesigner({ config, selectedCells, onCellClick }: TableGridDesignerProps) {
   const handleCellClick = (cellId: string, e: React.MouseEvent) => {
     if (e.shiftKey) {
-      onCellClick(cellId, 'range');
+      onCellClick(cellId, "range");
     } else if (e.ctrlKey || e.metaKey) {
-      onCellClick(cellId, 'toggle');
+      onCellClick(cellId, "toggle");
     } else {
-      onCellClick(cellId, 'single');
+      onCellClick(cellId, "single");
     }
   };
 
@@ -49,7 +45,7 @@ export function TableGridDesigner({
               <div
                 key={row.id}
                 className="flex items-center justify-center px-3 py-2 text-xs text-gray-500 font-medium border-r border-gray-200 bg-gray-50"
-                style={{ minHeight: '60px' }}
+                style={{ minHeight: "60px" }}
               >
                 {rowIndex + 1}
               </div>
@@ -61,10 +57,7 @@ export function TableGridDesigner({
             {/* Column labels */}
             <div className="flex h-6 mb-1">
               {Array.from({ length: columnCount }, (_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 text-center text-xs text-gray-500 font-medium"
-                >
+                <div key={i} className="flex-1 text-center text-xs text-gray-500 font-medium">
                   {String.fromCharCode(65 + i)}
                 </div>
               ))}
@@ -93,19 +86,19 @@ export function TableGridDesigner({
                             transition-all
                             ${
                               isSelected
-                                ? 'bg-blue-100 border-blue-500 border-2 z-10'
-                                : 'bg-white hover:bg-gray-50 border-gray-300'
+                                ? "bg-blue-100 border-blue-500 border-2 z-10"
+                                : "bg-white hover:bg-gray-50 border-gray-300"
                             }
-                            ${row.isHeader ? 'bg-gray-100 font-semibold' : ''}
+                            ${row.isHeader ? "bg-gray-100 font-semibold" : ""}
                           `}
                         >
                           {/* Cell content indicator */}
                           <div className="text-xs text-gray-400 text-center">
                             {cell.children.length > 0
                               ? `${cell.children.length} block${
-                                  cell.children.length !== 1 ? 's' : ''
+                                  cell.children.length !== 1 ? "s" : ""
                                 }`
-                              : 'Empty'}
+                              : "Empty"}
                           </div>
 
                           {/* Header badge */}

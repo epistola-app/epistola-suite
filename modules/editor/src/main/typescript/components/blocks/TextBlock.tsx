@@ -1,11 +1,11 @@
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import { useEffect } from 'react';
-import type { TextBlock } from '../../types/template';
-import { useEditorStore } from '../../store/editorStore';
-import { ExpressionNode } from './ExpressionNode';
-import type { Editor } from '@tiptap/react';
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import { useEffect } from "react";
+import type { TextBlock } from "../../types/template";
+import { useEditorStore } from "../../store/editorStore";
+import { ExpressionNode } from "./ExpressionNode";
+import type { Editor } from "@tiptap/react";
 
 interface TextBlockProps {
   block: TextBlock;
@@ -29,9 +29,7 @@ function ToolbarButton({ onClick, isActive, title, children }: ToolbarButtonProp
       }}
       className={`
         px-2 py-1 text-sm rounded transition-colors
-        ${isActive
-          ? 'bg-blue-500 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
+        ${isActive ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}
       `}
       title={title}
     >
@@ -45,28 +43,28 @@ function FormattingToolbar({ editor }: { editor: Editor }) {
     <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 flex-wrap">
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
-        isActive={editor.isActive('bold')}
+        isActive={editor.isActive("bold")}
         title="Bold (Ctrl+B)"
       >
         <strong>B</strong>
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
-        isActive={editor.isActive('italic')}
+        isActive={editor.isActive("italic")}
         title="Italic (Ctrl+I)"
       >
         <em>I</em>
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
-        isActive={editor.isActive('underline')}
+        isActive={editor.isActive("underline")}
         title="Underline (Ctrl+U)"
       >
         <span className="underline">U</span>
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
-        isActive={editor.isActive('strike')}
+        isActive={editor.isActive("strike")}
         title="Strikethrough"
       >
         <span className="line-through">S</span>
@@ -76,14 +74,14 @@ function FormattingToolbar({ editor }: { editor: Editor }) {
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
-        isActive={editor.isActive('bulletList')}
+        isActive={editor.isActive("bulletList")}
         title="Bullet List"
       >
         •
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        isActive={editor.isActive('orderedList')}
+        isActive={editor.isActive("orderedList")}
         title="Numbered List"
       >
         1.
@@ -93,21 +91,21 @@ function FormattingToolbar({ editor }: { editor: Editor }) {
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        isActive={editor.isActive('heading', { level: 1 })}
+        isActive={editor.isActive("heading", { level: 1 })}
         title="Heading 1"
       >
         H1
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        isActive={editor.isActive('heading', { level: 2 })}
+        isActive={editor.isActive("heading", { level: 2 })}
         title="Heading 2"
       >
         H2
       </ToolbarButton>
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        isActive={editor.isActive('heading', { level: 3 })}
+        isActive={editor.isActive("heading", { level: 3 })}
         title="Heading 3"
       >
         H3
@@ -115,11 +113,8 @@ function FormattingToolbar({ editor }: { editor: Editor }) {
 
       <div className="flex-1" />
 
-      <ToolbarButton
-        onClick={() => editor.commands.insertExpression('')}
-        title="Insert Expression"
-      >
-        {'{{'} + {'}}'}
+      <ToolbarButton onClick={() => editor.commands.insertExpression("")} title="Insert Expression">
+        {"{{"} + {"}}"}
       </ToolbarButton>
     </div>
   );
@@ -129,18 +124,14 @@ export function TextBlockComponent({ block, isSelected = false }: TextBlockProps
   const updateBlock = useEditorStore((s) => s.updateBlock);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Underline,
-      ExpressionNode,
-    ],
+    extensions: [StarterKit, Underline, ExpressionNode],
     content: block.content,
     onUpdate: ({ editor }) => {
       updateBlock(block.id, { content: editor.getJSON() });
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[2rem] p-3',
+        class: "prose prose-sm max-w-none focus:outline-none min-h-[2rem] p-3",
       },
     },
   });
@@ -160,7 +151,7 @@ export function TextBlockComponent({ block, isSelected = false }: TextBlockProps
       </div>
       {isSelected && (
         <div className="text-xs text-gray-400 px-3 pb-2">
-          Tip: Type {'{{expression}}'} to insert a placeholder
+          Tip: Type {"{{expression}}"} to insert a placeholder
         </div>
       )}
     </div>

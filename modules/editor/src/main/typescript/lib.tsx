@@ -1,13 +1,13 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import type { Root } from 'react-dom/client';
-import { EditorProvider } from './components/editor/EditorProvider';
-import { EditorLayout } from './components/editor/EditorLayout';
-import { EvaluatorProvider } from './context/EvaluatorContext';
-import { useEditorStore } from './store/editorStore';
-import type { Template } from './types/template';
-import './index.css';
-import App from './App';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import type { Root } from "react-dom/client";
+import { EditorProvider } from "./components/editor/EditorProvider";
+import { EditorLayout } from "./components/editor/EditorLayout";
+import { EvaluatorProvider } from "./context/EvaluatorContext";
+import { useEditorStore } from "./store/editorStore";
+import type { Template } from "./types/template";
+import "./index.css";
+import App from "./App";
 
 /**
  * Options for mounting the template editor
@@ -57,7 +57,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   const { container, template, onSave } = options;
 
   // Add the root class for CSS scoping
-  container.classList.add('template-editor-root');
+  container.classList.add("template-editor-root");
 
   // Initialize store with provided template
   if (template) {
@@ -75,13 +75,13 @@ export function mountEditor(options: EditorOptions): EditorInstance {
         </EditorProvider>
       </EvaluatorProvider>
       <App />
-    </StrictMode>
+    </StrictMode>,
   );
 
   return {
     unmount: () => {
       root.unmount();
-      container.classList.remove('template-editor-root');
+      container.classList.remove("template-editor-root");
     },
     getTemplate: () => useEditorStore.getState().template,
     setTemplate: (newTemplate: Template) => {
@@ -91,5 +91,5 @@ export function mountEditor(options: EditorOptions): EditorInstance {
 }
 
 // Re-export types for consumers
-export type { Template } from './types/template';
-export { useEditorStore } from './store/editorStore';
+export type { Template } from "./types/template";
+export { useEditorStore } from "./store/editorStore";

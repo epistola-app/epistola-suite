@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Modal } from '../ui/Modal';
-import type { TableBlock } from '../../types/template';
-import { TableGridDesigner } from './table-config/TableGridDesigner';
-import { TableSizeControls } from './table-config/TableSizeControls';
-import { BorderControls } from './table-config/BorderControls';
-import { CellActionsControls } from './table-config/CellActionsControls';
-import { useGridSelection } from './table-config/useGridSelection';
+import { useState } from "react";
+import { Modal } from "../ui/Modal";
+import type { TableBlock } from "../../types/template";
+import { TableGridDesigner } from "./table-config/TableGridDesigner";
+import { TableSizeControls } from "./table-config/TableSizeControls";
+import { BorderControls } from "./table-config/BorderControls";
+import { CellActionsControls } from "./table-config/CellActionsControls";
+import { useGridSelection } from "./table-config/useGridSelection";
 import {
   addRow,
   removeRow,
@@ -14,7 +14,7 @@ import {
   mergeCells,
   splitCell,
   toggleRowHeader,
-} from './table-config/tableConfigUtils';
+} from "./table-config/tableConfigUtils";
 
 interface TableConfigPopupProps {
   isOpen: boolean;
@@ -23,12 +23,7 @@ interface TableConfigPopupProps {
   onChange: (config: TableBlock) => void;
 }
 
-export function TableConfigPopup({
-  isOpen,
-  config,
-  onClose,
-  onChange,
-}: TableConfigPopupProps) {
+export function TableConfigPopup({ isOpen, config, onClose, onChange }: TableConfigPopupProps) {
   // Working copy of the config
   const [workingConfig, setWorkingConfig] = useState<TableBlock>(config);
 
@@ -79,9 +74,7 @@ export function TableConfigPopup({
     setWorkingConfig(toggleRowHeader(workingConfig, selectedCells));
   };
 
-  const handleBorderChange = (
-    borderStyle: 'none' | 'all' | 'horizontal' | 'vertical'
-  ) => {
+  const handleBorderChange = (borderStyle: "none" | "all" | "horizontal" | "vertical") => {
     setWorkingConfig({
       ...workingConfig,
       borderStyle,

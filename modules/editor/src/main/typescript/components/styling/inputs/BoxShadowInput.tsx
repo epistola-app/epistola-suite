@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ColorPicker } from './ColorPicker';
+import { useState, useEffect } from "react";
+import { ColorPicker } from "./ColorPicker";
 
 interface BoxShadowInputProps {
   value: string | undefined;
@@ -16,12 +16,12 @@ interface ShadowValues {
 }
 
 function parseShadow(value: string | undefined): ShadowValues {
-  if (!value || value === 'none') {
-    return { x: 0, y: 0, blur: 0, spread: 0, color: '#00000033' };
+  if (!value || value === "none") {
+    return { x: 0, y: 0, blur: 0, spread: 0, color: "#00000033" };
   }
   // Parse box-shadow: Xpx Ypx Blur Spread Color
   const match = value.match(
-    /(-?\d+)px\s+(-?\d+)px\s+(\d+)px\s+(\d+)px\s+(#[0-9a-fA-F]{6,8}|rgba?\([^)]+\))/
+    /(-?\d+)px\s+(-?\d+)px\s+(\d+)px\s+(\d+)px\s+(#[0-9a-fA-F]{6,8}|rgba?\([^)]+\))/,
   );
   if (match) {
     return {
@@ -32,28 +32,24 @@ function parseShadow(value: string | undefined): ShadowValues {
       color: match[5],
     };
   }
-  return { x: 0, y: 4, blur: 6, spread: 0, color: '#00000033' };
+  return { x: 0, y: 4, blur: 6, spread: 0, color: "#00000033" };
 }
 
 function formatShadow(values: ShadowValues): string {
   if (values.x === 0 && values.y === 0 && values.blur === 0 && values.spread === 0) {
-    return 'none';
+    return "none";
   }
   return `${values.x}px ${values.y}px ${values.blur}px ${values.spread}px ${values.color}`;
 }
 
-export function BoxShadowInput({
-  value,
-  onChange,
-  label,
-}: BoxShadowInputProps) {
+export function BoxShadowInput({ value, onChange, label }: BoxShadowInputProps) {
   const [values, setValues] = useState<ShadowValues>(() => parseShadow(value));
-  const [enabled, setEnabled] = useState(value !== undefined && value !== 'none');
+  const [enabled, setEnabled] = useState(value !== undefined && value !== "none");
 
   useEffect(() => {
     const parsed = parseShadow(value);
     setValues(parsed);
-    setEnabled(value !== undefined && value !== 'none');
+    setEnabled(value !== undefined && value !== "none");
   }, [value]);
 
   const handleChange = (key: keyof ShadowValues, newValue: number | string) => {
@@ -83,12 +79,10 @@ export function BoxShadowInput({
             type="button"
             onClick={handleToggle}
             className={`text-xs px-2 py-0.5 rounded ${
-              enabled
-                ? 'bg-blue-100 text-blue-600'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              enabled ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
           >
-            {enabled ? 'On' : 'Off'}
+            {enabled ? "On" : "Off"}
           </button>
         </div>
       )}
@@ -107,7 +101,7 @@ export function BoxShadowInput({
               <input
                 type="number"
                 value={values.x}
-                onChange={(e) => handleChange('x', parseInt(e.target.value) || 0)}
+                onChange={(e) => handleChange("x", parseInt(e.target.value) || 0)}
                 className="w-full px-2 py-1 text-xs border border-gray-200 rounded
                          focus:outline-none focus:border-blue-400"
               />
@@ -117,7 +111,7 @@ export function BoxShadowInput({
               <input
                 type="number"
                 value={values.y}
-                onChange={(e) => handleChange('y', parseInt(e.target.value) || 0)}
+                onChange={(e) => handleChange("y", parseInt(e.target.value) || 0)}
                 className="w-full px-2 py-1 text-xs border border-gray-200 rounded
                          focus:outline-none focus:border-blue-400"
               />
@@ -127,7 +121,7 @@ export function BoxShadowInput({
               <input
                 type="number"
                 value={values.blur}
-                onChange={(e) => handleChange('blur', parseInt(e.target.value) || 0)}
+                onChange={(e) => handleChange("blur", parseInt(e.target.value) || 0)}
                 min={0}
                 className="w-full px-2 py-1 text-xs border border-gray-200 rounded
                          focus:outline-none focus:border-blue-400"
@@ -138,7 +132,7 @@ export function BoxShadowInput({
               <input
                 type="number"
                 value={values.spread}
-                onChange={(e) => handleChange('spread', parseInt(e.target.value) || 0)}
+                onChange={(e) => handleChange("spread", parseInt(e.target.value) || 0)}
                 className="w-full px-2 py-1 text-xs border border-gray-200 rounded
                          focus:outline-none focus:border-blue-400"
               />
@@ -146,7 +140,7 @@ export function BoxShadowInput({
           </div>
           <ColorPicker
             value={values.color}
-            onChange={(c) => handleChange('color', c || '#00000033')}
+            onChange={(c) => handleChange("color", c || "#00000033")}
             label="Shadow Color"
             allowEmpty={false}
           />

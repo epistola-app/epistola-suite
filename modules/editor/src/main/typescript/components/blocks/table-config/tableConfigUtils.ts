@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
-import type { TableBlock, TableRow, TableCell } from '../../../types/template';
+import { v4 as uuidv4 } from "uuid";
+import type { TableBlock, TableRow, TableCell } from "../../../types/template";
 
 /**
  * Create an empty table cell
@@ -172,9 +172,7 @@ export function mergeCells(config: TableBlock, cellIds: Set<string>): TableBlock
   const allChildren = selectedPositions.flatMap((p) => p.cell.children);
 
   // Find the top-left cell (this will be the merged cell)
-  const topLeftCell = selectedPositions.find(
-    (p) => p.rowIndex === minRow && p.colIndex === minCol
-  );
+  const topLeftCell = selectedPositions.find((p) => p.rowIndex === minRow && p.colIndex === minCol);
   if (!topLeftCell) return config;
 
   // Update table: set colspan/rowspan on top-left cell, remove others

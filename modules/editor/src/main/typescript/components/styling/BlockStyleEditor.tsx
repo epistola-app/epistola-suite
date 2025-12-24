@@ -1,7 +1,7 @@
-import type { CSSProperties } from 'react';
-import { useEditorStore } from '../../store/editorStore';
-import type { Block } from '../../types/template';
-import { StyleSection } from './StyleSection';
+import type { CSSProperties } from "react";
+import { useEditorStore } from "../../store/editorStore";
+import type { Block } from "../../types/template";
+import { StyleSection } from "./StyleSection";
 import {
   ColorPicker,
   SelectInput,
@@ -11,7 +11,7 @@ import {
   SliderInput,
   BorderInput,
   BoxShadowInput,
-} from './inputs';
+} from "./inputs";
 import {
   FONT_FAMILIES,
   FONT_WEIGHTS,
@@ -20,7 +20,7 @@ import {
   FLEX_DIRECTIONS,
   ALIGN_OPTIONS,
   JUSTIFY_OPTIONS,
-} from '../../types/styles';
+} from "../../types/styles";
 
 interface BlockStyleEditorProps {
   block: Block;
@@ -33,7 +33,7 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
 
   const updateStyle = (key: keyof CSSProperties, value: unknown) => {
     const newStyles = { ...styles };
-    if (value === undefined || value === '') {
+    if (value === undefined || value === "") {
       delete (newStyles as Record<string, unknown>)[key];
     } else {
       (newStyles as Record<string, unknown>)[key] = value;
@@ -46,9 +46,7 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
   return (
     <div className="flex flex-col">
       <div className="px-3 py-2 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700">
-          Block Styles
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-700">Block Styles</h3>
         <p className="text-xs text-gray-500 mt-1">
           {block.type.charAt(0).toUpperCase() + block.type.slice(1)} block
         </p>
@@ -61,7 +59,8 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
           bottom={styles.paddingBottom as string}
           left={styles.paddingLeft as string}
           onChange={(side, value) => {
-            const key = `padding${side.charAt(0).toUpperCase() + side.slice(1)}` as keyof CSSProperties;
+            const key =
+              `padding${side.charAt(0).toUpperCase() + side.slice(1)}` as keyof CSSProperties;
             updateStyle(key, value);
           }}
           label="Padding"
@@ -72,7 +71,8 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
           bottom={styles.marginBottom as string}
           left={styles.marginLeft as string}
           onChange={(side, value) => {
-            const key = `margin${side.charAt(0).toUpperCase() + side.slice(1)}` as keyof CSSProperties;
+            const key =
+              `margin${side.charAt(0).toUpperCase() + side.slice(1)}` as keyof CSSProperties;
             updateStyle(key, value);
           }}
           label="Margin"
@@ -82,7 +82,7 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
       <StyleSection title="Typography">
         <SelectInput
           value={styles.fontFamily as string}
-          onChange={(value) => updateStyle('fontFamily', value)}
+          onChange={(value) => updateStyle("fontFamily", value)}
           options={FONT_FAMILIES}
           label="Font Family"
           placeholder="Inherit"
@@ -90,16 +90,16 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             value={styles.fontSize as string}
-            onChange={(value) => updateStyle('fontSize', value)}
+            onChange={(value) => updateStyle("fontSize", value)}
             label="Font Size"
-            units={['px', 'em', 'rem']}
+            units={["px", "em", "rem"]}
             defaultUnit="px"
             min={1}
             placeholder="Inherit"
           />
           <SelectInput
             value={styles.fontWeight as string}
-            onChange={(value) => updateStyle('fontWeight', value)}
+            onChange={(value) => updateStyle("fontWeight", value)}
             options={FONT_WEIGHTS}
             label="Font Weight"
             placeholder="Inherit"
@@ -107,21 +107,21 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
         </div>
         <ColorPicker
           value={styles.color as string}
-          onChange={(value) => updateStyle('color', value)}
+          onChange={(value) => updateStyle("color", value)}
           label="Text Color"
         />
         <ToggleGroup
           value={styles.textAlign as string}
-          onChange={(value) => updateStyle('textAlign', value)}
+          onChange={(value) => updateStyle("textAlign", value)}
           options={TEXT_ALIGN_OPTIONS}
           label="Text Align"
         />
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             value={styles.lineHeight as string}
-            onChange={(value) => updateStyle('lineHeight', value)}
+            onChange={(value) => updateStyle("lineHeight", value)}
             label="Line Height"
-            units={['px', 'em', '%']}
+            units={["px", "em", "%"]}
             defaultUnit="em"
             min={0}
             step={0.1}
@@ -129,9 +129,9 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
           />
           <NumberInput
             value={styles.letterSpacing as string}
-            onChange={(value) => updateStyle('letterSpacing', value)}
+            onChange={(value) => updateStyle("letterSpacing", value)}
             label="Letter Spacing"
-            units={['px', 'em']}
+            units={["px", "em"]}
             defaultUnit="px"
             placeholder="Inherit"
           />
@@ -141,7 +141,7 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
       <StyleSection title="Background">
         <ColorPicker
           value={styles.backgroundColor as string}
-          onChange={(value) => updateStyle('backgroundColor', value)}
+          onChange={(value) => updateStyle("backgroundColor", value)}
           label="Background Color"
         />
       </StyleSection>
@@ -152,22 +152,22 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
           style={styles.borderStyle as string}
           color={styles.borderColor as string}
           radius={styles.borderRadius as string}
-          onWidthChange={(value) => updateStyle('borderWidth', value)}
-          onStyleChange={(value) => updateStyle('borderStyle', value)}
-          onColorChange={(value) => updateStyle('borderColor', value)}
-          onRadiusChange={(value) => updateStyle('borderRadius', value)}
+          onWidthChange={(value) => updateStyle("borderWidth", value)}
+          onStyleChange={(value) => updateStyle("borderStyle", value)}
+          onColorChange={(value) => updateStyle("borderColor", value)}
+          onRadiusChange={(value) => updateStyle("borderRadius", value)}
         />
       </StyleSection>
 
       <StyleSection title="Effects">
         <BoxShadowInput
           value={styles.boxShadow as string}
-          onChange={(value) => updateStyle('boxShadow', value)}
+          onChange={(value) => updateStyle("boxShadow", value)}
           label="Box Shadow"
         />
         <SliderInput
           value={styles.opacity as number}
-          onChange={(value) => updateStyle('opacity', value)}
+          onChange={(value) => updateStyle("opacity", value)}
           min={0}
           max={1}
           step={0.05}
@@ -179,18 +179,18 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
         <div className="grid grid-cols-2 gap-2">
           <NumberInput
             value={styles.width as string}
-            onChange={(value) => updateStyle('width', value)}
+            onChange={(value) => updateStyle("width", value)}
             label="Width"
-            units={['px', '%', 'em']}
+            units={["px", "%", "em"]}
             defaultUnit="px"
             min={0}
             placeholder="auto"
           />
           <NumberInput
             value={styles.height as string}
-            onChange={(value) => updateStyle('height', value)}
+            onChange={(value) => updateStyle("height", value)}
             label="Height"
-            units={['px', '%', 'em']}
+            units={["px", "%", "em"]}
             defaultUnit="px"
             min={0}
             placeholder="auto"
@@ -198,39 +198,39 @@ export function BlockStyleEditor({ block }: BlockStyleEditorProps) {
         </div>
         <SelectInput
           value={styles.display as string}
-          onChange={(value) => updateStyle('display', value)}
+          onChange={(value) => updateStyle("display", value)}
           options={DISPLAY_OPTIONS}
           label="Display"
           placeholder="Default"
         />
-        {styles.display === 'flex' && (
+        {styles.display === "flex" && (
           <>
             <SelectInput
               value={styles.flexDirection as string}
-              onChange={(value) => updateStyle('flexDirection', value)}
+              onChange={(value) => updateStyle("flexDirection", value)}
               options={FLEX_DIRECTIONS}
               label="Flex Direction"
               placeholder="Row"
             />
             <NumberInput
               value={styles.gap as string}
-              onChange={(value) => updateStyle('gap', value)}
+              onChange={(value) => updateStyle("gap", value)}
               label="Gap"
-              units={['px', 'em', 'rem']}
+              units={["px", "em", "rem"]}
               defaultUnit="px"
               min={0}
               placeholder="0"
             />
             <SelectInput
               value={styles.alignItems as string}
-              onChange={(value) => updateStyle('alignItems', value)}
+              onChange={(value) => updateStyle("alignItems", value)}
               options={ALIGN_OPTIONS}
               label="Align Items"
               placeholder="Stretch"
             />
             <SelectInput
               value={styles.justifyContent as string}
-              onChange={(value) => updateStyle('justifyContent', value)}
+              onChange={(value) => updateStyle("justifyContent", value)}
               options={JUSTIFY_OPTIONS}
               label="Justify Content"
               placeholder="Start"

@@ -22,8 +22,7 @@ interface SegmentedInputContextValue {
   required?: boolean;
 }
 
-const SegmentedInputContext =
-  React.createContext<SegmentedInputContextValue | null>(null);
+const SegmentedInputContext = React.createContext<SegmentedInputContextValue | null>(null);
 
 function useSegmentedInputContext(consumerName: string) {
   const context = React.useContext(SegmentedInputContext);
@@ -68,7 +67,7 @@ function SegmentedInput(props: SegmentedInputProps) {
       invalid,
       required,
     }),
-    [dir, orientation, size, disabled, invalid, required]
+    [dir, orientation, size, disabled, invalid, required],
   );
 
   const childrenArray = React.Children.toArray(children);
@@ -109,11 +108,7 @@ function SegmentedInput(props: SegmentedInputProps) {
         data-required={required ? "" : undefined}
         dir={dir}
         {...rootProps}
-        className={cn(
-          "flex",
-          orientation === "horizontal" ? "flex-row" : "flex-col",
-          className
-        )}
+        className={cn("flex", orientation === "horizontal" ? "flex-row" : "flex-col", className)}
       >
         {segmentedInputItems}
       </RootPrimitive>
@@ -164,14 +159,14 @@ const segmentedInputItemVariants = cva("", {
 });
 
 interface SegmentedInputItemProps
-  extends React.ComponentProps<"input">,
+  extends
+    React.ComponentProps<"input">,
     Omit<VariantProps<typeof segmentedInputItemVariants>, "size"> {
   asChild?: boolean;
 }
 
 function SegmentedInputItem(props: SegmentedInputItemProps) {
-  const { asChild, className, position, disabled, required, ...inputProps } =
-    props;
+  const { asChild, className, position, disabled, required, ...inputProps } = props;
   const context = useSegmentedInputContext(ITEM_NAME);
 
   const isDisabled = disabled ?? context.disabled;
@@ -198,7 +193,7 @@ function SegmentedInputItem(props: SegmentedInputItemProps) {
           orientation: context.orientation,
           size: context.size,
           className,
-        })
+        }),
       )}
     />
   );

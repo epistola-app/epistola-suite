@@ -56,4 +56,4 @@ export interface ExpressionEvaluator {
 /**
  * Available evaluator types
  */
-export type EvaluatorType = 'direct' | 'iframe';
+export type EvaluatorType = "direct" | "iframe";

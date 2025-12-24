@@ -1,6 +1,6 @@
-import { EditorProvider } from './components/editor/EditorProvider'
-import { EditorLayout } from './components/editor/EditorLayout'
-import { EvaluatorProvider } from './context/EvaluatorContext'
+import { EditorProvider } from "./components/editor/EditorProvider";
+import { EditorLayout } from "./components/editor/EditorLayout";
+import { EvaluatorProvider } from "./context/EvaluatorContext";
 
 function App() {
   return (
@@ -9,7 +9,7 @@ function App() {
         <EditorLayout />
       </EditorProvider>
     </EvaluatorProvider>
-  )
+  );
 }
 
-export default App
+export default App;
