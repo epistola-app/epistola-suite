@@ -6,13 +6,23 @@ import { BlockRenderer } from "./BlockRenderer";
 import { ExpressionEditor } from "./ExpressionEditor";
 import { ScopeProvider } from "../../context/ScopeContext";
 import type { ScopeVariable } from "../../context/ScopeContext";
+import { BlockHeader } from "./BlockHeader";
 
 interface LoopBlockProps {
   block: LoopBlock;
   isSelected?: boolean;
+  dragAttributes?: React.HTMLAttributes<HTMLDivElement>;
+  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-export function LoopBlockComponent({ block, isSelected = false }: LoopBlockProps) {
+export function LoopBlockComponent({
+  block,
+  isSelected = false,
+  dragAttributes,
+  dragListeners,
+  onDelete,
+}: LoopBlockProps) {
   const updateBlock = useEditorStore((s) => s.updateBlock);
   const testData = useEditorStore((s) => s.testData);
   const previewOverrides = useEditorStore((s) => s.previewOverrides);
@@ -109,6 +119,13 @@ export function LoopBlockComponent({ block, isSelected = false }: LoopBlockProps
   if (!isSelected) {
     return (
       <div className="rounded-lg border border-purple-200 bg-purple-50/50">
+        <BlockHeader
+          title="LOOP"
+          isSelected={isSelected}
+          dragAttributes={dragAttributes}
+          dragListeners={dragListeners}
+          onDelete={onDelete}
+        />
         {/* Minimal header */}
         <div className="px-2 py-1 flex items-center gap-2 text-xs text-purple-500 border-b border-purple-100">
           <span className="font-medium">↻</span>
@@ -146,11 +163,18 @@ export function LoopBlockComponent({ block, isSelected = false }: LoopBlockProps
     <div
       className={`rounded-lg border ${isValidArray ? "bg-purple-50 border-purple-200" : "bg-red-50 border-red-200"}`}
     >
+      <BlockHeader
+        title="LOOP"
+        isSelected={isSelected}
+        dragAttributes={dragAttributes}
+        dragListeners={dragListeners}
+        onDelete={onDelete}
+      />
       {/* Header */}
       <div
         className={`px-3 py-2 border-b ${isValidArray ? "border-purple-200" : "border-red-200"}`}
       >
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap text-base!">
           <span
             className={`text-xs font-medium ${isValidArray ? "text-purple-600" : "text-red-600"}`}
           >
@@ -270,7 +294,7 @@ export function LoopBlockComponent({ block, isSelected = false }: LoopBlockProps
         ref={setNodeRef}
         style={block.styles}
         className={`
-          min-h-[60px] p-3
+          min-h-15 p-3
           ${isOver ? "bg-purple-100" : ""}
         `}
       >

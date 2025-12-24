@@ -1,16 +1,28 @@
 import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
+import { Settings2 } from "lucide-react";
 import type { TableBlock, TableCell } from "../../types/template";
 import { useEditorStore } from "../../store/editorStore";
 import { BlockRenderer } from "./BlockRenderer";
 import { TableConfigPopup } from "./TableConfigPopup";
+import { BlockHeader } from "./BlockHeader";
+import { Button } from "../ui/button";
 
 interface TableBlockProps {
   block: TableBlock;
   isSelected?: boolean;
+  dragAttributes?: React.HTMLAttributes<HTMLDivElement>;
+  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-export function TableBlockComponent({ block, isSelected = false }: TableBlockProps) {
+export function TableBlockComponent({
+  block,
+  isSelected = false,
+  dragAttributes,
+  dragListeners,
+  onDelete,
+}: TableBlockProps) {
   const updateBlock = useEditorStore((state) => state.updateBlock);
   const [configOpen, setConfigOpen] = useState(false);
 
@@ -59,17 +71,19 @@ export function TableBlockComponent({ block, isSelected = false }: TableBlockPro
       <div
         className={`rounded-lg border ${isSelected ? "bg-gray-50 border-dashed border-gray-300" : "border-transparent"}`}
       >
+        <BlockHeader
+          title="TABLE"
+          isSelected={isSelected}
+          dragAttributes={dragAttributes}
+          dragListeners={dragListeners}
+          onDelete={onDelete}
+        />
         {isSelected && (
-          <div className="px-3 pt-2 pb-1 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-gray-400 font-medium">TABLE</div>
-              <button
-                onClick={() => setConfigOpen(true)}
-                className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Configure Table
-              </button>
-            </div>
+          <div className="flex justify-end p-2 text-base!">
+            <Button variant="indigo" size="sm" onClick={() => setConfigOpen(true)}>
+              <Settings2 className="size-4" />
+              Configure Table
+            </Button>
           </div>
         )}
         <div className="p-2 overflow-auto">
@@ -150,12 +164,7 @@ interface TableCellComponentProps {
   isSelected: boolean;
 }
 
-function TableCellComponent({
-  block,
-  rowId,
-  cell,
-  isSelected: _isSelected,
-}: TableCellComponentProps) {
+function TableCellComponent({ block, rowId, cell }: TableCellComponentProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell-${block.id}-${rowId}-${cell.id}`,
     data: {
@@ -169,7 +178,7 @@ function TableCellComponent({
     <div
       ref={setNodeRef}
       className={`
-          min-h-[40px]
+          min-h-10
           ${isOver ? "bg-blue-50" : ""}
           ${cell.children.length === 0 ? "flex items-center justify-center" : ""}
         `}
