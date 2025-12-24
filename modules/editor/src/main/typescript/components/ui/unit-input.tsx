@@ -20,6 +20,7 @@ interface UnitInputProps {
   step?: number;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }
 
 function UnitInput({
@@ -33,6 +34,7 @@ function UnitInput({
   step,
   className,
   disabled,
+  id,
 }: UnitInputProps) {
   // Parse the incoming value into number and unit
   const parsed = parseValueWithUnit(value);
@@ -71,7 +73,7 @@ function UnitInput({
   );
 
   return (
-    <div className={cn("flex items-center", className)}>
+    <div id={id} className={cn("flex items-center", className)}>
       <Input
         type="number"
         value={numericValue}

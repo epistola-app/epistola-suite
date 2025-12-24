@@ -23,6 +23,7 @@ interface ColorInputProps {
   debounceMs?: number;
   className?: string;
   disabled?: boolean;
+  id?: string;
 }
 
 function ColorInput({
@@ -33,6 +34,7 @@ function ColorInput({
   debounceMs = 150,
   className,
   disabled,
+  id
 }: ColorInputProps) {
   // Internal state for debouncing
   const [internalValue, setInternalValue] = React.useState(value ?? defaultValue);
@@ -78,7 +80,7 @@ function ColorInput({
   }, [onChange, defaultValue]);
 
   return (
-    <div className={cn("flex items-center gap-2 ", className)}>
+    <div id={id} className={cn("flex items-center gap-2 ", className)}>
       <ColorPicker
         value={internalValue}
         onValueChange={handleColorChange}

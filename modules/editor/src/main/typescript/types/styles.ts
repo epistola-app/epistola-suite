@@ -10,7 +10,7 @@ export type StyleCategory =
   | "layout";
 
 // Unit types for numeric inputs
-export type CSSUnit = "px" | "em" | "rem" | "%";
+export type CSSUnit = "px" | "em" | "rem" | "%" | "pt";
 
 // Unit presets for different CSS properties
 export const UNIT_PRESETS = {
