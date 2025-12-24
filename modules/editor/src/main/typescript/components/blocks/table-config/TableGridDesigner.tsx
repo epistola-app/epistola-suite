@@ -34,9 +34,9 @@ export function TableGridDesigner({ config, selectedCells, onCellClick }: TableG
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-gray-700">Table Structure</h3>
+      <h3 className="text-sm font-medium text-foreground">Table Structure</h3>
 
-      <div className="border border-gray-300 rounded-lg overflow-auto bg-white p-4">
+      <div className="border border-border rounded-lg overflow-auto bg-background p-4 select-none">
         <div className="flex">
           {/* Row labels column */}
           <div className="flex flex-col">
@@ -44,8 +44,7 @@ export function TableGridDesigner({ config, selectedCells, onCellClick }: TableG
             {config.rows.map((row, rowIndex) => (
               <div
                 key={row.id}
-                className="flex items-center justify-center px-3 py-2 text-xs text-gray-500 font-medium border-r border-gray-200 bg-gray-50"
-                style={{ minHeight: "60px" }}
+                className="flex items-center justify-center p-4 text-xs text-muted-foreground font-medium border-b border-gray-300 bg-muted"
               >
                 {rowIndex + 1}
               </div>
@@ -55,9 +54,12 @@ export function TableGridDesigner({ config, selectedCells, onCellClick }: TableG
           {/* Table grid */}
           <div className="flex-1">
             {/* Column labels */}
-            <div className="flex h-6 mb-1">
+            <div className="flex h-6">
               {Array.from({ length: columnCount }, (_, i) => (
-                <div key={i} className="flex-1 text-center text-xs text-gray-500 font-medium">
+                <div
+                  key={i}
+                  className="flex-1 text-center text-xs text-muted-foreground font-medium"
+                >
                   {String.fromCharCode(65 + i)}
                 </div>
               ))}
@@ -81,19 +83,19 @@ export function TableGridDesigner({ config, selectedCells, onCellClick }: TableG
                           rowSpan={rowspan}
                           onClick={(e) => handleCellClick(cell.id, e)}
                           className={`
-                            relative p-4 border cursor-pointer
+                            relative p-4 border border-border cursor-pointer
                             min-w-[80px] min-h-[60px]
                             transition-all
                             ${
                               isSelected
-                                ? "bg-blue-100 border-blue-500 border-2 z-10"
-                                : "bg-white hover:bg-gray-50 border-gray-300"
+                                ? "bg-blue-100 outline outline-blue-500 z-10"
+                                : "bg-background hover:bg-muted"
                             }
-                            ${row.isHeader ? "bg-gray-100 font-semibold" : ""}
+                            ${row.isHeader ? "bg-muted font-semibold" : ""}
                           `}
                         >
                           {/* Cell content indicator */}
-                          <div className="text-xs text-gray-400 text-center">
+                          <div className="text-xs text-muted-foreground text-center">
                             {cell.children.length > 0
                               ? `${cell.children.length} block${
                                   cell.children.length !== 1 ? "s" : ""
@@ -125,7 +127,7 @@ export function TableGridDesigner({ config, selectedCells, onCellClick }: TableG
         </div>
       </div>
 
-      <div className="text-xs text-gray-500 italic">
+      <div className="text-xs text-muted-foreground italic">
         Click to select • Shift+click for range • Ctrl/Cmd+click to toggle
       </div>
     </div>
