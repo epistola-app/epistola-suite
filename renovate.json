@@ -13,25 +13,18 @@
   "lockFileMaintenance": { "enabled": true },
   "packageRules": [
     {
-      "description": "Group Kotlin-related updates",
-      "matchPackagePatterns": ["^org.jetbrains.kotlin"],
-      "groupName": "Kotlin"
-    },
-    {
-      "description": "Group GraalVM-related updates",
-      "matchPackagePatterns": ["^org.graalvm"],
-      "groupName": "GraalVM"
-    },
-    {
-      "description": "Group test dependencies",
-      "matchPackagePatterns": ["^io.mockk", "junit"],
-      "groupName": "test dependencies"
-    },
-    {
-      "description": "Auto-merge patch updates for non-major dependencies",
-      "matchUpdateTypes": ["patch"],
+      "description": "Group all non-major updates into a single PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "non-major",
       "automerge": true,
       "automergeType": "pr"
+    },
+    {
+      "description": "Group major updates separately",
+      "matchUpdateTypes": ["major"],
+      "groupName": "major updates",
+      "groupSlug": "major"
     }
   ],
   "gradle": {
