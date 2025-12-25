@@ -20,7 +20,6 @@ const EXTERNALS = [
   '@dnd-kit/sortable',
   '@dnd-kit/utilities',
   '@floating-ui/dom',
-  '@fontsource/inter',
   'uuid',
   '@radix-ui/react-slot',
   '@radix-ui/react-accordion',
