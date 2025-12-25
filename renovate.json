@@ -9,7 +9,7 @@
   "ignorePaths": [
     "**/test/resources/**"
   ],
-  "constraints": { "pnpm": "10.26.2" },
+  "constraints": { "pnpm": "10.26.2", "node": "24.12.0" },
   "lockFileMaintenance": { "enabled": true },
   "packageRules": [
     {
