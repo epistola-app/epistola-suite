@@ -26,10 +26,12 @@ export {
   Heading2,
   Heading3,
   Italic,
+  Layout,
   List,
   ListOrdered,
   Loader2,
   Minus,
+  Move,
   Palette,
   PipetteIcon,
   Plus,
@@ -43,5 +45,6 @@ export {
   Underline,
   Wrench,
   X,
-  XIcon
+  XIcon,
+  Zap
 } from 'lucide-react';
