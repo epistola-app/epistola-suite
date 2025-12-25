@@ -38,7 +38,7 @@ All workflows are defined in `.github/workflows/`.
 **What it does:**
 1. Checks out the code
 2. Sets up JDK 25 (Temurin) and Node.js 24
-3. Runs `./gradlew build` which:
+3. Runs `gradle build` which:
    - Compiles Kotlin backend
    - Builds TypeScript editor module
    - Runs all tests (requires Docker for Testcontainers)
@@ -62,7 +62,7 @@ All workflows are defined in `.github/workflows/`.
    - `fix:` → patch version bump (0.1.0 → 0.1.1)
    - `feat!:` or `BREAKING CHANGE` → major version bump (0.1.0 → 1.0.0)
 2. Creates a Git tag for the new version
-3. Builds Docker image using `./gradlew :apps:epistola:bootBuildImage`
+3. Builds Docker image using `gradle :apps:epistola:bootBuildImage`
 4. Pushes to GitHub Container Registry with tags:
    - `ghcr.io/epistola-app/epistola-suite:<version>` (e.g., `1.2.3`)
    - `ghcr.io/epistola-app/epistola-suite:<sha>` (git commit SHA)

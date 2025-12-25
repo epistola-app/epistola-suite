@@ -12,8 +12,8 @@ For development setup instructions, see the [README](README.md). In short:
 
 1. Install [mise](https://mise.jdx.dev/) version manager
 2. Run `./scripts/init.sh` to set up tools
-3. Build with `./gradlew build`
-4. Run with `./gradlew :apps:epistola:bootRun`
+3. Build with `gradle build`
+4. Run with `gradle :apps:epistola:bootRun`
 
 ## How to Contribute
 
@@ -41,7 +41,7 @@ Documentation improvements are always welcome! [Open a documentation issue](../.
 1. Fork the repository
 2. Create a feature branch (see naming conventions below)
 3. Make your changes
-4. Ensure tests pass (`./gradlew test`)
+4. Ensure tests pass (`gradle test`)
 5. Submit a pull request
 
 ## Development Workflow
@@ -110,8 +110,8 @@ git config --get commit.gpgsign  # Should return "true"
 
 #### Kotlin (Backend)
 - We use [ktlint](https://pinterest.github.io/ktlint/) for code formatting
-- Run `./gradlew ktlintCheck` to check
-- Run `./gradlew ktlintFormat` to auto-fix
+- Run `gradle ktlintCheck` to check
+- Run `gradle ktlintFormat` to auto-fix
 - EditorConfig is configured for consistent formatting
 
 #### Thymeleaf + HTMX (Frontend)
@@ -132,7 +132,7 @@ git config --get commit.gpgsign  # Should return "true"
 
 Run tests locally:
 ```bash
-./gradlew test
+gradle test
 ```
 
 ## Pull Request Process

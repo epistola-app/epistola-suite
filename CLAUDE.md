@@ -61,28 +61,28 @@ pnpm install
 pnpm build
 
 # Backend build (requires frontend built first)
-./gradlew build
+gradle build
 
 # Combined build
-pnpm install && pnpm build && ./gradlew build
+pnpm install && pnpm build && gradle build
 
 # Run the application
-./gradlew :apps:epistola:bootRun
+gradle :apps:epistola:bootRun
 
 # Run tests only
-./gradlew test
+gradle test
 
 # Check code style
-./gradlew ktlintCheck
+gradle ktlintCheck
 
 # Auto-fix code style
-./gradlew ktlintFormat
+gradle ktlintFormat
 
 # Build Docker image
-./gradlew :apps:epistola:bootBuildImage
+gradle :apps:epistola:bootBuildImage
 
 # Generate SBOM (Software Bill of Materials)
-./gradlew :apps:epistola:generateSbom
+gradle :apps:epistola:generateSbom
 pnpm --filter @epistola/editor sbom
 ```
 
@@ -92,7 +92,7 @@ For live frontend development with hot reload:
 
 ```bash
 # Terminal 1: Spring Boot with local profile (serves from filesystem)
-./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'
+gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 
 # Terminal 2: Watch mode (rebuilds dist/ on file changes)
 pnpm --filter @epistola/editor watch
@@ -102,8 +102,8 @@ pnpm --filter @epistola/editor watch
 
 ### Kotlin
 - **Linter**: ktlint (enforced in CI)
-- **Always run `./gradlew ktlintFormat`** after making Kotlin changes to auto-fix formatting
-- **Always run `./gradlew ktlintCheck`** before committing to verify code style
+- **Always run `gradle ktlintFormat`** after making Kotlin changes to auto-fix formatting
+- **Always run `gradle ktlintCheck`** before committing to verify code style
 - EditorConfig is configured for consistent formatting
 
 ### TypeScript (Client Components)
@@ -143,7 +143,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 - **Requires Docker** - Tests use Testcontainers
 - Backend: JUnit 5 + Testcontainers
-- Always run `./gradlew test` before committing
+- Always run `gradle test` before committing
 - All PRs must pass CI checks
 
 ## Key Files
@@ -160,9 +160,9 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 ## When Making Changes
 
 1. **Read existing code first** - Understand patterns before modifying
-2. **Run tests** - `./gradlew test` before and after changes
-3. **Format code** - `./gradlew ktlintFormat` after making Kotlin changes
-4. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
+2. **Run tests** - `gradle test` before and after changes
+3. **Format code** - `gradle ktlintFormat` after making Kotlin changes
+4. **Check style** - `gradle ktlintCheck` before committing (must pass)
 5. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
 6. **Small commits** - Commit logical units of work separately
 

@@ -48,10 +48,10 @@ This will:
 
 ```bash
 # Build the entire project
-./gradlew build
+gradle build
 
 # Run the application
-./gradlew :apps:epistola:bootRun
+gradle :apps:epistola:bootRun
 ```
 
 ### Docker
@@ -59,7 +59,7 @@ This will:
 Build a Docker image:
 
 ```bash
-./gradlew :apps:epistola:bootBuildImage
+gradle :apps:epistola:bootBuildImage
 ```
 
 Run the container:
@@ -122,16 +122,16 @@ This project uses [ktlint](https://pinterest.github.io/ktlint/) for Kotlin code 
 
 ```bash
 # Check code style
-./gradlew ktlintCheck
+gradle ktlintCheck
 
 # Auto-format code
-./gradlew ktlintFormat
+gradle ktlintFormat
 ```
 
 ### Testing
 
 ```bash
-./gradlew test
+gradle test
 ```
 
 Tests use [Testcontainers](https://testcontainers.org/) which requires Docker to be running.

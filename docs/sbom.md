@@ -18,7 +18,7 @@ A Software Bill of Materials is a formal, machine-readable inventory of software
 Uses the [CycloneDX Gradle Plugin](https://github.com/CycloneDX/cyclonedx-gradle-plugin).
 
 ```bash
-./gradlew :apps:epistola:generateSbom
+gradle :apps:epistola:generateSbom
 ```
 
 **Output:** `apps/epistola/build/sbom/bom.json`
@@ -28,7 +28,7 @@ Uses the [CycloneDX Gradle Plugin](https://github.com/CycloneDX/cyclonedx-gradle
 Uses [@cyclonedx/cyclonedx-npm](https://github.com/CycloneDX/cyclonedx-node-npm).
 
 ```bash
-./gradlew :modules:editor:npmSbom
+gradle :modules:editor:npmSbom
 ```
 
 **Output:** `modules/editor/build/sbom.json`
@@ -36,7 +36,7 @@ Uses [@cyclonedx/cyclonedx-npm](https://github.com/CycloneDX/cyclonedx-node-npm)
 ### Generate Both
 
 ```bash
-./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
+gradle :apps:epistola:generateSbom :modules:editor:npmSbom
 ```
 
 ## SBOM Locations

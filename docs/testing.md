@@ -11,16 +11,16 @@ This document describes the testing infrastructure, patterns, and best practices
 
 ```bash
 # Run all tests
-./gradlew test
+gradle test
 
 # Run tests with coverage report
-./gradlew koverHtmlReport
+gradle koverHtmlReport
 
 # Run a specific test class
-./gradlew test --tests "app.epistola.suite.tenants.TenantCommandsTest"
+gradle test --tests "app.epistola.suite.tenants.TenantCommandsTest"
 
 # Run tests in a specific package
-./gradlew test --tests "app.epistola.suite.tenants.*"
+gradle test --tests "app.epistola.suite.tenants.*"
 ```
 
 ## Test Frameworks
@@ -286,7 +286,7 @@ class TestcontainersConfiguration {
 For local development, you can run the application with Testcontainers:
 
 ```bash
-./gradlew :apps:epistola:bootTestRun
+gradle :apps:epistola:bootTestRun
 ```
 
 This uses `TestEpistolaSuiteApplication.kt` which starts the app with a containerized database.
@@ -297,7 +297,7 @@ Coverage is tracked using Kover (Kotlin coverage tool):
 
 ```bash
 # Generate HTML coverage report
-./gradlew koverHtmlReport
+gradle koverHtmlReport
 
 # Report location: build/reports/kover/html/index.html
 ```

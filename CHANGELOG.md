@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+- Unified tool version management with mise across local development and CI
+  - Added Gradle 9.2.1 to `.mise.toml` for consistent version management
+  - GitHub Actions workflows now use `jdx/mise-action@v2` instead of individual setup actions
+  - Removed Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) in favor of mise-managed Gradle
+  - All documentation updated to use `gradle` command instead of `./gradlew`
+
 ### Fixed
 - Security scan workflow failing due to non-existent Gradle task `:modules:editor:npmSbom`
   - Frontend SBOM is generated via npm, not Gradle
@@ -23,7 +30,7 @@
 ### Changed
 - Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration
   - Frontend: `pnpm install && pnpm build` builds all modules in `modules/`
-  - Backend: `./gradlew build` compiles, tests, and packages (requires frontend built first)
+  - Backend: `gradle build` compiles, tests, and packages (requires frontend built first)
   - Gradle verifies frontend is built before packaging, failing with helpful error if not
   - Removed node-gradle plugin dependency for cleaner Gradle configuration
   - CI workflow updated to run pnpm build before Gradle with proper caching
@@ -47,8 +54,8 @@
 
 ### Added
 - Docker image build configuration with JVM and native options
-  - JVM image (default): `./gradlew bootBuildImage`
-  - Native image (disabled): `./gradlew bootBuildImage -PnativeImage=true` - broken due to JDBI/Kotlin reflection ([jdbi#2475](https://github.com/jdbi/jdbi/issues/2475))
+  - JVM image (default): `gradle bootBuildImage`
+  - Native image (disabled): `gradle bootBuildImage -PnativeImage=true` - broken due to JDBI/Kotlin reflection ([jdbi#2475](https://github.com/jdbi/jdbi/issues/2475))
   - Images signed with Cosign and SBOM attested
 - CloudNativePG (CNPG) support in Helm chart for PostgreSQL database management
   - Three database modes: `cnpg` (create cluster), `cnpgExisting` (use existing), `external` (manual config)
@@ -160,7 +167,7 @@
 
 ### Added
 - Test coverage reporting using Kover with dynamic badge
-  - Generates coverage reports via `./gradlew koverXmlReport`
+  - Generates coverage reports via `gradle koverXmlReport`
   - Coverage badge updated automatically on main branch builds
   - Badge displayed in README alongside build and security badges
 - Scheduled security scan workflow (daily) with dynamic vulnerability badge
@@ -182,7 +189,7 @@
   - Trivy security scanning for Kubernetes misconfigurations
   - Spring Boot Actuator health probes (liveness/readiness) configured
 - SBOM (Software Bill of Materials) generation using CycloneDX
-  - Backend SBOM: `./gradlew :apps:epistola:generateSbom`
+  - Backend SBOM: `gradle :apps:epistola:generateSbom`
   - Frontend SBOM: `pnpm --filter @epistola/editor sbom`
   - Both SBOMs attached to GitHub Releases (`epistola-backend-{version}-sbom.json`, `epistola-editor-{version}-sbom.json`)
   - Backend SBOM embedded in Docker images at `META-INF/sbom/bom.json`

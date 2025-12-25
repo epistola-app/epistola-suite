@@ -539,7 +539,7 @@ pnpm --filter @epistola/editor dev
 
 ```bash
 # All modules (via Gradle - includes resource copying)
-./gradlew build
+gradle build
 
 # Just frontend (via pnpm)
 pnpm build
