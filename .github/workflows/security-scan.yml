@@ -29,8 +29,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate SBOMs
-        run: ./gradlew :apps:epistola:generateSbom :modules:editor:npmSbom
+      - name: Generate backend SBOM
+        run: ./gradlew :apps:epistola:generateSbom
+
+      - name: Generate frontend SBOM
+        working-directory: modules/editor
+        run: npm install --package-lock-only && mkdir -p build && npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-format json --output-file build/sbom.json && rm package-lock.json
 
       - name: Scan backend SBOM for vulnerabilities
         id: trivy-backend

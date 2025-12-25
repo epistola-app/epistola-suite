@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+- Security scan workflow failing due to non-existent Gradle task `:modules:editor:npmSbom`
+  - Frontend SBOM is generated via npm, not Gradle
+  - Workflow now runs npm commands directly in the editor module directory
+
 ### Added
 - GitHub MCP server integration for AI-assisted issue and project management (`scripts/gh-mcp/`)
   - Cross-platform secure token storage using OS credential managers (macOS Keychain, Windows Credential Vault)
@@ -178,7 +183,7 @@
   - Spring Boot Actuator health probes (liveness/readiness) configured
 - SBOM (Software Bill of Materials) generation using CycloneDX
   - Backend SBOM: `./gradlew :apps:epistola:generateSbom`
-  - Frontend SBOM: `./gradlew :modules:editor:npmSbom`
+  - Frontend SBOM: `pnpm --filter @epistola/editor sbom`
   - Both SBOMs attached to GitHub Releases (`epistola-backend-{version}-sbom.json`, `epistola-editor-{version}-sbom.json`)
   - Backend SBOM embedded in Docker images at `META-INF/sbom/bom.json`
 - Automatic vulnerability scanning using Trivy
