@@ -26,6 +26,9 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -33,8 +36,7 @@ jobs:
         run: ./gradlew :apps:epistola:generateSbom
 
       - name: Generate frontend SBOM
-        working-directory: modules/editor
-        run: npm install --package-lock-only && mkdir -p build && npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-format json --output-file build/sbom.json && rm package-lock.json
+        run: pnpm --filter @epistola/editor sbom
 
       - name: Scan backend SBOM for vulnerabilities
         id: trivy-backend

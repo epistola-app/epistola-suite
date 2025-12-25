@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "sbom": "npm install --package-lock-only && mkdir -p build && npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-format json --output-file build/sbom.json && rm package-lock.json"
+    "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps -o build/sbom.json"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
