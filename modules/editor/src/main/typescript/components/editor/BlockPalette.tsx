@@ -29,7 +29,7 @@ const transitions = {
 // Tab configuration
 const tabs = [
   { value: "blocks", icon: Box, label: "Standard Blocks", blocks: blockTypes },
-  { value: "custom", icon: Wrench, label: "Custom Blocks", blocks: blockTypes },
+  { value: "custom", icon: Wrench, label: "Custom Blocks", blocks: [] as BlockTypeConfig[] },
 ] as const;
 
 // Reusable icon tab trigger with tooltip
@@ -116,6 +116,12 @@ function BlockGrid({ blocks, collapsed }: { blocks: BlockTypeConfig[]; collapsed
       {blocks.map((config) => (
         <DraggableBlockType key={config.type} config={config} collapsed={collapsed} />
       ))}
+
+      {blocks.length === 0 && (
+        <div className="text-sm text-slate-500 italic">
+          <p>Coming soon...</p>
+        </div>
+      )}
     </div>
   );
 }
