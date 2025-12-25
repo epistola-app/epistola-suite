@@ -6,6 +6,8 @@ import { useEditorStore } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
 import type { EvaluatorType } from "../../services/expression";
 import type { Template } from "../../types/template";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import SaveButton from "../ui/save-button";
 
 interface EditorLayoutProps {
   /** When true, hides the internal header (for embedding in parent layout) */
@@ -17,7 +19,6 @@ interface EditorLayoutProps {
 export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
   const templateName = template.name;
-  const { type, setType, evaluator, isReady } = useEvaluator();
 
   const handleSave = () => {
     if (onSave) {
@@ -33,26 +34,8 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
           <h1 className="text-lg font-semibold text-gray-800">{templateName}</h1>
           <div className="flex items-center gap-4">
             {/* Evaluator Selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">Evaluator:</span>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as EvaluatorType)}
-                className="text-xs px-2 py-1 border border-gray-300 rounded bg-white"
-              >
-                <option value="direct">Direct (Fast)</option>
-                <option value="iframe">Iframe (Sandboxed)</option>
-              </select>
-              <span
-                className={`w-2 h-2 rounded-full ${isReady ? "bg-green-500" : "bg-yellow-500"}`}
-                title={isReady ? "Ready" : "Initializing..."}
-              />
-              {evaluator.isSandboxed && (
-                <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
-                  Secure
-                </span>
-              )}
-            </div>
+            <EvaluatorSelector />
+
             <div className="flex gap-2">
               <button
                 onClick={handleSave}
@@ -60,7 +43,7 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
               >
                 Save
               </button>
-              <button className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors">
+              <button className="px-3 py-1.5 text-sm bg-emerald-600 text-white hover:bg-emerald-700 rounded-md transition-colors">
                 Export PDF
               </button>
             </div>
@@ -71,28 +54,9 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
       {/* Toolbar - shown when embedded (minimal controls) */}
       {isEmbedded && (
         <div className="h-10 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Evaluator:</span>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as EvaluatorType)}
-              className="text-xs px-2 py-1 border border-gray-300 rounded bg-white"
-            >
-              <option value="direct">Direct (Fast)</option>
-              <option value="iframe">Iframe (Sandboxed)</option>
-            </select>
-            <span
-              className={`w-2 h-2 rounded-full ${isReady ? "bg-green-500" : "bg-yellow-500"}`}
-              title={isReady ? "Ready" : "Initializing..."}
-            />
-          </div>
+          <EvaluatorSelector />
           <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              className="px-3 py-1.5 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors"
-            >
-              Save
-            </button>
+            <SaveButton onSave={onSave} />
           </div>
         </div>
       )}
@@ -118,6 +82,33 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
           <Preview />
         </div>
       </div>
+    </div>
+  );
+}
+
+function EvaluatorSelector() {
+  const { type, setType, isReady } = useEvaluator();
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-medium text-slate-600">Evaluator:</span>
+      <Select value={type} onValueChange={(value) => setType(value as EvaluatorType)}>
+        <SelectTrigger
+          size="sm"
+          className="text-xs px-2 py-1 border border-slate-200 rounded-md bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-40 h-7"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="direct">Direct (Fast)</SelectItem>
+          <SelectItem value="iframe">Iframe (Secure)</SelectItem>
+        </SelectContent>
+      </Select>
+      <span
+        className={`w-1.5 h-1.5 rounded-full transition-colors ${
+          isReady ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+        }`}
+        title={isReady ? "Ready" : "Initializing..."}
+      />
     </div>
   );
 }

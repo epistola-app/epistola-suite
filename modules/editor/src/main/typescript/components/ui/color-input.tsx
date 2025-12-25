@@ -34,7 +34,7 @@ function ColorInput({
   debounceMs = 150,
   className,
   disabled,
-  id
+  id,
 }: ColorInputProps) {
   // Internal state for debouncing
   const [internalValue, setInternalValue] = React.useState(value ?? defaultValue);
