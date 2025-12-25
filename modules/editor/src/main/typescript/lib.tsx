@@ -7,7 +7,6 @@ import { EvaluatorProvider } from "./context/EvaluatorContext";
 import { useEditorStore } from "./store/editorStore";
 import type { Template } from "./types/template";
 import "./index.css";
-import App from "./App";
 
 /**
  * Options for mounting the template editor
@@ -18,7 +17,7 @@ export interface EditorOptions {
   /** Initial template to load (optional) */
   template?: Template;
   /** Callback when user clicks Save */
-  onSave?: (template: Template) => void;
+  onSave?: (template: Template) => void | Promise<void>;
 }
 
 /**
@@ -74,7 +73,6 @@ export function mountEditor(options: EditorOptions): EditorInstance {
           <EditorLayout isEmbedded={true} onSave={onSave} />
         </EditorProvider>
       </EvaluatorProvider>
-      <App />
     </StrictMode>,
   );
 

@@ -10,7 +10,7 @@
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
     <style>
         /* Page layout for editor */
-        html, body {
+        /* html, body {
             height: 100%;
             margin: 0;
             overflow: hidden;
@@ -46,15 +46,16 @@
         }
         .editor-header-actions a:hover {
             background: #e2e8f0;
-        }
+        } */
         .editor-container {
-            flex: 1;
             overflow: hidden;
-        }
+            height: 100vh;
+            width: 100%;
+        } 
     </style>
 </head>
 <body>
-    <div class="editor-page">
+    <!-- <div class="editor-page">
         <header class="editor-header">
             <h1 th:text="${templateName}">Template Name</h1>
             <div class="editor-header-actions">
@@ -67,8 +68,8 @@
             </div>
         </header>
 
-        <div id="editor-container" class="editor-container"></div>
-    </div>
+    </div> -->
+    <div id="editor-container" class="editor-container"></div>
 
     <script th:inline="javascript">
         /*<![CDATA[*/
