@@ -59,11 +59,15 @@ export function DocumentPropertiesEditor() {
                 <table>
                   <tbody>
                     <tr>
-                      <td className="min-w-12 pb-1"><b>A4:</b></td>
+                      <td className="min-w-12 pb-1">
+                        <b>A4:</b>
+                      </td>
                       <td className="pb-1">210mm x 297mm</td>
                     </tr>
                     <tr>
-                      <td className="min-w-12"><b>Letter:</b></td>
+                      <td className="min-w-12">
+                        <b>Letter:</b>
+                      </td>
                       <td>216mm x 279mm</td>
                     </tr>
                   </tbody>
