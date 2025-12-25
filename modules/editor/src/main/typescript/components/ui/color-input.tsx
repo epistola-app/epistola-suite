@@ -80,7 +80,7 @@ function ColorInput({
   }, [onChange, defaultValue]);
 
   return (
-    <div id={id} className={cn("flex items-center gap-2 ", className)}>
+    <div className={cn("flex items-center gap-2 ", className)}>
       <ColorPicker
         value={internalValue}
         onValueChange={handleColorChange}
@@ -90,6 +90,7 @@ function ColorInput({
       >
         <ColorPickerTrigger asChild>
           <Button
+            id={id}
             variant="outline"
             disabled={disabled}
             className="flex items-center w-full gap-2 h-8 flex-1"
