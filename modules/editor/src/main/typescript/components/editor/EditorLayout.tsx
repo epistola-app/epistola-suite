@@ -8,12 +8,21 @@ import type { EvaluatorType } from "../../services/expression";
 import type { Template } from "../../types/template";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import SaveButton from "../ui/save-button";
+import { Button } from "../ui/button";
+import { ArrowLeftToLine } from "lucide-react";
+import { Separator } from "../ui/separator";
+
+declare global {
+  interface Window {
+    TENANT_ID: string;
+  }
+}
 
 interface EditorLayoutProps {
   /** When true, hides the internal header (for embedding in parent layout) */
   isEmbedded?: boolean;
   /** Callback when user clicks Save */
-  onSave?: (template: Template) => void;
+  onSave?: (template: Template) => void | Promise<void>;
 }
 
 export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) {
@@ -53,9 +62,29 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
 
       {/* Toolbar - shown when embedded (minimal controls) */}
       {isEmbedded && (
-        <div className="h-10 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
-          <EvaluatorSelector />
-          <div className="flex gap-2">
+        <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4 py-2">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-sm font-normal text-foreground"
+              asChild
+            >
+              <a
+                href={`/tenants/${window.TENANT_ID}/templates`}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeftToLine className="size-4 shrink-0" />
+                <span>Back to Templates</span>
+              </a>
+            </Button>
+            <Separator orientation="vertical" className="min-h-6" />
+            {/* TODO: Make template name editable with proper save state tracking */}
+            <span className="text-sm font-medium text-foreground">{templateName}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <EvaluatorSelector />
+            <Separator orientation="vertical" className="min-h-6" />
             <SaveButton onSave={onSave} />
           </div>
         </div>

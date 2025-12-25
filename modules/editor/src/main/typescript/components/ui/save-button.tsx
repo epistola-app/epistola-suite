@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 import { CircleAlert, CircleCheck, LoaderCircleIcon, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
-interface SaveButtonDemoProps {
-  onSave: ((template: Template) => void) | undefined;
+interface SaveButtonProps {
+  onSave: ((template: Template) => void | Promise<void>) | undefined;
 }
 const StatusMessages = {
   success: "Saved!" as const,
@@ -13,17 +13,17 @@ const StatusMessages = {
 };
 type StatusMessages = (typeof StatusMessages)[keyof typeof StatusMessages];
 
-export default function SaveButton({ onSave }: SaveButtonDemoProps) {
+export default function SaveButton({ onSave }: SaveButtonProps) {
   const template = useEditorStore((s) => s.template);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<StatusMessages | undefined>(undefined);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     setIsLoading(true);
     setStatus(undefined);
     try {
       if (onSave) {
-        onSave(template);
+        await onSave(template);
         setStatus(StatusMessages.success);
       }
     } catch (error) {
@@ -53,7 +53,7 @@ export default function SaveButton({ onSave }: SaveButtonDemoProps) {
       size="sm"
       onClick={handleClick}
       disabled={isLoading}
-      className={cn("cursor-pointer", {
+      className={cn("cursor-pointer w-28 font-normal", {
         "text-success hover:text-success border-success/50": status === "Saved!",
         "text-destructive hover:text-destructive border-destructive/50": status === "Failed!",
       })}
