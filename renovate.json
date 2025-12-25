@@ -9,6 +9,8 @@
   "ignorePaths": [
     "**/test/resources/**"
   ],
+  "constraints": { "pnpm": "10.26.2" },
+  "lockFileMaintenance": { "enabled": true },
   "packageRules": [
     {
       "description": "Group Kotlin-related updates",
