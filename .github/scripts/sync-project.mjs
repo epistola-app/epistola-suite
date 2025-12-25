@@ -410,49 +410,72 @@ async function syncField(projectId, fieldConfig, existingFields) {
 // =============================================================================
 
 /**
- * Link a repository to the project
+ * Get all repositories linked to a project
  */
-async function linkRepository(projectId, owner, repoName) {
-  // Get repository ID
-  const repoData = graphql(
+async function getLinkedRepositories(projectId) {
+  const data = graphql(
     `
-      query ($owner: String!, $name: String!) {
-        repository(owner: $owner, name: $name) {
-          id
-        }
-      }
-    `,
-    { owner, name: repoName },
-  );
-
-  const repoId = repoData.repository?.id;
-  if (!repoId) {
-    log.warn(`Repository not found: ${owner}/${repoName}`);
-    return;
-  }
-
-  // Link repository
-  try {
-    graphql(
-      `
-        mutation ($projectId: ID!, $repositoryId: ID!) {
-          linkProjectV2ToRepository(input: { projectId: $projectId, repositoryId: $repositoryId }) {
-            repository {
-              id
+      query ($projectId: ID!) {
+        node(id: $projectId) {
+          ... on ProjectV2 {
+            repositories(first: 50) {
+              nodes {
+                nameWithOwner
+              }
             }
           }
         }
-      `,
-      { projectId, repositoryId: repoId },
-    );
-    log.success(`Linked ${owner}/${repoName}`);
-  } catch (error) {
-    if (isAlreadyExistsError(error)) {
-      log.info(`  ${owner}/${repoName} already linked`);
+      }
+    `,
+    { projectId },
+  );
+
+  return data.node.repositories.nodes.map((r) => r.nameWithOwner);
+}
+
+/**
+ * Verify that required repositories are linked to the project.
+ * This script cannot link repositories (requires admin permissions).
+ * If repositories are missing, it fails with instructions for an admin.
+ *
+ * @returns {string[]} List of missing repositories (empty if all linked)
+ */
+async function verifyRepositories(projectId, owner, requiredRepos) {
+  const linkedRepos = await getLinkedRepositories(projectId);
+  const linkedSet = new Set(linkedRepos.map((r) => r.toLowerCase()));
+
+  const missing = [];
+  for (const repo of requiredRepos) {
+    const fullName = `${owner}/${repo}`.toLowerCase();
+    if (linkedSet.has(fullName)) {
+      log.success(`${owner}/${repo} is linked`);
     } else {
-      throw error;
+      log.error(`${owner}/${repo} is NOT linked`);
+      missing.push(`${owner}/${repo}`);
     }
   }
+
+  return missing;
+}
+
+/**
+ * Print instructions for manually linking repositories
+ */
+function printLinkInstructions(projectTitle, missingRepos) {
+  console.log('\n' + '='.repeat(70));
+  console.log('ACTION REQUIRED: Repository linking requires admin permissions');
+  console.log('='.repeat(70));
+  console.log('\nThe following repositories need to be linked to the project:');
+  missingRepos.forEach((repo) => console.log(`  - ${repo}`));
+  console.log('\nTo fix this, an organization admin should:');
+  console.log(`  1. Go to the "${projectTitle}" project settings`);
+  console.log('  2. Click "Manage access" in the sidebar');
+  console.log('  3. Under "Link a repository", add the missing repositories');
+  console.log('\nAlternatively, use the GitHub CLI (requires admin permissions):');
+  missingRepos.forEach((repo) => {
+    console.log(`  gh project link <PROJECT_NUMBER> --owner epistola-app --repo ${repo.split('/')[1]}`);
+  });
+  console.log('\n' + '='.repeat(70));
 }
 
 // =============================================================================
@@ -486,11 +509,14 @@ async function main() {
     await syncField(projectId, field, existingFields);
   }
 
-  // 3. Link repositories
+  // 3. Verify repositories are linked (linking requires admin permissions)
   if (project.repositories?.length > 0) {
     log.header('Repositories');
-    for (const repo of project.repositories) {
-      await linkRepository(projectId, project.owner, repo);
+    const missingRepos = await verifyRepositories(projectId, project.owner, project.repositories);
+
+    if (missingRepos.length > 0) {
+      printLinkInstructions(project.title, missingRepos);
+      throw new Error(`${missingRepos.length} repository(ies) not linked to project`);
     }
   }
 
@@ -498,6 +524,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  log.error(`Sync failed: ${error.message}`);
+  log.error(error.message);
   process.exit(1);
 });

@@ -13,6 +13,7 @@
   - Custom fields: Status (kanban), Priority (P0-P3), Size (XS-XL), Type, Target Date, Started At, Blocked Reason
   - Automatic project creation and field synchronization on config changes
   - GitHub App authentication for project management (fine-grained PATs don't support Projects v2)
+  - Repository linking verified but not automated (requires admin; workflow fails with instructions if missing)
 
 ### Changed
 - Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration

@@ -368,7 +368,6 @@ The project uses a GitHub App for CI/CD operations that require Projects v2 API 
      - **Webhook**: Uncheck "Active" (not needed)
      - **Permissions**:
        - Organization permissions → **Projects**: Read and write
-       - Repository permissions → **Contents**: Read (for linking repos)
        - Repository permissions → **Metadata**: Read (required)
      - **Where can this GitHub App be installed?**: Only on this account
 
@@ -405,6 +404,20 @@ The `project-sync.yml` workflow uses `actions/create-github-app-token` to genera
 ```
 
 The token is automatically scoped to the permissions configured in the app and expires after 1 hour.
+
+### Manual Repository Linking
+
+Linking repositories to a GitHub Project requires admin permissions that we intentionally don't grant to the sync workflow. If a repository listed in `.github/project.yml` is not linked, the workflow will fail with instructions.
+
+**To link a repository (requires org admin):**
+
+1. Go to the project settings → **Manage access**
+2. Under "Link a repository", search for and add the repository
+
+Or use the GitHub CLI:
+```bash
+gh project link <PROJECT_NUMBER> --owner epistola-app --repo epistola-suite
+```
 
 ---
 
