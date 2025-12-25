@@ -73,8 +73,9 @@ function UnitInput({
   );
 
   return (
-    <div id={id} className={cn("flex items-center", className)}>
+    <div className={cn("flex items-center", className)}>
       <Input
+        id={id}
         type="number"
         value={numericValue}
         onChange={handleNumberChange}
