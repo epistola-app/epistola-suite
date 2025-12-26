@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useEditorStore, type Template } from "@/lib";
 import { cn } from "@/lib/utils";
 import { CircleAlert, CircleCheck, LoaderCircleIcon, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface SaveButtonProps {
   onSave: ((template: Template) => void | Promise<void>) | undefined;
@@ -18,7 +18,7 @@ export default function SaveButton({ onSave }: SaveButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<StatusMessages | undefined>(undefined);
 
-  const handleClick = async () => {
+  const handleClick = useCallback(async () => {
     setIsLoading(true);
     setStatus(undefined);
     try {
@@ -32,7 +32,22 @@ export default function SaveButton({ onSave }: SaveButtonProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onSave, template]);
+
+  // Ctrl + S shortcut for saving
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key === "s") {
+        event.preventDefault();
+        handleClick();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleClick]);
 
   // Reset status after 2 seconds
   // This will make the button go back to its normal/original state
