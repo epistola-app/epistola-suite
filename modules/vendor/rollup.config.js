@@ -267,4 +267,11 @@ export default [
     external: ['react', 'react-dom'],
     plugins,
   },
+  // @uidotdev/usehooks
+  {
+    input: 'entries/uidotdev.js',
+    output: { file: 'dist/uidotdev.js', format: 'esm' },
+    external: ['react'],
+    plugins,
+  },
 ].map(config => ({ ...config, onwarn }));

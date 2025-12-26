@@ -32,6 +32,7 @@ export {
   List,
   ListOrdered,
   Loader2,
+  LoaderCircle,
   LoaderCircleIcon,
   Minus,
   Move,
