@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useEditorStore, type Template } from "@/lib";
+import { useEditorStore, useIsDirty, type Template } from "@/lib";
 import { cn } from "@/lib/utils";
 import { CircleAlert, CircleCheck, LoaderCircleIcon, Save } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -15,6 +15,8 @@ type StatusMessages = (typeof StatusMessages)[keyof typeof StatusMessages];
 
 export default function SaveButton({ onSave }: SaveButtonProps) {
   const template = useEditorStore((s) => s.template);
+  const markAsSaved = useEditorStore((s) => s.markAsSaved);
+  const isDirty = useIsDirty();
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<StatusMessages | undefined>(undefined);
 
@@ -24,6 +26,7 @@ export default function SaveButton({ onSave }: SaveButtonProps) {
     try {
       if (onSave) {
         await onSave(template);
+        markAsSaved();
         setStatus(StatusMessages.success);
       }
     } catch (error) {
@@ -32,7 +35,7 @@ export default function SaveButton({ onSave }: SaveButtonProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [onSave, template]);
+  }, [onSave, template, markAsSaved]);
 
   // Ctrl + S shortcut for saving
   useEffect(() => {
@@ -81,7 +84,7 @@ export default function SaveButton({ onSave }: SaveButtonProps) {
       ) : !status ? (
         <span className="flex items-center gap-2">
           <Save className="size-4 shrink-0" />
-          Save
+          {isDirty ? "Save*" : "Save"}
         </span>
       ) : status === "Saved!" ? (
         <span className="flex items-center gap-2">

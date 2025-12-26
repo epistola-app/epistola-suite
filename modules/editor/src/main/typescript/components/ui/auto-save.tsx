@@ -17,6 +17,7 @@ interface AutoSaveProps {
 
 export function AutoSave({ onSave }: AutoSaveProps) {
   const template = useEditorStore((s) => s.template);
+  const markAsSaved = useEditorStore((s) => s.markAsSaved);
   const debouncedTemplate = useDebounce(template, DEBOUNCE_MS);
 
   const [isEnabled, setIsEnabled] = useLocalStorage(STORAGE_KEY, false);
@@ -37,6 +38,7 @@ export function AutoSave({ onSave }: AutoSaveProps) {
       setStatus("saving");
       try {
         await onSave(debouncedTemplate);
+        markAsSaved();
         setStatus("success");
       } catch (error) {
         setStatus("error");
@@ -45,7 +47,7 @@ export function AutoSave({ onSave }: AutoSaveProps) {
     };
 
     save();
-  }, [debouncedTemplate, isEnabled, onSave]);
+  }, [debouncedTemplate, isEnabled, onSave, markAsSaved]);
 
   // Reset status after delay
   useEffect(() => {
