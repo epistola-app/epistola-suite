@@ -14,6 +14,7 @@ import { Separator } from "../ui/separator";
 import { useDefaultLayout } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resizable";
 import type { ReactNode } from "react";
+import { AutoSave } from "../ui/auto-save";
 
 declare global {
   interface Window {
@@ -143,6 +144,7 @@ function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
           <div className="flex items-center gap-4">
             <EvaluatorSelector />
             <Separator orientation="vertical" className="min-h-6" />
+            <AutoSave onSave={onSave} />
             <SaveButton onSave={onSave} />
           </div>
         </div>

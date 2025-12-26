@@ -14,6 +14,7 @@ import {
   ColorPickerSwatch,
   ColorPickerTrigger,
 } from "./color-picker";
+import { useDebounce } from "@uidotdev/usehooks";
 
 interface ColorInputProps {
   value?: string;
@@ -36,45 +37,32 @@ function ColorInput({
   disabled,
   id,
 }: ColorInputProps) {
-  // Internal state for debouncing
+  // Internal state for immediate UI updates
   const [internalValue, setInternalValue] = React.useState(value ?? defaultValue);
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedValue = useDebounce(internalValue, debounceMs);
+  const isInitializedRef = React.useRef(false);
 
   // Sync internal state when external value changes
   React.useEffect(() => {
     setInternalValue(value ?? defaultValue);
   }, [value, defaultValue]);
 
-  // Handle color change with debouncing
-  const handleColorChange = React.useCallback(
-    (newValue: string) => {
-      setInternalValue(newValue);
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = setTimeout(() => {
-        onChange(newValue);
-      }, debounceMs);
-    },
-    [onChange, debounceMs],
-  );
-
-  // Cleanup timeout on unmount
+  // Call onChange when debounced value changes (skip initial)
   React.useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true;
+      return;
+    }
+    onChange(debouncedValue);
+  }, [debouncedValue, onChange]);
+
+  // Handle color change - update internal state immediately
+  const handleColorChange = React.useCallback((newValue: string) => {
+    setInternalValue(newValue);
   }, []);
 
   // Handle reset
   const handleReset = React.useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
     setInternalValue(defaultValue);
     onChange(undefined);
   }, [onChange, defaultValue]);

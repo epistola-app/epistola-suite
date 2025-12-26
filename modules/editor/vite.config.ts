@@ -39,7 +39,8 @@ const EXTERNALS = [
   'react-resizable-panels',
   '@radix-ui/react-direction',
   'motion',
-  'radix-ui'
+  'radix-ui',
+  '@uidotdev/usehooks'
 ]
 
 // https://vite.dev/config/
