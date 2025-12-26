@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- Custom startup banner displaying application version, Spring Boot version, and Java version
+  - ASCII art logo with version information printed on application startup
+- Version display in UI footer across all pages
+  - Fixed footer at bottom of all pages showing application name and version
+  - Uses Spring Boot's BuildProperties for version information from build
+  - Footer fragment (`fragments/footer.html`) included in all Thymeleaf templates
 - Comprehensive product backlog with 58 GitHub issues organized by phase and domain
   - 4 milestones: MVP, Adoption, Enterprise, Governance
   - 11 domain labels for feature categorization (api, editor, generation, sdk, security, etc.)

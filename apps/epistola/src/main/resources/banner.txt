@@ -1,0 +1,14 @@
+
+  ______       _     _        _
+ |  ____|     (_)   | |      | |
+ | |__   _ __  _ ___| |_ ___ | | __ _
+ |  __| | '_ \| / __| __/ _ \| |/ _` |
+ | |____| |_) | \__ \ || (_) | | (_| |
+ |______|  __/|_|___/\__\___/|_|\__,_|
+        | |
+        |_|   Document Suite
+
+  Version: ${application.version}
+  Spring Boot: ${spring-boot.version}
+  Java: ${java.version}
+

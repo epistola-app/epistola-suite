@@ -144,3 +144,26 @@ main.regular .empty-message {
     color: #dc3545;
     margin-top: 0.25rem;
 }
+
+/* Footer styles */
+.app-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-align: center;
+}
+
+.app-footer .version {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Add bottom padding to body to prevent footer from covering content */
+body {
+    padding-bottom: 2.5rem;
+}

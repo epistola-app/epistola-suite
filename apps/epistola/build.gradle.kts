@@ -72,6 +72,11 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// Enable BuildProperties bean by generating build-info.properties
+springBoot {
+    buildInfo()
+}
+
 // Configure CycloneDX SBOM generation for backend dependencies
 tasks.cyclonedxDirectBom {
     projectType = Component.Type.APPLICATION

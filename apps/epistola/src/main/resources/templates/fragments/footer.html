@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <footer th:fragment="footer" class="app-footer">
+        <span th:text="${appName}">Epistola</span> <span class="version" th:text="'v' + ${appVersion}">v0.0.0</span>
+    </footer>
+</body>
+</html>
