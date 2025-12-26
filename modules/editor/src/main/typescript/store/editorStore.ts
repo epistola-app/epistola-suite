@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 
 interface EditorState {
   template: Template;
+  lastSavedTemplate: Template | null;
   selectedBlockId: string | null;
   testData: Record<string, unknown>;
   previewOverrides: PreviewOverrides;
@@ -27,6 +28,7 @@ interface EditorActions {
   setPreviewOverride: (type: "conditionals" | "loops", id: string, value: unknown) => void;
   updateDocumentStyles: (styles: Partial<DocumentStyles>) => void;
   updatePageSettings: (settings: Partial<PageSettings>) => void;
+  markAsSaved: () => void;
 }
 
 type EditorStore = EditorState & EditorActions;
@@ -103,9 +105,16 @@ function findAndUpdateBlock(
   }, []);
 }
 
+// Helper to compare templates for dirty state detection
+function templatesEqual(a: Template | null, b: Template): boolean {
+  if (!a) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export const useEditorStore = create<EditorStore>()(
   immer((set) => ({
     template: defaultTemplate,
+    lastSavedTemplate: null,
     selectedBlockId: null,
     testData: defaultTestData,
     previewOverrides: {
@@ -321,5 +330,17 @@ export const useEditorStore = create<EditorStore>()(
           ...settings,
         };
       }),
+
+    markAsSaved: () =>
+      set((state) => {
+        state.lastSavedTemplate = JSON.parse(JSON.stringify(state.template));
+      }),
   })),
 );
+
+// Hook to check if there are unsaved changes
+export function useIsDirty(): boolean {
+  const template = useEditorStore((s) => s.template);
+  const lastSaved = useEditorStore((s) => s.lastSavedTemplate);
+  return !templatesEqual(lastSaved, template);
+}

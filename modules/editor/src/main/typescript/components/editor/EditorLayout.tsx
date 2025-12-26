@@ -2,7 +2,7 @@ import { BlockPalette } from "./BlockPalette";
 import { Canvas } from "./Canvas";
 import { Preview } from "./Preview";
 import { StyleSidebar } from "../styling";
-import { useEditorStore } from "../../store/editorStore";
+import { useEditorStore, useIsDirty } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
 import type { EvaluatorType } from "../../services/expression";
 import type { Template } from "../../types/template";
@@ -13,7 +13,7 @@ import { ArrowLeftToLine } from "lucide-react";
 import { Separator } from "../ui/separator";
 import { useDefaultLayout } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resizable";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { AutoSave } from "../ui/auto-save";
 
 declare global {
@@ -31,6 +31,20 @@ interface EditorLayoutProps {
 
 export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
+  const isDirty = useIsDirty();
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">

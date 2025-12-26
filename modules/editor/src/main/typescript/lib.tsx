@@ -61,6 +61,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   // Initialize store with provided template
   if (template) {
     useEditorStore.getState().setTemplate(template);
+    useEditorStore.getState().markAsSaved();
   }
 
   // Create React root and render
@@ -90,4 +91,4 @@ export function mountEditor(options: EditorOptions): EditorInstance {
 
 // Re-export types for consumers
 export type { Template } from "./types/template";
-export { useEditorStore } from "./store/editorStore";
+export { useEditorStore, useIsDirty } from "./store/editorStore";
