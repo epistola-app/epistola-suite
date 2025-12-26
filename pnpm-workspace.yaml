@@ -1,3 +1,6 @@
 packages:
-  - 'modules/*'
-  - 'scripts/gh-mcp'
+  - modules/*
+  - scripts/gh-mcp
+
+onlyBuiltDependencies:
+  - keytar
