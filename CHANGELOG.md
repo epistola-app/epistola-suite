@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- Comprehensive product backlog with 58 GitHub issues organized by phase and domain
+  - 4 milestones: MVP, Adoption, Enterprise, Governance
+  - 11 domain labels for feature categorization (api, editor, generation, sdk, security, etc.)
+  - 4 phase labels for release planning (mvp, adoption, enterprise, later)
+  - 5 size labels for effort estimation (xs, s, m, l, xl)
+- Public roadmap document (`docs/roadmap.md`) with development phases and technical decisions
+- Updated project context (`openspec/project.md`) with tech stack, conventions, and domain model
+
 ### Changed
 - Unified tool version management with mise across local development and CI
   - Added Gradle 9.2.1 to `.mise.toml` for consistent version management

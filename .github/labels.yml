@@ -102,3 +102,86 @@
 - name: "breaking change"
   color: "b60205"
   description: Introduces breaking changes
+
+# Domain Labels (for backlog organization)
+- name: "domain: api"
+  color: "0075ca"
+  description: REST API, OpenAPI, contracts
+
+- name: "domain: editor"
+  color: "00bcd4"
+  description: Template editor features
+
+- name: "domain: generation"
+  color: "28a745"
+  description: Document rendering (HTML/PDF)
+
+- name: "domain: sdk"
+  color: "7057ff"
+  description: Client SDK development
+
+- name: "domain: security"
+  color: "b60205"
+  description: Auth, authorization, API keys
+
+- name: "domain: operations"
+  color: "f9a825"
+  description: Metrics, monitoring, storage
+
+- name: "domain: governance"
+  color: "5319e7"
+  description: Lifecycle, versioning, environments
+
+- name: "domain: theming"
+  color: "d876e3"
+  description: Styling, themes, branding
+
+- name: "domain: assets"
+  color: "666666"
+  description: Image/file management
+
+- name: "domain: docs"
+  color: "0366d6"
+  description: Product documentation
+
+- name: "domain: integrations"
+  color: "1d76db"
+  description: External system connections
+
+# Phase Labels
+- name: "phase: mvp"
+  color: "b60205"
+  description: Must have for initial release
+
+- name: "phase: adoption"
+  color: "d93f0b"
+  description: Important for broader adoption
+
+- name: "phase: enterprise"
+  color: "fbca04"
+  description: Enterprise features
+
+- name: "phase: later"
+  color: "fef2c0"
+  description: Future consideration
+
+# Size Labels
+- name: "size: xs"
+  color: "ededed"
+  description: Less than 1 day
+
+- name: "size: s"
+  color: "cccccc"
+  description: 1-2 days
+
+- name: "size: m"
+  color: "999999"
+  description: 3-5 days
+
+- name: "size: l"
+  color: "666666"
+  description: 1-2 weeks
+
+- name: "size: xl"
+  color: "333333"
+  description: More than 2 weeks
