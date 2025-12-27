@@ -81,6 +81,8 @@
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
         window.TENANT_ID = /*[[${tenantId}]]*/ '';
         window.VARIANT_ID = /*[[${variantId}]]*/ '';
+        window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
+        window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
         /*]]>*/
     </script>
     <script type="module">
@@ -119,6 +121,6 @@
         });
     </script>
 
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    <!-- <th:block th:replace="~{fragments/footer :: footer}" /> -->
 </body>
 </html>

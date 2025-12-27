@@ -47,11 +47,12 @@
 ### Changed
 - Redesigned template editor UI with shadcn components
   - BlockPalette with tabs and animations
-  - StyleSidebar with improved organization
+  - StyleSidebar with improved organization and version display in footer
   - BlockStyleEditor with cleaner layout
   - Embedded toolbar with async save handling
   - BlockHeader extracted as reusable component with floating toolbar
   - Table config popup migrated to shadcn components
+- Moved version display from global footer to editor sidebar for cleaner full-screen experience
 - Removed embedded fonts to reduce CSS bundle size (~750KB savings)
 - SaveButton refactored with useCallback optimization
 

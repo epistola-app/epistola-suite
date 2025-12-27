@@ -16,12 +16,6 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resi
 import { type ReactNode, useEffect } from "react";
 import { AutoSave } from "../ui/auto-save";
 
-declare global {
-  interface Window {
-    TENANT_ID: string;
-  }
-}
-
 interface EditorLayoutProps {
   /** When true, hides the internal header (for embedding in parent layout) */
   isEmbedded?: boolean;
