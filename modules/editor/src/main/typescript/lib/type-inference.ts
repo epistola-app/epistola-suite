@@ -208,39 +208,45 @@ export function getMethodName(segment: string): string {
  * Infer the return type of a method call on a given type.
  */
 export function inferMethodReturnType(methodName: string, calledOnType: InferredType): InferredType {
+  // Helper for primitive type
+  const primitive = (type: "string" | "number" | "boolean"): InferredType => ({
+    kind: "primitive",
+    type,
+  });
+
   // String methods
   if (calledOnType.kind === "primitive" && calledOnType.type === "string") {
     const stringMethods: Record<string, InferredType> = {
       // Methods that return string
-      toUpperCase: { kind: "primitive", type: "string" },
-      toLowerCase: { kind: "primitive", type: "string" },
-      trim: { kind: "primitive", type: "string" },
-      trimStart: { kind: "primitive", type: "string" },
-      trimEnd: { kind: "primitive", type: "string" },
-      slice: { kind: "primitive", type: "string" },
-      substring: { kind: "primitive", type: "string" },
-      substr: { kind: "primitive", type: "string" },
-      replace: { kind: "primitive", type: "string" },
-      replaceAll: { kind: "primitive", type: "string" },
-      charAt: { kind: "primitive", type: "string" },
-      concat: { kind: "primitive", type: "string" },
-      padStart: { kind: "primitive", type: "string" },
-      padEnd: { kind: "primitive", type: "string" },
-      repeat: { kind: "primitive", type: "string" },
-      normalize: { kind: "primitive", type: "string" },
-      toString: { kind: "primitive", type: "string" },
+      toUpperCase: primitive("string"),
+      toLowerCase: primitive("string"),
+      trim: primitive("string"),
+      trimStart: primitive("string"),
+      trimEnd: primitive("string"),
+      slice: primitive("string"),
+      substring: primitive("string"),
+      substr: primitive("string"),
+      replace: primitive("string"),
+      replaceAll: primitive("string"),
+      charAt: primitive("string"),
+      concat: primitive("string"),
+      padStart: primitive("string"),
+      padEnd: primitive("string"),
+      repeat: primitive("string"),
+      normalize: primitive("string"),
+      toString: primitive("string"),
       // Methods that return number
-      indexOf: { kind: "primitive", type: "number" },
-      lastIndexOf: { kind: "primitive", type: "number" },
-      charCodeAt: { kind: "primitive", type: "number" },
-      search: { kind: "primitive", type: "number" },
+      indexOf: primitive("number"),
+      lastIndexOf: primitive("number"),
+      charCodeAt: primitive("number"),
+      search: primitive("number"),
       // Methods that return boolean
-      includes: { kind: "primitive", type: "boolean" },
-      startsWith: { kind: "primitive", type: "boolean" },
-      endsWith: { kind: "primitive", type: "boolean" },
+      includes: primitive("boolean"),
+      startsWith: primitive("boolean"),
+      endsWith: primitive("boolean"),
       // Methods that return array
-      split: { kind: "array", elementType: { kind: "primitive", type: "string" } },
-      match: { kind: "array", elementType: { kind: "primitive", type: "string" } },
+      split: { kind: "array", elementType: primitive("string") },
+      match: { kind: "array", elementType: primitive("string") },
     };
     return stringMethods[methodName] ?? { kind: "unknown" };
   }
@@ -263,17 +269,17 @@ export function inferMethodReturnType(methodName: string, calledOnType: Inferred
       findLast: elementType,
       at: elementType,
       // Methods that return number
-      indexOf: { kind: "primitive", type: "number" },
-      lastIndexOf: { kind: "primitive", type: "number" },
-      findIndex: { kind: "primitive", type: "number" },
-      findLastIndex: { kind: "primitive", type: "number" },
+      indexOf: primitive("number"),
+      lastIndexOf: primitive("number"),
+      findIndex: primitive("number"),
+      findLastIndex: primitive("number"),
       // Methods that return boolean
-      includes: { kind: "primitive", type: "boolean" },
-      some: { kind: "primitive", type: "boolean" },
-      every: { kind: "primitive", type: "boolean" },
+      includes: primitive("boolean"),
+      some: primitive("boolean"),
+      every: primitive("boolean"),
       // Methods that return string
-      join: { kind: "primitive", type: "string" },
-      toString: { kind: "primitive", type: "string" },
+      join: primitive("string"),
+      toString: primitive("string"),
       // map, reduce, flatMap return unknown since we can't know the callback return type
       map: { kind: "array", elementType: { kind: "unknown" } },
       flatMap: { kind: "array", elementType: { kind: "unknown" } },
@@ -286,11 +292,11 @@ export function inferMethodReturnType(methodName: string, calledOnType: Inferred
   // Number methods
   if (calledOnType.kind === "primitive" && calledOnType.type === "number") {
     const numberMethods: Record<string, InferredType> = {
-      toFixed: { kind: "primitive", type: "string" },
-      toPrecision: { kind: "primitive", type: "string" },
-      toString: { kind: "primitive", type: "string" },
-      toLocaleString: { kind: "primitive", type: "string" },
-      toExponential: { kind: "primitive", type: "string" },
+      toFixed: primitive("string"),
+      toPrecision: primitive("string"),
+      toString: primitive("string"),
+      toLocaleString: primitive("string"),
+      toExponential: primitive("string"),
     };
     return numberMethods[methodName] ?? { kind: "unknown" };
   }
@@ -298,7 +304,7 @@ export function inferMethodReturnType(methodName: string, calledOnType: Inferred
   // Boolean methods
   if (calledOnType.kind === "primitive" && calledOnType.type === "boolean") {
     if (methodName === "toString") {
-      return { kind: "primitive", type: "string" };
+      return primitive("string");
     }
   }
 

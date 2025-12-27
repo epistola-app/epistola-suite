@@ -43,3 +43,6 @@ out/
 ### Node ###
 node_modules/
 dist/
+
+### Test Coverage ###
+coverage/
