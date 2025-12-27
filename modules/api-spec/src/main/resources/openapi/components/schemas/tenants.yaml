@@ -1,0 +1,70 @@
+TenantDto:
+  type: object
+  description: Represents a tenant in the system
+  required:
+    - id
+    - name
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the tenant
+    name:
+      type: string
+      description: Name of the tenant
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the tenant was created
+
+CreateTenantRequest:
+  type: object
+  description: Request body for creating a new tenant
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: Name of the tenant to create
+
+UpdateTenantRequest:
+  type: object
+  description: Request body for updating a tenant
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: New name for the tenant
+
+TenantListResponse:
+  type: object
+  description: Paginated list of tenants
+  required:
+    - items
+    - page
+    - size
+    - totalElements
+    - totalPages
+  properties:
+    items:
+      type: array
+      description: List of tenants on this page
+      items:
+        $ref: '#/TenantDto'
+    page:
+      type: integer
+      description: Current page number (0-based)
+    size:
+      type: integer
+      description: Number of items per page
+    totalElements:
+      type: integer
+      format: int64
+      description: Total number of tenants
+    totalPages:
+      type: integer
+      description: Total number of pages

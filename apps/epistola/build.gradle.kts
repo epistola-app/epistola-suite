@@ -19,6 +19,7 @@ if (buildNativeImage) {
 dependencies {
     implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
+    implementation(project(":modules:api-server"))
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-batch")

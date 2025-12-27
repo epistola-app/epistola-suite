@@ -1,0 +1,138 @@
+TemplateDto:
+  type: object
+  description: Full document template with all details
+  required:
+    - id
+    - tenantId
+    - name
+    - createdAt
+    - lastModified
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the template
+    tenantId:
+      type: integer
+      format: int64
+      description: ID of the tenant this template belongs to
+    name:
+      type: string
+      description: Name of the template
+    templateModel:
+      type: object
+      additionalProperties: true
+      description: The template model defining the document structure (blocks, expressions)
+    dataModel:
+      type: object
+      additionalProperties: true
+      description: JSON Schema defining the expected data structure for template rendering
+    dataExamples:
+      type: array
+      description: Example data sets for testing template rendering
+      items:
+        $ref: '#/DataExampleDto'
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the template was created
+    lastModified:
+      type: string
+      format: date-time
+      description: Timestamp when the template was last modified
+
+TemplateSummaryDto:
+  type: object
+  description: Summary view of a template for list displays
+  required:
+    - id
+    - tenantId
+    - name
+    - createdAt
+    - lastModified
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the template
+    tenantId:
+      type: integer
+      format: int64
+      description: ID of the tenant this template belongs to
+    name:
+      type: string
+      description: Name of the template
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the template was created
+    lastModified:
+      type: string
+      format: date-time
+      description: Timestamp when the template was last modified
+
+DataExampleDto:
+  type: object
+  description: Named example data set for template testing
+  required:
+    - id
+    - name
+    - data
+  properties:
+    id:
+      type: string
+      description: Unique identifier of the data example
+    name:
+      type: string
+      description: Display name of the data example
+    data:
+      type: object
+      additionalProperties: true
+      description: The example data matching the template's data model
+
+CreateTemplateRequest:
+  type: object
+  description: Request body for creating a new template
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: Name of the template to create
+
+UpdateTemplateRequest:
+  type: object
+  description: Request body for updating a template (all fields optional)
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: New name for the template
+    templateModel:
+      type: object
+      additionalProperties: true
+      description: Updated template model
+    dataModel:
+      type: object
+      additionalProperties: true
+      description: Updated data model schema
+    dataExamples:
+      type: array
+      description: Updated data examples
+      items:
+        $ref: '#/DataExampleDto'
+
+TemplateListResponse:
+  type: object
+  description: List of templates
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of template summaries
+      items:
+        $ref: '#/TemplateSummaryDto'

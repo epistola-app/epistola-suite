@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Added
+- OpenAPI spec-driven API development infrastructure
+  - New `modules/api-spec` module containing OpenAPI 3.1 YAML specifications
+  - New `modules/api-server` module with generated Kotlin interfaces and DTOs (Jackson 3.x)
+  - New `modules/api-client` module with generated client code (Jackson 2.x for consumer compatibility)
+  - OpenAPI Generator 7.12.0 with `kotlin-spring` generator for server, `kotlin` for client
+  - Redocly CLI for bundling modular specs and linting
+  - Header-based API versioning using `application/vnd.epistola.v1+json` media type
+  - Modular spec organization: `paths/` for endpoints, `components/schemas/` for models
+  - Initial API spec covers Tenants and Templates CRUD operations
+  - `V1ApiController` implementing generated `V1Api` interface using Mediator pattern
+  - API endpoints available at `/api/v1/tenants` and `/api/v1/tenants/{tenantId}/templates`
+  - Note: `api-spec` module will be extracted to a separate repository with its own release pipeline in the future
 - Custom startup banner displaying application version, Spring Boot version, and Java version
   - ASCII art logo with version information printed on application startup
 - Version display in UI footer across all pages

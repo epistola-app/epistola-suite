@@ -1,0 +1,139 @@
+tenants:
+  get:
+    operationId: listTenants
+    summary: List all tenants
+    description: Retrieve a paginated list of all tenants with optional search filtering.
+    tags:
+      - Tenants
+    parameters:
+      - name: q
+        in: query
+        description: Search term for filtering tenants by name
+        schema:
+          type: string
+      - name: page
+        in: query
+        description: Page number (0-based)
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - name: size
+        in: query
+        description: Number of items per page
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+    responses:
+      '200':
+        description: List of tenants
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/tenants.yaml#/TenantListResponse'
+
+  post:
+    operationId: createTenant
+    summary: Create a new tenant
+    description: Create a new tenant with the given name.
+    tags:
+      - Tenants
+    requestBody:
+      required: true
+      content:
+        application/vnd.epistola.v1+json:
+          schema:
+            $ref: '../components/schemas/tenants.yaml#/CreateTenantRequest'
+    responses:
+      '201':
+        description: Tenant created successfully
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/tenants.yaml#/TenantDto'
+      '400':
+        description: Invalid request
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+
+tenants-id:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: integer
+        format: int64
+
+  get:
+    operationId: getTenant
+    summary: Get tenant by ID
+    description: Retrieve details of a specific tenant.
+    tags:
+      - Tenants
+    responses:
+      '200':
+        description: Tenant details
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/tenants.yaml#/TenantDto'
+      '404':
+        description: Tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+  patch:
+    operationId: updateTenant
+    summary: Update a tenant
+    description: Update the name of an existing tenant.
+    tags:
+      - Tenants
+    requestBody:
+      required: true
+      content:
+        application/vnd.epistola.v1+json:
+          schema:
+            $ref: '../components/schemas/tenants.yaml#/UpdateTenantRequest'
+    responses:
+      '200':
+        description: Tenant updated successfully
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/tenants.yaml#/TenantDto'
+      '400':
+        description: Invalid request
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+      '404':
+        description: Tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+  delete:
+    operationId: deleteTenant
+    summary: Delete a tenant
+    description: Delete a tenant and all associated templates.
+    tags:
+      - Tenants
+    responses:
+      '204':
+        description: Tenant deleted successfully
+      '404':
+        description: Tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'

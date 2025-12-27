@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: Epistola API
+  description: |
+    Document template management API for Epistola Suite.
+
+    ## Versioning
+    This API uses header-based versioning via the Accept header.
+    Use `application/vnd.epistola.v1+json` for API version 1.
+  version: 1.0.0
+  contact:
+    name: Epistola Team
+
+servers:
+  - url: /api
+    description: Base API path
+
+tags:
+  - name: Tenants
+    description: Multi-tenant management operations
+  - name: Templates
+    description: Document template operations
+
+paths:
+  /v1/tenants:
+    $ref: './paths/tenants.yaml#/tenants'
+  /v1/tenants/{tenantId}:
+    $ref: './paths/tenants.yaml#/tenants-id'
+  /v1/tenants/{tenantId}/templates:
+    $ref: './paths/templates.yaml#/templates'
+  /v1/tenants/{tenantId}/templates/{templateId}:
+    $ref: './paths/templates.yaml#/templates-id'
+
+components:
+  schemas:
+    # Tenant schemas
+    TenantDto:
+      $ref: './components/schemas/tenants.yaml#/TenantDto'
+    CreateTenantRequest:
+      $ref: './components/schemas/tenants.yaml#/CreateTenantRequest'
+    UpdateTenantRequest:
+      $ref: './components/schemas/tenants.yaml#/UpdateTenantRequest'
+    TenantListResponse:
+      $ref: './components/schemas/tenants.yaml#/TenantListResponse'
+
+    # Template schemas
+    TemplateDto:
+      $ref: './components/schemas/templates.yaml#/TemplateDto'
+    TemplateSummaryDto:
+      $ref: './components/schemas/templates.yaml#/TemplateSummaryDto'
+    CreateTemplateRequest:
+      $ref: './components/schemas/templates.yaml#/CreateTemplateRequest'
+    UpdateTemplateRequest:
+      $ref: './components/schemas/templates.yaml#/UpdateTemplateRequest'
+    TemplateListResponse:
+      $ref: './components/schemas/templates.yaml#/TemplateListResponse'
+    DataExampleDto:
+      $ref: './components/schemas/templates.yaml#/DataExampleDto'
+
+    # Error schemas
+    ErrorResponse:
+      $ref: './components/responses/errors.yaml#/ErrorResponse'
+    ValidationErrorResponse:
+      $ref: './components/responses/errors.yaml#/ValidationErrorResponse'
+    FieldError:
+      $ref: './components/responses/errors.yaml#/FieldError'
