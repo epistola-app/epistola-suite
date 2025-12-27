@@ -14,6 +14,9 @@ version = "0.0.1-SNAPSHOT"
 description = "Epistola Document Suite"
 
 allprojects {
+    group = rootProject.group
+    version = rootProject.version
+
     repositories {
         mavenCentral()
     }
