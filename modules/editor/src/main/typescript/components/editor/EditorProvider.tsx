@@ -95,10 +95,10 @@ export function EditorProvider({ children }: EditorProviderProps) {
       onDragEnd={handleDragEnd}
     >
       {children}
-      <DragOverlay>
+      <DragOverlay className="grid">
         {activeBlock && (
-          <div className="bg-white border-2 border-blue-400 rounded-lg shadow-lg p-3 opacity-80">
-            <span className="text-sm font-medium text-blue-600">
+          <div className="grid place-content-center border-2 border-blue-400 rounded-lg shadow-lg p-2.5 text-center opacity-80">
+            <span className="text-sm font-medium text-blue-600 pointer-events-none">
               {activeBlock.type.toUpperCase()}
             </span>
           </div>
