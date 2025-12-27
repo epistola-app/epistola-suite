@@ -29,10 +29,11 @@ function ExpressionNodeView({ node, updateAttributes, deleteNode }: NodeViewProp
   const { evaluate, isReady } = useEvaluator();
 
   const expr = node.attrs.expression;
+  const isNew = node.attrs.isNew;
 
-  // Open popover automatically for newly created (empty) expressions
+  // Open popover automatically for newly created expressions (via {{ input)
   useEffect(() => {
-    if (!expr) {
+    if (isNew) {
       // Small delay to ensure the trigger element is mounted and positioned
       const timer = setTimeout(() => setIsOpen(true), 50);
       return () => clearTimeout(timer);
@@ -84,7 +85,7 @@ function ExpressionNodeView({ node, updateAttributes, deleteNode }: NodeViewProp
 
   const handleSave = (newExpression: string) => {
     if (newExpression.trim()) {
-      updateAttributes({ expression: newExpression.trim() });
+      updateAttributes({ expression: newExpression.trim(), isNew: false });
     } else {
       deleteNode();
     }
@@ -92,8 +93,8 @@ function ExpressionNodeView({ node, updateAttributes, deleteNode }: NodeViewProp
   };
 
   const handleCancel = () => {
-    // If expression is empty (user cancelled without entering anything), delete the node
-    if (!node.attrs.expression) {
+    // Only delete if this is a new node that was never saved
+    if (isNew) {
       deleteNode();
     } else {
       setIsOpen(false);
@@ -154,6 +155,12 @@ export const ExpressionNode = Node.create({
       expression: {
         default: "",
       },
+      isNew: {
+        default: false,
+        // Don't render isNew to HTML - it's only for runtime state
+        renderHTML: () => ({}),
+        parseHTML: () => false,
+      },
     };
   },
 
@@ -202,6 +209,7 @@ export const ExpressionNode = Node.create({
         type: this.type,
         getAttributes: () => ({
           expression: "",
+          isNew: true,
         }),
       }),
     ];
