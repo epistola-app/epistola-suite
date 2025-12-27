@@ -274,4 +274,6 @@ export default [
     external: ['react'],
     plugins,
   },
+  // Note: CodeMirror packages are bundled directly in the editor module
+  // to avoid multiple @codemirror/state instances. No vendor bundle needed.
 ].map(config => ({ ...config, onwarn }));

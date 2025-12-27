@@ -3,8 +3,9 @@ import { useState } from "react";
 import type { ConditionalBlock } from "../../types/template";
 import { useEditorStore } from "../../store/editorStore";
 import { BlockRenderer } from "./BlockRenderer";
-import { ExpressionEditor } from "./ExpressionEditor";
+import { ExpressionPopoverEditor } from "./ExpressionPopoverEditor";
 import { BlockHeader } from "./BlockHeader";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface ConditionalBlockProps {
   block: ConditionalBlock;
@@ -97,23 +98,35 @@ export function ConditionalBlockComponent({
           <span className="text-xs font-medium text-amber-600">
             {block.inverse ? "IF NOT" : "IF"}
           </span>
-          {isEditingCondition ? (
-            <div onClick={(e) => e.stopPropagation()}>
-              <ExpressionEditor
+          <Popover open={isEditingCondition} onOpenChange={setIsEditingCondition}>
+            <PopoverTrigger asChild>
+              <code
+                className="px-2 py-0.5 text-sm bg-amber-100 rounded cursor-pointer hover:bg-amber-200"
+                title="Click to edit condition"
+              >
+                {block.condition.raw || "..."}
+              </code>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto p-4"
+              align="start"
+              side="bottom"
+              sideOffset={8}
+              onInteractOutside={(e) => {
+                const target = e.target as Element;
+                if (target?.closest(".cm-tooltip-autocomplete") || target?.closest(".cm-tooltip")) {
+                  e.preventDefault();
+                }
+              }}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <ExpressionPopoverEditor
                 value={block.condition.raw}
                 onSave={handleConditionSave}
                 onCancel={() => setIsEditingCondition(false)}
               />
-            </div>
-          ) : (
-            <code
-              onClick={() => setIsEditingCondition(true)}
-              className="px-2 py-0.5 text-sm bg-amber-100 rounded cursor-pointer hover:bg-amber-200"
-              title="Click to edit condition"
-            >
-              {block.condition.raw}
-            </code>
-          )}
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Inverse Toggle */}

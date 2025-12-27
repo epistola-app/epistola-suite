@@ -40,7 +40,9 @@ const EXTERNALS = [
   '@radix-ui/react-direction',
   'motion',
   'radix-ui',
-  '@uidotdev/usehooks'
+  '@uidotdev/usehooks',
+  // Note: CodeMirror packages are intentionally NOT externalized.
+  // They are bundled directly to avoid multiple @codemirror/state instances.
 ]
 
 // https://vite.dev/config/
