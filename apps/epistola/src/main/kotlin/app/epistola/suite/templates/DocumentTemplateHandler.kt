@@ -7,7 +7,6 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.model.TemplateModel
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.validation.DataModelValidationException
@@ -20,11 +19,11 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
- * Request body for updating a document template.
- * All fields are optional - only provided fields will be updated.
+ * Request body for updating a document template's metadata.
+ * Note: templateModel is now stored in TemplateVersion and updated separately.
  */
 data class UpdateTemplateRequest(
-    val templateModel: TemplateModel? = null,
+    val name: String? = null,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
 )
@@ -101,13 +100,15 @@ class DocumentTemplateHandler(
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
             ?: return ServerResponse.notFound().build()
 
+        // TODO: Load templateModel from draft version instead
+        // The editor needs to be updated to work with variants/versions
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
                 "tenantId" to tenantId,
                 "templateId" to id,
                 "templateName" to template.name,
-                "templateModel" to (template.templateModel ?: emptyMap<String, Any>()),
+                "templateModel" to emptyMap<String, Any>(),
             ),
         )
     }
@@ -120,13 +121,13 @@ class DocumentTemplateHandler(
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
             ?: return ServerResponse.notFound().build()
 
+        // Note: templateModel is now in versions, not in template
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
                 mapOf(
                     "id" to template.id,
                     "name" to template.name,
-                    "templateModel" to template.templateModel,
                     "dataModel" to template.dataModel,
                     "dataExamples" to template.dataExamples,
                     "createdAt" to template.createdAt,
@@ -143,13 +144,13 @@ class DocumentTemplateHandler(
         val body = request.body(String::class.java)
         val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
 
+        // Note: templateModel updates should go through version commands now
         return try {
             val updated = mediator.send(
                 UpdateDocumentTemplate(
-
                     tenantId = tenantId,
                     id = id,
-                    templateModel = updateRequest.templateModel,
+                    name = updateRequest.name,
                     dataModel = updateRequest.dataModel,
                     dataExamples = updateRequest.dataExamples,
                 ),
@@ -161,7 +162,6 @@ class DocumentTemplateHandler(
                     mapOf(
                         "id" to updated.id,
                         "name" to updated.name,
-                        "templateModel" to updated.templateModel,
                         "dataModel" to updated.dataModel,
                         "dataExamples" to updated.dataExamples,
                         "createdAt" to updated.createdAt,

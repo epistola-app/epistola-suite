@@ -3,6 +3,17 @@
 ## [Unreleased]
 
 ### Added
+- Template variants, versions, and lifecycle management (API-first)
+  - New domain model: Template → Variant → Version with lifecycle states
+  - Environments: Tenant-configurable deployment targets (staging, production, etc.)
+  - Variants: Template presentation variations distinguished by free-form tags (locale, brand)
+  - Versions: Immutable published versions with draft/published/archived lifecycle
+  - Version numbering: Sequential assignment on publish, drafts have no version number
+  - Environment activations: Configure which version is active per environment per variant
+  - Database migration V3 with new tables: environments, template_variants, template_versions, environment_activations
+  - OpenAPI endpoints for complete CRUD on environments, variants, versions, and lifecycle operations
+  - API controller stubs ready for implementation
+  - Note: Editor UI integration with versions is pending (TODO marked in code)
 - OpenAPI spec-driven API development infrastructure
   - New `modules/api-spec` module containing OpenAPI 3.1 YAML specifications
   - New `modules/api-server` module with generated Kotlin interfaces and DTOs (Jackson 3.x)
@@ -31,6 +42,10 @@
 - Updated project context (`openspec/project.md`) with tech stack, conventions, and domain model
 
 ### Changed
+- Template content (templateModel) moved from DocumentTemplate to TemplateVersion
+  - DocumentTemplate now only contains metadata: name, dataModel, dataExamples
+  - Visual layout (templateModel) is stored in versions, enabling versioned content
+  - CreateDocumentTemplate command now auto-creates default variant with draft version
 - Unified tool version management with mise across local development and CI
   - Added Gradle 9.2.1 to `.mise.toml` for consistent version management
   - GitHub Actions workflows now use `jdx/mise-action@v2` instead of individual setup actions

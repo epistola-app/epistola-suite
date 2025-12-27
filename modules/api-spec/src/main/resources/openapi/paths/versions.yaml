@@ -1,0 +1,255 @@
+versions:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: integer
+        format: int64
+    - name: templateId
+      in: path
+      required: true
+      description: Unique identifier of the template
+      schema:
+        type: integer
+        format: int64
+    - name: variantId
+      in: path
+      required: true
+      description: Unique identifier of the variant
+      schema:
+        type: integer
+        format: int64
+
+  get:
+    operationId: listVersions
+    summary: List versions for a variant
+    description: Retrieve all versions of a specific variant (draft, published, archived).
+    tags:
+      - Versions
+    parameters:
+      - name: status
+        in: query
+        description: Filter by lifecycle status
+        schema:
+          type: string
+          enum:
+            - draft
+            - published
+            - archived
+    responses:
+      '200':
+        description: List of versions
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/versions.yaml#/VersionListResponse'
+      '404':
+        description: Variant, template, or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+versions-id:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: integer
+        format: int64
+    - name: templateId
+      in: path
+      required: true
+      description: Unique identifier of the template
+      schema:
+        type: integer
+        format: int64
+    - name: variantId
+      in: path
+      required: true
+      description: Unique identifier of the variant
+      schema:
+        type: integer
+        format: int64
+    - name: versionId
+      in: path
+      required: true
+      description: Unique identifier of the version
+      schema:
+        type: integer
+        format: int64
+
+  get:
+    operationId: getVersion
+    summary: Get version by ID
+    description: Retrieve details of a specific version including its template model.
+    tags:
+      - Versions
+    responses:
+      '200':
+        description: Version details
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/versions.yaml#/VersionDto'
+      '404':
+        description: Version, variant, template, or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+  patch:
+    operationId: updateVersion
+    summary: Update a draft version
+    description: Update the template model of a draft version. Only drafts can be updated.
+    tags:
+      - Versions
+    requestBody:
+      required: true
+      content:
+        application/vnd.epistola.v1+json:
+          schema:
+            $ref: '../components/schemas/versions.yaml#/UpdateDraftRequest'
+    responses:
+      '200':
+        description: Version updated successfully
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/versions.yaml#/VersionDto'
+      '400':
+        description: Invalid request or version is not a draft
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+      '404':
+        description: Version, variant, template, or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+version-publish:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: integer
+        format: int64
+    - name: templateId
+      in: path
+      required: true
+      description: Unique identifier of the template
+      schema:
+        type: integer
+        format: int64
+    - name: variantId
+      in: path
+      required: true
+      description: Unique identifier of the variant
+      schema:
+        type: integer
+        format: int64
+    - name: versionId
+      in: path
+      required: true
+      description: Unique identifier of the version
+      schema:
+        type: integer
+        format: int64
+
+  post:
+    operationId: publishVersion
+    summary: Publish a draft version
+    description: |
+      Publish a draft version. This copies the draft content to a new published version
+      with the next sequential version number. The draft is preserved for continued editing.
+    tags:
+      - Versions
+    responses:
+      '200':
+        description: New published version created
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/versions.yaml#/VersionDto'
+      '400':
+        description: Version is not a draft
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+      '404':
+        description: Version, variant, template, or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+version-archive:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: integer
+        format: int64
+    - name: templateId
+      in: path
+      required: true
+      description: Unique identifier of the template
+      schema:
+        type: integer
+        format: int64
+    - name: variantId
+      in: path
+      required: true
+      description: Unique identifier of the variant
+      schema:
+        type: integer
+        format: int64
+    - name: versionId
+      in: path
+      required: true
+      description: Unique identifier of the version
+      schema:
+        type: integer
+        format: int64
+
+  post:
+    operationId: archiveVersion
+    summary: Archive a published version
+    description: |
+      Archive a published version. Archived versions are kept for history but cannot be
+      activated in any environment. Any active deployments using this version will need
+      to be updated to use a different version.
+    tags:
+      - Versions
+    responses:
+      '200':
+        description: Version archived successfully
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/versions.yaml#/VersionDto'
+      '400':
+        description: Version is not published (cannot archive drafts or already archived)
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+      '404':
+        description: Version, variant, template, or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'

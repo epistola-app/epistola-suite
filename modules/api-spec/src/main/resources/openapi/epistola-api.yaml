@@ -20,16 +20,55 @@ tags:
     description: Multi-tenant management operations
   - name: Templates
     description: Document template operations
+  - name: Environments
+    description: Tenant environment configuration (staging, production, etc.)
+  - name: Variants
+    description: Template variant operations (language, brand variations)
+  - name: Versions
+    description: Template version lifecycle (draft, publish, archive)
 
 paths:
+  # Tenants
   /v1/tenants:
     $ref: './paths/tenants.yaml#/tenants'
   /v1/tenants/{tenantId}:
     $ref: './paths/tenants.yaml#/tenants-id'
+
+  # Environments
+  /v1/tenants/{tenantId}/environments:
+    $ref: './paths/environments.yaml#/environments'
+  /v1/tenants/{tenantId}/environments/{environmentId}:
+    $ref: './paths/environments.yaml#/environments-id'
+
+  # Templates
   /v1/tenants/{tenantId}/templates:
     $ref: './paths/templates.yaml#/templates'
   /v1/tenants/{tenantId}/templates/{templateId}:
     $ref: './paths/templates.yaml#/templates-id'
+
+  # Variants
+  /v1/tenants/{tenantId}/templates/{templateId}/variants:
+    $ref: './paths/variants.yaml#/variants'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}:
+    $ref: './paths/variants.yaml#/variants-id'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/draft:
+    $ref: './paths/variants.yaml#/variant-draft'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/activations:
+    $ref: './paths/variants.yaml#/variant-activations'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/activations/{environmentId}:
+    $ref: './paths/variants.yaml#/variant-activation-env'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/active:
+    $ref: './paths/variants.yaml#/variant-active'
+
+  # Versions
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/versions:
+    $ref: './paths/versions.yaml#/versions'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/versions/{versionId}:
+    $ref: './paths/versions.yaml#/versions-id'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/versions/{versionId}/publish:
+    $ref: './paths/versions.yaml#/version-publish'
+  /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/versions/{versionId}/archive:
+    $ref: './paths/versions.yaml#/version-archive'
 
 components:
   schemas:
@@ -42,6 +81,16 @@ components:
       $ref: './components/schemas/tenants.yaml#/UpdateTenantRequest'
     TenantListResponse:
       $ref: './components/schemas/tenants.yaml#/TenantListResponse'
+
+    # Environment schemas
+    EnvironmentDto:
+      $ref: './components/schemas/environments.yaml#/EnvironmentDto'
+    CreateEnvironmentRequest:
+      $ref: './components/schemas/environments.yaml#/CreateEnvironmentRequest'
+    UpdateEnvironmentRequest:
+      $ref: './components/schemas/environments.yaml#/UpdateEnvironmentRequest'
+    EnvironmentListResponse:
+      $ref: './components/schemas/environments.yaml#/EnvironmentListResponse'
 
     # Template schemas
     TemplateDto:
@@ -56,6 +105,34 @@ components:
       $ref: './components/schemas/templates.yaml#/TemplateListResponse'
     DataExampleDto:
       $ref: './components/schemas/templates.yaml#/DataExampleDto'
+
+    # Variant schemas
+    VariantDto:
+      $ref: './components/schemas/variants.yaml#/VariantDto'
+    VariantSummaryDto:
+      $ref: './components/schemas/variants.yaml#/VariantSummaryDto'
+    CreateVariantRequest:
+      $ref: './components/schemas/variants.yaml#/CreateVariantRequest'
+    UpdateVariantRequest:
+      $ref: './components/schemas/variants.yaml#/UpdateVariantRequest'
+    VariantListResponse:
+      $ref: './components/schemas/variants.yaml#/VariantListResponse'
+    ActivationDto:
+      $ref: './components/schemas/variants.yaml#/ActivationDto'
+    SetActivationRequest:
+      $ref: './components/schemas/variants.yaml#/SetActivationRequest'
+    ActivationListResponse:
+      $ref: './components/schemas/variants.yaml#/ActivationListResponse'
+
+    # Version schemas
+    VersionDto:
+      $ref: './components/schemas/versions.yaml#/VersionDto'
+    VersionSummaryDto:
+      $ref: './components/schemas/versions.yaml#/VersionSummaryDto'
+    UpdateDraftRequest:
+      $ref: './components/schemas/versions.yaml#/UpdateDraftRequest'
+    VersionListResponse:
+      $ref: './components/schemas/versions.yaml#/VersionListResponse'
 
     # Error schemas
     ErrorResponse:

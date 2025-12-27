@@ -1,0 +1,158 @@
+VariantDto:
+  type: object
+  description: Full template variant with version summary
+  required:
+    - id
+    - templateId
+    - tags
+    - hasDraft
+    - publishedVersionCount
+    - createdAt
+    - lastModified
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the variant
+    templateId:
+      type: integer
+      format: int64
+      description: ID of the template this variant belongs to
+    tags:
+      type: object
+      additionalProperties:
+        type: string
+      description: Free-form key-value tags (e.g., locale=nl-NL, brand=acme)
+    hasDraft:
+      type: boolean
+      description: Whether this variant has an unpublished draft
+    publishedVersionCount:
+      type: integer
+      description: Number of published versions
+    latestPublishedVersion:
+      type:
+        - integer
+        - 'null'
+      description: Version number of the most recently published version
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the variant was created
+    lastModified:
+      type: string
+      format: date-time
+      description: Timestamp when the variant was last modified
+
+VariantSummaryDto:
+  type: object
+  description: Summary view of a variant for inclusion in template responses
+  required:
+    - id
+    - tags
+    - hasDraft
+    - publishedVersionCount
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the variant
+    tags:
+      type: object
+      additionalProperties:
+        type: string
+      description: Free-form key-value tags
+    hasDraft:
+      type: boolean
+      description: Whether this variant has an unpublished draft
+    publishedVersionCount:
+      type: integer
+      description: Number of published versions
+    latestPublishedVersion:
+      type:
+        - integer
+        - 'null'
+      description: Version number of the most recently published version
+
+CreateVariantRequest:
+  type: object
+  description: Request body for creating a new variant
+  properties:
+    tags:
+      type: object
+      additionalProperties:
+        type: string
+      description: Free-form key-value tags for this variant
+
+UpdateVariantRequest:
+  type: object
+  description: Request body for updating a variant's tags
+  properties:
+    tags:
+      type: object
+      additionalProperties:
+        type: string
+      description: Updated tags for this variant
+
+VariantListResponse:
+  type: object
+  description: List of template variants
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of variants
+      items:
+        $ref: '#/VariantDto'
+
+ActivationDto:
+  type: object
+  description: Environment activation for a variant
+  required:
+    - environmentId
+    - environmentName
+    - versionId
+    - versionNumber
+    - activatedAt
+  properties:
+    environmentId:
+      type: integer
+      format: int64
+      description: ID of the environment
+    environmentName:
+      type: string
+      description: Name of the environment
+    versionId:
+      type: integer
+      format: int64
+      description: ID of the active version
+    versionNumber:
+      type: integer
+      description: Version number of the active version
+    activatedAt:
+      type: string
+      format: date-time
+      description: Timestamp when this version was activated
+
+SetActivationRequest:
+  type: object
+  description: Request body for setting the active version for an environment
+  required:
+    - versionId
+  properties:
+    versionId:
+      type: integer
+      format: int64
+      description: ID of the version to activate
+
+ActivationListResponse:
+  type: object
+  description: List of environment activations for a variant
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of activations
+      items:
+        $ref: '#/ActivationDto'

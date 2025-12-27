@@ -4,7 +4,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.model.TemplateModel
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.jdbi.v3.core.Jdbi
@@ -13,10 +12,14 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
+/**
+ * Updates a template's metadata (name, dataModel, dataExamples).
+ * Note: templateModel is now stored in TemplateVersion and updated via version commands.
+ */
 data class UpdateDocumentTemplate(
     val tenantId: Long,
     val id: Long,
-    val templateModel: TemplateModel? = null,
+    val name: String? = null,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
 ) : Command<DocumentTemplate?>
@@ -66,9 +69,9 @@ class UpdateDocumentTemplateHandler(
         val updates = mutableListOf<String>()
         val bindings = mutableMapOf<String, Any?>()
 
-        if (command.templateModel != null) {
-            updates.add("template_model = :templateModel::jsonb")
-            bindings["templateModel"] = objectMapper.writeValueAsString(command.templateModel)
+        if (command.name != null) {
+            updates.add("name = :name")
+            bindings["name"] = command.name
         }
         if (command.dataModel != null) {
             updates.add("data_model = :dataModel::jsonb")
@@ -89,7 +92,7 @@ class UpdateDocumentTemplateHandler(
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
             WHERE id = :id AND tenant_id = :tenantId
-            RETURNING id, tenant_id, name, template_model, data_model, data_examples, created_at, last_modified
+            RETURNING id, tenant_id, name, data_model, data_examples, created_at, last_modified
         """
 
         return jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
@@ -108,7 +111,7 @@ class UpdateDocumentTemplateHandler(
     private fun getExisting(tenantId: Long, id: Long): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, template_model, data_model, data_examples, created_at, last_modified
+            SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
             FROM document_templates
             WHERE id = :id AND tenant_id = :tenantId
             """,

@@ -1,10 +1,11 @@
 TemplateDto:
   type: object
-  description: Full document template with all details
+  description: Full document template with all details including variant summaries
   required:
     - id
     - tenantId
     - name
+    - variants
     - createdAt
     - lastModified
   properties:
@@ -19,10 +20,6 @@ TemplateDto:
     name:
       type: string
       description: Name of the template
-    templateModel:
-      type: object
-      additionalProperties: true
-      description: The template model defining the document structure (blocks, expressions)
     dataModel:
       type: object
       additionalProperties: true
@@ -32,6 +29,11 @@ TemplateDto:
       description: Example data sets for testing template rendering
       items:
         $ref: '#/DataExampleDto'
+    variants:
+      type: array
+      description: Summary of all variants for this template
+      items:
+        $ref: './variants.yaml#/VariantSummaryDto'
     createdAt:
       type: string
       format: date-time
@@ -104,17 +106,13 @@ CreateTemplateRequest:
 
 UpdateTemplateRequest:
   type: object
-  description: Request body for updating a template (all fields optional)
+  description: Request body for updating a template's metadata (all fields optional)
   properties:
     name:
       type: string
       minLength: 1
       maxLength: 255
       description: New name for the template
-    templateModel:
-      type: object
-      additionalProperties: true
-      description: Updated template model
     dataModel:
       type: object
       additionalProperties: true
