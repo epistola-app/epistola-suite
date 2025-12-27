@@ -6,12 +6,9 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "clean": "pnpm -r clean",
-    "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup",
-    "openapi:bundle": "redocly bundle modules/api-spec/src/main/resources/openapi/epistola-api.yaml -o modules/api-spec/build/bundled-api.yaml",
-    "openapi:lint": "redocly lint modules/api-spec/src/main/resources/openapi/epistola-api.yaml"
+    "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "devDependencies": {
-    "@redocly/cli": "^1.28.2",
     "typescript": "^5.7.3"
   },
   "packageManager": "pnpm@10.26.2",

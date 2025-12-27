@@ -8,12 +8,15 @@ importers:
 
   .:
     devDependencies:
-      '@redocly/cli':
-        specifier: ^1.28.2
-        version: 1.34.6(ajv@6.12.6)
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+
+  modules/api-spec:
+    devDependencies:
+      '@redocly/cli':
+        specifier: ^1.28.2
+        version: 1.34.6(ajv@6.12.6)
 
   modules/editor:
     dependencies:

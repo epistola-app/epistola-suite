@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
     implementation(project(":modules:api-server"))
+    runtimeOnly(project(":modules:api-spec")) // Static API documentation (Redoc)
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-batch")

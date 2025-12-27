@@ -3,7 +3,7 @@
 
 apis:
   main:
-    root: modules/api-spec/src/main/resources/openapi/epistola-api.yaml
+    root: src/main/resources/openapi/epistola-api.yaml
 
 # Extend the recommended ruleset with customizations
 extends:

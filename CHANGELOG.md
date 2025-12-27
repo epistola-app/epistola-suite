@@ -8,7 +8,8 @@
   - New `modules/api-server` module with generated Kotlin interfaces and DTOs (Jackson 3.x)
   - New `modules/api-client` module with generated client code (Jackson 2.x for consumer compatibility)
   - OpenAPI Generator 7.12.0 with `kotlin-spring` generator for server, `kotlin` for client
-  - Redocly CLI for bundling modular specs and linting
+  - Redocly CLI for bundling modular specs, linting, and generating documentation
+  - Static API documentation (Redoc) available at `/api-docs/` in the running application
   - Header-based API versioning using `application/vnd.epistola.v1+json` media type
   - Modular spec organization: `paths/` for endpoints, `components/schemas/` for models
   - Initial API spec covers Tenants and Templates CRUD operations

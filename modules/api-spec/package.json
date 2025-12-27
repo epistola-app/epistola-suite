@@ -1,0 +1,13 @@
+{
+  "name": "@epistola/api-spec",
+  "private": true,
+  "description": "OpenAPI specification for Epistola API",
+  "scripts": {
+    "bundle": "redocly bundle src/main/resources/openapi/epistola-api.yaml -o $PWD/build/bundled-api.yaml",
+    "lint": "redocly lint src/main/resources/openapi/epistola-api.yaml",
+    "docs": "redocly build-docs src/main/resources/openapi/epistola-api.yaml -o $PWD/build/generated-resources/static/api-docs/index.html"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.28.2"
+  }
+}
