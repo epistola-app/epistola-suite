@@ -19,7 +19,7 @@ data class TemplateVariant(
  */
 data class VariantSummary(
     val id: Long,
-    val tags: Map<String, String>,
+    @Json val tags: Map<String, String>,
     val hasDraft: Boolean,
     val publishedVersionCount: Int,
     val latestPublishedVersion: Int?,

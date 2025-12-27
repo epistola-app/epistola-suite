@@ -50,6 +50,9 @@
                     <tr>
                         <th>ID</th>
                         <th>Name</th>
+                        <th>Variants</th>
+                        <th>Draft</th>
+                        <th>Published</th>
                         <th>Last Modified</th>
                         <th>Actions</th>
                     </tr>
@@ -60,13 +63,22 @@
                         <tr th:each="template : ${templates}">
                             <td th:text="${template.id}"></td>
                             <td th:text="${template.name}"></td>
-                            <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="${template.variantCount}"></td>
                             <td>
-                                <a th:href="@{/tenants/{tenantId}/templates/{id}/editor(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">Edit</a>
+                                <span th:if="${template.hasDraft}" class="badge badge-draft">Draft</span>
+                                <span th:unless="${template.hasDraft}" class="text-muted">—</span>
+                            </td>
+                            <td>
+                                <span th:if="${template.publishedVersionCount > 0}" th:text="'v' + ${template.publishedVersionCount}"></span>
+                                <span th:unless="${template.publishedVersionCount > 0}" class="text-muted">—</span>
+                            </td>
+                            <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td class="actions">
+                                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">View</a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(templates)}">
-                            <td colspan="4" class="empty-message">No templates yet. Create one above.</td>
+                            <td colspan="7" class="empty-message">No templates yet. Create one above.</td>
                         </tr>
                     </th:block>
                 </tbody>

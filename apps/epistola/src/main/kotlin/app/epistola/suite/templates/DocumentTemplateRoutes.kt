@@ -14,9 +14,28 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             GET("", handler::list)
             GET("/search", handler::search)
             POST("", handler::create)
-            GET("/{id}/editor", handler::editor)
-            GET("/{id}", handler::get)
+
+            // Template detail and actions
+            GET("/{id}", handler::detail)
+            POST("/{id}/delete", handler::delete)
             PATCH("/{id}", handler::update)
+            GET("/{id}/api", handler::get)
+
+            // Variant routes
+            POST("/{id}/variants", handler::createVariant)
+            GET("/{id}/variants/{variantId}", handler::variantDetail)
+            DELETE("/{id}/variants/{variantId}", handler::deleteVariant)
+            POST("/{id}/variants/{variantId}/delete", handler::deleteVariant)
+
+            // Editor route (with variant)
+            GET("/{id}/variants/{variantId}/editor", handler::editor)
+
+            // Draft creation
+            POST("/{id}/variants/{variantId}/draft", handler::createDraft)
+
+            // Version lifecycle
+            POST("/{id}/variants/{variantId}/versions/{versionId}/publish", handler::publishVersion)
+            POST("/{id}/variants/{variantId}/versions/{versionId}/archive", handler::archiveVersion)
         }
     }
 }

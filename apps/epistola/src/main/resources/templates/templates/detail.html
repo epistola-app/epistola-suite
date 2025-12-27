@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${template.name + ' - Epistola'}">Template - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <main class="regular">
+        <nav class="breadcrumb">
+            <a th:href="@{/}">Tenants</a> &raquo;
+            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
+            <span th:text="${template.name}">Template Name</span>
+        </nav>
+
+        <div class="page-header">
+            <h1 th:text="${template.name}">Template Name</h1>
+            <form th:action="@{/tenants/{tenantId}/templates/{id}/delete(tenantId=${tenantId},id=${template.id})}"
+                  method="post"
+                  onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.')">
+                <button type="submit" class="btn btn-danger btn-small">Delete Template</button>
+            </form>
+        </div>
+
+        <!-- Variants Section -->
+        <section>
+            <div class="section-header">
+                <h2>Variants</h2>
+            </div>
+
+            <div id="variants-section" th:fragment="variants-section">
+                <table th:if="${!#lists.isEmpty(variants)}">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tags</th>
+                            <th>Draft</th>
+                            <th>Published</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="variant : ${variants}">
+                            <td th:text="${variant.id}"></td>
+                            <td>
+                                <div class="tags" th:if="${!variant.tags.isEmpty()}">
+                                    <span th:each="entry : ${variant.tags}"
+                                          class="tag"
+                                          th:text="${entry.key + '=' + entry.value}"></span>
+                                </div>
+                                <span th:if="${variant.tags.isEmpty()}" class="text-muted">(default)</span>
+                            </td>
+                            <td>
+                                <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
+                                <span th:unless="${variant.hasDraft}" class="text-muted">—</span>
+                            </td>
+                            <td>
+                                <span th:if="${variant.publishedVersionCount > 0}"
+                                      th:text="'v' + ${variant.latestPublishedVersion}"></span>
+                                <span th:unless="${variant.publishedVersionCount > 0}" class="text-muted">—</span>
+                            </td>
+                            <td class="actions">
+                                <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                   class="btn btn-small">Edit</a>
+                                <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                   class="btn btn-small btn-secondary">Versions</a>
+                                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                      method="post"
+                                      style="display: inline;"
+                                      th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                      hx-confirm="Are you sure you want to delete this variant?"
+                                      hx-target="#variants-section"
+                                      hx-swap="outerHTML">
+                                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p th:if="${#lists.isEmpty(variants)}" class="text-muted text-center">
+                    No variants yet. Create one below to get started.
+                </p>
+            </div>
+
+            <div class="form-section" style="margin-top: 1rem;">
+                <h3>Create New Variant</h3>
+                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
+                      method="post"
+                      th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
+                      hx-target="#variants-section"
+                      hx-swap="outerHTML"
+                      hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <div class="form-group">
+                        <label for="tags">Tags (optional, format: key=value, one per line)</label>
+                        <textarea id="tags" name="tags" rows="3" placeholder="locale=en-US&#10;brand=default"></textarea>
+                    </div>
+                    <button type="submit">Create Variant</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Versions Section (shown when a variant is selected) -->
+        <section th:if="${selectedVariant != null}" style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2>
+                    Versions for Variant #<span th:text="${selectedVariant.id}"></span>
+                    <span th:if="${!selectedVariant.tags.isEmpty()}" class="tags" style="margin-left: 0.5rem;">
+                        <span th:each="entry : ${selectedVariant.tags}"
+                              class="tag"
+                              th:text="${entry.key + '=' + entry.value}"></span>
+                    </span>
+                </h2>
+                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}"
+                   class="btn btn-small btn-secondary">&larr; Back to All Variants</a>
+            </div>
+
+            <div id="versions-section" th:fragment="versions-section">
+                <table th:if="${!#lists.isEmpty(versions)}">
+                    <thead>
+                        <tr>
+                            <th>Version</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Published</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="version : ${versions}">
+                            <td>
+                                <span th:if="${version.versionNumber == null}">Draft</span>
+                                <span th:unless="${version.versionNumber == null}" th:text="'v' + ${version.versionNumber}"></span>
+                            </td>
+                            <td>
+                                <span th:if="${version.status.name() == 'DRAFT'}" class="badge badge-draft">Draft</span>
+                                <span th:if="${version.status.name() == 'PUBLISHED'}" class="badge badge-published">Published</span>
+                                <span th:if="${version.status.name() == 'ARCHIVED'}" class="badge badge-archived">Archived</span>
+                            </td>
+                            <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td>
+                                <span th:if="${version.publishedAt != null}"
+                                      th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                                <span th:unless="${version.publishedAt != null}" class="text-muted">—</span>
+                            </td>
+                            <td class="actions">
+                                <!-- Draft actions -->
+                                <th:block th:if="${version.status.name() == 'DRAFT'}">
+                                    <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
+                                       class="btn btn-small">Edit</a>
+                                    <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
+                                          method="post"
+                                          style="display: inline;"
+                                          th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
+                                          hx-target="#versions-section"
+                                          hx-swap="outerHTML">
+                                        <button type="submit" class="btn btn-small btn-secondary">Publish</button>
+                                    </form>
+                                </th:block>
+
+                                <!-- Published actions -->
+                                <th:block th:if="${version.status.name() == 'PUBLISHED'}">
+                                    <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
+                                          method="post"
+                                          style="display: inline;"
+                                          th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
+                                          hx-target="#versions-section"
+                                          hx-swap="outerHTML"
+                                          hx-confirm="Are you sure you want to archive this version?">
+                                        <button type="submit" class="btn btn-small btn-secondary">Archive</button>
+                                    </form>
+                                </th:block>
+
+                                <!-- Archived: view only (no actions) -->
+                                <th:block th:if="${version.status.name() == 'ARCHIVED'}">
+                                    <span class="text-muted">—</span>
+                                </th:block>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p th:if="${#lists.isEmpty(versions)}" class="text-muted text-center">
+                    No versions yet. Click "Edit" on a variant to create a draft.
+                </p>
+            </div>
+
+            <!-- Create Draft button if no draft exists -->
+            <div th:if="${!selectedVariant.hasDraft}" style="margin-top: 1rem;">
+                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
+                      method="post"
+                      th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
+                      hx-target="#versions-section"
+                      hx-swap="outerHTML">
+                    <button type="submit" class="btn">Create New Draft</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>
