@@ -20,25 +20,95 @@ export interface MethodSuggestion {
 }
 
 export const STRING_METHODS: MethodSuggestion[] = [
-  { label: "toUpperCase", type: "method", signature: "(): string", detail: "Converts to uppercase" },
-  { label: "toLowerCase", type: "method", signature: "(): string", detail: "Converts to lowercase" },
+  {
+    label: "toUpperCase",
+    type: "method",
+    signature: "(): string",
+    detail: "Converts to uppercase",
+  },
+  {
+    label: "toLowerCase",
+    type: "method",
+    signature: "(): string",
+    detail: "Converts to lowercase",
+  },
   { label: "trim", type: "method", signature: "(): string", detail: "Removes whitespace" },
-  { label: "trimStart", type: "method", signature: "(): string", detail: "Removes leading whitespace" },
-  { label: "trimEnd", type: "method", signature: "(): string", detail: "Removes trailing whitespace" },
+  {
+    label: "trimStart",
+    type: "method",
+    signature: "(): string",
+    detail: "Removes leading whitespace",
+  },
+  {
+    label: "trimEnd",
+    type: "method",
+    signature: "(): string",
+    detail: "Removes trailing whitespace",
+  },
   { label: "split", type: "method", signature: "(sep): string[]", detail: "Splits into array" },
-  { label: "slice", type: "method", signature: "(start, end?): string", detail: "Extracts section" },
-  { label: "substring", type: "method", signature: "(start, end?): string", detail: "Extracts substring" },
-  { label: "substr", type: "method", signature: "(start, length?): string", detail: "Extracts substring" },
-  { label: "replace", type: "method", signature: "(search, replace): string", detail: "Replaces first match" },
-  { label: "replaceAll", type: "method", signature: "(search, replace): string", detail: "Replaces all matches" },
-  { label: "includes", type: "method", signature: "(search): boolean", detail: "Checks if contains" },
+  {
+    label: "slice",
+    type: "method",
+    signature: "(start, end?): string",
+    detail: "Extracts section",
+  },
+  {
+    label: "substring",
+    type: "method",
+    signature: "(start, end?): string",
+    detail: "Extracts substring",
+  },
+  {
+    label: "substr",
+    type: "method",
+    signature: "(start, length?): string",
+    detail: "Extracts substring",
+  },
+  {
+    label: "replace",
+    type: "method",
+    signature: "(search, replace): string",
+    detail: "Replaces first match",
+  },
+  {
+    label: "replaceAll",
+    type: "method",
+    signature: "(search, replace): string",
+    detail: "Replaces all matches",
+  },
+  {
+    label: "includes",
+    type: "method",
+    signature: "(search): boolean",
+    detail: "Checks if contains",
+  },
   { label: "startsWith", type: "method", signature: "(search): boolean", detail: "Checks start" },
   { label: "endsWith", type: "method", signature: "(search): boolean", detail: "Checks end" },
   { label: "indexOf", type: "method", signature: "(search): number", detail: "Finds first index" },
-  { label: "lastIndexOf", type: "method", signature: "(search): number", detail: "Finds last index" },
-  { label: "charAt", type: "method", signature: "(index): string", detail: "Gets character at index" },
-  { label: "charCodeAt", type: "method", signature: "(index): number", detail: "Gets char code at index" },
-  { label: "concat", type: "method", signature: "(...strings): string", detail: "Concatenates strings" },
+  {
+    label: "lastIndexOf",
+    type: "method",
+    signature: "(search): number",
+    detail: "Finds last index",
+  },
+  {
+    label: "charAt",
+    type: "method",
+    signature: "(index): string",
+    detail: "Gets character at index",
+  },
+  {
+    label: "charCodeAt",
+    type: "method",
+    signature: "(index): number",
+    detail: "Gets char code at index",
+  },
+  {
+    label: "concat",
+    type: "method",
+    signature: "(...strings): string",
+    detail: "Concatenates strings",
+  },
   { label: "padStart", type: "method", signature: "(length, pad?): string", detail: "Pads start" },
   { label: "padEnd", type: "method", signature: "(length, pad?): string", detail: "Pads end" },
   { label: "repeat", type: "method", signature: "(count): string", detail: "Repeats string" },
@@ -56,7 +126,12 @@ export const ARRAY_METHODS: MethodSuggestion[] = [
   { label: "findLast", type: "method", signature: "(fn): element", detail: "Find last match" },
   { label: "findLastIndex", type: "method", signature: "(fn): number", detail: "Find last index" },
   { label: "reduce", type: "method", signature: "(fn, init): any", detail: "Reduce to value" },
-  { label: "reduceRight", type: "method", signature: "(fn, init): any", detail: "Reduce from right" },
+  {
+    label: "reduceRight",
+    type: "method",
+    signature: "(fn, init): any",
+    detail: "Reduce from right",
+  },
   { label: "some", type: "method", signature: "(fn): boolean", detail: "Test if any matches" },
   { label: "every", type: "method", signature: "(fn): boolean", detail: "Test if all match" },
   { label: "includes", type: "method", signature: "(value): boolean", detail: "Check if contains" },
@@ -64,7 +139,12 @@ export const ARRAY_METHODS: MethodSuggestion[] = [
   { label: "lastIndexOf", type: "method", signature: "(value): number", detail: "Find last index" },
   { label: "join", type: "method", signature: "(separator): string", detail: "Join to string" },
   { label: "slice", type: "method", signature: "(start, end?): array", detail: "Extract section" },
-  { label: "concat", type: "method", signature: "(...arrays): array", detail: "Concatenate arrays" },
+  {
+    label: "concat",
+    type: "method",
+    signature: "(...arrays): array",
+    detail: "Concatenate arrays",
+  },
   { label: "flat", type: "method", signature: "(depth?): array", detail: "Flatten nested arrays" },
   { label: "flatMap", type: "method", signature: "(fn): array", detail: "Map then flatten" },
   { label: "at", type: "method", signature: "(index): element", detail: "Get element at index" },
@@ -78,10 +158,25 @@ export const ARRAY_METHODS: MethodSuggestion[] = [
 
 export const NUMBER_METHODS: MethodSuggestion[] = [
   { label: "toFixed", type: "method", signature: "(digits): string", detail: "Format decimals" },
-  { label: "toPrecision", type: "method", signature: "(digits): string", detail: "Format precision" },
+  {
+    label: "toPrecision",
+    type: "method",
+    signature: "(digits): string",
+    detail: "Format precision",
+  },
   { label: "toString", type: "method", signature: "(radix?): string", detail: "Convert to string" },
-  { label: "toLocaleString", type: "method", signature: "(locale?): string", detail: "Locale format" },
-  { label: "toExponential", type: "method", signature: "(digits?): string", detail: "Exponential format" },
+  {
+    label: "toLocaleString",
+    type: "method",
+    signature: "(locale?): string",
+    detail: "Locale format",
+  },
+  {
+    label: "toExponential",
+    type: "method",
+    signature: "(digits?): string",
+    detail: "Exponential format",
+  },
 ];
 
 export const BOOLEAN_METHODS: MethodSuggestion[] = [
@@ -207,7 +302,10 @@ export function getMethodName(segment: string): string {
 /**
  * Infer the return type of a method call on a given type.
  */
-export function inferMethodReturnType(methodName: string, calledOnType: InferredType): InferredType {
+export function inferMethodReturnType(
+  methodName: string,
+  calledOnType: InferredType,
+): InferredType {
   // Helper for primitive type
   const primitive = (type: "string" | "number" | "boolean"): InferredType => ({
     kind: "primitive",
@@ -360,7 +458,10 @@ function resolveNestedPath(pathSegments: string[], value: unknown): unknown {
   return current;
 }
 
-function resolveScopeVariableValue(scopeVar: ScopeVariable, data: Record<string, unknown>): unknown {
+function resolveScopeVariableValue(
+  scopeVar: ScopeVariable,
+  data: Record<string, unknown>,
+): unknown {
   if (scopeVar.type === "loop-index") {
     return 0; // Preview with index 0
   }

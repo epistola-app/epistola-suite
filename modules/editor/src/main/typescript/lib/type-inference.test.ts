@@ -69,7 +69,12 @@ describe("inferType", () => {
     });
 
     it("infers nested arrays", () => {
-      expect(inferType([[1, 2], [3, 4]])).toEqual({
+      expect(
+        inferType([
+          [1, 2],
+          [3, 4],
+        ]),
+      ).toEqual({
         kind: "array",
         elementType: {
           kind: "array",
@@ -391,13 +396,13 @@ describe("resolvePathValue", () => {
   it("resolves array index", () => {
     expect(resolvePathValue(["tags", "[0]"], testData, [])).toBe("vip");
     expect(resolvePathValue(["customer", "orders", "[0]"], testData, [])).toEqual(
-      testData.customer.orders[0]
+      testData.customer.orders[0],
     );
   });
 
   it("resolves deep nested path", () => {
     expect(resolvePathValue(["customer", "orders", "[0]", "items", "[1]"], testData, [])).toBe(
-      "banana"
+      "banana",
     );
   });
 
@@ -466,7 +471,7 @@ describe("resolvePathType", () => {
       {
         kind: "array",
         elementType: { kind: "primitive", type: "string" },
-      }
+      },
     );
   });
 
@@ -493,7 +498,7 @@ describe("formatTypeForDisplay", () => {
       formatTypeForDisplay({
         kind: "array",
         elementType: { kind: "primitive", type: "string" },
-      })
+      }),
     ).toBe("string[]");
   });
 
@@ -505,7 +510,7 @@ describe("formatTypeForDisplay", () => {
           kind: "array",
           elementType: { kind: "primitive", type: "number" },
         },
-      })
+      }),
     ).toBe("number[][]");
   });
 

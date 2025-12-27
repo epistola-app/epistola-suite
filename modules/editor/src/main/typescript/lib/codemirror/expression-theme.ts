@@ -151,4 +151,7 @@ export const expressionHighlightStyle = HighlightStyle.define([
 /**
  * Combined theme extension for expression editing.
  */
-export const expressionTheme = [expressionEditorTheme, syntaxHighlighting(expressionHighlightStyle)];
+export const expressionTheme = [
+  expressionEditorTheme,
+  syntaxHighlighting(expressionHighlightStyle),
+];

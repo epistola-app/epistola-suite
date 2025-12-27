@@ -75,7 +75,8 @@ function buildTopLevelCompletions(
       completions.push({
         label: scopeVar.name,
         type: "variable",
-        detail: scopeVar.type === "loop-index" ? "loop index" : `loop item from ${scopeVar.arrayPath}`,
+        detail:
+          scopeVar.type === "loop-index" ? "loop index" : `loop item from ${scopeVar.arrayPath}`,
         boost: 10,
       });
     }

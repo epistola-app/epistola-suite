@@ -84,7 +84,10 @@ describe("extractPaths", () => {
 
   it("handles nested arrays", () => {
     const obj = {
-      matrix: [[1, 2], [3, 4]],
+      matrix: [
+        [1, 2],
+        [3, 4],
+      ],
     };
     const paths = extractPaths(obj);
 
@@ -175,9 +178,7 @@ describe("buildEvaluationContext", () => {
   });
 
   it("does not add undefined scope variables", () => {
-    const scopeVars: ScopeVariable[] = [
-      { name: "x", type: "loop-item", arrayPath: "nonexistent" },
-    ];
+    const scopeVars: ScopeVariable[] = [{ name: "x", type: "loop-item", arrayPath: "nonexistent" }];
     const context = buildEvaluationContext(testData, scopeVars);
 
     expect("x" in context).toBe(false);

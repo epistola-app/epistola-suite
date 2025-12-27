@@ -224,9 +224,7 @@ describe("createExpressionCompletionSource", () => {
     });
 
     it("shows number methods for loop index", () => {
-      const scopeVars: ScopeVariable[] = [
-        { name: "idx", type: "loop-index", arrayPath: "orders" },
-      ];
+      const scopeVars: ScopeVariable[] = [{ name: "idx", type: "loop-index", arrayPath: "orders" }];
       const source = createExpressionCompletionSource(testData, scopeVars);
       const context = createMockContext("idx.");
       const result = source(context as any);
