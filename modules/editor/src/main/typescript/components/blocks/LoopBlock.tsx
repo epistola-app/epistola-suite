@@ -3,10 +3,11 @@ import { useState, useMemo } from "react";
 import type { LoopBlock } from "../../types/template";
 import { useEditorStore } from "../../store/editorStore";
 import { BlockRenderer } from "./BlockRenderer";
-import { ExpressionEditor } from "./ExpressionEditor";
+import { ExpressionPopoverEditor } from "./ExpressionPopoverEditor";
 import { ScopeProvider } from "../../context/ScopeContext";
 import type { ScopeVariable } from "../../context/ScopeContext";
 import { BlockHeader } from "./BlockHeader";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface LoopBlockProps {
   block: LoopBlock;
@@ -181,29 +182,41 @@ export function LoopBlockComponent({
             EACH
           </span>
 
-          {isEditingExpression ? (
-            <div onClick={(e) => e.stopPropagation()}>
-              <ExpressionEditor
+          <Popover open={isEditingExpression} onOpenChange={setIsEditingExpression}>
+            <PopoverTrigger asChild>
+              <code
+                className={`px-2 py-0.5 text-sm rounded cursor-pointer ${
+                  isValidArray
+                    ? "bg-purple-100 hover:bg-purple-200"
+                    : "bg-red-100 hover:bg-red-200 text-red-700"
+                }`}
+                title="Click to edit array expression"
+              >
+                {block.expression.raw || "..."}
+                {!isValidArray && " ⚠️"}
+              </code>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto p-4"
+              align="start"
+              side="bottom"
+              sideOffset={8}
+              onInteractOutside={(e) => {
+                const target = e.target as Element;
+                if (target?.closest(".cm-tooltip-autocomplete") || target?.closest(".cm-tooltip")) {
+                  e.preventDefault();
+                }
+              }}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <ExpressionPopoverEditor
                 value={block.expression.raw}
                 onSave={handleExpressionSave}
                 onCancel={() => setIsEditingExpression(false)}
                 filterArraysOnly
               />
-            </div>
-          ) : (
-            <code
-              onClick={() => setIsEditingExpression(true)}
-              className={`px-2 py-0.5 text-sm rounded cursor-pointer ${
-                isValidArray
-                  ? "bg-purple-100 hover:bg-purple-200"
-                  : "bg-red-100 hover:bg-red-200 text-red-700"
-              }`}
-              title="Click to edit array expression"
-            >
-              {block.expression.raw}
-              {!isValidArray && " ⚠️"}
-            </code>
-          )}
+            </PopoverContent>
+          </Popover>
 
           <span className={`text-xs ${isValidArray ? "text-purple-500" : "text-red-500"}`}>as</span>
 

@@ -5,7 +5,9 @@ import { useState, useEffect } from "react";
 import { useEditorStore } from "../../store/editorStore";
 import { useScope } from "../../context/ScopeContext";
 import { useEvaluator } from "../../context/EvaluatorContext";
-import { ExpressionEditor, buildEvaluationContext } from "./ExpressionEditor";
+import { ExpressionPopoverEditor } from "./ExpressionPopoverEditor";
+import { buildEvaluationContext } from "@/lib/expression-utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Format value for display
 function formatDisplayValue(value: unknown, expr: string): string {
@@ -20,14 +22,34 @@ function formatDisplayValue(value: unknown, expr: string): string {
 
 // Expression Node View Component
 function ExpressionNodeView({ node, updateAttributes, deleteNode }: NodeViewProps) {
-  // Start in editing mode if expression is empty (just created)
-  const [isEditing, setIsEditing] = useState(!node.attrs.expression);
+  const [isOpen, setIsOpen] = useState(false);
   const [displayValue, setDisplayValue] = useState("[...]");
   const testData = useEditorStore((s) => s.testData);
   const scope = useScope();
   const { evaluate, isReady } = useEvaluator();
 
   const expr = node.attrs.expression;
+
+  // Open popover automatically for newly created (empty) expressions
+  useEffect(() => {
+    if (!expr) {
+      // Small delay to ensure the trigger element is mounted and positioned
+      const timer = setTimeout(() => setIsOpen(true), 50);
+      return () => clearTimeout(timer);
+    }
+  }, []); // Only run on mount
+
+  // Lock body scroll when popover is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add("overflow-hidden");
+    } else {
+      document.body.classList.remove("overflow-hidden");
+    }
+    return () => {
+      document.body.classList.remove("overflow-hidden");
+    };
+  }, [isOpen]);
 
   // Async evaluation
   useEffect(() => {
@@ -66,7 +88,7 @@ function ExpressionNodeView({ node, updateAttributes, deleteNode }: NodeViewProp
     } else {
       deleteNode();
     }
-    setIsEditing(false);
+    setIsOpen(false);
   };
 
   const handleCancel = () => {
@@ -74,29 +96,45 @@ function ExpressionNodeView({ node, updateAttributes, deleteNode }: NodeViewProp
     if (!node.attrs.expression) {
       deleteNode();
     } else {
-      setIsEditing(false);
+      setIsOpen(false);
     }
   };
 
   return (
     <NodeViewWrapper as="span" className="inline-block align-middle">
-      {isEditing ? (
-        <span className="inline-block" onClick={(e) => e.stopPropagation()}>
-          <ExpressionEditor
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <span
+            className="expression-chip"
+            title={`Click to edit: ${node.attrs.expression || "empty expression"}`}
+          >
+            {displayValue}
+          </span>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-auto p-4"
+          align="start"
+          side="bottom"
+          sideOffset={8}
+          onInteractOutside={(e) => {
+            // Prevent closing when interacting with CodeMirror autocomplete
+            const target = e.target as Element;
+            if (target?.closest(".cm-tooltip-autocomplete") || target?.closest(".cm-tooltip")) {
+              e.preventDefault();
+            }
+          }}
+          onOpenAutoFocus={(e) => {
+            // Let CodeMirror handle its own focus
+            e.preventDefault();
+          }}
+        >
+          <ExpressionPopoverEditor
             value={node.attrs.expression}
             onSave={handleSave}
             onCancel={handleCancel}
           />
-        </span>
-      ) : (
-        <span
-          onClick={() => setIsEditing(true)}
-          className="expression-chip"
-          title={`Click to edit: ${node.attrs.expression}`}
-        >
-          {displayValue}
-        </span>
-      )}
+        </PopoverContent>
+      </Popover>
     </NodeViewWrapper>
   );
 }
