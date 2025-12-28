@@ -39,7 +39,7 @@ class CreateVariantHandler(
 
         val tagsJson = objectMapper.writeValueAsString(command.tags)
 
-        handle.createQuery(
+        val variant = handle.createQuery(
             """
                 INSERT INTO template_variants (template_id, tags, created_at, last_modified)
                 VALUES (:templateId, :tags::jsonb, NOW(), NOW())
@@ -50,5 +50,17 @@ class CreateVariantHandler(
             .bind("tags", tagsJson)
             .mapTo<TemplateVariant>()
             .one()
+
+        // Create an initial draft version for the new variant
+        handle.createUpdate(
+            """
+                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
+                VALUES (:variantId, NULL, NULL, 'draft', NOW())
+                """,
+        )
+            .bind("variantId", variant.id)
+            .execute()
+
+        variant
     }
 }

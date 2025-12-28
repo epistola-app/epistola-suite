@@ -36,7 +36,6 @@
                         <tr>
                             <th>ID</th>
                             <th>Tags</th>
-                            <th>Draft</th>
                             <th>Published</th>
                             <th>Actions</th>
                         </tr>
@@ -51,10 +50,6 @@
                                           th:text="${entry.key + '=' + entry.value}"></span>
                                 </div>
                                 <span th:if="${variant.tags.isEmpty()}" class="text-muted">(default)</span>
-                            </td>
-                            <td>
-                                <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
-                                <span th:unless="${variant.hasDraft}" class="text-muted">—</span>
                             </td>
                             <td>
                                 <span th:if="${variant.publishedVersionCount > 0}"
