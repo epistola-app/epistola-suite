@@ -74,11 +74,13 @@ class DocumentTemplateHandler(
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
         val name = request.params().getFirst("name")?.trim().orEmpty()
+        val schema = request.params().getFirst("schema")?.trim()?.takeIf { it.isNotEmpty() }
 
-        val command = try {
-            CreateDocumentTemplate(tenantId = tenantId, name = name)
+        try {
+            val command = CreateDocumentTemplate(tenantId = tenantId, name = name, schema = schema)
+            mediator.send(command)
         } catch (e: ValidationException) {
-            val formData = mapOf("name" to name)
+            val formData = mapOf("name" to name, "schema" to (schema ?: ""))
             val errors = mapOf(e.field to e.message)
             return request.htmx {
                 fragment("templates/list", "create-form") {
@@ -91,8 +93,6 @@ class DocumentTemplateHandler(
                 onNonHtmx { redirect("/tenants/$tenantId/templates") }
             }
         }
-
-        mediator.send(command)
 
         val templates = mediator.query(ListTemplateSummaries(tenantId = tenantId))
         return request.htmx {

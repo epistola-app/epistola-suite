@@ -20,6 +20,10 @@ TemplateDto:
     name:
       type: string
       description: Name of the template
+    schema:
+      type: object
+      additionalProperties: true
+      description: JSON Schema defining the input parameters for this template
     dataModel:
       type: object
       additionalProperties: true
@@ -103,6 +107,10 @@ CreateTemplateRequest:
       minLength: 1
       maxLength: 255
       description: Name of the template to create
+    schema:
+      type: object
+      additionalProperties: true
+      description: JSON Schema defining the input parameters for this template
 
 UpdateTemplateRequest:
   type: object
@@ -113,6 +121,10 @@ UpdateTemplateRequest:
       minLength: 1
       maxLength: 255
       description: New name for the template
+    schema:
+      type: object
+      additionalProperties: true
+      description: Updated JSON Schema for input parameters
     dataModel:
       type: object
       additionalProperties: true

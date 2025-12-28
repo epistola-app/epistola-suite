@@ -4,6 +4,7 @@ CREATE TABLE document_templates (
     tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     template_model jsonb,
+    schema JSONB,
     data_model jsonb,
     data_examples jsonb DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

@@ -216,10 +216,12 @@ class V1ApiController(
         tenantId: Long,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
+        val schemaJson = createTemplateRequest.schema?.let { objectMapper.writeValueAsString(it) }
         val template = mediator.send(
             CreateDocumentTemplate(
                 tenantId = tenantId,
                 name = createTemplateRequest.name,
+                schema = schemaJson,
             ),
         )
         val variantSummaries = mediator.query(GetVariantSummaries(templateId = template.id))
@@ -628,6 +630,7 @@ class V1ApiController(
         id = id,
         tenantId = tenantId,
         name = name,
+        schema = schema?.let { objectMapper.convertValue(it, Map::class.java) as Map<String, Any> },
         dataModel = dataModel?.let { objectMapper.convertValue(it, Map::class.java) as Map<String, Any> },
         dataExamples = dataExamples.mapIndexed { index, example ->
             DataExampleDto(

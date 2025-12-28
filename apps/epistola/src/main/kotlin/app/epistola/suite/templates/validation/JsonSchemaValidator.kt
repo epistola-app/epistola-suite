@@ -19,6 +19,29 @@ class JsonSchemaValidator(
     private val schemaRegistry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_2020_12)
 
     /**
+     * Validates that a JSON string is a valid JSON Schema.
+     *
+     * @param schemaJson The JSON Schema as a string
+     * @return ValidationResult containing either success or error message
+     */
+    fun validateSchema(schemaJson: String): SchemaValidationResult {
+        // First check if it's valid JSON
+        try {
+            objectMapper.readTree(schemaJson)
+        } catch (e: Exception) {
+            return SchemaValidationResult.Invalid("Invalid JSON: the input is not valid JSON syntax")
+        }
+
+        // Then try to parse it as a JSON Schema
+        return try {
+            schemaRegistry.getSchema(schemaJson)
+            SchemaValidationResult.Valid
+        } catch (e: Exception) {
+            SchemaValidationResult.Invalid("Invalid JSON Schema: ${e.message}")
+        }
+    }
+
+    /**
      * Validates data against a JSON Schema.
      *
      * @param schema The JSON Schema as an ObjectNode
@@ -48,4 +71,12 @@ class JsonSchemaValidator(
     ): Map<String, List<ValidationError>> = examples
         .associate { example -> example.name to validate(schema, example.data) }
         .filterValues { errors -> errors.isNotEmpty() }
+}
+
+/**
+ * Result of validating a JSON Schema definition.
+ */
+sealed class SchemaValidationResult {
+    data object Valid : SchemaValidationResult()
+    data class Invalid(val message: String) : SchemaValidationResult()
 }
