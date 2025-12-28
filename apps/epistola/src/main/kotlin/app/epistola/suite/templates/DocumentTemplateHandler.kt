@@ -124,6 +124,9 @@ class DocumentTemplateHandler(
                 ?: return ServerResponse.status(500).build()
         }
 
+        // Provide a default empty template structure if none exists
+        val templateModel = draft.templateModel ?: createDefaultTemplateModel(template.name, variantId)
+
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -132,10 +135,27 @@ class DocumentTemplateHandler(
                 "variantId" to variantId,
                 "templateName" to template.name,
                 "variantTags" to variant.tags,
-                "templateModel" to (draft.templateModel ?: emptyMap<String, Any>()),
+                "templateModel" to templateModel,
             ),
         )
     }
+
+    private fun createDefaultTemplateModel(templateName: String, variantId: Long): Map<String, Any> = mapOf(
+        "id" to "template-$variantId",
+        "name" to templateName,
+        "version" to 1,
+        "pageSettings" to mapOf(
+            "format" to "A4",
+            "orientation" to "portrait",
+            "margins" to mapOf(
+                "top" to 20,
+                "right" to 20,
+                "bottom" to 20,
+                "left" to 20,
+            ),
+        ),
+        "blocks" to emptyList<Any>(),
+    )
 
     fun get(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
