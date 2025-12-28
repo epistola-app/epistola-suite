@@ -163,6 +163,21 @@ main.regular .empty-message {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
+.app-footer .separator {
+    margin: 0 0.5rem;
+    color: #dee2e6;
+}
+
+.app-footer a {
+    color: #6c757d;
+    text-decoration: none;
+}
+
+.app-footer a:hover {
+    color: #495057;
+    text-decoration: underline;
+}
+
 /* Add bottom padding to body to prevent footer from covering content */
 body {
     padding-bottom: 2.5rem;

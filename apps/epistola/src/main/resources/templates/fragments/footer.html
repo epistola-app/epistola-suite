@@ -3,6 +3,8 @@
 <body>
     <footer th:fragment="footer" class="app-footer">
         <span th:text="${appName} ?: 'Epistola'">Epistola</span> <span class="version" th:text="'v' + (${appVersion} ?: 'dev')">v0.0.0</span>
+        <span class="separator">|</span>
+        <a th:href="@{/api-docs/index.html}">API Docs</a>
     </footer>
 </body>
 </html>
