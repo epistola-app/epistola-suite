@@ -99,10 +99,10 @@
             template: templateData,
             onSave: async (template) => {
                 try {
-                    const response = await fetch('/api/v1/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
+                    const response = await fetch('/v1/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
                         method: 'PUT',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'application/vnd.epistola.v1+json',
                         },
                         body: JSON.stringify({ templateModel: template })
                     });
