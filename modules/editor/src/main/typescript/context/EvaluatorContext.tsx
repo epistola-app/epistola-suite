@@ -1,7 +1,12 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import type { ReactNode } from 'react';
-import type { ExpressionEvaluator, EvaluationContext, EvaluationResult, EvaluatorType } from '../services/expression';
-import { DirectEvaluator, IframeEvaluator } from '../services/expression';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import type { ReactNode } from "react";
+import type {
+  ExpressionEvaluator,
+  EvaluationContext,
+  EvaluationResult,
+  EvaluatorType,
+} from "../services/expression";
+import { DirectEvaluator, IframeEvaluator } from "../services/expression";
 
 interface EvaluatorContextValue {
   /** The current evaluator instance */
@@ -29,17 +34,19 @@ interface EvaluatorProviderProps {
  */
 function createEvaluator(type: EvaluatorType): ExpressionEvaluator {
   switch (type) {
-    case 'iframe':
+    case "iframe":
       return new IframeEvaluator();
-    case 'direct':
+    case "direct":
     default:
       return new DirectEvaluator();
   }
 }
 
-export function EvaluatorProvider({ children, initialType = 'direct' }: EvaluatorProviderProps) {
+export function EvaluatorProvider({ children, initialType = "direct" }: EvaluatorProviderProps) {
   const [type, setTypeState] = useState<EvaluatorType>(initialType);
-  const [evaluator, setEvaluator] = useState<ExpressionEvaluator>(() => createEvaluator(initialType));
+  const [evaluator, setEvaluator] = useState<ExpressionEvaluator>(() =>
+    createEvaluator(initialType),
+  );
   const [isReady, setIsReady] = useState(false);
 
   // Initialize evaluator
@@ -54,13 +61,13 @@ export function EvaluatorProvider({ children, initialType = 'direct' }: Evaluato
           setIsReady(true);
         }
       } catch (error) {
-        console.error('Failed to initialize evaluator:', error);
+        console.error("Failed to initialize evaluator:", error);
         // Fallback to direct evaluator if initialization fails
-        if (!disposed && evaluator.type !== 'direct') {
+        if (!disposed && evaluator.type !== "direct") {
           const fallback = new DirectEvaluator();
           await fallback.initialize();
           setEvaluator(fallback);
-          setTypeState('direct');
+          setTypeState("direct");
           setIsReady(true);
         }
       }
@@ -75,27 +82,30 @@ export function EvaluatorProvider({ children, initialType = 'direct' }: Evaluato
   }, [evaluator]);
 
   // Switch evaluator type
-  const setType = useCallback((newType: EvaluatorType) => {
-    if (newType === type) return;
+  const setType = useCallback(
+    (newType: EvaluatorType) => {
+      if (newType === type) return;
 
-    // Dispose old evaluator
-    evaluator.dispose();
+      // Dispose old evaluator
+      evaluator.dispose();
 
-    // Create and set new evaluator
-    const newEvaluator = createEvaluator(newType);
-    setEvaluator(newEvaluator);
-    setTypeState(newType);
-  }, [type, evaluator]);
+      // Create and set new evaluator
+      const newEvaluator = createEvaluator(newType);
+      setEvaluator(newEvaluator);
+      setTypeState(newType);
+    },
+    [type, evaluator],
+  );
 
   // Async evaluate
   const evaluate = useCallback(
     async (expression: string, context: EvaluationContext): Promise<EvaluationResult> => {
       if (!isReady) {
-        return { success: false, error: 'Evaluator not ready' };
+        return { success: false, error: "Evaluator not ready" };
       }
       return evaluator.evaluate(expression, context);
     },
-    [evaluator, isReady]
+    [evaluator, isReady],
   );
 
   const value = useMemo(
@@ -106,14 +116,10 @@ export function EvaluatorProvider({ children, initialType = 'direct' }: Evaluato
       setType,
       evaluate,
     }),
-    [evaluator, type, isReady, setType, evaluate]
+    [evaluator, type, isReady, setType, evaluate],
   );
 
-  return (
-    <EvaluatorContext.Provider value={value}>
-      {children}
-    </EvaluatorContext.Provider>
-  );
+  return <EvaluatorContext.Provider value={value}>{children}</EvaluatorContext.Provider>;
 }
 
 /**
@@ -122,7 +128,7 @@ export function EvaluatorProvider({ children, initialType = 'direct' }: Evaluato
 export function useEvaluator(): EvaluatorContextValue {
   const context = useContext(EvaluatorContext);
   if (!context) {
-    throw new Error('useEvaluator must be used within an EvaluatorProvider');
+    throw new Error("useEvaluator must be used within an EvaluatorProvider");
   }
   return context;
 }

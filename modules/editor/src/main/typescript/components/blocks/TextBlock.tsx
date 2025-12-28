@@ -1,146 +1,172 @@
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import { useEffect } from 'react';
-import type { TextBlock } from '../../types/template';
-import { useEditorStore } from '../../store/editorStore';
-import { ExpressionNode } from './ExpressionNode';
-import type { Editor } from '@tiptap/react';
+import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import { useEffect } from "react";
+import {
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Strikethrough,
+  List,
+  ListOrdered,
+  Heading1,
+  Heading2,
+  Heading3,
+  Braces,
+} from "lucide-react";
+import type { TextBlock } from "../../types/template";
+import { useEditorStore } from "../../store/editorStore";
+import { ExpressionNode } from "./ExpressionNode";
+import { BlockHeader } from "./BlockHeader";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
+import type { Editor } from "@tiptap/react";
 
 interface TextBlockProps {
   block: TextBlock;
   isSelected?: boolean;
+  dragAttributes?: React.HTMLAttributes<HTMLDivElement>;
+  dragListeners?: React.HTMLAttributes<HTMLDivElement>;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-interface ToolbarButtonProps {
+interface FormattingButtonProps {
   onClick: () => void;
   isActive?: boolean;
-  title: string;
-  children: React.ReactNode;
+  tooltip: string;
+  icon: React.ReactNode;
 }
 
-function ToolbarButton({ onClick, isActive, title, children }: ToolbarButtonProps) {
+function FormattingButton({ onClick, isActive, tooltip, icon }: FormattingButtonProps) {
   return (
-    <button
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={isActive ? "default" : "ghost"}
+          size="icon-sm"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClick();
+          }}
+          aria-label={tooltip}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8}>
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function FloatingToolbar({ editor }: { editor: Editor }) {
+  return (
+    <BubbleMenu
+      editor={editor}
+      options={{
+        placement: "top",
+        strategy: "absolute",
       }}
-      className={`
-        px-2 py-1 text-sm rounded transition-colors
-        ${isActive
-          ? 'bg-blue-500 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}
-      `}
-      title={title}
+      className="flex items-center gap-1 p-1.5 bg-white rounded-lg border border-slate-200 shadow-lg"
     >
-      {children}
-    </button>
-  );
-}
-
-function FormattingToolbar({ editor }: { editor: Editor }) {
-  return (
-    <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-100 flex-wrap">
-      <ToolbarButton
+      {/* Text formatting group */}
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleBold().run()}
-        isActive={editor.isActive('bold')}
-        title="Bold (Ctrl+B)"
-      >
-        <strong>B</strong>
-      </ToolbarButton>
-      <ToolbarButton
+        isActive={editor.isActive("bold")}
+        tooltip="Bold (Ctrl+B)"
+        icon={<Bold className="size-4" />}
+      />
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
-        isActive={editor.isActive('italic')}
-        title="Italic (Ctrl+I)"
-      >
-        <em>I</em>
-      </ToolbarButton>
-      <ToolbarButton
+        isActive={editor.isActive("italic")}
+        tooltip="Italic (Ctrl+I)"
+        icon={<Italic className="size-4" />}
+      />
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleUnderline().run()}
-        isActive={editor.isActive('underline')}
-        title="Underline (Ctrl+U)"
-      >
-        <span className="underline">U</span>
-      </ToolbarButton>
-      <ToolbarButton
+        isActive={editor.isActive("underline")}
+        tooltip="Underline (Ctrl+U)"
+        icon={<UnderlineIcon className="size-4" />}
+      />
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
-        isActive={editor.isActive('strike')}
-        title="Strikethrough"
-      >
-        <span className="line-through">S</span>
-      </ToolbarButton>
+        isActive={editor.isActive("strike")}
+        tooltip="Strikethrough"
+        icon={<Strikethrough className="size-4" />}
+      />
 
-      <div className="w-px h-5 bg-gray-300 mx-1" />
+      <Separator orientation="vertical" className="h-6 mx-1" />
 
-      <ToolbarButton
+      {/* List group */}
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
-        isActive={editor.isActive('bulletList')}
-        title="Bullet List"
-      >
-        •
-      </ToolbarButton>
-      <ToolbarButton
+        isActive={editor.isActive("bulletList")}
+        tooltip="Bullet List"
+        icon={<List className="size-4" />}
+      />
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        isActive={editor.isActive('orderedList')}
-        title="Numbered List"
-      >
-        1.
-      </ToolbarButton>
+        isActive={editor.isActive("orderedList")}
+        tooltip="Numbered List"
+        icon={<ListOrdered className="size-4" />}
+      />
 
-      <div className="w-px h-5 bg-gray-300 mx-1" />
+      <Separator orientation="vertical" className="h-6 mx-1" />
 
-      <ToolbarButton
+      {/* Heading group */}
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        isActive={editor.isActive('heading', { level: 1 })}
-        title="Heading 1"
-      >
-        H1
-      </ToolbarButton>
-      <ToolbarButton
+        isActive={editor.isActive("heading", { level: 1 })}
+        tooltip="Heading 1"
+        icon={<Heading1 className="size-4" />}
+      />
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        isActive={editor.isActive('heading', { level: 2 })}
-        title="Heading 2"
-      >
-        H2
-      </ToolbarButton>
-      <ToolbarButton
+        isActive={editor.isActive("heading", { level: 2 })}
+        tooltip="Heading 2"
+        icon={<Heading2 className="size-4" />}
+      />
+      <FormattingButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-        isActive={editor.isActive('heading', { level: 3 })}
-        title="Heading 3"
-      >
-        H3
-      </ToolbarButton>
+        isActive={editor.isActive("heading", { level: 3 })}
+        tooltip="Heading 3"
+        icon={<Heading3 className="size-4" />}
+      />
 
-      <div className="flex-1" />
+      <Separator orientation="vertical" className="h-6 mx-1" />
 
-      <ToolbarButton
-        onClick={() => editor.commands.insertExpression('')}
-        title="Insert Expression"
-      >
-        {'{{'} + {'}}'}
-      </ToolbarButton>
-    </div>
+      {/* Expression insert */}
+      <FormattingButton
+        onClick={() => editor.commands.insertExpression("")}
+        tooltip="Insert Expression"
+        icon={<Braces className="size-4" />}
+      />
+    </BubbleMenu>
   );
 }
 
-export function TextBlockComponent({ block, isSelected = false }: TextBlockProps) {
+export function TextBlockComponent({
+  block,
+  isSelected = false,
+  dragAttributes,
+  dragListeners,
+  onDelete,
+}: TextBlockProps) {
   const updateBlock = useEditorStore((s) => s.updateBlock);
 
   const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Underline,
-      ExpressionNode,
-    ],
+    extensions: [StarterKit, Underline, ExpressionNode],
     content: block.content,
     onUpdate: ({ editor }) => {
       updateBlock(block.id, { content: editor.getJSON() });
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none focus:outline-none min-h-[2rem] p-3',
+        class: "prose prose-sm max-w-none focus:outline-none min-h-[2rem] p-3",
       },
     },
   });
@@ -154,13 +180,21 @@ export function TextBlockComponent({ block, isSelected = false }: TextBlockProps
 
   return (
     <div className="bg-white rounded-lg">
-      {isSelected && editor && <FormattingToolbar editor={editor} />}
+      <BlockHeader
+        title="TEXT"
+        isSelected={isSelected}
+        dragAttributes={dragAttributes}
+        dragListeners={dragListeners}
+        onDelete={onDelete}
+      />
+      {/* Floating toolbar - appears on text selection */}
+      {editor && <FloatingToolbar editor={editor} />}
       <div style={block.styles}>
         <EditorContent editor={editor} />
       </div>
       {isSelected && (
-        <div className="text-xs text-gray-400 px-3 pb-2">
-          Tip: Type {'{{expression}}'} to insert a placeholder
+        <div className="text-xs text-gray-400 px-3 pb-2 font-mono tracking-tight font-normal">
+          Tip: Type {"{{expression}}"} or select text for formatting
         </div>
       )}
     </div>

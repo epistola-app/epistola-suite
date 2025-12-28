@@ -1,15 +1,15 @@
-import { useDroppable } from '@dnd-kit/core';
-import { useEditorStore } from '../../store/editorStore';
-import { BlockRenderer } from '../blocks/BlockRenderer';
+import { useDroppable } from "@dnd-kit/core";
+import { useEditorStore } from "../../store/editorStore";
+import { BlockRenderer } from "../blocks/BlockRenderer";
 
 export function Canvas() {
   const blocks = useEditorStore((s) => s.template.blocks);
   const documentStyles = useEditorStore((s) => s.template.documentStyles);
   const selectBlock = useEditorStore((s) => s.selectBlock);
   const { setNodeRef, isOver } = useDroppable({
-    id: 'canvas-root',
+    id: "canvas-root",
     data: {
-      type: 'canvas',
+      type: "canvas",
       parentId: null,
       index: blocks.length,
     },
@@ -43,8 +43,8 @@ export function Canvas() {
       style={canvasStyles}
       className={`
         min-h-full p-4
-        ${isOver ? 'bg-blue-50' : ''}
-        ${blocks.length === 0 ? 'flex items-center justify-center' : ''}
+        ${isOver ? "bg-blue-50" : ""}
+        ${blocks.length === 0 ? "flex items-center justify-center" : ""}
       `}
     >
       {blocks.length === 0 ? (

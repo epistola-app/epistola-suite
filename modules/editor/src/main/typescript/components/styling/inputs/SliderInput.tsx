@@ -32,9 +32,7 @@ export function SliderInput({
         <div className="flex items-center justify-between">
           <label className="text-xs text-gray-500">{label}</label>
           {showValue && (
-            <span className="text-xs font-mono text-gray-600">
-              {formatValue(displayValue)}
-            </span>
+            <span className="text-xs font-mono text-gray-600">{formatValue(displayValue)}</span>
           )}
         </div>
       )}

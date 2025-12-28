@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import type { CSSUnit } from '../../../types/styles';
-import { parseValueWithUnit, formatValueWithUnit } from '../../../types/styles';
+import { useState } from "react";
+import type { CSSUnit } from "../../../types/styles";
+import { parseValueWithUnit, formatValueWithUnit } from "../../../types/styles";
 
 interface SpacingInputProps {
   top: string | undefined;
   right: string | undefined;
   bottom: string | undefined;
   left: string | undefined;
-  onChange: (side: 'top' | 'right' | 'bottom' | 'left', value: string | undefined) => void;
+  onChange: (side: "top" | "right" | "bottom" | "left", value: string | undefined) => void;
   label?: string;
   units?: CSSUnit[];
   defaultUnit?: CSSUnit;
@@ -20,27 +20,24 @@ export function SpacingInput({
   left,
   onChange,
   label,
-  units = ['px', 'em', 'rem', '%'],
-  defaultUnit = 'px',
+  units = ["px", "em", "rem", "%"],
+  defaultUnit = "px",
 }: SpacingInputProps) {
   const [linked, setLinked] = useState(false);
   const [unit, setUnit] = useState<CSSUnit>(defaultUnit);
 
   const parseValue = (val: string | undefined) => {
     const parsed = parseValueWithUnit(val);
-    return parsed ? String(parsed.value) : '';
+    return parsed ? String(parsed.value) : "";
   };
 
-  const handleValueChange = (
-    side: 'top' | 'right' | 'bottom' | 'left',
-    numericValue: string
-  ) => {
-    if (numericValue === '') {
+  const handleValueChange = (side: "top" | "right" | "bottom" | "left", numericValue: string) => {
+    if (numericValue === "") {
       if (linked) {
-        onChange('top', undefined);
-        onChange('right', undefined);
-        onChange('bottom', undefined);
-        onChange('left', undefined);
+        onChange("top", undefined);
+        onChange("right", undefined);
+        onChange("bottom", undefined);
+        onChange("left", undefined);
       } else {
         onChange(side, undefined);
       }
@@ -49,10 +46,10 @@ export function SpacingInput({
       if (!isNaN(num)) {
         const formatted = formatValueWithUnit(num, unit);
         if (linked) {
-          onChange('top', formatted);
-          onChange('right', formatted);
-          onChange('bottom', formatted);
-          onChange('left', formatted);
+          onChange("top", formatted);
+          onChange("right", formatted);
+          onChange("bottom", formatted);
+          onChange("left", formatted);
         } else {
           onChange(side, formatted);
         }
@@ -63,7 +60,7 @@ export function SpacingInput({
   const handleUnitChange = (newUnit: CSSUnit) => {
     setUnit(newUnit);
     // Update all values with the new unit
-    const sides = ['top', 'right', 'bottom', 'left'] as const;
+    const sides = ["top", "right", "bottom", "left"] as const;
     const values = [top, right, bottom, left];
     sides.forEach((side, i) => {
       const parsed = parseValueWithUnit(values[i]);
@@ -82,13 +79,11 @@ export function SpacingInput({
             type="button"
             onClick={() => setLinked(!linked)}
             className={`text-xs px-2 py-0.5 rounded ${
-              linked
-                ? 'bg-blue-100 text-blue-600'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              linked ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
             }`}
-            title={linked ? 'Unlink sides' : 'Link all sides'}
+            title={linked ? "Unlink sides" : "Link all sides"}
           >
-            {linked ? 'Linked' : 'Link'}
+            {linked ? "Linked" : "Link"}
           </button>
         </div>
       )}
@@ -99,7 +94,7 @@ export function SpacingInput({
           <input
             type="number"
             value={parseValue(top)}
-            onChange={(e) => handleValueChange('top', e.target.value)}
+            onChange={(e) => handleValueChange("top", e.target.value)}
             placeholder="0"
             className="w-full px-1 py-0.5 text-xs text-center border border-gray-200 rounded
                        focus:outline-none focus:border-blue-400
@@ -112,7 +107,7 @@ export function SpacingInput({
           <input
             type="number"
             value={parseValue(left)}
-            onChange={(e) => handleValueChange('left', e.target.value)}
+            onChange={(e) => handleValueChange("left", e.target.value)}
             placeholder="0"
             className="w-full px-1 py-0.5 text-xs text-center border border-gray-200 rounded
                        focus:outline-none focus:border-blue-400
@@ -141,7 +136,7 @@ export function SpacingInput({
           <input
             type="number"
             value={parseValue(right)}
-            onChange={(e) => handleValueChange('right', e.target.value)}
+            onChange={(e) => handleValueChange("right", e.target.value)}
             placeholder="0"
             className="w-full px-1 py-0.5 text-xs text-center border border-gray-200 rounded
                        focus:outline-none focus:border-blue-400
@@ -154,7 +149,7 @@ export function SpacingInput({
           <input
             type="number"
             value={parseValue(bottom)}
-            onChange={(e) => handleValueChange('bottom', e.target.value)}
+            onChange={(e) => handleValueChange("bottom", e.target.value)}
             placeholder="0"
             className="w-full px-1 py-0.5 text-xs text-center border border-gray-200 rounded
                        focus:outline-none focus:border-blue-400

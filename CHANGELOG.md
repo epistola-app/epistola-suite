@@ -14,6 +14,57 @@
   - OpenAPI endpoints for complete CRUD on environments, variants, versions, and lifecycle operations
   - API controller stubs ready for implementation
   - Note: Editor UI integration with versions is pending (TODO marked in code)
+- Expression editor with CodeMirror integration and popover UI
+  - Runtime type inference for autocomplete based on actual data values
+  - Intelligent method suggestions for strings, arrays, numbers, and booleans
+  - Method chaining support with proper return type tracking
+  - Scope variable support for loop items and indices
+  - Live preview of expression evaluation results
+  - Body scroll lock when popover is open
+- Comprehensive test suite for expression utilities (119 tests)
+  - Vitest testing infrastructure with jsdom environment
+  - Tests for type inference, path parsing, and completion source
+  - Coverage reporting with v8 provider
+- Unsaved changes detection in template editor
+  - Visual indicator when template has unsaved changes
+  - Warns users before leaving with unsaved work
+- AutoSave component with debounced save and status indicator
+  - Configurable debounce delay
+  - Visual feedback for save state
+- Resizable panel layout for editor components
+  - Draggable dividers between canvas, preview, and sidebar
+  - Persistent layout preferences
+- Ctrl+S keyboard shortcut for saving templates
+- shadcn/ui component library integration
+  - Button, Popover, Tabs, Accordion, Dialog, Select, and more
+  - Consistent design system across editor
+- Prettier integration for code formatting
+  - Format scripts in package.json (`format`, `format:check`)
+  - ESLint configured to work alongside Prettier
+- Inter font family for improved typography
+- AnimateUI Switch component from shadcn
+
+### Changed
+- Redesigned template editor UI with shadcn components
+  - BlockPalette with tabs and animations
+  - StyleSidebar with improved organization and version display in footer
+  - BlockStyleEditor with cleaner layout
+  - Embedded toolbar with async save handling
+  - BlockHeader extracted as reusable component with floating toolbar
+  - Table config popup migrated to shadcn components
+- Moved version display from global footer to editor sidebar for cleaner full-screen experience
+- Removed embedded fonts to reduce CSS bundle size (~750KB savings)
+- SaveButton refactored with useCallback optimization
+
+### Fixed
+- Radix UI package conflict causing infinite re-render loops in accordion with select components
+- ColorPicker performance: added throttling to color area and commit-on-close pattern
+- Color input width in ColorPicker component
+- Unit input id placement for accessibility
+- Added `pt` CSS unit support in style regex
+- Corrected main.tsx path in index.html
+
+### Added
 - OpenAPI spec-driven API development infrastructure
   - New `modules/api-spec` module containing OpenAPI 3.1 YAML specifications
   - New `modules/api-server` module with generated Kotlin interfaces and DTOs (Jackson 3.x)

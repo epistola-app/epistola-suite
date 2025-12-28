@@ -22,6 +22,7 @@ import app.epistola.suite.versions.commands.CreateVersion
 import app.epistola.suite.versions.commands.PublishVersion
 import app.epistola.suite.versions.queries.GetDraft
 import app.epistola.suite.versions.queries.ListVersions
+import org.springframework.boot.info.BuildProperties
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -43,6 +44,7 @@ data class UpdateTemplateRequest(
 class DocumentTemplateHandler(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
+    private val buildProperties: BuildProperties?,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
@@ -136,6 +138,8 @@ class DocumentTemplateHandler(
                 "templateName" to template.name,
                 "variantTags" to variant.tags,
                 "templateModel" to templateModel,
+                "appVersion" to (buildProperties?.version ?: "dev"),
+                "appName" to (buildProperties?.name ?: "Epistola"),
             ),
         )
     }

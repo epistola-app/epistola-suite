@@ -1,9 +1,18 @@
-import { useState, useEffect } from 'react';
-import { useEditorStore } from '../../store/editorStore';
-import { useEvaluator } from '../../context/EvaluatorContext';
-import type { Block, TextBlock, ConditionalBlock, LoopBlock, ContainerBlock, ColumnsBlock, TableBlock, DocumentStyles } from '../../types/template';
-import type { EvaluationResult, EvaluationContext } from '../../services/expression';
-import { mergeStyles } from '../../types/styles';
+import { useState, useEffect } from "react";
+import { useEditorStore } from "../../store/editorStore";
+import { useEvaluator } from "../../context/EvaluatorContext";
+import type {
+  Block,
+  TextBlock,
+  ConditionalBlock,
+  LoopBlock,
+  ContainerBlock,
+  ColumnsBlock,
+  TableBlock,
+  DocumentStyles,
+} from "../../types/template";
+import type { EvaluationResult, EvaluationContext } from "../../services/expression";
+import { mergeStyles } from "../../types/styles";
 
 // Type for the async evaluate function passed to render functions
 type EvaluateFn = (expr: string, context: EvaluationContext) => Promise<EvaluationResult>;
@@ -32,7 +41,7 @@ export function Preview() {
           previewOverrides,
           {},
           evaluate,
-          template.documentStyles
+          template.documentStyles,
         );
         if (!cancelled) {
           setRenderedHtml(html);
@@ -62,12 +71,12 @@ export function Preview() {
           <div
             className="mx-auto shadow-md"
             style={{
-              width: '210mm',
-              minHeight: '297mm',
+              width: "210mm",
+              minHeight: "297mm",
               padding: `${template.pageSettings.margins.top}mm ${template.pageSettings.margins.right}mm ${template.pageSettings.margins.bottom}mm ${template.pageSettings.margins.left}mm`,
-              transform: 'scale(0.5)',
-              transformOrigin: 'top center',
-              backgroundColor: template.documentStyles?.backgroundColor || '#ffffff',
+              transform: "scale(0.5)",
+              transformOrigin: "top center",
+              backgroundColor: template.documentStyles?.backgroundColor || "#ffffff",
               fontFamily: template.documentStyles?.fontFamily,
               fontSize: template.documentStyles?.fontSize,
               fontWeight: template.documentStyles?.fontWeight,
@@ -88,42 +97,48 @@ export function Preview() {
 async function renderTemplate(
   blocks: Block[],
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown> = {},
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   const rendered = await Promise.all(
-    blocks.map((block) => renderBlock(block, data, overrides, context, evaluate, documentStyles))
+    blocks.map((block) => renderBlock(block, data, overrides, context, evaluate, documentStyles)),
   );
-  return rendered.join('');
+  return rendered.join("");
 }
 
 async function renderBlock(
   block: Block,
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   const mergedContext = { ...data, ...context };
 
   switch (block.type) {
-    case 'text':
+    case "text":
       return renderTextBlock(block, mergedContext, evaluate, documentStyles);
-    case 'container':
+    case "container":
       return renderContainerBlock(block, data, overrides, context, evaluate, documentStyles);
-    case 'conditional':
+    case "conditional":
       return renderConditionalBlock(block, data, overrides, context, evaluate, documentStyles);
-    case 'loop':
+    case "loop":
       return renderLoopBlock(block, data, overrides, context, evaluate, documentStyles);
-    case 'columns':
+    case "columns":
       return renderColumnsBlock(block, data, overrides, context, evaluate, documentStyles);
-    case 'table':
+    case "table":
       return renderTableBlock(block, data, overrides, context, evaluate, documentStyles);
     default:
-      return '';
+      return "";
   }
 }
 
@@ -131,7 +146,7 @@ async function renderTextBlock(
   block: TextBlock,
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   const html = tiptapToHtml(block.content);
   const evaluatedHtml = await evaluateExpressions(html, context, evaluate);
@@ -147,25 +162,38 @@ async function renderTextBlock(
 async function renderContainerBlock(
   block: ContainerBlock,
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   // Merge document styles with block styles
   const mergedStyles = mergeStyles(documentStyles as React.CSSProperties, block.styles);
-  const style = Object.keys(mergedStyles).length > 0 ? styleToString(mergedStyles) : '';
-  const inner = await renderTemplate(block.children, data, overrides, context, evaluate, documentStyles);
+  const style = Object.keys(mergedStyles).length > 0 ? styleToString(mergedStyles) : "";
+  const inner = await renderTemplate(
+    block.children,
+    data,
+    overrides,
+    context,
+    evaluate,
+    documentStyles,
+  );
   return `<div style="${style}">${inner}</div>`;
 }
 
 async function renderColumnsBlock(
   block: ColumnsBlock,
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   const gap = block.gap ?? 16;
 
@@ -173,52 +201,64 @@ async function renderColumnsBlock(
   const mergedStyles = mergeStyles(documentStyles as React.CSSProperties, block.styles);
   const containerStyle = {
     ...mergedStyles,
-    display: 'flex',
+    display: "flex",
     gap: `${gap}px`,
   };
 
   // Render each column
   const columnHtmls = await Promise.all(
     block.columns.map(async (column) => {
-      const inner = await renderTemplate(column.children, data, overrides, context, evaluate, documentStyles);
+      const inner = await renderTemplate(
+        column.children,
+        data,
+        overrides,
+        context,
+        evaluate,
+        documentStyles,
+      );
       return `<div style="flex: ${column.size};">${inner}</div>`;
-    })
+    }),
   );
 
-  return `<div style="${styleToString(containerStyle)}">${columnHtmls.join('')}</div>`;
+  return `<div style="${styleToString(containerStyle)}">${columnHtmls.join("")}</div>`;
 }
 
 async function renderTableBlock(
   block: TableBlock,
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
-  const borderStyle = block.borderStyle || 'all';
+  const borderStyle = block.borderStyle || "all";
 
   // Determine table border style
-  let tableBorder = '';
-  let cellBorder = '';
+  let tableBorder = "";
+  let cellBorder = "";
 
   switch (borderStyle) {
-    case 'all':
-      tableBorder = 'border: 1px solid #d1d5db; border-collapse: collapse;';
-      cellBorder = 'border: 1px solid #d1d5db;';
+    case "all":
+      tableBorder = "border: 1px solid #d1d5db; border-collapse: collapse;";
+      cellBorder = "border: 1px solid #d1d5db;";
       break;
-    case 'horizontal':
-      tableBorder = 'border-top: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; border-collapse: collapse;';
-      cellBorder = 'border-bottom: 1px solid #d1d5db;';
+    case "horizontal":
+      tableBorder =
+        "border-top: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; border-collapse: collapse;";
+      cellBorder = "border-bottom: 1px solid #d1d5db;";
       break;
-    case 'vertical':
-      tableBorder = 'border-left: 1px solid #d1d5db; border-right: 1px solid #d1d5db; border-collapse: collapse;';
-      cellBorder = 'border-right: 1px solid #d1d5db;';
+    case "vertical":
+      tableBorder =
+        "border-left: 1px solid #d1d5db; border-right: 1px solid #d1d5db; border-collapse: collapse;";
+      cellBorder = "border-right: 1px solid #d1d5db;";
       break;
-    case 'none':
+    case "none":
     default:
-      tableBorder = 'border-collapse: collapse;';
-      cellBorder = '';
+      tableBorder = "border-collapse: collapse;";
+      cellBorder = "";
       break;
   }
 
@@ -260,39 +300,49 @@ async function renderTableBlock(
 
           // Skip this cell if it's occupied by a previous cell's merge
           if (occupiedCells.has(actualColIndex)) {
-            return '';
+            return "";
           }
 
-          const cellTag = row.isHeader ? 'th' : 'td';
+          const cellTag = row.isHeader ? "th" : "td";
           const colspan = cell.colspan || 1;
           const rowspan = cell.rowspan || 1;
 
           // Render blocks inside the cell
-          const cellContentHtml = await renderTemplate(cell.children, data, overrides, context, evaluate, documentStyles);
+          const cellContentHtml = await renderTemplate(
+            cell.children,
+            data,
+            overrides,
+            context,
+            evaluate,
+            documentStyles,
+          );
 
-          const cellStyleStr = cell.styles ? styleToString(cell.styles) : '';
+          const cellStyleStr = cell.styles ? styleToString(cell.styles) : "";
           const combinedCellStyle = `padding: 8px; ${cellBorder} ${cellStyleStr}`.trim();
 
-          const colspanAttr = colspan > 1 ? ` colspan="${colspan}"` : '';
-          const rowspanAttr = rowspan > 1 ? ` rowspan="${rowspan}"` : '';
+          const colspanAttr = colspan > 1 ? ` colspan="${colspan}"` : "";
+          const rowspanAttr = rowspan > 1 ? ` rowspan="${rowspan}"` : "";
 
           return `<${cellTag} style="${combinedCellStyle}"${colspanAttr}${rowspanAttr}>${cellContentHtml}</${cellTag}>`;
-        })
+        }),
       );
-      return `<tr>${cellsHtml.join('')}</tr>`;
-    })
+      return `<tr>${cellsHtml.join("")}</tr>`;
+    }),
   );
 
-  return `<table style="width: 100%; ${tableStyle}"><tbody>${rowsHtml.join('')}</tbody></table>`;
+  return `<table style="width: 100%; ${tableStyle}"><tbody>${rowsHtml.join("")}</tbody></table>`;
 }
 
 async function renderConditionalBlock(
   block: ConditionalBlock,
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   // Evaluate condition from data
   const mergedContext = { ...data, ...context };
@@ -307,16 +357,19 @@ async function renderConditionalBlock(
   if (shouldShow) {
     return renderTemplate(block.children, data, overrides, context, evaluate, documentStyles);
   }
-  return '';
+  return "";
 }
 
 async function renderLoopBlock(
   block: LoopBlock,
   data: Record<string, unknown>,
-  overrides: { conditionals: Record<string, 'data' | 'show' | 'hide'>; loops: Record<string, number | 'data'> },
+  overrides: {
+    conditionals: Record<string, "data" | "show" | "hide">;
+    loops: Record<string, number | "data">;
+  },
   context: Record<string, unknown>,
   evaluate: EvaluateFn,
-  documentStyles?: DocumentStyles
+  documentStyles?: DocumentStyles,
 ): Promise<string> {
   const override = overrides.loops[block.id];
 
@@ -326,7 +379,7 @@ async function renderLoopBlock(
   const array: unknown[] = result.success && Array.isArray(result.value) ? result.value : [];
 
   // Apply override
-  const count = override === 'data' || override === undefined ? array.length : override;
+  const count = override === "data" || override === undefined ? array.length : override;
 
   // Expand or truncate array to match count
   const items: unknown[] = [];
@@ -342,9 +395,9 @@ async function renderLoopBlock(
         ...(block.indexAlias ? { [block.indexAlias]: index } : {}),
       };
       return renderTemplate(block.children, data, overrides, loopContext, evaluate, documentStyles);
-    })
+    }),
   );
-  return rendered.join('');
+  return rendered.join("");
 }
 
 // Helper functions
@@ -357,26 +410,26 @@ interface TiptapNode {
 }
 
 function renderInlineContent(content?: TiptapNode[]): string {
-  if (!content) return '';
+  if (!content) return "";
 
   return content
     .map((child) => {
-      if (child.type === 'text') {
-        let text = child.text || '';
+      if (child.type === "text") {
+        let text = child.text || "";
         // Handle marks
         if (child.marks) {
           for (const mark of child.marks) {
             switch (mark.type) {
-              case 'bold':
+              case "bold":
                 text = `<strong>${text}</strong>`;
                 break;
-              case 'italic':
+              case "italic":
                 text = `<em>${text}</em>`;
                 break;
-              case 'underline':
+              case "underline":
                 text = `<u>${text}</u>`;
                 break;
-              case 'strike':
+              case "strike":
                 text = `<s>${text}</s>`;
                 break;
             }
@@ -385,82 +438,88 @@ function renderInlineContent(content?: TiptapNode[]): string {
         return text;
       }
       // Handle expression atom nodes
-      if (child.type === 'expression') {
-        const expr = child.attrs?.expression || '';
+      if (child.type === "expression") {
+        const expr = child.attrs?.expression || "";
         return `{{${expr}}}`;
       }
-      return '';
+      return "";
     })
-    .join('');
+    .join("");
 }
 
-function tiptapToHtml(content: TextBlock['content']): string {
-  if (!content || !content.content) return '';
+function tiptapToHtml(content: TextBlock["content"]): string {
+  if (!content || !content.content) return "";
 
   return content.content
     .map((node) => {
-      if (!node.type) return '';
+      if (!node.type) return "";
       switch (node.type) {
-        case 'paragraph': {
+        case "paragraph": {
           const inner = renderInlineContent(node.content as TiptapNode[]);
           return `<p style="margin: 0 0 1em 0;">${inner}</p>`;
         }
-        case 'heading': {
+        case "heading": {
           const level = node.attrs?.level || 1;
           const inner = renderInlineContent(node.content as TiptapNode[]);
           const sizes: Record<number, string> = {
-            1: 'font-size: 2em; font-weight: bold;',
-            2: 'font-size: 1.5em; font-weight: bold;',
-            3: 'font-size: 1.17em; font-weight: bold;',
+            1: "font-size: 2em; font-weight: bold;",
+            2: "font-size: 1.5em; font-weight: bold;",
+            3: "font-size: 1.17em; font-weight: bold;",
           };
-          return `<h${level} style="margin: 0 0 0.5em 0; ${sizes[level as number] || ''}">${inner}</h${level}>`;
+          return `<h${level} style="margin: 0 0 0.5em 0; ${sizes[level as number] || ""}">${inner}</h${level}>`;
         }
-        case 'bulletList': {
-          const items = node.content
-            ?.map((item) => {
-              if (item.type === 'listItem') {
-                const itemContent = item.content
-                  ?.map((child) => {
-                    if (child.type === 'paragraph') {
-                      return renderInlineContent(child.content as TiptapNode[]);
-                    }
-                    return '';
-                  })
-                  .join('');
-                return `<li>${itemContent}</li>`;
-              }
-              return '';
-            })
-            .join('') || '';
+        case "bulletList": {
+          const items =
+            node.content
+              ?.map((item) => {
+                if (item.type === "listItem") {
+                  const itemContent = item.content
+                    ?.map((child) => {
+                      if (child.type === "paragraph") {
+                        return renderInlineContent(child.content as TiptapNode[]);
+                      }
+                      return "";
+                    })
+                    .join("");
+                  return `<li>${itemContent}</li>`;
+                }
+                return "";
+              })
+              .join("") || "";
           return `<ul style="margin: 0 0 1em 0; padding-left: 1.5em;">${items}</ul>`;
         }
-        case 'orderedList': {
-          const items = node.content
-            ?.map((item) => {
-              if (item.type === 'listItem') {
-                const itemContent = item.content
-                  ?.map((child) => {
-                    if (child.type === 'paragraph') {
-                      return renderInlineContent(child.content as TiptapNode[]);
-                    }
-                    return '';
-                  })
-                  .join('');
-                return `<li>${itemContent}</li>`;
-              }
-              return '';
-            })
-            .join('') || '';
+        case "orderedList": {
+          const items =
+            node.content
+              ?.map((item) => {
+                if (item.type === "listItem") {
+                  const itemContent = item.content
+                    ?.map((child) => {
+                      if (child.type === "paragraph") {
+                        return renderInlineContent(child.content as TiptapNode[]);
+                      }
+                      return "";
+                    })
+                    .join("");
+                  return `<li>${itemContent}</li>`;
+                }
+                return "";
+              })
+              .join("") || "";
           return `<ol style="margin: 0 0 1em 0; padding-left: 1.5em;">${items}</ol>`;
         }
         default:
-          return '';
+          return "";
       }
     })
-    .join('');
+    .join("");
 }
 
-async function evaluateExpressions(html: string, context: Record<string, unknown>, evaluate: EvaluateFn): Promise<string> {
+async function evaluateExpressions(
+  html: string,
+  context: Record<string, unknown>,
+  evaluate: EvaluateFn,
+): Promise<string> {
   // Find all {{expression}} patterns
   const regex = /\{\{([^}]+)\}\}/g;
   const matches: { match: string; expr: string; index: number }[] = [];
@@ -477,10 +536,10 @@ async function evaluateExpressions(html: string, context: Record<string, unknown
     matches.map(async ({ expr }) => {
       const result = await evaluate(expr, context);
       if (result.success) {
-        return String(result.value ?? '');
+        return String(result.value ?? "");
       }
       return `[Error: ${expr}]`;
-    })
+    }),
   );
 
   // Replace from end to start to preserve indices
@@ -496,8 +555,8 @@ async function evaluateExpressions(html: string, context: Record<string, unknown
 function styleToString(styles: React.CSSProperties): string {
   return Object.entries(styles)
     .map(([key, value]) => {
-      const cssKey = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+      const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
       return `${cssKey}: ${value}`;
     })
-    .join('; ');
+    .join("; ");
 }

@@ -1,9 +1,9 @@
-import { createContext, useContext, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import { createContext, useContext, useMemo } from "react";
+import type { ReactNode } from "react";
 
 export interface ScopeVariable {
   name: string;
-  type: 'loop-item' | 'loop-index';
+  type: "loop-item" | "loop-index";
   arrayPath: string; // The path to the array being iterated
 }
 
@@ -21,15 +21,14 @@ interface ScopeProviderProps {
 export function ScopeProvider({ children, variables = [] }: ScopeProviderProps) {
   const parentScope = useContext(ScopeContext);
 
-  const mergedScope = useMemo(() => ({
-    variables: [...parentScope.variables, ...variables],
-  }), [parentScope.variables, variables]);
-
-  return (
-    <ScopeContext.Provider value={mergedScope}>
-      {children}
-    </ScopeContext.Provider>
+  const mergedScope = useMemo(
+    () => ({
+      variables: [...parentScope.variables, ...variables],
+    }),
+    [parentScope.variables, variables],
   );
+
+  return <ScopeContext.Provider value={mergedScope}>{children}</ScopeContext.Provider>;
 }
 
 export function useScope() {

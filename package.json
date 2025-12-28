@@ -6,6 +6,9 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
     "clean": "pnpm -r clean",
+    "format": "pnpm -r format",
+    "format:check": "pnpm -r format:check",
+    "lint": "pnpm -r lint",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },
   "devDependencies": {

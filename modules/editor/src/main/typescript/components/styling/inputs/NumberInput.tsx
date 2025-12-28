@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import type { CSSUnit } from '../../../types/styles';
-import { parseValueWithUnit, formatValueWithUnit } from '../../../types/styles';
+import { useState, useEffect } from "react";
+import type { CSSUnit } from "../../../types/styles";
+import { parseValueWithUnit, formatValueWithUnit } from "../../../types/styles";
 
 interface NumberInputProps {
   value: string | undefined;
@@ -18,19 +18,17 @@ interface NumberInputProps {
 export function NumberInput({
   value,
   onChange,
-  units = ['px', 'em', 'rem', '%'],
-  defaultUnit = 'px',
+  units = ["px", "em", "rem", "%"],
+  defaultUnit = "px",
   min,
   max,
   step = 1,
-  placeholder = '0',
+  placeholder = "0",
   label,
   allowEmpty = true,
 }: NumberInputProps) {
   const parsed = parseValueWithUnit(value);
-  const [numericValue, setNumericValue] = useState<string>(
-    parsed ? String(parsed.value) : ''
-  );
+  const [numericValue, setNumericValue] = useState<string>(parsed ? String(parsed.value) : "");
   const [unit, setUnit] = useState<CSSUnit>(parsed?.unit || defaultUnit);
 
   // Sync with external value changes
@@ -40,7 +38,7 @@ export function NumberInput({
       setNumericValue(String(parsed.value));
       setUnit(parsed.unit);
     } else if (!value) {
-      setNumericValue('');
+      setNumericValue("");
     }
   }, [value]);
 
@@ -48,7 +46,7 @@ export function NumberInput({
     const newValue = e.target.value;
     setNumericValue(newValue);
 
-    if (newValue === '' && allowEmpty) {
+    if (newValue === "" && allowEmpty) {
       onChange(undefined);
     } else {
       const num = parseFloat(newValue);
@@ -62,7 +60,7 @@ export function NumberInput({
     const newUnit = e.target.value as CSSUnit;
     setUnit(newUnit);
 
-    if (numericValue !== '') {
+    if (numericValue !== "") {
       const num = parseFloat(numericValue);
       if (!isNaN(num)) {
         onChange(formatValueWithUnit(num, newUnit));
@@ -72,9 +70,7 @@ export function NumberInput({
 
   return (
     <div className="flex flex-col gap-1">
-      {label && (
-        <label className="text-xs text-gray-500">{label}</label>
-      )}
+      {label && <label className="text-xs text-gray-500">{label}</label>}
       <div className="flex">
         <input
           type="number"

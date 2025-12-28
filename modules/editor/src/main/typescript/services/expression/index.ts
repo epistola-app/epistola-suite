@@ -3,7 +3,7 @@ export type {
   EvaluationContext,
   EvaluationResult,
   EvaluatorType,
-} from './types';
+} from "./types";
 
-export { DirectEvaluator } from './DirectEvaluator';
-export { IframeEvaluator } from './IframeEvaluator';
+export { DirectEvaluator } from "./DirectEvaluator";
+export { IframeEvaluator } from "./IframeEvaluator";

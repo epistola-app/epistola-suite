@@ -28,9 +28,7 @@ export function ToggleGroup({
 
   return (
     <div className="flex flex-col gap-1">
-      {label && (
-        <label className="text-xs text-gray-500">{label}</label>
-      )}
+      {label && <label className="text-xs text-gray-500">{label}</label>}
       <div className="flex border border-gray-200 rounded overflow-hidden">
         {options.map((option, index) => (
           <button
@@ -39,11 +37,11 @@ export function ToggleGroup({
             onClick={() => handleClick(option.value)}
             className={`
               flex-1 px-2 py-1 text-xs font-medium transition-colors
-              ${index > 0 ? 'border-l border-gray-200' : ''}
+              ${index > 0 ? "border-l border-gray-200" : ""}
               ${
                 value === option.value
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  ? "bg-blue-500 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50"
               }
             `}
             title={option.label}

@@ -48,3 +48,6 @@ dist/
 # Generated code is in build/ directories (already ignored above):
 # - modules/api-server/build/generated/
 # - modules/api-client/build/generated/
+
+### Test Coverage ###
+coverage/
