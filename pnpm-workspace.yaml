@@ -3,4 +3,6 @@ packages:
   - scripts/gh-mcp
 
 onlyBuiltDependencies:
+  - core-js
   - keytar
+  - protobufjs
