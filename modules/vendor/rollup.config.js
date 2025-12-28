@@ -76,30 +76,8 @@ export default [
     plugins,
   },
 
-  // TipTap packages - separate bundles to preserve default exports
-  {
-    input: 'entries/tiptap-core.js',
-    output: { file: 'dist/tiptap-core.js', format: 'esm' },
-    plugins,
-  },
-  {
-    input: 'entries/tiptap-react.js',
-    output: { file: 'dist/tiptap-react.js', format: 'esm' },
-    external: ['react', 'react-dom', 'react/jsx-runtime', '@tiptap/core'],
-    plugins,
-  },
-  {
-    input: 'entries/tiptap-starter-kit.js',
-    output: { file: 'dist/tiptap-starter-kit.js', format: 'esm' },
-    external: ['@tiptap/core'],
-    plugins,
-  },
-  {
-    input: 'entries/tiptap-extension-underline.js',
-    output: { file: 'dist/tiptap-extension-underline.js', format: 'esm' },
-    external: ['@tiptap/core'],
-    plugins,
-  },
+  // Note: TipTap packages are bundled directly in the editor module
+  // to avoid multiple @tiptap/pm instances (same reason as CodeMirror).
 
   // dnd-kit packages
   {

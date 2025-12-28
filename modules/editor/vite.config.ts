@@ -12,10 +12,6 @@ const EXTERNALS = [
   'zustand',
   'zustand/middleware/immer',
   'immer',
-  '@tiptap/core',
-  '@tiptap/react',
-  '@tiptap/starter-kit',
-  '@tiptap/extension-underline',
   '@dnd-kit/core',
   '@dnd-kit/sortable',
   '@dnd-kit/utilities',
@@ -41,8 +37,8 @@ const EXTERNALS = [
   'motion',
   'radix-ui',
   '@uidotdev/usehooks',
-  // Note: CodeMirror packages are intentionally NOT externalized.
-  // They are bundled directly to avoid multiple @codemirror/state instances.
+  // Note: CodeMirror and TipTap packages are intentionally NOT externalized.
+  // They are bundled directly to avoid multiple @codemirror/state and @tiptap/pm instances.
 ]
 
 // https://vite.dev/config/
