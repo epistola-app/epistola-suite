@@ -266,10 +266,10 @@ class DocumentTemplateHandler(
         val selectedVariantSummary = variants.find { it.id == variantId }
             ?: VariantSummary(
                 id = variant.id,
+                title = variant.title,
                 tags = variant.tags,
                 hasDraft = versions.any { it.status.name == "DRAFT" },
-                publishedVersionCount = versions.count { it.status.name == "PUBLISHED" },
-                latestPublishedVersion = versions.filter { it.status.name == "PUBLISHED" }.maxOfOrNull { it.versionNumber ?: 0 },
+                publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.mapNotNull { it.versionNumber }.sorted(),
             )
 
         return ServerResponse.ok().render(
@@ -301,10 +301,20 @@ class DocumentTemplateHandler(
         val templateId = request.pathVariable("id").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
+        val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
+        val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
         val tagsInput = request.params().getFirst("tags")?.trim().orEmpty()
         val tags = parseTags(tagsInput)
 
-        mediator.send(CreateVariant(tenantId = tenantId, templateId = templateId, tags = tags))
+        mediator.send(
+            CreateVariant(
+                tenantId = tenantId,
+                templateId = templateId,
+                title = title,
+                description = description,
+                tags = tags,
+            ),
+        )
 
         val variants = mediator.query(GetVariantSummaries(templateId = templateId))
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = templateId))
@@ -399,10 +409,10 @@ class DocumentTemplateHandler(
 
         val selectedVariantSummary = VariantSummary(
             id = variant.id,
+            title = variant.title,
             tags = variant.tags,
             hasDraft = versions.any { it.status.name == "DRAFT" },
-            publishedVersionCount = versions.count { it.status.name == "PUBLISHED" },
-            latestPublishedVersion = versions.filter { it.status.name == "PUBLISHED" }.maxOfOrNull { it.versionNumber ?: 0 },
+            publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.mapNotNull { it.versionNumber }.sorted(),
         )
 
         return request.htmx {

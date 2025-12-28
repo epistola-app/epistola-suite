@@ -11,6 +11,8 @@ import tools.jackson.databind.ObjectMapper
 data class CreateVariant(
     val tenantId: Long,
     val templateId: Long,
+    val title: String?,
+    val description: String?,
     val tags: Map<String, String> = emptyMap(),
 ) : Command<TemplateVariant?>
 
@@ -41,12 +43,14 @@ class CreateVariantHandler(
 
         val variant = handle.createQuery(
             """
-                INSERT INTO template_variants (template_id, tags, created_at, last_modified)
-                VALUES (:templateId, :tags::jsonb, NOW(), NOW())
+                INSERT INTO template_variants (template_id, title, description, tags, created_at, last_modified)
+                VALUES (:templateId, :title, :description, :tags::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
         )
             .bind("templateId", command.templateId)
+            .bind("title", command.title)
+            .bind("description", command.description)
             .bind("tags", tagsJson)
             .mapTo<TemplateVariant>()
             .one()

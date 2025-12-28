@@ -16,6 +16,8 @@ CREATE INDEX idx_environments_tenant_id ON environments(tenant_id);
 CREATE TABLE template_variants (
     id BIGSERIAL PRIMARY KEY,
     template_id BIGINT NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    title VARCHAR(255),
+    description TEXT,
     tags JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()

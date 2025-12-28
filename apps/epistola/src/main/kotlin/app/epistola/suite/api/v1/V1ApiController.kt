@@ -295,6 +295,8 @@ class V1ApiController(
             CreateVariant(
                 tenantId = tenantId,
                 templateId = templateId,
+                title = createVariantRequest.title,
+                description = createVariantRequest.description,
                 tags = createVariantRequest.tags ?: emptyMap(),
             ),
         ) ?: return ResponseEntity.notFound().build()
@@ -587,11 +589,13 @@ class V1ApiController(
             ),
         )
         val hasDraft = versions.any { it.status == VersionStatus.DRAFT }
-        val publishedVersions = versions.filter { it.status == VersionStatus.PUBLISHED }
+        val publishedVersions = versions
+            .filter { it.status == VersionStatus.PUBLISHED }
+            .mapNotNull { it.versionNumber }
+            .sorted()
         return VariantVersionInfo(
             hasDraft = hasDraft,
-            publishedVersionCount = publishedVersions.size,
-            latestPublishedVersion = publishedVersions.maxOfOrNull { it.versionNumber ?: 0 },
+            publishedVersions = publishedVersions,
         )
     }
 
@@ -639,25 +643,25 @@ class V1ApiController(
 
     private fun VariantSummary.toDto() = VariantSummaryDto(
         id = id,
+        title = title,
         tags = tags,
         hasDraft = hasDraft,
-        publishedVersionCount = publishedVersionCount,
-        latestPublishedVersion = latestPublishedVersion,
+        publishedVersions = publishedVersions,
     )
 
     private data class VariantVersionInfo(
         val hasDraft: Boolean,
-        val publishedVersionCount: Int,
-        val latestPublishedVersion: Int?,
+        val publishedVersions: List<Int>,
     )
 
     private fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
         id = id,
         templateId = templateId,
+        title = title,
+        description = description,
         tags = tags,
         hasDraft = info.hasDraft,
-        publishedVersionCount = info.publishedVersionCount,
-        latestPublishedVersion = info.latestPublishedVersion,
+        publishedVersions = info.publishedVersions,
         createdAt = createdAt,
         lastModified = lastModified,
     )

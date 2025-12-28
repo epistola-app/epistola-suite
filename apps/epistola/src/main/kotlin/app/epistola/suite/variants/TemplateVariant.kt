@@ -9,6 +9,8 @@ import java.time.OffsetDateTime
 data class TemplateVariant(
     val id: Long,
     val templateId: Long,
+    val title: String?,
+    val description: String?,
     @Json val tags: Map<String, String> = emptyMap(),
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
@@ -19,8 +21,8 @@ data class TemplateVariant(
  */
 data class VariantSummary(
     val id: Long,
+    val title: String?,
     @Json val tags: Map<String, String>,
     val hasDraft: Boolean,
-    val publishedVersionCount: Int,
-    val latestPublishedVersion: Int?,
+    @Json val publishedVersions: List<Int>,
 )

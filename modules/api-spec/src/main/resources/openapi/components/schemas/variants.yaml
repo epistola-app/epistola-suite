@@ -6,7 +6,7 @@ VariantDto:
     - templateId
     - tags
     - hasDraft
-    - publishedVersionCount
+    - publishedVersions
     - createdAt
     - lastModified
   properties:
@@ -18,6 +18,16 @@ VariantDto:
       type: integer
       format: int64
       description: ID of the template this variant belongs to
+    title:
+      type:
+        - string
+        - 'null'
+      description: Human-readable title for the variant
+    description:
+      type:
+        - string
+        - 'null'
+      description: Description of the variant
     tags:
       type: object
       additionalProperties:
@@ -26,14 +36,11 @@ VariantDto:
     hasDraft:
       type: boolean
       description: Whether this variant has an unpublished draft
-    publishedVersionCount:
-      type: integer
-      description: Number of published versions
-    latestPublishedVersion:
-      type:
-        - integer
-        - 'null'
-      description: Version number of the most recently published version
+    publishedVersions:
+      type: array
+      items:
+        type: integer
+      description: List of published version numbers
     createdAt:
       type: string
       format: date-time
@@ -50,12 +57,17 @@ VariantSummaryDto:
     - id
     - tags
     - hasDraft
-    - publishedVersionCount
+    - publishedVersions
   properties:
     id:
       type: integer
       format: int64
       description: Unique identifier of the variant
+    title:
+      type:
+        - string
+        - 'null'
+      description: Human-readable title for the variant
     tags:
       type: object
       additionalProperties:
@@ -64,19 +76,26 @@ VariantSummaryDto:
     hasDraft:
       type: boolean
       description: Whether this variant has an unpublished draft
-    publishedVersionCount:
-      type: integer
-      description: Number of published versions
-    latestPublishedVersion:
-      type:
-        - integer
-        - 'null'
-      description: Version number of the most recently published version
+    publishedVersions:
+      type: array
+      items:
+        type: integer
+      description: List of published version numbers
 
 CreateVariantRequest:
   type: object
   description: Request body for creating a new variant
   properties:
+    title:
+      type:
+        - string
+        - 'null'
+      description: Human-readable title for the variant
+    description:
+      type:
+        - string
+        - 'null'
+      description: Description of the variant
     tags:
       type: object
       additionalProperties:
@@ -85,8 +104,18 @@ CreateVariantRequest:
 
 UpdateVariantRequest:
   type: object
-  description: Request body for updating a variant's tags
+  description: Request body for updating a variant
   properties:
+    title:
+      type:
+        - string
+        - 'null'
+      description: Human-readable title for the variant
+    description:
+      type:
+        - string
+        - 'null'
+      description: Description of the variant
     tags:
       type: object
       additionalProperties:
