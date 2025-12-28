@@ -57,6 +57,8 @@
 - SaveButton refactored with useCallback optimization
 
 ### Fixed
+- Radix UI package conflict causing infinite re-render loops in accordion with select components
+- ColorPicker performance: added throttling to color area and commit-on-close pattern
 - Color input width in ColorPicker component
 - Unit input id placement for accessibility
 - Added `pt` CSS unit support in style regex

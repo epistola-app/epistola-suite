@@ -764,10 +764,26 @@ function ColorPickerArea(props: DivProps) {
   const isDraggingRef = React.useRef(false);
   const areaRef = React.useRef<HTMLDivElement>(null);
   const composedRef = useComposedRefs(ref, areaRef);
+  const lastUpdateRef = React.useRef(0);
+  const rafRef = React.useRef<number | null>(null);
 
   const updateColorFromPosition = React.useCallback(
-    (clientX: number, clientY: number) => {
+    (clientX: number, clientY: number, force = false) => {
       if (!areaRef.current) return;
+
+      // Throttle updates to ~60fps unless forced
+      const now = performance.now();
+      if (!force && now - lastUpdateRef.current < 16) {
+        // Schedule update for next frame if not already scheduled
+        if (rafRef.current === null) {
+          rafRef.current = requestAnimationFrame(() => {
+            rafRef.current = null;
+            updateColorFromPosition(clientX, clientY, true);
+          });
+        }
+        return;
+      }
+      lastUpdateRef.current = now;
 
       const rect = areaRef.current.getBoundingClientRect();
       const x = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
@@ -786,6 +802,15 @@ function ColorPickerArea(props: DivProps) {
     [hsv, store],
   );
 
+  // Cleanup RAF on unmount
+  React.useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
   const onPointerDown = React.useCallback(
     (event: React.PointerEvent<AreaElement>) => {
       if (context.disabled) return;
@@ -794,7 +819,7 @@ function ColorPickerArea(props: DivProps) {
 
       isDraggingRef.current = true;
       areaRef.current?.setPointerCapture(event.pointerId);
-      updateColorFromPosition(event.clientX, event.clientY);
+      updateColorFromPosition(event.clientX, event.clientY, true);
     },
     [context.disabled, updateColorFromPosition, propsRef],
   );
@@ -818,8 +843,10 @@ function ColorPickerArea(props: DivProps) {
 
       isDraggingRef.current = false;
       areaRef.current?.releasePointerCapture(event.pointerId);
+      // Final update on release
+      updateColorFromPosition(event.clientX, event.clientY, true);
     },
-    [propsRef],
+    [propsRef, updateColorFromPosition],
   );
 
   const hue = hsv?.h ?? 0;

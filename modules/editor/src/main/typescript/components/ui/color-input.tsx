@@ -14,14 +14,12 @@ import {
   ColorPickerSwatch,
   ColorPickerTrigger,
 } from "./color-picker";
-import { useDebounce } from "@uidotdev/usehooks";
 
 interface ColorInputProps {
   value?: string;
   defaultValue?: string;
   onChange: (value: string | undefined) => void;
   showReset?: boolean;
-  debounceMs?: number;
   className?: string;
   disabled?: boolean;
   id?: string;
@@ -32,46 +30,40 @@ function ColorInput({
   defaultValue = "#000000",
   onChange,
   showReset = true,
-  debounceMs = 150,
   className,
   disabled,
   id,
 }: ColorInputProps) {
-  // Internal state for immediate UI updates
-  const [internalValue, setInternalValue] = React.useState(value ?? defaultValue);
-  const debouncedValue = useDebounce(internalValue, debounceMs);
-  const isInitializedRef = React.useRef(false);
+  const displayValue = value ?? defaultValue;
+  const currentValueRef = React.useRef(displayValue);
 
-  // Sync internal state when external value changes
-  React.useEffect(() => {
-    setInternalValue(value ?? defaultValue);
-  }, [value, defaultValue]);
-
-  // Call onChange when debounced value changes (skip initial)
-  React.useEffect(() => {
-    if (!isInitializedRef.current) {
-      isInitializedRef.current = true;
-      return;
-    }
-    onChange(debouncedValue);
-  }, [debouncedValue, onChange]);
-
-  // Handle color change - update internal state immediately
-  const handleColorChange = React.useCallback((newValue: string) => {
-    setInternalValue(newValue);
+  // Track current value without triggering re-renders
+  const handleValueChange = React.useCallback((newValue: string) => {
+    currentValueRef.current = newValue;
   }, []);
+
+  // Commit value when popover closes
+  const handleOpenChange = React.useCallback(
+    (open: boolean) => {
+      if (!open) {
+        onChange(currentValueRef.current);
+      }
+    },
+    [onChange],
+  );
 
   // Handle reset
   const handleReset = React.useCallback(() => {
-    setInternalValue(defaultValue);
+    currentValueRef.current = defaultValue;
     onChange(undefined);
   }, [onChange, defaultValue]);
 
   return (
-    <div className={cn("flex items-center gap-2 ", className)}>
+    <div className={cn("flex items-center gap-2", className)}>
       <ColorPicker
-        value={internalValue}
-        onValueChange={handleColorChange}
+        defaultValue={displayValue}
+        onValueChange={handleValueChange}
+        onOpenChange={handleOpenChange}
         defaultFormat="hex"
         disabled={disabled}
         className="w-full"
@@ -84,7 +76,7 @@ function ColorInput({
             className="flex items-center w-full gap-2 h-8 flex-1"
           >
             <ColorPickerSwatch className="size-4" />
-            <span className="text-xs font-normal text-muted-foreground">{internalValue}</span>
+            <span className="text-xs font-normal text-muted-foreground">{displayValue}</span>
           </Button>
         </ColorPickerTrigger>
         <ColorPickerContent>

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Tabs as TabsPrimitive } from "radix-ui";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { motion, AnimatePresence, type HTMLMotionProps, type Transition } from "motion/react";
 
 import {
