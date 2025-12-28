@@ -1,0 +1,58 @@
+EnvironmentDto:
+  type: object
+  description: Tenant environment for version activation (e.g., staging, production)
+  required:
+    - id
+    - tenantId
+    - name
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the environment
+    tenantId:
+      type: integer
+      format: int64
+      description: ID of the tenant this environment belongs to
+    name:
+      type: string
+      description: Name of the environment (e.g., staging, production)
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the environment was created
+
+CreateEnvironmentRequest:
+  type: object
+  description: Request body for creating a new environment
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+      description: Name of the environment to create
+
+UpdateEnvironmentRequest:
+  type: object
+  description: Request body for updating an environment
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+      description: New name for the environment
+
+EnvironmentListResponse:
+  type: object
+  description: List of environments
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of environments
+      items:
+        $ref: '#/EnvironmentDto'

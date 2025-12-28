@@ -1,0 +1,116 @@
+VersionDto:
+  type: object
+  description: Template version with content and lifecycle state
+  required:
+    - id
+    - variantId
+    - status
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the version
+    variantId:
+      type: integer
+      format: int64
+      description: ID of the variant this version belongs to
+    versionNumber:
+      type:
+        - integer
+        - 'null'
+      description: Version number (null for drafts, assigned on publish)
+    templateModel:
+      type: object
+      additionalProperties: true
+      description: The template model defining the document structure
+    status:
+      type: string
+      enum:
+        - draft
+        - published
+        - archived
+      description: Lifecycle status of this version
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the version was created
+    publishedAt:
+      type:
+        - string
+        - 'null'
+      format: date-time
+      description: Timestamp when the version was published
+    archivedAt:
+      type:
+        - string
+        - 'null'
+      format: date-time
+      description: Timestamp when the version was archived
+
+VersionSummaryDto:
+  type: object
+  description: Summary view of a version for list displays
+  required:
+    - id
+    - variantId
+    - status
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the version
+    variantId:
+      type: integer
+      format: int64
+      description: ID of the variant this version belongs to
+    versionNumber:
+      type:
+        - integer
+        - 'null'
+      description: Version number (null for drafts)
+    status:
+      type: string
+      enum:
+        - draft
+        - published
+        - archived
+      description: Lifecycle status of this version
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the version was created
+    publishedAt:
+      type:
+        - string
+        - 'null'
+      format: date-time
+      description: Timestamp when the version was published
+    archivedAt:
+      type:
+        - string
+        - 'null'
+      format: date-time
+      description: Timestamp when the version was archived
+
+UpdateDraftRequest:
+  type: object
+  description: Request body for updating a draft version
+  properties:
+    templateModel:
+      type: object
+      additionalProperties: true
+      description: Updated template model
+
+VersionListResponse:
+  type: object
+  description: List of template versions
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of versions
+      items:
+        $ref: '#/VersionSummaryDto'

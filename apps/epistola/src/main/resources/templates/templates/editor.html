@@ -58,7 +58,12 @@
         <header class="editor-header">
             <h1 th:text="${templateName}">Template Name</h1>
             <div class="editor-header-actions">
-                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Back to Templates</a>
+                <span th:if="${variantTags != null and !variantTags.isEmpty()}" class="tags" style="margin-right: 0.5rem;">
+                    <span th:each="entry : ${variantTags}"
+                          class="tag"
+                          th:text="${entry.key + '=' + entry.value}"></span>
+                </span>
+                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${templateId})}">Back to Template</a>
             </div>
         </header>
 
@@ -70,6 +75,7 @@
         window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
         window.TENANT_ID = /*[[${tenantId}]]*/ '';
+        window.VARIANT_ID = /*[[${variantId}]]*/ '';
         /*]]>*/
     </script>
     <script type="module">
@@ -79,14 +85,15 @@
         const templateData = window.TEMPLATE_MODEL;
         const templateId = window.TEMPLATE_ID;
         const tenantId = window.TENANT_ID;
+        const variantId = window.VARIANT_ID;
 
         mountEditor({
             container: container,
             template: templateData,
             onSave: async (template) => {
                 try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
-                        method: 'PATCH',
+                    const response = await fetch('/api/v1/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
+                        method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
                         },
@@ -94,14 +101,14 @@
                     });
 
                     if (response.ok) {
-                        console.log('Template saved successfully');
+                        console.log('Draft saved successfully');
                     } else {
-                        console.error('Failed to save template:', response.statusText);
-                        alert('Failed to save template. Please try again.');
+                        console.error('Failed to save draft:', response.statusText);
+                        alert('Failed to save draft. Please try again.');
                     }
                 } catch (error) {
-                    console.error('Error saving template:', error);
-                    alert('Error saving template. Please try again.');
+                    console.error('Error saving draft:', error);
+                    alert('Error saving draft. Please try again.');
                 }
             }
         });

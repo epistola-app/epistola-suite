@@ -28,8 +28,33 @@ class CreateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateDocumentTemplate, DocumentTemplate> {
-    override fun handle(command: CreateDocumentTemplate): DocumentTemplate {
-        // Create a default TemplateModel for new documents
+    override fun handle(command: CreateDocumentTemplate): DocumentTemplate = jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
+        // 1. Create the template
+        val template = handle.createQuery(
+            """
+                INSERT INTO document_templates (tenant_id, name, data_model, data_examples, created_at, last_modified)
+                VALUES (:tenantId, :name, NULL, '[]'::jsonb, NOW(), NOW())
+                RETURNING id, tenant_id, name, data_model, data_examples, created_at, last_modified
+                """,
+        )
+            .bind("tenantId", command.tenantId)
+            .bind("name", command.name)
+            .mapTo<DocumentTemplate>()
+            .one()
+
+        // 2. Create default variant
+        val variantId = handle.createQuery(
+            """
+                INSERT INTO template_variants (template_id, tags, created_at, last_modified)
+                VALUES (:templateId, '{}'::jsonb, NOW(), NOW())
+                RETURNING id
+                """,
+        )
+            .bind("templateId", template.id)
+            .mapTo<Long>()
+            .one()
+
+        // 3. Create draft version with default TemplateModel
         val templateModel = TemplateModel(
             id = UUID.randomUUID().toString(),
             name = command.name,
@@ -37,22 +62,18 @@ class CreateDocumentTemplateHandler(
             pageSettings = PageSettings(margins = Margins()),
             blocks = emptyList(),
         )
-
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
-        return jdbi.withHandle<DocumentTemplate, Exception> { handle ->
-            handle.createQuery(
-                """
-                INSERT INTO document_templates (tenant_id, name, template_model, data_model, data_examples, created_at, last_modified)
-                VALUES (:tenantId, :name, :templateModel::jsonb, NULL, '[]'::jsonb, NOW(), NOW())
-                RETURNING id, tenant_id, name, template_model, data_model, data_examples, created_at, last_modified
+        handle.createUpdate(
+            """
+                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
+                VALUES (:variantId, NULL, :templateModel::jsonb, 'draft', NOW())
                 """,
-            )
-                .bind("tenantId", command.tenantId)
-                .bind("name", command.name)
-                .bind("templateModel", templateModelJson)
-                .mapTo<DocumentTemplate>()
-                .one()
-        }
+        )
+            .bind("variantId", variantId)
+            .bind("templateModel", templateModelJson)
+            .execute()
+
+        template
     }
 }
