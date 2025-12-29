@@ -8,7 +8,6 @@ import org.jdbi.v3.postgres.PostgresPlugin
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.module.kotlin.KotlinModule
 import javax.sql.DataSource
 
 @Configuration
