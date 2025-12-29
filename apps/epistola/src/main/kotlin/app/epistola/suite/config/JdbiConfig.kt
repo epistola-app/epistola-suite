@@ -2,10 +2,13 @@ package app.epistola.suite.config
 
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
+import org.jdbi.v3.jackson3.Jackson3Config
 import org.jdbi.v3.jackson3.Jackson3Plugin
 import org.jdbi.v3.postgres.PostgresPlugin
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.KotlinModule
 import javax.sql.DataSource
 
 @Configuration
@@ -13,8 +16,13 @@ class JdbiConfig {
     @Bean
     fun jdbi(
         dataSource: DataSource,
+        mapper: ObjectMapper,
     ): Jdbi = Jdbi.create(dataSource)
         .installPlugin(KotlinPlugin())
         .installPlugin(PostgresPlugin())
         .installPlugin(Jackson3Plugin())
+        .apply {
+            // fix: use the spring boot mapper as this is preconfigured with kotlin support
+            getConfig(Jackson3Config::class.java).mapper = mapper
+        }
 }
