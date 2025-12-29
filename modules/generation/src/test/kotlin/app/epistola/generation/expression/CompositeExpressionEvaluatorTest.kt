@@ -152,4 +152,31 @@ class CompositeExpressionEvaluatorTest {
         // Test with explicit language parameter
         assertEquals(8L, evaluator.evaluate("x + y", ExpressionLanguage.JavaScript, data))
     }
+
+    @Test
+    fun `dispatches to SimplePath evaluator for SimplePath expressions`() {
+        val data = mapOf(
+            "customer" to mapOf(
+                "name" to "Alice",
+                "address" to mapOf("city" to "Amsterdam"),
+            ),
+        )
+
+        // SimplePath only supports path traversal
+        val expression = Expression(
+            raw = "customer.address.city",
+            language = ExpressionLanguage.SimplePath,
+        )
+        assertEquals("Amsterdam", evaluator.evaluate(expression, data))
+    }
+
+    @Test
+    fun `SimplePath is fastest for simple paths`() {
+        val data = mapOf("name" to "John")
+
+        // All three should return the same result for simple paths
+        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.Jsonata, data))
+        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.JavaScript, data))
+        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.SimplePath, data))
+    }
 }

@@ -6,8 +6,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class ExpressionEvaluatorTest {
-    private val evaluator = ExpressionEvaluator()
+class SimplePathEvaluatorTest {
+    private val evaluator = SimplePathEvaluator()
 
     @Test
     fun `evaluate simple path`() {

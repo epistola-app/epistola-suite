@@ -1,27 +1,33 @@
 package app.epistola.generation
 
+import app.epistola.generation.expression.ExpressionEvaluator as ExpressionEvaluatorInterface
+
 /**
- * Evaluates template expressions like `{{customer.name}}` against input data.
+ * Simple path-based expression evaluator.
  *
- * Supports:
+ * This is a lightweight evaluator that only supports path traversal:
  * - Simple paths: `customer.name`
  * - Array access: `items.0.name` or `items[0].name`
  * - Nested paths: `order.customer.address.city`
+ *
+ * Use this for simple variable substitution where you don't need
+ * the full power of JSONata or JavaScript.
+ *
+ * Advantages:
+ * - Very fast (no parsing overhead)
+ * - Safe (no code execution, only data access)
+ * - Predictable behavior
+ *
+ * Limitations:
+ * - No operations (filtering, mapping, aggregation)
+ * - No string manipulation
+ * - No conditionals
  */
-class ExpressionEvaluator {
-
-    /**
-     * Evaluates an expression against the provided data context.
-     *
-     * @param expression The expression to evaluate (e.g., "customer.name")
-     * @param data The data context to evaluate against
-     * @param loopContext Additional context from loop iterations (e.g., item aliases)
-     * @return The resolved value, or null if the path doesn't exist
-     */
-    fun evaluate(
+class SimplePathEvaluator : ExpressionEvaluatorInterface {
+    override fun evaluate(
         expression: String,
         data: Map<String, Any?>,
-        loopContext: Map<String, Any?> = emptyMap(),
+        loopContext: Map<String, Any?>,
     ): Any? {
         val trimmed = expression.trim()
         if (trimmed.isEmpty()) return null
@@ -34,74 +40,6 @@ class ExpressionEvaluator {
         if (segments.isEmpty()) return null
 
         return resolvePath(segments, context)
-    }
-
-    /**
-     * Evaluates an expression and converts the result to a String.
-     */
-    fun evaluateToString(
-        expression: String,
-        data: Map<String, Any?>,
-        loopContext: Map<String, Any?> = emptyMap(),
-    ): String {
-        val result = evaluate(expression, data, loopContext)
-        return when (result) {
-            null -> ""
-            is String -> result
-            is Number -> if (result.toDouble() == result.toLong().toDouble()) {
-                result.toLong().toString()
-            } else {
-                result.toString()
-            }
-            is Boolean -> result.toString()
-            else -> result.toString()
-        }
-    }
-
-    /**
-     * Evaluates a condition expression and returns a boolean.
-     * Truthy values: non-null, non-empty strings, non-zero numbers, true, non-empty collections
-     */
-    fun evaluateCondition(
-        expression: String,
-        data: Map<String, Any?>,
-        loopContext: Map<String, Any?> = emptyMap(),
-    ): Boolean {
-        val result = evaluate(expression, data, loopContext)
-        return isTruthy(result)
-    }
-
-    /**
-     * Evaluates an expression that should return an iterable collection.
-     */
-    fun evaluateIterable(
-        expression: String,
-        data: Map<String, Any?>,
-        loopContext: Map<String, Any?> = emptyMap(),
-    ): List<Any?> {
-        val result = evaluate(expression, data, loopContext)
-        return when (result) {
-            null -> emptyList()
-            is List<*> -> result
-            is Array<*> -> result.toList()
-            is Iterable<*> -> result.toList()
-            else -> listOf(result) // Single item becomes a list of one
-        }
-    }
-
-    /**
-     * Processes a string containing embedded expressions like "Hello {{name}}!".
-     */
-    fun processTemplate(
-        template: String,
-        data: Map<String, Any?>,
-        loopContext: Map<String, Any?> = emptyMap(),
-    ): String {
-        val pattern = Regex("""\{\{(.+?)\}\}""")
-        return pattern.replace(template) { match ->
-            val expression = match.groupValues[1]
-            evaluateToString(expression, data, loopContext)
-        }
     }
 
     private fun parsePath(path: String): List<PathSegment> {
@@ -190,17 +128,6 @@ class ExpressionEvaluator {
         is List<*> -> obj.getOrNull(index)
         is Array<*> -> obj.getOrNull(index)
         else -> null
-    }
-
-    private fun isTruthy(value: Any?): Boolean = when (value) {
-        null -> false
-        is Boolean -> value
-        is Number -> value.toDouble() != 0.0
-        is String -> value.isNotEmpty()
-        is Collection<*> -> value.isNotEmpty()
-        is Array<*> -> value.isNotEmpty()
-        is Map<*, *> -> value.isNotEmpty()
-        else -> true
     }
 
     private sealed class PathSegment {

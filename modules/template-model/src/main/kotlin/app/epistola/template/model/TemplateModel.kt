@@ -183,6 +183,7 @@ data class TableCell(
  *
  * - JSONata: Concise syntax purpose-built for JSON transformation (recommended for most users)
  * - JavaScript: Full JS power for advanced use cases
+ * - SimplePath: Lightweight path-only evaluation (fastest, no operations)
  */
 enum class ExpressionLanguage {
     @JsonProperty("jsonata")
@@ -190,6 +191,9 @@ enum class ExpressionLanguage {
 
     @JsonProperty("javascript")
     JavaScript,
+
+    @JsonProperty("simple_path")
+    SimplePath,
 }
 
 /**

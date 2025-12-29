@@ -1,5 +1,6 @@
 package app.epistola.generation.expression
 
+import app.epistola.generation.SimplePathEvaluator
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
 
@@ -7,11 +8,12 @@ import app.epistola.template.model.ExpressionLanguage
  * Dispatches expression evaluation to the appropriate evaluator based on the expression language.
  *
  * This is the main entry point for expression evaluation in the generation module.
- * It delegates to either JSONata or JavaScript evaluators based on the Expression model.
+ * It delegates to JSONata, JavaScript, or SimplePath evaluators based on the Expression model.
  */
 class CompositeExpressionEvaluator(
     private val jsonataEvaluator: ExpressionEvaluator = JsonataEvaluator(),
     private val javaScriptEvaluator: ExpressionEvaluator = JavaScriptEvaluator(),
+    private val simplePathEvaluator: ExpressionEvaluator = SimplePathEvaluator(),
 ) {
     /**
      * Evaluates an Expression model against the provided data context.
@@ -94,5 +96,6 @@ class CompositeExpressionEvaluator(
     private fun getEvaluator(language: ExpressionLanguage): ExpressionEvaluator = when (language) {
         ExpressionLanguage.Jsonata -> jsonataEvaluator
         ExpressionLanguage.JavaScript -> javaScriptEvaluator
+        ExpressionLanguage.SimplePath -> simplePathEvaluator
     }
 }
