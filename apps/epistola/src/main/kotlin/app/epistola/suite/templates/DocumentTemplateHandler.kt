@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
@@ -23,6 +24,7 @@ import app.epistola.suite.versions.commands.PublishVersion
 import app.epistola.suite.versions.queries.GetDraft
 import app.epistola.suite.versions.queries.ListVersions
 import org.springframework.boot.info.BuildProperties
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -45,6 +47,7 @@ class DocumentTemplateHandler(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val buildProperties: BuildProperties?,
+    private val generationService: GenerationService,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
@@ -391,6 +394,44 @@ class DocumentTemplateHandler(
         mediator.send(ArchiveVersion(tenantId = tenantId, templateId = templateId, variantId = variantId, versionId = versionId))
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
+    }
+
+    /**
+     * Generates a PDF preview of a variant's draft version.
+     * Streams the PDF directly to the response.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun preview(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val templateId = request.pathVariable("id").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val variantId = request.pathVariable("variantId").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+
+        // Parse the request body as data context
+        val data: Map<String, Any?> = try {
+            val body = request.body(String::class.java)
+            if (body.isBlank()) {
+                emptyMap()
+            } else {
+                objectMapper.readValue(body, Map::class.java) as Map<String, Any?>
+            }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+
+        return try {
+            ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
+                .build { _, response ->
+                    generationService.generatePreview(tenantId, templateId, variantId, data, response.outputStream)
+                    response.outputStream.flush()
+                    null // Return null to indicate no view to render
+                }
+        } catch (e: NoSuchElementException) {
+            ServerResponse.notFound().build()
+        }
     }
 
     private fun returnVersionsFragment(

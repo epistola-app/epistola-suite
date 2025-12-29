@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- Server-side PDF generation using iText Core 9
+  - New `modules/generation` module with DirectPdfRenderer for native PDF generation
+  - New `modules/template-model` module with shared template types
+  - Expression evaluation ({{customer.name}}) with path traversal and array support
+  - TipTap JSON to iText conversion for rich text content
+  - Block renderers: Text, Container, Columns, Table, Conditional, Loop
+  - Style applicator supporting CSS-like properties (colors, margins, padding, fonts)
+  - Preview endpoint: `POST /tenants/{tenantId}/templates/{id}/variants/{variantId}/preview`
+  - Streaming PDF output to avoid memory buffering
 - Template variants, versions, and lifecycle management (API-first)
   - New domain model: Template → Variant → Version with lifecycle states
   - Environments: Tenant-configurable deployment targets (staging, production, etc.)

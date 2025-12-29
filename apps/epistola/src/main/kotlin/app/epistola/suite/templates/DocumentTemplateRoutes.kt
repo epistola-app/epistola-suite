@@ -30,6 +30,9 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             // Editor route (with variant)
             GET("/{id}/variants/{variantId}/editor", handler::editor)
 
+            // PDF preview (internal UI only)
+            POST("/{id}/variants/{variantId}/preview", handler::preview)
+
             // Draft creation
             POST("/{id}/variants/{variantId}/draft", handler::createDraft)
 
