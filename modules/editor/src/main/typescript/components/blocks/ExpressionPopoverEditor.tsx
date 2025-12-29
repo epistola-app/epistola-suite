@@ -10,14 +10,16 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "../../store/editorStore";
 import { useScope } from "../../context/ScopeContext";
-import { useEvaluator } from "../../context/EvaluatorContext";
 import { useExpressionCompletion } from "../../hooks/use-expression-completion";
 import { expressionTheme } from "../../lib/codemirror/expression-theme";
 import { buildEvaluationContext, formatPreviewValue } from "@/lib/expression-utils";
+import type { ExpressionLanguage } from "@/types/template";
+import { JsonataEvaluator, DirectEvaluator } from "@/services/expression";
 
 interface ExpressionPopoverEditorProps {
   value: string;
-  onSave: (value: string) => void;
+  language?: ExpressionLanguage;
+  onSave: (value: string, language?: ExpressionLanguage) => void;
   onCancel: () => void;
   filterArraysOnly?: boolean;
 }
@@ -27,13 +29,47 @@ type ValidationState =
   | { valid: false; error: string }
   | { valid: false; loading: true };
 
-export function ExpressionPopoverEditor({ value, onSave, onCancel }: ExpressionPopoverEditorProps) {
+export function ExpressionPopoverEditor({
+  value,
+  language: initialLanguage,
+  onSave,
+  onCancel,
+}: ExpressionPopoverEditorProps) {
   const [inputValue, setInputValue] = useState(value);
+  const [language, setLanguage] = useState<ExpressionLanguage>(initialLanguage ?? "jsonata");
   const [validation, setValidation] = useState<ValidationState>({ valid: false, loading: true });
 
   const testData = useEditorStore((s) => s.testData);
   const scope = useScope();
-  const { evaluate, isReady } = useEvaluator();
+
+  // Create a local evaluator based on the selected language
+  const localEvaluator = useMemo(() => {
+    if (language === "javascript") {
+      return new DirectEvaluator();
+    }
+    return new JsonataEvaluator();
+  }, [language]);
+
+  // Initialize local evaluator
+  const [localIsReady, setLocalIsReady] = useState(false);
+  useEffect(() => {
+    let disposed = false;
+    localEvaluator.initialize().then(() => {
+      if (!disposed) setLocalIsReady(true);
+    });
+    return () => {
+      disposed = true;
+      localEvaluator.dispose();
+    };
+  }, [localEvaluator]);
+
+  const isReady = localIsReady;
+  const evaluate = useCallback(
+    async (expr: string, ctx: Record<string, unknown>) => {
+      return localEvaluator.evaluate(expr, ctx);
+    },
+    [localEvaluator],
+  );
 
   // Build completion source
   const completionSource = useExpressionCompletion({
@@ -43,8 +79,8 @@ export function ExpressionPopoverEditor({ value, onSave, onCancel }: ExpressionP
 
   // Handle save action
   const handleSave = useCallback(() => {
-    onSave(inputValue.trim());
-  }, [inputValue, onSave]);
+    onSave(inputValue.trim(), language);
+  }, [inputValue, language, onSave]);
 
   // Set cursor to end of content when editor is created
   const handleCreateEditor = useCallback((view: EditorView) => {
@@ -121,6 +157,37 @@ export function ExpressionPopoverEditor({ value, onSave, onCancel }: ExpressionP
 
   return (
     <div className="w-96 space-y-3">
+      {/* Language Toggle */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Language:</span>
+        <div className="flex rounded-md border bg-muted p-0.5">
+          <button
+            type="button"
+            onClick={() => setLanguage("jsonata")}
+            className={cn(
+              "px-2 py-0.5 text-xs rounded transition-colors",
+              language === "jsonata"
+                ? "bg-background shadow-sm font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            JSONata
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage("javascript")}
+            className={cn(
+              "px-2 py-0.5 text-xs rounded transition-colors",
+              language === "javascript"
+                ? "bg-background shadow-sm font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            JavaScript
+          </button>
+        </div>
+      </div>
+
       {/* CodeMirror Editor */}
       <div
         className={cn(

@@ -178,6 +178,27 @@ data class TableCell(
     val styles: Map<String, Any>? = null,
 )
 
+/**
+ * Expression language for template expressions.
+ *
+ * - JSONata: Concise syntax purpose-built for JSON transformation (recommended for most users)
+ * - JavaScript: Full JS power for advanced use cases
+ */
+enum class ExpressionLanguage {
+    @JsonProperty("jsonata")
+    Jsonata,
+
+    @JsonProperty("javascript")
+    JavaScript,
+}
+
+/**
+ * An expression that can be evaluated against input data.
+ *
+ * @param raw The expression string
+ * @param language The expression language (defaults to JSONata)
+ */
 data class Expression(
     val raw: String,
+    val language: ExpressionLanguage = ExpressionLanguage.Jsonata,
 )

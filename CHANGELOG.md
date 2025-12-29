@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- Dual expression language support (JSONata and JavaScript)
+  - JSONata as the recommended language for template designers (concise, JSON-focused syntax)
+  - JavaScript support for power users with full JS capabilities (array methods, etc.)
+  - Expression language selection stored in Expression model
+  - Server-side: JsonataEvaluator (dashjoin/jsonata), JavaScriptEvaluator (GraalJS sandbox)
+  - Browser-side: JsonataEvaluator (jsonata npm), DirectEvaluator (Function)
+  - CompositeExpressionEvaluator dispatches based on language field
+  - Language toggle UI in expression editor popover
+  - JSONata is now the default expression language
+  - Comprehensive tests for both evaluators (JsonataEvaluatorTest, JavaScriptEvaluatorTest)
 - Server-side PDF generation using iText Core 9
   - New `modules/generation` module with DirectPdfRenderer for native PDF generation
   - New `modules/template-model` module with shared template types

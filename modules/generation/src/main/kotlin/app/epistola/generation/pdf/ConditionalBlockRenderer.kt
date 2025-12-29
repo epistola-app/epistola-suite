@@ -16,9 +16,9 @@ class ConditionalBlockRenderer : BlockRenderer {
     ): List<IBlockElement> {
         if (block !is ConditionalBlock) return emptyList()
 
-        // Evaluate the condition
+        // Evaluate the condition using the Expression object (respects language setting)
         val conditionResult = context.expressionEvaluator.evaluateCondition(
-            block.condition.raw,
+            block.condition,
             context.data,
             context.loopContext,
         )

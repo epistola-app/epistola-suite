@@ -16,9 +16,9 @@ class LoopBlockRenderer : BlockRenderer {
     ): List<IBlockElement> {
         if (block !is LoopBlock) return emptyList()
 
-        // Get the iterable from the expression
+        // Get the iterable from the expression (respects language setting)
         val iterable = context.expressionEvaluator.evaluateIterable(
-            block.expression.raw,
+            block.expression,
             context.data,
             context.loopContext,
         )

@@ -135,19 +135,68 @@ Content-Disposition: inline; filename="preview.pdf"
 
 ### Expression Evaluation
 
-Expressions like `{{customer.name}}` are evaluated server-side using a simple path resolver:
+Epistola supports two expression languages, with the language stored in the `Expression` model:
 
 ```kotlin
-class ExpressionEvaluator {
-    fun evaluate(expression: String, data: Map<String, Any?>): Any? {
-        // Parse "customer.name" -> ["customer", "name"]
-        // Navigate through data map
-        // Return resolved value or null
-    }
+enum class ExpressionLanguage {
+    Jsonata,    // Default, more ergonomic for designers
+    JavaScript, // Full JS power for advanced users
 }
+
+data class Expression(
+    val raw: String,
+    val language: ExpressionLanguage = ExpressionLanguage.Jsonata,
+)
 ```
 
-No JavaScript execution needed - just object path traversal.
+#### JSONata (Recommended)
+
+Concise syntax purpose-built for JSON data transformation:
+
+```jsonata
+customer.name                           // Property access
+items[active]                           // Filter: items where active is true
+items.price                             // Map: extract price from each item
+$sum(items.price)                       // Aggregation
+first & " " & last                      // String concatenation
+$formatNumber(price, "#,##0.00")        // Number formatting
+active ? "Yes" : "No"                   // Conditional
+```
+
+Implementation: [Dashjoin JSONata](https://github.com/dashjoin/jsonata-java) (Java)
+
+#### JavaScript
+
+Full JavaScript for power users:
+
+```javascript
+customer.name                                      // Property access
+items.filter(x => x.active)                        // Filter
+items.map(x => x.price)                            // Map
+items.reduce((sum, x) => sum + x.price, 0)         // Aggregation
+first + " " + last                                 // String concatenation
+price.toFixed(2)                                   // Number formatting
+```
+
+Implementation: GraalJS with sandbox (no file/network access, execution limits)
+
+#### Evaluator Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ CompositeExpressionEvaluator                            │
+│                                                         │
+│   expression.language == Jsonata?                       │
+│           │                                             │
+│     ┌─────┴─────┐                                       │
+│     ▼           ▼                                       │
+│ ┌─────────┐ ┌──────────────┐                            │
+│ │ Jsonata │ │ GraalJS      │                            │
+│ │Evaluator│ │ Evaluator    │                            │
+│ │         │ │ (sandboxed)  │                            │
+│ └─────────┘ └──────────────┘                            │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### Page Settings
 

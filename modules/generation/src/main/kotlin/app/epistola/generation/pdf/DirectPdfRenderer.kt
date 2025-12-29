@@ -1,7 +1,8 @@
 package app.epistola.generation.pdf
 
-import app.epistola.generation.ExpressionEvaluator
 import app.epistola.generation.TipTapConverter
+import app.epistola.generation.expression.CompositeExpressionEvaluator
+import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.TemplateModel
@@ -16,8 +17,9 @@ import java.io.OutputStream
  * Uses iText Core for direct PDF generation without an intermediate HTML step.
  */
 class DirectPdfRenderer(
-    private val expressionEvaluator: ExpressionEvaluator = ExpressionEvaluator(),
+    private val expressionEvaluator: CompositeExpressionEvaluator = CompositeExpressionEvaluator(),
     private val blockRendererRegistry: BlockRendererRegistry = createDefaultRegistry(),
+    private val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.Jsonata,
 ) {
 
     /**
@@ -47,13 +49,14 @@ class DirectPdfRenderer(
         )
 
         // Create render context
-        val tipTapConverter = TipTapConverter(expressionEvaluator)
+        val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage)
         val context = RenderContext(
             data = data,
             loopContext = emptyMap(),
             documentStyles = template.documentStyles,
             expressionEvaluator = expressionEvaluator,
             tipTapConverter = tipTapConverter,
+            defaultExpressionLanguage = defaultExpressionLanguage,
         )
 
         // Render all blocks

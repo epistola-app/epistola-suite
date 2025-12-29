@@ -102,8 +102,20 @@ export interface TableCell {
   styles?: CSSProperties;
 }
 
+/**
+ * Expression language for template expressions.
+ *
+ * - jsonata: Concise syntax purpose-built for JSON transformation (recommended)
+ * - javascript: Full JS power for advanced use cases
+ */
+export type ExpressionLanguage = "jsonata" | "javascript";
+
+/**
+ * An expression that can be evaluated against input data.
+ */
 export interface Expression {
   raw: string;
+  language?: ExpressionLanguage; // defaults to "jsonata"
 }
 
 export interface PreviewOverrides {

@@ -1,5 +1,7 @@
 package app.epistola.generation
 
+import app.epistola.generation.expression.CompositeExpressionEvaluator
+import app.epistola.template.model.ExpressionLanguage
 import com.itextpdf.io.font.constants.StandardFonts
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.kernel.font.PdfFont
@@ -29,7 +31,8 @@ import com.itextpdf.layout.properties.ListNumberingType
  * { "type": "expression", "attrs": { "expression": "customer.name" } }
  */
 class TipTapConverter(
-    private val expressionEvaluator: ExpressionEvaluator,
+    private val expressionEvaluator: CompositeExpressionEvaluator,
+    private val defaultLanguage: ExpressionLanguage = ExpressionLanguage.Jsonata,
 ) {
     companion object {
         // Pre-create fonts for reuse
@@ -201,8 +204,13 @@ class TipTapConverter(
             when (type) {
                 "text" -> {
                     val textContent = child["text"] as? String ?: ""
-                    // Process any embedded expressions in the text
-                    val processedText = expressionEvaluator.processTemplate(textContent, data, loopContext)
+                    // Process any embedded expressions in the text using the default language
+                    val processedText = expressionEvaluator.processTemplate(
+                        textContent,
+                        defaultLanguage,
+                        data,
+                        loopContext,
+                    )
 
                     val text = Text(processedText)
 
@@ -219,9 +227,20 @@ class TipTapConverter(
                     // Expression atom node
                     @Suppress("UNCHECKED_CAST")
                     val attrs = child["attrs"] as? Map<String, Any>
-                    val expression = attrs?.get("expression") as? String ?: ""
-                    val value = expressionEvaluator.evaluateToString(expression, data, loopContext)
-                    paragraph.add(Text(value))
+                    val expressionRaw = attrs?.get("expression") as? String ?: ""
+                    // Get language from attrs, default to the converter's default
+                    val languageStr = attrs?.get("language") as? String
+                    val language = when (languageStr) {
+                        "javascript" -> ExpressionLanguage.JavaScript
+                        else -> defaultLanguage
+                    }
+                    val value = expressionEvaluator.evaluate(
+                        expressionRaw,
+                        language,
+                        data,
+                        loopContext,
+                    )
+                    paragraph.add(Text(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value)))
                 }
             }
         }
