@@ -49,11 +49,22 @@ class DocumentTemplateHandler(
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
         val templates = mediator.query(ListTemplateSummaries(tenantId = tenantId))
+        // Convert to JSON-friendly format for Thymeleaf inline serialization
+        val templatesJson = templates.map { template ->
+            mapOf(
+                "id" to template.id,
+                "name" to template.name,
+                "lastModified" to template.lastModified.toString(),
+                "variantCount" to template.variantCount,
+                "hasDraft" to template.hasDraft,
+                "publishedVersionCount" to template.publishedVersionCount,
+            )
+        }
         return ServerResponse.ok().render(
             "templates/list",
             mapOf(
                 "tenantId" to tenantId,
-                "templates" to templates,
+                "templates" to templatesJson,
             ),
         )
     }

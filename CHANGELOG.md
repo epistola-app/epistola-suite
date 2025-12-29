@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- Multi-entry Vite build for React micro-apps
+  - Templates list page now uses React instead of HTMX
+  - Shared CSS output (`editor.css`) for all React entries
+  - JSON API support for list, search, and create endpoints
+  - Foundation for converting additional pages to React
 - Template variants, versions, and lifecycle management (API-first)
   - New domain model: Template → Variant → Version with lifecycle states
   - Environments: Tenant-configurable deployment targets (staging, production, etc.)

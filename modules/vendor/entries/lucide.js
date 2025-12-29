@@ -42,6 +42,7 @@ export {
   RefreshCcw,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   Square,
   Strikethrough,

@@ -60,15 +60,17 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/main/typescript/lib.tsx'),
-      name: 'TemplateEditor',
-      fileName: 'template-editor',
+      entry: {
+        'template-editor': resolve(__dirname, 'src/main/typescript/lib.tsx'),
+        'template-list': resolve(__dirname, 'src/main/typescript/template-list.tsx'),
+      },
       formats: ['es'],
     },
     rollupOptions: {
       external: EXTERNALS,
       output: {
-        assetFileNames: 'template-editor.[ext]',
+        entryFileNames: '[name].js',
+        assetFileNames: 'editor.[ext]',
       },
     },
   },

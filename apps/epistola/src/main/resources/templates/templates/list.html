@@ -4,8 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Templates - Epistola</title>
+    <!-- Font Family -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <!-- Import map must be before any module scripts -->
+    <th:block th:replace="~{fragments/importmap :: importmap}" />
     <link rel="stylesheet" th:href="@{/css/main.css}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" th:href="@{/editor/editor.css}">
 </head>
 <body>
     <main class="regular">
@@ -15,72 +21,26 @@
 
         <h1>Document Templates</h1>
 
-        <div id="create-form" th:fragment="create-form">
-            <section class="form-section">
-                <h2>Create New Template</h2>
-                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post"
-                      th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
-                      hx-target="#template-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required placeholder="Template name"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('schema')} ? 'error' : ''">
-                        <label for="schema">JSON Schema (optional)</label>
-                        <textarea id="schema" name="schema" rows="6" placeholder='{"type": "object", "properties": {...}}'
-                                  th:text="${formData?.schema}"></textarea>
-                        <span class="form-error" th:if="${errors?.containsKey('schema')}" th:text="${errors.schema}"></span>
-                    </div>
-                    <button type="submit">Create Template</button>
-                </form>
-            </section>
-        </div>
-
-        <section>
-            <h2>Existing Templates</h2>
-            <div class="search-box">
-                <input type="search"
-                       name="q"
-                       placeholder="Search templates..."
-                       th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})}"
-                       hx-trigger="input changed delay:300ms, search"
-                       hx-target="#template-rows"
-                       hx-swap="innerHTML">
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Variants</th>
-                        <th>Last Modified</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="template-rows">
-                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
-                    <th:block th:fragment="rows">
-                        <tr th:each="template : ${templates}">
-                            <td th:text="${template.id}"></td>
-                            <td th:text="${template.name}"></td>
-                            <td th:text="${template.variantCount}"></td>
-                            <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td class="actions">
-                                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">View</a>
-                            </td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(templates)}">
-                            <td colspan="5" class="empty-message">No templates yet. Create one above.</td>
-                        </tr>
-                    </th:block>
-                </tbody>
-            </table>
-        </section>
+        <div id="templates-container"></div>
     </main>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        window.TENANT_ID = /*[[${tenantId}]]*/ 0;
+        window.TEMPLATES = /*[[${templates}]]*/ [];
+        /*]]>*/
+    </script>
+    <script type="module">
+        import { mountTemplateList } from '/editor/template-list.js';
+
+        const container = document.getElementById('templates-container');
+
+        mountTemplateList({
+            container: container,
+            tenantId: window.TENANT_ID,
+            templates: window.TEMPLATES,
+        });
+    </script>
 
     <th:block th:replace="~{fragments/footer :: footer}" />
 </body>
