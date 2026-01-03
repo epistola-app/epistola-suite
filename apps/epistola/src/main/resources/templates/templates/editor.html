@@ -101,6 +101,8 @@
         mountEditor({
             container: container,
             template: templateData,
+            dataExamples: dataExamples,
+            dataModel: dataModel,
             onSave: async (template) => {
                 try {
                     const response = await fetch('/v1/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
@@ -120,6 +122,122 @@
                 } catch (error) {
                     console.error('Error saving draft:', error);
                     alert('Error saving draft. Please try again.');
+                }
+            },
+            onSaveDataExamples: async (examples) => {
+                try {
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/vnd.epistola.v1+json',
+                        },
+                        body: JSON.stringify({ dataExamples: examples })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Data examples saved successfully');
+                        return { success: true, warnings: data.warnings };
+                    } else {
+                        console.error('Failed to save data examples:', response.statusText);
+                        return { success: false };
+                    }
+                } catch (error) {
+                    console.error('Error saving data examples:', error);
+                    return { success: false };
+                }
+            },
+            onUpdateDataExample: async (exampleId, updates, forceUpdate = false) => {
+                try {
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/data-examples/' + exampleId, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/vnd.epistola.v1+json',
+                        },
+                        body: JSON.stringify({ ...updates, forceUpdate: forceUpdate })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Data example updated successfully');
+                        return {
+                            success: true,
+                            example: { id: data.id, name: data.name, data: data.data },
+                            warnings: data.warnings
+                        };
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        console.error('Failed to update data example:', response.statusText);
+                        return { success: false, errors: errorData.errors };
+                    }
+                } catch (error) {
+                    console.error('Error updating data example:', error);
+                    return { success: false };
+                }
+            },
+            onDeleteDataExample: async (exampleId) => {
+                try {
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/data-examples/' + exampleId, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/vnd.epistola.v1+json',
+                        }
+                    });
+
+                    if (response.ok || response.status === 204) {
+                        console.log('Data example deleted successfully');
+                        return { success: true };
+                    } else {
+                        console.error('Failed to delete data example:', response.statusText);
+                        return { success: false };
+                    }
+                } catch (error) {
+                    console.error('Error deleting data example:', error);
+                    return { success: false };
+                }
+            },
+            onSaveSchema: async (schema, forceUpdate = false) => {
+                try {
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/vnd.epistola.v1+json',
+                        },
+                        body: JSON.stringify({ dataModel: schema, forceUpdate: forceUpdate })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Schema saved successfully');
+                        return { success: true, warnings: data.warnings };
+                    } else {
+                        console.error('Failed to save schema:', response.statusText);
+                        return { success: false };
+                    }
+                } catch (error) {
+                    console.error('Error saving schema:', error);
+                    return { success: false };
+                }
+            },
+            onValidateSchema: async (schema, examples) => {
+                try {
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/validate-schema', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/vnd.epistola.v1+json',
+                        },
+                        body: JSON.stringify({ schema: schema, examples: examples })
+                    });
+
+                    if (response.ok) {
+                        return await response.json();
+                    } else {
+                        console.error('Failed to validate schema:', response.statusText);
+                        return { compatible: false, errors: [{ path: '', message: 'Validation request failed' }], migrations: [] };
+                    }
+                } catch (error) {
+                    console.error('Error validating schema:', error);
+                    return { compatible: false, errors: [{ path: '', message: 'Validation request error' }], migrations: [] };
                 }
             }
         });

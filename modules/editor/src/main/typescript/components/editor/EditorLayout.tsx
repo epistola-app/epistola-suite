@@ -1,11 +1,14 @@
 import { BlockPalette } from "./BlockPalette";
 import { Canvas } from "./Canvas";
 import { Preview } from "./Preview";
+import { DataContractManager } from "./DataContractManager";
 import { StyleSidebar } from "../styling";
 import { useEditorStore, useIsDirty } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
 import type { EvaluatorType } from "../../services/expression";
-import type { Template } from "../../types/template";
+import type { Template, DataExample, JsonObject } from "../../types/template";
+import type { JsonSchema } from "../../types/schema";
+import type { ValidationError, SchemaCompatibilityResult } from "../../hooks/useDataContractDraft";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import SaveButton from "../ui/save-button";
 import { Button } from "../ui/button";
@@ -16,14 +19,54 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resi
 import { type ReactNode, useEffect } from "react";
 import { AutoSave } from "../ui/auto-save";
 
+/**
+ * Result of updating a single data example
+ */
+interface UpdateDataExampleResult {
+  success: boolean;
+  example?: DataExample;
+  warnings?: Record<string, ValidationError[]>;
+  errors?: Record<string, ValidationError[]>;
+}
+
 interface EditorLayoutProps {
   /** When true, hides the internal header (for embedding in parent layout) */
   isEmbedded?: boolean;
   /** Callback when user clicks Save */
   onSave?: (template: Template) => void | Promise<void>;
+  /** Callback when data examples are saved (batch) */
+  onSaveDataExamples?: (
+    examples: DataExample[]
+  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
+  /** Callback when a single data example is updated */
+  onUpdateDataExample?: (
+    exampleId: string,
+    updates: { name?: string; data?: JsonObject },
+    forceUpdate?: boolean
+  ) => Promise<UpdateDataExampleResult>;
+  /** Callback when a single data example is deleted */
+  onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
+  /** Callback when schema is saved */
+  onSaveSchema?: (
+    schema: JsonSchema | null,
+    forceUpdate?: boolean
+  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
+  /** Callback to validate schema compatibility before saving */
+  onValidateSchema?: (
+    schema: JsonSchema,
+    examples?: DataExample[]
+  ) => Promise<SchemaCompatibilityResult>;
 }
 
-export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) {
+export function EditorLayout({
+  isEmbedded = false,
+  onSave,
+  onSaveDataExamples,
+  onUpdateDataExample,
+  onDeleteDataExample,
+  onSaveSchema,
+  onValidateSchema,
+}: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
   const isDirty = useIsDirty();
 
@@ -42,7 +85,16 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      <EditorHeader isEmbedded={isEmbedded} onSave={onSave} template={template} />
+      <EditorHeader
+        isEmbedded={isEmbedded}
+        onSave={onSave}
+        onSaveDataExamples={onSaveDataExamples}
+        onUpdateDataExample={onUpdateDataExample}
+        onDeleteDataExample={onDeleteDataExample}
+        onSaveSchema={onSaveSchema}
+        onValidateSchema={onValidateSchema}
+        template={template}
+      />
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden gap-3 p-3">
         <StyleSidebar className="shrink-0 rounded-xl shadow-lg border border-slate-200/50" />
@@ -93,10 +145,41 @@ function EvaluatorSelector() {
 interface EditorHeaderProps {
   isEmbedded: boolean;
   onSave: ((template: Template) => void | Promise<void>) | undefined;
+  onSaveDataExamples:
+    | ((
+        examples: DataExample[]
+      ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>)
+    | undefined;
+  onUpdateDataExample:
+    | ((
+        exampleId: string,
+        updates: { name?: string; data?: JsonObject },
+        forceUpdate?: boolean
+      ) => Promise<UpdateDataExampleResult>)
+    | undefined;
+  onDeleteDataExample: ((exampleId: string) => Promise<{ success: boolean }>) | undefined;
+  onSaveSchema:
+    | ((
+        schema: JsonSchema | null,
+        forceUpdate?: boolean
+      ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>)
+    | undefined;
+  onValidateSchema:
+    | ((schema: JsonSchema, examples?: DataExample[]) => Promise<SchemaCompatibilityResult>)
+    | undefined;
   template: Template;
 }
 
-function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
+function EditorHeader({
+  isEmbedded,
+  onSave,
+  onSaveDataExamples,
+  onUpdateDataExample,
+  onDeleteDataExample,
+  onSaveSchema,
+  onValidateSchema,
+  template,
+}: EditorHeaderProps) {
   const handleSave = () => {
     if (onSave) {
       onSave(template);
@@ -109,6 +192,15 @@ function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
         <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
           <h1 className="text-lg font-semibold text-gray-800">{template.name}</h1>
           <div className="flex items-center gap-4">
+            {/* Data Contract Manager */}
+            <DataContractManager
+              onSaveDataExamples={onSaveDataExamples}
+              onUpdateDataExample={onUpdateDataExample}
+              onDeleteDataExample={onDeleteDataExample}
+              onSaveSchema={onSaveSchema}
+              onValidateSchema={onValidateSchema}
+            />
+            <Separator orientation="vertical" className="min-h-6" />
             {/* Evaluator Selector */}
             <EvaluatorSelector />
 
@@ -150,6 +242,14 @@ function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
             <span className="text-sm font-medium text-foreground">{template.name}</span>
           </div>
           <div className="flex items-center gap-4">
+            <DataContractManager
+              onSaveDataExamples={onSaveDataExamples}
+              onUpdateDataExample={onUpdateDataExample}
+              onDeleteDataExample={onDeleteDataExample}
+              onSaveSchema={onSaveSchema}
+              onValidateSchema={onValidateSchema}
+            />
+            <Separator orientation="vertical" className="min-h-6" />
             <EvaluatorSelector />
             <Separator orientation="vertical" className="min-h-6" />
             <AutoSave onSave={onSave} />
