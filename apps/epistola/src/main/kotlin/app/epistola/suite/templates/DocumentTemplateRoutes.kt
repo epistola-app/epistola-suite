@@ -20,6 +20,11 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             POST("/{id}/delete", handler::delete)
             PATCH("/{id}", handler::update)
             GET("/{id}/api", handler::get)
+            POST("/{id}/validate-schema", handler::validateSchema)
+
+            // Data example routes
+            PATCH("/{id}/data-examples/{exampleId}", handler::updateDataExample)
+            DELETE("/{id}/data-examples/{exampleId}", handler::deleteDataExample)
 
             // Variant routes
             POST("/{id}/variants", handler::createVariant)

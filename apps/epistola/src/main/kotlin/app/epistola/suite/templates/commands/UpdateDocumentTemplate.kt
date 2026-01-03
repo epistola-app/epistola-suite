@@ -6,6 +6,7 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.ValidationError
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -15,6 +16,9 @@ import tools.jackson.databind.node.ObjectNode
 /**
  * Updates a template's metadata (name, dataModel, dataExamples).
  * Note: templateModel is now stored in TemplateVersion and updated via version commands.
+ *
+ * @property forceUpdate When true, validation warnings don't block the update.
+ *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDocumentTemplate(
     val tenantId: Long,
@@ -22,23 +26,40 @@ data class UpdateDocumentTemplate(
     val name: String? = null,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
-) : Command<DocumentTemplate?>
+    val forceUpdate: Boolean = false,
+) : Command<UpdateDocumentTemplateResult?>
+
+/**
+ * Result of updating a document template.
+ *
+ * @property template The updated template, or null if not found
+ * @property warnings Validation warnings that occurred during update (only populated when forceUpdate=true)
+ */
+data class UpdateDocumentTemplateResult(
+    val template: DocumentTemplate,
+    val warnings: Map<String, List<ValidationError>> = emptyMap(),
+)
 
 @Component
 class UpdateDocumentTemplateHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,
-) : CommandHandler<UpdateDocumentTemplate, DocumentTemplate?> {
-    override fun handle(command: UpdateDocumentTemplate): DocumentTemplate? {
-        // Validate examples against schema if both are being updated
+) : CommandHandler<UpdateDocumentTemplate, UpdateDocumentTemplateResult?> {
+    override fun handle(command: UpdateDocumentTemplate): UpdateDocumentTemplateResult? {
+        // Validate examples against schema and collect warnings
+        val warnings = mutableMapOf<String, List<ValidationError>>()
         val schemaToValidate = command.dataModel
         val examplesToValidate = command.dataExamples
 
         if (schemaToValidate != null && examplesToValidate != null && examplesToValidate.isNotEmpty()) {
             val errors = jsonSchemaValidator.validateExamples(schemaToValidate, examplesToValidate)
             if (errors.isNotEmpty()) {
-                throw DataModelValidationException(errors)
+                if (command.forceUpdate) {
+                    warnings.putAll(errors)
+                } else {
+                    throw DataModelValidationException(errors)
+                }
             }
         }
 
@@ -48,7 +69,11 @@ class UpdateDocumentTemplateHandler(
             if (existing.dataExamples.isNotEmpty()) {
                 val errors = jsonSchemaValidator.validateExamples(schemaToValidate, existing.dataExamples)
                 if (errors.isNotEmpty()) {
-                    throw DataModelValidationException(errors)
+                    if (command.forceUpdate) {
+                        warnings.putAll(errors)
+                    } else {
+                        throw DataModelValidationException(errors)
+                    }
                 }
             }
         }
@@ -60,7 +85,11 @@ class UpdateDocumentTemplateHandler(
             if (existingSchema != null) {
                 val errors = jsonSchemaValidator.validateExamples(existingSchema, examplesToValidate)
                 if (errors.isNotEmpty()) {
-                    throw DataModelValidationException(errors)
+                    if (command.forceUpdate) {
+                        warnings.putAll(errors)
+                    } else {
+                        throw DataModelValidationException(errors)
+                    }
                 }
             }
         }
@@ -83,7 +112,8 @@ class UpdateDocumentTemplateHandler(
         }
 
         if (updates.isEmpty()) {
-            return getExisting(command.tenantId, command.id)
+            val existing = getExisting(command.tenantId, command.id) ?: return null
+            return UpdateDocumentTemplateResult(template = existing, warnings = warnings)
         }
 
         updates.add("last_modified = NOW()")
@@ -95,7 +125,7 @@ class UpdateDocumentTemplateHandler(
             RETURNING id, tenant_id, name, data_model, data_examples, created_at, last_modified
         """
 
-        return jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+        val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
             val query = handle.createQuery(sql)
                 .bind("id", command.id)
                 .bind("tenantId", command.tenantId)
@@ -105,7 +135,9 @@ class UpdateDocumentTemplateHandler(
             query.mapTo<DocumentTemplate>()
                 .findOne()
                 .orElse(null)
-        }
+        } ?: return null
+
+        return UpdateDocumentTemplateResult(template = updated, warnings = warnings)
     }
 
     private fun getExisting(tenantId: Long, id: Long): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
