@@ -81,6 +81,8 @@
         window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
         window.TENANT_ID = /*[[${tenantId}]]*/ '';
         window.VARIANT_ID = /*[[${variantId}]]*/ '';
+        window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
+        window.DATA_MODEL = /*[[${dataModel}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
         window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
         /*]]>*/
@@ -93,6 +95,8 @@
         const templateId = window.TEMPLATE_ID;
         const tenantId = window.TENANT_ID;
         const variantId = window.VARIANT_ID;
+        const dataExamples = window.DATA_EXAMPLES;
+        const dataModel = window.DATA_MODEL;
 
         mountEditor({
             container: container,
