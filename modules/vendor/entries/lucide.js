@@ -1,6 +1,8 @@
 // Auto-generated - do not edit manually
 // Run: pnpm --filter @epistola/vendor generate:lucide
 export {
+  AlertCircle,
+  AlertTriangle,
   AlignCenter,
   AlignJustify,
   AlignLeft,
@@ -17,7 +19,9 @@ export {
   CheckIcon,
   ChevronDown,
   ChevronDownIcon,
+  ChevronRight,
   ChevronUpIcon,
+  Circle,
   CircleAlert,
   CircleCheck,
   CircleQuestionMark,
@@ -46,8 +50,10 @@ export {
   Square,
   Strikethrough,
   TextAlignStart,
+  Trash2,
   Type,
   Underline,
+  Wand2,
   Wrench,
   X,
   XIcon,
