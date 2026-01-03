@@ -60,11 +60,7 @@ interface ConfirmCloseDialogProps {
  * Simple confirmation dialog when closing with unsaved changes.
  * Can be used inline or as a separate dialog.
  */
-export function ConfirmClosePrompt({
-  open,
-  onConfirm,
-  onCancel,
-}: ConfirmCloseDialogProps) {
+export function ConfirmClosePrompt({ open, onConfirm, onCancel }: ConfirmCloseDialogProps) {
   if (!open) return null;
 
   return (

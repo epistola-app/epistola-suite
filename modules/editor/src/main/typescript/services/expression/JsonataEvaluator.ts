@@ -1,9 +1,5 @@
 import jsonata from "jsonata";
-import type {
-  ExpressionEvaluator,
-  EvaluationContext,
-  EvaluationResult,
-} from "./types";
+import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from "./types";
 
 /**
  * Expression evaluator using JSONata - a query and transformation language for JSON.
@@ -27,10 +23,7 @@ export class JsonataEvaluator implements ExpressionEvaluator {
     // No initialization needed for JSONata
   }
 
-  async evaluate(
-    expression: string,
-    context: EvaluationContext
-  ): Promise<EvaluationResult> {
+  async evaluate(expression: string, context: EvaluationContext): Promise<EvaluationResult> {
     const trimmed = expression.trim();
     if (!trimmed) {
       return { success: true, value: undefined };

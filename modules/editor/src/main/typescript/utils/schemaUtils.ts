@@ -123,7 +123,9 @@ function jsonSchemaPropertyToField(
 
   if (type === "array") {
     const itemType = prop.items
-      ? (Array.isArray(prop.items.type) ? prop.items.type[0] : prop.items.type)
+      ? Array.isArray(prop.items.type)
+        ? prop.items.type[0]
+        : prop.items.type
       : "string";
     const nestedFields =
       itemType === "object" && prop.items?.properties

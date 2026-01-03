@@ -84,7 +84,9 @@ function validateProperty(
 
   // Type checking
   const actualType = getValueType(value);
-  const matchesAnyType = expectedTypes.some((expectedType) => typeMatches(actualType, expectedType));
+  const matchesAnyType = expectedTypes.some((expectedType) =>
+    typeMatches(actualType, expectedType),
+  );
   if (!matchesAnyType) {
     errors.push({
       path,

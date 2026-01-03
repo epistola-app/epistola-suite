@@ -68,7 +68,7 @@ export function ValidationMessages({
  * Converts a map of example name -> errors into a flat list of errors with prefixed paths.
  */
 export function flattenErrorsByExample(
-  errorsByExample: Record<string, ValidationError[]>
+  errorsByExample: Record<string, ValidationError[]>,
 ): ValidationError[] {
   const result: ValidationError[] = [];
   for (const [exampleName, errors] of Object.entries(errorsByExample)) {

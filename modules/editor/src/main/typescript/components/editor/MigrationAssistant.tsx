@@ -33,13 +33,14 @@ export function MigrationAssistant({
   onCancel,
 }: MigrationAssistantProps) {
   const [selectedMigrations, setSelectedMigrations] = useState<Set<string>>(
-    () => new Set(migrations.filter((m) => m.autoMigratable).map((m) => `${m.exampleId}:${m.path}`))
+    () =>
+      new Set(migrations.filter((m) => m.autoMigratable).map((m) => `${m.exampleId}:${m.path}`)),
   );
 
   // Sync selection when migrations prop changes
   useEffect(() => {
     setSelectedMigrations(
-      new Set(migrations.filter((m) => m.autoMigratable).map((m) => `${m.exampleId}:${m.path}`))
+      new Set(migrations.filter((m) => m.autoMigratable).map((m) => `${m.exampleId}:${m.path}`)),
     );
   }, [migrations]);
 
@@ -59,14 +60,14 @@ export function MigrationAssistant({
 
   const handleApplySelected = () => {
     const selected = migrations.filter(
-      (m) => m.autoMigratable && selectedMigrations.has(`${m.exampleId}:${m.path}`)
+      (m) => m.autoMigratable && selectedMigrations.has(`${m.exampleId}:${m.path}`),
     );
     onApplyMigrations(selected);
   };
 
   const handleSelectAll = () => {
     setSelectedMigrations(
-      new Set(migrations.filter((m) => m.autoMigratable).map((m) => `${m.exampleId}:${m.path}`))
+      new Set(migrations.filter((m) => m.autoMigratable).map((m) => `${m.exampleId}:${m.path}`)),
     );
   };
 
@@ -84,7 +85,7 @@ export function MigrationAssistant({
       acc[key].migrations.push(migration);
       return acc;
     },
-    {} as Record<string, { name: string; migrations: MigrationSuggestion[] }>
+    {} as Record<string, { name: string; migrations: MigrationSuggestion[] }>,
   );
 
   return (
@@ -110,38 +111,54 @@ export function MigrationAssistant({
           {autoMigratableCount > 0 && (
             <div className="flex items-center gap-2 text-xs">
               <span className="text-muted-foreground">Auto-fix:</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleSelectAll}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={handleSelectAll}
+              >
                 Select all
               </Button>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleSelectNone}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={handleSelectNone}
+              >
                 Select none
               </Button>
             </div>
           )}
 
           {/* Migration list by example */}
-          {Object.entries(migrationsByExample).map(([exampleId, { name, migrations: exampleMigrations }]) => (
-            <div key={exampleId} className="border rounded-md p-3 space-y-2">
-              <div className="font-medium text-sm">{name}</div>
-              <div className="space-y-2">
-                {exampleMigrations.map((migration, i) => (
-                  <MigrationItem
-                    key={i}
-                    migration={migration}
-                    selected={selectedMigrations.has(`${migration.exampleId}:${migration.path}`)}
-                    onToggle={() => handleToggleMigration(migration)}
-                  />
-                ))}
+          {Object.entries(migrationsByExample).map(
+            ([exampleId, { name, migrations: exampleMigrations }]) => (
+              <div key={exampleId} className="border rounded-md p-3 space-y-2">
+                <div className="font-medium text-sm">{name}</div>
+                <div className="space-y-2">
+                  {exampleMigrations.map((migration, i) => (
+                    <MigrationItem
+                      key={i}
+                      migration={migration}
+                      selected={selectedMigrations.has(`${migration.exampleId}:${migration.path}`)}
+                      onToggle={() => handleToggleMigration(migration)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button variant="outline" onClick={onForceSave} className="text-amber-600 hover:text-amber-700">
+          <Button
+            variant="outline"
+            onClick={onForceSave}
+            className="text-amber-600 hover:text-amber-700"
+          >
             <AlertTriangle className="h-4 w-4 mr-1" />
             Save Anyway
           </Button>
@@ -200,20 +217,22 @@ function MigrationItem({ migration, selected, onToggle }: MigrationItemProps) {
         <div className="mt-1 text-muted-foreground">
           {migration.issue === "TYPE_MISMATCH" && (
             <>
-              Current: <code className="bg-red-100 px-1 rounded">{formatValue(migration.currentValue)}</code>
+              Current:{" "}
+              <code className="bg-red-100 px-1 rounded">{formatValue(migration.currentValue)}</code>
               {" → "}
               Expected: <span className="font-medium">{migration.expectedType}</span>
               {migration.autoMigratable && migration.suggestedValue !== null && (
                 <>
                   {" → "}
-                  Suggested: <code className="bg-green-100 px-1 rounded">{formatValue(migration.suggestedValue)}</code>
+                  Suggested:{" "}
+                  <code className="bg-green-100 px-1 rounded">
+                    {formatValue(migration.suggestedValue)}
+                  </code>
                 </>
               )}
             </>
           )}
-          {migration.issue === "MISSING_REQUIRED" && (
-            <span>Field is required but missing</span>
-          )}
+          {migration.issue === "MISSING_REQUIRED" && <span>Field is required but missing</span>}
         </div>
       </div>
     </div>

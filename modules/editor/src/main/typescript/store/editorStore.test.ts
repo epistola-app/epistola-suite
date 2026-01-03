@@ -140,9 +140,7 @@ describe("editorStore - addDataExample", () => {
       .getState()
       .setDataExamples([{ id: "ex1", name: "Example 1", data: { value: 1 } }]);
 
-    useEditorStore
-      .getState()
-      .addDataExample({ id: "ex2", name: "Example 2", data: { value: 2 } });
+    useEditorStore.getState().addDataExample({ id: "ex2", name: "Example 2", data: { value: 2 } });
 
     const state = useEditorStore.getState();
     expect(state.dataExamples).toHaveLength(2);
@@ -217,7 +215,9 @@ describe("editorStore - deleteDataExample", () => {
   });
 
   it("falls back to default when last example is deleted", () => {
-    useEditorStore.getState().setDataExamples([{ id: "ex1", name: "Only One", data: { solo: true } }]);
+    useEditorStore
+      .getState()
+      .setDataExamples([{ id: "ex1", name: "Only One", data: { solo: true } }]);
     useEditorStore.getState().selectDataExample("ex1");
     useEditorStore.getState().deleteDataExample("ex1");
 

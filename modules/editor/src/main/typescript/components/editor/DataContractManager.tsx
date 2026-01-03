@@ -470,7 +470,7 @@ function SchemaTab({ draft, onClose }: SchemaTabProps) {
       {/* Save error */}
       {saveError && (
         <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-2 rounded-md border border-destructive/50">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{saveError}</span>
         </div>
       )}

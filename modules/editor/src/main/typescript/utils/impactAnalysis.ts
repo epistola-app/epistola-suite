@@ -6,10 +6,7 @@ import { pathMatchesSchema } from "./expressionUtils";
  * Analyze the impact of schema on expressions.
  * Returns issues for expressions that don't match the schema.
  */
-export function analyzeSchemaImpact(
-  schema: VisualSchema,
-  expressions: Set<string>,
-): SchemaIssue[] {
+export function analyzeSchemaImpact(schema: VisualSchema, expressions: Set<string>): SchemaIssue[] {
   const issues: SchemaIssue[] = [];
   const schemaPaths = getSchemaFieldPaths(schema);
 

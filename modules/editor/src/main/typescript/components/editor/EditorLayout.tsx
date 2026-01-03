@@ -36,25 +36,25 @@ interface EditorLayoutProps {
   onSave?: (template: Template) => void | Promise<void>;
   /** Callback when data examples are saved (batch) */
   onSaveDataExamples?: (
-    examples: DataExample[]
+    examples: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
   /** Callback when a single data example is updated */
   onUpdateDataExample?: (
     exampleId: string,
     updates: { name?: string; data?: JsonObject },
-    forceUpdate?: boolean
+    forceUpdate?: boolean,
   ) => Promise<UpdateDataExampleResult>;
   /** Callback when a single data example is deleted */
   onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
   /** Callback when schema is saved */
   onSaveSchema?: (
     schema: JsonSchema | null,
-    forceUpdate?: boolean
+    forceUpdate?: boolean,
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
   /** Callback to validate schema compatibility before saving */
   onValidateSchema?: (
     schema: JsonSchema,
-    examples?: DataExample[]
+    examples?: DataExample[],
   ) => Promise<SchemaCompatibilityResult>;
 }
 
@@ -147,21 +147,21 @@ interface EditorHeaderProps {
   onSave: ((template: Template) => void | Promise<void>) | undefined;
   onSaveDataExamples:
     | ((
-        examples: DataExample[]
+        examples: DataExample[],
       ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>)
     | undefined;
   onUpdateDataExample:
     | ((
         exampleId: string,
         updates: { name?: string; data?: JsonObject },
-        forceUpdate?: boolean
+        forceUpdate?: boolean,
       ) => Promise<UpdateDataExampleResult>)
     | undefined;
   onDeleteDataExample: ((exampleId: string) => Promise<{ success: boolean }>) | undefined;
   onSaveSchema:
     | ((
         schema: JsonSchema | null,
-        forceUpdate?: boolean
+        forceUpdate?: boolean,
       ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>)
     | undefined;
   onValidateSchema:

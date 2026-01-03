@@ -1,5 +1,12 @@
 import type { JSONContent } from "@tiptap/react";
-import type { Block, TextBlock, ConditionalBlock, LoopBlock, ColumnsBlock, TableBlock } from "../types/template";
+import type {
+  Block,
+  TextBlock,
+  ConditionalBlock,
+  LoopBlock,
+  ColumnsBlock,
+  TableBlock,
+} from "../types/template";
 
 /**
  * Extract all expression paths used in template blocks.
@@ -88,7 +95,10 @@ export function extractExpressions(blocks: Block[]): Set<string> {
  * Extract expression paths from TipTap JSON content.
  * Looks for expression nodes with data-expression attribute.
  */
-function extractFromTipTapContent(content: JSONContent | null | undefined, expressions: Set<string>) {
+function extractFromTipTapContent(
+  content: JSONContent | null | undefined,
+  expressions: Set<string>,
+) {
   if (!content) return;
 
   // Check if this is an expression node

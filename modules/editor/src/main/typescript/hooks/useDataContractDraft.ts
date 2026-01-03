@@ -38,20 +38,20 @@ export interface UpdateDataExampleResult {
 export interface SaveCallbacks {
   onSaveSchema?: (
     schema: JsonSchema | null,
-    forceUpdate?: boolean
+    forceUpdate?: boolean,
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
   onSaveDataExamples?: (
-    examples: DataExample[]
+    examples: DataExample[],
   ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
   onUpdateDataExample?: (
     exampleId: string,
     updates: { name?: string; data?: JsonObject },
-    forceUpdate?: boolean
+    forceUpdate?: boolean,
   ) => Promise<UpdateDataExampleResult>;
   onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
   onValidateSchema?: (
     schema: JsonSchema,
-    examples?: DataExample[]
+    examples?: DataExample[],
   ) => Promise<SchemaCompatibilityResult>;
 }
 
@@ -78,7 +78,7 @@ export interface DataContractDraft {
   saveSingleExample: (
     exampleId: string,
     updates: { name?: string; data?: JsonObject },
-    forceUpdate?: boolean
+    forceUpdate?: boolean,
   ) => Promise<UpdateDataExampleResult>;
   deleteSingleExample: (exampleId: string) => Promise<{ success: boolean }>;
   discardDraft: () => void;
@@ -142,9 +142,7 @@ export function useDataContractDraft(callbacks: SaveCallbacks): DataContractDraf
   }, []);
 
   const updateDraftExample = useCallback((id: string, updates: Partial<DataExample>) => {
-    setDraftExamples((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...updates } : e))
-    );
+    setDraftExamples((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)));
   }, []);
 
   const deleteDraftExample = useCallback((id: string) => {
@@ -152,12 +150,13 @@ export function useDataContractDraft(callbacks: SaveCallbacks): DataContractDraf
   }, []);
 
   // Validate schema compatibility with examples
-  const validateSchemaCompatibility = useCallback(async (): Promise<SchemaCompatibilityResult | null> => {
-    if (!callbacks.onValidateSchema || !draftSchema) {
-      return null;
-    }
-    return callbacks.onValidateSchema(draftSchema, draftExamples);
-  }, [callbacks, draftSchema, draftExamples]);
+  const validateSchemaCompatibility =
+    useCallback(async (): Promise<SchemaCompatibilityResult | null> => {
+      if (!callbacks.onValidateSchema || !draftSchema) {
+        return null;
+      }
+      return callbacks.onValidateSchema(draftSchema, draftExamples);
+    }, [callbacks, draftSchema, draftExamples]);
 
   // Save schema to backend
   const saveSchema = useCallback(
@@ -185,51 +184,54 @@ export function useDataContractDraft(callbacks: SaveCallbacks): DataContractDraf
         };
       }
     },
-    [callbacks, draftSchema, setStoreSchema]
+    [callbacks, draftSchema, setStoreSchema],
   );
 
   // Save examples to backend (batch)
   // Accepts optional examples to save (to avoid stale closure issues)
-  const saveExamples = useCallback(async (examplesToSave?: DataExample[]): Promise<SaveExamplesResult> => {
-    const examples = examplesToSave ?? draftExamples;
+  const saveExamples = useCallback(
+    async (examplesToSave?: DataExample[]): Promise<SaveExamplesResult> => {
+      const examples = examplesToSave ?? draftExamples;
 
-    if (!callbacks.onSaveDataExamples) {
-      // No callback, just update store
-      setStoreExamples(examples);
-      setDraftExamples(examples);
-      return { success: true };
-    }
-
-    try {
-      const result = await callbacks.onSaveDataExamples(examples);
-      if (result.success) {
-        // Update store with saved examples
+      if (!callbacks.onSaveDataExamples) {
+        // No callback, just update store
         setStoreExamples(examples);
         setDraftExamples(examples);
+        return { success: true };
       }
-      return {
-        success: result.success,
-        warnings: result.warnings,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to save examples",
-      };
-    }
-  }, [callbacks, draftExamples, setStoreExamples]);
+
+      try {
+        const result = await callbacks.onSaveDataExamples(examples);
+        if (result.success) {
+          // Update store with saved examples
+          setStoreExamples(examples);
+          setDraftExamples(examples);
+        }
+        return {
+          success: result.success,
+          warnings: result.warnings,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to save examples",
+        };
+      }
+    },
+    [callbacks, draftExamples, setStoreExamples],
+  );
 
   // Save a single example to backend
   const saveSingleExample = useCallback(
     async (
       exampleId: string,
       updates: { name?: string; data?: JsonObject },
-      forceUpdate = false
+      forceUpdate = false,
     ): Promise<UpdateDataExampleResult> => {
       if (!callbacks.onUpdateDataExample) {
         // No callback, update store directly
         const updatedExamples = draftExamples.map((e) =>
-          e.id === exampleId ? { ...e, ...updates } : e
+          e.id === exampleId ? { ...e, ...updates } : e,
         );
         setStoreExamples(updatedExamples);
         setDraftExamples(updatedExamples);
@@ -242,7 +244,7 @@ export function useDataContractDraft(callbacks: SaveCallbacks): DataContractDraf
         if (result.success && result.example) {
           // Update store with the saved example
           const updatedExamples = draftExamples.map((e) =>
-            e.id === exampleId ? result.example! : e
+            e.id === exampleId ? result.example! : e,
           );
           setStoreExamples(updatedExamples);
           setDraftExamples(updatedExamples);
@@ -251,11 +253,18 @@ export function useDataContractDraft(callbacks: SaveCallbacks): DataContractDraf
       } catch (error) {
         return {
           success: false,
-          errors: { _: [{ path: "", message: error instanceof Error ? error.message : "Failed to save example" }] },
+          errors: {
+            _: [
+              {
+                path: "",
+                message: error instanceof Error ? error.message : "Failed to save example",
+              },
+            ],
+          },
         };
       }
     },
-    [callbacks, draftExamples, setStoreExamples]
+    [callbacks, draftExamples, setStoreExamples],
   );
 
   // Delete a single example from backend
@@ -282,7 +291,7 @@ export function useDataContractDraft(callbacks: SaveCallbacks): DataContractDraf
         return { success: false };
       }
     },
-    [callbacks, draftExamples, setStoreExamples]
+    [callbacks, draftExamples, setStoreExamples],
   );
 
   // Discard all draft changes

@@ -34,7 +34,7 @@ export interface MigrationDetectionResult {
  */
 export function detectMigrations(
   schema: JsonSchema | null,
-  examples: DataExample[]
+  examples: DataExample[],
 ): MigrationDetectionResult {
   if (!schema || examples.length === 0) {
     return { compatible: true, migrations: [] };
@@ -47,7 +47,7 @@ export function detectMigrations(
       example.id,
       example.name,
       example.data as JsonObject,
-      schema
+      schema,
     );
     migrations.push(...exampleMigrations);
   }
@@ -66,7 +66,7 @@ function detectExampleMigrations(
   exampleName: string,
   data: JsonObject,
   schema: JsonSchema,
-  basePath = "$"
+  basePath = "$",
 ): MigrationSuggestion[] {
   const migrations: MigrationSuggestion[] = [];
 
@@ -97,13 +97,7 @@ function detectExampleMigrations(
     }
 
     // Check type mismatch
-    const typeMigration = detectTypeMismatch(
-      exampleId,
-      exampleName,
-      path,
-      value,
-      propSchema
-    );
+    const typeMigration = detectTypeMismatch(exampleId, exampleName, path, value, propSchema);
     if (typeMigration) {
       migrations.push(typeMigration);
     }
@@ -120,7 +114,7 @@ function detectExampleMigrations(
         exampleName,
         value as JsonObject,
         propSchema as JsonSchema,
-        path
+        path,
       );
       migrations.push(...nested);
     }
@@ -133,7 +127,7 @@ function detectExampleMigrations(
           exampleName,
           `${path}[${i}]`,
           value[i],
-          propSchema.items
+          propSchema.items,
         );
         if (itemMigration) {
           migrations.push(itemMigration);
@@ -153,7 +147,7 @@ function detectTypeMismatch(
   exampleName: string,
   path: string,
   value: JsonValue,
-  propSchema: JsonSchemaProperty
+  propSchema: JsonSchemaProperty,
 ): MigrationSuggestion | null {
   const expectedType = propSchema.type as string;
   const actualType = getValueType(value);
@@ -205,7 +199,7 @@ function typeMatches(actual: string, expected: string): boolean {
  */
 function tryConvertValue(
   value: JsonValue,
-  expectedType: string
+  expectedType: string,
 ): { suggestedValue: JsonValue | null; autoMigratable: boolean } {
   switch (expectedType) {
     case "string":
@@ -236,14 +230,13 @@ function tryConvertToString(value: JsonValue): {
 
 function tryConvertToNumber(
   value: JsonValue,
-  expectedType: string
+  expectedType: string,
 ): { suggestedValue: JsonValue | null; autoMigratable: boolean } {
   if (typeof value === "number") {
     return { suggestedValue: value, autoMigratable: true };
   }
   if (typeof value === "string") {
-    const parsed =
-      expectedType === "integer" ? parseInt(value, 10) : parseFloat(value);
+    const parsed = expectedType === "integer" ? parseInt(value, 10) : parseFloat(value);
     if (!isNaN(parsed)) {
       return { suggestedValue: parsed, autoMigratable: true };
     }
@@ -277,10 +270,7 @@ function tryConvertToBoolean(value: JsonValue): {
  * Apply a migration to an example's data, returning the updated data.
  * Only applies auto-migratable migrations.
  */
-export function applyMigration(
-  data: JsonObject,
-  migration: MigrationSuggestion
-): JsonObject {
+export function applyMigration(data: JsonObject, migration: MigrationSuggestion): JsonObject {
   if (!migration.autoMigratable || migration.suggestedValue === null) {
     return data;
   }
@@ -319,7 +309,7 @@ export function applyMigration(
  */
 export function applyAllMigrations(
   data: JsonObject,
-  migrations: MigrationSuggestion[]
+  migrations: MigrationSuggestion[],
 ): JsonObject {
   let result = data;
   for (const migration of migrations) {
