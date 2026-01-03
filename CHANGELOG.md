@@ -3,6 +3,39 @@
 ## [Unreleased]
 
 ### Added
+- Single data example CRUD endpoints for independent example management
+  - `PATCH /tenants/{tenantId}/templates/{id}/data-examples/{exampleId}` - Update a single example
+  - `DELETE /tenants/{tenantId}/templates/{id}/data-examples/{exampleId}` - Delete a single example
+  - Only validates the single example being updated (not all examples)
+  - Supports `forceUpdate` flag to save despite validation warnings
+  - Enables fixing/deleting invalid examples without affecting valid ones
+  - Frontend editor now uses single-example endpoints for updates and deletes
+- Data Contract Management in template editor
+  - Visual schema editor with support for string, number, integer, boolean, array, and object types
+  - Nested field support for object and array-of-object types (UI limits to one level; types support deeper nesting)
+  - Array item type selector
+  - Zod schema definitions for type safety and runtime validation
+  - Required field toggle
+  - "Generate from example" button to infer schema from test data
+  - Advanced JSON toggle for direct JSON Schema editing
+  - Tab-based UI with Schema and Test Data tabs
+  - Expression path extraction from template blocks
+  - Impact analysis to detect expressions not covered by schema
+  - Frontend schema validation for test data examples
+  - Backend schema validation during PDF generation (returns 400 with structured errors)
+  - Schema persistence via template's dataModel field
+  - Schema compatibility validation endpoint (`POST /validate-schema`)
+  - Migration Assistant dialog showing compatibility issues with auto-fix suggestions
+  - Type conversion for simple cases (string↔number, string↔boolean)
+  - ValidationMessages component with separate error/warning display
+  - DialogFooterActions component with unsaved changes indicator
+- Data Examples Manager in template editor
+  - Dropdown in editor header to select active test data example
+  - Settings dialog to create, edit, and delete data examples
+  - CodeMirror-based JSON editor for data editing
+  - Auto-save to backend via PATCH API on save
+  - Selected example automatically updates preview expression evaluation
+  - Falls back to built-in default data when no examples exist
 - PDF Preview button in versions table
   - Preview PDF button for Draft, Published, and Archived versions
   - Uses template's dataExamples for test data (first example or empty object)
@@ -70,6 +103,13 @@
 - AnimateUI Switch component from shadcn
 
 ### Changed
+- Refactored Data Contract Manager for better UX
+  - Local-first draft state: edits are local until explicit save
+  - Save & Stay Open pattern: dialog remains open after save with success feedback
+  - Dirty state indicators on tabs showing unsaved changes
+  - Close confirmation when there are unsaved changes
+  - Force update option to save schema despite validation warnings
+  - Replaced `alert()` calls with proper UI feedback components
 - Redesigned template editor UI with shadcn components
   - BlockPalette with tabs and animations
   - StyleSidebar with improved organization and version display in footer
@@ -82,6 +122,17 @@
 - SaveButton refactored with useCallback optimization
 
 ### Fixed
+- SchemaEditor component using incorrect Zod imports (`uuidv4`, `ZodUUID`) that don't exist in Zod library
+  - Replaced with proper `uuid` package imports for UUID generation
+- Schema validation returning `compatible: true` on network/server errors in editor
+  - Now correctly returns `compatible: false` with error message so UI can display failure
+- MigrationAssistant dialog not updating selected migrations when `migrations` prop changes
+  - Added useEffect to sync state when migrations are updated
+- Data examples creation flow in template editor
+  - Removed premature backend save when clicking "+" to add new example
+  - Examples are now created locally first, allowing user to edit before save
+  - Backend persistence only happens when user clicks "Save" with valid data
+  - Fixes chicken-and-egg problem where empty data `{}` failed schema validation
 - Radix UI package conflict causing infinite re-render loops in accordion with select components
 - ColorPicker performance: added throttling to color area and commit-on-close pattern
 - Color input width in ColorPicker component
