@@ -244,7 +244,7 @@ class V1ApiController(
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val dataExamples = updateTemplateRequest.dataExamples?.map {
-            DataExample(name = it.name, data = objectMapper.valueToTree(it.data))
+            DataExample(id = it.id, name = it.name, data = objectMapper.valueToTree(it.data))
         }
         val dataModel = updateTemplateRequest.dataModel?.let {
             objectMapper.valueToTree<ObjectNode>(it)
