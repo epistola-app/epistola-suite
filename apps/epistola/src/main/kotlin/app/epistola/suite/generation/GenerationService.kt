@@ -6,6 +6,7 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.versions.queries.GetDraft
+import app.epistola.template.model.TemplateModel
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -38,7 +39,8 @@ class GenerationService(
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      * @param validateSchema If true, validates data against the template's schema
-     * @throws NoSuchElementException if no draft version exists for the variant
+     * @param liveTemplateModel Optional template model to use instead of fetching from DB (for live preview)
+     * @throws NoSuchElementException if no draft version exists for the variant (when liveTemplateModel is null)
      * @throws DataValidationException if schema validation fails
      */
     fun generatePreview(
@@ -48,12 +50,18 @@ class GenerationService(
         data: Map<String, Any?>,
         outputStream: OutputStream,
         validateSchema: Boolean = true,
+        liveTemplateModel: Map<String, Any?>? = null,
     ) {
-        val draft = mediator.query(GetDraft(tenantId, templateId, variantId))
-            ?: throw NoSuchElementException("No draft version found for variant $variantId")
-
-        val templateModel = draft.templateModel
-            ?: throw NoSuchElementException("Draft version has no template model")
+        // Use provided template model for live preview, otherwise fetch from DB
+        val templateModel: TemplateModel = if (liveTemplateModel != null) {
+            // Convert Map to TemplateModel
+            objectMapper.convertValue(liveTemplateModel, TemplateModel::class.java)
+        } else {
+            val draft = mediator.query(GetDraft(tenantId, templateId, variantId))
+                ?: throw NoSuchElementException("No draft version found for variant $variantId")
+            draft.templateModel
+                ?: throw NoSuchElementException("Draft version has no template model")
+        }
 
         // Validate data against schema if enabled and schema exists
         if (validateSchema) {

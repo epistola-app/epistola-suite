@@ -13,6 +13,9 @@ import type { JsonSchema } from "../types/schema";
 import { JsonSchemaSchema } from "../types/schema";
 import { v4 as uuidv4 } from "uuid";
 
+/** Preview mode: "html" for client-side rendering, "pdf" for backend PDF generation */
+export type PreviewMode = "html" | "pdf";
+
 interface EditorState {
   template: Template;
   lastSavedTemplate: Template | null;
@@ -23,6 +26,8 @@ interface EditorState {
   selectedDataExampleId: string | null;
   /** JSON Schema for data validation */
   schema: JsonSchema | null;
+  /** Current preview mode */
+  previewMode: PreviewMode;
 }
 
 interface EditorActions {
@@ -45,6 +50,8 @@ interface EditorActions {
   deleteDataExample: (id: string) => void;
   // Schema actions
   setSchema: (schema: JsonSchema | null) => void;
+  // Preview mode actions
+  setPreviewMode: (mode: PreviewMode) => void;
 }
 
 type EditorStore = EditorState & EditorActions;
@@ -140,6 +147,7 @@ export const useEditorStore = create<EditorStore>()(
     dataExamples: [],
     selectedDataExampleId: null,
     schema: null,
+    previewMode: "html",
 
     setTemplate: (template) =>
       set((state) => {
@@ -457,6 +465,11 @@ export const useEditorStore = create<EditorStore>()(
           return;
         }
         state.schema = JSON.parse(JSON.stringify(result.data));
+      }),
+
+    setPreviewMode: (mode) =>
+      set((state) => {
+        state.previewMode = mode;
       }),
   })),
 );

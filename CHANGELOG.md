@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- PDF Preview mode in template editor
+  - Toggle between HTML (Fast) and PDF (Actual) preview modes in editor header
+  - **Live preview**: Shows PDF of current unsaved editor state, not just saved drafts
+  - PdfPreview component sends current template model to backend for real-time rendering
+  - Debounced fetching (500ms) to reduce API load during editing
+  - Loading, error, and retry states with appropriate UI feedback
+  - Blob URL management with proper cleanup to prevent memory leaks
+  - HTML mode remains default for fast client-side rendering during editing
+  - Backend preview endpoint now accepts optional `templateModel` in request body
 - Single data example CRUD endpoints for independent example management
   - `PATCH /tenants/{tenantId}/templates/{id}/data-examples/{exampleId}` - Update a single example
   - `DELETE /tenants/{tenantId}/templates/{id}/data-examples/{exampleId}` - Delete a single example

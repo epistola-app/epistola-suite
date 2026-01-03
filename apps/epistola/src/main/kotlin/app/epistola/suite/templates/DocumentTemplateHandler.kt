@@ -73,6 +73,17 @@ data class UpdateDataExampleRequest(
 )
 
 /**
+ * Request body for PDF preview generation.
+ *
+ * @property data The data context for expression evaluation
+ * @property templateModel Optional template model for live preview (uses current editor state instead of saved draft)
+ */
+data class PreviewRequest(
+    val data: Map<String, Any?>? = null,
+    val templateModel: Map<String, Any?>? = null,
+)
+
+/**
  * Response for schema validation preview.
  */
 data class ValidateSchemaResponse(
@@ -576,8 +587,10 @@ class DocumentTemplateHandler(
     /**
      * Generates a PDF preview of a variant's draft version.
      * Streams the PDF directly to the response.
+     *
+     * If `templateModel` is provided in the request body, it will be used for rendering
+     * instead of fetching from the database. This enables live preview of unsaved changes.
      */
-    @Suppress("UNCHECKED_CAST")
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
         val templateId = request.pathVariable("id").toLongOrNull()
@@ -585,24 +598,35 @@ class DocumentTemplateHandler(
         val variantId = request.pathVariable("variantId").toLongOrNull()
             ?: return ServerResponse.badRequest().build()
 
-        // Parse the request body as data context
-        val data: Map<String, Any?> = try {
+        // Parse the request body
+        val previewRequest: PreviewRequest = try {
             val body = request.body(String::class.java)
             if (body.isBlank()) {
-                emptyMap()
+                PreviewRequest()
             } else {
-                objectMapper.readValue(body, Map::class.java) as Map<String, Any?>
+                objectMapper.readValue(body, PreviewRequest::class.java)
             }
         } catch (_: Exception) {
-            emptyMap()
+            PreviewRequest()
         }
+
+        val data = previewRequest.data ?: emptyMap()
+        val liveTemplateModel = previewRequest.templateModel
 
         return try {
             ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
                 .build { _, response ->
-                    generationService.generatePreview(tenantId, templateId, variantId, data, response.outputStream)
+                    generationService.generatePreview(
+                        tenantId,
+                        templateId,
+                        variantId,
+                        data,
+                        response.outputStream,
+                        validateSchema = true,
+                        liveTemplateModel = liveTemplateModel,
+                    )
                     response.outputStream.flush()
                     null // Return null to indicate no view to render
                 }

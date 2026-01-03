@@ -1,9 +1,10 @@
 import { BlockPalette } from "./BlockPalette";
 import { Canvas } from "./Canvas";
 import { Preview } from "./Preview";
+import { PdfPreview } from "./PdfPreview";
 import { DataContractManager } from "./DataContractManager";
 import { StyleSidebar } from "../styling";
-import { useEditorStore, useIsDirty } from "../../store/editorStore";
+import { useEditorStore, useIsDirty, type PreviewMode } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
 import type { EvaluatorType } from "../../services/expression";
 import type { Template, DataExample, JsonObject } from "../../types/template";
@@ -68,6 +69,7 @@ export function EditorLayout({
   onValidateSchema,
 }: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
+  const previewMode = useEditorStore((s) => s.previewMode);
   const isDirty = useIsDirty();
 
   // Warn user before leaving with unsaved changes
@@ -108,7 +110,7 @@ export function EditorLayout({
               </div>
             </>
           }
-          rightSide={<Preview />}
+          rightSide={previewMode === "pdf" ? <PdfPreview /> : <Preview />}
         />
       </div>
     </div>
@@ -138,6 +140,29 @@ function EvaluatorSelector() {
         }`}
         title={isReady ? "Ready" : "Initializing..."}
       />
+    </div>
+  );
+}
+
+function PreviewModeSelector() {
+  const previewMode = useEditorStore((s) => s.previewMode);
+  const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-medium text-slate-600">Preview:</span>
+      <Select value={previewMode} onValueChange={(value) => setPreviewMode(value as PreviewMode)}>
+        <SelectTrigger
+          size="sm"
+          className="text-xs px-2 py-1 border border-slate-200 rounded-md bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-32 h-7"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="html">HTML (Fast)</SelectItem>
+          <SelectItem value="pdf">PDF (Actual)</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -201,6 +226,9 @@ function EditorHeader({
               onValidateSchema={onValidateSchema}
             />
             <Separator orientation="vertical" className="min-h-6" />
+            {/* Preview Mode Selector */}
+            <PreviewModeSelector />
+            <Separator orientation="vertical" className="min-h-6" />
             {/* Evaluator Selector */}
             <EvaluatorSelector />
 
@@ -249,6 +277,8 @@ function EditorHeader({
               onSaveSchema={onSaveSchema}
               onValidateSchema={onValidateSchema}
             />
+            <Separator orientation="vertical" className="min-h-6" />
+            <PreviewModeSelector />
             <Separator orientation="vertical" className="min-h-6" />
             <EvaluatorSelector />
             <Separator orientation="vertical" className="min-h-6" />

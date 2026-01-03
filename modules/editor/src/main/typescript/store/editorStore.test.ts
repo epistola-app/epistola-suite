@@ -10,6 +10,7 @@ beforeEach(() => {
   getState().setDataExamples([]);
   getState().selectDataExample(null);
   getState().setSchema(null);
+  getState().setPreviewMode("html");
 });
 
 describe("editorStore - setDataExamples", () => {
@@ -233,6 +234,28 @@ describe("editorStore - deleteDataExample", () => {
 
     const state = useEditorStore.getState();
     expect(state.selectedDataExampleId).toBe("ex1");
+  });
+});
+
+describe("editorStore - setPreviewMode", () => {
+  it("defaults to html mode", () => {
+    const state = useEditorStore.getState();
+    expect(state.previewMode).toBe("html");
+  });
+
+  it("sets preview mode to pdf", () => {
+    useEditorStore.getState().setPreviewMode("pdf");
+
+    const state = useEditorStore.getState();
+    expect(state.previewMode).toBe("pdf");
+  });
+
+  it("sets preview mode back to html", () => {
+    useEditorStore.getState().setPreviewMode("pdf");
+    useEditorStore.getState().setPreviewMode("html");
+
+    const state = useEditorStore.getState();
+    expect(state.previewMode).toBe("html");
   });
 });
 

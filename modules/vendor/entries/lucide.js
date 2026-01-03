@@ -44,6 +44,7 @@ export {
   PipetteIcon,
   Plus,
   RefreshCcw,
+  RefreshCw,
   RotateCcw,
   Save,
   Settings2,
