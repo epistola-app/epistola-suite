@@ -6,6 +6,7 @@
     <title th:text="${template.name + ' - Epistola'}">Template - Epistola</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script th:src="@{/js/pdf-preview.js}"></script>
 </head>
 <body>
     <main class="regular">
@@ -159,6 +160,13 @@
                                 <th:block th:if="${version.status.name() == 'DRAFT'}">
                                     <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
                                        class="btn btn-small">Edit</a>
+                                    <button type="button"
+                                            class="btn btn-small btn-secondary"
+                                            th:data-tenant-id="${tenantId}"
+                                            th:data-template-id="${template.id}"
+                                            th:data-variant-id="${selectedVariant.id}"
+                                            th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                            onclick="previewPdf(this)">Preview PDF</button>
                                     <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           method="post"
                                           style="display: inline;"
@@ -171,6 +179,13 @@
 
                                 <!-- Published actions -->
                                 <th:block th:if="${version.status.name() == 'PUBLISHED'}">
+                                    <button type="button"
+                                            class="btn btn-small btn-secondary"
+                                            th:data-tenant-id="${tenantId}"
+                                            th:data-template-id="${template.id}"
+                                            th:data-variant-id="${selectedVariant.id}"
+                                            th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                            onclick="previewPdf(this)">Preview PDF</button>
                                     <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           method="post"
                                           style="display: inline;"
@@ -182,9 +197,15 @@
                                     </form>
                                 </th:block>
 
-                                <!-- Archived: view only (no actions) -->
+                                <!-- Archived: preview only -->
                                 <th:block th:if="${version.status.name() == 'ARCHIVED'}">
-                                    <span class="text-muted">—</span>
+                                    <button type="button"
+                                            class="btn btn-small btn-secondary"
+                                            th:data-tenant-id="${tenantId}"
+                                            th:data-template-id="${template.id}"
+                                            th:data-variant-id="${selectedVariant.id}"
+                                            th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                            onclick="previewPdf(this)">Preview PDF</button>
                                 </th:block>
                             </td>
                         </tr>

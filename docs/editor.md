@@ -76,9 +76,7 @@ epistola-suite/
 ├── package.json                    # Root scripts
 ├── modules/
 │   ├── vendor/                     # Shared dependencies (React, Zustand, etc.)
-│   ├── shared/                     # Common types, base configs
-│   ├── editor/                     # Template editor
-│   └── schema-editor/              # Data structure editor
+│   └── editor/                     # Template editor (includes Data Contract Manager)
 ```
 
 **Root `pnpm-workspace.yaml`:**
@@ -145,97 +143,47 @@ tasks.named("processResources") {
 
 The built assets are served from `/META-INF/resources/<module-name>/` which Spring Boot serves as static resources.
 
-## Shared Module
+## Build Configuration
 
-The `modules/shared/` package contains:
+Each module (like `modules/editor/`) contains its own TypeScript and Vite configuration.
 
-### Base TypeScript Configuration
+### Externals Pattern
 
-**`tsconfig.base.json`** - Extended by all modules:
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "declaration": true,
-    "declarationMap": true
-  }
+Modules exclude shared dependencies from their bundles. These are resolved at runtime via import maps:
+
+```typescript
+// vite.config.ts - shared dependencies excluded from bundle
+rollupOptions: {
+  external: [
+    'react',
+    'react-dom',
+    'react-dom/client',
+    'react/jsx-runtime',
+    'zustand',
+    'zustand/middleware/immer',
+    'immer',
+  ],
 }
 ```
 
-### Base Vite Configuration
+When built, modules preserve import statements like `import { useState } from 'react'`. The browser's import map resolves these to vendor-bundled files.
 
-**`vite.base.config.ts`** - Factory function for library mode with externals:
-```typescript
-// Shared dependencies - excluded from module bundles
-const EXTERNALS = [
-  'react',
-  'react-dom',
-  'react-dom/client',
-  'react/jsx-runtime',
-  'zustand',
-  'immer',
-];
+### Type Definitions
 
-export function createBaseConfig(options: {
-  name: string;
-  fileName: string;
-  entry: string;
-  port?: number;
-}): UserConfig {
-  return {
-    plugins: [react(), tailwindcss()],
-    build: {
-      lib: {
-        entry: options.entry,
-        name: options.name,
-        fileName: options.fileName,
-        formats: ['es'],
-      },
-      rollupOptions: {
-        external: EXTERNALS,
-      },
-    },
-  };
-}
-```
-
-When built, modules will have import statements like `import { useState } from 'react'` preserved in the output. The browser's import map resolves these to the actual files.
-
-### Shared Types
-
-Types used across modules are defined once:
+Types are defined within the editor module at `modules/editor/src/main/typescript/types/`:
 
 ```typescript
-// types/data-structure.ts
-export interface DataStructure {
-  id: string;
-  name: string;
-  description?: string;
-  version: number;
-  schema: JsonSchema;
-  examples: DataExample[];
-}
-
-export interface DataExample {
-  name: string;
-  description?: string;
-  data: JsonObject;
-}
-
 // types/template.ts
-export interface Template {
-  id: string;
-  name: string;
-  version: number;
-  dataStructureId?: string;
+export interface TemplateModel {
   pageSettings: PageSettings;
   blocks: Block[];
   documentStyles?: DocumentStyles;
 }
+
+// types/schema.ts - Zod-based schema types
+export const FieldTypeSchema = z.enum([
+  'string', 'number', 'integer', 'boolean', 'array', 'object'
+]);
 ```
 
 ## Template Editor
@@ -342,45 +290,38 @@ Pages using interactive modules include the import map via a shared fragment, th
 
 The import map must appear **before** any `<script type="module">` tags.
 
-## Schema Editor
+## Data Contract Manager
 
-The schema editor (`modules/schema-editor/`) provides a visual interface for defining data structures (JSON Schema) and managing test data examples.
+The Data Contract Manager is a dialog component embedded within the template editor (`modules/editor/`) that provides schema definition and test data management.
 
 ### Purpose
 
-- Define the structure of data that templates can consume
-- Create and validate test data examples
+- Define the data contract (JSON Schema) that templates consume
+- Create and validate test data examples against the schema
+- Detect schema compatibility issues and suggest migrations
 - Serve as the "contract" between data and templates
 
-### Technology Stack
+### Architecture
 
-Same as Template Editor (React 19, TypeScript, Vite, Zustand, dnd-kit, Tailwind).
+The Data Contract Manager is opened via the editor header's "Data" button. It consists of:
 
-### Mount API
+**Main Components:**
+- `DataContractManager.tsx` - Main dialog with tab-based UI
+- `DataExamplesManager.tsx` - Example selection dropdown and settings
+- `MigrationAssistant.tsx` - Schema migration suggestions dialog
+- `ValidationMessages.tsx` - Error and warning display
+- `DialogFooterActions.tsx` - Save/Close with unsaved changes indicator
 
-```typescript
-import { mountSchemaEditor } from '/schema-editor/schema-editor.js';
+**State Management:**
+- `useDataContractDraft.ts` hook - Local-first draft state with dirty tracking
 
-const instance = mountSchemaEditor({
-  container: document.getElementById('schema-editor-container'),
-  dataStructure: dataStructureData,
-  onSave: async (dataStructure) => {
-    await fetch(`/api/data-structures/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(dataStructure),
-    });
-  },
-  readOnly: false,
-});
-
-// Instance methods
-instance.getDataStructure();
-instance.setDataStructure(newDataStructure);
-instance.getSchema();
-instance.getExamples();
-instance.validate();  // Returns { valid, errors }
-instance.unmount();
-```
+**Key Features:**
+- Visual schema editor with nested field support
+- "Generate from example" to infer schema from test data
+- Advanced JSON toggle for direct JSON Schema editing
+- Expression path extraction from template blocks
+- Impact analysis for expressions not covered by schema
+- Schema compatibility validation with auto-fix suggestions
 
 ### JSON Schema Support
 
@@ -393,49 +334,42 @@ The schema editor supports a **core subset** of JSON Schema 2020-12:
 - `boolean` - True/false
 - `array` - Lists of items
 - `object` - Nested structures
-- `null` - Null values
 
 **Supported constraints:**
 
 | Type | Constraints |
 |------|-------------|
-| String | `minLength`, `maxLength`, `pattern`, `format` (email, date, uri, etc.) |
-| Number | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf` |
-| Array | `items`, `minItems`, `maxItems`, `uniqueItems` |
-| Object | `properties`, `required`, `additionalProperties` (boolean) |
+| String | `minLength`, `maxLength`, `pattern`, `format` |
+| Number | `minimum`, `maximum` |
+| Array | `items` (single type) |
+| Object | `properties`, `required` |
 
-**Not supported (initially):**
-- `$ref` - Schema references
-- `allOf`, `anyOf`, `oneOf`, `not` - Composition
-- `if`/`then`/`else` - Conditional schemas
-- `definitions` - Reusable schema fragments
+### UX Patterns
 
-### UI Components
+**Local-First Draft State:**
+- All edits modify local draft state
+- Backend persistence only on explicit Save
+- Unsaved changes indicator in dialog footer
+- Close confirmation when dirty
 
-```
-SchemaEditorLayout
-├── SchemaTree (left panel)
-│   └── SchemaNode (recursive, expandable)
-│       ├── TypeIcon (string, number, object, array, etc.)
-│       ├── PropertyName (editable)
-│       ├── RequiredBadge
-│       └── AddChildButton
-│
-├── PropertyPanel (right panel)
-│   ├── TypeSelector
-│   ├── DescriptionInput
-│   ├── Constraints (type-specific)
-│   └── EnumEditor
-│
-└── ExamplesPanel (bottom/tab)
-    ├── ExampleList
-    ├── ExampleEditor (JSON)
-    └── ValidationErrors
-```
+**Save & Stay Open:**
+- Save button persists changes and shows success feedback
+- Dialog remains open for iterative editing
+- Close button exits (with confirmation if dirty)
+
+**Validation Display:**
+- Red errors block saving (JSON syntax, structure)
+- Yellow warnings allow saving (schema validation)
+- Parallel display of both error types
+
+**Migration Assistant:**
+- Detects when schema changes break existing examples
+- Offers auto-fix for simple type conversions (string↔number, string↔boolean)
+- Allows force update to save despite warnings
 
 ### Example Usage
 
-Given this schema:
+Given this schema defined in Data Contract Manager:
 ```json
 {
   "type": "object",
@@ -443,8 +377,8 @@ Given this schema:
     "customer": {
       "type": "object",
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "email": { "type": "string", "format": "email" }
+        "name": { "type": "string" },
+        "email": { "type": "string" }
       },
       "required": ["name"]
     },
@@ -454,7 +388,7 @@ Given this schema:
         "type": "object",
         "properties": {
           "description": { "type": "string" },
-          "price": { "type": "number", "minimum": 0 }
+          "price": { "type": "number" }
         }
       }
     }
@@ -470,58 +404,59 @@ Templates can use expressions like:
 
 ## Domain Model
 
-### DataStructure Entity
+### Template with Embedded Data Contract
 
-DataStructures are standalone entities that templates reference:
-
-```kotlin
-data class DataStructure(
-    val id: Long,
-    val tenantId: Long,
-    val name: String,
-    val description: String?,
-    val version: Int = 1,
-    val schema: ObjectNode,           // JSON Schema
-    val examples: List<DataExample>,  // Test data
-    val createdAt: OffsetDateTime,
-    val lastModified: OffsetDateTime,
-)
-```
-
-### Template-DataStructure Relationship
-
-Templates reference a DataStructure by ID:
+Templates contain their data contract (schema and examples) directly:
 
 ```kotlin
 data class DocumentTemplate(
     val id: Long,
     val tenantId: Long,
     val name: String,
-    val dataStructureId: Long?,        // References DataStructure
-    val variantInfo: VariantInfo?,     // For future variant support
-    val templateModel: TemplateModel?,
-    // ...
+    val dataModel: ObjectNode?,        // JSON Schema defining data structure
+    val dataExamples: List<DataExample>, // Test data examples
+    val createdAt: OffsetDateTime,
+    val lastModified: OffsetDateTime,
+)
+
+data class DataExample(
+    val name: String,
+    val data: ObjectNode,
 )
 ```
 
-This enables:
-- **Reusability**: Multiple templates can share one DataStructure
-- **Variants**: Different visual designs for the same data (e.g., Dutch/English invoices)
-- **Validation**: When schema changes, affected templates can be validated
+Template content (visual layout) is stored in versions:
 
-### Future: Template Variants
-
-Templates can be organized as variants of the same data structure:
-
-```
-DataStructure: "Invoice Data"
-├── Template: "Invoice - Modern" (style=modern, lang=en)
-├── Template: "Invoice - Classic" (style=classic, lang=en)
-├── Template: "Factuur - Modern" (style=modern, lang=nl)
-└── Template: "Factuur - Classic" (style=classic, lang=nl)
+```kotlin
+data class TemplateVersion(
+    val id: Long,
+    val variantId: Long,
+    val versionNumber: Int?,           // null for drafts
+    val status: VersionStatus,         // DRAFT, PUBLISHED, ARCHIVED
+    val templateModel: TemplateModel,  // Visual layout definition
+    val createdAt: OffsetDateTime,
+)
 ```
 
-Selection logic will determine which variant to render based on context.
+### Variants and Versions
+
+Templates support variants (different presentations) and versions (immutable snapshots):
+
+```
+DocumentTemplate: "Invoice"
+├── dataModel: { customer: {...}, items: [...] }
+├── dataExamples: [{ name: "Sample", data: {...} }]
+└── Variants:
+    ├── "Default" (lang=en)
+    │   ├── Draft (version=null)
+    │   ├── v1 (published)
+    │   └── v2 (published)
+    └── "Dutch" (lang=nl)
+        ├── Draft (version=null)
+        └── v1 (published)
+```
+
+Environment activations determine which version is served in each environment (staging, production, etc.).
 
 ## Development Workflow
 
@@ -551,16 +486,9 @@ pnpm --filter @epistola/editor build
 ### Adding a New Module
 
 1. Create directory: `modules/<name>/`
-2. Create `package.json` with `@epistola/shared` as dependency
-3. Create `tsconfig.json` extending `../shared/tsconfig.base.json`
-4. Create `vite.config.ts` using `createBaseConfig` from shared
-5. Create `build.gradle.kts` following the integration pattern
-6. Add to `settings.gradle.kts`: `include(":modules:<name>")`
-7. Implement mount function in `src/lib.tsx`
-
-### Type Changes
-
-When modifying shared types:
-1. Update types in `modules/shared/src/types/`
-2. Run `pnpm --filter @epistola/shared build`
-3. Other modules will pick up changes via workspace links
+2. Create `package.json` with appropriate dependencies
+3. Create `tsconfig.json` with TypeScript configuration
+4. Create `vite.config.ts` with library mode configuration
+5. Add externals for shared dependencies (react, zustand, etc.)
+6. Implement mount function in `src/lib.tsx`
+7. Ensure vendor dependencies cover any new shared packages

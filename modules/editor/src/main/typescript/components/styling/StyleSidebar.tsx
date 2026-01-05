@@ -137,9 +137,7 @@ export function StyleSidebar({ className = "" }: StyleSidebarProps) {
 
           {/* Footer */}
           <div className="flex items-center gap-2 px-4 py-2 text-xs border-t border-slate-200 bg-slate-50">
-            <span className="text-slate-400 capitalize">
-              {window.APP_NAME ?? "Epistola"}
-            </span>
+            <span className="text-slate-400 capitalize">{window.APP_NAME ?? "Epistola"}</span>
             <span className="text-slate-300">v{window.APP_VERSION ?? "dev"}</span>
           </div>
         </>

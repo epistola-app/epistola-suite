@@ -6,7 +6,8 @@ import type {
   EvaluationResult,
   EvaluatorType,
 } from "../services/expression";
-import { DirectEvaluator, IframeEvaluator } from "../services/expression";
+import { DirectEvaluator, IframeEvaluator, JsonataEvaluator } from "../services/expression";
+import type { ExpressionLanguage } from "../types/template";
 
 interface EvaluatorContextValue {
   /** The current evaluator instance */
@@ -25,7 +26,7 @@ const EvaluatorContext = createContext<EvaluatorContextValue | null>(null);
 
 interface EvaluatorProviderProps {
   children: ReactNode;
-  /** Initial evaluator type (default: 'direct') */
+  /** Initial evaluator type (default: 'jsonata') */
   initialType?: EvaluatorType;
 }
 
@@ -36,13 +37,28 @@ function createEvaluator(type: EvaluatorType): ExpressionEvaluator {
   switch (type) {
     case "iframe":
       return new IframeEvaluator();
+    case "jsonata":
+      return new JsonataEvaluator();
     case "direct":
     default:
       return new DirectEvaluator();
   }
 }
 
-export function EvaluatorProvider({ children, initialType = "direct" }: EvaluatorProviderProps) {
+/**
+ * Maps expression language to evaluator type
+ */
+export function languageToEvaluatorType(language?: ExpressionLanguage): EvaluatorType {
+  switch (language) {
+    case "javascript":
+      return "direct"; // Use direct evaluator for JavaScript
+    case "jsonata":
+    default:
+      return "jsonata"; // JSONata is the default
+  }
+}
+
+export function EvaluatorProvider({ children, initialType = "jsonata" }: EvaluatorProviderProps) {
   const [type, setTypeState] = useState<EvaluatorType>(initialType);
   const [evaluator, setEvaluator] = useState<ExpressionEvaluator>(() =>
     createEvaluator(initialType),
@@ -62,12 +78,12 @@ export function EvaluatorProvider({ children, initialType = "direct" }: Evaluato
         }
       } catch (error) {
         console.error("Failed to initialize evaluator:", error);
-        // Fallback to direct evaluator if initialization fails
-        if (!disposed && evaluator.type !== "direct") {
-          const fallback = new DirectEvaluator();
+        // Fallback to JSONata evaluator if initialization fails (unless already JSONata)
+        if (!disposed && evaluator.type !== "jsonata") {
+          const fallback = new JsonataEvaluator();
           await fallback.initialize();
           setEvaluator(fallback);
-          setTypeState("direct");
+          setTypeState("jsonata");
           setIsReady(true);
         }
       }

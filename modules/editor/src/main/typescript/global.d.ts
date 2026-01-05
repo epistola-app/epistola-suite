@@ -4,6 +4,7 @@ declare global {
     TEMPLATE_MODEL?: unknown;
     TEMPLATE_ID?: string;
     TENANT_ID?: string;
+    VARIANT_ID?: string;
     APP_VERSION?: string;
     APP_NAME?: string;
   }
