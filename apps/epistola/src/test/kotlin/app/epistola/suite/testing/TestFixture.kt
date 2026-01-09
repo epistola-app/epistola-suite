@@ -8,6 +8,8 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.variants.TemplateVariant
+import app.epistola.suite.variants.commands.CreateVariant
 import org.springframework.stereotype.Component
 
 @DslMarker
@@ -76,6 +78,21 @@ class TestFixture(
             tenant: Tenant,
             name: String,
         ): DocumentTemplate = this@TestFixture.mediator.send(CreateDocumentTemplate(tenant.id, name))
+
+        fun variant(
+            tenant: Tenant,
+            template: DocumentTemplate,
+            title: String? = null,
+            tags: Map<String, String> = emptyMap(),
+        ): TemplateVariant = this@TestFixture.mediator.send(
+            CreateVariant(
+                tenantId = tenant.id,
+                templateId = template.id,
+                title = title,
+                description = null,
+                tags = tags,
+            ),
+        )!!
 
         fun noTenants() {
             this@TestFixture.deleteAllTenants()

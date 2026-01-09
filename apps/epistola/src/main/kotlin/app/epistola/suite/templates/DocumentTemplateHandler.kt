@@ -1,6 +1,5 @@
 package app.epistola.suite.templates
 
-import app.epistola.suite.generation.DataValidationException
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
@@ -611,32 +610,15 @@ class DocumentTemplateHandler(
         }
 
         val data = previewRequest.data ?: emptyMap()
-        val liveTemplateModel = previewRequest.templateModel
 
-        return try {
-            ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
-                .build { _, response ->
-                    generationService.generatePreview(
-                        tenantId,
-                        templateId,
-                        variantId,
-                        data,
-                        response.outputStream,
-                        validateSchema = true,
-                        liveTemplateModel = liveTemplateModel,
-                    )
-                    response.outputStream.flush()
-                    null // Return null to indicate no view to render
-                }
-        } catch (e: DataValidationException) {
-            // Return 400 with structured error response
-            ServerResponse.badRequest()
+        // Validate data against schema BEFORE starting the streaming response
+        val validationResult = generationService.validatePreviewData(tenantId, templateId, data)
+        if (!validationResult.valid) {
+            return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
                     mapOf(
-                        "errors" to e.errors.map { error ->
+                        "errors" to validationResult.errors.map { error ->
                             mapOf(
                                 "path" to error.path,
                                 "message" to error.message,
@@ -644,9 +626,24 @@ class DocumentTemplateHandler(
                         },
                     ),
                 )
-        } catch (e: NoSuchElementException) {
-            ServerResponse.notFound().build()
         }
+
+        // Resolve the template model - either from request (live preview) or from draft
+        val templateModel = if (previewRequest.templateModel != null) {
+            generationService.convertTemplateModel(previewRequest.templateModel)
+        } else {
+            val draft = mediator.query(GetDraft(tenantId, templateId, variantId))
+            draft?.templateModel ?: return ServerResponse.notFound().build()
+        }
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
+            .build { _, response ->
+                generationService.renderPdf(templateModel, data, response.outputStream)
+                response.outputStream.flush()
+                null // Return null to indicate no view to render
+            }
     }
 
     private fun returnVersionsFragment(

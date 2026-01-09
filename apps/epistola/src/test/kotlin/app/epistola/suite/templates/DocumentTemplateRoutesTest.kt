@@ -900,4 +900,259 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             }
         }
     }
+
+    @Nested
+    inner class PreviewEndpointTest {
+
+        @Test
+        fun `POST preview returns 400 with structured errors when data validation fails`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: Long = 0
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                // Create a variant (which also creates a draft)
+                val createdVariant = variant(testTenant, template, "Default")
+                variantId = createdVariant.id
+                // Add schema that requires 'name' field
+                val dataModel = objectMapper.readTree(
+                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                )
+                mediator.send(
+                    UpdateDocumentTemplate(
+                        tenantId = testTenant.id,
+                        id = template.id,
+                        dataModel = objectMapper.valueToTree(dataModel),
+                    ),
+                )
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                // Send data without required 'name' field
+                val body = """{"data": {}}"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_JSON)).isTrue()
+                assertThat(response.body).contains("errors")
+                assertThat(response.body).contains("name")
+            }
+        }
+
+        @Test
+        fun `POST preview returns 400 with structured errors when data type is wrong`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: Long = 0
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                val createdVariant = variant(testTenant, template, "Default")
+                variantId = createdVariant.id
+                // Add schema that expects 'count' to be integer
+                val dataModel = objectMapper.readTree(
+                    """{"type": "object", "properties": {"count": {"type": "integer"}}}""",
+                )
+                mediator.send(
+                    UpdateDocumentTemplate(
+                        tenantId = testTenant.id,
+                        id = template.id,
+                        dataModel = objectMapper.valueToTree(dataModel),
+                    ),
+                )
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                // Send string instead of integer
+                val body = """{"data": {"count": "not-a-number"}}"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.BAD_REQUEST)
+                assertThat(response.headers.contentType?.includes(MediaType.APPLICATION_JSON)).isTrue()
+                assertThat(response.body).contains("errors")
+            }
+        }
+
+        @Test
+        fun `POST preview returns 404 for non-existent variant`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val body = """{"data": {}}"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/99999/preview",
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            }
+        }
+
+        @Test
+        fun `POST preview returns 404 for non-existent template`() = fixture {
+            lateinit var testTenant: Tenant
+
+            given {
+                testTenant = tenant("Test Tenant")
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                val body = """{"data": {}}"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/99999/variants/1/preview",
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.NOT_FOUND)
+            }
+        }
+
+        @Test
+        fun `POST preview returns PDF when data is valid`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: Long = 0
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                val createdVariant = variant(testTenant, template, "Default")
+                variantId = createdVariant.id
+                // Add schema that requires 'name' field
+                val dataModel = objectMapper.readTree(
+                    """{"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}""",
+                )
+                mediator.send(
+                    UpdateDocumentTemplate(
+                        tenantId = testTenant.id,
+                        id = template.id,
+                        dataModel = objectMapper.valueToTree(dataModel),
+                    ),
+                )
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                // Send valid data with required 'name' field and a minimal template model
+                // The templateModel is required because the draft is created without one
+                val body = """{
+                    "data": {"name": "John Doe"},
+                    "templateModel": {
+                        "id": "test",
+                        "name": "Test",
+                        "version": 1,
+                        "pageSettings": {
+                            "format": "A4",
+                            "orientation": "portrait",
+                            "margins": {"top": 20, "right": 20, "bottom": 20, "left": 20}
+                        },
+                        "blocks": []
+                    }
+                }"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    request,
+                    ByteArray::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<ByteArray>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PDF)
+            }
+        }
+
+        @Test
+        fun `POST preview returns PDF when no schema is defined`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: Long = 0
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                val createdVariant = variant(testTenant, template, "Default")
+                variantId = createdVariant.id
+                // No schema defined, any data should be valid
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.contentType = MediaType.APPLICATION_JSON
+                // Provide a minimal template model since drafts are created without one
+                val body = """{
+                    "data": {"anything": "goes"},
+                    "templateModel": {
+                        "id": "test",
+                        "name": "Test",
+                        "version": 1,
+                        "pageSettings": {
+                            "format": "A4",
+                            "orientation": "portrait",
+                            "margins": {"top": 20, "right": 20, "bottom": 20, "left": 20}
+                        },
+                        "blocks": []
+                    }
+                }"""
+                val request = HttpEntity(body, headers)
+                restTemplate.postForEntity(
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/preview",
+                    request,
+                    ByteArray::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<ByteArray>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.headers.contentType).isEqualTo(MediaType.APPLICATION_PDF)
+            }
+        }
+    }
 }
