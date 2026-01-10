@@ -1,0 +1,27 @@
+/*
+ * Tag Component
+ *
+ * Usage:
+ *   <span class="tag">Tag Text</span>
+ *
+ *   <div class="tags">
+ *     <span class="tag">Tag 1</span>
+ *     <span class="tag">Tag 2</span>
+ *   </div>
+ */
+
+.tag {
+    display: inline-block;
+    padding: 0.2rem var(--spacing-2);
+    margin: 0.1rem;
+    background-color: #e7f3ff;
+    color: #0056b3;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-1);
+}

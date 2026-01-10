@@ -1,0 +1,42 @@
+/*
+ * Footer Component
+ *
+ * Usage:
+ *   <footer class="app-footer">
+ *     <span class="version">v1.0.0</span>
+ *     <span class="separator">|</span>
+ *     <a href="#">Link</a>
+ *   </footer>
+ */
+
+.app-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--color-background);
+    border-top: 1px solid var(--color-border);
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--text-xs);
+    color: var(--color-muted-foreground);
+    text-align: center;
+}
+
+.app-footer .version {
+    font-family: var(--font-mono);
+}
+
+.app-footer .separator {
+    margin: 0 var(--spacing-2);
+    color: var(--color-border);
+}
+
+.app-footer a {
+    color: var(--color-muted-foreground);
+    text-decoration: none;
+}
+
+.app-footer a:hover {
+    color: var(--color-foreground);
+    text-decoration: underline;
+}

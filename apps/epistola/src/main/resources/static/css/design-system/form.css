@@ -1,0 +1,41 @@
+/*
+ * Form Component
+ *
+ * Usage:
+ *   <div class="form-group">
+ *     <label for="name">Name</label>
+ *     <input type="text" id="name" class="input">
+ *     <span class="form-error">Error message</span>
+ *   </div>
+ */
+
+.form-group {
+    margin-bottom: var(--spacing-4);
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: var(--spacing-1);
+    font-weight: 500;
+    font-size: var(--text-sm);
+    color: var(--color-foreground);
+}
+
+/* Error state */
+.form-group.error .input,
+.form-group.error .textarea {
+    border-color: var(--color-destructive);
+}
+
+.form-group.error .input:focus,
+.form-group.error .textarea:focus {
+    border-color: var(--color-destructive);
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+}
+
+.form-error {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--color-destructive);
+    margin-top: var(--spacing-1);
+}

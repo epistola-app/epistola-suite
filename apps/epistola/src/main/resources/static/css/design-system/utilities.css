@@ -1,0 +1,22 @@
+/*
+ * Utility Classes
+ *
+ * Single-purpose helper classes for common styling needs.
+ */
+
+/* Text utilities */
+.text-muted {
+    color: var(--color-muted-foreground);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}

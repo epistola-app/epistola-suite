@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
-    <main class="regular">
+    <main class="page-container">
         <nav class="breadcrumb">
             <a th:href="@{/}">Tenants</a> &raquo;
             <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
@@ -31,7 +31,7 @@
             </div>
 
             <div id="variants-section" th:fragment="variants-section">
-                <table th:if="${!#lists.isEmpty(variants)}">
+                <table class="table" th:if="${!#lists.isEmpty(variants)}">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -131,7 +131,7 @@
             </div>
 
             <div id="versions-section" th:fragment="versions-section">
-                <table th:if="${!#lists.isEmpty(versions)}">
+                <table class="table" th:if="${!#lists.isEmpty(versions)}">
                     <thead>
                         <tr>
                             <th>Version</th>

@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 <body>
-    <main class="regular">
+    <main class="page-container">
         <h1>Tenants</h1>
 
         <div id="create-form" th:fragment="create-form">
@@ -46,7 +46,7 @@
                        hx-target="#tenant-rows"
                        hx-swap="innerHTML">
             </div>
-            <table>
+            <table class="table">
                 <thead>
                     <tr>
                         <th>ID</th>

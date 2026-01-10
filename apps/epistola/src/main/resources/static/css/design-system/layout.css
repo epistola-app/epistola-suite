@@ -1,0 +1,108 @@
+/*
+ * Layout Components
+ *
+ * Usage:
+ *   <main class="page-container">
+ *     <div class="page-header">
+ *       <h1>Title</h1>
+ *       <a href="#" class="btn">Action</a>
+ *     </div>
+ *     <section>Content</section>
+ *   </main>
+ */
+
+/* Page container */
+.page-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 var(--spacing-4);
+}
+
+.page-container h1 {
+    margin-bottom: var(--spacing-6);
+    color: var(--color-foreground);
+}
+
+.page-container h2 {
+    margin-bottom: var(--spacing-4);
+    color: var(--color-foreground);
+    font-size: var(--text-xl);
+}
+
+.page-container section {
+    margin-bottom: var(--spacing-8);
+}
+
+/* Page header with actions */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-6);
+}
+
+.page-header h1 {
+    margin: 0;
+}
+
+/* Section headers */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-4);
+}
+
+.section-header h2 {
+    margin: 0;
+}
+
+/* Breadcrumb navigation */
+.breadcrumb {
+    margin-bottom: var(--spacing-4);
+    font-size: var(--text-sm);
+    color: var(--color-muted-foreground);
+}
+
+.breadcrumb a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+/* Action buttons container */
+.actions {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+}
+
+/* Inline form (for create variant) */
+.inline-form {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: flex-end;
+    margin-top: var(--spacing-4);
+}
+
+.inline-form .form-group {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.inline-form input {
+    width: 100%;
+}
+
+/* Search box */
+.search-box {
+    margin-bottom: var(--spacing-4);
+}
+
+.search-box input {
+    width: 100%;
+    max-width: 300px;
+}

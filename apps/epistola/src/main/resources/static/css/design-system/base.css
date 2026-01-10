@@ -44,3 +44,12 @@ h5,
 h6 {
     overflow-wrap: break-word;
 }
+
+/* Body defaults */
+body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    color: var(--color-foreground);
+    background-color: var(--color-muted);
+    padding-bottom: 2.5rem; /* Space for fixed footer */
+}
