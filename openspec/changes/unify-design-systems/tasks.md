@@ -50,26 +50,35 @@
 - [x] 6b.2 Create `form.css` for form-group and form-error styles
 - [x] 6b.3 Create `table.css` for table component with `.table` class
 - [x] 6b.4 Create `tag.css` for tag component styles
-- [x] 6b.5 Create `layout.css` for page-container, page-header, section-header,
+- [x] 6b.5 Create `layout.css` for container, page-header, section-header,
        breadcrumb, actions, inline-form, search-box
 - [x] 6b.6 Create `footer.css` for app-footer component
 - [x] 6b.7 Create `utilities.css` for text utility classes
 - [x] 6b.8 Reduce `main.css` to single design system import
-- [x] 6b.9 Update templates to use `.page-container` instead of `.regular`
+- [x] 6b.9 Update templates to use `.container` instead of `.regular`
 - [x] 6b.10 Update templates to use `.table` class on tables
 
-## 7. React Component Integration (Optional)
+## 7. React Component Integration
 
-- [ ] 7.1 Update `button.tsx` to use semantic classes
-- [ ] 7.2 Update `input.tsx` to use semantic classes
-- [ ] 7.3 Update `badge.tsx` to use semantic classes
-- [ ] 7.4 Import shared tokens into editor's `index.css`
+**Skipped** - React components stay with Tailwind. Design tokens are conceptually
+shared; both systems use the same color values and spacing conventions.
 
-## 8. Cleanup & Documentation
+## 8. Thymeleaf Layout System
 
-- [ ] 8.1 Remove legacy class aliases (`.btn-danger`, `.btn-small`) after migration
-- [x] 8.2 Add inline documentation comments to CSS files
-- [ ] 8.3 Visual regression test: compare editor and Thymeleaf buttons side-by-side
+Single source of truth for page structure - no more duplicating head/footer in every page.
+
+- [ ] 8.1 Create `fragments/head.html` with common `<head>` content (meta, css, htmx)
+- [ ] 8.2 Create `fragments/layout.html` as the main layout template
+- [ ] 8.3 Update `fragments/footer.html` if needed for layout integration
+- [ ] 8.4 Refactor `tenants/list.html` to use layout
+- [ ] 8.5 Refactor `templates/list.html` to use layout
+- [ ] 8.6 Refactor `templates/detail.html` to use layout
+
+## 9. Cleanup & Documentation
+
+- [ ] 9.1 Remove legacy class aliases (`.btn-danger`, `.btn-small`) after migration
+- [x] 9.2 Add inline documentation comments to CSS files
+- [ ] 9.3 Visual regression test: compare editor and Thymeleaf buttons side-by-side
 
 ## Dependencies
 

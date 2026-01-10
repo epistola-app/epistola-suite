@@ -2,7 +2,7 @@
  * Layout Components
  *
  * Usage:
- *   <main class="page-container">
+ *   <main class="container">
  *     <div class="page-header">
  *       <h1>Title</h1>
  *       <a href="#" class="btn">Action</a>
@@ -12,24 +12,24 @@
  */
 
 /* Page container */
-.page-container {
+.container {
     max-width: 900px;
     margin: 2rem auto;
     padding: 0 var(--spacing-4);
 }
 
-.page-container h1 {
+.container h1 {
     margin-bottom: var(--spacing-6);
     color: var(--color-foreground);
 }
 
-.page-container h2 {
+.container h2 {
     margin-bottom: var(--spacing-4);
     color: var(--color-foreground);
     font-size: var(--text-xl);
 }
 
-.page-container section {
+.container section {
     margin-bottom: var(--spacing-8);
 }
 
