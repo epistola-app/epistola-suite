@@ -7,11 +7,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: ["src/main/typescript/lib/**", "src/main/typescript/hooks/**"],
+      include: ["src/main/typescript/**/*.ts"],
     },
   },
   resolve: {
