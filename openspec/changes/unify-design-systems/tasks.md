@@ -34,7 +34,7 @@
 
 - [x] 5.1 Define `.card` base styles (background, border/shadow, radius)
 - [x] 5.2 Define `.card-header`, `.card-content`, `.card-footer` sections
-- [ ] 5.3 Apply to `.form-section` in Thymeleaf templates
+- [x] 5.3 Apply to `.form-section` in Thymeleaf templates (replaced with `.card`)
 
 ## 6. Update Thymeleaf Templates
 
@@ -42,7 +42,21 @@
 - [x] 6.2 Update `templates/list.html` to use new component classes
 - [x] 6.3 Update `templates/detail.html` to use new component classes
 - [x] 6.4 Remove button showcase section from `detail.html`
-- [ ] 6.5 Update form inputs to use `.input` class
+- [x] 6.5 Update form inputs to use `.input` class
+
+## 6b. Complete Design System Modularization
+
+- [x] 6b.1 Create `base.css` with CSS reset and body defaults
+- [x] 6b.2 Create `form.css` for form-group and form-error styles
+- [x] 6b.3 Create `table.css` for table component with `.table` class
+- [x] 6b.4 Create `tag.css` for tag component styles
+- [x] 6b.5 Create `layout.css` for page-container, page-header, section-header,
+       breadcrumb, actions, inline-form, search-box
+- [x] 6b.6 Create `footer.css` for app-footer component
+- [x] 6b.7 Create `utilities.css` for text utility classes
+- [x] 6b.8 Reduce `main.css` to single design system import
+- [x] 6b.9 Update templates to use `.page-container` instead of `.regular`
+- [x] 6b.10 Update templates to use `.table` class on tables
 
 ## 7. React Component Integration (Optional)
 
