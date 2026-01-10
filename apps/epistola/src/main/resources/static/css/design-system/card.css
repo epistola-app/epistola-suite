@@ -10,6 +10,8 @@
  */
 
 .card {
+    display: flex;
+    flex-direction: column;
     background-color: var(--color-background);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
@@ -30,6 +32,9 @@
 }
 
 .card-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
     padding: var(--spacing-4) var(--spacing-6);
 }
 
