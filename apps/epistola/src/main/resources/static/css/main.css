@@ -1,67 +1,88 @@
+/*
+ * Main Stylesheet for Epistola
+ *
+ * Imports the shared design system and adds page-specific styles.
+ */
+
+@import "design-system/index.css";
+
+/* ===========================================
+   Base Styles
+   =========================================== */
+
 body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
     line-height: 1.6;
-    color: #333;
-    background-color: #f5f5f5;
+    color: var(--color-foreground);
+    background-color: var(--color-muted);
     margin: 0;
+    padding-bottom: 2.5rem; /* Space for fixed footer */
 }
 
-/* Scoped styles for regular pages (not editor) */
+/* ===========================================
+   Page Layout (scoped to regular pages)
+   =========================================== */
+
 main.regular {
     max-width: 900px;
     margin: 2rem auto;
-    padding: 0 1rem;
+    padding: 0 var(--spacing-4);
 }
 
 main.regular h1 {
-    margin-bottom: 1.5rem;
-    color: #1a1a1a;
+    margin-bottom: var(--spacing-6);
+    color: var(--color-foreground);
 }
 
 main.regular h2 {
-    margin-bottom: 1rem;
-    color: #333;
-    font-size: 1.25rem;
+    margin-bottom: var(--spacing-4);
+    color: var(--color-foreground);
+    font-size: var(--text-xl);
 }
 
 main.regular section {
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-8);
 }
 
-/* Form styles */
+/* ===========================================
+   Form Styles
+   =========================================== */
+
 .form-section {
-    background-color: #fff;
-    padding: 1.5rem;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background-color: var(--color-background);
+    padding: var(--spacing-6);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
 }
 
 .form-group {
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-4);
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--spacing-1);
     font-weight: 500;
-    color: #495057;
+    font-size: var(--text-sm);
+    color: var(--color-foreground);
 }
 
 .form-group input,
 .form-group textarea {
     width: 100%;
-    padding: 0.5rem 0.75rem;
-    font-size: 1rem;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--text-sm);
+    border: 1px solid var(--color-input);
+    border-radius: var(--radius);
     font-family: inherit;
+    background-color: var(--color-background);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
     outline: none;
-    border-color: #4a90d9;
-    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.1);
 }
 
 .form-group textarea {
@@ -69,51 +90,57 @@ main.regular section {
     min-height: 80px;
 }
 
-button[type="submit"] {
-    padding: 0.5rem 1.5rem;
-    font-size: 1rem;
-    font-weight: 500;
-    color: #fff;
-    background-color: #4a90d9;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+/* Form validation error styles */
+.form-group.error input,
+.form-group.error textarea {
+    border-color: var(--color-destructive);
 }
 
-button[type="submit"]:hover {
-    background-color: #357abd;
+.form-group.error input:focus,
+.form-group.error textarea:focus {
+    border-color: var(--color-destructive);
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
 }
 
-/* Table styles (scoped to regular pages) */
+.form-error {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--color-destructive);
+    margin-top: var(--spacing-1);
+}
+
+/* ===========================================
+   Table Styles (scoped to regular pages)
+   =========================================== */
+
 main.regular table {
     width: 100%;
     border-collapse: collapse;
-    background-color: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
+    background-color: var(--color-background);
+    box-shadow: var(--shadow);
+    border-radius: var(--radius-lg);
     overflow: hidden;
 }
 
 main.regular th,
 main.regular td {
-    padding: 0.75rem 1rem;
+    padding: var(--spacing-3) var(--spacing-4);
     text-align: left;
 }
 
 main.regular th {
-    background-color: #f8f9fa;
+    background-color: var(--color-muted);
     font-weight: 600;
-    color: #495057;
-    border-bottom: 2px solid #dee2e6;
+    color: var(--color-foreground);
+    border-bottom: 2px solid var(--color-border);
 }
 
 main.regular td {
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--color-border);
 }
 
 main.regular tbody tr:hover {
-    background-color: #f8f9fa;
+    background-color: var(--color-muted);
 }
 
 main.regular tbody tr:last-child td {
@@ -122,157 +149,74 @@ main.regular tbody tr:last-child td {
 
 main.regular .empty-message {
     text-align: center;
-    color: #6c757d;
+    color: var(--color-muted-foreground);
     font-style: italic;
 }
 
-/* Form validation error styles */
-.form-group.error input,
-.form-group.error textarea {
-    border-color: #dc3545;
-}
+/* ===========================================
+   Footer Styles
+   =========================================== */
 
-.form-group.error input:focus,
-.form-group.error textarea:focus {
-    border-color: #dc3545;
-    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.2);
-}
-
-.form-error {
-    display: block;
-    font-size: 0.875rem;
-    color: #dc3545;
-    margin-top: 0.25rem;
-}
-
-/* Footer styles */
 .app-footer {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: #f8f9fa;
-    border-top: 1px solid #e9ecef;
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-    color: #6c757d;
+    background-color: var(--color-background);
+    border-top: 1px solid var(--color-border);
+    padding: var(--spacing-2) var(--spacing-4);
+    font-size: var(--text-xs);
+    color: var(--color-muted-foreground);
     text-align: center;
 }
 
 .app-footer .version {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-family: var(--font-mono);
 }
 
 .app-footer .separator {
-    margin: 0 0.5rem;
-    color: #dee2e6;
+    margin: 0 var(--spacing-2);
+    color: var(--color-border);
 }
 
 .app-footer a {
-    color: #6c757d;
+    color: var(--color-muted-foreground);
     text-decoration: none;
 }
 
 .app-footer a:hover {
-    color: #495057;
+    color: var(--color-foreground);
     text-decoration: underline;
 }
 
-/* Add bottom padding to body to prevent footer from covering content */
-body {
-    padding-bottom: 2.5rem;
-}
+/* ===========================================
+   Tags (for template variants)
+   =========================================== */
 
-/* Status badges */
-.badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.badge-draft {
-    background-color: #e7f3ff;
-    color: #0056b3;
-    border: 1px solid #b3d9ff;
-}
-
-.badge-published {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.badge-archived {
-    background-color: #e2e3e5;
-    color: #383d41;
-    border: 1px solid #d6d8db;
-}
-
-/* Variant tags */
 .tag {
     display: inline-block;
-    padding: 0.2rem 0.5rem;
+    padding: 0.2rem var(--spacing-2);
     margin: 0.1rem;
     background-color: #e7f3ff;
     color: #0056b3;
-    border-radius: 3px;
-    font-size: 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
 }
 
 .tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.25rem;
+    gap: var(--spacing-1);
 }
 
-/* Button classes */
-.btn {
-    display: inline-block;
-    padding: 0.5rem 1rem;
-    background-color: #4a90d9;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 4px;
-    cursor: pointer;
-    border: none;
-    font-size: 1rem;
-    font-family: inherit;
-    transition: background-color 0.15s ease;
-}
-
-.btn:hover {
-    background-color: #357abd;
-    color: #fff;
-}
-
-.btn-small {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
-}
-
-.btn-danger {
-    background-color: #dc3545;
-}
-
-.btn-danger:hover {
-    background-color: #c82333;
-}
+/* ===========================================
+   Layout Utilities
+   =========================================== */
 
 /* Action buttons in tables */
 .actions {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--spacing-2);
     align-items: center;
 }
 
@@ -281,7 +225,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--spacing-6);
 }
 
 .page-header h1 {
@@ -290,13 +234,13 @@ body {
 
 /* Breadcrumb navigation */
 .breadcrumb {
-    margin-bottom: 1rem;
-    font-size: 0.875rem;
-    color: #6c757d;
+    margin-bottom: var(--spacing-4);
+    font-size: var(--text-sm);
+    color: var(--color-muted-foreground);
 }
 
 .breadcrumb a {
-    color: #4a90d9;
+    color: var(--color-primary);
     text-decoration: none;
 }
 
@@ -307,9 +251,9 @@ body {
 /* Inline form (for create variant) */
 .inline-form {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--spacing-2);
     align-items: flex-end;
-    margin-top: 1rem;
+    margin-top: var(--spacing-4);
 }
 
 .inline-form .form-group {
@@ -326,19 +270,31 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-4);
 }
 
 .section-header h2 {
     margin: 0;
 }
 
-/* Muted text for empty states or secondary info */
-.text-muted {
-    color: #6c757d;
+/* Search box */
+.search-box {
+    margin-bottom: var(--spacing-4);
 }
 
-/* Center text alignment */
+.search-box input {
+    width: 100%;
+    max-width: 300px;
+}
+
+/* ===========================================
+   Text Utilities
+   =========================================== */
+
+.text-muted {
+    color: var(--color-muted-foreground);
+}
+
 .text-center {
     text-align: center;
 }

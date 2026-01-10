@@ -1,0 +1,15 @@
+/*
+ * Epistola Design System
+ *
+ * A shared CSS design system for consistent styling across
+ * React components and Thymeleaf templates.
+ *
+ * Import this file to get all design system components:
+ *   @import "design-system/index.css";
+ */
+
+@import "tokens.css";
+@import "button.css";
+@import "input.css";
+@import "badge.css";
+@import "card.css";

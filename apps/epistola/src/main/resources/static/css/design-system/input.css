@@ -1,0 +1,98 @@
+/*
+ * Input Component
+ *
+ * Usage:
+ *   <input type="text" class="input" placeholder="Enter text...">
+ *   <textarea class="textarea" rows="4"></textarea>
+ *   <input type="text" class="input input-error" aria-invalid="true">
+ */
+
+.input {
+    display: flex;
+    width: 100%;
+    height: 2.25rem;
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    background-color: var(--color-background);
+    border: 1px solid var(--color-input);
+    border-radius: var(--radius);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input::placeholder {
+    color: var(--color-muted-foreground);
+}
+
+.input:focus {
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.1);
+}
+
+.input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--color-muted);
+}
+
+/* Textarea */
+
+.textarea {
+    display: flex;
+    width: 100%;
+    min-height: 5rem;
+    padding: var(--spacing-2) var(--spacing-3);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    background-color: var(--color-background);
+    border: 1px solid var(--color-input);
+    border-radius: var(--radius);
+    outline: none;
+    resize: vertical;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.textarea::placeholder {
+    color: var(--color-muted-foreground);
+}
+
+.textarea:focus {
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.1);
+}
+
+.textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--color-muted);
+}
+
+/* Error state */
+
+.input-error,
+.input[aria-invalid="true"],
+.textarea[aria-invalid="true"] {
+    border-color: var(--color-destructive);
+}
+
+.input-error:focus,
+.input[aria-invalid="true"]:focus,
+.textarea[aria-invalid="true"]:focus {
+    border-color: var(--color-destructive);
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+}
+
+/* Sizes */
+
+.input-sm {
+    height: 2rem;
+    padding: var(--spacing-1) var(--spacing-2);
+    font-size: var(--text-xs);
+}
+
+.input-lg {
+    height: 2.75rem;
+    padding: var(--spacing-3) var(--spacing-4);
+    font-size: var(--text-base);
+}
