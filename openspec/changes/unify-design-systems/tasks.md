@@ -67,12 +67,12 @@ shared; both systems use the same color values and spacing conventions.
 
 Single source of truth for page structure - no more duplicating head/footer in every page.
 
-- [ ] 8.1 Create `fragments/head.html` with common `<head>` content (meta, css, htmx)
-- [ ] 8.2 Create `fragments/layout.html` as the main layout template
-- [ ] 8.3 Update `fragments/footer.html` if needed for layout integration
-- [ ] 8.4 Refactor `tenants/list.html` to use layout
-- [ ] 8.5 Refactor `templates/list.html` to use layout
-- [ ] 8.6 Refactor `templates/detail.html` to use layout
+- [x] 8.1 Create `fragments/head.html` with common `<head>` content (meta, css, htmx)
+- [x] 8.2 Create `fragments/layout.html` as the main layout template
+- [x] 8.3 Update `fragments/footer.html` if needed for layout integration (no changes needed)
+- [x] 8.4 Refactor `tenants/list.html` to use layout
+- [x] 8.5 Refactor `templates/list.html` to use layout
+- [x] 8.6 Refactor `templates/detail.html` to use layout
 
 ## 9. Cleanup & Documentation
 

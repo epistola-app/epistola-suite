@@ -1,14 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${template.name + ' - Epistola'}">Template - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-</head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout(~{::content}, ${template.name})}">
 <body>
-    <main class="container">
+    <div th:fragment="content">
         <nav class="breadcrumb">
             <a th:href="@{/}">Tenants</a> &raquo;
             <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
@@ -211,8 +205,6 @@
                 </form>
             </div>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </div>
 </body>
 </html>

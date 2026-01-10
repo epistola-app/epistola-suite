@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content, title)">
+<head th:replace="~{fragments/head :: head(${title})}">
+</head>
+<body>
+    <main class="container space-y-4">
+        <th:block th:replace="${content}" />
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>

@@ -1,14 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tenants - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-</head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout(~{::content}, 'Tenants')}">
 <body>
-    <main class="container">
+    <div th:fragment="content">
         <h1>Tenants</h1>
 
         <div id="create-form" th:fragment="create-form">
@@ -73,8 +67,6 @@
                 </tbody>
             </table>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </div>
 </body>
 </html>

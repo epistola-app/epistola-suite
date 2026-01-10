@@ -1,14 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Templates - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-</head>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{fragments/layout :: layout(~{::content}, 'Document Templates')}">
 <body>
-    <main class="container">
+    <div th:fragment="content">
         <nav class="breadcrumb">
             <a th:href="@{/}">Tenants</a> &raquo; Templates
         </nav>
@@ -16,7 +10,7 @@
         <h1>Document Templates</h1>
 
         <div id="create-form" th:fragment="create-form">
-            <div class="card">
+            <div class="card space-y-4">
                 <div class="card-header">
                     <h2>Create New Template</h2>
                 </div>
@@ -46,7 +40,7 @@
 
         <section>
             <h2>Existing Templates</h2>
-            <div class="search-box">
+            <div class="search-box my-2">
                 <input type="search"
                        name="q"
                        class="input"
@@ -85,8 +79,6 @@
                 </tbody>
             </table>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </div>
 </body>
 </html>
