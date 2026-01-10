@@ -12,22 +12,26 @@
         <h1>Tenants</h1>
 
         <div id="create-form" th:fragment="create-form">
-            <section class="form-section">
-                <h2>Create New Tenant</h2>
-                <form th:action="@{/tenants}" method="post"
-                      hx-post="/tenants"
-                      hx-target="#tenant-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required placeholder="Tenant name"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <button type="submit" class="btn">Create Tenant</button>
-                </form>
-            </section>
+            <div class="card">
+                <div class="card-header">
+                    <h2>Create New Tenant</h2>
+                </div>
+                <div class="card-content">
+                    <form th:action="@{/tenants}" method="post"
+                          hx-post="/tenants"
+                          hx-target="#tenant-rows"
+                          hx-swap="innerHTML"
+                          hx-on::after-request="if(event.detail.successful) this.reset()">
+                        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                            <label for="name">Name</label>
+                            <input type="text" id="name" name="name" class="input" required placeholder="Tenant name"
+                                   th:value="${formData?.name}">
+                            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                        </div>
+                        <button type="submit" class="btn">Create Tenant</button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <section>
@@ -35,6 +39,7 @@
             <div class="search-box">
                 <input type="search"
                        name="q"
+                       class="input"
                        placeholder="Search tenants..."
                        hx-get="/tenants/search"
                        hx-trigger="input changed delay:300ms, search"

@@ -8,6 +8,7 @@
  *   @import "design-system/index.css";
  */
 
+@import "base.css";
 @import "tokens.css";
 @import "button.css";
 @import "input.css";

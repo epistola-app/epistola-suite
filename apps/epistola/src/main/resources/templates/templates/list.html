@@ -16,28 +16,32 @@
         <h1>Document Templates</h1>
 
         <div id="create-form" th:fragment="create-form">
-            <section class="form-section">
-                <h2>Create New Template</h2>
-                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post"
-                      th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
-                      hx-target="#template-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required placeholder="Template name"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('schema')} ? 'error' : ''">
-                        <label for="schema">JSON Schema (optional)</label>
-                        <textarea id="schema" name="schema" rows="6" placeholder='{"type": "object", "properties": {...}}'
-                                  th:text="${formData?.schema}"></textarea>
-                        <span class="form-error" th:if="${errors?.containsKey('schema')}" th:text="${errors.schema}"></span>
-                    </div>
-                    <button type="submit" class="btn">Create Template</button>
-                </form>
-            </section>
+            <div class="card">
+                <div class="card-header">
+                    <h2>Create New Template</h2>
+                </div>
+                <div class="card-content">
+                    <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post"
+                          th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
+                          hx-target="#template-rows"
+                          hx-swap="innerHTML"
+                          hx-on::after-request="if(event.detail.successful) this.reset()">
+                        <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                            <label for="name">Name</label>
+                            <input type="text" id="name" name="name" class="input" required placeholder="Template name"
+                                   th:value="${formData?.name}">
+                            <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                        </div>
+                        <div class="form-group" th:classappend="${errors?.containsKey('schema')} ? 'error' : ''">
+                            <label for="schema">JSON Schema (optional)</label>
+                            <textarea id="schema" name="schema" class="textarea" rows="6" placeholder='{"type": "object", "properties": {...}}'
+                                      th:text="${formData?.schema}"></textarea>
+                            <span class="form-error" th:if="${errors?.containsKey('schema')}" th:text="${errors.schema}"></span>
+                        </div>
+                        <button type="submit" class="btn">Create Template</button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <section>
@@ -45,6 +49,7 @@
             <div class="search-box">
                 <input type="search"
                        name="q"
+                       class="input"
                        placeholder="Search templates..."
                        th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})}"
                        hx-trigger="input changed delay:300ms, search"

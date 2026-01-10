@@ -86,28 +86,32 @@
                 </p>
             </div>
 
-            <div class="form-section" style="margin-top: 1rem;">
-                <h3>Create New Variant</h3>
-                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
-                      method="post"
-                      th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
-                      hx-target="#variants-section"
-                      hx-swap="outerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group">
-                        <label for="title">Title</label>
-                        <input type="text" id="title" name="title" placeholder="e.g., English Newsletter">
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Description (optional)</label>
-                        <textarea id="description" name="description" rows="2" placeholder="Description of this variant"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="tags">Tags (optional, format: key=value, one per line)</label>
-                        <textarea id="tags" name="tags" rows="3" placeholder="locale=en-US&#10;brand=default"></textarea>
-                    </div>
-                    <button type="submit" class="btn">Create Variant</button>
-                </form>
+            <div class="card">
+                <div class="card-header">
+                    <h3>Create New Variant</h3>
+                </div>
+                <div class="card-content">
+                    <form th:action="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
+                          method="post"
+                          th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
+                          hx-target="#variants-section"
+                          hx-swap="outerHTML"
+                          hx-on::after-request="if(event.detail.successful) this.reset()">
+                        <div class="form-group">
+                            <label for="title">Title</label>
+                            <input type="text" id="title" name="title" class="input" placeholder="e.g., English Newsletter">
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description (optional)</label>
+                            <textarea id="description" name="description" class="textarea" rows="2" placeholder="Description of this variant"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="tags">Tags (optional, format: key=value, one per line)</label>
+                            <textarea id="tags" name="tags" class="textarea" rows="3" placeholder="locale=en-US&#10;brand=default"></textarea>
+                        </div>
+                        <button type="submit" class="btn">Create Variant</button>
+                    </form>
+                </div>
             </div>
         </section>
 
