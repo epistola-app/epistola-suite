@@ -3,6 +3,28 @@
 ## [Unreleased]
 
 ### Added
+- Unified design system
+  - Modular CSS architecture with 14 component files in `css/design-system/`
+  - Warm color palette with terracotta primary (#c84b31) and sophisticated typography
+  - Fraunces (display) and Outfit (body) font families via Google Fonts
+  - Comprehensive component library: buttons, inputs, badges, cards, forms, tables, tags, breadcrumbs, empty states, footers
+  - Tailwind-like utility classes for spacing (m-*, p-*, gap-*), layout (flex, grid), typography (text-*), and more
+  - Thymeleaf layout system with reusable fragments (`fragments/head.html`, `fragments/layout.html`)
+  - Editor isolation strategy to prevent CSS conflicts using `html:not([editor="true"])` selectors
+  - Subtle animations and transitions for enhanced user experience
+  - Responsive container system and accessibility improvements
+
+### Changed
+- Refactored all Thymeleaf templates to use the new design system components
+- Migrated from inline styles to utility-first approach
+- Improved visual hierarchy and consistency across all pages
+
+### Fixed
+- CSS specificity issues between editor and Thymeleaf pages
+- Inconsistent button and form styling across different pages  
+- Layout and spacing inconsistencies
+
+### Added
 - Template variants, versions, and lifecycle management (API-first)
   - New domain model: Template → Variant → Version with lifecycle states
   - Environments: Tenant-configurable deployment targets (staging, production, etc.)
