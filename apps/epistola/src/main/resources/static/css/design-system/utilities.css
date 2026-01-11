@@ -21,6 +21,12 @@
     text-align: right;
 }
 
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Text size utilities */
 .text-xs { font-size: var(--text-xs); }
 .text-sm { font-size: var(--text-sm); }
