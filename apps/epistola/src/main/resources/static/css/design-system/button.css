@@ -32,7 +32,7 @@
 }
 
 .btn:hover {
-    background-color: #374151;
+    background-color: color-mix(in srgb, var(--color-primary), transparent 10%);
 }
 
 .btn:focus-visible {

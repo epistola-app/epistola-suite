@@ -19,11 +19,9 @@ html:not([editor="true"]) {
 html, body {
   margin: 0;
   padding: 0;
-}
-
-html {
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
+  font-family: var(--font-inter);
+  line-height: var(--tw-leading);
+  -webkit-font-smoothing: antialiased;
 }
 
 img,
@@ -35,29 +33,13 @@ svg {
     max-width: 100%;
 }
 
-input,
-button,
-textarea,
-select {
-    font: inherit;
-}
-
-p,
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-    overflow-wrap: break-word;
-}
-
-/* Body defaults */
-body {
-    font-family: var(--font-sans);
-    line-height: 1.6;
-    color: var(--color-foreground);
-    background-color: var(--color-muted);
-    padding-bottom: 2.5rem; /* Space for fixed footer */
+    font-size: inherit;
+    font-weight: inherit;
 }
 }

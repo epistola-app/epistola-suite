@@ -60,7 +60,7 @@
                                 <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                    class="btn btn-sm">Edit</a>
                                 <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                   class="btn btn-sm btn-secondary">Versions</a>
+                                   class="btn btn-sm btn-primary">Versions</a>
                                 <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                       method="post"
                                       style="display: inline;"
