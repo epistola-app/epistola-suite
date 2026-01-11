@@ -1,24 +1,36 @@
 /*
  * Form Component
- *
- * Usage:
- *   <div class="form-group">
- *     <label for="name">Name</label>
- *     <input type="text" id="name" class="input">
- *     <span class="form-error">Error message</span>
- *   </div>
+ * Form layouts and field groups
  */
 
 .form-group {
-    margin-bottom: var(--spacing-4);
+    margin-bottom: var(--spacing-5);
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: var(--spacing-1);
+    margin-bottom: var(--spacing-2);
+    font-family: var(--font-body);
     font-weight: 500;
     font-size: var(--text-sm);
     color: var(--color-foreground);
+}
+
+.form-group label .optional {
+    font-weight: 400;
+    color: var(--color-muted-foreground);
+}
+
+/* Help text */
+.form-help {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--color-muted-foreground);
+    margin-top: var(--spacing-1);
 }
 
 /* Error state */
@@ -30,12 +42,77 @@
 .form-group.error .input:focus,
 .form-group.error .textarea:focus {
     border-color: var(--color-destructive);
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+    box-shadow: 0 0 0 3px rgb(190 58 58 / 0.1);
 }
 
 .form-error {
     display: block;
     font-size: var(--text-sm);
     color: var(--color-destructive);
-    margin-top: var(--spacing-1);
+    margin-top: var(--spacing-2);
+}
+
+/* Form actions */
+.form-actions {
+    display: flex;
+    gap: var(--spacing-3);
+    margin-top: var(--spacing-6);
+    padding-top: var(--spacing-6);
+    border-top: 1px solid var(--color-border);
+}
+
+.form-actions-right {
+    justify-content: flex-end;
+}
+
+/* Inline form layout */
+.form-inline {
+    display: flex;
+    gap: var(--spacing-4);
+    align-items: flex-end;
+}
+
+.form-inline .form-group {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+/* Form sections */
+.form-section {
+    margin-bottom: var(--spacing-8);
+}
+
+.form-section-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    color: var(--color-foreground);
+    margin-bottom: var(--spacing-4);
+    padding-bottom: var(--spacing-2);
+    border-bottom: 1px solid var(--color-border);
+}
+
+/* Inline form layout */
+.inline-form {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: flex-end;
+}
+
+.inline-form .form-group {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.inline-form input {
+    width: 100%;
+}
+
+/* Search box */
+.search-box {
+    margin-bottom: var(--spacing-5);
+}
+
+.search-box input {
+    max-width: 320px;
 }

@@ -1,45 +1,55 @@
 /*
  * Design System Tokens
- * Shared CSS custom properties for colors, spacing, and radius.
- * These values are derived from the shadcn/ui design system.
+ * Warm Editorial aesthetic - sophisticated, inviting, memorable
  */
 
 :root {
-    /* Colors - Primary */
-    --color-primary: #e05d38;
+    /* Typography */
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Outfit", system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+    /* Colors - Primary (Terracotta Orange) */
+    --color-primary: #c84b31;
+    --color-primary-hover: #a83d27;
     --color-primary-foreground: #ffffff;
 
-    /* Colors - Secondary */
-    --color-secondary: #f5f5f5;
-    --color-secondary-foreground: #1f2937;
+    /* Colors - Secondary (Warm Stone) */
+    --color-secondary: #f0ebe3;
+    --color-secondary-hover: #e4ddd2;
+    --color-secondary-foreground: #3d3229;
 
     /* Colors - Destructive */
-    --color-destructive: #ef4444;
+    --color-destructive: #be3a3a;
+    --color-destructive-hover: #a03030;
     --color-destructive-foreground: #ffffff;
 
     /* Colors - Muted */
-    --color-muted: #f9fafb;
-    --color-muted-foreground: #6b7280;
+    --color-muted: #faf8f5;
+    --color-muted-foreground: #7a7067;
 
     /* Colors - Accent */
-    --color-accent: #d6e4f0;
-    --color-accent-foreground: #1e3a8a;
+    --color-accent: #e8d5c4;
+    --color-accent-foreground: #5c4a3a;
 
     /* Colors - Background & Foreground */
-    --color-background: #ffffff;
-    --color-foreground: #1f2937;
+    --color-background: #fffcf8;
+    --color-foreground: #2d2520;
+    --color-surface: #ffffff;
 
     /* Colors - Border & Input */
-    --color-border: #e5e5e5;
-    --color-input: #e5e5e5;
-    --color-ring: #e05d38;
+    --color-border: #e5ddd3;
+    --color-border-hover: #d4c9bc;
+    --color-input: #e5ddd3;
+    --color-ring: #c84b31;
 
     /* Radius */
-    --radius: 0.375rem;
-    --radius-sm: 0.25rem;
-    --radius-md: 0.375rem;
-    --radius-lg: 0.5rem;
-    --radius-xl: 0.75rem;
+    --radius: 0.5rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
 
     /* Spacing */
     --spacing-0: 0;
@@ -52,13 +62,10 @@
     --spacing-8: 2rem;
     --spacing-10: 2.5rem;
     --spacing-12: 3rem;
+    --spacing-16: 4rem;
+    --spacing-20: 5rem;
 
-    /* Typography */
-    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    --font-inter: "Inter", sans-serif;
-
-     /* Font sizes */
+    /* Font sizes */
     --text-xs: 0.75rem;
     --text-sm: 0.875rem;
     --text-base: 1rem;
@@ -68,29 +75,28 @@
     --text-3xl: 1.875rem;
     --text-4xl: 2.25rem;
     --text-5xl: 3rem;
-    --text-6xl: 3.75rem;
-    --text-7xl: 4.5rem;
-    --text-8xl: 6rem;
 
-    /* Line heights (coupled with font sizes for optimal readability) */
-    --text-xs--line-height: 1rem; /* 1.333 ratio */
-    --text-sm--line-height: 1.25rem; /* 1.428 ratio */
-    --text-base--line-height: 1.5rem; /* 1.5 ratio */
-    --text-lg--line-height: 1.75rem; /* 1.555 ratio */
-    --text-xl--line-height: 1.75rem; /* 1.4 ratio */
-    --text-2xl--line-height: 2rem; /* 1.333 ratio */
-    --text-3xl--line-height: 2.25rem; /* 1.2 ratio */
-    --text-4xl--line-height: 2.5rem; /* 1.111 ratio */
-    --text-5xl--line-height: 1; /* unitless, 1x ratio */
-    --text-6xl--line-height: 1; /* unitless, 1x ratio */
-    --text-7xl--line-height: 1; /* unitless, 1x ratio */
-    --text-8xl--line-height: 1; /* unitless, 1x ratio */
+    /* Line heights */
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
 
-    /* Default line height fallback (Tailwind compatibility) */
-    --tw-leading: 1.5;
+    /* Letter spacing */
+    --tracking-tight: -0.025em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.025em;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    /* Shadows - Warm toned */
+    --shadow-sm: 0 1px 2px 0 rgb(45 37 32 / 0.04);
+    --shadow: 0 1px 3px 0 rgb(45 37 32 / 0.06), 0 1px 2px -1px rgb(45 37 32 / 0.06);
+    --shadow-md: 0 4px 6px -1px rgb(45 37 32 / 0.06), 0 2px 4px -2px rgb(45 37 32 / 0.04);
+    --shadow-lg: 0 10px 15px -3px rgb(45 37 32 / 0.08), 0 4px 6px -4px rgb(45 37 32 / 0.04);
+    --shadow-xl: 0 20px 25px -5px rgb(45 37 32 / 0.08), 0 8px 10px -6px rgb(45 37 32 / 0.04);
+
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }

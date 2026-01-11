@@ -1,33 +1,38 @@
 /*
  * Input Component
- *
- * Usage:
- *   <input type="text" class="input" placeholder="Enter text...">
- *   <textarea class="textarea" rows="4"></textarea>
- *   <input type="text" class="input input-error" aria-invalid="true">
+ * Refined form inputs with warm aesthetic
  */
 
 .input {
     display: flex;
     width: 100%;
-    height: 2.25rem;
-    padding: var(--spacing-2) var(--spacing-3);
+    height: 2.5rem;
+    padding: var(--spacing-2) var(--spacing-4);
+    font-family: var(--font-body);
     font-size: var(--text-sm);
-    font-family: inherit;
-    background-color: var(--color-background);
+    color: var(--color-foreground);
+    background-color: var(--color-surface);
     border: 1px solid var(--color-input);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        background-color var(--transition-fast);
 }
 
 .input::placeholder {
     color: var(--color-muted-foreground);
 }
 
+.input:hover {
+    border-color: var(--color-border-hover);
+}
+
 .input:focus {
     border-color: var(--color-ring);
-    box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.1);
+    box-shadow: 0 0 0 3px rgb(200 75 49 / 0.1);
+    background-color: var(--color-surface);
 }
 
 .input:disabled {
@@ -37,29 +42,35 @@
 }
 
 /* Textarea */
-
 .textarea {
     display: flex;
     width: 100%;
-    min-height: 5rem;
-    padding: var(--spacing-2) var(--spacing-3);
+    min-height: 6rem;
+    padding: var(--spacing-3) var(--spacing-4);
+    font-family: var(--font-body);
     font-size: var(--text-sm);
-    font-family: inherit;
-    background-color: var(--color-background);
+    color: var(--color-foreground);
+    background-color: var(--color-surface);
     border: 1px solid var(--color-input);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     outline: none;
     resize: vertical;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast);
 }
 
 .textarea::placeholder {
     color: var(--color-muted-foreground);
 }
 
+.textarea:hover {
+    border-color: var(--color-border-hover);
+}
+
 .textarea:focus {
     border-color: var(--color-ring);
-    box-shadow: 0 0 0 2px rgba(31, 41, 55, 0.1);
+    box-shadow: 0 0 0 3px rgb(200 75 49 / 0.1);
 }
 
 .textarea:disabled {
@@ -69,7 +80,6 @@
 }
 
 /* Error state */
-
 .input-error,
 .input[aria-invalid="true"],
 .textarea[aria-invalid="true"] {
@@ -80,19 +90,19 @@
 .input[aria-invalid="true"]:focus,
 .textarea[aria-invalid="true"]:focus {
     border-color: var(--color-destructive);
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+    box-shadow: 0 0 0 3px rgb(190 58 58 / 0.1);
 }
 
-/* Sizes */
-
+/* Size variants */
 .input-sm {
     height: 2rem;
-    padding: var(--spacing-1) var(--spacing-2);
+    padding: var(--spacing-1) var(--spacing-3);
     font-size: var(--text-xs);
+    border-radius: var(--radius-md);
 }
 
 .input-lg {
-    height: 2.75rem;
-    padding: var(--spacing-3) var(--spacing-4);
+    height: 3rem;
+    padding: var(--spacing-3) var(--spacing-5);
     font-size: var(--text-base);
 }

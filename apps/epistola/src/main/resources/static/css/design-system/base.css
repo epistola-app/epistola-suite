@@ -1,29 +1,39 @@
 /*
  * Base / CSS Reset
- *
- * Global styles and resets applied to all elements.
+ * Global styles and resets for the Warm Editorial design system
  */
 
-
-/* 
- * Apply only when not in editor mode
- * Reason is NOT to interfere with tailwind + shadcn defaults in editor
- */
 html:not([editor="true"]) {
+/* Box sizing */
 *,
 *::before,
 *::after {
     box-sizing: border-box;
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  font-family: var(--font-inter);
-  line-height: var(--tw-leading);
-  -webkit-font-smoothing: antialiased;
+/* Remove default margins */
+* {
+    margin: 0;
 }
 
+/* Body defaults */
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+    min-height: 100vh;
+    padding-bottom: 4rem; /* Space for fixed footer */
+}
+
+/* Media defaults */
 img,
 picture,
 video,
@@ -33,13 +43,74 @@ svg {
     max-width: 100%;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-size: inherit;
-    font-weight: inherit;
+/* Form elements inherit font */
+input,
+button,
+textarea,
+select {
+    font: inherit;
+}
+
+/* Heading resets - styles applied via utilities */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-foreground);
+    text-wrap: balance;
+}
+
+h1 {
+    font-size: var(--text-4xl);
+    font-weight: 400;
+}
+
+h2 {
+    font-size: var(--text-2xl);
+}
+
+h3 {
+    font-size: var(--text-xl);
+}
+
+h4 {
+    font-size: var(--text-lg);
+}
+
+/* Paragraph defaults */
+p {
+    line-height: var(--leading-relaxed);
+    text-wrap: pretty;
+}
+
+/* Link defaults */
+a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: text-decoration var(--transition-fast);
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-foreground);
+}
+
+/* Smooth scrolling */
+@media (prefers-reduced-motion: no-preference) {
+    html {
+        scroll-behavior: smooth;
+    }
 }
 }

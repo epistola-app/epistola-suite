@@ -4,6 +4,7 @@
  * Single-purpose helper classes for common styling needs.
  */
 
+html:not([editor="true"]) {
 /* Text utilities */
 .text-muted {
     color: var(--color-muted-foreground);
@@ -21,42 +22,30 @@
     text-align: right;
 }
 
-/* Text size utilities (Tailwind-style with coupled line-height) */
-.text-xs { font-size: var(--text-xs); line-height: var(--text-xs--line-height); }
-.text-sm { font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
-.text-base { font-size: var(--text-base); line-height: var(--text-base--line-height); }
-.text-lg { font-size: var(--text-lg); line-height: var(--text-lg--line-height); }
-.text-xl { font-size: var(--text-xl); line-height: var(--text-xl--line-height); }
-.text-2xl { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); }
-.text-3xl { font-size: var(--text-3xl); line-height: var(--text-3xl--line-height); }
-.text-4xl { font-size: var(--text-4xl); line-height: var(--text-4xl--line-height); }
-.text-5xl { font-size: var(--text-5xl); line-height: var(--text-5xl--line-height); }
-.text-6xl { font-size: var(--text-6xl); line-height: var(--text-6xl--line-height); }
-.text-7xl { font-size: var(--text-7xl); line-height: var(--text-7xl--line-height); }
-.text-8xl { font-size: var(--text-8xl); line-height: var(--text-8xl--line-height); }
+/* Text size utilities */
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+.text-4xl { font-size: var(--text-4xl); }
+.text-5xl { font-size: var(--text-5xl); }
 
-/* Container */
+/* Font weight utilities */
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
 
-.container {
-  width: 100%;
-  margin: 0 auto;
+/* Font family utilities */
+.font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
+.font-mono { font-family: var(--font-mono); }
 
-  @media (width >= 40rem) {
-    max-width: 40rem;
-  }
-  @media (width >= 48rem) {
-    max-width: 48rem;
-  }
-  @media (width >= 64rem) {
-    max-width: 64rem;
-  }
-  @media (width >= 80rem) {
-    max-width: 80rem;
-  }
-  @media (width >= 96rem) {
-    max-width: 96rem;
-  }
-}
+/* Container is defined in layout.css */
 
 /* Screen Reader Only */
 
@@ -413,3 +402,5 @@
 /* Pointer Events */
 .pointer-events-none { pointer-events: none; }
 .pointer-events-auto { pointer-events: auto; }
+
+}

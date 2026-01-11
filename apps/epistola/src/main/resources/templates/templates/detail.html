@@ -4,8 +4,10 @@
 <body>
     <div th:fragment="content">
         <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo;
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
+            <a th:href="@{/}">Tenants</a>
+            <span> &raquo; </span>
+            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a>
+            <span> &raquo; </span>
             <span th:text="${template.name}">Template Name</span>
         </nav>
 
@@ -79,35 +81,34 @@
                     No variants yet. Create one below to get started.
                 </p>
             </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h3>Create New Variant</h3>
-                </div>
-                <div class="card-content">
-                    <form th:action="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
-                          method="post"
-                          th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
-                          hx-target="#variants-section"
-                          hx-swap="outerHTML"
-                          hx-on::after-request="if(event.detail.successful) this.reset()">
-                        <div class="form-group">
-                            <label for="title">Title</label>
-                            <input type="text" id="title" name="title" class="input" placeholder="e.g., English Newsletter">
-                        </div>
-                        <div class="form-group">
-                            <label for="description">Description (optional)</label>
-                            <textarea id="description" name="description" class="textarea" rows="2" placeholder="Description of this variant"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="tags">Tags (optional, format: key=value, one per line)</label>
-                            <textarea id="tags" name="tags" class="textarea" rows="3" placeholder="locale=en-US&#10;brand=default"></textarea>
-                        </div>
-                        <button type="submit" class="btn">Create Variant</button>
-                    </form>
-                </div>
-            </div>
         </section>
+        <div class="card">
+            <div class="card-header">
+                <h3>Create New Variant</h3>
+            </div>
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
+                      method="post"
+                      th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
+                      hx-target="#variants-section"
+                      hx-swap="outerHTML"
+                      hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <div class="form-group">
+                        <label for="title">Title</label>
+                        <input type="text" id="title" name="title" class="input" placeholder="e.g., English Newsletter">
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description (optional)</label>
+                        <textarea id="description" name="description" class="textarea" rows="2" placeholder="Description of this variant"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="tags">Tags (optional, format: key=value, one per line)</label>
+                        <textarea id="tags" name="tags" class="textarea" rows="3" placeholder="locale=en-US&#10;brand=default"></textarea>
+                    </div>
+                    <button type="submit" class="btn">Create Variant</button>
+                </form>
+            </div>
+        </div>
 
         <!-- Versions Section (shown when a variant is selected) -->
         <section th:if="${selectedVariant != null}" style="margin-top: 2rem;">

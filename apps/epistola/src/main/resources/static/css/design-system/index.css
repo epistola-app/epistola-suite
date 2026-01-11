@@ -1,15 +1,21 @@
 /*
  * Epistola Design System
- *
- * A shared CSS design system for consistent styling across
- * React components and Thymeleaf templates.
- *
- * Import this file to get all design system components:
- *   @import "design-system/index.css";
+ * Warm Editorial aesthetic - sophisticated, inviting, memorable
  */
 
-@import "base.css";
+/* Foundation */
+/*
+ * Design tokens: colors, typography, spacing, etc.
+ * Inspired by Shadcn design system
+ */
+
 @import "tokens.css";
+@import "base.css";
+
+/* Layout */
+@import "layout.css";
+
+/* Components */
 @import "button.css";
 @import "input.css";
 @import "badge.css";
@@ -17,6 +23,12 @@
 @import "form.css";
 @import "table.css";
 @import "tag.css";
-/* @import "layout.css"; */
+@import "breadcrumb.css";
+@import "empty-state.css";
 @import "footer.css";
+
+/* Animations */
+@import "animations.css";
+
+/* Utilities - last for override capability */
 @import "utilities.css";

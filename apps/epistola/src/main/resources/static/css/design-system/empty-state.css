@@ -1,0 +1,28 @@
+/*
+ * Empty State Component
+ * Placeholder content when no data exists
+ */
+
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-12) var(--spacing-6);
+    color: var(--color-muted-foreground);
+}
+
+.empty-state h3 {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    color: var(--color-foreground);
+    margin-bottom: var(--spacing-2);
+}
+
+.empty-state p {
+    margin-bottom: var(--spacing-6);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-state .btn {
+    margin-top: var(--spacing-2);
+}

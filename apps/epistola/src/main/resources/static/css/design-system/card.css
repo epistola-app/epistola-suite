@@ -1,25 +1,26 @@
 /*
  * Card Component
- *
- * Usage:
- *   <div class="card">
- *     <div class="card-header">Title</div>
- *     <div class="card-content">Content here</div>
- *     <div class="card-footer">Footer actions</div>
- *   </div>
+ * Refined cards with subtle depth and warm aesthetic
  */
 
 .card {
     display: flex;
     flex-direction: column;
-    background-color: var(--color-background);
+    background-color: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    transition: box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
 }
 
 .card-header {
-    padding: var(--spacing-4) var(--spacing-6);
+    padding: var(--spacing-5) var(--spacing-6);
+    background: linear-gradient(to bottom, var(--color-muted), transparent);
     border-bottom: 1px solid var(--color-border);
 }
 
@@ -28,29 +29,57 @@
 .card-header h3,
 .card-header h4 {
     margin: 0;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-weight: 500;
+}
+
+.card-header h2 {
+    font-size: var(--text-xl);
+}
+
+.card-header h3 {
+    font-size: var(--text-lg);
 }
 
 .card-content {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
-    padding: var(--spacing-4) var(--spacing-6);
+    padding: var(--spacing-6);
 }
 
 .card-footer {
     padding: var(--spacing-4) var(--spacing-6);
+    background-color: var(--color-muted);
     border-top: 1px solid var(--color-border);
 }
 
 /* Card without sections (simple container) */
-
 .card-simple {
-    padding: var(--spacing-4) var(--spacing-6);
+    padding: var(--spacing-6);
 }
 
 /* Card variants */
-
 .card-muted {
     background-color: var(--color-muted);
+    border-color: transparent;
+}
+
+.card-accent {
+    background: linear-gradient(135deg, var(--color-surface) 0%, var(--color-accent) 100%);
+    border-color: var(--color-accent);
+}
+
+/* Interactive card */
+.card-interactive {
+    cursor: pointer;
+}
+
+.card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-xl);
+}
+
+.card-interactive:active {
+    transform: translateY(0);
 }

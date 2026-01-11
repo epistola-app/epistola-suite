@@ -1,0 +1,109 @@
+/*
+ * Animations
+ * Keyframes, transitions, and HTMX states
+ */
+
+html:not([editor="true"]) {
+/* Keyframes */
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Animation utilities */
+.animate-fade-in {
+    animation: fadeIn var(--transition-base) ease-out both;
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp var(--transition-slow) ease-out both;
+}
+
+.animate-fade-in-down {
+    animation: fadeInDown var(--transition-slow) ease-out both;
+}
+
+.animate-scale-in {
+    animation: scaleIn var(--transition-base) ease-out both;
+}
+
+/* Staggered delays */
+.delay-1 { animation-delay: 50ms; }
+.delay-2 { animation-delay: 100ms; }
+.delay-3 { animation-delay: 150ms; }
+.delay-4 { animation-delay: 200ms; }
+.delay-5 { animation-delay: 250ms; }
+
+/* Page load animation - applied to container children */
+@media (prefers-reduced-motion: no-preference) {
+    .container > * {
+        animation: fadeInUp var(--transition-slow) ease-out both;
+    }
+
+    .container > *:nth-child(1) { animation-delay: 0ms; }
+    .container > *:nth-child(2) { animation-delay: 50ms; }
+    .container > *:nth-child(3) { animation-delay: 100ms; }
+    .container > *:nth-child(4) { animation-delay: 150ms; }
+    .container > *:nth-child(5) { animation-delay: 200ms; }
+}
+
+/* HTMX states */
+.htmx-request {
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+}
+
+.htmx-added {
+    animation: fadeIn var(--transition-base) ease-out;
+}
+
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+}

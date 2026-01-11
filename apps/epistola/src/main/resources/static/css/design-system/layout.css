@@ -1,108 +1,87 @@
 /*
- * Layout Components
- *
- * Usage:
- *   <main class="container">
- *     <div class="page-header">
- *       <h1>Title</h1>
- *       <a href="#" class="btn">Action</a>
- *     </div>
- *     <section>Content</section>
- *   </main>
+ * Layout
+ * Structural containers and page arrangements
  */
 
+html:not([editor="true"]) {
 /* Page container */
 .container {
-    max-width: 900px;
-    margin: 2rem auto;
-    padding: 0 var(--spacing-4);
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: var(--spacing-8) var(--spacing-6);
 }
 
+@media (min-width: 1024px) {
+    .container {
+        padding: var(--spacing-12) var(--spacing-8);
+    }
+}
+
+/* Heading spacing within container */
 .container h1 {
-    margin-bottom: var(--spacing-6);
-    color: var(--color-foreground);
+    margin-bottom: var(--spacing-2);
 }
 
 .container h2 {
     margin-bottom: var(--spacing-4);
-    color: var(--color-foreground);
-    font-size: var(--text-xl);
 }
 
+/* Section spacing */
 .container section {
-    margin-bottom: var(--spacing-8);
+    margin-bottom: var(--spacing-10);
 }
 
-/* Page header with actions */
+.container section:last-child {
+    margin-bottom: 0;
+}
+
+/* Page header - title + actions row */
 .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-6);
+    align-items: flex-start;
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-8);
+    padding-bottom: var(--spacing-6);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .page-header h1 {
     margin: 0;
 }
 
-/* Section headers */
+.page-header .page-actions {
+    display: flex;
+    gap: var(--spacing-2);
+}
+
+/* Section header - title + actions row */
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-4);
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-5);
 }
 
 .section-header h2 {
     margin: 0;
 }
 
-/* Breadcrumb navigation */
-.breadcrumb {
-    margin-bottom: var(--spacing-4);
-    font-size: var(--text-sm);
-    color: var(--color-muted-foreground);
-}
-
-.breadcrumb a {
-    color: var(--color-primary);
-    text-decoration: none;
-}
-
-.breadcrumb a:hover {
-    text-decoration: underline;
-}
-
-/* Action buttons container */
+/* Actions container - horizontal button group */
 .actions {
     display: flex;
     gap: var(--spacing-2);
     align-items: center;
+    flex-wrap: wrap;
 }
 
-/* Inline form (for create variant) */
-.inline-form {
-    display: flex;
-    gap: var(--spacing-2);
-    align-items: flex-end;
-    margin-top: var(--spacing-4);
+/* Divider */
+.divider {
+    height: 1px;
+    background-color: var(--color-border);
+    margin: var(--spacing-6) 0;
 }
 
-.inline-form .form-group {
-    margin-bottom: 0;
-    flex: 1;
-}
-
-.inline-form input {
-    width: 100%;
-}
-
-/* Search box */
-.search-box {
-    margin-bottom: var(--spacing-4);
-}
-
-.search-box input {
-    width: 100%;
-    max-width: 300px;
 }

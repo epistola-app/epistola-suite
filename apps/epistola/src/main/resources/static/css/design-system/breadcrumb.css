@@ -1,0 +1,33 @@
+/*
+ * Breadcrumb Component
+ * Navigation trail showing page hierarchy
+ */
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-6);
+    font-size: var(--text-sm);
+    color: var(--color-muted-foreground);
+}
+
+.breadcrumb a {
+    color: var(--color-muted-foreground);
+}
+
+.breadcrumb a:hover {
+    color: var(--color-primary);
+}
+
+/* Current page (last item) */
+.breadcrumb span:last-child {
+    color: var(--color-foreground);
+    font-weight: 500;
+}
+
+/* Separator styling (if using explicit separators) */
+.breadcrumb-separator {
+    color: var(--color-border);
+    user-select: none;
+}
