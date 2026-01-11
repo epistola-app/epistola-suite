@@ -3,7 +3,6 @@
  * Global styles and resets for the Warm Editorial design system
  */
 
-html:not([editor="true"]) {
 /* Box sizing */
 *,
 *::before,
@@ -86,7 +85,6 @@ p {
 
 /* Link defaults */
 a {
-    color: var(--color-primary);
     text-decoration: none;
     transition: text-decoration var(--transition-fast);
 }
@@ -112,5 +110,4 @@ a:hover {
     html {
         scroll-behavior: smooth;
     }
-}
 }

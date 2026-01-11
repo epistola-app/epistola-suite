@@ -1,19 +1,13 @@
 /*
  * Epistola Design System
  * Warm Editorial aesthetic - sophisticated, inviting, memorable
+ *
+ * Note: base.css, layout.css, animations.css, utilities.css are imported
+ * directly in head.html to avoid specificity issues with editor isolation.
  */
 
 /* Foundation */
-/*
- * Design tokens: colors, typography, spacing, etc.
- * Inspired by Shadcn design system
- */
-
 @import "tokens.css";
-@import "base.css";
-
-/* Layout */
-@import "layout.css";
 
 /* Components */
 @import "button.css";
@@ -26,9 +20,3 @@
 @import "breadcrumb.css";
 @import "empty-state.css";
 @import "footer.css";
-
-/* Animations */
-@import "animations.css";
-
-/* Utilities - last for override capability */
-@import "utilities.css";

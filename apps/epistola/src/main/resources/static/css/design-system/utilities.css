@@ -4,7 +4,6 @@
  * Single-purpose helper classes for common styling needs.
  */
 
-html:not([editor="true"]) {
 /* Text utilities */
 .text-muted {
     color: var(--color-muted-foreground);
@@ -402,5 +401,3 @@ html:not([editor="true"]) {
 /* Pointer Events */
 .pointer-events-none { pointer-events: none; }
 .pointer-events-auto { pointer-events: auto; }
-
-}

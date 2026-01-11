@@ -3,7 +3,6 @@
  * Structural containers and page arrangements
  */
 
-html:not([editor="true"]) {
 /* Page container */
 .container {
     width: 100%;
@@ -82,6 +81,4 @@ html:not([editor="true"]) {
     height: 1px;
     background-color: var(--color-border);
     margin: var(--spacing-6) 0;
-}
-
 }
