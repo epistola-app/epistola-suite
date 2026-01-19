@@ -10,7 +10,7 @@ kover = "0.9.4"
 jdbi = "3.51.0"
 json-schema-validator = "3.0.0"
 openapi-generator = "7.18.0"
-jackson2 = "2.20.1"
+jackson2 = "2.21.0"
 spring-web = "6.2.15"
 
 [libraries]
