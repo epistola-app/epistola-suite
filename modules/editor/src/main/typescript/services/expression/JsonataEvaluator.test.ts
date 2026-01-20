@@ -83,7 +83,7 @@ describe("JsonataEvaluator", () => {
 
       expect(result.success).toBe(true);
       // JSONata returns arrays with a 'sequence' property, so we check values
-      expect([...result.value]).toEqual([10, 20, 30]);
+      expect([...(result.value as number[])]).toEqual([10, 20, 30]);
     });
 
     it("evaluates array filtering", async () => {
@@ -93,7 +93,7 @@ describe("JsonataEvaluator", () => {
 
       expect(result.success).toBe(true);
       // JSONata returns arrays with a 'sequence' property, so we check values
-      expect([...result.value]).toEqual([true, true]);
+      expect([...(result.value as boolean[])]).toEqual([true, true]);
     });
 
     it("evaluates arithmetic expressions", async () => {

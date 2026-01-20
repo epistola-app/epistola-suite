@@ -133,7 +133,7 @@ describe("extractExpressions", () => {
     const conditionalBlock: ConditionalBlock = {
       id: "1",
       type: "conditional",
-      condition: { raw: "customer.active", evaluated: null },
+      condition: { raw: "customer.active" },
       children: [],
     };
 
@@ -145,7 +145,7 @@ describe("extractExpressions", () => {
     const loopBlock: LoopBlock = {
       id: "1",
       type: "loop",
-      expression: { raw: "items", evaluated: null },
+      expression: { raw: "items" },
       itemAlias: "item",
       children: [],
     };
@@ -186,7 +186,7 @@ describe("extractExpressions", () => {
       columns: [
         {
           id: "col1",
-          width: 50,
+          size: 50,
           children: [
             {
               id: "2",
@@ -205,7 +205,7 @@ describe("extractExpressions", () => {
         },
         {
           id: "col2",
-          width: 50,
+          size: 50,
           children: [
             {
               id: "3",
@@ -288,7 +288,7 @@ describe("extractExpressions", () => {
     const textBlock: TextBlock = {
       id: "1",
       type: "text",
-      content: null,
+      content: {},
     };
 
     const expressions = extractExpressions([textBlock]);
@@ -338,7 +338,7 @@ describe("extractExpressions", () => {
     const conditionalBlock: ConditionalBlock = {
       id: "1",
       type: "conditional",
-      condition: { raw: "user.isAdmin", evaluated: null },
+      condition: { raw: "user.isAdmin" },
       children: [
         {
           id: "2",
@@ -365,7 +365,7 @@ describe("extractExpressions", () => {
     const loopBlock: LoopBlock = {
       id: "1",
       type: "loop",
-      expression: { raw: "order.items", evaluated: null },
+      expression: { raw: "order.items" },
       itemAlias: "item",
       children: [
         {
