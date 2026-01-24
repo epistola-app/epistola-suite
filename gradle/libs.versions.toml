@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.3.0"
-spring-boot = "4.0.1"
+spring-boot = "4.0.2"
 spring-dependency-management = "1.1.7"
 graalvm-native = "0.11.4"
 ktlint = "14.0.1"
