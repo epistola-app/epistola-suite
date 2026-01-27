@@ -31,7 +31,7 @@ class ColumnsBlockRenderer : BlockRenderer {
         table.useAllAvailableWidth()
 
         // Apply block styles
-        StyleApplicator.applyStyles(table, block.styles, context.documentStyles)
+        StyleApplicator.applyStyles(table, block.styles, context.documentStyles, context.fontCache)
 
         // Gap between columns (simulated via cell padding)
         val gap = block.gap?.toFloat() ?: 8f

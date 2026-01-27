@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **PDF Generation**: Fixed iText7 error "Pdf indirect object belongs to other PDF document" when using bold/italic text
+  - Root cause: Font objects were cached at class/object level and reused across multiple PDF documents
+  - Solution: Implemented `FontCache` class to scope fonts per PDF document
+  - Affected files: `TipTapConverter`, `StyleApplicator`, all block renderers
+  - Impact: Multiple PDF renders (e.g., preview multiple templates) now work correctly
+
 ### Added
 - PDF Preview mode in template editor
   - Toggle between HTML (Fast) and PDF (Actual) preview modes in editor header

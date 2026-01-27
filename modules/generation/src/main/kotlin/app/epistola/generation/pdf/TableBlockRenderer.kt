@@ -3,10 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.Block
 import app.epistola.template.model.BorderStyle
 import app.epistola.template.model.TableBlock
-import com.itextpdf.io.font.constants.StandardFonts
 import com.itextpdf.kernel.colors.ColorConstants
-import com.itextpdf.kernel.font.PdfFont
-import com.itextpdf.kernel.font.PdfFontFactory
 import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.layout.element.Cell
@@ -18,10 +15,6 @@ import com.itextpdf.layout.properties.UnitValue
  * Renders TableBlock to iText elements.
  */
 class TableBlockRenderer : BlockRenderer {
-    companion object {
-        private val boldFont: PdfFont = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD)
-    }
-
     override fun render(
         block: Block,
         context: RenderContext,
@@ -47,7 +40,7 @@ class TableBlockRenderer : BlockRenderer {
         table.useAllAvailableWidth()
 
         // Apply block styles
-        StyleApplicator.applyStyles(table, block.styles, context.documentStyles)
+        StyleApplicator.applyStyles(table, block.styles, context.documentStyles, context.fontCache)
 
         // Border style
         val borderStyle = block.borderStyle ?: BorderStyle.All
@@ -65,7 +58,7 @@ class TableBlockRenderer : BlockRenderer {
 
                 // Apply cell styles
                 if (tableCell.styles != null) {
-                    StyleApplicator.applyStyles(cell, tableCell.styles, context.documentStyles)
+                    StyleApplicator.applyStyles(cell, tableCell.styles, context.documentStyles, context.fontCache)
                 }
 
                 // Apply border based on border style
@@ -73,7 +66,7 @@ class TableBlockRenderer : BlockRenderer {
 
                 // Bold for header rows
                 if (row.isHeader == true) {
-                    cell.setFont(boldFont)
+                    cell.setFont(context.fontCache.bold)
                 }
 
                 // Render cell children

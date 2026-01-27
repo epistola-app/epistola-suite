@@ -2,6 +2,7 @@ package app.epistola.generation
 
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
+import app.epistola.generation.pdf.FontCache
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.Paragraph
 import kotlin.test.Test
@@ -13,17 +14,18 @@ class TipTapConverterTest {
         jsonataEvaluator = JsonataEvaluator(),
     )
     private val converter = TipTapConverter(expressionEvaluator)
+    private val fontCache = FontCache()
 
     @Test
     fun `converts null content to empty list`() {
-        val result = converter.convert(null, emptyMap())
+        val result = converter.convert(null, emptyMap(), fontCache = fontCache)
         assertTrue(result.isEmpty())
     }
 
     @Test
     fun `converts empty content to empty list`() {
         val content = mapOf("content" to emptyList<Map<String, Any>>())
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
         assertTrue(result.isEmpty())
     }
 
@@ -41,7 +43,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is Paragraph)
@@ -62,7 +64,7 @@ class TipTapConverterTest {
         )
 
         val data = mapOf("name" to "John")
-        val result = converter.convert(content, data)
+        val result = converter.convert(content, data, fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is Paragraph)
@@ -83,7 +85,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is Paragraph)
@@ -104,7 +106,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is Paragraph)
@@ -125,7 +127,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -144,7 +146,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -184,7 +186,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is List)
@@ -214,7 +216,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is List)
@@ -238,7 +240,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -261,7 +263,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -287,7 +289,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -310,7 +312,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -333,7 +335,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -361,7 +363,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -389,7 +391,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -417,7 +419,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -442,7 +444,7 @@ class TipTapConverterTest {
         )
 
         val data = mapOf("name" to "World")
-        val result = converter.convert(content, data)
+        val result = converter.convert(content, data, fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -468,7 +470,7 @@ class TipTapConverterTest {
         )
 
         val data = mapOf("name" to "Test")
-        val result = converter.convert(content, data)
+        val result = converter.convert(content, data, fontCache = fontCache)
 
         assertEquals(1, result.size)
     }
@@ -492,7 +494,7 @@ class TipTapConverterTest {
 
         val data = emptyMap<String, Any?>()
         val loopContext = mapOf("item" to mapOf("name" to "Loop Item"))
-        val result = converter.convert(content, data, loopContext)
+        val result = converter.convert(content, data, loopContext, fontCache)
 
         assertEquals(1, result.size)
     }
@@ -512,7 +514,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size) // Only the paragraph is converted
     }
@@ -534,7 +536,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is List)
@@ -549,7 +551,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
         assertTrue(result[0] is Paragraph)
@@ -567,7 +569,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap())
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
     }

@@ -16,4 +16,6 @@ data class RenderContext(
     val tipTapConverter: TipTapConverter,
     /** Default language for embedded expressions in text (e.g., "Hello {{name}}!") */
     val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.Jsonata,
+    /** Font cache scoped to this document */
+    val fontCache: FontCache,
 )

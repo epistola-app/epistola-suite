@@ -2,10 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.TextAlign
-import com.itextpdf.io.font.constants.StandardFonts
 import com.itextpdf.kernel.colors.DeviceRgb
-import com.itextpdf.kernel.font.PdfFont
-import com.itextpdf.kernel.font.PdfFontFactory
 import com.itextpdf.layout.element.BlockElement
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
@@ -14,10 +11,6 @@ import com.itextpdf.layout.properties.UnitValue
  * Applies CSS-like styles to iText elements.
  */
 object StyleApplicator {
-    // Pre-create fonts for reuse
-    private val boldFont: PdfFont = PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD)
-    private val italicFont: PdfFont = PdfFontFactory.createFont(StandardFonts.HELVETICA_OBLIQUE)
-
     /**
      * Applies styles from block styles and document styles to an iText element.
      */
@@ -25,12 +18,13 @@ object StyleApplicator {
         element: T,
         blockStyles: Map<String, Any>?,
         documentStyles: DocumentStyles?,
+        fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
         documentStyles?.let { applyDocumentStyles(element, it) }
 
         // Apply block-specific styles (override document styles)
-        blockStyles?.let { applyBlockStyles(element, it) }
+        blockStyles?.let { applyBlockStyles(element, it, fontCache) }
     }
 
     private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles) {
@@ -59,7 +53,7 @@ object StyleApplicator {
         // styles.lineHeight would require setFixedLeading which needs a specific point value
     }
 
-    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>) {
+    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache) {
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
             parseFontSize(fontSize)?.let { element.setFontSize(it) }
@@ -130,8 +124,8 @@ object StyleApplicator {
         // Apply font based on weight/style combination
         if (isBold || isItalic) {
             val font = when {
-                isBold -> boldFont
-                else -> italicFont
+                isBold -> fontCache.bold
+                else -> fontCache.italic
             }
             element.setFont(font)
         }

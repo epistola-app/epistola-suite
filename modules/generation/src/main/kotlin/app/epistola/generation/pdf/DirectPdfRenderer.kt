@@ -49,6 +49,7 @@ class DirectPdfRenderer(
         )
 
         // Create render context
+        val fontCache = FontCache()
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage)
         val context = RenderContext(
             data = data,
@@ -57,6 +58,7 @@ class DirectPdfRenderer(
             expressionEvaluator = expressionEvaluator,
             tipTapConverter = tipTapConverter,
             defaultExpressionLanguage = defaultExpressionLanguage,
+            fontCache = fontCache,
         )
 
         // Render all blocks

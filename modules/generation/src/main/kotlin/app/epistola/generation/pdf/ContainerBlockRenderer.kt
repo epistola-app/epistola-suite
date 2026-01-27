@@ -19,7 +19,7 @@ class ContainerBlockRenderer : BlockRenderer {
         val div = Div()
 
         // Apply block styles
-        StyleApplicator.applyStyles(div, block.styles, context.documentStyles)
+        StyleApplicator.applyStyles(div, block.styles, context.documentStyles, context.fontCache)
 
         // Render children
         val childElements = blockRenderers.renderBlocks(block.children, context)
