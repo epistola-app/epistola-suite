@@ -131,6 +131,14 @@
 - SaveButton refactored with useCallback optimization
 
 ### Fixed
+- Schema-manager state management and schema-data synchronization
+  - Fixed tab switching losing local changes by introducing shared draft state across tabs
+  - Moved useDataContractDraft from individual sections to App.tsx for single source of truth
+  - Fixed input focus loss in field name editor by replacing ref-based sync with useEffect
+  - Implemented atomic schema-examples migration save (examples saved first, then schema)
+  - Added dirty state indicators (●) on tabs when unsaved changes exist
+  - Added "Save All Changes" button for one-click save of all changes
+  - Added warning banner showing when unsaved changes are present
 - SchemaEditor component using incorrect Zod imports (`uuidv4`, `ZodUUID`) that don't exist in Zod library
   - Replaced with proper `uuid` package imports for UUID generation
 - Schema validation returning `compatible: true` on network/server errors in editor

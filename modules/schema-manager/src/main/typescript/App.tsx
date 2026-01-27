@@ -70,12 +70,12 @@ export function SchemaManagerApp({ store, callbacks }: SchemaManagerProps) {
         </TabsContent>
       </Tabs>
 
-      {/* Warning banner for unsaved changes */}
-      {(draft.isSchemaDirty || draft.isExamplesDirty) && (
+      {/* Warning banner for unsaved changes - only show when BOTH are dirty */}
+      {draft.isSchemaDirty && draft.isExamplesDirty && (
         <div className="flex items-center gap-2 p-4 bg-amber-50 border-t border-amber-200 mt-4">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <span className="text-sm text-amber-900">
-            You have unsaved changes
+            You have unsaved changes in both schema and examples
           </span>
           <Button
             onClick={handleSaveAll}
