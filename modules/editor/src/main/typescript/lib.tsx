@@ -6,20 +6,8 @@ import { EditorLayout } from "./components/editor/EditorLayout";
 import { EvaluatorProvider } from "./context/EvaluatorContext";
 import { useEditorStore } from "./store/editorStore";
 import type { Template, DataExample, JsonObject } from "./types/template";
-import type { JsonSchema } from "./types/schema";
 import { JsonSchemaSchema } from "./types/schema";
-import type { ValidationError, SchemaCompatibilityResult } from "./hooks/useDataContractDraft";
 import "./index.css";
-
-/**
- * Result of updating a single data example
- */
-export interface UpdateDataExampleResult {
-  success: boolean;
-  example?: DataExample;
-  warnings?: Record<string, ValidationError[]>;
-  errors?: Record<string, ValidationError[]>;
-}
 
 /**
  * Options for mounting the template editor
@@ -29,34 +17,14 @@ export interface EditorOptions {
   container: HTMLElement;
   /** Initial template to load (optional) */
   template?: Template;
-  /** Initial data examples for testing expressions (optional) */
+  /** Initial data examples for testing expressions (optional, read-only) */
   dataExamples?: DataExample[];
-  /** Initial data model/schema for validation (optional) */
+  /** Initial data model/schema for validation (optional, read-only) */
   dataModel?: JsonObject | null;
   /** Callback when user clicks Save */
   onSave?: (template: Template) => void | Promise<void>;
-  /** Callback when data examples are saved (batch) */
-  onSaveDataExamples?: (
-    examples: DataExample[],
-  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
-  /** Callback when a single data example is updated */
-  onUpdateDataExample?: (
-    exampleId: string,
-    updates: { name?: string; data?: JsonObject },
-    forceUpdate?: boolean,
-  ) => Promise<UpdateDataExampleResult>;
-  /** Callback when a single data example is deleted */
-  onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
-  /** Callback when schema is saved */
-  onSaveSchema?: (
-    schema: JsonSchema | null,
-    forceUpdate?: boolean,
-  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]> }>;
-  /** Callback to validate schema compatibility before saving */
-  onValidateSchema?: (
-    schema: JsonSchema,
-    examples?: DataExample[],
-  ) => Promise<SchemaCompatibilityResult>;
+  /** Callback when user selects a different example */
+  onExampleSelected?: (exampleId: string | null) => void;
 }
 
 /**
@@ -92,18 +60,7 @@ export interface EditorInstance {
  * ```
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const {
-    container,
-    template,
-    dataExamples,
-    dataModel,
-    onSave,
-    onSaveDataExamples,
-    onUpdateDataExample,
-    onDeleteDataExample,
-    onSaveSchema,
-    onValidateSchema,
-  } = options;
+  const { container, template, dataExamples, dataModel, onSave, onExampleSelected } = options;
 
   // Add the root class for CSS scoping
   container.classList.add("template-editor-root");
@@ -142,15 +99,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     <StrictMode>
       <EvaluatorProvider initialType="direct">
         <EditorProvider>
-          <EditorLayout
-            isEmbedded={true}
-            onSave={onSave}
-            onSaveDataExamples={onSaveDataExamples}
-            onUpdateDataExample={onUpdateDataExample}
-            onDeleteDataExample={onDeleteDataExample}
-            onSaveSchema={onSaveSchema}
-            onValidateSchema={onValidateSchema}
-          />
+          <EditorLayout isEmbedded={true} onSave={onSave} onExampleSelected={onExampleSelected} />
         </EditorProvider>
       </EvaluatorProvider>
     </StrictMode>,
