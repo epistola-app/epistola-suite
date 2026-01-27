@@ -19,6 +19,7 @@ if (buildNativeImage) {
 dependencies {
     implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
+    implementation(project(":modules:schema-manager"))
     implementation(project(":modules:api-server"))
     implementation(project(":modules:template-model"))
     implementation(project(":modules:generation"))

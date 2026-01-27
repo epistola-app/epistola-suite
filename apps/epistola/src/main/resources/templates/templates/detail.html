@@ -7,6 +7,7 @@
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script th:src="@{/js/pdf-preview.js}"></script>
+    <th:block th:replace="~{fragments/importmap :: importmap}" />
 </head>
 <body>
     <main class="regular">
@@ -111,6 +112,129 @@
                 </form>
             </div>
         </section>
+
+        <!-- Data Contract Section -->
+        <section style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2>Data Contract</h2>
+            </div>
+            <p class="text-muted" style="margin-bottom: 1rem;">
+                Define the JSON schema and test data examples for this template.
+                These examples can be used when designing variants.
+            </p>
+            <div id="schema-manager-container" style="min-height: 400px; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;"></div>
+        </section>
+
+        <script type="module">
+            import { mountSchemaManager } from '/schema-manager/schema-manager.js';
+
+            // Get template data from Thymeleaf
+            const templateId = /*[[${template.id}]]*/ 0;
+            const initialSchema = /*[[${template.schema != null ? template.schema : null}]]*/ null;
+            const initialExamples = /*[[${template.dataExamples}]]*/ [];
+
+            // Mount the schema manager
+            const manager = mountSchemaManager({
+                container: document.getElementById('schema-manager-container'),
+                templateId: templateId,
+                initialSchema: initialSchema,
+                initialExamples: initialExamples,
+                callbacks: {
+                    onSaveSchema: async (schema, forceUpdate) => {
+                        try {
+                            const response = await fetch(`/tenants/[[${tenantId}]]/templates/${templateId}/schema`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                },
+                                body: JSON.stringify({ schema, forceUpdate })
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                return { success: false, error: error.message, warnings: error.warnings };
+                            }
+
+                            const result = await response.json();
+                            return { success: true, warnings: result.warnings };
+                        } catch (error) {
+                            console.error('Failed to save schema:', error);
+                            return { success: false, error: error.message };
+                        }
+                    },
+
+                    onSaveDataExamples: async (examples) => {
+                        try {
+                            const response = await fetch(`/tenants/[[${tenantId}]]/templates/${templateId}/examples`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                },
+                                body: JSON.stringify(examples)
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                return { success: false, warnings: error.warnings };
+                            }
+
+                            const result = await response.json();
+                            return { success: true, warnings: result.warnings };
+                        } catch (error) {
+                            console.error('Failed to save examples:', error);
+                            return { success: false };
+                        }
+                    },
+
+                    onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                        try {
+                            const response = await fetch(`/tenants/[[${tenantId}]]/templates/${templateId}/examples/${exampleId}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                },
+                                body: JSON.stringify({ ...updates, forceUpdate })
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                return { success: false, errors: error.errors, warnings: error.warnings };
+                            }
+
+                            const result = await response.json();
+                            return { success: true, example: result, warnings: result.warnings };
+                        } catch (error) {
+                            console.error('Failed to update example:', error);
+                            return { success: false };
+                        }
+                    },
+
+                    onDeleteDataExample: async (exampleId) => {
+                        try {
+                            const response = await fetch(`/tenants/[[${tenantId}]]/templates/${templateId}/examples/${exampleId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                }
+                            });
+
+                            return { success: response.ok };
+                        } catch (error) {
+                            console.error('Failed to delete example:', error);
+                            return { success: false };
+                        }
+                    },
+
+                    onValidateSchema: async (schema, examples) => {
+                        // Client-side validation only for now
+                        return { compatible: true, errors: [], migrations: [] };
+                    }
+                }
+            });
+        </script>
 
         <!-- Versions Section (shown when a variant is selected) -->
         <section th:if="${selectedVariant != null}" style="margin-top: 2rem;">
