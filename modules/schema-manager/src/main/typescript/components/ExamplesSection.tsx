@@ -15,8 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  useDataContractDraft,
-  type SaveCallbacks,
+  type DataContractDraft,
 } from "@/hooks/useDataContractDraft";
 import {
   ValidationMessages,
@@ -25,23 +24,12 @@ import {
 import type { DataExample, JsonObject } from "@/types/template";
 import { JsonObjectSchema } from "@/types/template";
 import { validateDataAgainstSchema } from "@/utils/schemaValidation";
-import type { createSchemaManagerStore } from "@/store/schemaStore";
 
 interface ExamplesSectionProps {
-  store: ReturnType<typeof createSchemaManagerStore>;
-  callbacks: SaveCallbacks;
+  draft: DataContractDraft;
 }
 
-export function ExamplesSection({ store, callbacks }: ExamplesSectionProps) {
-  const draft = useDataContractDraft(
-    {
-      schema: store((s) => s.schema),
-      dataExamples: store((s) => s.dataExamples),
-      setSchema: store((s) => s.setSchema),
-      setDataExamples: store((s) => s.setDataExamples),
-    },
-    callbacks,
-  );
+export function ExamplesSection({ draft }: ExamplesSectionProps) {
 
   const [editingId, setEditingId] = useState<string | null>(
     draft.dataExamples.length > 0 ? draft.dataExamples[0].id : null,

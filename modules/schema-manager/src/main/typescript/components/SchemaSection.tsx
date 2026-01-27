@@ -5,10 +5,7 @@ import { Wand2, AlertTriangle, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SchemaEditor } from "@/components/schema/SchemaEditor";
-import {
-  useDataContractDraft,
-  type SaveCallbacks,
-} from "@/hooks/useDataContractDraft";
+import type { DataContractDraft } from "@/hooks/useDataContractDraft";
 import {
   ValidationMessages,
   flattenErrorsByExample,
@@ -27,23 +24,12 @@ import {
   applyAllMigrations,
   type MigrationSuggestion,
 } from "@/utils/schemaMigration";
-import type { createSchemaManagerStore } from "@/store/schemaStore";
 
 interface SchemaSectionProps {
-  store: ReturnType<typeof createSchemaManagerStore>;
-  callbacks: SaveCallbacks;
+  draft: DataContractDraft;
 }
 
-export function SchemaSection({ store, callbacks }: SchemaSectionProps) {
-  const draft = useDataContractDraft(
-    {
-      schema: store((s) => s.schema),
-      dataExamples: store((s) => s.dataExamples),
-      setSchema: store((s) => s.setSchema),
-      setDataExamples: store((s) => s.setDataExamples),
-    },
-    callbacks,
-  );
+export function SchemaSection({ draft }: SchemaSectionProps) {
 
   const [advancedMode, setAdvancedMode] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -156,7 +142,7 @@ export function SchemaSection({ store, callbacks }: SchemaSectionProps) {
   );
 
   const handleApplyMigrations = useCallback(
-    (migrations: MigrationSuggestion[]) => {
+    async (migrations: MigrationSuggestion[]) => {
       // Apply migrations to examples
       const updatedExamples = draft.dataExamples.map((example) => {
         const exampleMigrations = migrations.filter((m) => m.exampleId === example.id);
@@ -167,13 +153,39 @@ export function SchemaSection({ store, callbacks }: SchemaSectionProps) {
       });
 
       draft.setDraftExamples(updatedExamples);
-      setShowMigrationAssistant(false);
-      setPendingMigrations([]);
 
-      // Now save the schema (migrations have been applied)
-      handleSave(false);
+      // Save BOTH schema and examples atomically
+      setIsSaving(true);
+      setSaveSuccess(false);
+      setSaveError(null);
+
+      try {
+        // Save examples first (with migrated data)
+        const examplesResult = await draft.saveExamples(updatedExamples);
+        if (!examplesResult.success) {
+          setSaveError(examplesResult.error ?? "Failed to save migrated examples");
+          return;
+        }
+
+        // Then save schema
+        const schemaResult = await draft.saveSchema(true); // force = true
+        if (schemaResult.success) {
+          setSaveSuccess(true);
+          setShowMigrationAssistant(false);
+          setPendingMigrations([]);
+          if (schemaResult.warnings) {
+            setWarnings(flattenErrorsByExample(schemaResult.warnings));
+          }
+          // Clear success message after 3 seconds
+          setTimeout(() => setSaveSuccess(false), 3000);
+        } else {
+          setSaveError(schemaResult.error ?? "Failed to save schema");
+        }
+      } finally {
+        setIsSaving(false);
+      }
     },
-    [draft, handleSave],
+    [draft],
   );
 
   const handleForceSave = useCallback(() => {

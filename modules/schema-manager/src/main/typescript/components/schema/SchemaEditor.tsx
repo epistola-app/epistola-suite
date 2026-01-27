@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -106,7 +106,13 @@ function SchemaFieldRow({
   isNested = false,
 }: SchemaFieldRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const [localName, setLocalName] = useState(field.name);
   const nestedCounterRef = useRef<string | null>(null);
+
+  // Sync local state when field.name changes externally
+  useEffect(() => {
+    setLocalName(field.name);
+  }, [field.name]);
 
   const showExpandButton =
     field.type === "object" || (field.type === "array" && field.arrayItemType === "object");
@@ -212,8 +218,17 @@ function SchemaFieldRow({
 
         {/* Field name */}
         <Input
-          value={field.name}
-          onChange={(e) => onUpdate({ name: e.target.value })}
+          value={localName}
+          onChange={(e) => setLocalName(e.target.value)}
+          onBlur={(e) => {
+            const trimmed = e.target.value.trim();
+            if (trimmed && trimmed !== field.name) {
+              onUpdate({ name: trimmed });
+            } else if (!trimmed) {
+              // Revert to original if empty
+              setLocalName(field.name);
+            }
+          }}
           placeholder="Field name"
           className="h-8 w-32 text-sm"
           disabled={disabled}
