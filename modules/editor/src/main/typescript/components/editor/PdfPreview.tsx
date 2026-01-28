@@ -121,22 +121,22 @@ export function PdfPreview() {
             </span>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden bg-gray-50">
+        <div className="flex-1 overflow-auto bg-gray-50 p-4">
           {pdfState.status === "idle" && (
-            <div className="h-full flex items-center justify-center text-gray-400">
+            <div className="flex items-center justify-center text-gray-400 w-full h-full">
               <p>Loading...</p>
             </div>
           )}
 
           {pdfState.status === "loading" && (
-            <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-500">
+            <div className="flex flex-col items-center justify-center gap-3 text-gray-500 w-full h-full">
               <Loader2 className="h-8 w-8 animate-spin" />
               <p className="text-sm">Generating PDF...</p>
             </div>
           )}
 
           {pdfState.status === "error" && (
-            <div className="h-full flex flex-col items-center justify-center gap-4 p-8">
+            <div className="flex flex-col items-center justify-center gap-4 p-8 w-full h-full">
               <AlertCircle className="h-12 w-12 text-red-400" />
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-700">Failed to generate PDF</p>
@@ -150,11 +150,14 @@ export function PdfPreview() {
           )}
 
           {pdfState.status === "success" && (
-            <iframe
-              src={pdfState.blobUrl}
-              className="w-full h-full border-0"
-              title="PDF Preview"
-            />
+            <div className="w-full h-full flex justify-center">
+              <iframe
+                src={pdfState.blobUrl}
+                className="border-0 shadow-lg h-full"
+                style={{ width: "100%", maxWidth: "210mm" }}
+                title="PDF Preview"
+              />
+            </div>
           )}
         </div>
       </div>

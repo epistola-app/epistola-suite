@@ -1,10 +1,9 @@
 import { BlockPalette } from "./BlockPalette";
 import { Canvas } from "./Canvas";
-import { Preview } from "./Preview";
 import { PdfPreview } from "./PdfPreview";
 import { ExampleSelector } from "./ExampleSelector";
 import { StyleSidebar } from "../styling";
-import { useEditorStore, useIsDirty, type PreviewMode } from "../../store/editorStore";
+import { useEditorStore, useIsDirty } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
 import type { EvaluatorType } from "../../services/expression";
 import type { Template } from "../../types/template";
@@ -33,7 +32,6 @@ export function EditorLayout({
   onExampleSelected,
 }: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
-  const previewMode = useEditorStore((s) => s.previewMode);
   const isDirty = useIsDirty();
 
   // Warn user before leaving with unsaved changes
@@ -70,7 +68,7 @@ export function EditorLayout({
               </div>
             </>
           }
-          rightSide={previewMode === "pdf" ? <PdfPreview /> : <Preview />}
+          rightSide={<PdfPreview />}
         />
       </div>
     </div>
@@ -105,24 +103,10 @@ function EvaluatorSelector() {
 }
 
 function PreviewModeSelector() {
-  const previewMode = useEditorStore((s) => s.previewMode);
-  const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
-
   return (
     <div className="flex items-center gap-3">
       <span className="text-xs font-medium text-slate-600">Preview:</span>
-      <Select value={previewMode} onValueChange={(value) => setPreviewMode(value as PreviewMode)}>
-        <SelectTrigger
-          size="sm"
-          className="text-xs px-2 py-1 border border-slate-200 rounded-md bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-32 h-7"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="html">HTML (Fast)</SelectItem>
-          <SelectItem value="pdf">PDF (Actual)</SelectItem>
-        </SelectContent>
-      </Select>
+      <span className="text-xs px-2 py-1 text-slate-700">PDF</span>
     </div>
   );
 }
@@ -273,7 +257,7 @@ function ResizableContent({ leftSide, rightSide }: ResizableContentProps) {
         maxSize="100vw"
         collapsible
         collapsedSize={0}
-        className="bg-white overflow-auto min-w-0 rounded-xl shadow-lg border border-slate-200/50"
+        className="bg-white overflow-hidden min-w-0 rounded-xl shadow-lg border border-slate-200/50"
       >
         {rightSide}
       </ResizablePanel>

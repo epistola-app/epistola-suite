@@ -10,7 +10,7 @@ beforeEach(() => {
   getState().setDataExamples([]);
   getState().selectDataExample(null);
   getState().setSchema(null);
-  getState().setPreviewMode("html");
+  getState().setPreviewMode("pdf");
 });
 
 describe("editorStore - setDataExamples", () => {
@@ -238,9 +238,9 @@ describe("editorStore - deleteDataExample", () => {
 });
 
 describe("editorStore - setPreviewMode", () => {
-  it("defaults to html mode", () => {
+  it("defaults to pdf mode", () => {
     const state = useEditorStore.getState();
-    expect(state.previewMode).toBe("html");
+    expect(state.previewMode).toBe("pdf");
   });
 
   it("sets preview mode to pdf", () => {
@@ -250,12 +250,12 @@ describe("editorStore - setPreviewMode", () => {
     expect(state.previewMode).toBe("pdf");
   });
 
-  it("sets preview mode back to html", () => {
+  it("maintains pdf preview mode", () => {
     useEditorStore.getState().setPreviewMode("pdf");
-    useEditorStore.getState().setPreviewMode("html");
+    useEditorStore.getState().setPreviewMode("pdf");
 
     const state = useEditorStore.getState();
-    expect(state.previewMode).toBe("html");
+    expect(state.previewMode).toBe("pdf");
   });
 });
 

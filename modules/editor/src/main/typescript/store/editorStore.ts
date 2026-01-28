@@ -13,8 +13,8 @@ import type { JsonSchema } from "../types/schema";
 import { JsonSchemaSchema } from "../types/schema";
 import { v4 as uuidv4 } from "uuid";
 
-/** Preview mode: "html" for client-side rendering, "pdf" for backend PDF generation */
-export type PreviewMode = "html" | "pdf";
+/** Preview mode: only "pdf" for backend PDF generation */
+export type PreviewMode = "pdf";
 
 interface EditorState {
   template: Template;
@@ -148,7 +148,7 @@ export const useEditorStore = create<EditorStore>()(
     dataExamples: [],
     selectedDataExampleId: null,
     schema: null,
-    previewMode: "html",
+    previewMode: "pdf",
 
     setTemplate: (template) =>
       set((state) => {
