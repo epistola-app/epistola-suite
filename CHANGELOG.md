@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Demo Tenant Management**: Replaced simple existence check with version-tracked demo loader
+  - New `app_metadata` table for application-level configuration
+  - Demo tenant is now recreated only when version changes (bump `DEMO_VERSION` constant)
+  - Demo loading can be disabled via `epistola.demo.enabled: false` configuration
+  - Eliminates need to manually delete demo tenant for testing updates
+  - Foundation for future deployment package management
+
 ### Fixed
 
 - **Template Editor Navigation**: Back button in template editor now navigates to the template detail page instead of the templates list

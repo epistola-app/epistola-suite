@@ -8,6 +8,10 @@ spring:
     virtual:
       enabled: true
 
+epistola:
+  demo:
+    enabled: true  # Set to false to disable demo loading
+
 management:
   endpoints:
     web:
