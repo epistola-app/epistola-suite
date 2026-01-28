@@ -3,14 +3,20 @@ package app.epistola.suite.demo
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.variants.queries.ListVariants
+import app.epistola.suite.versions.commands.UpdateDraft
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.core.io.ResourceLoader
+import org.springframework.core.io.support.ResourcePatternUtils
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 @Component
 @ConditionalOnProperty(
@@ -21,6 +27,8 @@ import org.springframework.stereotype.Component
 class DemoLoader(
     private val mediator: Mediator,
     private val metadataService: AppMetadataService,
+    private val resourceLoader: ResourceLoader,
+    private val objectMapper: ObjectMapper,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -55,30 +63,80 @@ class DemoLoader(
         val tenant = mediator.send(CreateTenant(name = DEMO_TENANT_NAME))
         log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
-        // Create templates
-        DEMO_TEMPLATES.forEach { templateName ->
-            mediator.send(
-                CreateDocumentTemplate(
-                    tenantId = tenant.id,
-                    name = templateName,
-                ),
-            )
+        // Load and create templates from JSON definitions
+        val definitions = loadTemplateDefinitions()
+        log.info("Loaded {} template definitions", definitions.size)
+
+        definitions.forEach { definition ->
+            createTemplateFromDefinition(tenant.id, definition)
         }
-        log.info("Created {} demo templates", DEMO_TEMPLATES.size)
+
+        log.info("Created {} demo templates", definitions.size)
+    }
+
+    private fun createTemplateFromDefinition(tenantId: Long, definition: TemplateDefinition) {
+        // 1. Create template with basic metadata
+        val template = mediator.send(
+            CreateDocumentTemplate(
+                tenantId = tenantId,
+                name = definition.name,
+            ),
+        )
+        log.debug("Created template: {} (id={})", template.name, template.id)
+
+        // 2. Update template with data model and examples
+        mediator.send(
+            UpdateDocumentTemplate(
+                tenantId = tenantId,
+                id = template.id,
+                dataModel = definition.dataModel,
+                dataExamples = definition.dataExamples,
+                forceUpdate = true, // Skip validation warnings for demo data
+            ),
+        )
+        log.debug("Updated template metadata for: {}", template.name)
+
+        // 3. Get the default variant (first variant, auto-created by CreateDocumentTemplate)
+        val variants = mediator.query(ListVariants(tenantId = tenantId, templateId = template.id))
+        val defaultVariant = variants.firstOrNull()
+            ?: error("No default variant found for template ${template.id}")
+
+        // 4. Update the draft version with visual content
+        mediator.send(
+            UpdateDraft(
+                tenantId = tenantId,
+                templateId = template.id,
+                variantId = defaultVariant.id,
+                templateModel = definition.templateModel,
+            ),
+        )
+        log.debug("Updated draft template model for: {}", template.name)
+    }
+
+    private fun loadTemplateDefinitions(): List<TemplateDefinition> {
+        val resolver = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
+        val resources = resolver.getResources("classpath:demo/templates/*.json")
+
+        if (resources.isEmpty()) {
+            log.warn("No demo template definitions found in classpath:demo/templates/")
+            return emptyList()
+        }
+
+        return resources.mapNotNull { resource ->
+            try {
+                resource.inputStream.use { inputStream ->
+                    objectMapper.readValue(inputStream, TemplateDefinition::class.java)
+                }
+            } catch (e: Exception) {
+                log.error("Failed to load template from {}: {}", resource.filename, e.message)
+                null
+            }
+        }
     }
 
     companion object {
-        private const val DEMO_VERSION = "1.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "2.0.2" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
-
-        private val DEMO_TEMPLATES =
-            listOf(
-                "Invoice Template",
-                "Contract Template",
-                "Letter Template",
-                "Report Template",
-                "Proposal Template",
-            )
     }
 }

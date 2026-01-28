@@ -34,6 +34,21 @@
   - Impact: Multiple PDF renders (e.g., preview multiple templates) now work correctly
 
 ### Added
+- **Enhanced Demo Loader with Realistic Template Content**
+  - Demo templates now loaded from JSON files in `resources/demo/templates/`
+  - Complete template definitions include: data model (JSON Schema), data examples, and visual layout (blocks, styles)
+  - New `TemplateDefinition` data class for declarative template loading
+  - Added production-ready Invoice Template with 3 example data sets
+  - Invoice template demonstrates all block types: columns, containers, tables, loops, conditionals, expressions
+  - DemoLoader now creates complete templates (metadata + visual content) in 4 steps:
+    1. Create template metadata
+    2. Update with data model and examples
+    3. Get default variant
+    4. Update draft with visual content
+  - Bumped `DEMO_VERSION` to 2.0.1 to trigger reload
+  - Foundation for future template marketplace/package system
+  - Expression nodes in TipTap content require `"isNew": false` attribute to render correctly
+  - See `resources/demo/README.md` for adding new templates
 - PDF Preview mode in template editor
   - Toggle between HTML (Fast) and PDF (Actual) preview modes in editor header
   - **Live preview**: Shows PDF of current unsaved editor state, not just saved drafts

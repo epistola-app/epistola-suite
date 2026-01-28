@@ -1,0 +1,1243 @@
+{
+  "name": "Invoice Template",
+  "dataModel": {
+    "type": "object",
+    "properties": {
+      "invoiceNumber": {
+        "type": "string",
+        "description": "Unique invoice identifier"
+      },
+      "invoiceDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Date invoice was issued"
+      },
+      "dueDate": {
+        "type": "string",
+        "format": "date",
+        "description": "Payment due date"
+      },
+      "vendor": {
+        "type": "object",
+        "description": "Company issuing the invoice",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "zipCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "taxId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "email"
+        ]
+      },
+      "customer": {
+        "type": "object",
+        "description": "Customer receiving the invoice",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "zipCode": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ]
+      },
+      "items": {
+        "type": "array",
+        "description": "Line items on the invoice",
+        "items": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "quantity": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unitPrice": {
+              "type": "number",
+              "minimum": 0
+            },
+            "total": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "description",
+            "quantity",
+            "unitPrice",
+            "total"
+          ]
+        },
+        "minItems": 1
+      },
+      "subtotal": {
+        "type": "number",
+        "description": "Sum of all line items",
+        "minimum": 0
+      },
+      "taxRate": {
+        "type": "number",
+        "description": "Tax rate as decimal (0.21 = 21%)",
+        "minimum": 0,
+        "maximum": 1
+      },
+      "taxAmount": {
+        "type": "number",
+        "description": "Calculated tax amount",
+        "minimum": 0
+      },
+      "total": {
+        "type": "number",
+        "description": "Grand total including tax",
+        "minimum": 0
+      },
+      "notes": {
+        "type": "string",
+        "description": "Additional notes or payment terms"
+      }
+    },
+    "required": [
+      "invoiceNumber",
+      "invoiceDate",
+      "dueDate",
+      "vendor",
+      "customer",
+      "items",
+      "subtotal",
+      "taxRate",
+      "taxAmount",
+      "total"
+    ]
+  },
+  "dataExamples": [
+    {
+      "id": "invoice-standard",
+      "name": "Standard Invoice - Multiple Items",
+      "data": {
+        "invoiceNumber": "INV-2024-001",
+        "invoiceDate": "2024-01-15",
+        "dueDate": "2024-02-15",
+        "vendor": {
+          "name": "Epistola Solutions B.V.",
+          "address": "Innovation Street 42",
+          "city": "Amsterdam",
+          "zipCode": "1012AB",
+          "country": "Netherlands",
+          "phone": "+31 20 123 4567",
+          "email": "info@epistola.app",
+          "taxId": "NL123456789B01"
+        },
+        "customer": {
+          "name": "ACME Corporation",
+          "address": "Main Street 100",
+          "city": "New York",
+          "zipCode": "10001",
+          "country": "United States",
+          "email": "accounting@acme.com"
+        },
+        "items": [
+          {
+            "description": "Document Generation API - Professional Plan",
+            "quantity": 1,
+            "unitPrice": 299.0,
+            "total": 299.0
+          },
+          {
+            "description": "Template Design Consulting (4 hours)",
+            "quantity": 4,
+            "unitPrice": 150.0,
+            "total": 600.0
+          },
+          {
+            "description": "Premium Support Package",
+            "quantity": 1,
+            "unitPrice": 99.0,
+            "total": 99.0
+          }
+        ],
+        "subtotal": 998.0,
+        "taxRate": 0.21,
+        "taxAmount": 209.58,
+        "total": 1207.58,
+        "notes": "Payment terms: Net 30 days. Please reference invoice number on payment."
+      }
+    },
+    {
+      "id": "invoice-single-item",
+      "name": "Simple Invoice - Single Item",
+      "data": {
+        "invoiceNumber": "INV-2024-002",
+        "invoiceDate": "2024-01-20",
+        "dueDate": "2024-02-20",
+        "vendor": {
+          "name": "Epistola Solutions B.V.",
+          "address": "Innovation Street 42",
+          "city": "Amsterdam",
+          "zipCode": "1012AB",
+          "country": "Netherlands",
+          "phone": "+31 20 123 4567",
+          "email": "info@epistola.app",
+          "taxId": "NL123456789B01"
+        },
+        "customer": {
+          "name": "Freelance Designer",
+          "address": "Creative Lane 7",
+          "city": "Berlin",
+          "zipCode": "10115",
+          "country": "Germany",
+          "email": "designer@example.com"
+        },
+        "items": [
+          {
+            "description": "Document Generation API - Starter Plan (Monthly)",
+            "quantity": 1,
+            "unitPrice": 49.0,
+            "total": 49.0
+          }
+        ],
+        "subtotal": 49.0,
+        "taxRate": 0.19,
+        "taxAmount": 9.31,
+        "total": 58.31
+      }
+    },
+    {
+      "id": "invoice-large",
+      "name": "Large Invoice - Many Items",
+      "data": {
+        "invoiceNumber": "INV-2024-003",
+        "invoiceDate": "2024-01-25",
+        "dueDate": "2024-03-25",
+        "vendor": {
+          "name": "Epistola Solutions B.V.",
+          "address": "Innovation Street 42",
+          "city": "Amsterdam",
+          "zipCode": "1012AB",
+          "country": "Netherlands",
+          "phone": "+31 20 123 4567",
+          "email": "info@epistola.app",
+          "taxId": "NL123456789B01"
+        },
+        "customer": {
+          "name": "Enterprise Corp International",
+          "address": "Corporate Plaza, Floor 25",
+          "city": "London",
+          "zipCode": "EC2A 2BA",
+          "country": "United Kingdom",
+          "email": "procurement@enterprise.com"
+        },
+        "items": [
+          {
+            "description": "Enterprise API License (Annual)",
+            "quantity": 1,
+            "unitPrice": 9999.0,
+            "total": 9999.0
+          },
+          {
+            "description": "Custom Template Development",
+            "quantity": 40,
+            "unitPrice": 150.0,
+            "total": 6000.0
+          },
+          {
+            "description": "Integration Consulting",
+            "quantity": 20,
+            "unitPrice": 200.0,
+            "total": 4000.0
+          },
+          {
+            "description": "Dedicated Support (Priority)",
+            "quantity": 1,
+            "unitPrice": 2500.0,
+            "total": 2500.0
+          },
+          {
+            "description": "Training Sessions (5 sessions)",
+            "quantity": 5,
+            "unitPrice": 500.0,
+            "total": 2500.0
+          }
+        ],
+        "subtotal": 24999.0,
+        "taxRate": 0.2,
+        "taxAmount": 4999.8,
+        "total": 29998.8,
+        "notes": "Enterprise annual contract. Includes 24/7 support and quarterly business reviews. Payment terms: Net 60 days."
+      }
+    }
+  ],
+  "templateModel": {
+    "id": "invoice-template-v1",
+    "name": "Invoice Template",
+    "version": 1,
+    "pageSettings": {
+      "format": "A4",
+      "orientation": "portrait",
+      "margins": {
+        "top": 40,
+        "right": 40,
+        "bottom": 40,
+        "left": 40
+      }
+    },
+    "documentStyles": {
+      "fontFamily": "Helvetica",
+      "fontSize": "10pt",
+      "color": "#333333",
+      "lineHeight": "1.4"
+    },
+    "blocks": [
+      {
+        "type": "container",
+        "id": "header",
+        "styles": {
+          "marginBottom": "30px",
+          "paddingBottom": "20px",
+          "borderBottom": "2px solid #2563eb"
+        },
+        "children": [
+          {
+            "type": "columns",
+            "id": "header-columns",
+            "gap": 20,
+            "columns": [
+              {
+                "id": "vendor-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "vendor-name",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "vendor.name",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "16pt",
+                      "fontWeight": "bold",
+                      "color": "#1e40af",
+                      "marginBottom": "8px"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "id": "vendor-address",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "vendor.address",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "vendor.zipCode",
+                                "isNew": false
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "text": " "
+                            },
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "vendor.city",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "vendor.country",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "9pt",
+                      "color": "#666666",
+                      "lineHeight": "1.5"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "invoice-details-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "invoice-title",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "INVOICE"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "24pt",
+                      "fontWeight": "bold",
+                      "color": "#1e40af",
+                      "textAlign": "right",
+                      "marginBottom": "10px"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "id": "invoice-metadata",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Invoice #: "
+                            },
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "invoiceNumber",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Date: "
+                            },
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "invoiceDate",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Due Date: "
+                            },
+                            {
+                              "type": "expression",
+                              "attrs": {
+                                "expression": "dueDate",
+                                "isNew": false
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "9pt",
+                      "textAlign": "right",
+                      "lineHeight": "1.6"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "container",
+        "id": "customer-section",
+        "styles": {
+          "marginBottom": "30px",
+          "padding": "15px",
+          "backgroundColor": "#f8fafc",
+          "borderRadius": "4px"
+        },
+        "children": [
+          {
+            "type": "text",
+            "id": "bill-to-label",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Bill To:"
+                    }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "fontSize": "11pt",
+              "fontWeight": "bold",
+              "color": "#1e40af",
+              "marginBottom": "8px"
+            }
+          },
+          {
+            "type": "text",
+            "id": "customer-details",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.name",
+                        "isNew": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.address",
+                        "isNew": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.zipCode",
+                        "isNew": false
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.city",
+                        "isNew": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "customer.country",
+                        "isNew": false
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "fontSize": "10pt",
+              "lineHeight": "1.5"
+            }
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "id": "line-items-table",
+        "borderStyle": "all",
+        "columnWidths": [
+          50,
+          10,
+          15,
+          15
+        ],
+        "styles": {
+          "marginBottom": "20px"
+        },
+        "rows": [
+          {
+            "id": "table-header",
+            "isHeader": true,
+            "cells": [
+              {
+                "id": "header-description",
+                "styles": {
+                  "fontWeight": "bold",
+                  "backgroundColor": "#2563eb",
+                  "color": "#ffffff",
+                  "padding": "8px"
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "header-desc-text",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Description"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "header-quantity",
+                "styles": {
+                  "fontWeight": "bold",
+                  "backgroundColor": "#2563eb",
+                  "color": "#ffffff",
+                  "padding": "8px",
+                  "textAlign": "right"
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "header-qty-text",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Qty"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "header-unit-price",
+                "styles": {
+                  "fontWeight": "bold",
+                  "backgroundColor": "#2563eb",
+                  "color": "#ffffff",
+                  "padding": "8px",
+                  "textAlign": "right"
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "header-unit-text",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Unit Price"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "header-total",
+                "styles": {
+                  "fontWeight": "bold",
+                  "backgroundColor": "#2563eb",
+                  "color": "#ffffff",
+                  "padding": "8px",
+                  "textAlign": "right"
+                },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "header-total-text",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Total"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "loop",
+        "id": "items-loop",
+        "expression": {
+          "raw": "items"
+        },
+        "itemAlias": "item",
+        "indexAlias": "index",
+        "children": [
+          {
+            "type": "table",
+            "id": "item-row-table",
+            "borderStyle": "horizontal",
+            "columnWidths": [
+              50,
+              10,
+              15,
+              15
+            ],
+            "rows": [
+              {
+                "id": "item-row",
+                "cells": [
+                  {
+                    "id": "item-description",
+                    "styles": {
+                      "padding": "8px"
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "id": "item-desc-text",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "item.description",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "item-quantity",
+                    "styles": {
+                      "padding": "8px",
+                      "textAlign": "right"
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "id": "item-qty-text",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "item.quantity",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "item-unit-price",
+                    "styles": {
+                      "padding": "8px",
+                      "textAlign": "right"
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "id": "item-unit-text",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "$"
+                                },
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "item.unitPrice",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "item-total",
+                    "styles": {
+                      "padding": "8px",
+                      "textAlign": "right",
+                      "fontWeight": "600"
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "id": "item-total-text",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "$"
+                                },
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "item.total",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "container",
+        "id": "totals-section",
+        "styles": {
+          "marginTop": "20px",
+          "marginBottom": "30px"
+        },
+        "children": [
+          {
+            "type": "columns",
+            "id": "totals-columns",
+            "gap": 20,
+            "columns": [
+              {
+                "id": "spacer-col",
+                "size": 2,
+                "children": []
+              },
+              {
+                "id": "totals-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "container",
+                    "id": "totals-box",
+                    "styles": {
+                      "padding": "15px",
+                      "backgroundColor": "#f8fafc",
+                      "borderRadius": "4px"
+                    },
+                    "children": [
+                      {
+                        "type": "text",
+                        "id": "subtotal-line",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Subtotal:"
+                                },
+                                {
+                                  "type": "hardBreak"
+                                },
+                                {
+                                  "type": "text",
+                                  "text": "$"
+                                },
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "subtotal",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "styles": {
+                          "marginBottom": "8px",
+                          "fontSize": "10pt"
+                        }
+                      },
+                      {
+                        "type": "text",
+                        "id": "tax-line",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Tax ("
+                                },
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "taxRate * 100",
+                                    "language": "jsonata",
+                                    "isNew": false
+                                  }
+                                },
+                                {
+                                  "type": "text",
+                                  "text": "%):"
+                                },
+                                {
+                                  "type": "hardBreak"
+                                },
+                                {
+                                  "type": "text",
+                                  "text": "$"
+                                },
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "taxAmount",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "styles": {
+                          "marginBottom": "12px",
+                          "paddingBottom": "12px",
+                          "borderBottom": "1px solid #cbd5e1",
+                          "fontSize": "10pt"
+                        }
+                      },
+                      {
+                        "type": "text",
+                        "id": "total-line",
+                        "content": {
+                          "type": "doc",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "TOTAL:"
+                                },
+                                {
+                                  "type": "hardBreak"
+                                },
+                                {
+                                  "type": "text",
+                                  "text": "$"
+                                },
+                                {
+                                  "type": "expression",
+                                  "attrs": {
+                                    "expression": "total",
+                                    "isNew": false
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "styles": {
+                          "fontSize": "14pt",
+                          "fontWeight": "bold",
+                          "color": "#1e40af"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "conditional",
+        "id": "notes-conditional",
+        "condition": {
+          "language": "jsonata",
+          "raw": "$exists(notes)"
+        },
+        "children": [
+          {
+            "type": "container",
+            "id": "notes-section",
+            "styles": {
+              "marginTop": "30px",
+              "paddingTop": "20px",
+              "borderTop": "1px solid #cbd5e1"
+            },
+            "children": [
+              {
+                "type": "text",
+                "id": "notes-label",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Notes:"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "styles": {
+                  "fontSize": "10pt",
+                  "fontWeight": "bold",
+                  "marginBottom": "8px"
+                }
+              },
+              {
+                "type": "text",
+                "id": "notes-content",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "expression",
+                          "attrs": {
+                            "expression": "notes",
+                            "isNew": false
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "styles": {
+                  "fontSize": "9pt",
+                  "color": "#666666",
+                  "fontStyle": "italic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "container",
+        "id": "footer",
+        "styles": {
+          "marginTop": "40px",
+          "paddingTop": "20px",
+          "borderTop": "2px solid #e5e7eb",
+          "textAlign": "center"
+        },
+        "children": [
+          {
+            "type": "text",
+            "id": "footer-contact",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "vendor.email",
+                        "isNew": false
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "text": " \u2022 "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "vendor.phone",
+                        "isNew": false
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Tax ID: "
+                    },
+                    {
+                      "type": "expression",
+                      "attrs": {
+                        "expression": "vendor.taxId",
+                        "isNew": false
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "fontSize": "8pt",
+              "color": "#9ca3af",
+              "lineHeight": "1.6"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
