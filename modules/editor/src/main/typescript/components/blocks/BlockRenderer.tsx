@@ -39,11 +39,11 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
   });
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `drop-${block.id}`,
+    id: `drop-before-${block.id}`,
     data: {
       type: "block-drop",
       parentId,
-      index: index + 1,
+      index,
     },
   });
 
@@ -146,6 +146,20 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
 
   return (
     <>
+      {/* Drop Zone Before Block */}
+      <div
+        ref={setDropRef}
+        className={`
+          transition-all duration-150 ease-out
+          ${isOver ? "h-6 -my-3" : "h-3 -my-1.5"}
+        `}
+      >
+        {isOver && (
+          <div className="h-0.5 bg-blue-500 shadow-lg rounded-full" />
+        )}
+      </div>
+
+      {/* Block Content */}
       <div
         ref={setDragRef}
         onClick={handleClick}
@@ -155,18 +169,8 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
           ${isDragging ? "opacity-50" : ""}
         `}
       >
-        {/* Block Content */}
         {renderBlockContent()}
       </div>
-
-      {/* Drop Zone After Block */}
-      <div
-        ref={setDropRef}
-        className={`
-          h-2 -my-1 transition-all rounded
-          ${isOver ? "bg-blue-400 h-4" : ""}
-        `}
-      />
     </>
   );
 }

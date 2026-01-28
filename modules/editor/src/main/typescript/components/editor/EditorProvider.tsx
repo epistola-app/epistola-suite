@@ -1,4 +1,4 @@
-import { DndContext, DragOverlay, pointerWithin } from "@dnd-kit/core";
+import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -90,7 +90,7 @@ export function EditorProvider({ children }: EditorProviderProps) {
 
   return (
     <DndContext
-      collisionDetection={pointerWithin}
+      collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

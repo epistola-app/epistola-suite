@@ -66,7 +66,7 @@ export function ConditionalBlockComponent({
         <div
           ref={setNodeRef}
           style={block.styles}
-          className={`p-2 ${isOver ? "bg-amber-100" : ""}`}
+          className={`p-2 ${isOver && block.children.length === 0 ? "bg-amber-100" : ""}`}
         >
           {block.children.length === 0 ? (
             <div className="text-amber-300 text-sm py-2 text-center">Empty conditional</div>
@@ -159,7 +159,7 @@ export function ConditionalBlockComponent({
         style={block.styles}
         className={`
           min-h-15 p-3 text-sm!
-          ${isOver ? "bg-amber-100" : ""}
+          ${isOver && block.children.length === 0 ? "bg-amber-100" : ""}
         `}
       >
         {block.children.length === 0 ? (

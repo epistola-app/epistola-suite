@@ -173,7 +173,7 @@ function ColumnComponent({
         ref={setNodeRef}
         className={`
           min-h-[100px] p-2
-          ${isOver ? "bg-blue-50" : ""}
+          ${isOver && column.children.length === 0 ? "bg-blue-50" : ""}
           ${column.children.length === 0 ? "flex items-center justify-center" : ""}
         `}
       >

@@ -151,7 +151,7 @@ export function LoopBlockComponent({
         <div
           ref={setNodeRef}
           style={block.styles}
-          className={`p-2 ${isOver ? "bg-purple-100" : ""}`}
+          className={`p-2 ${isOver && block.children.length === 0 ? "bg-purple-100" : ""}`}
         >
           <ScopeProvider variables={scopeVariables}>
             {block.children.length === 0 ? (
@@ -318,7 +318,7 @@ export function LoopBlockComponent({
         style={block.styles}
         className={`
           min-h-15 p-3
-          ${isOver ? "bg-purple-100" : ""}
+          ${isOver && block.children.length === 0 ? "bg-purple-100" : ""}
         `}
       >
         <ScopeProvider variables={scopeVariables}>

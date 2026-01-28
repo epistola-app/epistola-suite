@@ -43,7 +43,7 @@ export function ContainerBlockComponent({
         style={block.styles}
         className={`
           min-h-10 p-2
-          ${isOver ? "bg-blue-50" : ""}
+          ${isOver && block.children.length === 0 ? "bg-blue-50" : ""}
           ${block.children.length === 0 ? "flex items-center justify-center" : ""}
         `}
       >
