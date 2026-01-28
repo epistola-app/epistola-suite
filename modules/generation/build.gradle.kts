@@ -6,7 +6,7 @@ dependencies {
     implementation(project(":modules:template-model"))
 
     // iText 9 for PDF generation
-    implementation("com.itextpdf:itext-core:9.1.0")
+    implementation("com.itextpdf:itext-core:9.5.0")
 
     // Kotlin reflection for expression evaluation
     implementation("org.jetbrains.kotlin:kotlin-reflect")
