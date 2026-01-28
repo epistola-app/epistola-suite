@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- **Template Model**: Simplified `documentStyles` to be consistently non-nullable across frontend and backend
+  - Backend: `documentStyles: DocumentStyles = DocumentStyles()` (non-nullable with default)
+  - Frontend: `documentStyles: DocumentStyles` (non-nullable)
+  - Frontend: Removed unnecessary `normalizeTemplate()` function - no longer needed with consistent non-null contract
+  - Impact: Cleaner API contract; templates always have documentStyles object; any dev database templates with null values will fail to load (acceptable since not in production)
 - **Template Editor - Loop Block**: Fixed incorrect validation error for literal array expressions
   - Issue: Entering literal arrays like `[]` or `[1,2,3]` in loop expressions showed "Expression must resolve to an array" warning
   - Root cause: Loop validation used simple dot-notation path lookup instead of expression evaluation

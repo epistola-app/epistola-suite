@@ -14,7 +14,7 @@ data class TemplateModel(
     val version: Int = 1,
     val pageSettings: PageSettings,
     val blocks: List<Block> = emptyList(),
-    val documentStyles: DocumentStyles? = null,
+    val documentStyles: DocumentStyles = DocumentStyles(),
 )
 
 data class PageSettings(

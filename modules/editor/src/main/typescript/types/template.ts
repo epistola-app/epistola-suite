@@ -8,7 +8,7 @@ export interface Template {
   version: number;
   pageSettings: PageSettings;
   blocks: Block[];
-  documentStyles?: DocumentStyles;
+  documentStyles: DocumentStyles;
 }
 
 // Document-level styles that cascade to child blocks
