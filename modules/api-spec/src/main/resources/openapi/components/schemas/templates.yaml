@@ -134,6 +134,10 @@ UpdateTemplateRequest:
       description: Updated data examples
       items:
         $ref: '#/DataExampleDto'
+    forceUpdate:
+      type: boolean
+      default: false
+      description: If true, save schema even if data examples don't match (returns warnings instead of errors)
 
 TemplateListResponse:
   type: object

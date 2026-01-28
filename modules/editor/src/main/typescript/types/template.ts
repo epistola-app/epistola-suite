@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/react";
 import type { CSSProperties } from "react";
+import { z } from "zod";
 
 export interface Template {
   id: string;
@@ -7,7 +8,7 @@ export interface Template {
   version: number;
   pageSettings: PageSettings;
   blocks: Block[];
-  documentStyles?: DocumentStyles;
+  documentStyles: DocumentStyles;
 }
 
 // Document-level styles that cascade to child blocks
@@ -102,8 +103,20 @@ export interface TableCell {
   styles?: CSSProperties;
 }
 
+/**
+ * Expression language for template expressions.
+ *
+ * - jsonata: Concise syntax purpose-built for JSON transformation (recommended)
+ * - javascript: Full JS power for advanced use cases
+ */
+export type ExpressionLanguage = "jsonata" | "javascript";
+
+/**
+ * An expression that can be evaluated against input data.
+ */
 export interface Expression {
   raw: string;
+  language?: ExpressionLanguage; // defaults to "jsonata"
 }
 
 export interface PreviewOverrides {
@@ -112,17 +125,40 @@ export interface PreviewOverrides {
 }
 
 // JSON types (matches ObjectNode on backend)
+export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+);
 export type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+
+export const JsonObjectSchema: z.ZodType<JsonObject> = z.record(z.string(), JsonValueSchema);
 export interface JsonObject {
   [key: string]: JsonValue;
 }
+
+export const JsonArraySchema: z.ZodType<JsonArray> = z.array(JsonValueSchema);
 export type JsonArray = JsonValue[];
 
 // Named example data set that adheres to the template's dataModel schema
 export interface DataExample {
+  id: string;
   name: string;
   data: JsonObject;
 }
+// Zod schema for runtime validation
+// Uses z.record with z.unknown() to avoid recursive type depth issues while still
+// validating the structure is a valid object (not array/primitive)
+export const DataExampleSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  data: z.record(z.string(), z.unknown()),
+});
 
 // Full document template response from API
 export interface DocumentTemplateResponse {

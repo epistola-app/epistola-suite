@@ -37,6 +37,7 @@ const EXTERNALS = [
   'motion',
   'radix-ui',
   '@uidotdev/usehooks',
+  'zod',
   // Note: CodeMirror and TipTap packages are intentionally NOT externalized.
   // They are bundled directly to avoid multiple @codemirror/state and @tiptap/pm instances.
 ]

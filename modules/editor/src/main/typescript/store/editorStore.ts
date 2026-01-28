@@ -6,8 +6,15 @@ import type {
   PreviewOverrides,
   DocumentStyles,
   PageSettings,
+  DataExample,
 } from "../types/template";
+import { DataExampleSchema } from "../types/template";
+import type { JsonSchema } from "../types/schema";
+import { JsonSchemaSchema } from "../types/schema";
 import { v4 as uuidv4 } from "uuid";
+
+/** Preview mode: "html" for client-side rendering, "pdf" for backend PDF generation */
+export type PreviewMode = "html" | "pdf";
 
 interface EditorState {
   template: Template;
@@ -15,6 +22,12 @@ interface EditorState {
   selectedBlockId: string | null;
   testData: Record<string, unknown>;
   previewOverrides: PreviewOverrides;
+  dataExamples: DataExample[];
+  selectedDataExampleId: string | null;
+  /** JSON Schema for data validation */
+  schema: JsonSchema | null;
+  /** Current preview mode */
+  previewMode: PreviewMode;
 }
 
 interface EditorActions {
@@ -29,6 +42,16 @@ interface EditorActions {
   updateDocumentStyles: (styles: Partial<DocumentStyles>) => void;
   updatePageSettings: (settings: Partial<PageSettings>) => void;
   markAsSaved: () => void;
+  // Data examples actions
+  setDataExamples: (examples: DataExample[]) => void;
+  selectDataExample: (id: string | null) => void;
+  addDataExample: (example: DataExample) => void;
+  updateDataExample: (id: string, updates: Partial<DataExample>) => void;
+  deleteDataExample: (id: string) => void;
+  // Schema actions
+  setSchema: (schema: JsonSchema | null) => void;
+  // Preview mode actions
+  setPreviewMode: (mode: PreviewMode) => void;
 }
 
 type EditorStore = EditorState & EditorActions;
@@ -43,6 +66,7 @@ const defaultTemplate: Template = {
     margins: { top: 20, right: 20, bottom: 20, left: 20 },
   },
   blocks: [],
+  documentStyles: {},
 };
 
 const defaultTestData = {
@@ -121,6 +145,10 @@ export const useEditorStore = create<EditorStore>()(
       conditionals: {},
       loops: {},
     },
+    dataExamples: [],
+    selectedDataExampleId: null,
+    schema: null,
+    previewMode: "html",
 
     setTemplate: (template) =>
       set((state) => {
@@ -334,6 +362,115 @@ export const useEditorStore = create<EditorStore>()(
     markAsSaved: () =>
       set((state) => {
         state.lastSavedTemplate = JSON.parse(JSON.stringify(state.template));
+      }),
+
+    // Data examples actions
+    setDataExamples: (examples) =>
+      set((state) => {
+        // Use JSON parse/stringify to avoid Immer's deep type recursion issues
+        state.dataExamples = JSON.parse(JSON.stringify(examples));
+        if (examples.length === 0) {
+          // Clear selection and restore default test data
+          state.selectedDataExampleId = null;
+          state.testData = defaultTestData;
+        } else if (!state.selectedDataExampleId) {
+          // If we have examples and none is selected, select the first one
+          state.selectedDataExampleId = examples[0].id;
+          state.testData = JSON.parse(JSON.stringify(examples[0].data));
+        } else if (!examples.find((e) => e.id === state.selectedDataExampleId)) {
+          // If current selection no longer exists, select the first example
+          state.selectedDataExampleId = examples[0].id;
+          state.testData = JSON.parse(JSON.stringify(examples[0].data));
+        }
+      }),
+
+    selectDataExample: (id) =>
+      set((state) => {
+        state.selectedDataExampleId = id;
+        if (id) {
+          const example = state.dataExamples.find((e) => e.id === id);
+          if (example) {
+            state.testData = JSON.parse(JSON.stringify(example.data));
+          } else {
+            // Invalid ID - reset selection
+            state.selectedDataExampleId = null;
+            state.testData = defaultTestData;
+          }
+        } else {
+          // If deselecting, fall back to default test data
+          state.testData = defaultTestData;
+        }
+      }),
+
+    addDataExample: (example) =>
+      set((state) => {
+        // Validate input - skip if invalid
+        if (!DataExampleSchema.safeParse(example).success) {
+          console.warn("Invalid DataExample, skipping add");
+          return;
+        }
+        state.dataExamples.push(JSON.parse(JSON.stringify(example)));
+      }),
+
+    updateDataExample: (id, updates) =>
+      set((state) => {
+        const index = state.dataExamples.findIndex((e) => e.id === id);
+        if (index !== -1) {
+          const current = state.dataExamples[index];
+          const updated = {
+            id: updates.id ?? current.id,
+            name: updates.name ?? current.name,
+            data: updates.data ? JSON.parse(JSON.stringify(updates.data)) : current.data,
+          };
+          // Validate the merged result - skip if invalid
+          if (!DataExampleSchema.safeParse(updated).success) {
+            console.warn("Invalid DataExample update, skipping");
+            return;
+          }
+          // Explicit spread to avoid Immer draft type issues
+          state.dataExamples[index] = { ...updated };
+          // If this is the selected example, update testData too
+          if (state.selectedDataExampleId === id && updates.data) {
+            state.testData = JSON.parse(JSON.stringify(updates.data));
+          }
+        }
+      }),
+
+    deleteDataExample: (id) =>
+      set((state) => {
+        const index = state.dataExamples.findIndex((e) => e.id === id);
+        if (index !== -1) {
+          state.dataExamples.splice(index, 1);
+          // If we deleted the selected example, select another or fall back to default
+          if (state.selectedDataExampleId === id) {
+            if (state.dataExamples.length > 0) {
+              state.selectedDataExampleId = state.dataExamples[0].id;
+              state.testData = JSON.parse(JSON.stringify(state.dataExamples[0].data));
+            } else {
+              state.selectedDataExampleId = null;
+              state.testData = defaultTestData;
+            }
+          }
+        }
+      }),
+
+    setSchema: (schema) =>
+      set((state) => {
+        if (schema === null) {
+          state.schema = null;
+          return;
+        }
+        const result = JsonSchemaSchema.safeParse(schema);
+        if (!result.success) {
+          console.warn("Invalid JsonSchema, skipping setSchema:", result.error.message);
+          return;
+        }
+        state.schema = JSON.parse(JSON.stringify(result.data));
+      }),
+
+    setPreviewMode: (mode) =>
+      set((state) => {
+        state.previewMode = mode;
       }),
   })),
 );

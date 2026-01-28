@@ -4,5 +4,6 @@ packages:
 
 onlyBuiltDependencies:
   - core-js
+  - esbuild
   - keytar
   - protobufjs

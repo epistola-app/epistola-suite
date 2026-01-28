@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EDITOR_SRC = join(__dirname, '../../editor/src');
+const SCHEMA_MANAGER_SRC = join(__dirname, '../../schema-manager/src');
 const OUTPUT_FILE = join(__dirname, '../entries/lucide.js');
 
 // Recursively find all .tsx and .ts files
@@ -53,10 +54,12 @@ function extractIcons(content) {
 function main() {
   console.log('Scanning for lucide-react imports...');
 
-  const files = findFiles(EDITOR_SRC);
+  const editorFiles = findFiles(EDITOR_SRC);
+  const schemaManagerFiles = findFiles(SCHEMA_MANAGER_SRC);
+  const allFiles = [...editorFiles, ...schemaManagerFiles];
   const allIcons = new Set();
 
-  for (const file of files) {
+  for (const file of allFiles) {
     const content = readFileSync(file, 'utf-8');
     const icons = extractIcons(content);
     for (const icon of icons) {

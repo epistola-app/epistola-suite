@@ -1,8 +1,10 @@
 import { BlockPalette } from "./BlockPalette";
 import { Canvas } from "./Canvas";
 import { Preview } from "./Preview";
+import { PdfPreview } from "./PdfPreview";
+import { ExampleSelector } from "./ExampleSelector";
 import { StyleSidebar } from "../styling";
-import { useEditorStore, useIsDirty } from "../../store/editorStore";
+import { useEditorStore, useIsDirty, type PreviewMode } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
 import type { EvaluatorType } from "../../services/expression";
 import type { Template } from "../../types/template";
@@ -21,10 +23,17 @@ interface EditorLayoutProps {
   isEmbedded?: boolean;
   /** Callback when user clicks Save */
   onSave?: (template: Template) => void | Promise<void>;
+  /** Callback when user selects a different example */
+  onExampleSelected?: (exampleId: string | null) => void;
 }
 
-export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) {
+export function EditorLayout({
+  isEmbedded = false,
+  onSave,
+  onExampleSelected,
+}: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
+  const previewMode = useEditorStore((s) => s.previewMode);
   const isDirty = useIsDirty();
 
   // Warn user before leaving with unsaved changes
@@ -42,7 +51,12 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      <EditorHeader isEmbedded={isEmbedded} onSave={onSave} template={template} />
+      <EditorHeader
+        isEmbedded={isEmbedded}
+        onSave={onSave}
+        onExampleSelected={onExampleSelected}
+        template={template}
+      />
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden gap-3 p-3">
         <StyleSidebar className="shrink-0 rounded-xl shadow-lg border border-slate-200/50" />
@@ -56,7 +70,7 @@ export function EditorLayout({ isEmbedded = false, onSave }: EditorLayoutProps) 
               </div>
             </>
           }
-          rightSide={<Preview />}
+          rightSide={previewMode === "pdf" ? <PdfPreview /> : <Preview />}
         />
       </div>
     </div>
@@ -90,16 +104,57 @@ function EvaluatorSelector() {
   );
 }
 
+function PreviewModeSelector() {
+  const previewMode = useEditorStore((s) => s.previewMode);
+  const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-medium text-slate-600">Preview:</span>
+      <Select value={previewMode} onValueChange={(value) => setPreviewMode(value as PreviewMode)}>
+        <SelectTrigger
+          size="sm"
+          className="text-xs px-2 py-1 border border-slate-200 rounded-md bg-white hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-32 h-7"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="html">HTML (Fast)</SelectItem>
+          <SelectItem value="pdf">PDF (Actual)</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 interface EditorHeaderProps {
   isEmbedded: boolean;
   onSave: ((template: Template) => void | Promise<void>) | undefined;
+  onExampleSelected: ((exampleId: string | null) => void) | undefined;
   template: Template;
 }
 
-function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
+function EditorHeader({
+  isEmbedded,
+  onSave,
+  onExampleSelected,
+  template,
+}: EditorHeaderProps) {
+  const dataExamples = useEditorStore((s) => s.dataExamples);
+  const selectedDataExampleId = useEditorStore((s) => s.selectedDataExampleId);
+  const selectDataExample = useEditorStore((s) => s.selectDataExample);
+  const schema = useEditorStore((s) => s.schema);
+
   const handleSave = () => {
     if (onSave) {
       onSave(template);
+    }
+  };
+
+  const handleExampleSelect = (exampleId: string | null) => {
+    selectDataExample(exampleId);
+    if (onExampleSelected) {
+      onExampleSelected(exampleId);
     }
   };
 
@@ -109,6 +164,17 @@ function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
         <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0">
           <h1 className="text-lg font-semibold text-gray-800">{template.name}</h1>
           <div className="flex items-center gap-4">
+            {/* Example Selector */}
+            <ExampleSelector
+              examples={dataExamples}
+              selectedId={selectedDataExampleId}
+              schema={schema}
+              onSelect={handleExampleSelect}
+            />
+            <Separator orientation="vertical" className="min-h-6" />
+            {/* Preview Mode Selector */}
+            <PreviewModeSelector />
+            <Separator orientation="vertical" className="min-h-6" />
             {/* Evaluator Selector */}
             <EvaluatorSelector />
 
@@ -150,6 +216,15 @@ function EditorHeader({ isEmbedded, onSave, template }: EditorHeaderProps) {
             <span className="text-sm font-medium text-foreground">{template.name}</span>
           </div>
           <div className="flex items-center gap-4">
+            <ExampleSelector
+              examples={dataExamples}
+              selectedId={selectedDataExampleId}
+              schema={schema}
+              onSelect={handleExampleSelect}
+            />
+            <Separator orientation="vertical" className="min-h-6" />
+            <PreviewModeSelector />
+            <Separator orientation="vertical" className="min-h-6" />
             <EvaluatorSelector />
             <Separator orientation="vertical" className="min-h-6" />
             <AutoSave onSave={onSave} />

@@ -1,16 +1,23 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
+import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListTemplateSummaries
 import app.epistola.suite.templates.validation.DataModelValidationException
+import app.epistola.suite.templates.validation.JsonSchemaValidator
+import app.epistola.suite.templates.validation.MigrationSuggestion
+import app.epistola.suite.templates.validation.SchemaCompatibilityResult
+import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.variants.VariantSummary
 import app.epistola.suite.variants.commands.CreateVariant
@@ -23,28 +30,82 @@ import app.epistola.suite.versions.commands.PublishVersion
 import app.epistola.suite.versions.queries.GetDraft
 import app.epistola.suite.versions.queries.ListVersions
 import org.springframework.boot.info.BuildProperties
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
  * Request body for updating a document template's metadata.
  * Note: templateModel is now stored in TemplateVersion and updated separately.
+ *
+ * @property forceUpdate When true, validation warnings don't block the update
  */
 data class UpdateTemplateRequest(
     val name: String? = null,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
+    val forceUpdate: Boolean = false,
 )
+
+/**
+ * Request body for validating schema compatibility with existing examples.
+ */
+data class ValidateSchemaRequest(
+    val schema: ObjectNode,
+    val examples: List<DataExample>? = null,
+)
+
+/**
+ * Request body for updating a single data example.
+ *
+ * @property forceUpdate When true, validation warnings don't block the update
+ */
+data class UpdateDataExampleRequest(
+    val name: String? = null,
+    val data: ObjectNode? = null,
+    val forceUpdate: Boolean = false,
+)
+
+/**
+ * Request body for PDF preview generation.
+ *
+ * @property data The data context for expression evaluation
+ * @property templateModel Optional template model for live preview (uses current editor state instead of saved draft)
+ */
+data class PreviewRequest(
+    val data: Map<String, Any?>? = null,
+    val templateModel: Map<String, Any?>? = null,
+)
+
+/**
+ * Response for schema validation preview.
+ */
+data class ValidateSchemaResponse(
+    val compatible: Boolean,
+    val errors: List<ValidationError>,
+    val migrations: List<MigrationSuggestion>,
+) {
+    companion object {
+        fun from(result: SchemaCompatibilityResult) = ValidateSchemaResponse(
+            compatible = result.compatible,
+            errors = result.errors,
+            migrations = result.migrations,
+        )
+    }
+}
 
 @Component
 class DocumentTemplateHandler(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val buildProperties: BuildProperties?,
+    private val generationService: GenerationService,
+    private val jsonSchemaValidator: JsonSchemaValidator,
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
@@ -129,6 +190,29 @@ class DocumentTemplateHandler(
         // Provide a default empty template structure if none exists
         val templateModel = draft.templateModel ?: createDefaultTemplateModel(template.name, variantId)
 
+        // Convert dataExamples to plain maps for proper Thymeleaf/JS serialization
+        val mapTypeRef = object : TypeReference<Map<String, Any?>>() {}
+        val dataExamplesForJs = try {
+            template.dataExamples.map { example ->
+                mapOf(
+                    "id" to example.id,
+                    "name" to example.name,
+                    "data" to objectMapper.convertValue(example.data, mapTypeRef),
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        // Convert dataModel to plain map for proper Thymeleaf/JS serialization
+        val dataModelForJs = try {
+            template.dataModel?.let {
+                objectMapper.convertValue(it, mapTypeRef)
+            }
+        } catch (e: Exception) {
+            null
+        }
+
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -138,6 +222,8 @@ class DocumentTemplateHandler(
                 "templateName" to template.name,
                 "variantTags" to variant.tags,
                 "templateModel" to templateModel,
+                "dataExamples" to dataExamplesForJs,
+                "dataModel" to dataModelForJs,
                 "appVersion" to (buildProperties?.version ?: "dev"),
                 "appName" to (buildProperties?.name ?: "Epistola"),
             ),
@@ -194,32 +280,136 @@ class DocumentTemplateHandler(
 
         // Note: templateModel updates should go through version commands now
         return try {
-            val updated = mediator.send(
+            val result = mediator.send(
                 UpdateDocumentTemplate(
                     tenantId = tenantId,
                     id = id,
                     name = updateRequest.name,
                     dataModel = updateRequest.dataModel,
                     dataExamples = updateRequest.dataExamples,
+                    forceUpdate = updateRequest.forceUpdate,
                 ),
             ) ?: return ServerResponse.notFound().build()
 
+            val updated = result.template
+            val responseBody = mutableMapOf<String, Any?>(
+                "id" to updated.id,
+                "name" to updated.name,
+                "dataModel" to updated.dataModel,
+                "dataExamples" to updated.dataExamples,
+                "createdAt" to updated.createdAt,
+                "lastModified" to updated.lastModified,
+            )
+
+            // Include warnings if present (when forceUpdate was used)
+            if (result.warnings.isNotEmpty()) {
+                responseBody["warnings"] = result.warnings
+            }
+
             ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(
-                    mapOf(
-                        "id" to updated.id,
-                        "name" to updated.name,
-                        "dataModel" to updated.dataModel,
-                        "dataExamples" to updated.dataExamples,
-                        "createdAt" to updated.createdAt,
-                        "lastModified" to updated.lastModified,
-                    ),
-                )
+                .body(responseBody)
         } catch (e: DataModelValidationException) {
             ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("errors" to e.validationErrors))
+        }
+    }
+
+    /**
+     * Validates a schema against existing data examples without persisting.
+     * Returns migration suggestions for incompatible examples.
+     */
+    fun validateSchema(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val id = request.pathVariable("id").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+
+        val body = request.body(String::class.java)
+        val validateRequest = objectMapper.readValue(body, ValidateSchemaRequest::class.java)
+
+        // Get existing template to use its examples if not provided in request
+        val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
+            ?: return ServerResponse.notFound().build()
+
+        val examplesToValidate = validateRequest.examples ?: template.dataExamples
+
+        val result = jsonSchemaValidator.analyzeCompatibility(
+            schema = validateRequest.schema,
+            examples = examplesToValidate,
+        )
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(ValidateSchemaResponse.from(result))
+    }
+
+    /**
+     * Updates a single data example within a template.
+     * Only validates the single example being updated against the schema.
+     */
+    fun updateDataExample(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val templateId = request.pathVariable("id").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val exampleId = request.pathVariable("exampleId")
+
+        val body = request.body(String::class.java)
+        val updateRequest = objectMapper.readValue(body, UpdateDataExampleRequest::class.java)
+
+        return try {
+            val result = mediator.send(
+                UpdateDataExample(
+                    tenantId = tenantId,
+                    templateId = templateId,
+                    exampleId = exampleId,
+                    name = updateRequest.name,
+                    data = updateRequest.data,
+                    forceUpdate = updateRequest.forceUpdate,
+                ),
+            ) ?: return ServerResponse.notFound().build()
+
+            val responseBody = mutableMapOf<String, Any?>(
+                "id" to result.example.id,
+                "name" to result.example.name,
+                "data" to result.example.data,
+            )
+
+            if (result.warnings.isNotEmpty()) {
+                responseBody["warnings"] = result.warnings
+            }
+
+            ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(responseBody)
+        } catch (e: DataModelValidationException) {
+            ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("errors" to e.validationErrors))
+        }
+    }
+
+    /**
+     * Deletes a single data example from a template.
+     */
+    fun deleteDataExample(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val templateId = request.pathVariable("id").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val exampleId = request.pathVariable("exampleId")
+
+        val result = mediator.send(
+            DeleteDataExample(
+                tenantId = tenantId,
+                templateId = templateId,
+                exampleId = exampleId,
+            ),
+        ) ?: return ServerResponse.notFound().build()
+
+        return if (result.deleted) {
+            ServerResponse.noContent().build()
+        } else {
+            ServerResponse.notFound().build()
         }
     }
 
@@ -391,6 +581,69 @@ class DocumentTemplateHandler(
         mediator.send(ArchiveVersion(tenantId = tenantId, templateId = templateId, variantId = variantId, versionId = versionId))
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
+    }
+
+    /**
+     * Generates a PDF preview of a variant's draft version.
+     * Streams the PDF directly to the response.
+     *
+     * If `templateModel` is provided in the request body, it will be used for rendering
+     * instead of fetching from the database. This enables live preview of unsaved changes.
+     */
+    fun preview(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val templateId = request.pathVariable("id").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+        val variantId = request.pathVariable("variantId").toLongOrNull()
+            ?: return ServerResponse.badRequest().build()
+
+        // Parse the request body
+        val previewRequest: PreviewRequest = try {
+            val body = request.body(String::class.java)
+            if (body.isBlank()) {
+                PreviewRequest()
+            } else {
+                objectMapper.readValue(body, PreviewRequest::class.java)
+            }
+        } catch (_: Exception) {
+            PreviewRequest()
+        }
+
+        val data = previewRequest.data ?: emptyMap()
+
+        // Validate data against schema BEFORE starting the streaming response
+        val validationResult = generationService.validatePreviewData(tenantId, templateId, data)
+        if (!validationResult.valid) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                    mapOf(
+                        "errors" to validationResult.errors.map { error ->
+                            mapOf(
+                                "path" to error.path,
+                                "message" to error.message,
+                            )
+                        },
+                    ),
+                )
+        }
+
+        // Resolve the template model - either from request (live preview) or from draft
+        val templateModel = if (previewRequest.templateModel != null) {
+            generationService.convertTemplateModel(previewRequest.templateModel)
+        } else {
+            val draft = mediator.query(GetDraft(tenantId, templateId, variantId))
+            draft?.templateModel ?: return ServerResponse.notFound().build()
+        }
+
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
+            .build { _, response ->
+                generationService.renderPdf(templateModel, data, response.outputStream)
+                response.outputStream.flush()
+                null // Return null to indicate no view to render
+            }
     }
 
     private fun returnVersionsFragment(

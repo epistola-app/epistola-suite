@@ -5,7 +5,8 @@ import { EditorProvider } from "./components/editor/EditorProvider";
 import { EditorLayout } from "./components/editor/EditorLayout";
 import { EvaluatorProvider } from "./context/EvaluatorContext";
 import { useEditorStore } from "./store/editorStore";
-import type { Template } from "./types/template";
+import type { Template, DataExample, JsonObject } from "./types/template";
+import { JsonSchemaSchema } from "./types/schema";
 import "./index.css";
 
 /**
@@ -16,8 +17,14 @@ export interface EditorOptions {
   container: HTMLElement;
   /** Initial template to load (optional) */
   template?: Template;
+  /** Initial data examples for testing expressions (optional, read-only) */
+  dataExamples?: DataExample[];
+  /** Initial data model/schema for validation (optional, read-only) */
+  dataModel?: JsonObject | null;
   /** Callback when user clicks Save */
   onSave?: (template: Template) => void | Promise<void>;
+  /** Callback when user selects a different example */
+  onExampleSelected?: (exampleId: string | null) => void;
 }
 
 /**
@@ -53,7 +60,7 @@ export interface EditorInstance {
  * ```
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, onSave } = options;
+  const { container, template, dataExamples, dataModel, onSave, onExampleSelected } = options;
 
   // Add the root class for CSS scoping
   container.classList.add("template-editor-root");
@@ -64,6 +71,27 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     useEditorStore.getState().markAsSaved();
   }
 
+  // Initialize store with provided data examples
+  if (dataExamples && dataExamples.length > 0) {
+    useEditorStore.getState().setDataExamples(dataExamples);
+    // Select the first example by default
+    useEditorStore.getState().selectDataExample(dataExamples[0].id);
+  }
+
+  // Initialize store with provided schema (validated at boundary)
+  if (dataModel !== undefined) {
+    if (dataModel === null) {
+      useEditorStore.getState().setSchema(null);
+    } else {
+      const result = JsonSchemaSchema.safeParse(dataModel);
+      if (result.success) {
+        useEditorStore.getState().setSchema(result.data);
+      } else {
+        console.warn("Invalid JSON Schema provided, ignoring:", result.error.message);
+      }
+    }
+  }
+
   // Create React root and render
   const root: Root = createRoot(container);
 
@@ -71,7 +99,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     <StrictMode>
       <EvaluatorProvider initialType="direct">
         <EditorProvider>
-          <EditorLayout isEmbedded={true} onSave={onSave} />
+          <EditorLayout isEmbedded={true} onSave={onSave} onExampleSelected={onExampleSelected} />
         </EditorProvider>
       </EvaluatorProvider>
     </StrictMode>,
@@ -90,5 +118,5 @@ export function mountEditor(options: EditorOptions): EditorInstance {
 }
 
 // Re-export types for consumers
-export type { Template } from "./types/template";
+export type { Template, DataExample } from "./types/template";
 export { useEditorStore, useIsDirty } from "./store/editorStore";

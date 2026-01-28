@@ -252,6 +252,12 @@ export default [
     external: ['react'],
     plugins,
   },
+  // zod - schema validation library
+  {
+    input: 'node_modules/zod/index.js',
+    output: { file: 'dist/zod.js', format: 'esm' },
+    plugins,
+  },
   // Note: CodeMirror packages are bundled directly in the editor module
   // to avoid multiple @codemirror/state instances. No vendor bundle needed.
 ].map(config => ({ ...config, onwarn }));

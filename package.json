@@ -8,6 +8,9 @@
     "clean": "pnpm -r clean",
     "format": "pnpm -r format",
     "format:check": "pnpm -r format:check",
+    "test": "pnpm -r test",
+    "test:watch": "pnpm -r test:watch",
+    "test:coverage": "pnpm -r test:coverage",
     "lint": "pnpm -r lint",
     "setup:github-mcp": "pnpm --filter @epistola/gh-mcp run setup"
   },

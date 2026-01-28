@@ -2,7 +2,92 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Template Model**: Simplified `documentStyles` to be consistently non-nullable across frontend and backend
+  - Backend: `documentStyles: DocumentStyles = DocumentStyles()` (non-nullable with default)
+  - Frontend: `documentStyles: DocumentStyles` (non-nullable)
+  - Frontend: Removed unnecessary `normalizeTemplate()` function - no longer needed with consistent non-null contract
+  - Impact: Cleaner API contract; templates always have documentStyles object; any dev database templates with null values will fail to load (acceptable since not in production)
+- **Template Editor - Loop Block**: Fixed incorrect validation error for literal array expressions
+  - Issue: Entering literal arrays like `[]` or `[1,2,3]` in loop expressions showed "Expression must resolve to an array" warning
+  - Root cause: Loop validation used simple dot-notation path lookup instead of expression evaluation
+  - Solution: Changed `LoopBlock` component to use `useEvaluator` hook for proper expression evaluation
+  - Impact: Literal arrays, JSONata queries, and complex expressions now validate correctly in loops
+- **PDF Generation**: Fixed iText7 error "Pdf indirect object belongs to other PDF document" when using bold/italic text
+  - Root cause: Font objects were cached at class/object level and reused across multiple PDF documents
+  - Solution: Implemented `FontCache` class to scope fonts per PDF document
+  - Affected files: `TipTapConverter`, `StyleApplicator`, all block renderers
+  - Impact: Multiple PDF renders (e.g., preview multiple templates) now work correctly
+
 ### Added
+- PDF Preview mode in template editor
+  - Toggle between HTML (Fast) and PDF (Actual) preview modes in editor header
+  - **Live preview**: Shows PDF of current unsaved editor state, not just saved drafts
+  - PdfPreview component sends current template model to backend for real-time rendering
+  - Debounced fetching (500ms) to reduce API load during editing
+  - Loading, error, and retry states with appropriate UI feedback
+  - Blob URL management with proper cleanup to prevent memory leaks
+  - HTML mode remains default for fast client-side rendering during editing
+  - Backend preview endpoint now accepts optional `templateModel` in request body
+- Single data example CRUD endpoints for independent example management
+  - `PATCH /tenants/{tenantId}/templates/{id}/data-examples/{exampleId}` - Update a single example
+  - `DELETE /tenants/{tenantId}/templates/{id}/data-examples/{exampleId}` - Delete a single example
+  - Only validates the single example being updated (not all examples)
+  - Supports `forceUpdate` flag to save despite validation warnings
+  - Enables fixing/deleting invalid examples without affecting valid ones
+  - Frontend editor now uses single-example endpoints for updates and deletes
+- Data Contract Management in template editor
+  - Visual schema editor with support for string, number, integer, boolean, array, and object types
+  - Nested field support for object and array-of-object types (UI limits to one level; types support deeper nesting)
+  - Array item type selector
+  - Zod schema definitions for type safety and runtime validation
+  - Required field toggle
+  - "Generate from example" button to infer schema from test data
+  - Advanced JSON toggle for direct JSON Schema editing
+  - Tab-based UI with Schema and Test Data tabs
+  - Expression path extraction from template blocks
+  - Impact analysis to detect expressions not covered by schema
+  - Frontend schema validation for test data examples
+  - Backend schema validation during PDF generation (returns 400 with structured errors)
+  - Schema persistence via template's dataModel field
+  - Schema compatibility validation endpoint (`POST /validate-schema`)
+  - Migration Assistant dialog showing compatibility issues with auto-fix suggestions
+  - Type conversion for simple cases (string↔number, string↔boolean)
+  - ValidationMessages component with separate error/warning display
+  - DialogFooterActions component with unsaved changes indicator
+- Data Examples Manager in template editor
+  - Dropdown in editor header to select active test data example
+  - Settings dialog to create, edit, and delete data examples
+  - CodeMirror-based JSON editor for data editing
+  - Auto-save to backend via PATCH API on save
+  - Selected example automatically updates preview expression evaluation
+  - Falls back to built-in default data when no examples exist
+- PDF Preview button in versions table
+  - Preview PDF button for Draft, Published, and Archived versions
+  - Uses template's dataExamples for test data (first example or empty object)
+  - Opens generated PDF in new browser tab
+  - Loading state with visual feedback during PDF generation
+- Expression language support (JSONata, JavaScript, SimplePath)
+  - JSONata as the recommended language for template designers (concise, JSON-focused syntax)
+  - JavaScript support for power users with full JS capabilities (array methods, etc.)
+  - SimplePath for fast, safe path-only traversal (no operations, no code execution)
+  - Expression language selection stored in Expression model
+  - Server-side: JsonataEvaluator (dashjoin/jsonata), JavaScriptEvaluator (GraalJS sandbox), SimplePathEvaluator
+  - Browser-side: JsonataEvaluator (jsonata npm), DirectEvaluator (Function)
+  - CompositeExpressionEvaluator dispatches based on language field
+  - Language toggle UI in expression editor popover
+  - JSONata is now the default expression language
+  - Comprehensive tests for all evaluators (JsonataEvaluatorTest, JavaScriptEvaluatorTest, SimplePathEvaluatorTest, CompositeExpressionEvaluatorTest)
+- Server-side PDF generation using iText Core 9
+  - New `modules/generation` module with DirectPdfRenderer for native PDF generation
+  - New `modules/template-model` module with shared template types
+  - Expression evaluation ({{customer.name}}) with path traversal and array support
+  - TipTap JSON to iText conversion for rich text content
+  - Block renderers: Text, Container, Columns, Table, Conditional, Loop
+  - Style applicator supporting CSS-like properties (colors, margins, padding, fonts)
+  - Preview endpoint: `POST /tenants/{tenantId}/templates/{id}/variants/{variantId}/preview`
+  - Streaming PDF output to avoid memory buffering
 - Template variants, versions, and lifecycle management (API-first)
   - New domain model: Template → Variant → Version with lifecycle states
   - Environments: Tenant-configurable deployment targets (staging, production, etc.)
@@ -45,6 +130,13 @@
 - AnimateUI Switch component from shadcn
 
 ### Changed
+- Refactored Data Contract Manager for better UX
+  - Local-first draft state: edits are local until explicit save
+  - Save & Stay Open pattern: dialog remains open after save with success feedback
+  - Dirty state indicators on tabs showing unsaved changes
+  - Close confirmation when there are unsaved changes
+  - Force update option to save schema despite validation warnings
+  - Replaced `alert()` calls with proper UI feedback components
 - Redesigned template editor UI with shadcn components
   - BlockPalette with tabs and animations
   - StyleSidebar with improved organization and version display in footer
@@ -57,6 +149,25 @@
 - SaveButton refactored with useCallback optimization
 
 ### Fixed
+- Schema-manager state management and schema-data synchronization
+  - Fixed tab switching losing local changes by introducing shared draft state across tabs
+  - Moved useDataContractDraft from individual sections to App.tsx for single source of truth
+  - Fixed input focus loss in field name editor by replacing ref-based sync with useEffect
+  - Implemented atomic schema-examples migration save (examples saved first, then schema)
+  - Added dirty state indicators (●) on tabs when unsaved changes exist
+  - Added "Save All Changes" button for one-click save of all changes
+  - Added warning banner showing when unsaved changes are present
+- SchemaEditor component using incorrect Zod imports (`uuidv4`, `ZodUUID`) that don't exist in Zod library
+  - Replaced with proper `uuid` package imports for UUID generation
+- Schema validation returning `compatible: true` on network/server errors in editor
+  - Now correctly returns `compatible: false` with error message so UI can display failure
+- MigrationAssistant dialog not updating selected migrations when `migrations` prop changes
+  - Added useEffect to sync state when migrations are updated
+- Data examples creation flow in template editor
+  - Removed premature backend save when clicking "+" to add new example
+  - Examples are now created locally first, allowing user to edit before save
+  - Backend persistence only happens when user clicks "Save" with valid data
+  - Fixes chicken-and-egg problem where empty data `{}` failed schema validation
 - Radix UI package conflict causing infinite re-render loops in accordion with select components
 - ColorPicker performance: added throttling to color area and commit-on-close pattern
 - Color input width in ColorPicker component

@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: epistola-suite
+  threads:
+    virtual:
+      enabled: true
 
 management:
   endpoints:

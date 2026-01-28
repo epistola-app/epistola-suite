@@ -244,22 +244,23 @@ class V1ApiController(
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val dataExamples = updateTemplateRequest.dataExamples?.map {
-            DataExample(name = it.name, data = objectMapper.valueToTree(it.data))
+            DataExample(id = it.id, name = it.name, data = objectMapper.valueToTree(it.data))
         }
         val dataModel = updateTemplateRequest.dataModel?.let {
             objectMapper.valueToTree<ObjectNode>(it)
         }
-        val template = mediator.send(
+        val result = mediator.send(
             UpdateDocumentTemplate(
                 tenantId = tenantId,
                 id = templateId,
                 name = updateTemplateRequest.name,
                 dataModel = dataModel,
                 dataExamples = dataExamples,
+                forceUpdate = updateTemplateRequest.forceUpdate ?: false,
             ),
         ) ?: return ResponseEntity.notFound().build()
         val variantSummaries = mediator.query(GetVariantSummaries(templateId = templateId))
-        return ResponseEntity.ok(template.toDto(variantSummaries))
+        return ResponseEntity.ok(result.template.toDto(variantSummaries))
     }
 
     override fun deleteTemplate(
@@ -632,9 +633,9 @@ class V1ApiController(
         name = name,
         schema = schema?.let { objectMapper.convertValue(it, Map::class.java) as Map<String, Any> },
         dataModel = dataModel?.let { objectMapper.convertValue(it, Map::class.java) as Map<String, Any> },
-        dataExamples = dataExamples.mapIndexed { index, example ->
+        dataExamples = dataExamples.map { example ->
             DataExampleDto(
-                id = "$id-example-$index",
+                id = example.id,
                 name = example.name,
                 data = objectMapper.convertValue(example.data, Map::class.java) as Map<String, Any>,
             )

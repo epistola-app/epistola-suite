@@ -7,3 +7,4 @@ export type {
 
 export { DirectEvaluator } from "./DirectEvaluator";
 export { IframeEvaluator } from "./IframeEvaluator";
+export { JsonataEvaluator } from "./JsonataEvaluator";

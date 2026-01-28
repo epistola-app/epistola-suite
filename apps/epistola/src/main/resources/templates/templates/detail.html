@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${template.name + ' - Epistola'}">Template - Epistola</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script th:src="@{/js/pdf-preview.js}"></script>
+    <th:block th:replace="~{fragments/importmap :: importmap}" />
 </head>
 <body>
     <main class="regular">
@@ -111,6 +114,136 @@
             </div>
         </section>
 
+        <!-- Data Contract Section -->
+        <section style="margin-top: 2rem;">
+            <div class="section-header">
+                <h2>Data Contract</h2>
+            </div>
+            <p class="text-muted" style="margin-bottom: 1rem;">
+                Define the JSON schema and test data examples for this template.
+                These examples can be used when designing variants.
+            </p>
+            <div id="schema-manager-container" style="min-height: 400px; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 1rem;"></div>
+        </section>
+
+        <script th:inline="javascript">
+            const TENANT_ID = [[${tenantId}]];
+            const TEMPLATE_ID = [[${template.id}]];
+            const INITIAL_SCHEMA = [[${template.dataModel}]];
+            const INITIAL_EXAMPLES = [[${template.dataExamples}]];
+        </script>
+        <script type="module">
+            import { mountSchemaManager } from '/schema-manager/schema-manager.js';
+
+            // Use variables from inline script
+            const tenantId = TENANT_ID;
+            const templateId = TEMPLATE_ID;
+            const initialSchema = INITIAL_SCHEMA;
+            const initialExamples = INITIAL_EXAMPLES;
+
+            // Mount the schema manager
+            const manager = mountSchemaManager({
+                container: document.getElementById('schema-manager-container'),
+                templateId: templateId,
+                initialSchema: initialSchema,
+                initialExamples: initialExamples,
+                callbacks: {
+                    onSaveSchema: async (schema, forceUpdate) => {
+                        try {
+                            const response = await fetch(`/tenants/${tenantId}/templates/${templateId}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                },
+                                body: JSON.stringify({ dataModel: schema, forceUpdate })
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                return { success: false, error: error.message, warnings: error.warnings };
+                            }
+
+                            const result = await response.json();
+                            return { success: true, warnings: result.warnings };
+                        } catch (error) {
+                            console.error('Failed to save schema:', error);
+                            return { success: false, error: error.message };
+                        }
+                    },
+
+                    onSaveDataExamples: async (examples) => {
+                        try {
+                            const response = await fetch(`/tenants/${tenantId}/templates/${templateId}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                },
+                                body: JSON.stringify({ dataExamples: examples })
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                return { success: false, warnings: error.warnings };
+                            }
+
+                            const result = await response.json();
+                            return { success: true, warnings: result.warnings };
+                        } catch (error) {
+                            console.error('Failed to save examples:', error);
+                            return { success: false };
+                        }
+                    },
+
+                    onUpdateDataExample: async (exampleId, updates, forceUpdate) => {
+                        try {
+                            const response = await fetch(`/tenants/${tenantId}/templates/${templateId}/data-examples/${exampleId}`, {
+                                method: 'PATCH',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                },
+                                body: JSON.stringify({ ...updates, forceUpdate })
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                return { success: false, errors: error.errors, warnings: error.warnings };
+                            }
+
+                            const result = await response.json();
+                            return { success: true, example: result, warnings: result.warnings };
+                        } catch (error) {
+                            console.error('Failed to update example:', error);
+                            return { success: false };
+                        }
+                    },
+
+                    onDeleteDataExample: async (exampleId) => {
+                        try {
+                            const response = await fetch(`/tenants/${tenantId}/templates/${templateId}/data-examples/${exampleId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                }
+                            });
+
+                            return { success: response.ok };
+                        } catch (error) {
+                            console.error('Failed to delete example:', error);
+                            return { success: false };
+                        }
+                    },
+
+                    onValidateSchema: async (schema, examples) => {
+                        // Client-side validation only for now
+                        return { compatible: true, errors: [], migrations: [] };
+                    }
+                }
+            });
+        </script>
+
         <!-- Versions Section (shown when a variant is selected) -->
         <section th:if="${selectedVariant != null}" style="margin-top: 2rem;">
             <div class="section-header">
@@ -159,6 +292,13 @@
                                 <th:block th:if="${version.status.name() == 'DRAFT'}">
                                     <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
                                        class="btn btn-small">Edit</a>
+                                    <button type="button"
+                                            class="btn btn-small btn-secondary"
+                                            th:data-tenant-id="${tenantId}"
+                                            th:data-template-id="${template.id}"
+                                            th:data-variant-id="${selectedVariant.id}"
+                                            th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                            onclick="previewPdf(this)">Preview PDF</button>
                                     <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           method="post"
                                           style="display: inline;"
@@ -171,6 +311,13 @@
 
                                 <!-- Published actions -->
                                 <th:block th:if="${version.status.name() == 'PUBLISHED'}">
+                                    <button type="button"
+                                            class="btn btn-small btn-secondary"
+                                            th:data-tenant-id="${tenantId}"
+                                            th:data-template-id="${template.id}"
+                                            th:data-variant-id="${selectedVariant.id}"
+                                            th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                            onclick="previewPdf(this)">Preview PDF</button>
                                     <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           method="post"
                                           style="display: inline;"
@@ -182,9 +329,15 @@
                                     </form>
                                 </th:block>
 
-                                <!-- Archived: view only (no actions) -->
+                                <!-- Archived: preview only -->
                                 <th:block th:if="${version.status.name() == 'ARCHIVED'}">
-                                    <span class="text-muted">—</span>
+                                    <button type="button"
+                                            class="btn btn-small btn-secondary"
+                                            th:data-tenant-id="${tenantId}"
+                                            th:data-template-id="${template.id}"
+                                            th:data-variant-id="${selectedVariant.id}"
+                                            th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
+                                            onclick="previewPdf(this)">Preview PDF</button>
                                 </th:block>
                             </td>
                         </tr>
