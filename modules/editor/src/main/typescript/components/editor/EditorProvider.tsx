@@ -50,7 +50,7 @@ export function EditorProvider({ children }: EditorProviderProps) {
     if (overData.type === "canvas") {
       targetParentId = null;
       targetIndex = overData.index;
-    } else if (overData.type === "container" || overData.type === "loop" || overData.type === "pageheader") {
+    } else if (overData.type === "container" || overData.type === "loop" || overData.type === "pageheader" || overData.type === "pagefooter") {
       targetParentId = overData.parentId;
       targetIndex = overData.index;
     } else if (overData.type === "column") {

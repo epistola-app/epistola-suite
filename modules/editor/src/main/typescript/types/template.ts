@@ -39,7 +39,8 @@ export type Block =
   | ColumnsBlock
   | TableBlock
   | PageBreakBlock
-  | PageHeaderBlock;
+  | PageHeaderBlock
+  | PageFooterBlock;
 
 export interface BaseBlock {
   id: string;
@@ -111,6 +112,11 @@ export interface PageBreakBlock extends BaseBlock {
 
 export interface PageHeaderBlock extends BaseBlock {
   type: "pageheader";
+  children: Block[];
+}
+
+export interface PageFooterBlock extends BaseBlock {
+  type: "pagefooter";
   children: Block[];
 }
 

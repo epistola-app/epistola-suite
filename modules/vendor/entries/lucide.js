@@ -41,6 +41,7 @@ export {
   Minus,
   Move,
   Palette,
+  PanelBottom,
   PanelTop,
   PipetteIcon,
   Plus,

@@ -83,6 +83,7 @@ enum class TextAlign {
     JsonSubTypes.Type(value = TableBlock::class, name = "table"),
     JsonSubTypes.Type(value = PageBreakBlock::class, name = "pagebreak"),
     JsonSubTypes.Type(value = PageHeaderBlock::class, name = "pageheader"),
+    JsonSubTypes.Type(value = PageFooterBlock::class, name = "pagefooter"),
 )
 sealed class Block {
     abstract val id: String
@@ -193,6 +194,14 @@ data class PageHeaderBlock(
     val children: List<Block> = emptyList(),
 ) : Block() {
     override val type: String = "pageheader"
+}
+
+data class PageFooterBlock(
+    override val id: String,
+    override val styles: Map<String, Any>? = null,
+    val children: List<Block> = emptyList(),
+) : Block() {
+    override val type: String = "pagefooter"
 }
 
 /**

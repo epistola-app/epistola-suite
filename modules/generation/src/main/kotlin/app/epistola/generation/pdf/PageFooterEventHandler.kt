@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
-import app.epistola.template.model.PageHeaderBlock
+
+import app.epistola.template.model.PageFooterBlock
 import com.itextpdf.kernel.geom.Rectangle
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
@@ -11,11 +12,11 @@ import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.Image
 
 /**
- * Event handler that renders a page header on every page.
- * Registered to handle END_PAGE events and draws header content at the top of each page.
+ * Event handler that renders a page footer on every page.
+ * Registered to handle END_PAGE events and draws footer content at the bottom of each page.
  */
-class PageHeaderEventHandler(
-    private val headerBlock: PageHeaderBlock,
+class PageFooterEventHandler(
+    private val footerBlock: PageFooterBlock,
     private val context: RenderContext,
     private val blockRenderers: BlockRendererRegistry,
 ) : AbstractPdfDocumentEventHandler() {
@@ -26,28 +27,26 @@ class PageHeaderEventHandler(
         val pdfDoc = docEvent.document
         val pageSize = page.pageSize
 
-        // --- header band (top of page) ---
+        // --- footer band (bottom of page) ---
         val leftPadding = 36f
         val rightPadding = 36f
-        val topPadding = 20f
-        val headerHeight = 60f // pick a height that fits your header
+        val bottomPadding = 20f
+        val footerHeight = 60f
 
-        // Rectangle y is measured from the bottom of the page.
-        // So for a header we place it at: top - topPadding - headerHeight
-        val headerRect = Rectangle(
+        val footerRect = Rectangle(
             pageSize.left + leftPadding,
-            pageSize.top - topPadding - headerHeight,
+            pageSize.bottom + bottomPadding,
             pageSize.width - leftPadding - rightPadding,
-            headerHeight,
+            footerHeight,
         )
 
-        // Draw after normal page content (overlay). Use newContentStreamBefore() if you want it underneath.
+        // Write after normal page content
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
 
-        // ✅ Constrain layout to the header rectangle
-        val canvas = Canvas(pdfCanvas, headerRect)
+        // ✅ This constructor exists in iText 9
+        val canvas = Canvas(pdfCanvas, footerRect)
 
-        val elements = blockRenderers.renderBlocks(headerBlock.children, context)
+        val elements = blockRenderers.renderBlocks(footerBlock.children, context)
         for (element in elements) {
             when (element) {
                 is IBlockElement -> canvas.add(element)

@@ -4,6 +4,7 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.Orientation
+import app.epistola.template.model.PageFooterBlock
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.PageHeaderBlock
 import app.epistola.template.model.TemplateModel
@@ -74,8 +75,19 @@ class DirectPdfRenderer(
             pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, headerHandler)
         }
 
-        // Render content blocks (exclude page header from normal flow)
-        val contentBlocks = template.blocks.filterNot { it is PageHeaderBlock }
+        // Register page footer event handler if present
+        val footerBlock = template.blocks.filterIsInstance<PageFooterBlock>().firstOrNull()
+        if (footerBlock != null) {
+            val footerHandler = PageFooterEventHandler(
+                footerBlock = footerBlock,
+                context = context,
+                blockRenderers = blockRendererRegistry,
+            )
+            pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, footerHandler)
+        }
+
+        // Render content blocks (exclude page header and page footer from normal flow)
+        val contentBlocks = template.blocks.filterNot { it is PageHeaderBlock || it is PageFooterBlock }
         val elements = blockRendererRegistry.renderBlocks(contentBlocks, context)
 
         // Add elements to document
@@ -118,6 +130,7 @@ class DirectPdfRenderer(
                 "loop" to LoopBlockRenderer(),
                 "pagebreak" to PageBreakBlockRenderer(),
                 "pageheader" to PageHeaderBlockRenderer(),
+                "pagefooter" to PageFooterBlockRenderer(),
             ),
         )
     }

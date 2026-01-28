@@ -9,6 +9,7 @@ import { ColumnsBlockComponent } from "./ColumnsBlock";
 import { TableBlockComponent } from "./TableBlock";
 import { PageBreakBlockComponent } from "./PageBreakBlock";
 import { PageHeaderBlockComponent } from "./PageHeaderBlock";
+import { PageFooterBlockComponent } from "./PageFooterBlock";
 
 interface BlockRendererProps {
   block: Block;
@@ -132,6 +133,16 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
       case "pageheader":
         return (
           <PageHeaderBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
+      case "pagefooter":
+        return (
+          <PageFooterBlockComponent
             block={block}
             isSelected={isSelected}
             dragAttributes={attributes}

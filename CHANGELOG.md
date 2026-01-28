@@ -6,12 +6,21 @@
 
 - **Page Header Block**: New block type to display repeating headers on every PDF page
   - Frontend: Visual component with blue styling and drag-drop child block support
-  - Backend: `PageHeaderBlock` model with iText 9 event handler pattern (`AbstractPdfDocumentEventHandler`)
+  - Backend: `PageHeaderBlock` model with dedicated `PageHeaderEventHandler`
   - Appears in block palette with PanelTop icon
   - Header automatically repeats on every page using `PdfDocumentEvent.END_PAGE` events
   - Supports any child block types (text, images, tables, loops, conditionals)
   - Supports dynamic template variables and expressions
   - Fully backward compatible - existing templates work unchanged
+- **Page Footer Block**: New block type to display repeating footers on every PDF page
+  - Frontend: Visual component matching page header pattern with drag-drop child block support
+  - Backend: `PageFooterBlock` model with dedicated `PageFooterEventHandler`
+  - Appears in block palette with PanelBottom icon
+  - Footer automatically repeats at bottom of every page using correct iText positioning (36pt margin from bottom edge)
+  - Supports any child block types (text, images, tables, loops, conditionals)
+  - Supports dynamic template variables and expressions
+  - Fully backward compatible - existing templates work unchanged
+  - Architecture: Separate event handlers for header and footer with independent PdfCanvas objects for proper isolation
 - **Page Break Block**: New block type to force content onto a new page in PDF generation
   - Frontend: Visual component with horizontal lines and "Page Break" label
   - Backend: `PageBreakBlock` model and `PageBreakBlockRenderer` using iText's `AreaBreak()`
@@ -20,6 +29,12 @@
 
 ### Changed
 
+- **PDF Header/Footer Rendering**: Fixed positioning bug by using separate event handlers
+  - Reverted from unified `PageHeaderFooterEventHandler` back to separate handlers
+  - Root cause: Shared PdfCanvas between header and footer caused positioning conflicts in iText
+  - Solution: `PageHeaderEventHandler` and `PageFooterEventHandler` with independent canvases
+  - Each handler creates its own content stream for proper isolation
+  - Header and footer now render correctly at top and bottom respectively
 - **Demo Tenant Management**: Replaced simple existence check with version-tracked demo loader
   - New `app_metadata` table for application-level configuration
   - Demo tenant is now recreated only when version changes (bump `DEMO_VERSION` constant)

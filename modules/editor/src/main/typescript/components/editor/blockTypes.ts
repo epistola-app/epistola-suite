@@ -3,6 +3,7 @@ import {
   CircleQuestionMark,
   Grid3x3,
   Minus,
+  PanelBottom,
   PanelTop,
   RefreshCcw,
   Square,
@@ -145,6 +146,17 @@ export const blockTypes: BlockTypeConfig[] = [
     createBlock: () => ({
       id: uuidv4(),
       type: "pageheader",
+      children: [],
+    }),
+  },
+  {
+    type: "pagefooter",
+    label: "Page Footer",
+    description: "Footer that appears on every page",
+    icon: PanelBottom,
+    createBlock: () => ({
+      id: uuidv4(),
+      type: "pagefooter",
       children: [],
     }),
   },
