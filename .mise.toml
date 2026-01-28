@@ -1,5 +1,5 @@
 [tools]
-java = "temurin-25.0.1+8.0.LTS"
+java = "temurin-25.0.2+10.0.LTS"
 gradle = "9.2.1"
-node = "24.12.0"
-pnpm = "10.28.1"
+node = "24.13.0"
+pnpm = "10.28.2"

@@ -8,7 +8,7 @@ plugins {
 dependencyManagement {
     imports {
         // TODO: figure out how we can do this another way
-        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.1")
+        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.2")
     }
 }
 
