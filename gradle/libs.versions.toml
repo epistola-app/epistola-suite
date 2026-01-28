@@ -11,7 +11,7 @@ jdbi = "3.51.0"
 json-schema-validator = "3.0.0"
 openapi-generator = "7.19.0"
 jackson2 = "2.21.0"
-spring-web = "6.2.15"
+spring-web = "7.0.3"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }

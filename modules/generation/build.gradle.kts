@@ -15,8 +15,8 @@ dependencies {
     implementation("com.dashjoin:jsonata:0.9.9")
 
     // GraalJS for JavaScript expression evaluation
-    implementation("org.graalvm.polyglot:polyglot:24.1.1")
-    implementation("org.graalvm.polyglot:js:24.1.1")
+    implementation("org.graalvm.polyglot:polyglot:25.0.2")
+    implementation("org.graalvm.polyglot:js:25.0.2")
 
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

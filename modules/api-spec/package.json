@@ -8,6 +8,6 @@
     "docs": "redocly build-docs src/main/resources/openapi/epistola-api.yaml -o $PWD/build/generated-resources/static/api-docs/index.html"
   },
   "devDependencies": {
-    "@redocly/cli": "^1.28.2"
+    "@redocly/cli": "^2.0.0"
   }
 }
