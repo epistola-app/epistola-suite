@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Page Header Block**: New block type to display repeating headers on every PDF page
+  - Frontend: Visual component with blue styling and drag-drop child block support
+  - Backend: `PageHeaderBlock` model with iText 9 event handler pattern (`AbstractPdfDocumentEventHandler`)
+  - Appears in block palette with PanelTop icon
+  - Header automatically repeats on every page using `PdfDocumentEvent.END_PAGE` events
+  - Supports any child block types (text, images, tables, loops, conditionals)
+  - Supports dynamic template variables and expressions
+  - Fully backward compatible - existing templates work unchanged
 - **Page Break Block**: New block type to force content onto a new page in PDF generation
   - Frontend: Visual component with horizontal lines and "Page Break" label
   - Backend: `PageBreakBlock` model and `PageBreakBlockRenderer` using iText's `AreaBreak()`

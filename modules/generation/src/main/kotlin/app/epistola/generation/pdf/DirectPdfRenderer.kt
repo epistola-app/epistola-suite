@@ -5,10 +5,12 @@ import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
+import app.epistola.template.model.PageHeaderBlock
 import app.epistola.template.model.TemplateModel
 import com.itextpdf.kernel.geom.PageSize
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfWriter
+import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.layout.Document
 import java.io.OutputStream
 
@@ -61,8 +63,20 @@ class DirectPdfRenderer(
             fontCache = fontCache,
         )
 
-        // Render all blocks
-        val elements = blockRendererRegistry.renderBlocks(template.blocks, context)
+        // Register page header event handler if present
+        val headerBlock = template.blocks.filterIsInstance<PageHeaderBlock>().firstOrNull()
+        if (headerBlock != null) {
+            val headerHandler = PageHeaderEventHandler(
+                headerBlock = headerBlock,
+                context = context,
+                blockRenderers = blockRendererRegistry,
+            )
+            pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, headerHandler)
+        }
+
+        // Render content blocks (exclude page header from normal flow)
+        val contentBlocks = template.blocks.filterNot { it is PageHeaderBlock }
+        val elements = blockRendererRegistry.renderBlocks(contentBlocks, context)
 
         // Add elements to document
         for (element in elements) {
@@ -103,6 +117,7 @@ class DirectPdfRenderer(
                 "conditional" to ConditionalBlockRenderer(),
                 "loop" to LoopBlockRenderer(),
                 "pagebreak" to PageBreakBlockRenderer(),
+                "pageheader" to PageHeaderBlockRenderer(),
             ),
         )
     }

@@ -8,6 +8,7 @@ import { LoopBlockComponent } from "./LoopBlock";
 import { ColumnsBlockComponent } from "./ColumnsBlock";
 import { TableBlockComponent } from "./TableBlock";
 import { PageBreakBlockComponent } from "./PageBreakBlock";
+import { PageHeaderBlockComponent } from "./PageHeaderBlock";
 
 interface BlockRendererProps {
   block: Block;
@@ -121,6 +122,16 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
       case "pagebreak":
         return (
           <PageBreakBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
+      case "pageheader":
+        return (
+          <PageHeaderBlockComponent
             block={block}
             isSelected={isSelected}
             dragAttributes={attributes}

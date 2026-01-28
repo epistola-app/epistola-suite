@@ -3,6 +3,7 @@ import {
   CircleQuestionMark,
   Grid3x3,
   Minus,
+  PanelTop,
   RefreshCcw,
   Square,
   TextAlignStart,
@@ -134,6 +135,17 @@ export const blockTypes: BlockTypeConfig[] = [
     createBlock: () => ({
       id: uuidv4(),
       type: "pagebreak",
+    }),
+  },
+  {
+    type: "pageheader",
+    label: "Page Header",
+    description: "Header that appears on every page",
+    icon: PanelTop,
+    createBlock: () => ({
+      id: uuidv4(),
+      type: "pageheader",
+      children: [],
     }),
   },
 ];

@@ -38,7 +38,8 @@ export type Block =
   | LoopBlock
   | ColumnsBlock
   | TableBlock
-  | PageBreakBlock;
+  | PageBreakBlock
+  | PageHeaderBlock;
 
 export interface BaseBlock {
   id: string;
@@ -106,6 +107,11 @@ export interface TableCell {
 
 export interface PageBreakBlock extends BaseBlock {
   type: "pagebreak";
+}
+
+export interface PageHeaderBlock extends BaseBlock {
+  type: "pageheader";
+  children: Block[];
 }
 
 /**
