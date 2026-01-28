@@ -4,6 +4,11 @@
 
 ### Fixed
 
+- **Template Editor - Loop Block**: Fixed incorrect validation error for literal array expressions
+  - Issue: Entering literal arrays like `[]` or `[1,2,3]` in loop expressions showed "Expression must resolve to an array" warning
+  - Root cause: Loop validation used simple dot-notation path lookup instead of expression evaluation
+  - Solution: Changed `LoopBlock` component to use `useEvaluator` hook for proper expression evaluation
+  - Impact: Literal arrays, JSONata queries, and complex expressions now validate correctly in loops
 - **PDF Generation**: Fixed iText7 error "Pdf indirect object belongs to other PDF document" when using bold/italic text
   - Root cause: Font objects were cached at class/object level and reused across multiple PDF documents
   - Solution: Implemented `FontCache` class to scope fonts per PDF document

@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { LoopBlock } from "../../types/template";
 import { useEditorStore } from "../../store/editorStore";
 import { BlockRenderer } from "./BlockRenderer";
@@ -8,6 +8,7 @@ import { ScopeProvider } from "../../context/ScopeContext";
 import type { ScopeVariable } from "../../context/ScopeContext";
 import { BlockHeader } from "./BlockHeader";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useEvaluator } from "../../context/EvaluatorContext";
 
 interface LoopBlockProps {
   block: LoopBlock;
@@ -28,32 +29,39 @@ export function LoopBlockComponent({
   const testData = useEditorStore((s) => s.testData);
   const previewOverrides = useEditorStore((s) => s.previewOverrides);
   const setPreviewOverride = useEditorStore((s) => s.setPreviewOverride);
+  const { evaluate, isReady } = useEvaluator();
 
   const [isEditingExpression, setIsEditingExpression] = useState(false);
   const [isEditingAlias, setIsEditingAlias] = useState(false);
   const [aliasInput, setAliasInput] = useState(block.itemAlias);
   const [aliasError, setAliasError] = useState<string | null>(null);
+  const [arrayValue, setArrayValue] = useState<unknown[] | null>(null);
 
   // Validate variable name
   const isValidVariableName = (name: string): boolean => {
     return /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(name);
   };
 
-  // Get the actual array length from test data
-  const getArrayValue = (): unknown[] | null => {
-    try {
-      const parts = block.expression.raw.split(".");
-      let value: unknown = testData;
-      for (const part of parts) {
-        value = (value as Record<string, unknown>)?.[part];
-      }
-      return Array.isArray(value) ? value : null;
-    } catch {
-      return null;
-    }
-  };
+  // Evaluate the expression to get the actual array value
+  useEffect(() => {
+    if (!isReady) return;
 
-  const arrayValue = getArrayValue();
+    async function evaluateExpression() {
+      try {
+        const result = await evaluate(block.expression.raw, { data: testData });
+        if (result.success && Array.isArray(result.value)) {
+          setArrayValue(result.value);
+        } else {
+          setArrayValue(null);
+        }
+      } catch {
+        setArrayValue(null);
+      }
+    }
+
+    evaluateExpression();
+  }, [block.expression.raw, testData, evaluate, isReady]);
+
   const actualLength = arrayValue?.length ?? 0;
   const isValidArray = arrayValue !== null;
   const override = previewOverrides.loops[block.id];
