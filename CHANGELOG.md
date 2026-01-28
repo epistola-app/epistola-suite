@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- **Template Editor Navigation**: Back button in template editor now navigates to the template detail page instead of the templates list
+  - Changed back button URL from `/tenants/{tenantId}/templates` to `/tenants/{tenantId}/templates/{templateId}`
+  - Updated button text from "Back to Templates" to "Back to Template"
+  - Improves UX by returning users to the specific template they were viewing
 - **Template Model**: Simplified `documentStyles` to be consistently non-nullable across frontend and backend
   - Backend: `documentStyles: DocumentStyles = DocumentStyles()` (non-nullable with default)
   - Frontend: `documentStyles: DocumentStyles` (non-nullable)

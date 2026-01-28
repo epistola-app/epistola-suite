@@ -204,11 +204,11 @@ function EditorHeader({
               asChild
             >
               <a
-                href={`/tenants/${window.TENANT_ID}/templates`}
+                href={`/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}`}
                 className="flex items-center gap-2"
               >
                 <ArrowLeftToLine className="size-4 shrink-0" />
-                <span>Back to Templates</span>
+                <span>Back to Template</span>
               </a>
             </Button>
             <Separator orientation="vertical" className="min-h-6" />
