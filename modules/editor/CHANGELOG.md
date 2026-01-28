@@ -43,6 +43,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Marked Table Block as implemented in potential improvements
 
 ### Fixed
+- **Loop Block Expression Evaluation**: Fixed loop expression evaluation to use consistent context
+  - Loop expressions now work with direct data access (e.g., `items` instead of `data.items`)
+  - Aligned with ExpressionNode behavior for consistency across the editor
+  - Default loop expression `"items"` now works correctly with default test data
 - Fixed UUID separator conflict by changing from `-` to `::` for composite IDs
 - Fixed modal backdrop opacity using inline rgba() instead of Tailwind utilities
 - Fixed modal content padding to ensure proper spacing

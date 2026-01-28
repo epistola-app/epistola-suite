@@ -9,6 +9,7 @@ import type { ScopeVariable } from "../../context/ScopeContext";
 import { BlockHeader } from "./BlockHeader";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEvaluator } from "../../context/EvaluatorContext";
+import { buildEvaluationContext } from "@/lib/expression-utils";
 
 interface LoopBlockProps {
   block: LoopBlock;
@@ -48,7 +49,8 @@ export function LoopBlockComponent({
 
     async function evaluateExpression() {
       try {
-        const result = await evaluate(block.expression.raw, { data: testData });
+        const context = buildEvaluationContext(testData, []);
+        const result = await evaluate(block.expression.raw, context);
         if (result.success && Array.isArray(result.value)) {
           setArrayValue(result.value);
         } else {
