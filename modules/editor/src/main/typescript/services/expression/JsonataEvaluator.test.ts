@@ -183,10 +183,7 @@ describe("JsonataEvaluator", () => {
         },
       };
 
-      const result = await evaluator.evaluate(
-        "$sum(order.items.(price * quantity))",
-        context
-      );
+      const result = await evaluator.evaluate("$sum(order.items.(price * quantity))", context);
 
       expect(result.success).toBe(true);
       expect(result.value).toBe(350);

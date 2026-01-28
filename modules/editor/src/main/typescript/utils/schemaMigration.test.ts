@@ -5,9 +5,7 @@ import type { JsonSchema } from "../types/schema";
 
 describe("detectMigrations", () => {
   it("returns compatible when schema is null", () => {
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { name: "John" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { name: "John" } }];
 
     const result = detectMigrations(null, examples);
 
@@ -35,9 +33,7 @@ describe("detectMigrations", () => {
         age: { type: "integer" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { name: "John", age: 30 } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { name: "John", age: 30 } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -52,9 +48,7 @@ describe("detectMigrations", () => {
         age: { type: "integer" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { age: "thirty" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { age: "thirty" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -72,9 +66,7 @@ describe("detectMigrations", () => {
       },
       required: ["name"],
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: {} },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: {} }];
 
     const result = detectMigrations(schema, examples);
 
@@ -95,9 +87,7 @@ describe("detectMigrations", () => {
         },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { user: { age: "25" } } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { user: { age: "25" } } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -115,9 +105,7 @@ describe("detectMigrations", () => {
         },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { items: [1, "two", 3] } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { items: [1, "two", 3] } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -132,9 +120,7 @@ describe("detectMigrations", () => {
         count: { type: "integer" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { count: "42" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { count: "42" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -150,9 +136,7 @@ describe("detectMigrations", () => {
         active: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: "true" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: "true" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -167,9 +151,7 @@ describe("detectMigrations", () => {
         active: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: "false" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: "false" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -184,9 +166,7 @@ describe("detectMigrations", () => {
         active: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: "0" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: "0" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -201,9 +181,7 @@ describe("detectMigrations", () => {
         active: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: "no" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: "no" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -219,9 +197,7 @@ describe("detectMigrations", () => {
         inactive: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: 1, inactive: 0 } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: 1, inactive: 0 } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -239,9 +215,7 @@ describe("detectMigrations", () => {
         active: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: "maybe" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: "maybe" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -256,9 +230,7 @@ describe("detectMigrations", () => {
         active: { type: "boolean" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { active: true } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { active: true } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -289,9 +261,7 @@ describe("detectMigrations", () => {
         value: { type: "integer" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { value: [1, 2, 3] } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { value: [1, 2, 3] } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -305,9 +275,7 @@ describe("detectMigrations", () => {
         name: { type: "string" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { name: 123 } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { name: 123 } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -322,9 +290,7 @@ describe("detectMigrations", () => {
         value: { type: "string" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { value: true } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { value: true } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -339,9 +305,7 @@ describe("detectMigrations", () => {
         price: { type: "number" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { price: "19.99" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { price: "19.99" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -356,9 +320,7 @@ describe("detectMigrations", () => {
         count: { type: "integer" },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { count: "not-a-number" } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { count: "not-a-number" } }];
 
     const result = detectMigrations(schema, examples);
 
@@ -375,9 +337,7 @@ describe("detectMigrations", () => {
         },
       },
     };
-    const examples: DataExample[] = [
-      { id: "1", name: "Test", data: { numbers: [1, 2, 3] } },
-    ];
+    const examples: DataExample[] = [{ id: "1", name: "Test", data: { numbers: [1, 2, 3] } }];
 
     const result = detectMigrations(schema, examples);
 

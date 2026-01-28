@@ -273,10 +273,7 @@ describe("formatValidationErrors", () => {
 
     const formatted = formatValidationErrors(errors);
 
-    expect(formatted).toEqual([
-      "$.name: is required",
-      "$.age: must be integer",
-    ]);
+    expect(formatted).toEqual(["$.name: is required", "$.age: must be integer"]);
   });
 
   it("returns empty array for no errors", () => {

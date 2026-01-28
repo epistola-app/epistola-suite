@@ -26,11 +26,7 @@ interface EditorLayoutProps {
   onExampleSelected?: (exampleId: string | null) => void;
 }
 
-export function EditorLayout({
-  isEmbedded = false,
-  onSave,
-  onExampleSelected,
-}: EditorLayoutProps) {
+export function EditorLayout({ isEmbedded = false, onSave, onExampleSelected }: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
   const isDirty = useIsDirty();
 
@@ -118,12 +114,7 @@ interface EditorHeaderProps {
   template: Template;
 }
 
-function EditorHeader({
-  isEmbedded,
-  onSave,
-  onExampleSelected,
-  template,
-}: EditorHeaderProps) {
+function EditorHeader({ isEmbedded, onSave, onExampleSelected, template }: EditorHeaderProps) {
   const dataExamples = useEditorStore((s) => s.dataExamples);
   const selectedDataExampleId = useEditorStore((s) => s.selectedDataExampleId);
   const selectDataExample = useEditorStore((s) => s.selectDataExample);

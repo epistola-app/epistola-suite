@@ -21,4 +21,5 @@ typealias TableBlock = app.epistola.template.model.TableBlock
 typealias BorderStyle = app.epistola.template.model.BorderStyle
 typealias TableRow = app.epistola.template.model.TableRow
 typealias TableCell = app.epistola.template.model.TableCell
+typealias PageBreakBlock = app.epistola.template.model.PageBreakBlock
 typealias Expression = app.epistola.template.model.Expression

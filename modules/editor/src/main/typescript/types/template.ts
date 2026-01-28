@@ -37,7 +37,8 @@ export type Block =
   | ConditionalBlock
   | LoopBlock
   | ColumnsBlock
-  | TableBlock;
+  | TableBlock
+  | PageBreakBlock;
 
 export interface BaseBlock {
   id: string;
@@ -101,6 +102,10 @@ export interface TableCell {
   colspan?: number;
   rowspan?: number;
   styles?: CSSProperties;
+}
+
+export interface PageBreakBlock extends BaseBlock {
+  type: "pagebreak";
 }
 
 /**

@@ -7,6 +7,7 @@ import { ConditionalBlockComponent } from "./ConditionalBlock";
 import { LoopBlockComponent } from "./LoopBlock";
 import { ColumnsBlockComponent } from "./ColumnsBlock";
 import { TableBlockComponent } from "./TableBlock";
+import { PageBreakBlockComponent } from "./PageBreakBlock";
 
 interface BlockRendererProps {
   block: Block;
@@ -110,6 +111,16 @@ export function BlockRenderer({ block, index, parentId }: BlockRendererProps) {
       case "table":
         return (
           <TableBlockComponent
+            block={block}
+            isSelected={isSelected}
+            dragAttributes={attributes}
+            dragListeners={listeners}
+            onDelete={handleDelete}
+          />
+        );
+      case "pagebreak":
+        return (
+          <PageBreakBlockComponent
             block={block}
             isSelected={isSelected}
             dragAttributes={attributes}

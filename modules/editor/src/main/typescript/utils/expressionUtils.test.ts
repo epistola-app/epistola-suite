@@ -5,7 +5,14 @@ import {
   getRootPaths,
   pathMatchesSchema,
 } from "./expressionUtils";
-import type { Block, TextBlock, ConditionalBlock, LoopBlock, ColumnsBlock, TableBlock } from "../types/template";
+import type {
+  Block,
+  TextBlock,
+  ConditionalBlock,
+  LoopBlock,
+  ColumnsBlock,
+  TableBlock,
+} from "../types/template";
 
 describe("normalizeArrayPath", () => {
   it("normalizes numbered array access", () => {

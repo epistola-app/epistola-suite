@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Page Break Block**: New block type to force content onto a new page in PDF generation
+  - Frontend: Visual component with horizontal lines and "Page Break" label
+  - Backend: `PageBreakBlock` model and `PageBreakBlockRenderer` using iText's `AreaBreak()`
+  - Appears in block palette with Minus icon
+  - Fully backward compatible - existing templates work unchanged
+
 ### Changed
 
 - **Demo Tenant Management**: Replaced simple existence check with version-tracked demo loader

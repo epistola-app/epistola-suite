@@ -81,6 +81,7 @@ enum class TextAlign {
     JsonSubTypes.Type(value = LoopBlock::class, name = "loop"),
     JsonSubTypes.Type(value = ColumnsBlock::class, name = "columns"),
     JsonSubTypes.Type(value = TableBlock::class, name = "table"),
+    JsonSubTypes.Type(value = PageBreakBlock::class, name = "pagebreak"),
 )
 sealed class Block {
     abstract val id: String
@@ -177,6 +178,13 @@ data class TableCell(
     val rowspan: Int? = null,
     val styles: Map<String, Any>? = null,
 )
+
+data class PageBreakBlock(
+    override val id: String,
+    override val styles: Map<String, Any>? = null,
+) : Block() {
+    override val type: String = "pagebreak"
+}
 
 /**
  * Expression language for template expressions.

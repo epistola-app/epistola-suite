@@ -6,9 +6,13 @@ describe("analyzeSchemaImpact", () => {
   it("returns no issues when all expressions match schema", () => {
     const schema: VisualSchema = {
       fields: [
-        { id: "1", name: "customer", type: "object", required: false, nestedFields: [
-          { id: "2", name: "name", type: "string", required: true },
-        ]},
+        {
+          id: "1",
+          name: "customer",
+          type: "object",
+          required: false,
+          nestedFields: [{ id: "2", name: "name", type: "string", required: true }],
+        },
         { id: "3", name: "total", type: "number", required: false },
       ],
     };
@@ -21,9 +25,7 @@ describe("analyzeSchemaImpact", () => {
 
   it("returns issues for missing paths", () => {
     const schema: VisualSchema = {
-      fields: [
-        { id: "1", name: "customer", type: "string", required: false },
-      ],
+      fields: [{ id: "1", name: "customer", type: "string", required: false }],
     };
     const expressions = new Set(["unknown.field", "another.missing"]);
 
@@ -65,9 +67,7 @@ describe("detectRemovedPaths", () => {
       ],
     };
     const newSchema: VisualSchema = {
-      fields: [
-        { id: "1", name: "customer", type: "string", required: false },
-      ],
+      fields: [{ id: "1", name: "customer", type: "string", required: false }],
     };
     const expressions = new Set(["customer", "legacyField"]);
 
@@ -86,9 +86,7 @@ describe("detectRemovedPaths", () => {
       ],
     };
     const newSchema: VisualSchema = {
-      fields: [
-        { id: "1", name: "customer", type: "string", required: false },
-      ],
+      fields: [{ id: "1", name: "customer", type: "string", required: false }],
     };
     const expressions = new Set(["customer"]);
 

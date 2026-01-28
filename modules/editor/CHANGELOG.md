@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Page Break Block**: Forces content onto a new page in PDF generation
+  - Simple, non-configurable block type with horizontal line visual in the editor
+  - Displays as "Page Break" label centered between two horizontal lines
+  - Supports drag, delete, and selection like other block types
+  - Can be used in containers, loops, and conditionals
 - **Table Configuration Popup**: Dedicated modal interface for table structure management
   - Visual grid designer with cell selection (click, shift-click, ctrl-click)
   - Add/remove rows and columns with visual controls

@@ -2,6 +2,7 @@ import {
   BetweenVerticalStart,
   CircleQuestionMark,
   Grid3x3,
+  Minus,
   RefreshCcw,
   Square,
   TextAlignStart,
@@ -123,6 +124,16 @@ export const blockTypes: BlockTypeConfig[] = [
           cells: [createTableCell("Cell 1"), createTableCell("Cell 2")],
         },
       ],
+    }),
+  },
+  {
+    type: "pagebreak",
+    label: "Page Break",
+    description: "Force new page",
+    icon: Minus,
+    createBlock: () => ({
+      id: uuidv4(),
+      type: "pagebreak",
     }),
   },
 ];

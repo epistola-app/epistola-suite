@@ -32,12 +32,7 @@ interface ExampleSelectorProps {
  * This component only allows SELECTING examples - editing is done at the template level
  * via the schema-manager module.
  */
-export function ExampleSelector({
-  examples,
-  selectedId,
-  schema,
-  onSelect,
-}: ExampleSelectorProps) {
+export function ExampleSelector({ examples, selectedId, schema, onSelect }: ExampleSelectorProps) {
   // Track which examples are invalid against the current schema
   const invalidExampleIds = useMemo(() => {
     if (!schema) return new Set<string>();
