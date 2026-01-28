@@ -2,7 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Block
 import app.epistola.template.model.LoopBlock
-import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.IElement
 
 /**
  * Renders LoopBlock to iText elements.
@@ -13,7 +13,7 @@ class LoopBlockRenderer : BlockRenderer {
         block: Block,
         context: RenderContext,
         blockRenderers: BlockRendererRegistry,
-    ): List<IBlockElement> {
+    ): List<IElement> {
         if (block !is LoopBlock) return emptyList()
 
         // Get the iterable from the expression (respects language setting)
@@ -25,7 +25,7 @@ class LoopBlockRenderer : BlockRenderer {
 
         if (iterable.isEmpty()) return emptyList()
 
-        val results = mutableListOf<IBlockElement>()
+        val results = mutableListOf<IElement>()
         val itemAlias = block.itemAlias
         val indexAlias = block.indexAlias
 

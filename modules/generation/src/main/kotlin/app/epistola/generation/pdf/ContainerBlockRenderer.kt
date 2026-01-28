@@ -3,7 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.Block
 import app.epistola.template.model.ContainerBlock
 import com.itextpdf.layout.element.Div
-import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.IElement
 
 /**
  * Renders ContainerBlock to iText elements.
@@ -13,7 +13,7 @@ class ContainerBlockRenderer : BlockRenderer {
         block: Block,
         context: RenderContext,
         blockRenderers: BlockRendererRegistry,
-    ): List<IBlockElement> {
+    ): List<IElement> {
         if (block !is ContainerBlock) return emptyList()
 
         val div = Div()
@@ -24,7 +24,11 @@ class ContainerBlockRenderer : BlockRenderer {
         // Render children
         val childElements = blockRenderers.renderBlocks(block.children, context)
         for (element in childElements) {
-            div.add(element)
+            when (element) {
+                is com.itextpdf.layout.element.IBlockElement -> div.add(element)
+                is com.itextpdf.layout.element.AreaBreak -> div.add(element)
+                is com.itextpdf.layout.element.Image -> div.add(element)
+            }
         }
 
         return listOf(div)

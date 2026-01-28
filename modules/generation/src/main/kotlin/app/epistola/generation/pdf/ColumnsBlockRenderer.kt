@@ -3,7 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.Block
 import app.epistola.template.model.ColumnsBlock
 import com.itextpdf.layout.element.Cell
-import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Table
 import com.itextpdf.layout.properties.UnitValue
 
@@ -15,7 +15,7 @@ class ColumnsBlockRenderer : BlockRenderer {
         block: Block,
         context: RenderContext,
         blockRenderers: BlockRendererRegistry,
-    ): List<IBlockElement> {
+    ): List<IElement> {
         if (block !is ColumnsBlock) return emptyList()
         if (block.columns.isEmpty()) return emptyList()
 
@@ -53,7 +53,10 @@ class ColumnsBlockRenderer : BlockRenderer {
             // Render column children
             val childElements = blockRenderers.renderBlocks(column.children, context)
             for (element in childElements) {
-                cell.add(element)
+                when (element) {
+                    is com.itextpdf.layout.element.IBlockElement -> cell.add(element)
+                    is com.itextpdf.layout.element.Image -> cell.add(element)
+                }
             }
 
             table.addCell(cell)

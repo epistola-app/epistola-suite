@@ -31,6 +31,8 @@ Epistola Suite is a document suite application with:
 
 **This project is NOT yet in production.** Breaking changes to database schema, APIs, and architecture are acceptable without migration paths. When the project goes to production, this section will be updated.
 
+YOU DO NOT HAVE TO BUILD ANYTHING BACKWARDS COMPATIBLE AT THIS TIME.
+
 ## Project Structure
 
 ```

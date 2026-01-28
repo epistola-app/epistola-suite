@@ -2,7 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Block
 import app.epistola.template.model.ConditionalBlock
-import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.IElement
 
 /**
  * Renders ConditionalBlock to iText elements.
@@ -13,7 +13,7 @@ class ConditionalBlockRenderer : BlockRenderer {
         block: Block,
         context: RenderContext,
         blockRenderers: BlockRendererRegistry,
-    ): List<IBlockElement> {
+    ): List<IElement> {
         if (block !is ConditionalBlock) return emptyList()
 
         // Evaluate the condition using the Expression object (respects language setting)

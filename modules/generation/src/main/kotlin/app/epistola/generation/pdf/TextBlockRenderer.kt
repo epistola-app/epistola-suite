@@ -3,7 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.Block
 import app.epistola.template.model.TextBlock
 import com.itextpdf.layout.element.Div
-import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.IElement
 
 /**
  * Renders TextBlock to iText elements.
@@ -13,7 +13,7 @@ class TextBlockRenderer : BlockRenderer {
         block: Block,
         context: RenderContext,
         blockRenderers: BlockRendererRegistry,
-    ): List<IBlockElement> {
+    ): List<IElement> {
         if (block !is TextBlock) return emptyList()
 
         val div = Div()

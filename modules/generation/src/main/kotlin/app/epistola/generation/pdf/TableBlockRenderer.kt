@@ -7,7 +7,7 @@ import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.layout.element.Cell
-import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Table
 import com.itextpdf.layout.properties.UnitValue
 
@@ -19,7 +19,7 @@ class TableBlockRenderer : BlockRenderer {
         block: Block,
         context: RenderContext,
         blockRenderers: BlockRendererRegistry,
-    ): List<IBlockElement> {
+    ): List<IElement> {
         if (block !is TableBlock) return emptyList()
         if (block.rows.isEmpty()) return emptyList()
 
@@ -72,7 +72,10 @@ class TableBlockRenderer : BlockRenderer {
                 // Render cell children
                 val childElements = blockRenderers.renderBlocks(tableCell.children, context)
                 for (element in childElements) {
-                    cell.add(element)
+                    when (element) {
+                        is com.itextpdf.layout.element.IBlockElement -> cell.add(element)
+                        is com.itextpdf.layout.element.Image -> cell.add(element)
+                    }
                 }
 
                 table.addCell(cell)

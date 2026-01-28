@@ -4,14 +4,12 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.Orientation
-import app.epistola.template.model.PageBreakBlock
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.TemplateModel
 import com.itextpdf.kernel.geom.PageSize
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.layout.Document
-import com.itextpdf.layout.element.AreaBreak
 import java.io.OutputStream
 
 /**
@@ -64,15 +62,14 @@ class DirectPdfRenderer(
         )
 
         // Render all blocks
-        for (block in template.blocks) {
-            // Handle page breaks specially
-            if (block is PageBreakBlock) {
-                document.add(AreaBreak())
-            } else {
-                val elements = blockRendererRegistry.render(block, context)
-                for (element in elements) {
-                    document.add(element)
-                }
+        val elements = blockRendererRegistry.renderBlocks(template.blocks, context)
+
+        // Add elements to document
+        for (element in elements) {
+            when (element) {
+                is com.itextpdf.layout.element.IBlockElement -> document.add(element)
+                is com.itextpdf.layout.element.AreaBreak -> document.add(element)
+                is com.itextpdf.layout.element.Image -> document.add(element)
             }
         }
 
@@ -105,6 +102,7 @@ class DirectPdfRenderer(
                 "table" to TableBlockRenderer(),
                 "conditional" to ConditionalBlockRenderer(),
                 "loop" to LoopBlockRenderer(),
+                "pagebreak" to PageBreakBlockRenderer(),
             ),
         )
     }
