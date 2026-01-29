@@ -1,10 +1,10 @@
 {
-  "name": "@epistola/api-spec",
+  "name": "@epistola/rest-api",
   "private": true,
-  "description": "OpenAPI specification for Epistola API",
+  "description": "REST API specification and generated server interfaces for Epistola",
   "scripts": {
     "bundle": "redocly bundle src/main/resources/openapi/epistola-api.yaml -o $PWD/build/bundled-api.yaml",
-    "lint": "redocly lint src/main/resources/openapi/epistola-api.yaml",
+    "lint": "redocly lint --config .redocly.yaml",
     "docs": "redocly build-docs src/main/resources/openapi/epistola-api.yaml -o $PWD/build/generated-resources/static/api-docs/index.html"
   },
   "devDependencies": {

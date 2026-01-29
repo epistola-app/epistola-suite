@@ -5,6 +5,10 @@ plugins {
     alias(libs.plugins.openapi.generator)
 }
 
+// Module containing OpenAPI specification and generated server interfaces.
+// The OpenAPI YAML files serve as the source of truth for API contracts.
+// Generated interfaces are used by REST controllers in the main application.
+
 dependencyManagement {
     imports {
         mavenBom(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
@@ -18,9 +22,49 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 }
 
-// Use the bundled spec from api-spec module
-val bundledSpec = project(":modules:api-spec").layout.buildDirectory.file("bundled-api.yaml")
+val specDir = file("src/main/resources/openapi")
+val bundledSpec = layout.buildDirectory.file("bundled-api.yaml")
 val generatedDir = layout.buildDirectory.dir("generated")
+val generatedResources = layout.buildDirectory.dir("generated-resources")
+
+// ========== OpenAPI Spec Management ==========
+
+// Task to bundle the modular OpenAPI spec into a single file
+val bundleOpenApiSpec by tasks.registering(Exec::class) {
+    description = "Bundle modular OpenAPI spec into a single file using Redocly CLI"
+    group = "openapi"
+
+    workingDir = rootDir
+    commandLine("pnpm", "--filter", "@epistola/rest-api", "bundle")
+
+    inputs.dir(specDir)
+    outputs.file(bundledSpec)
+}
+
+// Task to lint the OpenAPI spec
+val lintOpenApiSpec by tasks.registering(Exec::class) {
+    description = "Lint OpenAPI spec using Redocly CLI"
+    group = "openapi"
+
+    workingDir = rootDir
+    commandLine("pnpm", "--filter", "@epistola/rest-api", "lint")
+
+    inputs.dir(specDir)
+}
+
+// Task to generate static HTML documentation using Redoc
+val generateOpenApiDocs by tasks.registering(Exec::class) {
+    description = "Generate static HTML API documentation using Redoc"
+    group = "openapi"
+
+    workingDir = rootDir
+    commandLine("pnpm", "--filter", "@epistola/rest-api", "docs")
+
+    inputs.dir(specDir)
+    outputs.dir(generatedResources)
+}
+
+// ========== Server Interface Generation ==========
 
 openApiGenerate {
     generatorName.set("kotlin-spring")
@@ -65,13 +109,36 @@ kotlin {
     }
 }
 
-// Ensure spec is bundled before generation
-tasks.named("openApiGenerate") {
-    dependsOn(":modules:api-spec:bundleOpenApiSpec")
+// Include generated static resources (Redoc HTML) in the jar
+// Spring Boot will serve /api-docs/index.html automatically
+sourceSets {
+    main {
+        resources {
+            srcDir(generatedResources)
+        }
+    }
 }
 
+// ========== Task Dependencies ==========
+
+// Ensure spec is bundled before generation
+tasks.named("openApiGenerate") {
+    dependsOn(bundleOpenApiSpec)
+}
+
+// Ensure docs are generated before processing resources
+tasks.named("processResources") {
+    dependsOn(generateOpenApiDocs)
+}
+
+// Ensure code is generated before compilation
 tasks.named("compileKotlin") {
     dependsOn("openApiGenerate")
+}
+
+// Lint as part of check
+tasks.named("check") {
+    dependsOn(lintOpenApiSpec)
 }
 
 // Exclude generated code from ktlint and ensure proper task ordering
