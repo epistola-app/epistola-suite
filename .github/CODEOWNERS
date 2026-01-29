@@ -1,0 +1,5 @@
+# Ensure not just anybody can make changes and approve those in .github folder (protecting the build)
+.github/ @sdegroot
+
+# License cannot be changed 
+LICENSE @sdegroot
