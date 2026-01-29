@@ -36,6 +36,7 @@ openApiGenerate {
             "interfaceOnly" to "true",
             "useSpringBoot3" to "true",
             "useBeanValidation" to "true",
+            "useTags" to "true", // Generate separate interface per tag
             "dateLibrary" to "java8-localdatetime",
             "serializationLibrary" to "jackson",
             "enumPropertyNaming" to "UPPERCASE",
