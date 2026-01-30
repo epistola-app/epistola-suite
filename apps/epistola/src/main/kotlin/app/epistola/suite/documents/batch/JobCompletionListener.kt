@@ -3,8 +3,8 @@ package app.epistola.suite.documents.batch
 import app.epistola.suite.documents.model.RequestStatus
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.JobExecution
-import org.springframework.batch.core.JobExecutionListener
+import org.springframework.batch.core.job.JobExecution
+import org.springframework.batch.core.listener.JobExecutionListener
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -42,7 +42,7 @@ class JobCompletionListener(
             )
                 .bind("status", RequestStatus.IN_PROGRESS.name)
                 .bind("startedAt", OffsetDateTime.now())
-                .bind("jobExecutionId", jobExecution.jobId)
+                .bind("jobExecutionId", jobExecution.id)
                 .bind("requestId", requestId)
                 .execute()
         }
@@ -87,6 +87,12 @@ class JobCompletionListener(
             val expiresAt = OffsetDateTime.now().plusDays(retentionDays.toLong())
 
             // Update request
+            val errorMessage: String? = if (finalStatus == RequestStatus.FAILED) {
+                jobExecution.allFailureExceptions.firstOrNull()?.message
+            } else {
+                null
+            }
+
             handle.createUpdate(
                 """
                 UPDATE document_generation_requests
@@ -100,11 +106,7 @@ class JobCompletionListener(
                 .bind("status", finalStatus.name)
                 .bind("completedAt", OffsetDateTime.now())
                 .bind("expiresAt", expiresAt)
-                .bind("errorMessage", if (finalStatus == RequestStatus.FAILED) {
-                    jobExecution.allFailureExceptions.firstOrNull()?.message
-                } else {
-                    null
-                })
+                .bind("errorMessage", errorMessage)
                 .bind("requestId", requestId)
                 .execute()
 

@@ -6,7 +6,7 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.explore.JobExplorer
+import org.springframework.batch.core.repository.explore.JobExplorer
 import org.springframework.batch.core.launch.JobOperator
 import org.springframework.stereotype.Component
 import java.util.UUID
@@ -62,7 +62,7 @@ class CancelGenerationJobHandler(
             val (status, batchJobExecutionId) = requestInfo
 
             // 2. Check if request can be cancelled
-            if (!status.isCancellable) {
+            if (status !in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)) {
                 logger.warn("Request {} cannot be cancelled (status: {})", command.requestId, status)
                 return@inTransaction false
             }

@@ -8,7 +8,7 @@ import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
-import org.springframework.batch.item.ItemProcessor
+import org.springframework.batch.infrastructure.item.ItemProcessor
 import tools.jackson.databind.ObjectMapper
 import java.io.ByteArrayOutputStream
 import java.time.OffsetDateTime
@@ -36,7 +36,7 @@ class DocumentGenerationItemProcessor(
     private val objectMapper: ObjectMapper,
     private val jdbi: Jdbi,
     private val maxDocumentSizeMb: Long,
-) : ItemProcessor<DocumentGenerationItem, Document?> {
+) : ItemProcessor<DocumentGenerationItem, Document> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -55,19 +55,12 @@ class DocumentGenerationItemProcessor(
                 )) ?: throw IllegalStateException("Version ${item.versionId} not found")
             } else {
                 // Use environment to determine active version
-                val activation = mediator.query(GetActiveVersion(
+                mediator.query(GetActiveVersion(
                     tenantId = getTenantId(item),
                     templateId = item.templateId,
                     variantId = item.variantId,
                     environmentId = item.environmentId!!
                 )) ?: throw IllegalStateException("No active version for environment ${item.environmentId}")
-
-                mediator.query(GetVersion(
-                    tenantId = getTenantId(item),
-                    templateId = item.templateId,
-                    variantId = item.variantId,
-                    versionId = activation.versionId
-                )) ?: throw IllegalStateException("Active version ${activation.versionId} not found")
             }
 
             // 2. Validate template model exists

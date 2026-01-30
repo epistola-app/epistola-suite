@@ -4,8 +4,8 @@ import app.epistola.suite.documents.model.Document
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
-import org.springframework.batch.item.Chunk
-import org.springframework.batch.item.ItemWriter
+import org.springframework.batch.infrastructure.item.Chunk
+import org.springframework.batch.infrastructure.item.ItemWriter
 
 /**
  * Spring Batch ItemWriter for generated documents.

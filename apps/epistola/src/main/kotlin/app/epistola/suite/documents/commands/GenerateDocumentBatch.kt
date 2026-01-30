@@ -9,8 +9,8 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.Job
-import org.springframework.batch.core.JobParametersBuilder
+import org.springframework.batch.core.job.Job
+import org.springframework.batch.core.job.parameters.JobParametersBuilder
 import org.springframework.batch.core.launch.JobLauncher
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode

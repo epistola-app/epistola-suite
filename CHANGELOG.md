@@ -4,6 +4,20 @@
 
 ### Added
 
+- **Asynchronous Document Generation API**: Comprehensive async document generation system using Spring Batch
+  - Single document generation with immediate job ID response (202 Accepted)
+  - Batch document generation supporting multiple documents in one request
+  - Job status tracking with real-time progress monitoring
+  - Document download and listing endpoints
+  - Job cancellation for pending/in-progress jobs
+  - Automatic cleanup of expired jobs and old documents
+  - PostgreSQL BYTEA storage for generated PDFs (future migration path to S3/MinIO)
+  - Spring Batch integration with chunk-oriented processing (10 items per transaction)
+  - Fault tolerance: batch processing continues on partial failures
+  - Multi-tenant isolation with proper security
+  - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
+  - Configurable retention: jobs (7 days), documents (30 days)
+  - **Note**: Currently has compilation errors with Spring Batch imports that need fixing
 - **Page Header Block**: New block type to display repeating headers on every PDF page
   - Frontend: Visual component with blue styling and drag-drop child block support
   - Backend: `PageHeaderBlock` model with dedicated `PageHeaderEventHandler`
@@ -29,6 +43,10 @@
 
 ### Changed
 
+- **BREAKING**: Spring Batch now enabled for async document generation
+  - Previously disabled via `spring.batch.job.enabled: false` in application-local.yaml
+  - Now enabled to support document generation jobs
+  - Requires database migration V5 for Spring Batch tables
 - **BREAKING**: Reorganized template-related packages into aggregate root structure
   - Moved `variants/` package into `templates/commands/variants/` and `templates/queries/variants/`
   - Moved `versions/` package into `templates/commands/versions/` and `templates/queries/versions/`
