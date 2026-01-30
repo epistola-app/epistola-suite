@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { temporal } from "zundo";
+import { useStoreWithEqualityFn } from "zustand/traditional";
+import type { TemporalState } from "zundo";
 import type {
   Template,
   Block,
@@ -12,6 +15,18 @@ import { DataExampleSchema } from "../types/template";
 import type { JsonSchema } from "../types/schema";
 import { JsonSchemaSchema } from "../types/schema";
 import { v4 as uuidv4 } from "uuid";
+
+// Debounce utility for handleSet
+function debounce<T extends (...args: Parameters<T>) => void>(
+  fn: T,
+  ms: number,
+): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: Parameters<T>) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  }) as T;
+}
 
 /** Preview mode: only "pdf" for backend PDF generation */
 export type PreviewMode = "pdf";
@@ -136,7 +151,8 @@ function templatesEqual(a: Template | null, b: Template): boolean {
 }
 
 export const useEditorStore = create<EditorStore>()(
-  immer((set) => ({
+  temporal(
+    immer((set) => ({
     template: defaultTemplate,
     lastSavedTemplate: null,
     selectedBlockId: null,
@@ -473,6 +489,18 @@ export const useEditorStore = create<EditorStore>()(
         state.previewMode = mode;
       }),
   })),
+    {
+      // Only track template changes in history (not UI state like selection)
+      partialize: (state) => ({ template: state.template }),
+      // Limit history to 100 entries
+      limit: 100,
+      // Debounce rapid changes (e.g., dragging, slider adjustments) by 500ms
+      handleSet: (handleSet) =>
+        debounce<typeof handleSet>((state) => {
+          handleSet(state);
+        }, 500),
+    },
+  ),
 );
 
 // Hook to check if there are unsaved changes
@@ -480,4 +508,49 @@ export function useIsDirty(): boolean {
   const template = useEditorStore((s) => s.template);
   const lastSaved = useEditorStore((s) => s.lastSavedTemplate);
   return !templatesEqual(lastSaved, template);
+}
+
+// Type for the partialized state tracked in history
+type PartialEditorState = Pick<EditorState, "template">;
+
+// Reactive hook for temporal state (undo/redo)
+// This makes pastStates and futureStates reactive for UI updates
+// Note: TemporalState is typed with the partialized state when using partialize option
+function useTemporalStore(): TemporalState<PartialEditorState>;
+function useTemporalStore<T>(
+  selector: (state: TemporalState<PartialEditorState>) => T,
+): T;
+function useTemporalStore<T>(
+  selector: (state: TemporalState<PartialEditorState>) => T,
+  equality: (a: T, b: T) => boolean,
+): T;
+function useTemporalStore<T>(
+  selector?: (state: TemporalState<PartialEditorState>) => T,
+  equality?: (a: T, b: T) => boolean,
+) {
+  return useStoreWithEqualityFn(useEditorStore.temporal, selector!, equality);
+}
+
+// Hook to check if undo is available
+export function useCanUndo(): boolean {
+  return useTemporalStore((state) => state.pastStates.length > 0);
+}
+
+// Hook to check if redo is available
+export function useCanRedo(): boolean {
+  return useTemporalStore((state) => state.futureStates.length > 0);
+}
+
+// Export undo/redo actions for use in components
+export function undo(): void {
+  useEditorStore.temporal.getState().undo();
+}
+
+export function redo(): void {
+  useEditorStore.temporal.getState().redo();
+}
+
+// Export clear history action
+export function clearHistory(): void {
+  useEditorStore.temporal.getState().clear();
 }

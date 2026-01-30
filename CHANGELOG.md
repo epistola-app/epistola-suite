@@ -13,6 +13,14 @@
 
 ### Added
 
+- **Undo/Redo in Template Editor**: Full history management for structural and text changes
+  - Zustand store integration using zundo temporal middleware
+  - Tracks template changes (blocks, styles) with 100-entry history limit
+  - 500ms debounce batches rapid changes (e.g., dragging, slider adjustments)
+  - Keyboard shortcuts: Ctrl+Z/Cmd+Z (undo), Ctrl+Shift+Z/Cmd+Shift+Z/Ctrl+Y (redo)
+  - Smart focus detection routes undo/redo to TipTap for text or Zustand for structure
+  - Toolbar buttons with enabled/disabled states reflecting history availability
+  - TipTap's built-in History extension handles character-level text undo
 - **Page Header Block**: New block type to display repeating headers on every PDF page
   - Frontend: Visual component with blue styling and drag-drop child block support
   - Backend: `PageHeaderBlock` model with dedicated `PageHeaderEventHandler`

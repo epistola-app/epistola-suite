@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { useEditorStore } from "./editorStore";
-import type { DataExample } from "../types/template";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { useEditorStore, undo, redo, clearHistory } from "./editorStore";
+import type { DataExample, TextBlock } from "../types/template";
 import type { JsonSchema } from "../types/schema";
 
 // Reset store before each test
@@ -11,6 +11,13 @@ beforeEach(() => {
   getState().selectDataExample(null);
   getState().setSchema(null);
   getState().setPreviewMode("pdf");
+  // Clear history for undo/redo tests
+  clearHistory();
+});
+
+// Restore timers after each test
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("editorStore - setDataExamples", () => {
@@ -296,5 +303,198 @@ describe("editorStore - setSchema", () => {
 
     const state = useEditorStore.getState();
     expect(state.schema?.properties?.name.type).toBe("string");
+  });
+});
+
+describe("editorStore - undo/redo", () => {
+  // Helper to create a test block
+  const createTextBlock = (id: string, content: string): TextBlock => ({
+    id,
+    type: "text",
+    content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: content }] }] },
+  });
+
+  // Helper to reset template to empty state
+  const resetTemplate = () => {
+    useEditorStore.getState().setTemplate({
+      id: "test-template",
+      name: "Test Template",
+      version: 1,
+      pageSettings: {
+        format: "A4",
+        orientation: "portrait",
+        margins: { top: 20, right: 20, bottom: 20, left: 20 },
+      },
+      blocks: [],
+      documentStyles: {},
+    });
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Reset template to empty state
+    resetTemplate();
+    // Advance past debounce so setTemplate is recorded
+    vi.advanceTimersByTime(600);
+    // Clear history so we start fresh
+    clearHistory();
+  });
+
+  it("undo reverts block addition after debounce", async () => {
+    const block = createTextBlock("block-1", "Test content");
+
+    // Add a block
+    useEditorStore.getState().addBlock(block, null, 0);
+
+    // Advance timers past debounce (500ms)
+    vi.advanceTimersByTime(600);
+
+    expect(useEditorStore.getState().template.blocks).toHaveLength(1);
+
+    // Undo
+    undo();
+
+    expect(useEditorStore.getState().template.blocks).toHaveLength(0);
+  });
+
+  it("redo restores undone changes", async () => {
+    const block = createTextBlock("block-1", "Test content");
+
+    // Add a block
+    useEditorStore.getState().addBlock(block, null, 0);
+    vi.advanceTimersByTime(600);
+
+    // Undo
+    undo();
+    expect(useEditorStore.getState().template.blocks).toHaveLength(0);
+
+    // Redo
+    redo();
+    expect(useEditorStore.getState().template.blocks).toHaveLength(1);
+    expect(useEditorStore.getState().template.blocks[0].id).toBe("block-1");
+  });
+
+  it("redo stack is cleared on new action", async () => {
+    const block1 = createTextBlock("block-1", "First");
+    const block2 = createTextBlock("block-2", "Second");
+
+    // Add first block
+    useEditorStore.getState().addBlock(block1, null, 0);
+    vi.advanceTimersByTime(600);
+
+    // Undo
+    undo();
+    expect(useEditorStore.getState().template.blocks).toHaveLength(0);
+
+    // Make a new change instead of redo
+    useEditorStore.getState().addBlock(block2, null, 0);
+    vi.advanceTimersByTime(600);
+
+    // Redo should not work now (future states cleared)
+    redo();
+    // Should still have only block2
+    expect(useEditorStore.getState().template.blocks).toHaveLength(1);
+    expect(useEditorStore.getState().template.blocks[0].id).toBe("block-2");
+  });
+
+  it("undo reverts block deletion", async () => {
+    const block = createTextBlock("block-1", "Test content");
+
+    // Add a block
+    useEditorStore.getState().addBlock(block, null, 0);
+    vi.advanceTimersByTime(600);
+
+    // Delete the block
+    useEditorStore.getState().deleteBlock("block-1");
+    vi.advanceTimersByTime(600);
+
+    expect(useEditorStore.getState().template.blocks).toHaveLength(0);
+
+    // Undo deletion
+    undo();
+    expect(useEditorStore.getState().template.blocks).toHaveLength(1);
+    expect(useEditorStore.getState().template.blocks[0].id).toBe("block-1");
+  });
+
+  it("history is limited to 100 entries", async () => {
+    // Add 105 blocks to exceed limit
+    for (let i = 0; i < 105; i++) {
+      const block = createTextBlock(`block-${i}`, `Content ${i}`);
+      useEditorStore.getState().addBlock(block, null, i);
+      vi.advanceTimersByTime(600); // Let each change be recorded
+    }
+
+    // Get temporal state to check history size
+    const temporalState = useEditorStore.temporal.getState();
+    expect(temporalState.pastStates.length).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("editorStore - undo/redo debounce behavior", () => {
+  // Helper to reset template to empty state
+  const resetTemplate = () => {
+    useEditorStore.getState().setTemplate({
+      id: "test-template",
+      name: "Test Template",
+      version: 1,
+      pageSettings: {
+        format: "A4",
+        orientation: "portrait",
+        margins: { top: 20, right: 20, bottom: 20, left: 20 },
+      },
+      blocks: [],
+      documentStyles: {},
+    });
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Reset template to empty state
+    resetTemplate();
+    // Advance past debounce so setTemplate is recorded
+    vi.advanceTimersByTime(600);
+    // Clear history so we start fresh
+    clearHistory();
+  });
+
+  it("rapid changes within debounce window are batched into fewer entries", async () => {
+    // Make several rapid changes (all within 500ms total)
+    for (let i = 0; i < 5; i++) {
+      useEditorStore.getState().updateDocumentStyles({ fontSize: `${12 + i}px` });
+      vi.advanceTimersByTime(50); // 50ms between changes
+    }
+
+    // Wait for debounce to complete
+    vi.advanceTimersByTime(600);
+
+    // Due to debouncing, there should be fewer history entries than changes
+    // The exact count depends on timing, but it should be less than 5
+    const temporalState = useEditorStore.temporal.getState();
+    expect(temporalState.pastStates.length).toBeLessThanOrEqual(2);
+
+    // Current state should have the last value
+    expect(useEditorStore.getState().template.documentStyles?.fontSize).toBe("16px");
+  });
+
+  it("changes after debounce window create separate history entries", async () => {
+    // First change
+    useEditorStore.getState().updateDocumentStyles({ fontSize: "12px" });
+    vi.advanceTimersByTime(600); // Past debounce
+
+    // Second change (after debounce completed)
+    useEditorStore.getState().updateDocumentStyles({ fontSize: "16px" });
+    vi.advanceTimersByTime(600); // Past debounce
+
+    // Should have two history entries
+    const temporalState = useEditorStore.temporal.getState();
+    expect(temporalState.pastStates.length).toBe(2);
+
+    // First undo
+    undo();
+    expect(useEditorStore.getState().template.documentStyles?.fontSize).toBe("12px");
+
+    // Second undo
+    undo();
+    expect(useEditorStore.getState().template.documentStyles?.fontSize).toBeUndefined();
   });
 });
