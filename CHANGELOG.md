@@ -29,6 +29,17 @@
 
 ### Changed
 
+- **API Architecture**: Refactored V1 API into focused controllers for better
+  separation of concerns
+  - Split monolithic V1ApiController (713 lines) into two controllers
+  - EpistolaTenantApi: Handles tenant and environment operations (10 operations)
+  - EpistolaTemplateApi: Handles template lifecycle operations (20 operations)
+  - Uses OpenAPI Generator's `useTags` configuration to generate separate
+    interfaces per tag
+  - Controllers implement multiple tag-based interfaces: TenantsApi,
+    EnvironmentsApi, TemplatesApi, VariantsApi, VersionsApi
+  - Extracted shared DTO mappers and helpers to `api.v1.shared` package
+  - No breaking changes to API contracts or client code
 - **PDF Header/Footer Rendering**: Fixed positioning bug by using separate event handlers
   - Reverted from unified `PageHeaderFooterEventHandler` back to separate handlers
   - Root cause: Shared PdfCanvas between header and footer caused positioning conflicts in iText

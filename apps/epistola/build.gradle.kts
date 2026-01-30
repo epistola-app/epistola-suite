@@ -20,10 +20,9 @@ dependencies {
     implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
     implementation(project(":modules:schema-manager"))
-    implementation(project(":modules:api-server"))
     implementation(project(":modules:template-model"))
     implementation(project(":modules:generation"))
-    runtimeOnly(project(":modules:api-spec")) // Static API documentation (Redoc)
+    implementation(project(":modules:rest-api")) // OpenAPI spec and generated server interfaces
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-batch")
