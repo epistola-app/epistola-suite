@@ -7,10 +7,25 @@ spring:
   threads:
     virtual:
       enabled: true
+  batch:
+    jdbc:
+      initialize-schema: never  # Managed by Flyway
+    job:
+      enabled: true  # Enable Spring Batch job execution
 
 epistola:
   demo:
     enabled: true  # Set to false to disable demo loading
+  generation:
+    async:
+      enabled: true
+      chunk-size: 10  # Process 10 items per transaction
+    jobs:
+      retention-days: 7   # Auto-delete completed jobs after 7 days
+      cleanup-cron: "0 0 2 * * ?"  # Run cleanup at 2 AM daily
+    documents:
+      retention-days: 30  # Auto-delete documents after 30 days
+      max-size-mb: 50     # Max document size
 
 management:
   endpoints:
