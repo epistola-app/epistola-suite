@@ -44,7 +44,7 @@ class DocumentGenerationItemWriter(
                             :createdAt, :createdBy
                         )
                         RETURNING id
-                        """
+                        """,
                     )
                         .bind("tenantId", document.tenantId)
                         .bind("templateId", document.templateId)
@@ -79,7 +79,7 @@ class DocumentGenerationItemWriter(
                               AND version_id = :versionId
                             LIMIT 1
                         )
-                        """
+                        """,
                     )
                         .bind("documentId", documentId)
                         .bind("templateId", document.templateId)
@@ -97,11 +97,10 @@ class DocumentGenerationItemWriter(
                             FROM document_generation_items
                             WHERE document_id = :documentId
                         )
-                        """
+                        """,
                     )
                         .bind("documentId", documentId)
                         .execute()
-
                 } catch (e: Exception) {
                     logger.error("Failed to write document for tenant {}: {}", document.tenantId, e.message, e)
                     throw e // Rollback transaction

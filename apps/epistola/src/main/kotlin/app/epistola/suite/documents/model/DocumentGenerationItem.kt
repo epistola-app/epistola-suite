@@ -39,7 +39,7 @@ data class DocumentGenerationItem(
     val documentId: Long?,
     val createdAt: OffsetDateTime,
     val startedAt: OffsetDateTime?,
-    val completedAt: OffsetDateTime?
+    val completedAt: OffsetDateTime?,
 ) {
     init {
         // Validate that exactly one of versionId or environmentId is set

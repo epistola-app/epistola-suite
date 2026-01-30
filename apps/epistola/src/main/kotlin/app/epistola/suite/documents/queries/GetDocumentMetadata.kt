@@ -47,7 +47,7 @@ class GetDocumentMetadataHandler(
             FROM documents
             WHERE id = :documentId
               AND tenant_id = :tenantId
-            """
+            """,
         )
             .bind("documentId", query.documentId)
             .bind("tenantId", query.tenantId)
@@ -62,7 +62,7 @@ class GetDocumentMetadataHandler(
                     contentType = rs.getString("content_type"),
                     sizeBytes = rs.getLong("size_bytes"),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                    createdBy = rs.getString("created_by")
+                    createdBy = rs.getString("created_by"),
                 )
             }
             .findOne()

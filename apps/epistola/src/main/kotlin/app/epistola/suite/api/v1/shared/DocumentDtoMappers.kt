@@ -1,8 +1,15 @@
 package app.epistola.suite.api.v1.shared
 
-import app.epistola.api.model.*
+import app.epistola.api.model.DocumentDto
+import app.epistola.api.model.DocumentGenerationItemDto
+import app.epistola.api.model.DocumentGenerationJobDto
+import app.epistola.api.model.GenerateBatchRequest
+import app.epistola.api.model.GenerateDocumentRequest
+import app.epistola.api.model.GenerationJobDetail
+import app.epistola.api.model.GenerationJobResponse
 import app.epistola.suite.documents.commands.BatchGenerationItem
-import app.epistola.suite.documents.model.*
+import app.epistola.suite.documents.model.DocumentGenerationItem
+import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
 import tools.jackson.databind.ObjectMapper
@@ -24,7 +31,7 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
     contentType = contentType,
     sizeBytes = sizeBytes,
     createdAt = createdAt,
-    createdBy = createdBy
+    createdBy = createdBy,
 )
 
 // ==================== Document Generation Request ====================
@@ -40,7 +47,7 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     createdAt = createdAt,
     startedAt = startedAt,
     completedAt = completedAt,
-    progressPercentage = progressPercentage
+    progressPercentage = progressPercentage,
 )
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
@@ -48,7 +55,7 @@ internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     status = GenerationJobResponse.Status.valueOf(status.name),
     jobType = GenerationJobResponse.JobType.valueOf(jobType.name),
     totalCount = totalCount,
-    createdAt = createdAt
+    createdAt = createdAt,
 )
 
 // ==================== Document Generation Item ====================
@@ -66,21 +73,21 @@ internal fun DocumentGenerationItem.toDto(objectMapper: ObjectMapper) = Document
     documentId = documentId,
     createdAt = createdAt,
     startedAt = startedAt,
-    completedAt = completedAt
+    completedAt = completedAt,
 )
 
 // ==================== Generation Job Result ====================
 
 internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJobDetail(
     request = request.toJobDto(),
-    items = items.map { it.toDto(objectMapper) }
+    items = items.map { it.toDto(objectMapper) },
 )
 
 // ==================== Request DTOs to Commands ====================
 
 internal fun GenerateDocumentRequest.toCommand(
     tenantId: Long,
-    objectMapper: ObjectMapper
+    objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocument(
     tenantId = tenantId,
     templateId = templateId,
@@ -88,24 +95,24 @@ internal fun GenerateDocumentRequest.toCommand(
     versionId = versionId,
     environmentId = environmentId,
     data = objectMapper.valueToTree(data),
-    filename = filename
+    filename = filename,
 )
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
-    objectMapper: ObjectMapper
+    objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.BatchGenerationItem(
     templateId = templateId,
     variantId = variantId,
     versionId = versionId,
     environmentId = environmentId,
     data = objectMapper.valueToTree<ObjectNode>(data),
-    filename = filename
+    filename = filename,
 )
 
 internal fun GenerateBatchRequest.toCommand(
     tenantId: Long,
-    objectMapper: ObjectMapper
+    objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = tenantId,
-    items = items.map { it.toBatchItem(objectMapper) }
+    items = items.map { it.toBatchItem(objectMapper) },
 )

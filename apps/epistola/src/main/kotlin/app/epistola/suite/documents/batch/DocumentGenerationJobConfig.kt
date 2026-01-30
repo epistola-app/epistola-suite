@@ -5,10 +5,12 @@ import app.epistola.suite.documents.model.DocumentGenerationItem
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
 import org.jdbi.v3.core.Jdbi
+import org.springframework.batch.core.configuration.annotation.JobScope
+import org.springframework.batch.core.configuration.annotation.StepScope
 import org.springframework.batch.core.job.Job
-import org.springframework.batch.core.step.Step
 import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.repository.JobRepository
+import org.springframework.batch.core.step.Step
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -51,13 +53,14 @@ class DocumentGenerationJobConfig(
      * This job is not auto-started. It must be launched programmatically with a request ID parameter.
      */
     @Bean
-    fun documentGenerationJob(): Job {
-        return JobBuilder(JOB_NAME, jobRepository)
-            .preventRestart() // Don't allow manual restarts to avoid duplicate processing
-            .start(generateDocumentsStep(null)) // Step is created per execution
-            .listener(jobExecutionListener(null)) // Listener is created per execution
-            .build()
-    }
+    fun documentGenerationJob(
+        generateDocumentsStep: Step,
+        jobCompletionListener: JobCompletionListener,
+    ): Job = JobBuilder(JOB_NAME, jobRepository)
+        .preventRestart() // Don't allow manual restarts to avoid duplicate processing
+        .start(generateDocumentsStep)
+        .listener(jobCompletionListener)
+        .build()
 
     /**
      * Creates the document generation step.
@@ -67,15 +70,19 @@ class DocumentGenerationJobConfig(
      * - Processor: Generates PDF for each item
      * - Writer: Persists documents and updates item status
      *
-     * @param requestId The generation request ID (injected per job execution)
+     * Step is scoped to step execution to allow late binding of job parameters.
+     *
+     * @param requestId The generation request ID (injected from job parameters)
      */
     @Bean
+    @StepScope
     fun generateDocumentsStep(
-        @Value("#{jobParameters['$PARAM_REQUEST_ID']}") requestId: UUID?,
+        @Value("#{jobParameters['$PARAM_REQUEST_ID']}") requestId: String?,
     ): Step {
+        val requestUuid = UUID.fromString(requestId)
         return StepBuilder(STEP_NAME, jobRepository)
             .chunk<DocumentGenerationItem, Document>(chunkSize, transactionManager)
-            .reader(itemReader(requestId))
+            .reader(itemReader(requestUuid))
             .processor(itemProcessor())
             .writer(itemWriter())
             .faultTolerant()
@@ -87,40 +94,41 @@ class DocumentGenerationJobConfig(
     /**
      * Creates the item reader for a specific request.
      */
-    private fun itemReader(requestId: UUID?): DocumentGenerationItemReader {
-        requireNotNull(requestId) { "Request ID is required for item reader" }
-        return DocumentGenerationItemReader(jdbi, requestId)
-    }
+    private fun itemReader(requestId: UUID): DocumentGenerationItemReader = DocumentGenerationItemReader(jdbi, requestId)
 
     /**
      * Creates the item processor.
      */
-    private fun itemProcessor(): DocumentGenerationItemProcessor {
-        return DocumentGenerationItemProcessor(
-            mediator = mediator,
-            generationService = generationService,
-            objectMapper = objectMapper,
-            jdbi = jdbi,
-            maxDocumentSizeMb = maxDocumentSizeMb
-        )
-    }
+    private fun itemProcessor(): DocumentGenerationItemProcessor = DocumentGenerationItemProcessor(
+        mediator = mediator,
+        generationService = generationService,
+        objectMapper = objectMapper,
+        jdbi = jdbi,
+        maxDocumentSizeMb = maxDocumentSizeMb,
+    )
 
     /**
      * Creates the item writer.
      */
-    private fun itemWriter(): DocumentGenerationItemWriter {
-        return DocumentGenerationItemWriter(jdbi)
-    }
+    private fun itemWriter(): DocumentGenerationItemWriter = DocumentGenerationItemWriter(jdbi)
 
     /**
      * Creates the job execution listener for job lifecycle events.
+     *
+     * Listener is scoped to job execution to allow late binding of job parameters.
+     *
+     * @param requestId The generation request ID (injected from job parameters)
      */
-    private fun jobExecutionListener(requestId: UUID?): JobCompletionListener {
-        requireNotNull(requestId) { "Request ID is required for completion listener" }
+    @Bean
+    @JobScope
+    fun jobCompletionListener(
+        @Value("#{jobParameters['$PARAM_REQUEST_ID']}") requestId: String?,
+    ): JobCompletionListener {
+        val requestUuid = UUID.fromString(requestId)
         return JobCompletionListener(
             jdbi = jdbi,
-            requestId = requestId,
-            retentionDays = jobRetentionDays
+            requestId = requestUuid,
+            retentionDays = jobRetentionDays,
         )
     }
 }

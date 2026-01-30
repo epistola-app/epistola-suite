@@ -17,24 +17,21 @@ GenerateDocumentRequest:
       format: int64
       description: Variant of the template to use
     versionId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: Explicit version ID (mutually exclusive with environmentId)
-      nullable: true
     environmentId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: Environment to determine version from (mutually exclusive with versionId)
-      nullable: true
     data:
       type: object
       description: JSON data to populate the template
       additionalProperties: true
     filename:
-      type: string
+      type: [string, "null"]
       description: Optional filename for the generated document
       maxLength: 255
-      nullable: true
 
 BatchGenerationItem:
   type: object
@@ -53,24 +50,21 @@ BatchGenerationItem:
       format: int64
       description: Variant of the template to use
     versionId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: Explicit version ID (mutually exclusive with environmentId)
-      nullable: true
     environmentId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: Environment to determine version from (mutually exclusive with versionId)
-      nullable: true
     data:
       type: object
       description: JSON data to populate the template
       additionalProperties: true
     filename:
-      type: string
+      type: [string, "null"]
       description: Optional filename for the generated document
       maxLength: 255
-      nullable: true
 
 GenerateBatchRequest:
   type: object
@@ -139,50 +133,43 @@ DocumentGenerationItemDto:
       format: int64
       description: Variant used for generation
     versionId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: Explicit version ID (if specified)
-      nullable: true
     environmentId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: Environment ID (if specified)
-      nullable: true
     data:
       type: object
       description: JSON data used for generation
       additionalProperties: true
     filename:
-      type: string
+      type: [string, "null"]
       description: Requested filename
-      nullable: true
     status:
       type: string
       enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED]
       description: Status of this item
     errorMessage:
-      type: string
+      type: [string, "null"]
       description: Error message if processing failed
-      nullable: true
     documentId:
-      type: integer
+      type: [integer, "null"]
       format: int64
       description: ID of the generated document (if successful)
-      nullable: true
     createdAt:
       type: string
       format: date-time
       description: When the item was created
     startedAt:
-      type: string
+      type: [string, "null"]
       format: date-time
       description: When processing started
-      nullable: true
     completedAt:
-      type: string
+      type: [string, "null"]
       format: date-time
       description: When processing completed
-      nullable: true
 
 DocumentGenerationJobDto:
   type: object
@@ -218,23 +205,20 @@ DocumentGenerationJobDto:
       type: integer
       description: Number of items that failed
     errorMessage:
-      type: string
+      type: [string, "null"]
       description: Error message if the job failed
-      nullable: true
     createdAt:
       type: string
       format: date-time
       description: When the request was created
     startedAt:
-      type: string
+      type: [string, "null"]
       format: date-time
       description: When processing started
-      nullable: true
     completedAt:
-      type: string
+      type: [string, "null"]
       format: date-time
       description: When processing completed
-      nullable: true
     progressPercentage:
       type: number
       format: double
@@ -332,9 +316,8 @@ DocumentDto:
       format: date-time
       description: When the document was generated
     createdBy:
-      type: string
+      type: [string, "null"]
       description: User who generated the document (future feature)
-      nullable: true
 
 DocumentListResponse:
   type: object

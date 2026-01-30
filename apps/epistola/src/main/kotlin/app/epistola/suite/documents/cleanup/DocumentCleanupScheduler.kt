@@ -47,7 +47,7 @@ class DocumentCleanupScheduler(
                     WHERE expires_at IS NOT NULL
                       AND expires_at < :now
                       AND status IN ('COMPLETED', 'FAILED', 'CANCELLED')
-                    """
+                    """,
                 )
                     .bind("now", OffsetDateTime.now())
                     .execute()
@@ -77,7 +77,7 @@ class DocumentCleanupScheduler(
                     """
                     DELETE FROM documents
                     WHERE created_at < :cutoffDate
-                    """
+                    """,
                 )
                     .bind("cutoffDate", cutoffDate)
                     .execute()
@@ -108,7 +108,7 @@ class DocumentCleanupScheduler(
                           AND i.status = 'FAILED'
                     )
                     WHERE r.status = 'IN_PROGRESS'
-                    """
+                    """,
                 )
                     .execute()
             }

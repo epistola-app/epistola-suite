@@ -4,10 +4,9 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.repository.explore.JobExplorer
 import org.springframework.batch.core.launch.JobOperator
+import org.springframework.batch.core.repository.explore.JobExplorer
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -41,14 +40,14 @@ class CancelGenerationJobHandler(
                 SELECT status, batch_job_execution_id
                 FROM document_generation_requests
                 WHERE id = :requestId AND tenant_id = :tenantId
-                """
+                """,
             )
                 .bind("requestId", command.requestId)
                 .bind("tenantId", command.tenantId)
                 .map { rs, _ ->
                     Pair(
                         RequestStatus.valueOf(rs.getString("status")),
-                        rs.getLong("batch_job_execution_id")
+                        rs.getLong("batch_job_execution_id"),
                     )
                 }
                 .findOne()
@@ -90,7 +89,7 @@ class CancelGenerationJobHandler(
                 WHERE id = :requestId
                   AND tenant_id = :tenantId
                   AND status IN ('PENDING', 'IN_PROGRESS')
-                """
+                """,
             )
                 .bind("requestId", command.requestId)
                 .bind("tenantId", command.tenantId)
@@ -107,7 +106,7 @@ class CancelGenerationJobHandler(
                         completed_at = NOW()
                     WHERE request_id = :requestId
                       AND status IN ('PENDING', 'IN_PROGRESS')
-                    """
+                    """,
                 )
                     .bind("requestId", command.requestId)
                     .execute()

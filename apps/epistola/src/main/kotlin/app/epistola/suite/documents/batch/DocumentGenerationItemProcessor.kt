@@ -40,89 +40,89 @@ class DocumentGenerationItemProcessor(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun process(item: DocumentGenerationItem): Document? {
-        return try {
-            logger.debug("Processing item {} for template {}/{}/{}", item.id, item.templateId, item.variantId, item.versionId ?: item.environmentId)
+    override fun process(item: DocumentGenerationItem): Document? = try {
+        logger.debug("Processing item {} for template {}/{}/{}", item.id, item.templateId, item.variantId, item.versionId ?: item.environmentId)
 
-            // 1. Resolve template version
-            val version = if (item.versionId != null) {
-                // Use explicit version
-                mediator.query(GetVersion(
+        // 1. Resolve template version
+        val version = if (item.versionId != null) {
+            // Use explicit version
+            mediator.query(
+                GetVersion(
                     tenantId = getTenantId(item),
                     templateId = item.templateId,
                     variantId = item.variantId,
-                    versionId = item.versionId
-                )) ?: throw IllegalStateException("Version ${item.versionId} not found")
-            } else {
-                // Use environment to determine active version
-                mediator.query(GetActiveVersion(
+                    versionId = item.versionId,
+                ),
+            ) ?: throw IllegalStateException("Version ${item.versionId} not found")
+        } else {
+            // Use environment to determine active version
+            mediator.query(
+                GetActiveVersion(
                     tenantId = getTenantId(item),
                     templateId = item.templateId,
                     variantId = item.variantId,
-                    environmentId = item.environmentId!!
-                )) ?: throw IllegalStateException("No active version for environment ${item.environmentId}")
-            }
-
-            // 2. Validate template model exists
-            val templateModel = version.templateModel
-                ?: throw IllegalStateException("Version ${version.id} has no template model")
-
-            // 3. Validate data (if schema exists)
-            // Note: Schema validation is handled by GenerationService during rendering
-            // We could add explicit validation here if needed
-
-            // 4. Generate PDF
-            val outputStream = ByteArrayOutputStream()
-            val dataMap = objectMapper.convertValue(item.data, Map::class.java) as Map<String, Any?>
-            generationService.renderPdf(templateModel, dataMap, outputStream)
-
-            val pdfBytes = outputStream.toByteArray()
-            val sizeBytes = pdfBytes.size.toLong()
-
-            // 5. Validate size
-            val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
-            if (sizeBytes > maxSizeBytes) {
-                throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
-            }
-
-            // 6. Generate filename if not provided
-            val filename = item.filename ?: "document-${item.id}.pdf"
-
-            // 7. Create Document entity
-            Document(
-                id = 0, // Will be assigned by database
-                tenantId = getTenantId(item),
-                templateId = item.templateId,
-                variantId = item.variantId,
-                versionId = version.id,
-                filename = filename,
-                contentType = "application/pdf",
-                sizeBytes = sizeBytes,
-                content = pdfBytes,
-                createdAt = OffsetDateTime.now(),
-                createdBy = null // TODO: Get from security context when auth is implemented
-            )
-        } catch (e: Exception) {
-            // Log error and update item status
-            logger.error("Failed to process item {}: {}", item.id, e.message, e)
-            updateItemError(item.id, e.message ?: "Unknown error")
-            null // Returning null signals failure to Spring Batch
+                    environmentId = item.environmentId!!,
+                ),
+            ) ?: throw IllegalStateException("No active version for environment ${item.environmentId}")
         }
+
+        // 2. Validate template model exists
+        val templateModel = version.templateModel
+            ?: throw IllegalStateException("Version ${version.id} has no template model")
+
+        // 3. Validate data (if schema exists)
+        // Note: Schema validation is handled by GenerationService during rendering
+        // We could add explicit validation here if needed
+
+        // 4. Generate PDF
+        val outputStream = ByteArrayOutputStream()
+        val dataMap = objectMapper.convertValue(item.data, Map::class.java) as Map<String, Any?>
+        generationService.renderPdf(templateModel, dataMap, outputStream)
+
+        val pdfBytes = outputStream.toByteArray()
+        val sizeBytes = pdfBytes.size.toLong()
+
+        // 5. Validate size
+        val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
+        if (sizeBytes > maxSizeBytes) {
+            throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
+        }
+
+        // 6. Generate filename if not provided
+        val filename = item.filename ?: "document-${item.id}.pdf"
+
+        // 7. Create Document entity
+        Document(
+            id = 0, // Will be assigned by database
+            tenantId = getTenantId(item),
+            templateId = item.templateId,
+            variantId = item.variantId,
+            versionId = version.id,
+            filename = filename,
+            contentType = "application/pdf",
+            sizeBytes = sizeBytes,
+            content = pdfBytes,
+            createdAt = OffsetDateTime.now(),
+            createdBy = null, // TODO: Get from security context when auth is implemented
+        )
+    } catch (e: Exception) {
+        // Log error and update item status
+        logger.error("Failed to process item {}: {}", item.id, e.message, e)
+        updateItemError(item.id, e.message ?: "Unknown error")
+        null // Returning null signals failure to Spring Batch
     }
 
-    private fun getTenantId(item: DocumentGenerationItem): Long {
-        return jdbi.withHandle<Long, Exception> { handle ->
-            handle.createQuery(
-                """
+    private fun getTenantId(item: DocumentGenerationItem): Long = jdbi.withHandle<Long, Exception> { handle ->
+        handle.createQuery(
+            """
                 SELECT tenant_id
                 FROM document_generation_requests
                 WHERE id = :requestId
-                """
-            )
-                .bind("requestId", item.requestId)
-                .mapTo(Long::class.java)
-                .one()
-        }
+                """,
+        )
+            .bind("requestId", item.requestId)
+            .mapTo(Long::class.java)
+            .one()
     }
 
     private fun updateItemError(itemId: java.util.UUID, errorMessage: String) {
@@ -134,7 +134,7 @@ class DocumentGenerationItemProcessor(
                     error_message = :errorMessage,
                     completed_at = NOW()
                 WHERE id = :itemId
-                """
+                """,
             )
                 .bind("itemId", itemId)
                 .bind("errorMessage", errorMessage.take(1000)) // Limit error message length

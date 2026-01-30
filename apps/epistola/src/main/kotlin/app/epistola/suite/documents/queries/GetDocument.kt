@@ -32,7 +32,7 @@ class GetDocumentHandler(
             FROM documents
             WHERE id = :documentId
               AND tenant_id = :tenantId
-            """
+            """,
         )
             .bind("documentId", query.documentId)
             .bind("tenantId", query.tenantId)

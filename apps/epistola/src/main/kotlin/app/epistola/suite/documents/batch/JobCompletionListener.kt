@@ -14,11 +14,13 @@ import java.util.UUID
  * Updates the generation request with final status and timestamps.
  * Also sets expiration date for cleanup.
  *
+ * Must be open for Spring CGLIB proxying (required for @JobScope).
+ *
  * @param jdbi JDBI instance for database access
  * @param requestId The generation request ID
  * @param retentionDays Number of days to retain completed jobs
  */
-class JobCompletionListener(
+open class JobCompletionListener(
     private val jdbi: Jdbi,
     private val requestId: UUID,
     private val retentionDays: Int,
@@ -38,7 +40,7 @@ class JobCompletionListener(
                     started_at = :startedAt,
                     batch_job_execution_id = :jobExecutionId
                 WHERE id = :requestId
-                """
+                """,
             )
                 .bind("status", RequestStatus.IN_PROGRESS.name)
                 .bind("startedAt", OffsetDateTime.now())
@@ -61,14 +63,14 @@ class JobCompletionListener(
                 SELECT total_count, completed_count, failed_count
                 FROM document_generation_requests
                 WHERE id = :requestId
-                """
+                """,
             )
                 .bind("requestId", requestId)
                 .map { rs, _ ->
                     Triple(
                         rs.getInt("total_count"),
                         rs.getInt("completed_count"),
-                        rs.getInt("failed_count")
+                        rs.getInt("failed_count"),
                     )
                 }
                 .one()
@@ -101,7 +103,7 @@ class JobCompletionListener(
                     expires_at = :expiresAt,
                     error_message = :errorMessage
                 WHERE id = :requestId
-                """
+                """,
             )
                 .bind("status", finalStatus.name)
                 .bind("completedAt", OffsetDateTime.now())
@@ -110,8 +112,14 @@ class JobCompletionListener(
                 .bind("requestId", requestId)
                 .execute()
 
-            logger.info("Request {} final status: {} ({} completed, {} failed out of {})",
-                requestId, finalStatus, completedCount, failedCount, totalCount)
+            logger.info(
+                "Request {} final status: {} ({} completed, {} failed out of {})",
+                requestId,
+                finalStatus,
+                completedCount,
+                failedCount,
+                totalCount,
+            )
         }
     }
 }

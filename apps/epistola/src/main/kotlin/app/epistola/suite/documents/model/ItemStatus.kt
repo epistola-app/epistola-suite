@@ -22,5 +22,5 @@ enum class ItemStatus {
     /**
      * Item processing failed.
      */
-    FAILED
+    FAILED,
 }

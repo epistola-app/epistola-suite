@@ -43,7 +43,7 @@ class GetGenerationJobHandler(
             FROM document_generation_requests
             WHERE id = :requestId
               AND tenant_id = :tenantId
-            """
+            """,
         )
             .bind("requestId", query.requestId)
             .bind("tenantId", query.tenantId)
@@ -60,7 +60,7 @@ class GetGenerationJobHandler(
             FROM document_generation_items
             WHERE request_id = :requestId
             ORDER BY created_at ASC
-            """
+            """,
         )
             .bind("requestId", query.requestId)
             .mapTo<DocumentGenerationItem>()

@@ -12,5 +12,5 @@ enum class JobType {
     /**
      * Batch document generation with multiple items.
      */
-    BATCH
+    BATCH,
 }

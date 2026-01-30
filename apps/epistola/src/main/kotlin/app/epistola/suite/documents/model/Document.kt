@@ -31,7 +31,7 @@ data class Document(
     val sizeBytes: Long,
     val content: ByteArray,
     val createdAt: OffsetDateTime,
-    val createdBy: String?
+    val createdBy: String?,
 ) {
     // Override equals/hashCode since ByteArray uses reference equality by default
     override fun equals(other: Any?): Boolean {

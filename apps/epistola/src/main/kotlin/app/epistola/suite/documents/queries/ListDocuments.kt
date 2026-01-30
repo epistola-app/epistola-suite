@@ -34,7 +34,7 @@ class ListDocumentsHandler(
                    created_at, created_by
             FROM documents
             WHERE tenant_id = :tenantId
-            """
+            """,
         )
 
         if (query.templateId != null) {
@@ -64,7 +64,7 @@ class ListDocumentsHandler(
                 contentType = rs.getString("content_type"),
                 sizeBytes = rs.getLong("size_bytes"),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                createdBy = rs.getString("created_by")
+                createdBy = rs.getString("created_by"),
             )
         }
             .list()

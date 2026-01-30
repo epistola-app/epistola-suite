@@ -74,7 +74,7 @@ class GenerateDocumentBatchHandler(
                           AND tv.id = :variantId
                           AND dt.tenant_id = :tenantId
                     )
-                    """
+                    """,
                 )
                     .bind("templateId", item.templateId)
                     .bind("variantId", item.variantId)
@@ -99,7 +99,7 @@ class GenerateDocumentBatchHandler(
                               AND tv.template_id = :templateId
                               AND dt.tenant_id = :tenantId
                         )
-                        """
+                        """,
                     )
                         .bind("versionId", item.versionId)
                         .bind("variantId", item.variantId)
@@ -120,7 +120,7 @@ class GenerateDocumentBatchHandler(
                             WHERE id = :environmentId
                               AND tenant_id = :tenantId
                         )
-                        """
+                        """,
                     )
                         .bind("environmentId", item.environmentId)
                         .bind("tenantId", command.tenantId)
@@ -143,7 +143,7 @@ class GenerateDocumentBatchHandler(
                 RETURNING id, tenant_id, job_type, status, batch_job_execution_id,
                           total_count, completed_count, failed_count, error_message,
                           created_at, started_at, completed_at, expires_at
-                """
+                """,
             )
                 .bind("tenantId", command.tenantId)
                 .bind("jobType", JobType.BATCH.name)
@@ -161,7 +161,7 @@ class GenerateDocumentBatchHandler(
                 )
                 VALUES (:requestId, :templateId, :variantId, :versionId, :environmentId,
                         :data::jsonb, :filename, :status)
-                """
+                """,
             )
 
             for (item in command.items) {
@@ -208,7 +208,7 @@ class GenerateDocumentBatchHandler(
                         error_message = :errorMessage,
                         completed_at = NOW()
                     WHERE id = :requestId
-                    """
+                    """,
                 )
                     .bind("requestId", requestId)
                     .bind("errorMessage", "Failed to launch job: ${e.message}")

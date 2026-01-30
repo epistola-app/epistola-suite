@@ -1,15 +1,23 @@
 package app.epistola.suite.api.v1
 
 import app.epistola.api.GenerationApi
-import app.epistola.api.model.*
-import app.epistola.suite.api.v1.shared.*
+import app.epistola.api.model.DocumentListResponse
+import app.epistola.api.model.GenerateBatchRequest
+import app.epistola.api.model.GenerateDocumentRequest
+import app.epistola.api.model.GenerationJobDetail
+import app.epistola.api.model.GenerationJobListResponse
+import app.epistola.api.model.GenerationJobResponse
+import app.epistola.suite.api.v1.shared.toCommand
+import app.epistola.suite.api.v1.shared.toDto
+import app.epistola.suite.api.v1.shared.toJobDto
+import app.epistola.suite.api.v1.shared.toJobResponse
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
+import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
-import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Mediator
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.core.io.Resource
@@ -67,8 +75,8 @@ class EpistolaDocumentGenerationApi(
                 tenantId = tenantId,
                 status = statusEnum,
                 limit = size,
-                offset = page * size
-            )
+                offset = page * size,
+            ),
         )
 
         // TODO: Get total count for pagination
@@ -77,7 +85,7 @@ class EpistolaDocumentGenerationApi(
             page = page,
             propertySize = size,
             totalElements = jobs.size,
-            totalPages = 1
+            totalPages = 1,
         )
 
         return ResponseEntity.ok(response)
@@ -151,8 +159,8 @@ class EpistolaDocumentGenerationApi(
                 tenantId = tenantId,
                 templateId = templateId,
                 limit = size,
-                offset = page * size
-            )
+                offset = page * size,
+            ),
         )
 
         // TODO: Get total count for pagination
@@ -161,7 +169,7 @@ class EpistolaDocumentGenerationApi(
             page = page,
             propertySize = size,
             totalElements = documents.size,
-            totalPages = 1
+            totalPages = 1,
         )
 
         return ResponseEntity.ok(response)

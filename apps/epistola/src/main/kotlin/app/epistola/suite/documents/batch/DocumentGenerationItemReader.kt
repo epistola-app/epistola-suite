@@ -1,7 +1,6 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.documents.model.DocumentGenerationItem
-import app.epistola.suite.documents.model.ItemStatus
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -52,7 +51,7 @@ class DocumentGenerationItemReader(
                 RETURNING id, request_id, template_id, variant_id, version_id, environment_id,
                           data, filename, status, error_message, document_id,
                           created_at, started_at, completed_at
-                """
+                """,
             )
                 .bind("requestId", requestId)
                 .mapTo<DocumentGenerationItem>()

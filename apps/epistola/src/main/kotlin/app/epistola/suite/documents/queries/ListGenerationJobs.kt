@@ -36,7 +36,7 @@ class ListGenerationJobsHandler(
                    created_at, started_at, completed_at, expires_at
             FROM document_generation_requests
             WHERE tenant_id = :tenantId
-            """
+            """,
         )
 
         if (query.status != null) {

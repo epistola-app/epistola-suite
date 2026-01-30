@@ -36,7 +36,7 @@ data class DocumentGenerationRequest(
     val createdAt: OffsetDateTime,
     val startedAt: OffsetDateTime?,
     val completedAt: OffsetDateTime?,
-    val expiresAt: OffsetDateTime?
+    val expiresAt: OffsetDateTime?,
 ) {
     /**
      * Calculate progress percentage.

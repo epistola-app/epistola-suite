@@ -27,5 +27,5 @@ enum class RequestStatus {
     /**
      * Request was cancelled by user.
      */
-    CANCELLED
+    CANCELLED,
 }
