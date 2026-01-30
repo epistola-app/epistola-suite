@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **OpenSpec Migration**: Updated to new OPSX workflow structure
+  - Migrated from legacy commands (`/openspec:proposal`, `/openspec:apply`, `/openspec:archive`) to new OPSX commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:apply`, `/opsx:verify`, `/opsx:sync`, `/opsx:archive`, `/opsx:bulk-archive`, `/opsx:explore`)
+  - Replaced `.claude/commands/openspec/` with `.claude/skills/openspec-*/` skill structure
+  - Created `openspec/config.yaml` for context injection (replaces passive `project.md` approach)
+  - Removed `openspec/AGENTS.md` and OpenSpec marker blocks from documentation
+  - New workflow supports flexible, action-based development instead of rigid phase-locked process
+
 ### Added
 
 - **Page Header Block**: New block type to display repeating headers on every PDF page
