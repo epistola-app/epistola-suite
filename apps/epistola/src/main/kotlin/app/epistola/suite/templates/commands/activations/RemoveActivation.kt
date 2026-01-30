@@ -1,4 +1,4 @@
-package app.epistola.suite.activations.commands
+package app.epistola.suite.templates.commands.activations
 
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler

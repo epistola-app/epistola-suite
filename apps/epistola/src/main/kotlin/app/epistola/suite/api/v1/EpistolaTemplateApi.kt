@@ -17,10 +17,6 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionListResponse
-import app.epistola.suite.activations.commands.RemoveActivation
-import app.epistola.suite.activations.commands.SetActivation
-import app.epistola.suite.activations.queries.GetActiveVersion
-import app.epistola.suite.activations.queries.ListActivations
 import app.epistola.suite.api.v1.shared.TemplateModelHelper
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
@@ -29,6 +25,8 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.activations.RemoveActivation
+import app.epistola.suite.templates.commands.activations.SetActivation
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DeleteVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
@@ -41,6 +39,8 @@ import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.templates.queries.activations.GetActiveVersion
+import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
 import app.epistola.suite.templates.queries.variants.ListVariants

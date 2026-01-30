@@ -1,4 +1,4 @@
-package app.epistola.suite.activations
+package app.epistola.suite.templates.model
 
 import java.time.OffsetDateTime
 

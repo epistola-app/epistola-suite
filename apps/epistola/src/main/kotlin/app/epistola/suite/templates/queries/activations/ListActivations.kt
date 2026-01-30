@@ -1,8 +1,8 @@
-package app.epistola.suite.activations.queries
+package app.epistola.suite.templates.queries.activations
 
-import app.epistola.suite.activations.ActivationDetails
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.templates.model.ActivationDetails
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component

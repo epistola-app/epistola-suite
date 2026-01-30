@@ -10,9 +10,9 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionSummaryDto
-import app.epistola.suite.activations.ActivationDetails
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.model.ActivationDetails
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.model.VariantSummary

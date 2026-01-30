@@ -1,4 +1,4 @@
-package app.epistola.suite.activations.queries
+package app.epistola.suite.templates.queries.activations
 
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler

@@ -1,8 +1,8 @@
-package app.epistola.suite.activations.commands
+package app.epistola.suite.templates.commands.activations
 
-import app.epistola.suite.activations.EnvironmentActivation
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.templates.model.EnvironmentActivation
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
