@@ -10,6 +10,9 @@ info:
   version: 1.0.0
   contact:
     name: Epistola Team
+  license:
+    name: EUPL-1.2
+    identifier: EUPL-1.2
 
 servers:
   - url: /api
