@@ -1,4 +1,4 @@
-package app.epistola.suite.variants
+package app.epistola.suite.templates.model
 
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime

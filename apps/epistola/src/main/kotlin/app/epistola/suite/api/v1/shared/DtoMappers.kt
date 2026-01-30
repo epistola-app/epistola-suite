@@ -13,11 +13,11 @@ import app.epistola.api.model.VersionSummaryDto
 import app.epistola.suite.activations.ActivationDetails
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
+import app.epistola.suite.templates.model.TemplateVariant
+import app.epistola.suite.templates.model.TemplateVersion
+import app.epistola.suite.templates.model.VariantSummary
+import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.variants.TemplateVariant
-import app.epistola.suite.variants.VariantSummary
-import app.epistola.suite.versions.TemplateVersion
-import app.epistola.suite.versions.VersionStatus
 import tools.jackson.databind.ObjectMapper
 
 internal fun Tenant.toDto() = TenantDto(
@@ -90,7 +90,7 @@ internal fun TemplateVersion.toDto(objectMapper: ObjectMapper) = VersionDto(
     archivedAt = archivedAt,
 )
 
-internal fun app.epistola.suite.versions.VersionSummary.toSummaryDto() = VersionSummaryDto(
+internal fun app.epistola.suite.templates.model.VersionSummary.toSummaryDto() = VersionSummaryDto(
     id = id,
     variantId = variantId,
     versionNumber = versionNumber,

@@ -1,8 +1,8 @@
-package app.epistola.suite.versions.queries
+package app.epistola.suite.templates.queries.versions
 
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
-import app.epistola.suite.versions.TemplateVersion
+import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component

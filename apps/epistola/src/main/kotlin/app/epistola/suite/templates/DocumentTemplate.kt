@@ -1,7 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.variants.VariantSummary
+import app.epistola.suite.templates.model.VariantSummary
 import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime

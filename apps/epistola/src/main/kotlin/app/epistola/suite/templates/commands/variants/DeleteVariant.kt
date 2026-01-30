@@ -1,27 +1,23 @@
-package app.epistola.suite.variants.commands
+package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.variants.TemplateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import tools.jackson.databind.ObjectMapper
 
-data class UpdateVariant(
+data class DeleteVariant(
     val tenantId: Long,
     val templateId: Long,
     val variantId: Long,
-    val tags: Map<String, String>,
-) : Command<TemplateVariant?>
+) : Command<Boolean>
 
 @Component
-class UpdateVariantHandler(
+class DeleteVariantHandler(
     private val jdbi: Jdbi,
-    private val objectMapper: ObjectMapper,
-) : CommandHandler<UpdateVariant, TemplateVariant?> {
-    override fun handle(command: UpdateVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-        // Verify the variant belongs to a template owned by the tenant
+) : CommandHandler<DeleteVariant, Boolean> {
+    override fun handle(command: DeleteVariant): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
+        // Verify the variant belongs to a template owned by the tenant before deleting
         val variantExists = handle.createQuery(
             """
                 SELECT COUNT(*) > 0
@@ -39,23 +35,18 @@ class UpdateVariantHandler(
             .one()
 
         if (!variantExists) {
-            return@inTransaction null
+            return@inTransaction false
         }
 
-        val tagsJson = objectMapper.writeValueAsString(command.tags)
-
-        handle.createQuery(
+        val rowsAffected = handle.createUpdate(
             """
-                UPDATE template_variants
-                SET tags = :tags::jsonb, last_modified = NOW()
+                DELETE FROM template_variants
                 WHERE id = :variantId
-                RETURNING *
                 """,
         )
             .bind("variantId", command.variantId)
-            .bind("tags", tagsJson)
-            .mapTo<TemplateVariant>()
-            .findOne()
-            .orElse(null)
+            .execute()
+
+        rowsAffected > 0
     }
 }

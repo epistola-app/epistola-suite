@@ -1,8 +1,8 @@
-package app.epistola.suite.variants.commands
+package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.variants.TemplateVariant
+import app.epistola.suite.templates.model.TemplateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component

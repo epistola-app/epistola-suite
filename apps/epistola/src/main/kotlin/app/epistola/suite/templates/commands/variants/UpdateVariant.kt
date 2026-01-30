@@ -1,31 +1,26 @@
-package app.epistola.suite.versions.commands
+package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.templates.model.TemplateModel
-import app.epistola.suite.versions.TemplateVersion
+import app.epistola.suite.templates.model.TemplateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
-/**
- * Creates or updates the draft version for a variant.
- * If no draft exists, creates one. If a draft exists, updates it.
- */
-data class UpdateDraft(
+data class UpdateVariant(
     val tenantId: Long,
     val templateId: Long,
     val variantId: Long,
-    val templateModel: TemplateModel?,
-) : Command<TemplateVersion?>
+    val tags: Map<String, String>,
+) : Command<TemplateVariant?>
 
 @Component
-class UpdateDraftHandler(
+class UpdateVariantHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-) : CommandHandler<UpdateDraft, TemplateVersion?> {
-    override fun handle(command: UpdateDraft): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
+) : CommandHandler<UpdateVariant, TemplateVariant?> {
+    override fun handle(command: UpdateVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
         // Verify the variant belongs to a template owned by the tenant
         val variantExists = handle.createQuery(
             """
@@ -47,21 +42,20 @@ class UpdateDraftHandler(
             return@inTransaction null
         }
 
-        val templateModelJson = command.templateModel?.let { objectMapper.writeValueAsString(it) }
+        val tagsJson = objectMapper.writeValueAsString(command.tags)
 
-        // Use upsert to create or update draft
         handle.createQuery(
             """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
-                VALUES (:variantId, NULL, :templateModel::jsonb, 'draft', NOW())
-                ON CONFLICT (variant_id) WHERE status = 'draft'
-                DO UPDATE SET template_model = :templateModel::jsonb
+                UPDATE template_variants
+                SET tags = :tags::jsonb, last_modified = NOW()
+                WHERE id = :variantId
                 RETURNING *
                 """,
         )
             .bind("variantId", command.variantId)
-            .bind("templateModel", templateModelJson)
-            .mapTo<TemplateVersion>()
-            .one()
+            .bind("tags", tagsJson)
+            .mapTo<TemplateVariant>()
+            .findOne()
+            .orElse(null)
     }
 }

@@ -29,6 +29,14 @@
 
 ### Changed
 
+- **BREAKING**: Reorganized template-related packages into aggregate root structure
+  - Moved `variants/` package into `templates/commands/variants/` and `templates/queries/variants/`
+  - Moved `versions/` package into `templates/commands/versions/` and `templates/queries/versions/`
+  - Moved domain models to `templates/model/`
+  - All imports from `app.epistola.suite.variants.*` must be updated to `app.epistola.suite.templates.*`
+  - All imports from `app.epistola.suite.versions.*` must be updated to `app.epistola.suite.templates.*`
+  - No database or API contract changes - only code organization
+  - Improves clarity of aggregate boundaries and domain model
 - **API Architecture**: Refactored V1 API into focused controllers for better
   separation of concerns
   - Split monolithic V1ApiController (713 lines) into two controllers

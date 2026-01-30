@@ -3,13 +3,13 @@ package app.epistola.suite.testing
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
-import app.epistola.suite.variants.TemplateVariant
-import app.epistola.suite.variants.commands.CreateVariant
 import org.springframework.stereotype.Component
 
 @DslMarker

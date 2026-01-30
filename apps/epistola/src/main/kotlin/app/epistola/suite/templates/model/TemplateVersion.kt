@@ -1,4 +1,4 @@
-package app.epistola.suite.versions
+package app.epistola.suite.templates.model
 
 import app.epistola.template.model.TemplateModel
 import org.jdbi.v3.json.Json

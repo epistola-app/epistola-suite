@@ -4,11 +4,11 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
-import app.epistola.suite.variants.queries.ListVariants
-import app.epistola.suite.versions.commands.UpdateDraft
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
