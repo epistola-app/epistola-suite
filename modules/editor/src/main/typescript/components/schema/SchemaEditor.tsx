@@ -1,24 +1,13 @@
-import { useState, useCallback, useMemo, useRef } from "react";
-import { Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
+import {useCallback, useMemo, useRef, useState} from "react";
+import {ChevronDown, ChevronRight, Plus, Trash2} from "lucide-react";
+import {v4 as uuidv4} from "uuid";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
-import type {
-  SchemaField,
-  SchemaFieldType,
-  SchemaFieldUpdate,
-  VisualSchema,
-} from "../../types/schema";
-import { FIELD_TYPE_LABELS, createEmptyField, applyFieldUpdate } from "../../utils/schemaUtils";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import {cn} from "@/lib/utils";
+import type {SchemaField, SchemaFieldType, SchemaFieldUpdate, VisualSchema,} from "../../types/schema";
+import {applyFieldUpdate, createEmptyField, FIELD_TYPE_LABELS} from "../../utils/schemaUtils";
 
 interface SchemaEditorProps {
   schema: VisualSchema;

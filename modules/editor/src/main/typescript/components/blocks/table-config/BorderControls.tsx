@@ -1,5 +1,5 @@
-import type { TableBlock } from "../../../types/template";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
+import type {TableBlock} from "../../../types/template";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../../ui/select";
 
 interface BorderControlsProps {
   config: TableBlock;

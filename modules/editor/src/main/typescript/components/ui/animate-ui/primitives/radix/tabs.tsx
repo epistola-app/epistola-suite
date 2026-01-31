@@ -1,19 +1,16 @@
 import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { motion, AnimatePresence, type HTMLMotionProps, type Transition } from "motion/react";
+import {AnimatePresence, type HTMLMotionProps, motion, type Transition} from "motion/react";
 
 import {
-  Highlight,
-  HighlightItem,
-  type HighlightProps,
-  type HighlightItemProps,
+    Highlight,
+    HighlightItem,
+    type HighlightItemProps,
+    type HighlightProps,
 } from "@/components/ui/animate-ui/primitives/effects/highlight";
-import { getStrictContext } from "@/lib/get-strict-context";
-import { useControlledState } from "@/hooks/use-controlled-state";
-import {
-  AutoHeight,
-  type AutoHeightProps,
-} from "@/components/ui/animate-ui/primitives/effects/auto-height";
+import {getStrictContext} from "@/lib/get-strict-context";
+import {useControlledState} from "@/hooks/use-controlled-state";
+import {AutoHeight, type AutoHeightProps,} from "@/components/ui/animate-ui/primitives/effects/auto-height";
 
 type TabsContextType = {
   value: string | undefined;

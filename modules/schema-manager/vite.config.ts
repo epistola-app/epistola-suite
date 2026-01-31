@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite'
+import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import path, { resolve } from 'path'
+import path, {resolve} from 'path'
 
 // Shared dependencies loaded via import map - excluded from bundle
 const EXTERNALS = [

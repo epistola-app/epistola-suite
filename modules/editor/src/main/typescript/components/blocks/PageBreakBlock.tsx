@@ -1,5 +1,5 @@
-import type { PageBreakBlock } from "../../types/template";
-import { BlockHeader } from "./BlockHeader";
+import type {PageBreakBlock} from "../../types/template";
+import {BlockHeader} from "./BlockHeader";
 
 interface PageBreakBlockProps {
   block: PageBreakBlock;

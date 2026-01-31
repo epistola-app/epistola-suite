@@ -1,7 +1,7 @@
-import { Circle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { DialogFooter } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import {Circle} from "lucide-react";
+import {Button} from "@/components/ui/button";
+import {DialogFooter} from "@/components/ui/dialog";
+import {cn} from "@/lib/utils";
 
 interface DialogFooterActionsProps {
   isDirty: boolean;

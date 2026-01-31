@@ -1,28 +1,28 @@
-import { useEditor, EditorContent } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
+import type {Editor} from "@tiptap/react";
+import {EditorContent, useEditor} from "@tiptap/react";
+import {BubbleMenu} from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
-import { useEffect } from "react";
+import {useEffect} from "react";
 import {
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  Strikethrough,
-  List,
-  ListOrdered,
-  Heading1,
-  Heading2,
-  Heading3,
-  Braces,
+    Bold,
+    Braces,
+    Heading1,
+    Heading2,
+    Heading3,
+    Italic,
+    List,
+    ListOrdered,
+    Strikethrough,
+    Underline as UnderlineIcon,
 } from "lucide-react";
-import type { TextBlock } from "../../types/template";
-import { useEditorStore } from "../../store/editorStore";
-import { ExpressionNode } from "./ExpressionNode";
-import { BlockHeader } from "./BlockHeader";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
-import type { Editor } from "@tiptap/react";
+import type {TextBlock} from "../../types/template";
+import {useEditorStore} from "../../store/editorStore";
+import {ExpressionNode} from "./ExpressionNode";
+import {BlockHeader} from "./BlockHeader";
+import {Button} from "@/components/ui/button";
+import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
+import {Separator} from "@/components/ui/separator";
 
 interface TextBlockProps {
   block: TextBlock;

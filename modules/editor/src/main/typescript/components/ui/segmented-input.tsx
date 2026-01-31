@@ -1,9 +1,9 @@
-import { useDirection } from "@radix-ui/react-direction";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import {useDirection} from "@radix-ui/react-direction";
+import {Slot} from "@radix-ui/react-slot";
+import {cva, type VariantProps} from "class-variance-authority";
 import * as React from "react";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import {Input} from "@/components/ui/input";
+import {cn} from "@/lib/utils";
 
 const ROOT_NAME = "SegmentedInput";
 const ITEM_NAME = "SegmentedInputItem";

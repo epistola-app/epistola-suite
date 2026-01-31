@@ -1,13 +1,13 @@
-import { useMemo } from "react";
-import type { CompletionContext, CompletionResult, Completion } from "@codemirror/autocomplete";
-import type { ScopeVariable } from "../context/ScopeContext";
+import {useMemo} from "react";
+import type {Completion, CompletionContext, CompletionResult} from "@codemirror/autocomplete";
+import type {ScopeVariable} from "../context/ScopeContext";
 import {
-  inferType,
-  getMethodsForType,
-  parsePath,
-  resolvePathType,
-  formatTypeForDisplay,
-  type InferredType,
+    formatTypeForDisplay,
+    getMethodsForType,
+    type InferredType,
+    inferType,
+    parsePath,
+    resolvePathType,
 } from "../lib/type-inference";
 
 interface CompletionOptions {

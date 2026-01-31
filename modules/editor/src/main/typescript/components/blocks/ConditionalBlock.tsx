@@ -1,11 +1,11 @@
-import { useDroppable } from "@dnd-kit/core";
-import { useState } from "react";
-import type { ConditionalBlock } from "../../types/template";
-import { useEditorStore } from "../../store/editorStore";
-import { BlockRenderer } from "./BlockRenderer";
-import { ExpressionPopoverEditor } from "./ExpressionPopoverEditor";
-import { BlockHeader } from "./BlockHeader";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {useDroppable} from "@dnd-kit/core";
+import {useState} from "react";
+import type {ConditionalBlock} from "../../types/template";
+import {useEditorStore} from "../../store/editorStore";
+import {BlockRenderer} from "./BlockRenderer";
+import {ExpressionPopoverEditor} from "./ExpressionPopoverEditor";
+import {BlockHeader} from "./BlockHeader";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 
 interface ConditionalBlockProps {
   block: ConditionalBlock;

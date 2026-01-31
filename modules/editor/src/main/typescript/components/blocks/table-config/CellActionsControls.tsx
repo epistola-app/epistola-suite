@@ -1,6 +1,6 @@
-import type { TableBlock } from "../../../types/template";
-import { Button } from "../../ui/button";
-import { canMergeCells } from "./tableConfigUtils";
+import type {TableBlock} from "../../../types/template";
+import {Button} from "../../ui/button";
+import {canMergeCells} from "./tableConfigUtils";
 
 interface CellActionsControlsProps {
   config: TableBlock;

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { undo, redo } from "../store/editorStore";
+import {useEffect} from "react";
+import {redo, undo} from "../store/editorStore";
 
 /**
  * Check if the active element is inside a TipTap editor.

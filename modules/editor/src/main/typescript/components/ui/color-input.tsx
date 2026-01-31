@@ -1,18 +1,18 @@
 import * as React from "react";
-import { RotateCcw } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "./button";
+import {RotateCcw} from "lucide-react";
+import {cn} from "@/lib/utils";
+import {Button} from "./button";
 import {
-  ColorPicker,
-  ColorPickerAlphaSlider,
-  ColorPickerArea,
-  ColorPickerContent,
-  ColorPickerEyeDropper,
-  ColorPickerFormatSelect,
-  ColorPickerHueSlider,
-  ColorPickerInput,
-  ColorPickerSwatch,
-  ColorPickerTrigger,
+    ColorPicker,
+    ColorPickerAlphaSlider,
+    ColorPickerArea,
+    ColorPickerContent,
+    ColorPickerEyeDropper,
+    ColorPickerFormatSelect,
+    ColorPickerHueSlider,
+    ColorPickerInput,
+    ColorPickerSwatch,
+    ColorPickerTrigger,
 } from "./color-picker";
 
 interface ColorInputProps {

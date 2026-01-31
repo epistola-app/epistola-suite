@@ -1,6 +1,6 @@
-import { cn } from "@/lib/utils";
-import { Grip, X } from "lucide-react";
-import { Button } from "../ui/button";
+import {cn} from "@/lib/utils";
+import {Grip, X} from "lucide-react";
+import {Button} from "../ui/button";
 
 interface BlockHeaderProps {
   // Drag and drop functionality

@@ -1,6 +1,6 @@
-import { Minus, Plus } from "lucide-react";
-import type { TableBlock } from "../../../types/template";
-import { Button } from "../../ui/button";
+import {Minus, Plus} from "lucide-react";
+import type {TableBlock} from "../../../types/template";
+import {Button} from "../../ui/button";
 
 interface TableSizeControlsProps {
   config: TableBlock;

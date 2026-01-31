@@ -1,7 +1,7 @@
-import { NumberInput } from "./NumberInput";
-import { SelectInput } from "./SelectInput";
-import { ColorPicker } from "./ColorPicker";
-import { BORDER_STYLES } from "../../../types/styles";
+import {NumberInput} from "./NumberInput";
+import {SelectInput} from "./SelectInput";
+import {ColorPicker} from "./ColorPicker";
+import {BORDER_STYLES} from "../../../types/styles";
 
 interface BorderInputProps {
   width: string | undefined;

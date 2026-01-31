@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { JsonataEvaluator } from "./JsonataEvaluator";
+import {beforeEach, describe, expect, it} from "vitest";
+import {JsonataEvaluator} from "./JsonataEvaluator";
 
 describe("JsonataEvaluator", () => {
   let evaluator: JsonataEvaluator;

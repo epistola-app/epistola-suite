@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
-import type { DataExample, JsonObject } from "../types/template";
-import type { JsonSchema } from "../types/schema";
+import {useCallback, useEffect, useMemo, useState} from "react";
+import type {DataExample, JsonObject} from "../types/template";
+import type {JsonSchema} from "../types/schema";
 
 /**
  * Validation result from backend schema compatibility check

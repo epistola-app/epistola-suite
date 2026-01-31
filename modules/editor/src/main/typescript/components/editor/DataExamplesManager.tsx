@@ -1,30 +1,24 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { javascript } from "@codemirror/lang-javascript";
-import { Settings2, Plus, Trash2 } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
+import {javascript} from "@codemirror/lang-javascript";
+import {Plus, Settings2, Trash2} from "lucide-react";
+import {v4 as uuidv4} from "uuid";
 
-import { Button } from "@/components/ui/button";
+import {Button} from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useEditorStore } from "../../store/editorStore";
-import type { DataExample, JsonObject } from "../../types/template";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {useEditorStore} from "../../store/editorStore";
+import type {DataExample, JsonObject} from "../../types/template";
 
 interface DataExamplesManagerProps {
   onSaveDataExamples?: (examples: DataExample[]) => boolean | Promise<boolean>;

@@ -1,6 +1,6 @@
-import { useDroppable } from "@dnd-kit/core";
-import { useEditorStore } from "../../store/editorStore";
-import { BlockRenderer } from "../blocks/BlockRenderer";
+import {useDroppable} from "@dnd-kit/core";
+import {useEditorStore} from "../../store/editorStore";
+import {BlockRenderer} from "../blocks/BlockRenderer";
 
 export function Canvas() {
   const blocks = useEditorStore((s) => s.template.blocks);

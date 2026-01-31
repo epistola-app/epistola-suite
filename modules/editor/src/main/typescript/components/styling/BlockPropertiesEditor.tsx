@@ -1,4 +1,4 @@
-import type { Block } from "@/types/template";
+import type {Block} from "@/types/template";
 
 export function BlockPropertiesEditor({ block }: { block: Block }) {
   return (

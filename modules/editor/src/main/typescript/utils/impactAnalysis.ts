@@ -1,6 +1,6 @@
-import type { SchemaIssue, VisualSchema } from "../types/schema";
-import { getSchemaFieldPaths } from "./schemaUtils";
-import { pathMatchesSchema } from "./expressionUtils";
+import type {SchemaIssue, VisualSchema} from "../types/schema";
+import {getSchemaFieldPaths} from "./schemaUtils";
+import {pathMatchesSchema} from "./expressionUtils";
 
 /**
  * Analyze the impact of schema on expressions.

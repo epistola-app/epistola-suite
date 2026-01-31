@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import keytar from 'keytar';
-import { spawn } from 'child_process';
+import {spawn} from 'child_process';
 
 const SERVICE = 'epistola-github-mcp';
 const ACCOUNT = 'token';

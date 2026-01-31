@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import keytar from 'keytar';
-import { execSync } from 'child_process';
+import {execSync} from 'child_process';
 import readline from 'readline';
 
 const SERVICE = 'epistola-github-mcp';

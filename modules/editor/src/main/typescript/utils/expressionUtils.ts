@@ -1,12 +1,5 @@
-import type { JSONContent } from "@tiptap/react";
-import type {
-  Block,
-  TextBlock,
-  ConditionalBlock,
-  LoopBlock,
-  ColumnsBlock,
-  TableBlock,
-} from "../types/template";
+import type {JSONContent} from "@tiptap/react";
+import type {Block, ColumnsBlock, ConditionalBlock, LoopBlock, TableBlock, TextBlock,} from "../types/template";
 
 /**
  * Extract all expression paths used in template blocks.

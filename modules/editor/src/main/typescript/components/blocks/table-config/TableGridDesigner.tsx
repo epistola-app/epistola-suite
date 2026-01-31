@@ -1,4 +1,4 @@
-import type { TableBlock } from "../../../types/template";
+import type {TableBlock} from "../../../types/template";
 
 interface TableGridDesignerProps {
   config: TableBlock;

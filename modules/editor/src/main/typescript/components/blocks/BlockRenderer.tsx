@@ -1,15 +1,15 @@
-import { useDraggable, useDroppable } from "@dnd-kit/core";
-import type { Block } from "../../types/template";
-import { useEditorStore } from "../../store/editorStore";
-import { TextBlockComponent } from "./TextBlock";
-import { ContainerBlockComponent } from "./ContainerBlock";
-import { ConditionalBlockComponent } from "./ConditionalBlock";
-import { LoopBlockComponent } from "./LoopBlock";
-import { ColumnsBlockComponent } from "./ColumnsBlock";
-import { TableBlockComponent } from "./TableBlock";
-import { PageBreakBlockComponent } from "./PageBreakBlock";
-import { PageHeaderBlockComponent } from "./PageHeaderBlock";
-import { PageFooterBlockComponent } from "./PageFooterBlock";
+import {useDraggable, useDroppable} from "@dnd-kit/core";
+import type {Block} from "../../types/template";
+import {useEditorStore} from "../../store/editorStore";
+import {TextBlockComponent} from "./TextBlock";
+import {ContainerBlockComponent} from "./ContainerBlock";
+import {ConditionalBlockComponent} from "./ConditionalBlock";
+import {LoopBlockComponent} from "./LoopBlock";
+import {ColumnsBlockComponent} from "./ColumnsBlock";
+import {TableBlockComponent} from "./TableBlock";
+import {PageBreakBlockComponent} from "./PageBreakBlock";
+import {PageHeaderBlockComponent} from "./PageHeaderBlock";
+import {PageFooterBlockComponent} from "./PageFooterBlock";
 
 interface BlockRendererProps {
   block: Block;

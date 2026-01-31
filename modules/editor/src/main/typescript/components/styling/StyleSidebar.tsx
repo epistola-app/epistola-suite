@@ -1,11 +1,11 @@
-import { ArrowLeftToLine, ArrowRightToLine } from "lucide-react";
-import { useState } from "react";
-import { useEditorStore } from "../../store/editorStore";
-import type { Block } from "../../types/template";
-import { BlockStyleEditor } from "./BlockStyleEditor";
-import { DocumentPropertiesEditor } from "./DocumentPropertiesEditor";
-import { DocumentStyleEditor } from "./DocumentStyleEditor";
-import { BlockPropertiesEditor } from "./BlockPropertiesEditor";
+import {ArrowLeftToLine, ArrowRightToLine} from "lucide-react";
+import {useState} from "react";
+import {useEditorStore} from "../../store/editorStore";
+import type {Block} from "../../types/template";
+import {BlockStyleEditor} from "./BlockStyleEditor";
+import {DocumentPropertiesEditor} from "./DocumentPropertiesEditor";
+import {DocumentStyleEditor} from "./DocumentStyleEditor";
+import {BlockPropertiesEditor} from "./BlockPropertiesEditor";
 
 type TabType = "properties" | "styles";
 

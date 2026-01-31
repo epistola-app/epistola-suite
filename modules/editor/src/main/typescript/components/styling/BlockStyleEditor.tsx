@@ -1,37 +1,37 @@
 import {
-  AlignCenter,
-  AlignJustify,
-  AlignLeft,
-  AlignRight,
-  Layout,
-  Move,
-  Palette,
-  Square,
-  Type,
-  Zap,
+    AlignCenter,
+    AlignJustify,
+    AlignLeft,
+    AlignRight,
+    Layout,
+    Move,
+    Palette,
+    Square,
+    Type,
+    Zap,
 } from "lucide-react";
-import { useCallback, useId, useMemo, type CSSProperties } from "react";
-import { useEditorStore } from "../../store/editorStore";
+import {type CSSProperties, useCallback, useId, useMemo} from "react";
+import {useEditorStore} from "../../store/editorStore";
 import {
-  ALIGN_OPTIONS,
-  BORDER_STYLES,
-  DISPLAY_OPTIONS,
-  FLEX_DIRECTIONS,
-  FONT_FAMILIES,
-  FONT_WEIGHTS,
-  JUSTIFY_OPTIONS,
-  UNIT_PRESETS,
+    ALIGN_OPTIONS,
+    BORDER_STYLES,
+    DISPLAY_OPTIONS,
+    FLEX_DIRECTIONS,
+    FONT_FAMILIES,
+    FONT_WEIGHTS,
+    JUSTIFY_OPTIONS,
+    UNIT_PRESETS,
 } from "../../types/styles";
-import type { Block } from "../../types/template";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
-import { Button } from "../ui/button";
-import { ButtonGroup } from "../ui/button-group";
-import { ColorInput } from "../ui/color-input";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Slider } from "../ui/slider";
-import { UnitInput } from "../ui/unit-input";
+import type {Block} from "../../types/template";
+import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "../ui/accordion";
+import {Button} from "../ui/button";
+import {ButtonGroup} from "../ui/button-group";
+import {ColorInput} from "../ui/color-input";
+import {Input} from "../ui/input";
+import {Label} from "../ui/label";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../ui/select";
+import {Slider} from "../ui/slider";
+import {UnitInput} from "../ui/unit-input";
 
 interface BlockStyleEditorProps {
   block: Block;

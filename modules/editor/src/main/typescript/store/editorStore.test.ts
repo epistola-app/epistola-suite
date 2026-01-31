@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { useEditorStore, undo, redo, clearHistory } from "./editorStore";
-import type { DataExample, TextBlock } from "../types/template";
-import type { JsonSchema } from "../types/schema";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {clearHistory, redo, undo, useEditorStore} from "./editorStore";
+import type {DataExample, TextBlock} from "../types/template";
+import type {JsonSchema} from "../types/schema";
 
 // Reset store before each test
 beforeEach(() => {

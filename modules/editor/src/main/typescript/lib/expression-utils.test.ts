@@ -1,11 +1,6 @@
-import { describe, it, expect } from "vitest";
-import {
-  extractPaths,
-  resolveScopeVariable,
-  buildEvaluationContext,
-  formatPreviewValue,
-} from "./expression-utils";
-import type { ScopeVariable } from "../context/ScopeContext";
+import {describe, expect, it} from "vitest";
+import {buildEvaluationContext, extractPaths, formatPreviewValue, resolveScopeVariable,} from "./expression-utils";
+import type {ScopeVariable} from "../context/ScopeContext";
 
 describe("extractPaths", () => {
   it("extracts paths from simple object", () => {

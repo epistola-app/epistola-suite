@@ -1,15 +1,15 @@
-import { useDroppable } from "@dnd-kit/core";
-import { useState, useMemo, useEffect } from "react";
-import type { LoopBlock } from "../../types/template";
-import { useEditorStore } from "../../store/editorStore";
-import { BlockRenderer } from "./BlockRenderer";
-import { ExpressionPopoverEditor } from "./ExpressionPopoverEditor";
-import { ScopeProvider } from "../../context/ScopeContext";
-import type { ScopeVariable } from "../../context/ScopeContext";
-import { BlockHeader } from "./BlockHeader";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useEvaluator } from "../../context/EvaluatorContext";
-import { buildEvaluationContext } from "@/lib/expression-utils";
+import {useDroppable} from "@dnd-kit/core";
+import {useEffect, useMemo, useState} from "react";
+import type {LoopBlock} from "../../types/template";
+import {useEditorStore} from "../../store/editorStore";
+import {BlockRenderer} from "./BlockRenderer";
+import {ExpressionPopoverEditor} from "./ExpressionPopoverEditor";
+import type {ScopeVariable} from "../../context/ScopeContext";
+import {ScopeProvider} from "../../context/ScopeContext";
+import {BlockHeader} from "./BlockHeader";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {useEvaluator} from "../../context/EvaluatorContext";
+import {buildEvaluationContext} from "@/lib/expression-utils";
 
 interface LoopBlockProps {
   block: LoopBlock;

@@ -1,15 +1,15 @@
 import * as React from "react";
 import * as SwitchPrimitives from "@radix-ui/react-switch";
 import {
-  motion,
-  type TargetAndTransition,
-  type VariantLabels,
-  type HTMLMotionProps,
-  type LegacyAnimationControls,
+    type HTMLMotionProps,
+    type LegacyAnimationControls,
+    motion,
+    type TargetAndTransition,
+    type VariantLabels,
 } from "motion/react";
 
-import { getStrictContext } from "@/lib/get-strict-context";
-import { useControlledState } from "@/hooks/use-controlled-state";
+import {getStrictContext} from "@/lib/get-strict-context";
+import {useControlledState} from "@/hooks/use-controlled-state";
 
 type SwitchContextType = {
   isChecked: boolean;

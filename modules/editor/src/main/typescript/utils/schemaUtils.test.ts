@@ -1,14 +1,14 @@
-import { describe, it, expect } from "vitest";
+import {describe, expect, it} from "vitest";
 import {
-  visualSchemaToJsonSchema,
-  jsonSchemaToVisualSchema,
-  generateSchemaFromData,
-  createEmptyField,
-  applyFieldUpdate,
-  getSchemaFieldPaths,
-  FIELD_TYPE_LABELS,
+    applyFieldUpdate,
+    createEmptyField,
+    FIELD_TYPE_LABELS,
+    generateSchemaFromData,
+    getSchemaFieldPaths,
+    jsonSchemaToVisualSchema,
+    visualSchemaToJsonSchema,
 } from "./schemaUtils";
-import type { SchemaField, VisualSchema, JsonSchema } from "../types/schema";
+import type {JsonSchema, SchemaField, VisualSchema} from "../types/schema";
 
 describe("visualSchemaToJsonSchema", () => {
   it("converts empty visual schema", () => {

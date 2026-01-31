@@ -1,6 +1,6 @@
 import * as React from "react";
-import { motion, isMotionComponent, type HTMLMotionProps } from "motion/react";
-import { cn } from "@/lib/utils";
+import {type HTMLMotionProps, isMotionComponent, motion} from "motion/react";
+import {cn} from "@/lib/utils";
 
 type AnyProps = Record<string, unknown>;
 

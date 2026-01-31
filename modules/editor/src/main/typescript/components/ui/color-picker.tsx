@@ -1,25 +1,19 @@
-import { useDirection } from "@radix-ui/react-direction";
+import {useDirection} from "@radix-ui/react-direction";
 import * as SliderPrimitive from "@radix-ui/react-slider";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import { PipetteIcon } from "lucide-react";
+import {Slot} from "@radix-ui/react-slot";
+import {cva, type VariantProps} from "class-variance-authority";
+import {PipetteIcon} from "lucide-react";
 import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useComposedRefs } from "@/lib/compose-refs";
-import { cn } from "@/lib/utils";
-import { VisuallyHiddenInput } from "@/components/visually-hidden-input";
-import { useAsRef } from "@/hooks/use-as-ref";
-import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
-import { useLazyRef } from "@/hooks/use-lazy-ref";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import {useComposedRefs} from "@/lib/compose-refs";
+import {cn} from "@/lib/utils";
+import {VisuallyHiddenInput} from "@/components/visually-hidden-input";
+import {useAsRef} from "@/hooks/use-as-ref";
+import {useIsomorphicLayoutEffect} from "@/hooks/use-isomorphic-layout-effect";
+import {useLazyRef} from "@/hooks/use-lazy-ref";
 
 const ROOT_NAME = "ColorPicker";
 const ROOT_IMPL_NAME = "ColorPickerImpl";

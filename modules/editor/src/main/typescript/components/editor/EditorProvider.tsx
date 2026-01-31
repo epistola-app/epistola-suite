@@ -1,9 +1,9 @@
-import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
-import { useState } from "react";
-import type { ReactNode } from "react";
-import { useEditorStore } from "../../store/editorStore";
-import type { Block } from "../../types/template";
+import type {DragEndEvent, DragStartEvent} from "@dnd-kit/core";
+import {closestCenter, DndContext, DragOverlay} from "@dnd-kit/core";
+import type {ReactNode} from "react";
+import {useState} from "react";
+import {useEditorStore} from "../../store/editorStore";
+import type {Block} from "../../types/template";
 
 interface EditorProviderProps {
   children: ReactNode;

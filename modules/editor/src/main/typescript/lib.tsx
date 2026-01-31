@@ -1,12 +1,12 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import type { Root } from "react-dom/client";
-import { EditorProvider } from "./components/editor/EditorProvider";
-import { EditorLayout } from "./components/editor/EditorLayout";
-import { EvaluatorProvider } from "./context/EvaluatorContext";
-import { useEditorStore } from "./store/editorStore";
-import type { Template, DataExample, JsonObject } from "./types/template";
-import { JsonSchemaSchema } from "./types/schema";
+import {StrictMode} from "react";
+import type {Root} from "react-dom/client";
+import {createRoot} from "react-dom/client";
+import {EditorProvider} from "./components/editor/EditorProvider";
+import {EditorLayout} from "./components/editor/EditorLayout";
+import {EvaluatorProvider} from "./context/EvaluatorContext";
+import {useEditorStore} from "./store/editorStore";
+import type {DataExample, JsonObject, Template} from "./types/template";
+import {JsonSchemaSchema} from "./types/schema";
 import "./index.css";
 
 /**

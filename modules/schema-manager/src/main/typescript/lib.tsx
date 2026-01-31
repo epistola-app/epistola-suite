@@ -1,10 +1,10 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { SchemaManagerApp } from "./App";
-import { createSchemaManagerStore } from "./store/schemaStore";
-import type { SaveCallbacks, ValidationError } from "./hooks/useDataContractDraft";
-import type { JsonSchema } from "./types/schema";
-import type { DataExample } from "./types/template";
+import {StrictMode} from "react";
+import {createRoot} from "react-dom/client";
+import {SchemaManagerApp} from "./App";
+import {createSchemaManagerStore} from "./store/schemaStore";
+import type {SaveCallbacks, ValidationError} from "./hooks/useDataContractDraft";
+import type {JsonSchema} from "./types/schema";
+import type {DataExample} from "./types/template";
 
 // Import styles
 import "./index.css";

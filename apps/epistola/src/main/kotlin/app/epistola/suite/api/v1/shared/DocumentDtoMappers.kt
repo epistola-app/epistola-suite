@@ -7,7 +7,6 @@ import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
-import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.model.DocumentGenerationItem
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata

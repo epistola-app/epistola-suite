@@ -1,4 +1,4 @@
-import type { ScopeVariable } from "../context/ScopeContext";
+import type {ScopeVariable} from "../context/ScopeContext";
 
 export interface PathInfo {
   path: string;

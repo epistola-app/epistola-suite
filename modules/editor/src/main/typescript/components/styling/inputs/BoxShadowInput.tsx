@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ColorPicker } from "./ColorPicker";
+import {useEffect, useState} from "react";
+import {ColorPicker} from "./ColorPicker";
 
 interface BoxShadowInputProps {
   value: string | undefined;

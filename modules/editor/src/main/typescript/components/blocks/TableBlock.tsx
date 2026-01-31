@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useDroppable } from "@dnd-kit/core";
-import { Settings2 } from "lucide-react";
-import type { TableBlock, TableCell } from "../../types/template";
-import { useEditorStore } from "../../store/editorStore";
-import { BlockRenderer } from "./BlockRenderer";
-import { TableConfigPopup } from "./TableConfigPopup";
-import { BlockHeader } from "./BlockHeader";
-import { Button } from "../ui/button";
+import {useState} from "react";
+import {useDroppable} from "@dnd-kit/core";
+import {Settings2} from "lucide-react";
+import type {TableBlock, TableCell} from "../../types/template";
+import {useEditorStore} from "../../store/editorStore";
+import {BlockRenderer} from "./BlockRenderer";
+import {TableConfigPopup} from "./TableConfigPopup";
+import {BlockHeader} from "./BlockHeader";
+import {Button} from "../ui/button";
 
 interface TableBlockProps {
   block: TableBlock;

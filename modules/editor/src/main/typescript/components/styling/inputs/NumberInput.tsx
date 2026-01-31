@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import type { CSSUnit } from "../../../types/styles";
-import { parseValueWithUnit, formatValueWithUnit } from "../../../types/styles";
+import {useEffect, useState} from "react";
+import type {CSSUnit} from "../../../types/styles";
+import {formatValueWithUnit, parseValueWithUnit} from "../../../types/styles";
 
 interface NumberInputProps {
   value: string | undefined;

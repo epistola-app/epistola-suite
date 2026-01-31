@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook } from "@testing-library/react";
-import { useUndoRedoShortcuts } from "./use-undo-redo-shortcuts";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
+import {renderHook} from "@testing-library/react";
+import {useUndoRedoShortcuts} from "./use-undo-redo-shortcuts";
 import * as editorStore from "../store/editorStore";
 
 // Mock the store functions

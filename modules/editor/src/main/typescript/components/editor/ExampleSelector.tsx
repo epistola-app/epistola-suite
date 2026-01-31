@@ -1,16 +1,9 @@
-import { useCallback, useMemo } from "react";
-import { AlertTriangle } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { DataExample } from "../../types/template";
-import type { JsonObject } from "../../types/template";
-import type { JsonSchema } from "../../types/schema";
-import { validateDataAgainstSchema } from "../../utils/schemaValidation";
+import {useCallback, useMemo} from "react";
+import {AlertTriangle} from "lucide-react";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import type {DataExample, JsonObject} from "../../types/template";
+import type {JsonSchema} from "../../types/schema";
+import {validateDataAgainstSchema} from "../../utils/schemaValidation";
 
 const DEFAULT_EXAMPLE_VALUE = "__default__" as const;
 
