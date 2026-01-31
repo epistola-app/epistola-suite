@@ -4,6 +4,7 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -295,9 +296,10 @@ class DocumentQueriesTest : BaseIntegrationTest() {
             ),
         )!!
 
-        // Generate documents for template1
+        // Generate documents for template1 and track request IDs
+        val requests = mutableListOf<java.util.UUID>()
         (1..2).forEach { i ->
-            mediator.send(
+            val request = mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
                     templateId = template1.id,
@@ -308,10 +310,11 @@ class DocumentQueriesTest : BaseIntegrationTest() {
                     filename = "template1-$i.pdf",
                 ),
             )
+            requests.add(request.id)
         }
 
         // Generate document for template2
-        mediator.send(
+        val request3 = mediator.send(
             GenerateDocument(
                 tenantId = tenant.id,
                 templateId = template2.id,
@@ -322,14 +325,17 @@ class DocumentQueriesTest : BaseIntegrationTest() {
                 filename = "template2.pdf",
             ),
         )
+        requests.add(request3.id)
 
-        // Wait for completion
+        // Wait for all specific jobs to complete
         await()
-            .atMost(15, TimeUnit.SECONDS)
+            .atMost(30, TimeUnit.SECONDS)
             .pollInterval(200, TimeUnit.MILLISECONDS)
             .until {
-                val docs = mediator.query(ListDocuments(tenantId = tenant.id, limit = 10))
-                docs.size >= 3
+                requests.all { requestId ->
+                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
+                    job?.request?.status == RequestStatus.COMPLETED
+                }
             }
 
         // List all documents
