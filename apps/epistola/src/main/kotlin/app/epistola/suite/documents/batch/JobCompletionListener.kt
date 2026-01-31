@@ -14,21 +14,27 @@ import java.util.UUID
  * Updates the generation request with final status and timestamps.
  * Also sets expiration date for cleanup.
  *
- * Must be open for Spring CGLIB proxying (required for @JobScope).
+ * The requestId is extracted from job parameters at runtime, avoiding the need
+ * for @JobScope which can cause proxy resolution issues.
  *
  * @param jdbi JDBI instance for database access
- * @param requestId The generation request ID
  * @param retentionDays Number of days to retain completed jobs
  */
-open class JobCompletionListener(
+class JobCompletionListener(
     private val jdbi: Jdbi,
-    private val requestId: UUID,
     private val retentionDays: Int,
 ) : JobExecutionListener {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private fun getRequestId(jobExecution: JobExecution): UUID {
+        val requestIdStr = jobExecution.jobParameters.getString(DocumentGenerationJobConfig.PARAM_REQUEST_ID)
+            ?: throw IllegalStateException("Job parameter '${DocumentGenerationJobConfig.PARAM_REQUEST_ID}' is required")
+        return UUID.fromString(requestIdStr)
+    }
+
     override fun beforeJob(jobExecution: JobExecution) {
+        val requestId = getRequestId(jobExecution)
         logger.info("Starting document generation job for request: {}", requestId)
 
         // Update request status to IN_PROGRESS
@@ -51,6 +57,7 @@ open class JobCompletionListener(
     }
 
     override fun afterJob(jobExecution: JobExecution) {
+        val requestId = getRequestId(jobExecution)
         val exitStatus = jobExecution.exitStatus.exitCode
         val batchStatus = jobExecution.status
 

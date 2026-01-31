@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.model
 
+import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -32,7 +33,7 @@ data class DocumentGenerationItem(
     val variantId: Long,
     val versionId: Long?,
     val environmentId: Long?,
-    val data: ObjectNode,
+    @Json val data: ObjectNode,
     val filename: String?,
     val status: ItemStatus,
     val errorMessage: String?,

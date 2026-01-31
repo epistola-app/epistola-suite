@@ -27,7 +27,6 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
             println("DEBUG:   - $name: ${handler::class.simpleName}")
         }
 
-
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
         val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!

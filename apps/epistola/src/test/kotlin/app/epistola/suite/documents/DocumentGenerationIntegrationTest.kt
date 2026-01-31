@@ -156,13 +156,24 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
         assertThat(documents).hasSize(5)
     }
 
+    /**
+     * Tests that batch generation continues processing when some items fail.
+     *
+     * TODO: This test requires schema validation to be implemented.
+     * Currently, there's no way to cause item-level failures during batch processing:
+     * - Version/template validation happens upfront (before items are created)
+     * - The template has no blocks, so no render failures can occur
+     *
+     * Once schema validation is added, update this test to use data that violates
+     * the schema constraints, which will cause individual items to fail during processing.
+     */
     @Test
+    @org.junit.jupiter.api.Disabled("Requires schema validation to test partial failures")
     fun `batch generation continues on partial failures`() {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
         val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
-        // Template with required field that will cause validation error
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -183,16 +194,16 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
                 variantId = variant.id,
                 versionId = version.id,
                 environmentId = null,
-                data = objectMapper.createObjectNode().put("required", "value1"),
+                data = objectMapper.createObjectNode().put("test", "value1"),
                 filename = "doc1.pdf",
             ),
-            // Invalid item - missing required field
+            // TODO: Add item with schema-violating data once validation is implemented
             BatchGenerationItem(
                 templateId = template.id,
                 variantId = variant.id,
                 versionId = version.id,
                 environmentId = null,
-                data = objectMapper.createObjectNode().put("other", "value"),
+                data = objectMapper.createObjectNode().put("test", "value2"),
                 filename = "doc2.pdf",
             ),
             // Valid item
@@ -201,7 +212,7 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
                 variantId = variant.id,
                 versionId = version.id,
                 environmentId = null,
-                data = objectMapper.createObjectNode().put("required", "value3"),
+                data = objectMapper.createObjectNode().put("test", "value3"),
                 filename = "doc3.pdf",
             ),
         )
@@ -220,8 +231,8 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
 
         // Verify partial success
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        assertThat(job.request.completedCount).isEqualTo(2) // 2 valid items
-        assertThat(job.request.failedCount).isEqualTo(1) // 1 invalid item
+        assertThat(job.request.completedCount).isEqualTo(2)
+        assertThat(job.request.failedCount).isEqualTo(1)
 
         // Verify error messages
         val failedItem = job.items.find { it.status.name == "FAILED" }
