@@ -1,6 +1,5 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.documents.batch.DocumentGenerationJobConfig
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -9,12 +8,8 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.job.Job
-import org.springframework.batch.core.job.parameters.JobParametersBuilder
-import org.springframework.batch.core.launch.JobLauncher
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
-import java.util.UUID
 
 /**
  * Individual item in a batch generation request.
@@ -52,8 +47,6 @@ data class GenerateDocumentBatch(
 @Component
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
-    private val jobLauncher: JobLauncher,
-    private val documentGenerationJob: Job,
 ) : CommandHandler<GenerateDocumentBatch, DocumentGenerationRequest> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -133,14 +126,14 @@ class GenerateDocumentBatchHandler(
                 }
             }
 
-            // 2. Create generation request
+            // 2. Create generation request (stays in PENDING status for poller to pick up)
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
                     tenant_id, job_type, status, total_count
                 )
                 VALUES (:tenantId, :jobType, :status, :totalCount)
-                RETURNING id, tenant_id, job_type, status, batch_job_execution_id,
+                RETURNING id, tenant_id, job_type, status, claimed_by, claimed_at,
                           total_count, completed_count, failed_count, error_message,
                           created_at, started_at, completed_at, expires_at
                 """,
@@ -179,42 +172,8 @@ class GenerateDocumentBatchHandler(
             val inserted = batch.execute().sum()
             logger.info("Created generation request {} with {} items for tenant {}", request.id, inserted, command.tenantId)
 
-            // 4. Launch Spring Batch job asynchronously
-            launchJob(request.id)
-
+            // Request stays in PENDING status - the JobPoller will pick it up
             request
-        }
-    }
-
-    private fun launchJob(requestId: UUID) {
-        try {
-            val jobParameters = JobParametersBuilder()
-                .addString(DocumentGenerationJobConfig.PARAM_REQUEST_ID, requestId.toString())
-                .addLong("timestamp", System.currentTimeMillis()) // Make parameters unique
-                .toJobParameters()
-
-            // Launch job asynchronously
-            jobLauncher.run(documentGenerationJob, jobParameters)
-
-            logger.info("Launched batch job for request {}", requestId)
-        } catch (e: Exception) {
-            logger.error("Failed to launch batch job for request {}: {}", requestId, e.message, e)
-            // Job launch failure - mark request as FAILED
-            jdbi.useHandle<Exception> { handle ->
-                handle.createUpdate(
-                    """
-                    UPDATE document_generation_requests
-                    SET status = 'FAILED',
-                        error_message = :errorMessage,
-                        completed_at = NOW()
-                    WHERE id = :requestId
-                    """,
-                )
-                    .bind("requestId", requestId)
-                    .bind("errorMessage", "Failed to launch job: ${e.message}")
-                    .execute()
-            }
-            throw e
         }
     }
 }

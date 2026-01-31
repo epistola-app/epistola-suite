@@ -25,8 +25,6 @@ dependencies {
     implementation(project(":modules:rest-api")) // OpenAPI spec and generated server interfaces
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-batch")
-    implementation("org.springframework.boot:spring-boot-starter-batch-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
@@ -53,8 +51,6 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-micrometer-tracing-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-batch-jdbc-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-batch-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
     testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-opentelemetry-test")

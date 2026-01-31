@@ -13,7 +13,8 @@ import java.util.UUID
  * @property tenantId Tenant that submitted this request
  * @property jobType Type of job (SINGLE or BATCH)
  * @property status Current status of the request
- * @property batchJobExecutionId Spring Batch job execution ID (if applicable)
+ * @property claimedBy Instance identifier (hostname-pid) that claimed this job
+ * @property claimedAt When the job was claimed by an instance
  * @property totalCount Total number of items to generate
  * @property completedCount Number of items successfully completed
  * @property failedCount Number of items that failed
@@ -28,7 +29,8 @@ data class DocumentGenerationRequest(
     val tenantId: Long,
     val jobType: JobType,
     val status: RequestStatus,
-    val batchJobExecutionId: Long?,
+    val claimedBy: String?,
+    val claimedAt: OffsetDateTime?,
     val totalCount: Int,
     val completedCount: Int,
     val failedCount: Int,

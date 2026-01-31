@@ -1,95 +1,11 @@
 -- V5: Document Generation Infrastructure
 --
--- This migration adds support for asynchronous document generation using Spring Batch.
+-- This migration adds support for asynchronous document generation.
 -- It includes:
--- - Spring Batch core tables for job execution tracking
 -- - Custom tables for document storage and generation request management
 -- - Multi-tenant support with proper isolation
 -- - BYTEA storage for generated PDFs
-
--- ============================================================================
--- SPRING BATCH CORE TABLES
--- ============================================================================
--- Source: https://github.com/spring-projects/spring-batch/blob/main/spring-batch-core/src/main/resources/org/springframework/batch/core/schema-postgresql.sql
-
-CREATE TABLE BATCH_JOB_INSTANCE (
-    JOB_INSTANCE_ID BIGINT NOT NULL PRIMARY KEY,
-    VERSION BIGINT,
-    JOB_NAME VARCHAR(100) NOT NULL,
-    JOB_KEY VARCHAR(32) NOT NULL,
-    CONSTRAINT JOB_INST_UN UNIQUE (JOB_NAME, JOB_KEY)
-);
-
-CREATE TABLE BATCH_JOB_EXECUTION (
-    JOB_EXECUTION_ID BIGINT NOT NULL PRIMARY KEY,
-    VERSION BIGINT,
-    JOB_INSTANCE_ID BIGINT NOT NULL,
-    CREATE_TIME TIMESTAMP NOT NULL,
-    START_TIME TIMESTAMP DEFAULT NULL,
-    END_TIME TIMESTAMP DEFAULT NULL,
-    STATUS VARCHAR(10),
-    EXIT_CODE VARCHAR(2500),
-    EXIT_MESSAGE VARCHAR(2500),
-    LAST_UPDATED TIMESTAMP,
-    CONSTRAINT JOB_INST_EXEC_FK FOREIGN KEY (JOB_INSTANCE_ID)
-        REFERENCES BATCH_JOB_INSTANCE(JOB_INSTANCE_ID)
-);
-
-CREATE TABLE BATCH_JOB_EXECUTION_PARAMS (
-    JOB_EXECUTION_ID BIGINT NOT NULL,
-    PARAMETER_NAME VARCHAR(100) NOT NULL,
-    PARAMETER_TYPE VARCHAR(100) NOT NULL,
-    PARAMETER_VALUE VARCHAR(2500),
-    IDENTIFYING CHAR(1) NOT NULL,
-    CONSTRAINT JOB_EXEC_PARAMS_FK FOREIGN KEY (JOB_EXECUTION_ID)
-        REFERENCES BATCH_JOB_EXECUTION(JOB_EXECUTION_ID)
-);
-
-CREATE TABLE BATCH_STEP_EXECUTION (
-    STEP_EXECUTION_ID BIGINT NOT NULL PRIMARY KEY,
-    VERSION BIGINT NOT NULL,
-    STEP_NAME VARCHAR(100) NOT NULL,
-    JOB_EXECUTION_ID BIGINT NOT NULL,
-    CREATE_TIME TIMESTAMP NOT NULL,
-    START_TIME TIMESTAMP DEFAULT NULL,
-    END_TIME TIMESTAMP DEFAULT NULL,
-    STATUS VARCHAR(10),
-    COMMIT_COUNT BIGINT,
-    READ_COUNT BIGINT,
-    FILTER_COUNT BIGINT,
-    WRITE_COUNT BIGINT,
-    READ_SKIP_COUNT BIGINT,
-    WRITE_SKIP_COUNT BIGINT,
-    PROCESS_SKIP_COUNT BIGINT,
-    ROLLBACK_COUNT BIGINT,
-    EXIT_CODE VARCHAR(2500),
-    EXIT_MESSAGE VARCHAR(2500),
-    LAST_UPDATED TIMESTAMP,
-    CONSTRAINT JOB_EXEC_STEP_FK FOREIGN KEY (JOB_EXECUTION_ID)
-        REFERENCES BATCH_JOB_EXECUTION(JOB_EXECUTION_ID)
-);
-
-CREATE TABLE BATCH_STEP_EXECUTION_CONTEXT (
-    STEP_EXECUTION_ID BIGINT NOT NULL PRIMARY KEY,
-    SHORT_CONTEXT VARCHAR(2500) NOT NULL,
-    SERIALIZED_CONTEXT TEXT,
-    CONSTRAINT STEP_EXEC_CTX_FK FOREIGN KEY (STEP_EXECUTION_ID)
-        REFERENCES BATCH_STEP_EXECUTION(STEP_EXECUTION_ID)
-);
-
-CREATE TABLE BATCH_JOB_EXECUTION_CONTEXT (
-    JOB_EXECUTION_ID BIGINT NOT NULL PRIMARY KEY,
-    SHORT_CONTEXT VARCHAR(2500) NOT NULL,
-    SERIALIZED_CONTEXT TEXT,
-    CONSTRAINT JOB_EXEC_CTX_FK FOREIGN KEY (JOB_EXECUTION_ID)
-        REFERENCES BATCH_JOB_EXECUTION(JOB_EXECUTION_ID)
-);
-
--- Spring Batch sequences
-CREATE SEQUENCE BATCH_JOB_INSTANCE_SEQ START WITH 0 MINVALUE 0 MAXVALUE 9223372036854775807 NO CYCLE;
-CREATE SEQUENCE BATCH_JOB_EXECUTION_SEQ START WITH 0 MINVALUE 0 MAXVALUE 9223372036854775807 NO CYCLE;
-CREATE SEQUENCE BATCH_STEP_EXECUTION_SEQ START WITH 0 MINVALUE 0 MAXVALUE 9223372036854775807 NO CYCLE;
-CREATE SEQUENCE BATCH_JOB_SEQ START WITH 0 MINVALUE 0 MAXVALUE 9223372036854775807 NO CYCLE;
+-- - Polling-based job execution with instance claiming
 
 -- ============================================================================
 -- APPLICATION TABLES: DOCUMENT STORAGE
@@ -128,7 +44,8 @@ CREATE TABLE document_generation_requests (
     tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     job_type VARCHAR(20) NOT NULL CHECK (job_type IN ('SINGLE', 'BATCH')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
-    batch_job_execution_id BIGINT REFERENCES BATCH_JOB_EXECUTION(JOB_EXECUTION_ID),
+    claimed_by VARCHAR(255),                    -- Instance identifier that claimed this job
+    claimed_at TIMESTAMP WITH TIME ZONE,        -- When the job was claimed
     total_count INTEGER NOT NULL DEFAULT 1,
     completed_count INTEGER NOT NULL DEFAULT 0,
     failed_count INTEGER NOT NULL DEFAULT 0,
@@ -148,8 +65,11 @@ CREATE TABLE document_generation_requests (
 CREATE INDEX idx_generation_requests_tenant_id ON document_generation_requests(tenant_id);
 CREATE INDEX idx_generation_requests_status ON document_generation_requests(status);
 CREATE INDEX idx_generation_requests_expires_at ON document_generation_requests(expires_at) WHERE expires_at IS NOT NULL;
-CREATE INDEX idx_generation_requests_batch_job_execution_id ON document_generation_requests(batch_job_execution_id) WHERE batch_job_execution_id IS NOT NULL;
 CREATE INDEX idx_generation_requests_created_at ON document_generation_requests(created_at DESC);
+
+-- Index for efficient polling: find PENDING requests ordered by creation time
+CREATE INDEX idx_dgr_pending_poll ON document_generation_requests(status, created_at)
+    WHERE status = 'PENDING';
 
 -- ============================================================================
 -- APPLICATION TABLES: BATCH GENERATION ITEMS
@@ -194,6 +114,9 @@ COMMENT ON TABLE document_generation_items IS 'Individual items in a batch gener
 
 COMMENT ON COLUMN documents.content IS 'PDF content stored as BYTEA. Future: migrate to object storage.';
 COMMENT ON COLUMN documents.created_by IS 'User ID from Keycloak. Not yet implemented.';
+
+COMMENT ON COLUMN document_generation_requests.claimed_by IS 'Instance identifier (hostname-pid) that claimed this job for processing.';
+COMMENT ON COLUMN document_generation_requests.claimed_at IS 'Timestamp when the job was claimed. Used for stale job recovery.';
 
 COMMENT ON COLUMN document_generation_items.version_id IS 'Explicit version to use. Mutually exclusive with environment_id.';
 COMMENT ON COLUMN document_generation_items.environment_id IS 'Environment to determine version from. Mutually exclusive with version_id.';

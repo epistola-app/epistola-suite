@@ -5,8 +5,6 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.launch.JobOperator
-import org.springframework.batch.core.repository.explore.JobExplorer
 import org.springframework.stereotype.Component
 import java.util.UUID
 
@@ -24,8 +22,6 @@ data class CancelGenerationJob(
 @Component
 class CancelGenerationJobHandler(
     private val jdbi: Jdbi,
-    private val jobOperator: JobOperator,
-    private val jobExplorer: JobExplorer,
 ) : CommandHandler<CancelGenerationJob, Boolean> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -34,53 +30,34 @@ class CancelGenerationJobHandler(
         logger.info("Cancelling generation job {} for tenant {}", command.requestId, command.tenantId)
 
         return jdbi.inTransaction<Boolean, Exception> { handle ->
-            // 1. Verify request exists and belongs to tenant
-            val requestInfo = handle.createQuery(
+            // 1. Verify request exists and belongs to tenant, and can be cancelled
+            val status = handle.createQuery(
                 """
-                SELECT status, batch_job_execution_id
+                SELECT status
                 FROM document_generation_requests
                 WHERE id = :requestId AND tenant_id = :tenantId
                 """,
             )
                 .bind("requestId", command.requestId)
                 .bind("tenantId", command.tenantId)
-                .map { rs, _ ->
-                    Pair(
-                        RequestStatus.valueOf(rs.getString("status")),
-                        rs.getLong("batch_job_execution_id"),
-                    )
-                }
+                .mapTo(String::class.java)
                 .findOne()
                 .orElse(null)
 
-            if (requestInfo == null) {
+            if (status == null) {
                 logger.warn("Request {} not found for tenant {}", command.requestId, command.tenantId)
                 return@inTransaction false
             }
 
-            val (status, batchJobExecutionId) = requestInfo
+            val requestStatus = RequestStatus.valueOf(status)
 
             // 2. Check if request can be cancelled
-            if (status !in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)) {
-                logger.warn("Request {} cannot be cancelled (status: {})", command.requestId, status)
+            if (requestStatus !in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)) {
+                logger.warn("Request {} cannot be cancelled (status: {})", command.requestId, requestStatus)
                 return@inTransaction false
             }
 
-            // 3. Stop the Spring Batch job if running
-            if (batchJobExecutionId != null && batchJobExecutionId > 0) {
-                try {
-                    val jobExecution = jobExplorer.getJobExecution(batchJobExecutionId)
-                    if (jobExecution != null && jobExecution.isRunning) {
-                        jobOperator.stop(batchJobExecutionId)
-                        logger.info("Stopped batch job execution {}", batchJobExecutionId)
-                    }
-                } catch (e: Exception) {
-                    logger.warn("Failed to stop batch job execution {}: {}", batchJobExecutionId, e.message)
-                    // Continue with cancellation even if job stop fails
-                }
-            }
-
-            // 4. Mark request as cancelled
+            // 3. Mark request as cancelled
             val updated = handle.createUpdate(
                 """
                 UPDATE document_generation_requests
@@ -97,8 +74,8 @@ class CancelGenerationJobHandler(
                 .execute()
 
             if (updated > 0) {
-                // 5. Mark all pending/in-progress items as failed
-                handle.createUpdate(
+                // 4. Mark all pending/in-progress items as failed
+                val failedItems = handle.createUpdate(
                     """
                     UPDATE document_generation_items
                     SET status = 'FAILED',
@@ -111,7 +88,7 @@ class CancelGenerationJobHandler(
                     .bind("requestId", command.requestId)
                     .execute()
 
-                logger.info("Cancelled generation job {}", command.requestId)
+                logger.info("Cancelled generation job {} ({} items marked as failed)", command.requestId, failedItems)
                 true
             } else {
                 logger.warn("Request {} was already completed or cancelled", command.requestId)

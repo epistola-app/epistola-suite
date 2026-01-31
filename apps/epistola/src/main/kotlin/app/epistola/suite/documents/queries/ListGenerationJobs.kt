@@ -31,7 +31,7 @@ class ListGenerationJobsHandler(
     override fun handle(query: ListGenerationJobs): List<DocumentGenerationRequest> = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_id, job_type, status, batch_job_execution_id,
+            SELECT id, tenant_id, job_type, status, claimed_by, claimed_at,
                    total_count, completed_count, failed_count, error_message,
                    created_at, started_at, completed_at, expires_at
             FROM document_generation_requests
