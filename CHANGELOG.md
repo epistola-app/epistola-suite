@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- **Type-safe Scenario DSL for integration tests**: New `scenario {}` DSL with Given-When-Then pattern
+  - Type-safe flow: `given` block returns typed setup data accessible in `whenever` and `then` blocks
+  - Automatic cleanup: `tenant()` helper automatically registers cleanup on scenario completion
+  - Cleaner test setup: Reduced boilerplate from 8+ lines to 5 lines for common document generation setup
+  - Reusable setup data classes: `DocumentSetup` for document generation tests
+  - Helper methods: `tenant()`, `template()`, `variant()`, `version()` for common operations
+  - Coexists with existing `fixture {}` DSL - no breaking changes
+
 ### Changed
 - **Simplified gradlew wrapper**: Replaced traditional Gradle wrapper with mise-aware scripts
   - `gradlew` and `gradlew.bat` now activate mise environment and delegate to mise-managed Gradle

@@ -15,6 +15,7 @@ import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.testing.DocumentSetup
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
@@ -29,76 +30,65 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
     private val objectMapper = ObjectMapper()
 
     @Test
-    fun `generate single document successfully`() {
-        // Create test data
-        val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(tenant.id, "Invoice Template"))
-        val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
-        // Set up template content
-        val templateModel = TestTemplateBuilder.buildMinimal(
-            name = "Invoice Template",
-        )
-        val version = mediator.send(
-            UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
-                templateModel = templateModel,
-            ),
-        )!!
-
-        // Create test data
-        val data: ObjectNode = objectMapper.createObjectNode().apply {
-            putObject("customer").put("name", "John Doe")
-            put("amount", 1000.50)
-        }
-
-        // Generate document
-        val request = mediator.send(
-            GenerateDocument(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
-                versionId = version.id,
-                environmentId = null,
-                data = data,
-                filename = "invoice-001.pdf",
-            ),
-        )
-
-        // Verify request was created
-        assertThat(request.id).isNotNull()
-        assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
-        assertThat(request.totalCount).isEqualTo(1)
-
-        // Wait for job to complete
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job).isNotNull
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+    fun `generate single document successfully`() = scenario {
+        given {
+            val tenant = tenant("Test Tenant")
+            val template = template(tenant.id, "Invoice Template")
+            val variant = variant(tenant.id, template.id, "Default")
+            val templateModel = TestTemplateBuilder.buildMinimal(name = "Invoice Template")
+            val version = version(tenant.id, template.id, variant.id, templateModel)
+            DocumentSetup(tenant, template, variant, version)
+        }.whenever { setup ->
+            val data: ObjectNode = objectMapper.createObjectNode().apply {
+                putObject("customer").put("name", "John Doe")
+                put("amount", 1000.50)
             }
+            execute(
+                GenerateDocument(
+                    tenantId = setup.tenant.id,
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    versionId = setup.version.id,
+                    environmentId = null,
+                    data = data,
+                    filename = "invoice-001.pdf",
+                ),
+            )
+        }.then { setup, request ->
+            // Verify request was created
+            assertThat(request.id).isNotNull()
+            assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
+            assertThat(request.totalCount).isEqualTo(1)
 
-        // Verify job result
-        val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        assertThat(job.request.completedCount).isEqualTo(1)
-        assertThat(job.request.failedCount).isEqualTo(0)
-        assertThat(job.items).hasSize(1)
+            // Wait for job to complete
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
+                .untilAsserted {
+                    val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
+                    assertThat(job).isNotNull
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
 
-        val item = job.items[0]
-        assertThat(item.status.name).isEqualTo("COMPLETED")
-        assertThat(item.documentId).isNotNull()
+            // Verify job result
+            val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.request.completedCount).isEqualTo(1)
+            assertThat(job.request.failedCount).isEqualTo(0)
+            assertThat(job.items).hasSize(1)
 
-        // Verify document was created
-        val document = mediator.query(GetDocument(tenant.id, item.documentId!!))!!
-        assertThat(document.filename).isEqualTo("invoice-001.pdf")
-        assertThat(document.contentType).isEqualTo("application/pdf")
-        assertThat(document.sizeBytes).isGreaterThan(0)
-        assertThat(document.content).isNotEmpty()
-        // Verify it's a PDF by checking the magic bytes (%PDF)
-        assertThat(document.content.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
+            val item = job.items[0]
+            assertThat(item.status.name).isEqualTo("COMPLETED")
+            assertThat(item.documentId).isNotNull()
+
+            // Verify document was created
+            val document = mediator.query(GetDocument(setup.tenant.id, item.documentId!!))!!
+            assertThat(document.filename).isEqualTo("invoice-001.pdf")
+            assertThat(document.contentType).isEqualTo("application/pdf")
+            assertThat(document.sizeBytes).isGreaterThan(0)
+            assertThat(document.content).isNotEmpty()
+            // Verify it's a PDF by checking the magic bytes (%PDF)
+            assertThat(document.content.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
+        }
     }
 
     @Test
@@ -343,58 +333,52 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `delete generated document`() {
-        val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
-        val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
-        val templateModel = TestTemplateBuilder.buildMinimal(
-            name = "Test Template",
-        )
-        val version = mediator.send(
-            UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
-                templateModel = templateModel,
-            ),
-        )!!
+    fun `delete generated document`() = scenario {
+        given {
+            val tenant = tenant("Test Tenant")
+            val template = template(tenant.id, "Test Template")
+            val variant = variant(tenant.id, template.id, "Default")
+            val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
+            val version = version(tenant.id, template.id, variant.id, templateModel)
+            DocumentSetup(tenant, template, variant, version)
+        }.whenever { setup ->
+            // Generate document first
+            val request = execute(
+                GenerateDocument(
+                    tenantId = setup.tenant.id,
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    versionId = setup.version.id,
+                    environmentId = null,
+                    data = objectMapper.createObjectNode().put("test", "value"),
+                    filename = "test.pdf",
+                ),
+            )
 
-        // Generate document
-        val request = mediator.send(
-            GenerateDocument(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
-                versionId = version.id,
-                environmentId = null,
-                data = objectMapper.createObjectNode().put("test", "value"),
-                filename = "test.pdf",
-            ),
-        )
+            // Wait for completion
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
+                .untilAsserted {
+                    val job = query(GetGenerationJob(setup.tenant.id, request.id))
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
 
-        // Wait for completion
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-            }
+            val job = query(GetGenerationJob(setup.tenant.id, request.id))!!
+            job.items[0].documentId!!
+        }.then { setup, documentId ->
+            // Delete document
+            val deleted = mediator.send(DeleteDocument(setup.tenant.id, documentId))
+            assertThat(deleted).isTrue()
 
-        val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        val documentId = job.items[0].documentId!!
+            // Verify document is gone
+            val document = mediator.query(GetDocument(setup.tenant.id, documentId))
+            assertThat(document).isNull()
 
-        // Delete document
-        val deleted = mediator.send(DeleteDocument(tenant.id, documentId))
-        assertThat(deleted).isTrue()
-
-        // Verify document is gone
-        val document = mediator.query(GetDocument(tenant.id, documentId))
-        assertThat(document).isNull()
-
-        // Try to delete again
-        val deletedAgain = mediator.send(DeleteDocument(tenant.id, documentId))
-        assertThat(deletedAgain).isFalse()
+            // Try to delete again
+            val deletedAgain = mediator.send(DeleteDocument(setup.tenant.id, documentId))
+            assertThat(deletedAgain).isFalse()
+        }
     }
 
     @Test
@@ -771,56 +755,52 @@ class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `single document generation with correlationId`() {
-        val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
-        val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
-        val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
-        val version = mediator.send(
-            UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
-                templateModel = templateModel,
-            ),
-        )!!
+    fun `single document generation with correlationId`() = scenario {
+        given {
+            val tenant = tenant("Test Tenant")
+            val template = template(tenant.id, "Test Template")
+            val variant = variant(tenant.id, template.id, "Default")
+            val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
+            val version = version(tenant.id, template.id, variant.id, templateModel)
+            DocumentSetup(tenant, template, variant, version)
+        }.whenever { setup ->
+            execute(
+                GenerateDocument(
+                    tenantId = setup.tenant.id,
+                    templateId = setup.template.id,
+                    variantId = setup.variant.id,
+                    versionId = setup.version.id,
+                    environmentId = null,
+                    data = objectMapper.createObjectNode().put("test", "value"),
+                    filename = "single-doc.pdf",
+                    correlationId = "single-order-789",
+                ),
+            )
+        }.then { setup, request ->
+            // Wait for completion
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .pollInterval(100, TimeUnit.MILLISECONDS)
+                .untilAsserted {
+                    val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
 
-        val request = mediator.send(
-            GenerateDocument(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
-                versionId = version.id,
-                environmentId = null,
-                data = objectMapper.createObjectNode().put("test", "value"),
-                filename = "single-doc.pdf",
-                correlationId = "single-order-789",
-            ),
-        )
+            // Verify correlationId on job item
+            val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
+            assertThat(job.items).hasSize(1)
+            assertThat(job.items[0].correlationId).isEqualTo("single-order-789")
 
-        // Wait for completion
-        await()
-            .atMost(10, TimeUnit.SECONDS)
-            .pollInterval(100, TimeUnit.MILLISECONDS)
-            .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
-            }
-
-        // Verify correlationId on job item
-        val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        assertThat(job.items).hasSize(1)
-        assertThat(job.items[0].correlationId).isEqualTo("single-order-789")
-
-        // Verify correlationId on document
-        val documents = mediator.query(
-            ListDocuments(
-                tenantId = tenant.id,
-                correlationId = "single-order-789",
-            ),
-        )
-        assertThat(documents).hasSize(1)
-        assertThat(documents[0].correlationId).isEqualTo("single-order-789")
-        assertThat(documents[0].filename).isEqualTo("single-doc.pdf")
+            // Verify correlationId on document
+            val documents = mediator.query(
+                ListDocuments(
+                    tenantId = setup.tenant.id,
+                    correlationId = "single-order-789",
+                ),
+            )
+            assertThat(documents).hasSize(1)
+            assertThat(documents[0].correlationId).isEqualTo("single-order-789")
+            assertThat(documents[0].filename).isEqualTo("single-doc.pdf")
+        }
     }
 }

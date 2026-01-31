@@ -7,6 +7,8 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.testing.ScenarioBuilder
+import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
 import org.awaitility.Awaitility.await
@@ -30,9 +32,35 @@ abstract class BaseIntegrationTest {
     @Autowired
     protected lateinit var testFixtureFactory: TestFixtureFactory
 
+    @Autowired
+    protected lateinit var scenarioFactory: ScenarioFactory
+
     private val createdTenants = mutableListOf<Long>()
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(block)
+
+    /**
+     * Creates a test scenario with type-safe Given-When-Then DSL and automatic cleanup.
+     *
+     * Example:
+     * ```kotlin
+     * @Test
+     * fun `generate document successfully`() = scenario {
+     *     given {
+     *         val tenant = tenant("Test Tenant")
+     *         val template = template(tenant.id, "Invoice")
+     *         val variant = variant(tenant.id, template.id)
+     *         val version = version(tenant.id, template.id, variant.id, templateModel)
+     *         DocumentSetup(tenant, template, variant, version)
+     *     }.whenever { setup ->
+     *         execute(GenerateDocument(setup.tenant.id, ...))
+     *     }.then { setup, result ->
+     *         assertThat(result.id).isNotNull()
+     *     }
+     * }
+     * ```
+     */
+    protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(block)
 
     protected fun createTenant(name: String): Tenant {
         val tenant = mediator.send(CreateTenant(name))
