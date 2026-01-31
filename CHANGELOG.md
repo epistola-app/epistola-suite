@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Changed
+- **Simplified gradlew wrapper**: Replaced traditional Gradle wrapper with mise-aware scripts
+  - `gradlew` and `gradlew.bat` now activate mise environment and delegate to mise-managed Gradle
+  - Removed `gradle/wrapper/gradle-wrapper.jar` and `gradle-wrapper.properties`
+  - All tool versions (Java, Gradle, Node, pnpm) defined in single `.mise.toml` file
+  - Works seamlessly in IntelliJ, terminal, and CI (with `jdx/mise-action`)
+  - Prerequisite: mise must be installed (`brew install mise` or see mise.jdx.dev)
+
+### Changed
 - **BREAKING**: Replaced Spring Batch with custom polling-based job executor for document generation
   - Removed Spring Batch dependency and all BATCH_* database tables
   - New architecture uses `SELECT FOR UPDATE SKIP LOCKED` for safe multi-instance job distribution
