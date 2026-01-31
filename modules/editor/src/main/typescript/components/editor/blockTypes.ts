@@ -1,17 +1,17 @@
+import type {LucideIcon} from "lucide-react";
 import {
-  BetweenVerticalStart,
-  CircleQuestionMark,
-  Grid3x3,
-  Minus,
-  PanelBottom,
-  PanelTop,
-  RefreshCcw,
-  Square,
-  TextAlignStart,
+    BetweenVerticalStart,
+    CircleQuestionMark,
+    Grid3x3,
+    Minus,
+    PanelBottom,
+    PanelTop,
+    RefreshCcw,
+    Square,
+    TextAlignStart,
 } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
-import type { Block, TableCell, TextBlock } from "../../types/template";
-import type { LucideIcon } from "lucide-react";
+import {v4 as uuidv4} from "uuid";
+import type {Block, TableCell, TextBlock} from "../../types/template";
 
 export interface BlockTypeConfig {
   type: Block["type"];

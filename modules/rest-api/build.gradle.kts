@@ -35,7 +35,7 @@ val bundleOpenApiSpec by tasks.registering(Exec::class) {
     group = "openapi"
 
     workingDir = rootDir
-    commandLine("pnpm", "--filter", "@epistola/rest-api", "bundle")
+    commandLine(MiseShims.pnpm, "--filter", "@epistola/rest-api", "bundle")
 
     inputs.dir(specDir)
     outputs.file(bundledSpec)
@@ -47,7 +47,7 @@ val lintOpenApiSpec by tasks.registering(Exec::class) {
     group = "openapi"
 
     workingDir = rootDir
-    commandLine("pnpm", "--filter", "@epistola/rest-api", "lint")
+    commandLine(MiseShims.pnpm, "--filter", "@epistola/rest-api", "lint")
 
     inputs.dir(specDir)
 }
@@ -58,7 +58,7 @@ val generateOpenApiDocs by tasks.registering(Exec::class) {
     group = "openapi"
 
     workingDir = rootDir
-    commandLine("pnpm", "--filter", "@epistola/rest-api", "docs")
+    commandLine(MiseShims.pnpm, "--filter", "@epistola/rest-api", "docs")
 
     inputs.dir(specDir)
     outputs.dir(generatedResources)

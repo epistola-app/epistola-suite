@@ -1,29 +1,17 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { javascript } from "@codemirror/lang-javascript";
-import { Wand2, AlertTriangle, Check } from "lucide-react";
+import {javascript} from "@codemirror/lang-javascript";
+import {AlertTriangle, Check, Wand2} from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { SchemaEditor } from "@/components/schema/SchemaEditor";
-import type { DataContractDraft } from "@/hooks/useDataContractDraft";
-import {
-  ValidationMessages,
-  flattenErrorsByExample,
-  type ValidationError,
-} from "@/components/ValidationMessages";
-import { MigrationAssistant } from "@/components/MigrationAssistant";
-import type { JsonObject } from "@/types/template";
-import type { VisualSchema } from "@/types/schema";
-import {
-  jsonSchemaToVisualSchema,
-  visualSchemaToJsonSchema,
-  generateSchemaFromData,
-} from "@/utils/schemaUtils";
-import {
-  detectMigrations,
-  applyAllMigrations,
-  type MigrationSuggestion,
-} from "@/utils/schemaMigration";
+import {Button} from "@/components/ui/button";
+import {SchemaEditor} from "@/components/schema/SchemaEditor";
+import type {DataContractDraft} from "@/hooks/useDataContractDraft";
+import {flattenErrorsByExample, type ValidationError, ValidationMessages,} from "@/components/ValidationMessages";
+import {MigrationAssistant} from "@/components/MigrationAssistant";
+import type {JsonObject} from "@/types/template";
+import type {VisualSchema} from "@/types/schema";
+import {generateSchemaFromData, jsonSchemaToVisualSchema, visualSchemaToJsonSchema,} from "@/utils/schemaUtils";
+import {applyAllMigrations, detectMigrations, type MigrationSuggestion,} from "@/utils/schemaMigration";
 
 interface SchemaSectionProps {
   draft: DataContractDraft;

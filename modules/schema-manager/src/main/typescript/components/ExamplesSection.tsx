@@ -1,29 +1,18 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { javascript } from "@codemirror/lang-javascript";
-import { Plus, Trash2, Check } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
+import {javascript} from "@codemirror/lang-javascript";
+import {Check, Plus, Trash2} from "lucide-react";
+import {v4 as uuidv4} from "uuid";
 
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  type DataContractDraft,
-} from "@/hooks/useDataContractDraft";
-import {
-  ValidationMessages,
-  type ValidationError,
-} from "@/components/ValidationMessages";
-import type { DataExample, JsonObject } from "@/types/template";
-import { JsonObjectSchema } from "@/types/template";
-import { validateDataAgainstSchema } from "@/utils/schemaValidation";
+import {Button} from "@/components/ui/button";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue,} from "@/components/ui/select";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
+import {type DataContractDraft,} from "@/hooks/useDataContractDraft";
+import {type ValidationError, ValidationMessages,} from "@/components/ValidationMessages";
+import type {DataExample, JsonObject} from "@/types/template";
+import {JsonObjectSchema} from "@/types/template";
+import {validateDataAgainstSchema} from "@/utils/schemaValidation";
 
 interface ExamplesSectionProps {
   draft: DataContractDraft;

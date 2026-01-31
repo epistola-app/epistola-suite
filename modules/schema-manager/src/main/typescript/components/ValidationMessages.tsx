@@ -1,5 +1,5 @@
-import { AlertCircle, AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {AlertCircle, AlertTriangle} from "lucide-react";
+import {cn} from "@/lib/utils";
 
 export interface ValidationError {
   path: string;

@@ -1,5 +1,5 @@
-import type { JsonObject, JsonValue } from "../types/template";
-import type { JsonSchema, JsonSchemaProperty } from "../types/schema";
+import type {JsonObject, JsonValue} from "../types/template";
+import type {JsonSchema, JsonSchemaProperty} from "../types/schema";
 
 /**
  * Validation error for a specific path.

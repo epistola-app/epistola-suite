@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { validateDataAgainstSchema, formatValidationErrors } from "./schemaValidation";
-import type { JsonSchema } from "../types/schema";
-import type { JsonObject } from "../types/template";
+import {describe, expect, it} from "vitest";
+import {formatValidationErrors, validateDataAgainstSchema} from "./schemaValidation";
+import type {JsonSchema} from "../types/schema";
+import type {JsonObject} from "../types/template";
 
 describe("validateDataAgainstSchema", () => {
   it("returns valid for null schema", () => {

@@ -1,9 +1,9 @@
-import { useId } from "react";
-import { CircleQuestionMark } from "lucide-react";
-import { useEditorStore } from "@/lib";
-import { Label } from "../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {useId} from "react";
+import {CircleQuestionMark} from "lucide-react";
+import {useEditorStore} from "@/lib";
+import {Label} from "../ui/label";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../ui/select";
+import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 
 export function DocumentPropertiesEditor() {
   const template = useEditorStore((s) => s.template);

@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { Check, X } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
-import { Button } from "../ui/button";
-import type { TableBlock } from "../../types/template";
-import { TableGridDesigner } from "./table-config/TableGridDesigner";
-import { TableSizeControls } from "./table-config/TableSizeControls";
-import { BorderControls } from "./table-config/BorderControls";
-import { CellActionsControls } from "./table-config/CellActionsControls";
-import { useGridSelection } from "./table-config/useGridSelection";
+import {useState} from "react";
+import {Check, X} from "lucide-react";
+import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from "../ui/dialog";
+import {Button} from "../ui/button";
+import type {TableBlock} from "../../types/template";
+import {TableGridDesigner} from "./table-config/TableGridDesigner";
+import {TableSizeControls} from "./table-config/TableSizeControls";
+import {BorderControls} from "./table-config/BorderControls";
+import {CellActionsControls} from "./table-config/CellActionsControls";
+import {useGridSelection} from "./table-config/useGridSelection";
 import {
-  addRow,
-  removeRow,
-  addColumn,
-  removeColumn,
-  mergeCells,
-  splitCell,
-  toggleRowHeader,
+    addColumn,
+    addRow,
+    mergeCells,
+    removeColumn,
+    removeRow,
+    splitCell,
+    toggleRowHeader,
 } from "./table-config/tableConfigUtils";
 
 interface TableConfigPopupProps {

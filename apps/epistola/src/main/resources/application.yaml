@@ -11,6 +11,20 @@ spring:
 epistola:
   demo:
     enabled: true  # Set to false to disable demo loading
+  generation:
+    polling:
+      enabled: true              # Enable polling-based job execution
+      interval-ms: 5000          # Poll every 5 seconds
+      max-concurrent-jobs: 2     # Max jobs per instance
+      stale-timeout-minutes: 10  # Reclaim jobs after 10 min of no progress
+    async:
+      concurrency: 10            # Items processed concurrently per job
+    jobs:
+      retention-days: 7          # Auto-delete completed jobs after 7 days
+      cleanup-cron: "0 0 2 * * ?"  # Run cleanup at 2 AM daily
+    documents:
+      retention-days: 30         # Auto-delete documents after 30 days
+      max-size-mb: 50            # Max document size
 
 management:
   endpoints:

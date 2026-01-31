@@ -1,14 +1,14 @@
-import { useDroppable } from "@dnd-kit/core";
-import { Plus } from "lucide-react";
-import { useId } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { useEditorStore } from "../../store/editorStore";
-import type { Column, ColumnsBlock } from "../../types/template";
-import { Button } from "../ui/button";
-import { Label } from "../ui/label";
-import { Slider } from "../ui/slider";
-import { BlockRenderer } from "./BlockRenderer";
-import { BlockHeader } from "./BlockHeader";
+import {useDroppable} from "@dnd-kit/core";
+import {Plus} from "lucide-react";
+import {useId} from "react";
+import {v4 as uuidv4} from "uuid";
+import {useEditorStore} from "../../store/editorStore";
+import type {Column, ColumnsBlock} from "../../types/template";
+import {Button} from "../ui/button";
+import {Label} from "../ui/label";
+import {Slider} from "../ui/slider";
+import {BlockRenderer} from "./BlockRenderer";
+import {BlockHeader} from "./BlockHeader";
 
 interface ColumnsBlockProps {
   block: ColumnsBlock;

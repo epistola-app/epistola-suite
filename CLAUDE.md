@@ -37,36 +37,39 @@ The frontend uses a **server-side rendering** approach:
 
 ## Build Commands
 
-The build is split into two phases: **frontend (pnpm)** and **backend (Gradle)**.
+**Prerequisite**: [mise](https://mise.jdx.dev/) must be installed. All tool versions (Java, Gradle, Node, pnpm) are managed via `.mise.toml`.
 
 ```bash
+# Install mise-managed tools (first time or after .mise.toml changes)
+mise install
+
 # Frontend build (must run first)
 pnpm install
 pnpm build
 
 # Backend build (requires frontend built first)
-gradle build
+./gradlew build
 
 # Combined build
-pnpm install && pnpm build && gradle build
+pnpm install && pnpm build && ./gradlew build
 
 # Run the application
-gradle :apps:epistola:bootRun
+./gradlew :apps:epistola:bootRun
 
 # Run tests only
-gradle test
+./gradlew test
 
 # Check code style
-gradle ktlintCheck
+./gradlew ktlintCheck
 
 # Auto-fix code style
-gradle ktlintFormat
+./gradlew ktlintFormat
 
 # Build Docker image
-gradle :apps:epistola:bootBuildImage
+./gradlew :apps:epistola:bootBuildImage
 
 # Generate SBOM (Software Bill of Materials)
-gradle :apps:epistola:generateSbom
+./gradlew :apps:epistola:generateSbom
 pnpm --filter @epistola/editor sbom
 ```
 
@@ -76,7 +79,7 @@ For live frontend development with hot reload:
 
 ```bash
 # Terminal 1: Spring Boot with local profile (serves from filesystem)
-gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
+./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'
 
 # Terminal 2: Watch mode (rebuilds dist/ on file changes)
 pnpm --filter @epistola/editor watch
@@ -86,8 +89,8 @@ pnpm --filter @epistola/editor watch
 
 ### Kotlin
 - **Linter**: ktlint (enforced in CI)
-- **Always run `gradle ktlintFormat`** after making Kotlin changes to auto-fix formatting
-- **Always run `gradle ktlintCheck`** before committing to verify code style
+- **Always run `./gradlew ktlintFormat`** after making Kotlin changes to auto-fix formatting
+- **Always run `./gradlew ktlintCheck`** before committing to verify code style
 - EditorConfig is configured for consistent formatting
 
 ### TypeScript (Client Components)
@@ -144,9 +147,9 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 ## When Making Changes
 
 1. **Read existing code first** - Understand patterns before modifying
-2. **Run tests** - `gradle test` before and after changes
-3. **Format code** - `gradle ktlintFormat` after making Kotlin changes
-4. **Check style** - `gradle ktlintCheck` before committing (must pass)
+2. **Run tests** - `./gradlew test` before and after changes
+3. **Format code** - `./gradlew ktlintFormat` after making Kotlin changes
+4. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
 5. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
 6. **Small commits** - Commit logical units of work separately
 

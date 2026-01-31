@@ -1,5 +1,5 @@
-import { v4 as uuidv4 } from "uuid";
-import type { TableBlock, TableRow, TableCell } from "../../../types/template";
+import {v4 as uuidv4} from "uuid";
+import type {TableBlock, TableCell, TableRow} from "../../../types/template";
 
 /**
  * Create an empty table cell

@@ -1,20 +1,20 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { javascript } from "@codemirror/lang-javascript";
-import { autocompletion } from "@codemirror/autocomplete";
-import { keymap, tooltips, EditorView } from "@codemirror/view";
-import { Prec, EditorSelection } from "@codemirror/state";
-import { Check, X, Loader2 } from "lucide-react";
+import {javascript} from "@codemirror/lang-javascript";
+import {autocompletion} from "@codemirror/autocomplete";
+import {EditorView, keymap, tooltips} from "@codemirror/view";
+import {EditorSelection, Prec} from "@codemirror/state";
+import {Check, Loader2, X} from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useEditorStore } from "../../store/editorStore";
-import { useScope } from "../../context/ScopeContext";
-import { useExpressionCompletion } from "../../hooks/use-expression-completion";
-import { expressionTheme } from "../../lib/codemirror/expression-theme";
-import { buildEvaluationContext, formatPreviewValue } from "@/lib/expression-utils";
-import type { ExpressionLanguage } from "@/types/template";
-import { JsonataEvaluator, DirectEvaluator } from "@/services/expression";
+import {Button} from "@/components/ui/button";
+import {cn} from "@/lib/utils";
+import {useEditorStore} from "../../store/editorStore";
+import {useScope} from "../../context/ScopeContext";
+import {useExpressionCompletion} from "../../hooks/use-expression-completion";
+import {expressionTheme} from "../../lib/codemirror/expression-theme";
+import {buildEvaluationContext, formatPreviewValue} from "@/lib/expression-utils";
+import type {ExpressionLanguage} from "@/types/template";
+import {DirectEvaluator, JsonataEvaluator} from "@/services/expression";
 
 interface ExpressionPopoverEditorProps {
   value: string;

@@ -1,22 +1,22 @@
-import { BlockPalette } from "./BlockPalette";
-import { Canvas } from "./Canvas";
-import { PdfPreview } from "./PdfPreview";
-import { ExampleSelector } from "./ExampleSelector";
-import { StyleSidebar } from "../styling";
-import { useEditorStore, useIsDirty, useCanUndo, useCanRedo, undo, redo } from "../../store/editorStore";
-import { useEvaluator } from "../../context/EvaluatorContext";
-import { useUndoRedoShortcuts } from "../../hooks/use-undo-redo-shortcuts";
-import type { EvaluatorType } from "../../services/expression";
-import type { Template } from "../../types/template";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import {BlockPalette} from "./BlockPalette";
+import {Canvas} from "./Canvas";
+import {PdfPreview} from "./PdfPreview";
+import {ExampleSelector} from "./ExampleSelector";
+import {StyleSidebar} from "../styling";
+import {redo, undo, useCanRedo, useCanUndo, useEditorStore, useIsDirty} from "../../store/editorStore";
+import {useEvaluator} from "../../context/EvaluatorContext";
+import {useUndoRedoShortcuts} from "../../hooks/use-undo-redo-shortcuts";
+import type {EvaluatorType} from "../../services/expression";
+import type {Template} from "../../types/template";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../ui/select";
 import SaveButton from "../ui/save-button";
-import { Button } from "../ui/button";
-import { ArrowLeftToLine, Undo2, Redo2 } from "lucide-react";
-import { Separator } from "../ui/separator";
-import { useDefaultLayout } from "react-resizable-panels";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resizable";
-import { type ReactNode, useEffect } from "react";
-import { AutoSave } from "../ui/auto-save";
+import {Button} from "../ui/button";
+import {ArrowLeftToLine, Redo2, Undo2} from "lucide-react";
+import {Separator} from "../ui/separator";
+import {useDefaultLayout} from "react-resizable-panels";
+import {ResizableHandle, ResizablePanel, ResizablePanelGroup} from "../ui/resizable";
+import {type ReactNode, useEffect} from "react";
+import {AutoSave} from "../ui/auto-save";
 
 interface EditorLayoutProps {
   /** When true, hides the internal header (for embedding in parent layout) */

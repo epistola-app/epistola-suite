@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type {CSSProperties} from "react";
 
 // Style categories for UI organization
 export type StyleCategory =

@@ -1,11 +1,11 @@
-import { useState, useCallback } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
-import { SchemaSection } from "@/components/SchemaSection";
-import { ExamplesSection } from "@/components/ExamplesSection";
-import type { createSchemaManagerStore } from "./store/schemaStore";
-import { useDataContractDraft, type SaveCallbacks, type ValidationError } from "./hooks/useDataContractDraft";
+import {useCallback, useState} from "react";
+import {Tabs, TabsContent, TabsList, TabsTrigger} from "@/components/ui/tabs";
+import {Button} from "@/components/ui/button";
+import {AlertTriangle} from "lucide-react";
+import {SchemaSection} from "@/components/SchemaSection";
+import {ExamplesSection} from "@/components/ExamplesSection";
+import type {createSchemaManagerStore} from "./store/schemaStore";
+import {type SaveCallbacks, useDataContractDraft, type ValidationError} from "./hooks/useDataContractDraft";
 
 export interface SchemaManagerProps {
   store: ReturnType<typeof createSchemaManagerStore>;

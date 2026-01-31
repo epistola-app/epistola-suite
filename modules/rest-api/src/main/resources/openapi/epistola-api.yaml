@@ -10,6 +10,9 @@ info:
   version: 1.0.0
   contact:
     name: Epistola Team
+  license:
+    name: EUPL-1.2
+    identifier: EUPL-1.2
 
 servers:
   - url: /api
@@ -26,6 +29,8 @@ tags:
     description: Template variant operations (language, brand variations)
   - name: Versions
     description: Template version lifecycle (draft, publish, archive)
+  - name: Generation
+    description: Asynchronous document generation operations
 
 paths:
   # Tenants
@@ -69,6 +74,20 @@ paths:
     $ref: './paths/versions.yaml#/version-publish'
   /v1/tenants/{tenantId}/templates/{templateId}/variants/{variantId}/versions/{versionId}/archive:
     $ref: './paths/versions.yaml#/version-archive'
+
+  # Document Generation
+  /v1/tenants/{tenantId}/documents/generate:
+    $ref: './paths/generation.yaml#/generate-document'
+  /v1/tenants/{tenantId}/documents/generate/batch:
+    $ref: './paths/generation.yaml#/generate-batch'
+  /v1/tenants/{tenantId}/documents/jobs:
+    $ref: './paths/generation.yaml#/jobs'
+  /v1/tenants/{tenantId}/documents/jobs/{requestId}:
+    $ref: './paths/generation.yaml#/job-detail'
+  /v1/tenants/{tenantId}/documents:
+    $ref: './paths/generation.yaml#/documents'
+  /v1/tenants/{tenantId}/documents/{documentId}:
+    $ref: './paths/generation.yaml#/document-detail'
 
 components:
   schemas:
@@ -133,6 +152,28 @@ components:
       $ref: './components/schemas/versions.yaml#/UpdateDraftRequest'
     VersionListResponse:
       $ref: './components/schemas/versions.yaml#/VersionListResponse'
+
+    # Generation schemas
+    GenerateDocumentRequest:
+      $ref: './components/schemas/generation.yaml#/GenerateDocumentRequest'
+    BatchGenerationItem:
+      $ref: './components/schemas/generation.yaml#/BatchGenerationItem'
+    GenerateBatchRequest:
+      $ref: './components/schemas/generation.yaml#/GenerateBatchRequest'
+    GenerationJobResponse:
+      $ref: './components/schemas/generation.yaml#/GenerationJobResponse'
+    DocumentGenerationItemDto:
+      $ref: './components/schemas/generation.yaml#/DocumentGenerationItemDto'
+    DocumentGenerationJobDto:
+      $ref: './components/schemas/generation.yaml#/DocumentGenerationJobDto'
+    GenerationJobDetail:
+      $ref: './components/schemas/generation.yaml#/GenerationJobDetail'
+    GenerationJobListResponse:
+      $ref: './components/schemas/generation.yaml#/GenerationJobListResponse'
+    DocumentDto:
+      $ref: './components/schemas/generation.yaml#/DocumentDto'
+    DocumentListResponse:
+      $ref: './components/schemas/generation.yaml#/DocumentListResponse'
 
     # Error schemas
     ErrorResponse:

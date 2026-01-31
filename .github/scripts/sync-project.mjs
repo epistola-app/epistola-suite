@@ -12,9 +12,9 @@
  * @see https://docs.github.com/en/issues/planning-and-tracking-with-projects
  */
 
-import { readFileSync } from 'fs';
-import { execSync } from 'child_process';
-import { parse } from 'yaml';
+import {readFileSync} from 'fs';
+import {execSync} from 'child_process';
+import {parse} from 'yaml';
 
 // =============================================================================
 // Configuration

@@ -1,0 +1,11 @@
+epistola:
+  demo:
+    enabled: false  # Disable demo loading in tests
+  generation:
+    polling:
+      enabled: true
+      interval-ms: 500          # Fast polling for tests (every 500ms)
+      max-concurrent-jobs: 5    # Allow more concurrent jobs in tests
+      stale-timeout-minutes: 1  # Short timeout for tests
+    async:
+      concurrency: 20           # Higher concurrency for tests

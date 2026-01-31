@@ -1,13 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
-import type { ReactNode } from "react";
-import type {
-  ExpressionEvaluator,
-  EvaluationContext,
-  EvaluationResult,
-  EvaluatorType,
-} from "../services/expression";
-import { DirectEvaluator, IframeEvaluator, JsonataEvaluator } from "../services/expression";
-import type { ExpressionLanguage } from "../types/template";
+import type {ReactNode} from "react";
+import {createContext, useCallback, useContext, useEffect, useMemo, useState} from "react";
+import type {EvaluationContext, EvaluationResult, EvaluatorType, ExpressionEvaluator,} from "../services/expression";
+import {DirectEvaluator, IframeEvaluator, JsonataEvaluator} from "../services/expression";
+import type {ExpressionLanguage} from "../types/template";
 
 interface EvaluatorContextValue {
   /** The current evaluator instance */

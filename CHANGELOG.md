@@ -3,16 +3,60 @@
 ## [Unreleased]
 
 ### Changed
+- **Simplified gradlew wrapper**: Replaced traditional Gradle wrapper with mise-aware scripts
+  - `gradlew` and `gradlew.bat` now activate mise environment and delegate to mise-managed Gradle
+  - Removed `gradle/wrapper/gradle-wrapper.jar` and `gradle-wrapper.properties`
+  - All tool versions (Java, Gradle, Node, pnpm) defined in single `.mise.toml` file
+  - Works seamlessly in IntelliJ, terminal, and CI (with `jdx/mise-action`)
+  - Prerequisite: mise must be installed (`brew install mise` or see mise.jdx.dev)
 
-- **OpenSpec Migration**: Updated to new OPSX workflow structure
-  - Migrated from legacy commands (`/openspec:proposal`, `/openspec:apply`, `/openspec:archive`) to new OPSX commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:apply`, `/opsx:verify`, `/opsx:sync`, `/opsx:archive`, `/opsx:bulk-archive`, `/opsx:explore`)
-  - Replaced `.claude/commands/openspec/` with `.claude/skills/openspec-*/` skill structure
-  - Created `openspec/config.yaml` for context injection (replaces passive `project.md` approach)
-  - Removed `openspec/AGENTS.md` and OpenSpec marker blocks from documentation
-  - New workflow supports flexible, action-based development instead of rigid phase-locked process
+### Changed
+- **BREAKING**: Replaced Spring Batch with custom polling-based job executor for document generation
+  - Removed Spring Batch dependency and all BATCH_* database tables
+  - New architecture uses `SELECT FOR UPDATE SKIP LOCKED` for safe multi-instance job distribution
+  - Jobs execute on virtual threads for non-blocking, high-concurrency processing
+  - Added `JobPoller` for scheduled polling and claiming of pending jobs
+  - Added `DocumentGenerationExecutor` for concurrent item processing within jobs
+  - Added `StaleJobRecovery` for recovering jobs from crashed instances
+  - Database schema changes: replaced `batch_job_execution_id` with `claimed_by` and `claimed_at` columns
+  - Simpler architecture: 3 classes vs 6 classes + Spring Batch config
+  - No external framework abstractions - plain Kotlin with virtual threads
+  - Configurable via `epistola.generation.polling.*` properties:
+    - `interval-ms`: Polling interval (default: 5000ms)
+    - `max-concurrent-jobs`: Max jobs per instance (default: 2)
+    - `stale-timeout-minutes`: Timeout before reclaiming stale jobs (default: 10 min)
 
 ### Added
-
+- **Correlation ID Support for Document Generation**: Client-provided tracking IDs for documents
+    - Added optional `correlationId` field (max 255 chars) to generation requests
+    - `correlationId` is stored in both generation items and resulting documents
+    - Query documents by `correlationId` using `GET /documents?correlationId=X`
+    - Batch validation: rejects requests with duplicate `correlationId` values (null excluded)
+    - Batch validation: rejects requests with duplicate `filename` values (null excluded)
+    - Clear error messages identify which values are duplicated
+- **Comprehensive Document Generation Test Suite**: Complete integration and unit tests for document generation API
+    - Integration tests for single and batch document generation
+    - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument
+    - Query tests for GetDocument, ListDocuments, GetGenerationJob, ListGenerationJobs
+    - Test utilities: TestTemplateBuilder for minimal TemplateModel construction
+    - Multi-tenant isolation verification tests
+    - Partial failure handling in batch processing
+    - Job cancellation and document deletion workflows
+    - PDF content validation (magic bytes verification)
+    - All tests compile successfully with proper error handling
+- **Asynchronous Document Generation API**: Comprehensive async document generation system
+    - Single document generation with immediate job ID response (202 Accepted)
+    - Batch document generation supporting multiple documents in one request
+    - Job status tracking with real-time progress monitoring
+    - Document download and listing endpoints
+    - Job cancellation for pending/in-progress jobs
+    - Automatic cleanup of expired jobs and old documents
+    - PostgreSQL BYTEA storage for generated PDFs (future migration path to S3/MinIO)
+    - Polling-based job execution with virtual threads for high concurrency
+    - Fault tolerance: batch processing continues on partial failures
+    - Multi-tenant isolation with proper security
+    - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
+    - Configurable retention: jobs (7 days), documents (30 days)
 - **Undo/Redo in Template Editor**: Full history management for structural and text changes
   - Zustand store integration using zundo temporal middleware
   - Tracks template changes (blocks, styles) with 100-entry history limit
@@ -46,6 +90,12 @@
 
 ### Changed
 
+- **OpenSpec Migration**: Updated to new OPSX workflow structure
+    - Migrated from legacy commands (`/openspec:proposal`, `/openspec:apply`, `/openspec:archive`) to new OPSX commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:apply`, `/opsx:verify`, `/opsx:sync`, `/opsx:archive`, `/opsx:bulk-archive`, `/opsx:explore`)
+    - Replaced `.claude/commands/openspec/` with `.claude/skills/openspec-*/` skill structure
+    - Created `openspec/config.yaml` for context injection (replaces passive `project.md` approach)
+    - Removed `openspec/AGENTS.md` and OpenSpec marker blocks from documentation
+    - New workflow supports flexible, action-based development instead of rigid phase-locked process
 - **BREAKING**: Reorganized template-related packages into aggregate root structure
   - Moved `variants/` package into `templates/commands/variants/` and `templates/queries/variants/`
   - Moved `versions/` package into `templates/commands/versions/` and `templates/queries/versions/`

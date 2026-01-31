@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { analyzeSchemaImpact, detectRemovedPaths, getExpressionCoverage } from "./impactAnalysis";
-import type { VisualSchema } from "../types/schema";
+import {describe, expect, it} from "vitest";
+import {analyzeSchemaImpact, detectRemovedPaths, getExpressionCoverage} from "./impactAnalysis";
+import type {VisualSchema} from "../types/schema";
 
 describe("analyzeSchemaImpact", () => {
   it("returns no issues when all expressions match schema", () => {

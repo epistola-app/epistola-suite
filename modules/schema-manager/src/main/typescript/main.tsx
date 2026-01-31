@@ -1,8 +1,8 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { SchemaManagerApp } from "./App";
-import { createSchemaManagerStore } from "./store/schemaStore";
-import type { SaveCallbacks } from "./hooks/useDataContractDraft";
+import {StrictMode} from "react";
+import {createRoot} from "react-dom/client";
+import {SchemaManagerApp} from "./App";
+import {createSchemaManagerStore} from "./store/schemaStore";
+import type {SaveCallbacks} from "./hooks/useDataContractDraft";
 
 import "./index.css";
 

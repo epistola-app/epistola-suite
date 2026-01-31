@@ -1,6 +1,6 @@
-import type { JSONContent } from "@tiptap/react";
-import type { CSSProperties } from "react";
-import { z } from "zod";
+import type {JSONContent} from "@tiptap/react";
+import type {CSSProperties} from "react";
+import {z} from "zod";
 
 export interface Template {
   id: string;

@@ -1,13 +1,13 @@
-import { Node, mergeAttributes, nodeInputRule } from "@tiptap/core";
-import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
-import type { NodeViewProps } from "@tiptap/react";
-import { useState, useEffect } from "react";
-import { useEditorStore } from "../../store/editorStore";
-import { useScope } from "../../context/ScopeContext";
-import { useEvaluator } from "../../context/EvaluatorContext";
-import { ExpressionPopoverEditor } from "./ExpressionPopoverEditor";
-import { buildEvaluationContext } from "@/lib/expression-utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {mergeAttributes, Node, nodeInputRule} from "@tiptap/core";
+import type {NodeViewProps} from "@tiptap/react";
+import {NodeViewWrapper, ReactNodeViewRenderer} from "@tiptap/react";
+import {useEffect, useState} from "react";
+import {useEditorStore} from "../../store/editorStore";
+import {useScope} from "../../context/ScopeContext";
+import {useEvaluator} from "../../context/EvaluatorContext";
+import {ExpressionPopoverEditor} from "./ExpressionPopoverEditor";
+import {buildEvaluationContext} from "@/lib/expression-utils";
+import {Popover, PopoverContent, PopoverTrigger} from "@/components/ui/popover";
 
 // Format value for display
 function formatDisplayValue(value: unknown, expr: string): string {

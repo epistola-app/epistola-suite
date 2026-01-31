@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui/button";
-import { useEditorStore, useIsDirty, type Template } from "@/lib";
-import { cn } from "@/lib/utils";
-import { CircleAlert, CircleCheck, LoaderCircleIcon, Save } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {Button} from "@/components/ui/button";
+import {type Template, useEditorStore, useIsDirty} from "@/lib";
+import {cn} from "@/lib/utils";
+import {CircleAlert, CircleCheck, LoaderCircleIcon, Save} from "lucide-react";
+import {useCallback, useEffect, useState} from "react";
 
 interface SaveButtonProps {
   onSave: ((template: Template) => void | Promise<void>) | undefined;

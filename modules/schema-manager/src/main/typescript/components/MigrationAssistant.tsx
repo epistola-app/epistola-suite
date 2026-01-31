@@ -1,15 +1,15 @@
-import { useState, useEffect } from "react";
-import { AlertTriangle, Check, X, Wand2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {useEffect, useState} from "react";
+import {AlertTriangle, Check, Wand2, X} from "lucide-react";
+import {Button} from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from "@/components/ui/dialog";
-import type { MigrationSuggestion } from "@/utils/schemaMigration";
+import type {MigrationSuggestion} from "@/utils/schemaMigration";
 
 interface MigrationAssistantProps {
   open: boolean;

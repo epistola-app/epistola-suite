@@ -1,14 +1,14 @@
-import { useId } from "react";
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Palette, Type } from "lucide-react";
-import { useEditorStore } from "../../store/editorStore";
-import { FONT_FAMILIES, FONT_WEIGHTS, UNIT_PRESETS } from "../../types/styles";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
-import { Button } from "../ui/button";
-import { ButtonGroup } from "../ui/button-group";
-import { ColorInput } from "../ui/color-input";
-import { Label } from "../ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { UnitInput } from "../ui/unit-input";
+import {useId} from "react";
+import {AlignCenter, AlignJustify, AlignLeft, AlignRight, Palette, Type} from "lucide-react";
+import {useEditorStore} from "../../store/editorStore";
+import {FONT_FAMILIES, FONT_WEIGHTS, UNIT_PRESETS} from "../../types/styles";
+import {Accordion, AccordionContent, AccordionItem, AccordionTrigger} from "../ui/accordion";
+import {Button} from "../ui/button";
+import {ButtonGroup} from "../ui/button-group";
+import {ColorInput} from "../ui/color-input";
+import {Label} from "../ui/label";
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "../ui/select";
+import {UnitInput} from "../ui/unit-input";
 
 export function DocumentStyleEditor() {
   const documentStyles = useEditorStore((s) => s.template.documentStyles);

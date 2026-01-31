@@ -1,13 +1,13 @@
-import { v4 as uuidv4 } from "uuid";
+import {v4 as uuidv4} from "uuid";
 import type {
-  SchemaField,
-  SchemaFieldType,
-  SchemaFieldUpdate,
-  VisualSchema,
-  JsonSchema,
-  JsonSchemaProperty,
+    JsonSchema,
+    JsonSchemaProperty,
+    SchemaField,
+    SchemaFieldType,
+    SchemaFieldUpdate,
+    VisualSchema,
 } from "../types/schema";
-import type { JsonObject, JsonValue } from "../types/template";
+import type {JsonObject, JsonValue} from "../types/template";
 
 /**
  * Convert a visual schema to JSON Schema format.

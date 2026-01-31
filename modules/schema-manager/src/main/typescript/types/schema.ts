@@ -3,7 +3,7 @@
  * Supports common JSON Schema types with visual editing.
  * Uses Zod for schema definition and runtime validation.
  */
-import { z } from "zod";
+import {z} from "zod";
 
 // =============================================================================
 // Field Type Schemas

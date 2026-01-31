@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { createExpressionCompletionSource } from "./use-expression-completion";
-import type { ScopeVariable } from "../context/ScopeContext";
-import { Text } from "@codemirror/state";
+import {describe, expect, it} from "vitest";
+import {createExpressionCompletionSource} from "./use-expression-completion";
+import type {ScopeVariable} from "../context/ScopeContext";
+import {Text} from "@codemirror/state";
 
 // Helper to create a mock CompletionContext
 function createMockContext(text: string, cursorPos?: number) {

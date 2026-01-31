@@ -1,19 +1,19 @@
-import { useDraggable } from "@dnd-kit/core";
-import { Box, ChevronDown, Loader2, Wrench } from "lucide-react";
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence, type Transition } from "motion/react";
-import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {useDraggable} from "@dnd-kit/core";
+import type {LucideIcon} from "lucide-react";
+import {Box, ChevronDown, Loader2, Wrench} from "lucide-react";
+import {useEffect, useState} from "react";
+import {AnimatePresence, motion, type Transition} from "motion/react";
+import {cn} from "@/lib/utils";
+import {Button} from "../ui/button";
+import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContents,
-  TabsContent,
+    Tabs,
+    TabsContent,
+    TabsContents,
+    TabsList,
+    TabsTrigger,
 } from "@/components/ui/animate-ui/components/radix/tabs";
-import { blockTypes, type BlockTypeConfig } from "./blockTypes";
-import type { LucideIcon } from "lucide-react";
+import {type BlockTypeConfig, blockTypes} from "./blockTypes";
 
 // Storage key for persisting collapsed state
 const STORAGE_KEY = "blockPalette-collapsed";

@@ -1,20 +1,13 @@
-import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
-import { temporal } from "zundo";
-import { useStoreWithEqualityFn } from "zustand/traditional";
-import type { TemporalState } from "zundo";
-import type {
-  Template,
-  Block,
-  PreviewOverrides,
-  DocumentStyles,
-  PageSettings,
-  DataExample,
-} from "../types/template";
-import { DataExampleSchema } from "../types/template";
-import type { JsonSchema } from "../types/schema";
-import { JsonSchemaSchema } from "../types/schema";
-import { v4 as uuidv4 } from "uuid";
+import {create} from "zustand";
+import {immer} from "zustand/middleware/immer";
+import type {TemporalState} from "zundo";
+import {temporal} from "zundo";
+import {useStoreWithEqualityFn} from "zustand/traditional";
+import type {Block, DataExample, DocumentStyles, PageSettings, PreviewOverrides, Template,} from "../types/template";
+import {DataExampleSchema} from "../types/template";
+import type {JsonSchema} from "../types/schema";
+import {JsonSchemaSchema} from "../types/schema";
+import {v4 as uuidv4} from "uuid";
 
 // Debounce utility for handleSet
 function debounce<T extends (...args: Parameters<T>) => void>(

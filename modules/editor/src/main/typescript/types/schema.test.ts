@@ -1,14 +1,14 @@
-import { describe, it, expect } from "vitest";
+import {describe, expect, it} from "vitest";
 import {
-  SchemaFieldTypeSchema,
-  PrimitiveFieldTypeSchema,
-  PrimitiveFieldSchema,
-  SchemaFieldSchema,
-  SchemaFieldUpdateSchema,
-  VisualSchemaSchema,
-  JsonSchemaPropertySchema,
-  JsonSchemaSchema,
-  SchemaIssueSchema,
+    JsonSchemaPropertySchema,
+    JsonSchemaSchema,
+    PrimitiveFieldSchema,
+    PrimitiveFieldTypeSchema,
+    SchemaFieldSchema,
+    SchemaFieldTypeSchema,
+    SchemaFieldUpdateSchema,
+    SchemaIssueSchema,
+    VisualSchemaSchema,
 } from "./schema";
 
 describe("SchemaFieldTypeSchema", () => {

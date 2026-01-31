@@ -1,4 +1,4 @@
-import { z } from "zod";
+import {z} from "zod";
 
 // JSON types (matches ObjectNode on backend)
 export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>

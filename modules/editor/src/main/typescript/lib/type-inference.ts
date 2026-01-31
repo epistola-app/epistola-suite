@@ -1,4 +1,4 @@
-import type { ScopeVariable } from "../context/ScopeContext";
+import type {ScopeVariable} from "../context/ScopeContext";
 
 /**
  * Inferred type from runtime value inspection.

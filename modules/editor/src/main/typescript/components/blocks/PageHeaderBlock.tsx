@@ -1,7 +1,7 @@
-import { useDroppable } from "@dnd-kit/core";
-import type { PageHeaderBlock } from "../../types/template";
-import { BlockRenderer } from "./BlockRenderer";
-import { BlockHeader } from "./BlockHeader";
+import {useDroppable} from "@dnd-kit/core";
+import type {PageHeaderBlock} from "../../types/template";
+import {BlockRenderer} from "./BlockRenderer";
+import {BlockHeader} from "./BlockHeader";
 
 interface PageHeaderBlockProps {
   block: PageHeaderBlock;

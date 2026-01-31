@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { detectMigrations, applyMigration, applyAllMigrations } from "./schemaMigration";
-import type { DataExample, JsonObject } from "../types/template";
-import type { JsonSchema } from "../types/schema";
+import {describe, expect, it} from "vitest";
+import {applyAllMigrations, applyMigration, detectMigrations} from "./schemaMigration";
+import type {DataExample, JsonObject} from "../types/template";
+import type {JsonSchema} from "../types/schema";
 
 describe("detectMigrations", () => {
   it("returns compatible when schema is null", () => {

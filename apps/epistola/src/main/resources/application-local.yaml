@@ -6,7 +6,7 @@ spring:
 
   batch:
     job:
-      enabled: false # disabled until necessary
+      enabled: true # enabled for async document generation
   devtools:
     restart:
       enabled: true

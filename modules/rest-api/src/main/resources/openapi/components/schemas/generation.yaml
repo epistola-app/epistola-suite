@@ -1,0 +1,362 @@
+# Document Generation Schemas
+
+GenerateDocumentRequest:
+  type: object
+  description: Request to generate a single document
+  required:
+    - templateId
+    - variantId
+    - data
+  properties:
+    templateId:
+      type: integer
+      format: int64
+      description: Template to use for generation
+    variantId:
+      type: integer
+      format: int64
+      description: Variant of the template to use
+    versionId:
+      type: [integer, "null"]
+      format: int64
+      description: Explicit version ID (mutually exclusive with environmentId)
+    environmentId:
+      type: [integer, "null"]
+      format: int64
+      description: Environment to determine version from (mutually exclusive with versionId)
+    data:
+      type: object
+      description: JSON data to populate the template
+      additionalProperties: true
+    filename:
+      type: [string, "null"]
+      description: Optional filename for the generated document
+      maxLength: 255
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems
+      maxLength: 255
+
+BatchGenerationItem:
+  type: object
+  description: Single item in a batch generation request. Both correlationId and filename must be unique within a batch (null values are excluded from uniqueness checks).
+  required:
+    - templateId
+    - variantId
+    - data
+  properties:
+    templateId:
+      type: integer
+      format: int64
+      description: Template to use for generation
+    variantId:
+      type: integer
+      format: int64
+      description: Variant of the template to use
+    versionId:
+      type: [integer, "null"]
+      format: int64
+      description: Explicit version ID (mutually exclusive with environmentId)
+    environmentId:
+      type: [integer, "null"]
+      format: int64
+      description: Environment to determine version from (mutually exclusive with versionId)
+    data:
+      type: object
+      description: JSON data to populate the template
+      additionalProperties: true
+    filename:
+      type: [string, "null"]
+      description: Optional filename for the generated document. Must be unique within a batch.
+      maxLength: 255
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems. Must be unique within a batch.
+      maxLength: 255
+
+GenerateBatchRequest:
+  type: object
+  description: Request to generate multiple documents in a batch
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of items to generate
+      minItems: 1
+      items:
+        $ref: '#/BatchGenerationItem'
+
+GenerationJobResponse:
+  type: object
+  description: Response when submitting a generation request
+  required:
+    - requestId
+    - status
+    - jobType
+    - totalCount
+    - createdAt
+  properties:
+    requestId:
+      type: string
+      format: uuid
+      description: Unique identifier for tracking this generation request
+    status:
+      type: string
+      enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED]
+      description: Current status of the request
+    jobType:
+      type: string
+      enum: [SINGLE, BATCH]
+      description: Type of generation job
+    totalCount:
+      type: integer
+      description: Total number of items to generate
+    createdAt:
+      type: string
+      format: date-time
+      description: When the request was created
+
+DocumentGenerationItemDto:
+  type: object
+  description: Individual item in a generation batch
+  required:
+    - id
+    - templateId
+    - variantId
+    - data
+    - status
+    - createdAt
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier of this item
+    templateId:
+      type: integer
+      format: int64
+      description: Template used for generation
+    variantId:
+      type: integer
+      format: int64
+      description: Variant used for generation
+    versionId:
+      type: [integer, "null"]
+      format: int64
+      description: Explicit version ID (if specified)
+    environmentId:
+      type: [integer, "null"]
+      format: int64
+      description: Environment ID (if specified)
+    data:
+      type: object
+      description: JSON data used for generation
+      additionalProperties: true
+    filename:
+      type: [string, "null"]
+      description: Requested filename
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems
+    status:
+      type: string
+      enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED]
+      description: Status of this item
+    errorMessage:
+      type: [string, "null"]
+      description: Error message if processing failed
+    documentId:
+      type: [integer, "null"]
+      format: int64
+      description: ID of the generated document (if successful)
+    createdAt:
+      type: string
+      format: date-time
+      description: When the item was created
+    startedAt:
+      type: [string, "null"]
+      format: date-time
+      description: When processing started
+    completedAt:
+      type: [string, "null"]
+      format: date-time
+      description: When processing completed
+
+DocumentGenerationJobDto:
+  type: object
+  description: Generation job summary
+  required:
+    - id
+    - jobType
+    - status
+    - totalCount
+    - completedCount
+    - failedCount
+    - createdAt
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier of the request
+    jobType:
+      type: string
+      enum: [SINGLE, BATCH]
+      description: Type of generation job
+    status:
+      type: string
+      enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED, CANCELLED]
+      description: Current status of the request
+    totalCount:
+      type: integer
+      description: Total number of items to generate
+    completedCount:
+      type: integer
+      description: Number of items successfully completed
+    failedCount:
+      type: integer
+      description: Number of items that failed
+    errorMessage:
+      type: [string, "null"]
+      description: Error message if the job failed
+    createdAt:
+      type: string
+      format: date-time
+      description: When the request was created
+    startedAt:
+      type: [string, "null"]
+      format: date-time
+      description: When processing started
+    completedAt:
+      type: [string, "null"]
+      format: date-time
+      description: When processing completed
+    progressPercentage:
+      type: number
+      format: double
+      description: Progress percentage (0-100)
+
+GenerationJobDetail:
+  type: object
+  description: Detailed generation job with all items
+  required:
+    - request
+    - items
+  properties:
+    request:
+      $ref: '#/DocumentGenerationJobDto'
+    items:
+      type: array
+      description: List of items in this batch
+      items:
+        $ref: '#/DocumentGenerationItemDto'
+
+GenerationJobListResponse:
+  type: object
+  description: Paginated list of generation jobs
+  required:
+    - items
+    - page
+    - size
+    - totalElements
+    - totalPages
+  properties:
+    items:
+      type: array
+      description: List of generation jobs on this page
+      items:
+        $ref: '#/DocumentGenerationJobDto'
+    page:
+      type: integer
+      description: Current page number (0-based)
+    size:
+      type: integer
+      description: Number of items per page
+    totalElements:
+      type: integer
+      description: Total number of items across all pages
+    totalPages:
+      type: integer
+      description: Total number of pages
+
+DocumentDto:
+  type: object
+  description: Generated document metadata
+  required:
+    - id
+    - tenantId
+    - templateId
+    - variantId
+    - versionId
+    - filename
+    - contentType
+    - sizeBytes
+    - createdAt
+  properties:
+    id:
+      type: integer
+      format: int64
+      description: Unique identifier of the document
+    tenantId:
+      type: integer
+      format: int64
+      description: Tenant that owns this document
+    templateId:
+      type: integer
+      format: int64
+      description: Template used to generate this document
+    variantId:
+      type: integer
+      format: int64
+      description: Variant used to generate this document
+    versionId:
+      type: integer
+      format: int64
+      description: Version used to generate this document
+    filename:
+      type: string
+      description: Filename of the document
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems
+    contentType:
+      type: string
+      description: MIME type of the document
+    sizeBytes:
+      type: integer
+      format: int64
+      description: Size of the document in bytes
+    createdAt:
+      type: string
+      format: date-time
+      description: When the document was generated
+    createdBy:
+      type: [string, "null"]
+      description: User who generated the document (future feature)
+
+DocumentListResponse:
+  type: object
+  description: Paginated list of documents
+  required:
+    - items
+    - page
+    - size
+    - totalElements
+    - totalPages
+  properties:
+    items:
+      type: array
+      description: List of documents on this page
+      items:
+        $ref: '#/DocumentDto'
+    page:
+      type: integer
+      description: Current page number (0-based)
+    size:
+      type: integer
+      description: Number of items per page
+    totalElements:
+      type: integer
+      description: Total number of items across all pages
+    totalPages:
+      type: integer
+      description: Total number of pages

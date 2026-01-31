@@ -1,10 +1,10 @@
-import { Switch } from "@/components/ui/animate-ui/components/radix/switch";
-import { Label } from "@/components/ui/label";
-import { useEditorStore, type Template } from "@/lib";
-import { cn } from "@/lib/utils";
-import { useDebounce, useLocalStorage } from "@uidotdev/usehooks";
-import { Check, LoaderCircle, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {Switch} from "@/components/ui/animate-ui/components/radix/switch";
+import {Label} from "@/components/ui/label";
+import {type Template, useEditorStore} from "@/lib";
+import {cn} from "@/lib/utils";
+import {useDebounce, useLocalStorage} from "@uidotdev/usehooks";
+import {Check, LoaderCircle, X} from "lucide-react";
+import {useEffect, useMemo, useRef, useState} from "react";
 
 const STORAGE_KEY = "epistola.editor.autoSaveEnabled.v1";
 const DEBOUNCE_MS = 150;

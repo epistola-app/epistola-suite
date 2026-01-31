@@ -1,5 +1,5 @@
-import type { JsonObject, JsonValue, DataExample } from "../types/template";
-import type { JsonSchema, JsonSchemaProperty } from "../types/schema";
+import type {DataExample, JsonObject, JsonValue} from "../types/template";
+import type {JsonSchema, JsonSchemaProperty} from "../types/schema";
 
 /**
  * Type of validation issue that can be auto-migrated.

@@ -1,18 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import {
-  extractExpressions,
-  normalizeArrayPath,
-  getRootPaths,
-  pathMatchesSchema,
-} from "./expressionUtils";
-import type {
-  Block,
-  TextBlock,
-  ConditionalBlock,
-  LoopBlock,
-  ColumnsBlock,
-  TableBlock,
-} from "../types/template";
+import {describe, expect, it, vi} from "vitest";
+import {extractExpressions, getRootPaths, normalizeArrayPath, pathMatchesSchema,} from "./expressionUtils";
+import type {Block, ColumnsBlock, ConditionalBlock, LoopBlock, TableBlock, TextBlock,} from "../types/template";
 
 describe("normalizeArrayPath", () => {
   it("normalizes numbered array access", () => {

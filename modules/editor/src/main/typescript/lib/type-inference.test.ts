@@ -1,21 +1,21 @@
-import { describe, it, expect } from "vitest";
+import {describe, expect, it} from "vitest";
 import {
-  inferType,
-  getMethodsForType,
-  parsePath,
-  isMethodCall,
-  getMethodName,
-  inferMethodReturnType,
-  resolvePathValue,
-  resolvePathType,
-  formatTypeForDisplay,
-  STRING_METHODS,
-  ARRAY_METHODS,
-  NUMBER_METHODS,
-  BOOLEAN_METHODS,
-  type InferredType,
+    ARRAY_METHODS,
+    BOOLEAN_METHODS,
+    formatTypeForDisplay,
+    getMethodName,
+    getMethodsForType,
+    inferMethodReturnType,
+    type InferredType,
+    inferType,
+    isMethodCall,
+    NUMBER_METHODS,
+    parsePath,
+    resolvePathType,
+    resolvePathValue,
+    STRING_METHODS,
 } from "./type-inference";
-import type { ScopeVariable } from "../context/ScopeContext";
+import type {ScopeVariable} from "../context/ScopeContext";
 
 describe("inferType", () => {
   describe("primitives", () => {

@@ -1,4 +1,4 @@
-import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from "./types";
+import type {EvaluationContext, EvaluationResult, ExpressionEvaluator} from "./types";
 
 /**
  * Direct evaluator using new Function()

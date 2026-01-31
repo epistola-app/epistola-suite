@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import type { JsonSchema } from "../types/schema";
-import type { DataExample } from "../types/template";
+import {create} from "zustand";
+import type {JsonSchema} from "../types/schema";
+import type {DataExample} from "../types/template";
 
 /**
  * State for the schema manager

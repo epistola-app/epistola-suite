@@ -1,5 +1,5 @@
 import jsonata from "jsonata";
-import type { ExpressionEvaluator, EvaluationContext, EvaluationResult } from "./types";
+import type {EvaluationContext, EvaluationResult, ExpressionEvaluator} from "./types";
 
 /**
  * Expression evaluator using JSONata - a query and transformation language for JSON.
