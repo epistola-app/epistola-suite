@@ -186,6 +186,12 @@ documents:
         schema:
           type: integer
           format: int64
+      - name: correlationId
+        in: query
+        description: Filter by client-provided correlation ID
+        schema:
+          type: string
+          maxLength: 255
       - name: page
         in: query
         description: Page number (0-based)

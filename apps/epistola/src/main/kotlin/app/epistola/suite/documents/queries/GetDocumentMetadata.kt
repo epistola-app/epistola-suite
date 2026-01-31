@@ -16,6 +16,7 @@ data class DocumentMetadata(
     val variantId: Long,
     val versionId: Long,
     val filename: String,
+    val correlationId: String?,
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: OffsetDateTime,
@@ -42,7 +43,7 @@ class GetDocumentMetadataHandler(
         handle.createQuery(
             """
             SELECT id, tenant_id, template_id, variant_id, version_id,
-                   filename, content_type, size_bytes,
+                   filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
             WHERE id = :documentId
@@ -59,6 +60,7 @@ class GetDocumentMetadataHandler(
                     variantId = rs.getLong("variant_id"),
                     versionId = rs.getLong("version_id"),
                     filename = rs.getString("filename"),
+                    correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),
                     sizeBytes = rs.getLong("size_bytes"),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),

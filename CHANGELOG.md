@@ -27,6 +27,13 @@
     - `stale-timeout-minutes`: Timeout before reclaiming stale jobs (default: 10 min)
 
 ### Added
+- **Correlation ID Support for Document Generation**: Client-provided tracking IDs for documents
+    - Added optional `correlationId` field (max 255 chars) to generation requests
+    - `correlationId` is stored in both generation items and resulting documents
+    - Query documents by `correlationId` using `GET /documents?correlationId=X`
+    - Batch validation: rejects requests with duplicate `correlationId` values (null excluded)
+    - Batch validation: rejects requests with duplicate `filename` values (null excluded)
+    - Clear error messages identify which values are duplicated
 - **Comprehensive Document Generation Test Suite**: Complete integration and unit tests for document generation API
     - Integration tests for single and batch document generation
     - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument

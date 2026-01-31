@@ -11,12 +11,14 @@ import java.time.OffsetDateTime
  *
  * @property tenantId Tenant that owns the documents
  * @property templateId Optional filter by template ID
+ * @property correlationId Optional filter by client-provided correlation ID
  * @property limit Maximum number of results (default: 50)
  * @property offset Pagination offset (default: 0)
  */
 data class ListDocuments(
     val tenantId: Long,
     val templateId: Long? = null,
+    val correlationId: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
 ) : Query<List<DocumentMetadata>>
@@ -30,7 +32,7 @@ class ListDocumentsHandler(
         val sql = StringBuilder(
             """
             SELECT id, tenant_id, template_id, variant_id, version_id,
-                   filename, content_type, size_bytes,
+                   filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
             WHERE tenant_id = :tenantId
@@ -39,6 +41,10 @@ class ListDocumentsHandler(
 
         if (query.templateId != null) {
             sql.append(" AND template_id = :templateId")
+        }
+
+        if (query.correlationId != null) {
+            sql.append(" AND correlation_id = :correlationId")
         }
 
         sql.append(" ORDER BY created_at DESC")
@@ -53,6 +59,10 @@ class ListDocumentsHandler(
             q.bind("templateId", query.templateId)
         }
 
+        if (query.correlationId != null) {
+            q.bind("correlationId", query.correlationId)
+        }
+
         q.map { rs, _ ->
             DocumentMetadata(
                 id = rs.getLong("id"),
@@ -61,6 +71,7 @@ class ListDocumentsHandler(
                 variantId = rs.getLong("variant_id"),
                 versionId = rs.getLong("version_id"),
                 filename = rs.getString("filename"),
+                correlationId = rs.getString("correlation_id"),
                 contentType = rs.getString("content_type"),
                 sizeBytes = rs.getLong("size_bytes"),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java),

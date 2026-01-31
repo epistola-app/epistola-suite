@@ -21,10 +21,32 @@ data class BatchGenerationItem(
     val environmentId: Long?,
     val data: ObjectNode,
     val filename: String?,
+    val correlationId: String? = null,
 ) {
     init {
         require((versionId != null) xor (environmentId != null)) {
             "Exactly one of versionId or environmentId must be set"
+        }
+    }
+}
+
+/**
+ * Exception thrown when batch validation fails due to duplicate correlationIds or filenames.
+ */
+class BatchValidationException(
+    val duplicateCorrelationIds: List<String>,
+    val duplicateFilenames: List<String>,
+) : IllegalArgumentException(buildMessage(duplicateCorrelationIds, duplicateFilenames)) {
+    companion object {
+        private fun buildMessage(correlationIds: List<String>, filenames: List<String>): String {
+            val parts = mutableListOf<String>()
+            if (correlationIds.isNotEmpty()) {
+                parts.add("Duplicate correlationIds: ${correlationIds.joinToString(", ")}")
+            }
+            if (filenames.isNotEmpty()) {
+                parts.add("Duplicate filenames: ${filenames.joinToString(", ")}")
+            }
+            return parts.joinToString("; ")
         }
     }
 }
@@ -41,6 +63,18 @@ data class GenerateDocumentBatch(
 ) : Command<DocumentGenerationRequest> {
     init {
         require(items.isNotEmpty()) { "At least one item is required" }
+        validateUniqueness()
+    }
+
+    private fun validateUniqueness() {
+        val duplicateCorrelationIds = items.mapNotNull { it.correlationId }
+            .groupingBy { it }.eachCount().filter { it.value > 1 }.keys.toList()
+        val duplicateFilenames = items.mapNotNull { it.filename }
+            .groupingBy { it }.eachCount().filter { it.value > 1 }.keys.toList()
+
+        if (duplicateCorrelationIds.isNotEmpty() || duplicateFilenames.isNotEmpty()) {
+            throw BatchValidationException(duplicateCorrelationIds, duplicateFilenames)
+        }
     }
 }
 
@@ -150,10 +184,10 @@ class GenerateDocumentBatchHandler(
                 """
                 INSERT INTO document_generation_items (
                     request_id, template_id, variant_id, version_id, environment_id,
-                    data, filename, status
+                    data, filename, correlation_id, status
                 )
                 VALUES (:requestId, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :status)
+                        :data::jsonb, :filename, :correlationId, :status)
                 """,
             )
 
@@ -165,6 +199,7 @@ class GenerateDocumentBatchHandler(
                     .bind("environmentId", item.environmentId)
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
+                    .bind("correlationId", item.correlationId)
                     .bind("status", "PENDING")
                     .add()
             }

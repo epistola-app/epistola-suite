@@ -151,6 +151,7 @@ class EpistolaDocumentGenerationApi(
     override fun listDocuments(
         tenantId: Long,
         templateId: Long?,
+        correlationId: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<DocumentListResponse> {
@@ -158,6 +159,7 @@ class EpistolaDocumentGenerationApi(
             ListDocuments(
                 tenantId = tenantId,
                 templateId = templateId,
+                correlationId = correlationId,
                 limit = size,
                 offset = page * size,
             ),

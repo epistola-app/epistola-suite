@@ -32,10 +32,14 @@ GenerateDocumentRequest:
       type: [string, "null"]
       description: Optional filename for the generated document
       maxLength: 255
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems
+      maxLength: 255
 
 BatchGenerationItem:
   type: object
-  description: Single item in a batch generation request
+  description: Single item in a batch generation request. Both correlationId and filename must be unique within a batch (null values are excluded from uniqueness checks).
   required:
     - templateId
     - variantId
@@ -63,7 +67,11 @@ BatchGenerationItem:
       additionalProperties: true
     filename:
       type: [string, "null"]
-      description: Optional filename for the generated document
+      description: Optional filename for the generated document. Must be unique within a batch.
+      maxLength: 255
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems. Must be unique within a batch.
       maxLength: 255
 
 GenerateBatchRequest:
@@ -147,6 +155,9 @@ DocumentGenerationItemDto:
     filename:
       type: [string, "null"]
       description: Requested filename
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems
     status:
       type: string
       enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED]
@@ -304,6 +315,9 @@ DocumentDto:
     filename:
       type: string
       description: Filename of the document
+    correlationId:
+      type: [string, "null"]
+      description: Client-provided ID for tracking documents across systems
     contentType:
       type: string
       description: MIME type of the document

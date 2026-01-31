@@ -109,7 +109,7 @@ class DocumentGenerationExecutor(
                 WHERE request_id = :requestId
                   AND status = 'PENDING'
                 RETURNING id, request_id, template_id, variant_id, version_id, environment_id,
-                          data, filename, status, error_message, document_id,
+                          data, filename, correlation_id, status, error_message, document_id,
                           created_at, started_at, completed_at
                 """,
         )
@@ -211,6 +211,7 @@ class DocumentGenerationExecutor(
             variantId = item.variantId,
             versionId = version.id,
             filename = filename,
+            correlationId = item.correlationId,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
             content = pdfBytes,
@@ -229,12 +230,12 @@ class DocumentGenerationExecutor(
                 """
                 INSERT INTO documents (
                     tenant_id, template_id, variant_id, version_id,
-                    filename, content_type, size_bytes, content,
+                    filename, correlation_id, content_type, size_bytes, content,
                     created_at, created_by
                 )
                 VALUES (
                     :tenantId, :templateId, :variantId, :versionId,
-                    :filename, :contentType, :sizeBytes, :content,
+                    :filename, :correlationId, :contentType, :sizeBytes, :content,
                     :createdAt, :createdBy
                 )
                 RETURNING id
@@ -245,6 +246,7 @@ class DocumentGenerationExecutor(
                 .bind("variantId", document.variantId)
                 .bind("versionId", document.versionId)
                 .bind("filename", document.filename)
+                .bind("correlationId", document.correlationId)
                 .bind("contentType", document.contentType)
                 .bind("sizeBytes", document.sizeBytes)
                 .bind("content", document.content)

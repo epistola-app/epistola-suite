@@ -55,7 +55,7 @@ class GetGenerationJobHandler(
         val items = handle.createQuery(
             """
             SELECT id, request_id, template_id, variant_id, version_id, environment_id,
-                   data, filename, status, error_message, document_id,
+                   data, filename, correlation_id, status, error_message, document_id,
                    created_at, started_at, completed_at
             FROM document_generation_items
             WHERE request_id = :requestId

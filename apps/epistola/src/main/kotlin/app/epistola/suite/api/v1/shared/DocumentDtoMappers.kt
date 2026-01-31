@@ -28,6 +28,7 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
     variantId = variantId,
     versionId = versionId,
     filename = filename,
+    correlationId = correlationId,
     contentType = contentType,
     sizeBytes = sizeBytes,
     createdAt = createdAt,
@@ -68,6 +69,7 @@ internal fun DocumentGenerationItem.toDto(objectMapper: ObjectMapper) = Document
     environmentId = environmentId,
     data = objectMapper.convertValue(data, Map::class.java) as Map<String, Any>,
     filename = filename,
+    correlationId = correlationId,
     status = DocumentGenerationItemDto.Status.valueOf(status.name),
     errorMessage = errorMessage,
     documentId = documentId,
@@ -96,6 +98,7 @@ internal fun GenerateDocumentRequest.toCommand(
     environmentId = environmentId,
     data = objectMapper.valueToTree(data),
     filename = filename,
+    correlationId = correlationId,
 )
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
@@ -107,6 +110,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     environmentId = environmentId,
     data = objectMapper.valueToTree<ObjectNode>(data),
     filename = filename,
+    correlationId = correlationId,
 )
 
 internal fun GenerateBatchRequest.toCommand(

@@ -19,6 +19,7 @@ import java.util.UUID
  * @property environmentId Environment to determine version from (mutually exclusive with versionId)
  * @property data JSON data to populate the template
  * @property filename Requested filename for the generated document
+ * @property correlationId Client-provided ID for tracking documents across systems
  * @property status Current status of this item
  * @property errorMessage Error message if processing failed
  * @property documentId ID of the generated document (if successful)
@@ -35,6 +36,7 @@ data class DocumentGenerationItem(
     val environmentId: Long?,
     @Json val data: ObjectNode,
     val filename: String?,
+    val correlationId: String?,
     val status: ItemStatus,
     val errorMessage: String?,
     val documentId: Long?,

@@ -19,6 +19,7 @@ CREATE TABLE documents (
     variant_id BIGINT NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_id BIGINT NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
     filename VARCHAR(255) NOT NULL,
+    correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
     size_bytes BIGINT NOT NULL,
     content BYTEA NOT NULL,
@@ -33,6 +34,8 @@ CREATE TABLE documents (
 CREATE INDEX idx_documents_tenant_id ON documents(tenant_id);
 CREATE INDEX idx_documents_template_id ON documents(template_id);
 CREATE INDEX idx_documents_created_at ON documents(created_at DESC);
+CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id)
+    WHERE correlation_id IS NOT NULL;
 
 -- ============================================================================
 -- APPLICATION TABLES: GENERATION REQUEST TRACKING
@@ -85,6 +88,7 @@ CREATE TABLE document_generation_items (
     environment_id BIGINT REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
     data JSONB NOT NULL,
     filename VARCHAR(255),
+    correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
     error_message TEXT,
     document_id BIGINT REFERENCES documents(id) ON DELETE SET NULL,
@@ -120,3 +124,6 @@ COMMENT ON COLUMN document_generation_requests.claimed_at IS 'Timestamp when the
 
 COMMENT ON COLUMN document_generation_items.version_id IS 'Explicit version to use. Mutually exclusive with environment_id.';
 COMMENT ON COLUMN document_generation_items.environment_id IS 'Environment to determine version from. Mutually exclusive with version_id.';
+COMMENT ON COLUMN document_generation_items.correlation_id IS 'Client-provided ID for tracking documents across systems. Must be unique within a batch.';
+
+COMMENT ON COLUMN documents.correlation_id IS 'Client-provided ID for tracking documents across systems. Propagated from generation item.';

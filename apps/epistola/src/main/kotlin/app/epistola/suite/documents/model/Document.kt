@@ -14,6 +14,7 @@ import java.time.OffsetDateTime
  * @property variantId Variant of the template used
  * @property versionId Version of the template used
  * @property filename Original filename requested or generated
+ * @property correlationId Client-provided ID for tracking documents across systems
  * @property contentType MIME type of the document (typically application/pdf)
  * @property sizeBytes Size of the document in bytes
  * @property content Binary content of the document (PDF data)
@@ -27,6 +28,7 @@ data class Document(
     val variantId: Long,
     val versionId: Long,
     val filename: String,
+    val correlationId: String?,
     val contentType: String,
     val sizeBytes: Long,
     val content: ByteArray,
@@ -46,6 +48,7 @@ data class Document(
         if (variantId != other.variantId) return false
         if (versionId != other.versionId) return false
         if (filename != other.filename) return false
+        if (correlationId != other.correlationId) return false
         if (contentType != other.contentType) return false
         if (sizeBytes != other.sizeBytes) return false
         if (!content.contentEquals(other.content)) return false
@@ -62,6 +65,7 @@ data class Document(
         result = 31 * result + variantId.hashCode()
         result = 31 * result + versionId.hashCode()
         result = 31 * result + filename.hashCode()
+        result = 31 * result + (correlationId?.hashCode() ?: 0)
         result = 31 * result + contentType.hashCode()
         result = 31 * result + sizeBytes.hashCode()
         result = 31 * result + content.contentHashCode()

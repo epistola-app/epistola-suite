@@ -328,16 +328,16 @@ class DocumentQueriesTest : BaseIntegrationTest() {
             .atMost(15, TimeUnit.SECONDS)
             .pollInterval(200, TimeUnit.MILLISECONDS)
             .until {
-                val docs = mediator.query(ListDocuments(tenant.id, null, 10, 0))
+                val docs = mediator.query(ListDocuments(tenantId = tenant.id, limit = 10))
                 docs.size >= 3
             }
 
         // List all documents
-        val allDocs = mediator.query(ListDocuments(tenant.id, null, 10, 0))
+        val allDocs = mediator.query(ListDocuments(tenantId = tenant.id, limit = 10))
         assertThat(allDocs).hasSizeGreaterThanOrEqualTo(3)
 
         // List only template1 documents
-        val template1Docs = mediator.query(ListDocuments(tenant.id, template1.id, 10, 0))
+        val template1Docs = mediator.query(ListDocuments(tenantId = tenant.id, templateId = template1.id, limit = 10))
         assertThat(template1Docs).hasSizeGreaterThanOrEqualTo(2)
         assertThat(template1Docs).allMatch { it.templateId == template1.id }
     }

@@ -21,6 +21,7 @@ import tools.jackson.databind.node.ObjectNode
  * @property environmentId Environment to determine version from (mutually exclusive with versionId)
  * @property data JSON data to populate the template
  * @property filename Optional filename for the generated document
+ * @property correlationId Client-provided ID for tracking documents across systems
  */
 data class GenerateDocument(
     val tenantId: Long,
@@ -30,6 +31,7 @@ data class GenerateDocument(
     val environmentId: Long?,
     val data: ObjectNode,
     val filename: String?,
+    val correlationId: String? = null,
 ) : Command<DocumentGenerationRequest> {
     init {
         // Validate that exactly one of versionId or environmentId is set
@@ -143,10 +145,10 @@ class GenerateDocumentHandler(
                 """
                 INSERT INTO document_generation_items (
                     request_id, template_id, variant_id, version_id, environment_id,
-                    data, filename, status
+                    data, filename, correlation_id, status
                 )
                 VALUES (:requestId, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :status)
+                        :data::jsonb, :filename, :correlationId, :status)
                 """,
             )
                 .bind("requestId", request.id)
@@ -156,6 +158,7 @@ class GenerateDocumentHandler(
                 .bind("environmentId", command.environmentId)
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
+                .bind("correlationId", command.correlationId)
                 .bind("status", "PENDING")
                 .execute()
 
