@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -10,6 +11,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 
 /**
  * Command to generate a single document asynchronously.
@@ -24,11 +26,11 @@ import tools.jackson.databind.node.ObjectNode
  * @property correlationId Client-provided ID for tracking documents across systems
  */
 data class GenerateDocument(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long?,
-    val environmentId: Long?,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val versionId: UUID?,
+    val environmentId: UUID?,
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
@@ -123,17 +125,19 @@ class GenerateDocumentHandler(
             }
 
             // 3. Create generation request (stays in PENDING status for poller to pick up)
+            val requestId = UUIDv7.generate()
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
-                    tenant_id, job_type, status, total_count
+                    id, tenant_id, job_type, status, total_count
                 )
-                VALUES (:tenantId, :jobType, :status, 1)
+                VALUES (:id, :tenantId, :jobType, :status, 1)
                 RETURNING id, tenant_id, job_type, status, claimed_by, claimed_at,
                           total_count, completed_count, failed_count, error_message,
                           created_at, started_at, completed_at, expires_at
                 """,
             )
+                .bind("id", requestId)
                 .bind("tenantId", command.tenantId)
                 .bind("jobType", JobType.SINGLE.name)
                 .bind("status", RequestStatus.PENDING.name)
@@ -141,16 +145,18 @@ class GenerateDocumentHandler(
                 .one()
 
             // 4. Create generation item
+            val itemId = UUIDv7.generate()
             handle.createUpdate(
                 """
                 INSERT INTO document_generation_items (
-                    request_id, template_id, variant_id, version_id, environment_id,
+                    id, request_id, template_id, variant_id, version_id, environment_id,
                     data, filename, correlation_id, status
                 )
-                VALUES (:requestId, :templateId, :variantId, :versionId, :environmentId,
+                VALUES (:id, :requestId, :templateId, :variantId, :versionId, :environmentId,
                         :data::jsonb, :filename, :correlationId, :status)
                 """,
             )
+                .bind("id", itemId)
                 .bind("requestId", request.id)
                 .bind("templateId", command.templateId)
                 .bind("variantId", command.variantId)

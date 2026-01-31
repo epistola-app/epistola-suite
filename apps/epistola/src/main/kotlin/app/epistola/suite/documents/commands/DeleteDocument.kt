@@ -5,6 +5,7 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Command to delete a generated document.
@@ -13,8 +14,8 @@ import org.springframework.stereotype.Component
  * @property documentId The document ID to delete
  */
 data class DeleteDocument(
-    val tenantId: Long,
-    val documentId: Long,
+    val tenantId: UUID,
+    val documentId: UUID,
 ) : Command<Boolean>
 
 @Component

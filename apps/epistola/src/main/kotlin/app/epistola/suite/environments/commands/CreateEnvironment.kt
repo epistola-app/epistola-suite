@@ -7,9 +7,11 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class CreateEnvironment(
-    val tenantId: Long,
+    val id: UUID,
+    val tenantId: UUID,
     val name: String,
 ) : Command<Environment> {
     init {
@@ -25,11 +27,12 @@ class CreateEnvironmentHandler(
     override fun handle(command: CreateEnvironment): Environment = jdbi.withHandle<Environment, Exception> { handle ->
         handle.createQuery(
             """
-                INSERT INTO environments (tenant_id, name, created_at)
-                VALUES (:tenantId, :name, NOW())
+                INSERT INTO environments (id, tenant_id, name, created_at)
+                VALUES (:id, :tenantId, :name, NOW())
                 RETURNING *
                 """,
         )
+            .bind("id", command.id)
             .bind("tenantId", command.tenantId)
             .bind("name", command.name)
             .mapTo<Environment>()

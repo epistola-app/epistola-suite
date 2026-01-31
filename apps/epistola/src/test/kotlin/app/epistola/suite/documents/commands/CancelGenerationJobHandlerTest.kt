@@ -1,6 +1,7 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -31,8 +32,8 @@ class CancelGenerationJobHandlerTest : BaseIntegrationTest() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val template = mediator.send(CreateDocumentTemplate(tenant1.id, "Test Template"))
-        val variant = mediator.send(CreateVariant(tenant1.id, template.id, "Default", null, emptyMap()))!!
+        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant1.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -66,8 +67,8 @@ class CancelGenerationJobHandlerTest : BaseIntegrationTest() {
     @Test
     fun `cannot cancel completed job`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
-        val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
+        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )

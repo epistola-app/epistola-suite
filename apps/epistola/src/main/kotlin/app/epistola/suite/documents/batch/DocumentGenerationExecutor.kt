@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationItem
 import app.epistola.suite.documents.model.DocumentGenerationRequest
@@ -135,7 +136,7 @@ class DocumentGenerationExecutor(
     /**
      * Process a single item: resolve version, generate PDF, save document.
      */
-    private fun processItem(item: DocumentGenerationItem, tenantId: Long) {
+    private fun processItem(item: DocumentGenerationItem, tenantId: UUID) {
         try {
             val document = generateDocument(item, tenantId)
             saveDocumentAndMarkComplete(item.id, document)
@@ -148,7 +149,7 @@ class DocumentGenerationExecutor(
     /**
      * Generate a PDF document for the given item.
      */
-    private fun generateDocument(item: DocumentGenerationItem, tenantId: Long): Document {
+    private fun generateDocument(item: DocumentGenerationItem, tenantId: UUID): Document {
         logger.debug(
             "Processing item {} for template {}/{}/{}",
             item.id,
@@ -205,7 +206,7 @@ class DocumentGenerationExecutor(
 
         // 6. Create Document entity
         return Document(
-            id = 0, // Will be assigned by database
+            id = UUIDv7.generate(),
             tenantId = tenantId,
             templateId = item.templateId,
             variantId = item.variantId,
@@ -226,21 +227,21 @@ class DocumentGenerationExecutor(
     private fun saveDocumentAndMarkComplete(itemId: UUID, document: Document) {
         jdbi.useTransaction<Exception> { handle ->
             // 1. Insert document into database
-            val documentId = handle.createQuery(
+            handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    tenant_id, template_id, variant_id, version_id,
+                    id, tenant_id, template_id, variant_id, version_id,
                     filename, correlation_id, content_type, size_bytes, content,
                     created_at, created_by
                 )
                 VALUES (
-                    :tenantId, :templateId, :variantId, :versionId,
+                    :id, :tenantId, :templateId, :variantId, :versionId,
                     :filename, :correlationId, :contentType, :sizeBytes, :content,
                     :createdAt, :createdBy
                 )
-                RETURNING id
                 """,
             )
+                .bind("id", document.id)
                 .bind("tenantId", document.tenantId)
                 .bind("templateId", document.templateId)
                 .bind("variantId", document.variantId)
@@ -252,10 +253,9 @@ class DocumentGenerationExecutor(
                 .bind("content", document.content)
                 .bind("createdAt", document.createdAt)
                 .bind("createdBy", document.createdBy)
-                .mapTo<Long>()
-                .one()
+                .execute()
 
-            logger.debug("Created document {} for tenant {}", documentId, document.tenantId)
+            logger.debug("Created document {} for tenant {}", document.id, document.tenantId)
 
             // 2. Update generation item with document_id and status = COMPLETED
             handle.createUpdate(
@@ -267,7 +267,7 @@ class DocumentGenerationExecutor(
                 WHERE id = :itemId
                 """,
             )
-                .bind("documentId", documentId)
+                .bind("documentId", document.id)
                 .bind("itemId", itemId)
                 .execute()
         }

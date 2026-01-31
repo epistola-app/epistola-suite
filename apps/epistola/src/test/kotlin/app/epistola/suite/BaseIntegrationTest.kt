@@ -1,5 +1,6 @@
 package app.epistola.suite
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.mediator.Mediator
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 @Import(TestcontainersConfiguration::class)
@@ -35,7 +37,7 @@ abstract class BaseIntegrationTest {
     @Autowired
     protected lateinit var scenarioFactory: ScenarioFactory
 
-    private val createdTenants = mutableListOf<Long>()
+    private val createdTenants = mutableListOf<UUID>()
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(block)
 
@@ -63,7 +65,7 @@ abstract class BaseIntegrationTest {
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(block)
 
     protected fun createTenant(name: String): Tenant {
-        val tenant = mediator.send(CreateTenant(name))
+        val tenant = mediator.send(CreateTenant(id = UUIDv7.generate(), name = name))
         createdTenants.add(tenant.id)
         return tenant
     }

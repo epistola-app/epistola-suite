@@ -6,9 +6,10 @@ import app.epistola.suite.tenants.Tenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class GetTenant(
-    val id: Long,
+    val id: UUID,
 ) : Query<Tenant?>
 
 @Component

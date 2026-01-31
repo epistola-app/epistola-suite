@@ -6,10 +6,11 @@ import app.epistola.suite.templates.DocumentTemplate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class GetDocumentTemplate(
-    val tenantId: Long,
-    val id: Long,
+    val tenantId: UUID,
+    val id: UUID,
 ) : Query<DocumentTemplate?>
 
 @Component

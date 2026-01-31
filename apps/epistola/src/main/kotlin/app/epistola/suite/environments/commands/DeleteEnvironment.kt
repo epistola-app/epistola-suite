@@ -4,10 +4,11 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class DeleteEnvironment(
-    val tenantId: Long,
-    val id: Long,
+    val tenantId: UUID,
+    val id: UUID,
 ) : Command<Boolean>
 
 @Component

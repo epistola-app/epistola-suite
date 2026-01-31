@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
@@ -35,7 +36,7 @@ class TenantHandler(
         val name = request.params().getFirst("name")?.trim().orEmpty()
 
         val command = try {
-            CreateTenant(name = name)
+            CreateTenant(id = UUIDv7.generate(), name = name)
         } catch (e: ValidationException) {
             val formData = mapOf("name" to name)
             val errors = mapOf(e.field to e.message)

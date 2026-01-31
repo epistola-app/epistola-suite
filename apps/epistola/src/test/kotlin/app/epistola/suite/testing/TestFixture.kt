@@ -1,5 +1,6 @@
 package app.epistola.suite.testing
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -11,6 +12,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 @DslMarker
 annotation class TestFixtureDsl
@@ -33,7 +35,7 @@ class TestFixtureFactory(
 class TestFixture(
     private val mediator: Mediator,
 ) {
-    private val createdTenants = mutableListOf<Long>()
+    private val createdTenants = mutableListOf<UUID>()
     private var givenContext: GivenContext? = null
     private var result: Any? = null
 
@@ -69,7 +71,7 @@ class TestFixture(
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant {
-            val tenant = this@TestFixture.mediator.send(CreateTenant(name))
+            val tenant = this@TestFixture.mediator.send(CreateTenant(id = UUIDv7.generate(), name = name))
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
@@ -77,7 +79,13 @@ class TestFixture(
         fun template(
             tenant: Tenant,
             name: String,
-        ): DocumentTemplate = this@TestFixture.mediator.send(CreateDocumentTemplate(tenant.id, name))
+        ): DocumentTemplate = this@TestFixture.mediator.send(
+            CreateDocumentTemplate(
+                id = UUIDv7.generate(),
+                tenantId = tenant.id,
+                name = name,
+            ),
+        )
 
         fun variant(
             tenant: Tenant,
@@ -86,6 +94,7 @@ class TestFixture(
             tags: Map<String, String> = emptyMap(),
         ): TemplateVariant = this@TestFixture.mediator.send(
             CreateVariant(
+                id = UUIDv7.generate(),
                 tenantId = tenant.id,
                 templateId = template.id,
                 title = title,
@@ -102,12 +111,12 @@ class TestFixture(
     @TestFixtureDsl
     inner class WhenContext {
         fun createTenant(name: String): Tenant {
-            val tenant = this@TestFixture.mediator.send(CreateTenant(name))
+            val tenant = this@TestFixture.mediator.send(CreateTenant(id = UUIDv7.generate(), name = name))
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
 
-        fun deleteTenant(id: Long): Boolean = this@TestFixture.mediator.send(DeleteTenant(id))
+        fun deleteTenant(id: UUID): Boolean = this@TestFixture.mediator.send(DeleteTenant(id))
 
         fun listTemplates(tenant: Tenant): List<DocumentTemplate> = this@TestFixture.mediator.query(ListDocumentTemplates(tenant.id))
 

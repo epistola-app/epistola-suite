@@ -6,9 +6,10 @@ import app.epistola.suite.templates.DocumentTemplate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class ListDocumentTemplates(
-    val tenantId: Long,
+    val tenantId: UUID,
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,

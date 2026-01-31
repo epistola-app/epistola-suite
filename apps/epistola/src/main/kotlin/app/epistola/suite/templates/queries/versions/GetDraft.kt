@@ -6,14 +6,15 @@ import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Gets the current draft version for a variant, if one exists.
  */
 data class GetDraft(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
 ) : Query<TemplateVersion?>
 
 @Component

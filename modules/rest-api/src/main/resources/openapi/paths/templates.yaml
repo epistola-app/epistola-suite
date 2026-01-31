@@ -5,8 +5,8 @@ templates:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: listTemplates
@@ -73,15 +73,15 @@ templates-id:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: getTemplate

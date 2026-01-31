@@ -7,11 +7,12 @@ import app.epistola.suite.templates.model.VariantSummary
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class GetVariant(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
 ) : Query<TemplateVariant?>
 
 @Component
@@ -39,7 +40,7 @@ class GetVariantHandler(
 }
 
 data class GetVariantSummaries(
-    val templateId: Long,
+    val templateId: UUID,
 ) : Query<List<VariantSummary>>
 
 @Component

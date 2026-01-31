@@ -24,7 +24,7 @@ data class GenerationJobResult(
  * @property requestId The generation request ID
  */
 data class GetGenerationJob(
-    val tenantId: Long,
+    val tenantId: UUID,
     val requestId: UUID,
 ) : Query<GenerationJobResult?>
 

@@ -8,6 +8,7 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 /**
  * Creates a new draft version for a variant.
@@ -15,9 +16,10 @@ import tools.jackson.databind.ObjectMapper
  * Throws exception if a draft already exists for this variant.
  */
 data class CreateVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val id: UUID,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
     val templateModel: TemplateModel? = null,
 ) : Command<TemplateVersion?>
 
@@ -52,11 +54,12 @@ class CreateVersionHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
-                VALUES (:variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
+                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
+            .bind("id", command.id)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

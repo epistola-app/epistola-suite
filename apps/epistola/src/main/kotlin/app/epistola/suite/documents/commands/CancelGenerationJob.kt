@@ -15,7 +15,7 @@ import java.util.UUID
  * @property requestId The generation request ID to cancel
  */
 data class CancelGenerationJob(
-    val tenantId: Long,
+    val tenantId: UUID,
     val requestId: UUID,
 ) : Command<Boolean>
 

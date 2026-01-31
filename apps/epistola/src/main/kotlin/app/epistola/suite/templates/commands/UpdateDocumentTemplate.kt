@@ -12,6 +12,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 
 /**
  * Updates a template's metadata (name, dataModel, dataExamples).
@@ -21,8 +22,8 @@ import tools.jackson.databind.node.ObjectNode
  *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDocumentTemplate(
-    val tenantId: Long,
-    val id: Long,
+    val tenantId: UUID,
+    val id: UUID,
     val name: String? = null,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
@@ -140,7 +141,7 @@ class UpdateDocumentTemplateHandler(
         return UpdateDocumentTemplateResult(template = updated, warnings = warnings)
     }
 
-    private fun getExisting(tenantId: Long, id: Long): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(tenantId: UUID, id: UUID): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
             SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified

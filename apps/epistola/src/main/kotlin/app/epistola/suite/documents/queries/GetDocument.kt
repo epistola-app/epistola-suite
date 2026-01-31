@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Query to get a document with its full content.
@@ -14,8 +15,8 @@ import org.springframework.stereotype.Component
  * @property documentId The document ID
  */
 data class GetDocument(
-    val tenantId: Long,
-    val documentId: Long,
+    val tenantId: UUID,
+    val documentId: UUID,
 ) : Query<Document?>
 
 @Component

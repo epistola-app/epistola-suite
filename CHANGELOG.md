@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Migrated all entity IDs from database-generated Long/BIGSERIAL to client-provided UUIDv7
+  - All entity IDs (Tenant, Template, Variant, Version, Environment, Document, GenerationRequest, GenerationItem) now use UUID
+  - IDs must be provided by the client when creating entities via API or commands
+  - Uses [uuid-creator](https://github.com/f4b6a3/uuid-creator) library v6.1.0 for RFC 9562 compliant UUIDv7 generation
+  - UUIDv7 provides time-sortable identifiers with better distributed system properties
+  - Added `UUIDv7` utility class for consistent ID generation
+  - Database migration V6 drops and recreates all tables with UUID primary keys (no data migration - project not in production)
+  - OpenAPI schemas updated: all ID fields changed from `integer/int64` to `string/uuid`
+  - Test DSL updated: `tenant()`, `template()`, `variant()`, `version()` helpers now generate UUIDv7 IDs automatically
+
 ### Added
 - **Type-safe Scenario DSL for integration tests**: New `scenario {}` DSL with Given-When-Then pattern
   - Type-safe flow: `given` block returns typed setup data accessible in `whenever` and `then` blocks

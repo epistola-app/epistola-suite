@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
@@ -38,6 +39,7 @@ import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 
 /**
  * Request body for updating a document template's metadata.
@@ -138,7 +140,7 @@ class DocumentTemplateHandler(
         val schema = request.params().getFirst("schema")?.trim()?.takeIf { it.isNotEmpty() }
 
         try {
-            val command = CreateDocumentTemplate(tenantId = tenantId, name = name, schema = schema)
+            val command = CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenantId, name = name, schema = schema)
             mediator.send(command)
         } catch (e: ValidationException) {
             val formData = mapOf("name" to name, "schema" to (schema ?: ""))
@@ -168,9 +170,9 @@ class DocumentTemplateHandler(
 
     fun editor(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
 
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = templateId))
@@ -183,7 +185,7 @@ class DocumentTemplateHandler(
         var draft = mediator.query(GetDraft(tenantId = tenantId, templateId = templateId, variantId = variantId))
         if (draft == null) {
             // Create a new draft if one doesn't exist
-            draft = mediator.send(CreateVersion(tenantId = tenantId, templateId = templateId, variantId = variantId))
+            draft = mediator.send(CreateVersion(id = UUIDv7.generate(), tenantId = tenantId, templateId = templateId, variantId = variantId))
                 ?: return ServerResponse.status(500).build()
         }
 
@@ -230,7 +232,7 @@ class DocumentTemplateHandler(
         )
     }
 
-    private fun createDefaultTemplateModel(templateName: String, variantId: Long): Map<String, Any> = mapOf(
+    private fun createDefaultTemplateModel(templateName: String, variantId: UUID): Map<String, Any> = mapOf(
         "id" to "template-$variantId",
         "name" to templateName,
         "version" to 1,
@@ -249,7 +251,7 @@ class DocumentTemplateHandler(
 
     fun get(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val id = request.pathVariable("id").toLongOrNull()
+        val id = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
 
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
@@ -272,7 +274,7 @@ class DocumentTemplateHandler(
 
     fun update(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val id = request.pathVariable("id").toLongOrNull()
+        val id = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -322,7 +324,7 @@ class DocumentTemplateHandler(
      */
     fun validateSchema(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val id = request.pathVariable("id").toLongOrNull()
+        val id = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -350,7 +352,7 @@ class DocumentTemplateHandler(
      */
     fun updateDataExample(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
@@ -394,7 +396,7 @@ class DocumentTemplateHandler(
      */
     fun deleteDataExample(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
@@ -415,7 +417,7 @@ class DocumentTemplateHandler(
 
     fun detail(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val id = request.pathVariable("id").toLongOrNull()
+        val id = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
 
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = id))
@@ -437,9 +439,9 @@ class DocumentTemplateHandler(
 
     fun variantDetail(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
 
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = templateId))
@@ -476,7 +478,7 @@ class DocumentTemplateHandler(
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val id = request.pathVariable("id").toLongOrNull()
+        val id = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
 
         mediator.send(DeleteDocumentTemplate(tenantId = tenantId, id = id))
@@ -488,7 +490,7 @@ class DocumentTemplateHandler(
 
     fun createVariant(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
 
         val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
@@ -498,6 +500,7 @@ class DocumentTemplateHandler(
 
         mediator.send(
             CreateVariant(
+                id = UUIDv7.generate(),
                 tenantId = tenantId,
                 templateId = templateId,
                 title = title,
@@ -522,9 +525,9 @@ class DocumentTemplateHandler(
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
 
         mediator.send(DeleteVariant(tenantId = tenantId, templateId = templateId, variantId = variantId))
@@ -545,23 +548,23 @@ class DocumentTemplateHandler(
 
     fun createDraft(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
 
-        mediator.send(CreateVersion(tenantId = tenantId, templateId = templateId, variantId = variantId))
+        mediator.send(CreateVersion(id = UUIDv7.generate(), tenantId = tenantId, templateId = templateId, variantId = variantId))
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
     }
 
     fun publishVersion(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathVariable("versionId").toLongOrNull()
+        val versionId = parseUUID(request.pathVariable("versionId"))
             ?: return ServerResponse.badRequest().build()
 
         mediator.send(PublishVersion(tenantId = tenantId, templateId = templateId, variantId = variantId, versionId = versionId))
@@ -571,11 +574,11 @@ class DocumentTemplateHandler(
 
     fun archiveVersion(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathVariable("versionId").toLongOrNull()
+        val versionId = parseUUID(request.pathVariable("versionId"))
             ?: return ServerResponse.badRequest().build()
 
         mediator.send(ArchiveVersion(tenantId = tenantId, templateId = templateId, variantId = variantId, versionId = versionId))
@@ -592,9 +595,9 @@ class DocumentTemplateHandler(
      */
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
-        val templateId = request.pathVariable("id").toLongOrNull()
+        val templateId = parseUUID(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathVariable("variantId").toLongOrNull()
+        val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
 
         // Parse the request body
@@ -648,9 +651,9 @@ class DocumentTemplateHandler(
 
     private fun returnVersionsFragment(
         request: ServerRequest,
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
     ): ServerResponse {
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = templateId))
             ?: return ServerResponse.notFound().build()
@@ -690,6 +693,12 @@ class DocumentTemplateHandler(
             }
     }
 
-    private fun resolveTenantId(request: ServerRequest): Long = request.pathVariable("tenantId").toLongOrNull()
+    private fun resolveTenantId(request: ServerRequest): UUID = parseUUID(request.pathVariable("tenantId"))
         ?: throw IllegalArgumentException("Invalid tenant ID")
+
+    private fun parseUUID(value: String): UUID? = try {
+        UUID.fromString(value)
+    } catch (_: Exception) {
+        null
+    }
 }

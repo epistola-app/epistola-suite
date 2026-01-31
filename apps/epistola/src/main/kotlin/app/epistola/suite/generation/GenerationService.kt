@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.OutputStream
+import java.util.UUID
 
 /**
  * Result of preview data validation.
@@ -64,8 +65,8 @@ class GenerationService(
      * @return Validation result with any errors found
      */
     fun validatePreviewData(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
         val template = mediator.query(GetDocumentTemplate(tenantId, templateId))

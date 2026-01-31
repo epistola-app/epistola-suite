@@ -24,6 +24,7 @@ import app.epistola.suite.tenants.queries.ListTenants
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
+import java.util.UUID
 
 @RestController
 class EpistolaTenantApi(
@@ -54,7 +55,12 @@ class EpistolaTenantApi(
     override fun createTenant(
         createTenantRequest: CreateTenantRequest,
     ): ResponseEntity<TenantDto> {
-        val tenant = mediator.send(CreateTenant(name = createTenantRequest.name))
+        val tenant = mediator.send(
+            CreateTenant(
+                id = createTenantRequest.id,
+                name = createTenantRequest.name,
+            ),
+        )
 
         return ResponseEntity
             .status(HttpStatus.CREATED)
@@ -62,7 +68,7 @@ class EpistolaTenantApi(
     }
 
     override fun getTenant(
-        tenantId: Long,
+        tenantId: UUID,
     ): ResponseEntity<TenantDto> {
         val tenant = mediator.query(GetTenant(id = tenantId))
             ?: return ResponseEntity.notFound().build()
@@ -70,7 +76,7 @@ class EpistolaTenantApi(
     }
 
     override fun updateTenant(
-        tenantId: Long,
+        tenantId: UUID,
         updateTenantRequest: UpdateTenantRequest,
     ): ResponseEntity<TenantDto> {
         // TODO: Implement UpdateTenant command
@@ -78,7 +84,7 @@ class EpistolaTenantApi(
     }
 
     override fun deleteTenant(
-        tenantId: Long,
+        tenantId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = mediator.send(DeleteTenant(id = tenantId))
         return if (deleted) {
@@ -91,18 +97,19 @@ class EpistolaTenantApi(
     // ================== Environment operations ==================
 
     override fun listEnvironments(
-        tenantId: Long,
+        tenantId: UUID,
     ): ResponseEntity<EnvironmentListResponse> {
         val environments = mediator.query(ListEnvironments(tenantId = tenantId))
         return ResponseEntity.ok(EnvironmentListResponse(items = environments.map { it.toDto() }))
     }
 
     override fun createEnvironment(
-        tenantId: Long,
+        tenantId: UUID,
         createEnvironmentRequest: CreateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val environment = mediator.send(
             CreateEnvironment(
+                id = createEnvironmentRequest.id,
                 tenantId = tenantId,
                 name = createEnvironmentRequest.name,
             ),
@@ -111,8 +118,8 @@ class EpistolaTenantApi(
     }
 
     override fun getEnvironment(
-        tenantId: Long,
-        environmentId: Long,
+        tenantId: UUID,
+        environmentId: UUID,
     ): ResponseEntity<EnvironmentDto> {
         val environment = mediator.query(GetEnvironment(tenantId = tenantId, id = environmentId))
             ?: return ResponseEntity.notFound().build()
@@ -120,8 +127,8 @@ class EpistolaTenantApi(
     }
 
     override fun updateEnvironment(
-        tenantId: Long,
-        environmentId: Long,
+        tenantId: UUID,
+        environmentId: UUID,
         updateEnvironmentRequest: UpdateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val name = updateEnvironmentRequest.name
@@ -137,8 +144,8 @@ class EpistolaTenantApi(
     }
 
     override fun deleteEnvironment(
-        tenantId: Long,
-        environmentId: Long,
+        tenantId: UUID,
+        environmentId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = mediator.send(DeleteEnvironment(tenantId = tenantId, id = environmentId))
         return if (deleted) {

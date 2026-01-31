@@ -8,16 +8,17 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 /**
  * Updates a draft version's content.
  * Only draft versions can be updated; published/archived versions are immutable.
  */
 data class UpdateVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val versionId: UUID,
     val templateModel: TemplateModel?,
 ) : Command<TemplateVersion?>
 

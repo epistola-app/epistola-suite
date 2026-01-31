@@ -5,22 +5,22 @@ versions:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: listVersions
@@ -59,29 +59,29 @@ versions-id:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: versionId
       in: path
       required: true
       description: Unique identifier of the version
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: getVersion
@@ -142,29 +142,29 @@ version-publish:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: versionId
       in: path
       required: true
       description: Unique identifier of the version
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   post:
     operationId: publishVersion
@@ -201,29 +201,29 @@ version-archive:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: versionId
       in: path
       required: true
       description: Unique identifier of the version
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   post:
     operationId: archiveVersion

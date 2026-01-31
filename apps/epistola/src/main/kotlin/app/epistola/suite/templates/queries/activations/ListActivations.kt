@@ -6,14 +6,15 @@ import app.epistola.suite.templates.model.ActivationDetails
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Lists all activations for a variant across all environments.
  */
 data class ListActivations(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
 ) : Query<List<ActivationDetails>>
 
 @Component

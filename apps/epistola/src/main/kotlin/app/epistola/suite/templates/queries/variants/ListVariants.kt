@@ -6,10 +6,11 @@ import app.epistola.suite.templates.model.TemplateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class ListVariants(
-    val tenantId: Long,
-    val templateId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
 ) : Query<List<TemplateVariant>>
 
 @Component

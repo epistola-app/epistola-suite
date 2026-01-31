@@ -5,16 +5,17 @@ import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * Document metadata without content (for efficient listing).
  */
 data class DocumentMetadata(
-    val id: Long,
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val id: UUID,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val versionId: UUID,
     val filename: String,
     val correlationId: String?,
     val contentType: String,
@@ -30,8 +31,8 @@ data class DocumentMetadata(
  * @property documentId The document ID
  */
 data class GetDocumentMetadata(
-    val tenantId: Long,
-    val documentId: Long,
+    val tenantId: UUID,
+    val documentId: UUID,
 ) : Query<DocumentMetadata?>
 
 @Component
@@ -54,11 +55,11 @@ class GetDocumentMetadataHandler(
             .bind("tenantId", query.tenantId)
             .map { rs, _ ->
                 DocumentMetadata(
-                    id = rs.getLong("id"),
-                    tenantId = rs.getLong("tenant_id"),
-                    templateId = rs.getLong("template_id"),
-                    variantId = rs.getLong("variant_id"),
-                    versionId = rs.getLong("version_id"),
+                    id = rs.getObject("id", UUID::class.java),
+                    tenantId = rs.getObject("tenant_id", UUID::class.java),
+                    templateId = rs.getObject("template_id", UUID::class.java),
+                    variantId = rs.getObject("variant_id", UUID::class.java),
+                    versionId = rs.getObject("version_id", UUID::class.java),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

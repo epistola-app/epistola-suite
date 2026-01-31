@@ -5,6 +5,7 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Removes an activation for a variant in an environment.
@@ -14,10 +15,10 @@ import org.springframework.stereotype.Component
  * - The environment or variant doesn't belong to the tenant
  */
 data class RemoveActivation(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val environmentId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val environmentId: UUID,
 ) : Command<Boolean>
 
 @Component

@@ -1,11 +1,13 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 /**
  * Publishes a draft version by creating a new immutable published version.
@@ -17,10 +19,10 @@ import org.springframework.stereotype.Component
  * - The tenant doesn't own the template
  */
 data class PublishVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val versionId: UUID,
 ) : Command<TemplateVersion?>
 
 @Component
@@ -67,15 +69,17 @@ class PublishVersionHandler(
             .one()
 
         // Create a new published version with the draft's content
+        val newVersionId = UUIDv7.generate()
         handle.createQuery(
             """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at, published_at)
-                SELECT :variantId, :versionNumber, template_model, 'published', NOW(), NOW()
+                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at, published_at)
+                SELECT :newId, :variantId, :versionNumber, template_model, 'published', NOW(), NOW()
                 FROM template_versions
                 WHERE id = :draftId
                 RETURNING *
                 """,
         )
+            .bind("newId", newVersionId)
             .bind("variantId", command.variantId)
             .bind("versionNumber", nextVersionNumber)
             .bind("draftId", draft.id)

@@ -38,7 +38,7 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Generation ==================
 
     override fun generateDocument(
-        tenantId: Long,
+        tenantId: UUID,
         generateDocumentRequest: GenerateDocumentRequest,
     ): ResponseEntity<GenerationJobResponse> {
         val command = generateDocumentRequest.toCommand(tenantId, objectMapper)
@@ -50,7 +50,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun generateDocumentBatch(
-        tenantId: Long,
+        tenantId: UUID,
         generateBatchRequest: GenerateBatchRequest,
     ): ResponseEntity<GenerationJobResponse> {
         val command = generateBatchRequest.toCommand(tenantId, objectMapper)
@@ -64,7 +64,7 @@ class EpistolaDocumentGenerationApi(
     // ================== Job Management ==================
 
     override fun listGenerationJobs(
-        tenantId: Long,
+        tenantId: UUID,
         status: String?,
         page: Int,
         size: Int,
@@ -92,7 +92,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun getGenerationJobStatus(
-        tenantId: Long,
+        tenantId: UUID,
         requestId: UUID,
     ): ResponseEntity<GenerationJobDetail> {
         val jobResult = mediator.query(GetGenerationJob(tenantId, requestId))
@@ -102,7 +102,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun cancelGenerationJob(
-        tenantId: Long,
+        tenantId: UUID,
         requestId: UUID,
     ): ResponseEntity<Unit> {
         val cancelled = mediator.send(CancelGenerationJob(tenantId, requestId))
@@ -118,8 +118,8 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Download ==================
 
     override fun downloadDocument(
-        tenantId: Long,
-        documentId: Long,
+        tenantId: UUID,
+        documentId: UUID,
     ): ResponseEntity<Resource> {
         val document = mediator.query(GetDocument(tenantId, documentId))
             ?: return ResponseEntity.notFound().build()
@@ -134,8 +134,8 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun deleteDocument(
-        tenantId: Long,
-        documentId: Long,
+        tenantId: UUID,
+        documentId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = mediator.send(DeleteDocument(tenantId, documentId))
 
@@ -149,8 +149,8 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Listing ==================
 
     override fun listDocuments(
-        tenantId: Long,
-        templateId: Long?,
+        tenantId: UUID,
+        templateId: UUID?,
         correlationId: String?,
         page: Int,
         size: Int,

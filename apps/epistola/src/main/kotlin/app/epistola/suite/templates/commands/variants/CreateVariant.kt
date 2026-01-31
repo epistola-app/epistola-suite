@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.common.UUIDv7
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVariant
@@ -7,10 +8,12 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 data class CreateVariant(
-    val tenantId: Long,
-    val templateId: Long,
+    val id: UUID,
+    val tenantId: UUID,
+    val templateId: UUID,
     val title: String?,
     val description: String?,
     val tags: Map<String, String> = emptyMap(),
@@ -43,11 +46,12 @@ class CreateVariantHandler(
 
         val variant = handle.createQuery(
             """
-                INSERT INTO template_variants (template_id, title, description, tags, created_at, last_modified)
-                VALUES (:templateId, :title, :description, :tags::jsonb, NOW(), NOW())
+                INSERT INTO template_variants (id, template_id, title, description, tags, created_at, last_modified)
+                VALUES (:id, :templateId, :title, :description, :tags::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
         )
+            .bind("id", command.id)
             .bind("templateId", command.templateId)
             .bind("title", command.title)
             .bind("description", command.description)
@@ -56,12 +60,14 @@ class CreateVariantHandler(
             .one()
 
         // Create an initial draft version for the new variant
+        val versionId = UUIDv7.generate()
         handle.createUpdate(
             """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
-                VALUES (:variantId, NULL, NULL, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
+                VALUES (:id, :variantId, NULL, NULL, 'draft', NOW())
                 """,
         )
+            .bind("id", versionId)
             .bind("variantId", variant.id)
             .execute()
 

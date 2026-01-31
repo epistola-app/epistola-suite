@@ -13,8 +13,8 @@ generate-document:
         required: true
         description: Tenant identifier
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
     requestBody:
       required: true
       content:
@@ -48,8 +48,8 @@ generate-batch:
         required: true
         description: Tenant identifier
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
     requestBody:
       required: true
       content:
@@ -83,8 +83,8 @@ jobs:
         required: true
         description: Tenant identifier
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
       - name: status
         in: query
         description: Filter by job status
@@ -121,8 +121,8 @@ job-detail:
       required: true
       description: Tenant identifier
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: requestId
       in: path
       required: true
@@ -178,14 +178,14 @@ documents:
         required: true
         description: Tenant identifier
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
       - name: templateId
         in: query
         description: Filter by template ID
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
       - name: correlationId
         in: query
         description: Filter by client-provided correlation ID
@@ -222,15 +222,15 @@ document-detail:
       required: true
       description: Tenant identifier
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: documentId
       in: path
       required: true
       description: Document ID
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: downloadDocument

@@ -6,12 +6,13 @@ import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class GetVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val versionId: UUID,
 ) : Query<TemplateVersion?>
 
 @Component

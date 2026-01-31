@@ -7,6 +7,7 @@ import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import java.util.UUID
 
 class TenantIsolationTest : BaseIntegrationTest() {
     @Autowired
@@ -42,7 +43,7 @@ class TenantIsolationTest : BaseIntegrationTest() {
     @Test
     fun `cannot get template from different tenant`() = fixture {
         lateinit var tenant2: Tenant
-        var templateId: Long = 0
+        lateinit var templateId: UUID
 
         given {
             val tenant1 = tenant("Tenant 1")

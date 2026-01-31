@@ -52,6 +52,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 
 @RestController
 class EpistolaTemplateApi(
@@ -64,7 +65,7 @@ class EpistolaTemplateApi(
     // ================== Template operations ==================
 
     override fun listTemplates(
-        tenantId: Long,
+        tenantId: UUID,
         q: String?,
     ): ResponseEntity<TemplateListResponse> {
         val templates = mediator.query(ListDocumentTemplates(tenantId = tenantId, searchTerm = q))
@@ -76,12 +77,13 @@ class EpistolaTemplateApi(
     }
 
     override fun createTemplate(
-        tenantId: Long,
+        tenantId: UUID,
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val schemaJson = createTemplateRequest.schema?.let { objectMapper.writeValueAsString(it) }
         val template = mediator.send(
             CreateDocumentTemplate(
+                id = createTemplateRequest.id,
                 tenantId = tenantId,
                 name = createTemplateRequest.name,
                 schema = schemaJson,
@@ -92,8 +94,8 @@ class EpistolaTemplateApi(
     }
 
     override fun getTemplate(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
     ): ResponseEntity<TemplateDto> {
         val template = mediator.query(GetDocumentTemplate(tenantId = tenantId, id = templateId))
             ?: return ResponseEntity.notFound().build()
@@ -102,8 +104,8 @@ class EpistolaTemplateApi(
     }
 
     override fun updateTemplate(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val dataExamples = updateTemplateRequest.dataExamples?.map {
@@ -127,8 +129,8 @@ class EpistolaTemplateApi(
     }
 
     override fun deleteTemplate(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = mediator.send(DeleteDocumentTemplate(tenantId = tenantId, id = templateId))
         return if (deleted) {
@@ -141,8 +143,8 @@ class EpistolaTemplateApi(
     // ================== Variant operations ==================
 
     override fun listVariants(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
     ): ResponseEntity<VariantListResponse> {
         val variants = mediator.query(ListVariants(tenantId = tenantId, templateId = templateId))
         val variantDtos = variants.map { variant ->
@@ -153,12 +155,13 @@ class EpistolaTemplateApi(
     }
 
     override fun createVariant(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
         createVariantRequest: CreateVariantRequest,
     ): ResponseEntity<VariantDto> {
         val variant = mediator.send(
             CreateVariant(
+                id = createVariantRequest.id,
                 tenantId = tenantId,
                 templateId = templateId,
                 title = createVariantRequest.title,
@@ -171,9 +174,9 @@ class EpistolaTemplateApi(
     }
 
     override fun getVariant(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
     ): ResponseEntity<VariantDto> {
         val variant = mediator.query(
             GetVariant(
@@ -187,9 +190,9 @@ class EpistolaTemplateApi(
     }
 
     override fun updateVariant(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
         updateVariantRequest: UpdateVariantRequest,
     ): ResponseEntity<VariantDto> {
         val tags = updateVariantRequest.tags
@@ -207,9 +210,9 @@ class EpistolaTemplateApi(
     }
 
     override fun deleteVariant(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = mediator.send(
             DeleteVariant(
@@ -228,9 +231,9 @@ class EpistolaTemplateApi(
     // ================== Draft operations ==================
 
     override fun getVariantDraft(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
     ): ResponseEntity<VersionDto> {
         val draft = mediator.query(
             GetDraft(
@@ -243,9 +246,9 @@ class EpistolaTemplateApi(
     }
 
     override fun upsertVariantDraft(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
@@ -263,9 +266,9 @@ class EpistolaTemplateApi(
     // ================== Activation operations ==================
 
     override fun listVariantActivations(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
     ): ResponseEntity<ActivationListResponse> {
         val activations = mediator.query(
             ListActivations(
@@ -278,10 +281,10 @@ class EpistolaTemplateApi(
     }
 
     override fun setVariantActivation(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
-        environmentId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
+        environmentId: UUID,
         setActivationRequest: SetActivationRequest,
     ): ResponseEntity<ActivationDto> {
         val activation = mediator.send(
@@ -309,10 +312,10 @@ class EpistolaTemplateApi(
     }
 
     override fun removeVariantActivation(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
-        environmentId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
+        environmentId: UUID,
     ): ResponseEntity<Unit> {
         val removed = mediator.send(
             RemoveActivation(
@@ -330,10 +333,10 @@ class EpistolaTemplateApi(
     }
 
     override fun getActiveVersion(
-        environment: Long,
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        environment: UUID,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
     ): ResponseEntity<VersionDto> {
         val version = mediator.query(
             GetActiveVersion(
@@ -349,9 +352,9 @@ class EpistolaTemplateApi(
     // ================== Version operations ==================
 
     override fun listVersions(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
         status: String?,
     ): ResponseEntity<VersionListResponse> {
         val versions = mediator.query(
@@ -374,10 +377,10 @@ class EpistolaTemplateApi(
     }
 
     override fun getVersion(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
-        versionId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
+        versionId: UUID,
     ): ResponseEntity<VersionDto> {
         val version = mediator.query(
             GetVersion(
@@ -391,10 +394,10 @@ class EpistolaTemplateApi(
     }
 
     override fun updateVersion(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
-        versionId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
+        versionId: UUID,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
@@ -411,10 +414,10 @@ class EpistolaTemplateApi(
     }
 
     override fun publishVersion(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
-        versionId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
+        versionId: UUID,
     ): ResponseEntity<VersionDto> {
         val published = mediator.send(
             PublishVersion(
@@ -428,10 +431,10 @@ class EpistolaTemplateApi(
     }
 
     override fun archiveVersion(
-        tenantId: Long,
-        templateId: Long,
-        variantId: Long,
-        versionId: Long,
+        tenantId: UUID,
+        templateId: UUID,
+        variantId: UUID,
+        versionId: UUID,
     ): ResponseEntity<VersionDto> {
         val archived = mediator.send(
             ArchiveVersion(
@@ -449,7 +452,7 @@ class EpistolaTemplateApi(
     private fun getVariantSummary(variant: TemplateVariant): VariantVersionInfo {
         val versions = mediator.query(
             ListVersions(
-                tenantId = 0, // Not used for summary
+                tenantId = variant.templateId, // Using templateId as tenant context (will be ignored)
                 templateId = variant.templateId,
                 variantId = variant.id,
             ),

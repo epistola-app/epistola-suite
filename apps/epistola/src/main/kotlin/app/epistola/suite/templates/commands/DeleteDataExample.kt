@@ -8,13 +8,14 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 /**
  * Deletes a single data example from a template.
  */
 data class DeleteDataExample(
-    val tenantId: Long,
-    val templateId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
     val exampleId: String,
 ) : Command<DeleteDataExampleResult?>
 
@@ -51,7 +52,7 @@ class DeleteDataExampleHandler(
         return DeleteDataExampleResult(deleted = true)
     }
 
-    private fun getExisting(tenantId: Long, templateId: Long): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(tenantId: UUID, templateId: UUID): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
@@ -67,8 +68,8 @@ class DeleteDataExampleHandler(
     }
 
     private fun updateDataExamples(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
         dataExamples: List<DataExample>,
     ): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(

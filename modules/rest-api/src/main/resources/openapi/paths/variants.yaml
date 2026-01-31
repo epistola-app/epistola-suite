@@ -5,15 +5,15 @@ variants:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: listVariants
@@ -74,22 +74,22 @@ variants-id:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: getVariant
@@ -166,22 +166,22 @@ variant-draft:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: getVariantDraft
@@ -248,22 +248,22 @@ variant-activations:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: listVariantActivations
@@ -292,29 +292,29 @@ variant-activation-env:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: environmentId
       in: path
       required: true
       description: Unique identifier of the environment
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   put:
     operationId: setVariantActivation
@@ -371,22 +371,22 @@ variant-active:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: templateId
       in: path
       required: true
       description: Unique identifier of the template
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: variantId
       in: path
       required: true
       description: Unique identifier of the variant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: getActiveVersion
@@ -400,8 +400,8 @@ variant-active:
         required: true
         description: Environment ID to get active version for
         schema:
-          type: integer
-          format: int64
+          type: string
+          format: uuid
     responses:
       '200':
         description: Active version

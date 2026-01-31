@@ -12,6 +12,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
+import java.util.UUID
 
 /**
  * Updates a single data example within a template.
@@ -21,8 +22,8 @@ import tools.jackson.databind.node.ObjectNode
  *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDataExample(
-    val tenantId: Long,
-    val templateId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
     val exampleId: String,
     val name: String? = null,
     val data: ObjectNode? = null,
@@ -91,7 +92,7 @@ class UpdateDataExampleHandler(
         return UpdateDataExampleResult(example = persistedExample, warnings = warnings)
     }
 
-    private fun getExisting(tenantId: Long, templateId: Long): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(tenantId: UUID, templateId: UUID): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
@@ -107,8 +108,8 @@ class UpdateDataExampleHandler(
     }
 
     private fun updateDataExamples(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
         dataExamples: List<DataExample>,
     ): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(

@@ -5,11 +5,12 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import java.util.UUID
 
 data class DeleteVariant(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
 ) : Command<Boolean>
 
 @Component

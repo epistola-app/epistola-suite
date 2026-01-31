@@ -5,8 +5,8 @@ environments:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: listEnvironments
@@ -73,15 +73,15 @@ environments-id:
       required: true
       description: Unique identifier of the tenant
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
     - name: environmentId
       in: path
       required: true
       description: Unique identifier of the environment
       schema:
-        type: integer
-        format: int64
+        type: string
+        format: uuid
 
   get:
     operationId: getEnvironment

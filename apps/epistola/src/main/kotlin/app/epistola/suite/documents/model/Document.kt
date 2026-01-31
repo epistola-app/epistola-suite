@@ -1,6 +1,7 @@
 package app.epistola.suite.documents.model
 
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * A generated document stored in the database.
@@ -22,11 +23,11 @@ import java.time.OffsetDateTime
  * @property createdBy User ID from Keycloak (future feature)
  */
 data class Document(
-    val id: Long,
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val id: UUID,
+    val tenantId: UUID,
+    val templateId: UUID,
+    val variantId: UUID,
+    val versionId: UUID,
     val filename: String,
     val correlationId: String?,
     val contentType: String,

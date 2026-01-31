@@ -26,7 +26,7 @@ import java.util.UUID
  */
 data class DocumentGenerationRequest(
     val id: UUID,
-    val tenantId: Long,
+    val tenantId: UUID,
     val jobType: JobType,
     val status: RequestStatus,
     val claimedBy: String?,
