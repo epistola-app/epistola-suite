@@ -1,0 +1,38 @@
+schema: spec-driven
+context: |
+  ## Tech Stack
+
+  **Backend**: Spring Boot 4.0.0, Kotlin 2.3.0 (JDK 25), PostgreSQL, JDBI (not JPA), Jackson 3
+  **Frontend**: Thymeleaf + HTMX (server-side), React 19 + TypeScript (client components), TipTap 3
+  **Build**: Gradle (Kotlin DSL), pnpm workspaces
+  **Testing**: JUnit 5, Testcontainers (requires Docker)
+
+  ## Key Constraints
+
+  - **Pre-production**: Breaking changes acceptable without migration paths
+  - **Jackson 3**: Use `tools.jackson.*` imports, not `com.fasterxml.jackson`
+  - **Multi-tenant**: All queries filter by `tenant_id`
+  - **ktlint**: Required for Kotlin code style (enforced in CI)
+  - **Conventional Commits**: Required for semantic versioning
+
+  ## Architecture
+
+  - **Backend**: Command/Query Bus (Mediator pattern), Functional routing (WebMvc.fn), JDBI with SQL
+  - **Frontend**: Server-side rendering (Thymeleaf), HTMX for interactions, React only for rich components
+  - **Block-based templates**: Visual layout using nested blocks with expression evaluation
+
+rules:
+  proposal:
+    - Keep proposals focused on single features or changes
+    - Consider multi-tenancy implications for all database changes
+    - Specify if changes require Docker for testing (Testcontainers)
+    - Note breaking changes explicitly since project is pre-production
+    - Consider both API and UI implications for template features
+
+  specs:
+    - Use Kotlin coding conventions (data classes, immutability, functional style)
+    - Reference ktlint rules for code style decisions
+    - Include migration strategy for database schema changes
+    - Specify test coverage requirements (integration tests with Testcontainers)
+    - Document API endpoints using OpenAPI spec changes when applicable
+    - Consider Jackson 3 serialization for all DTOs

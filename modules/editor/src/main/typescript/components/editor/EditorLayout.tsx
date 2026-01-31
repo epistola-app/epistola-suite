@@ -3,14 +3,15 @@ import { Canvas } from "./Canvas";
 import { PdfPreview } from "./PdfPreview";
 import { ExampleSelector } from "./ExampleSelector";
 import { StyleSidebar } from "../styling";
-import { useEditorStore, useIsDirty } from "../../store/editorStore";
+import { useEditorStore, useIsDirty, useCanUndo, useCanRedo, undo, redo } from "../../store/editorStore";
 import { useEvaluator } from "../../context/EvaluatorContext";
+import { useUndoRedoShortcuts } from "../../hooks/use-undo-redo-shortcuts";
 import type { EvaluatorType } from "../../services/expression";
 import type { Template } from "../../types/template";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import SaveButton from "../ui/save-button";
 import { Button } from "../ui/button";
-import { ArrowLeftToLine } from "lucide-react";
+import { ArrowLeftToLine, Undo2, Redo2 } from "lucide-react";
 import { Separator } from "../ui/separator";
 import { useDefaultLayout } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../ui/resizable";
@@ -29,6 +30,9 @@ interface EditorLayoutProps {
 export function EditorLayout({ isEmbedded = false, onSave, onExampleSelected }: EditorLayoutProps) {
   const template = useEditorStore((s) => s.template);
   const isDirty = useIsDirty();
+
+  // Enable undo/redo keyboard shortcuts
+  useUndoRedoShortcuts();
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -107,6 +111,36 @@ function PreviewModeSelector() {
   );
 }
 
+function UndoRedoButtons() {
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
+
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={undo}
+        disabled={!canUndo}
+        aria-label="Undo (Ctrl+Z)"
+        title="Undo (Ctrl+Z)"
+      >
+        <Undo2 className="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={redo}
+        disabled={!canRedo}
+        aria-label="Redo (Ctrl+Shift+Z)"
+        title="Redo (Ctrl+Shift+Z)"
+      >
+        <Redo2 className="size-4" />
+      </Button>
+    </div>
+  );
+}
+
 interface EditorHeaderProps {
   isEmbedded: boolean;
   onSave: ((template: Template) => void | Promise<void>) | undefined;
@@ -152,6 +186,9 @@ function EditorHeader({ isEmbedded, onSave, onExampleSelected, template }: Edito
             <Separator orientation="vertical" className="min-h-6" />
             {/* Evaluator Selector */}
             <EvaluatorSelector />
+            <Separator orientation="vertical" className="min-h-6" />
+            {/* Undo/Redo */}
+            <UndoRedoButtons />
 
             <div className="flex gap-2">
               <button
@@ -201,6 +238,8 @@ function EditorHeader({ isEmbedded, onSave, onExampleSelected, template }: Edito
             <PreviewModeSelector />
             <Separator orientation="vertical" className="min-h-6" />
             <EvaluatorSelector />
+            <Separator orientation="vertical" className="min-h-6" />
+            <UndoRedoButtons />
             <Separator orientation="vertical" className="min-h-6" />
             <AutoSave onSave={onSave} />
             <SaveButton onSave={onSave} />

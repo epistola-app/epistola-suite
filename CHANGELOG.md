@@ -3,30 +3,37 @@
 ## [Unreleased]
 
 ### Added
-
 - **Comprehensive Document Generation Test Suite**: Complete integration and unit tests for document generation API
-  - Integration tests for single and batch document generation
-  - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument
-  - Query tests for GetDocument, ListDocuments, GetGenerationJob, ListGenerationJobs
-  - Test utilities: TestTemplateBuilder for minimal TemplateModel construction
-  - Multi-tenant isolation verification tests
-  - Partial failure handling in batch processing
-  - Job cancellation and document deletion workflows
-  - PDF content validation (magic bytes verification)
-  - All tests compile successfully with proper error handling
+    - Integration tests for single and batch document generation
+    - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument
+    - Query tests for GetDocument, ListDocuments, GetGenerationJob, ListGenerationJobs
+    - Test utilities: TestTemplateBuilder for minimal TemplateModel construction
+    - Multi-tenant isolation verification tests
+    - Partial failure handling in batch processing
+    - Job cancellation and document deletion workflows
+    - PDF content validation (magic bytes verification)
+    - All tests compile successfully with proper error handling
 - **Asynchronous Document Generation API**: Comprehensive async document generation system using Spring Batch
-  - Single document generation with immediate job ID response (202 Accepted)
-  - Batch document generation supporting multiple documents in one request
-  - Job status tracking with real-time progress monitoring
-  - Document download and listing endpoints
-  - Job cancellation for pending/in-progress jobs
-  - Automatic cleanup of expired jobs and old documents
-  - PostgreSQL BYTEA storage for generated PDFs (future migration path to S3/MinIO)
-  - Spring Batch integration with chunk-oriented processing (10 items per transaction)
-  - Fault tolerance: batch processing continues on partial failures
-  - Multi-tenant isolation with proper security
-  - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
-  - Configurable retention: jobs (7 days), documents (30 days)
+    - Single document generation with immediate job ID response (202 Accepted)
+    - Batch document generation supporting multiple documents in one request
+    - Job status tracking with real-time progress monitoring
+    - Document download and listing endpoints
+    - Job cancellation for pending/in-progress jobs
+    - Automatic cleanup of expired jobs and old documents
+    - PostgreSQL BYTEA storage for generated PDFs (future migration path to S3/MinIO)
+    - Spring Batch integration with chunk-oriented processing (10 items per transaction)
+    - Fault tolerance: batch processing continues on partial failures
+    - Multi-tenant isolation with proper security
+    - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
+    - Configurable retention: jobs (7 days), documents (30 days)
+- **Undo/Redo in Template Editor**: Full history management for structural and text changes
+  - Zustand store integration using zundo temporal middleware
+  - Tracks template changes (blocks, styles) with 100-entry history limit
+  - 500ms debounce batches rapid changes (e.g., dragging, slider adjustments)
+  - Keyboard shortcuts: Ctrl+Z/Cmd+Z (undo), Ctrl+Shift+Z/Cmd+Shift+Z/Ctrl+Y (redo)
+  - Smart focus detection routes undo/redo to TipTap for text or Zustand for structure
+  - Toolbar buttons with enabled/disabled states reflecting history availability
+  - TipTap's built-in History extension handles character-level text undo
 - **Page Header Block**: New block type to display repeating headers on every PDF page
   - Frontend: Visual component with blue styling and drag-drop child block support
   - Backend: `PageHeaderBlock` model with dedicated `PageHeaderEventHandler`
@@ -52,6 +59,12 @@
 
 ### Changed
 
+- **OpenSpec Migration**: Updated to new OPSX workflow structure
+    - Migrated from legacy commands (`/openspec:proposal`, `/openspec:apply`, `/openspec:archive`) to new OPSX commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:apply`, `/opsx:verify`, `/opsx:sync`, `/opsx:archive`, `/opsx:bulk-archive`, `/opsx:explore`)
+    - Replaced `.claude/commands/openspec/` with `.claude/skills/openspec-*/` skill structure
+    - Created `openspec/config.yaml` for context injection (replaces passive `project.md` approach)
+    - Removed `openspec/AGENTS.md` and OpenSpec marker blocks from documentation
+    - New workflow supports flexible, action-based development instead of rigid phase-locked process
 - **BREAKING**: Spring Batch now enabled for async document generation
   - Previously disabled via `spring.batch.job.enabled: false` in application-local.yaml
   - Now enabled to support document generation jobs
