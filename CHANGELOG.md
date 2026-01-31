@@ -4,6 +4,16 @@
 
 ### Added
 
+- **Comprehensive Document Generation Test Suite**: Complete integration and unit tests for document generation API
+  - Integration tests for single and batch document generation
+  - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument
+  - Query tests for GetDocument, ListDocuments, GetGenerationJob, ListGenerationJobs
+  - Test utilities: TestTemplateBuilder for minimal TemplateModel construction
+  - Multi-tenant isolation verification tests
+  - Partial failure handling in batch processing
+  - Job cancellation and document deletion workflows
+  - PDF content validation (magic bytes verification)
+  - All tests compile successfully with proper error handling
 - **Asynchronous Document Generation API**: Comprehensive async document generation system using Spring Batch
   - Single document generation with immediate job ID response (202 Accepted)
   - Batch document generation supporting multiple documents in one request
@@ -17,7 +27,6 @@
   - Multi-tenant isolation with proper security
   - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
   - Configurable retention: jobs (7 days), documents (30 days)
-  - **Note**: Currently has compilation errors with Spring Batch imports that need fixing
 - **Page Header Block**: New block type to display repeating headers on every PDF page
   - Frontend: Visual component with blue styling and drag-drop child block support
   - Backend: `PageHeaderBlock` model with dedicated `PageHeaderEventHandler`

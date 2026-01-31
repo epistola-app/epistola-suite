@@ -13,7 +13,11 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 
 @Import(TestcontainersConfiguration::class)
-@SpringBootTest
+@SpringBootTest(
+    properties = [
+        "epistola.demo.enabled=false",
+    ],
+)
 abstract class BaseIntegrationTest {
     @Autowired
     protected lateinit var mediator: Mediator

@@ -99,9 +99,9 @@ CREATE SEQUENCE BATCH_JOB_SEQ START WITH 0 MINVALUE 0 MAXVALUE 92233720368547758
 CREATE TABLE documents (
     id BIGSERIAL PRIMARY KEY,
     tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    template_id BIGINT NOT NULL REFERENCES document_templates(id),
-    variant_id BIGINT NOT NULL REFERENCES template_variants(id),
-    version_id BIGINT NOT NULL REFERENCES template_versions(id),
+    template_id BIGINT NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    variant_id BIGINT NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    version_id BIGINT NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
     filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
     size_bytes BIGINT NOT NULL,
@@ -159,10 +159,10 @@ CREATE INDEX idx_generation_requests_created_at ON document_generation_requests(
 CREATE TABLE document_generation_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_id UUID NOT NULL REFERENCES document_generation_requests(id) ON DELETE CASCADE,
-    template_id BIGINT NOT NULL REFERENCES document_templates(id),
-    variant_id BIGINT NOT NULL REFERENCES template_variants(id),
-    version_id BIGINT REFERENCES template_versions(id),  -- NULL = use environment to determine version
-    environment_id BIGINT REFERENCES environments(id),    -- NULL = use version_id directly
+    template_id BIGINT NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    variant_id BIGINT NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    version_id BIGINT REFERENCES template_versions(id) ON DELETE CASCADE,  -- NULL = use environment to determine version
+    environment_id BIGINT REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
     data JSONB NOT NULL,
     filename VARCHAR(255),
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),

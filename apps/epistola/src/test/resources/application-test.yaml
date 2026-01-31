@@ -1,0 +1,8 @@
+spring:
+  batch:
+    job:
+      enabled: false  # Disable automatic job execution on startup
+
+epistola:
+  demo:
+    enabled: false  # Disable demo loading in tests
