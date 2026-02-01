@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- **Spring Transaction Support for JDBI**: Integrated `jdbi3-spring` to enable JDBI participation in Spring-managed transactions
+  - JDBI now uses `SpringConnectionFactory` to reuse Spring's transactionally-managed connections
+  - Services can compose multiple commands atomically using `@Transactional`
+  - Existing handler code continues to work unchanged - JDBI operations automatically participate in surrounding Spring transactions when they exist
+
 ### Changed
 - **Test suite performance optimization**: Reduced test execution time from ~2 minutes to ~35 seconds (82% faster)
   - Added synchronous job execution mode for tests (`epistola.generation.synchronous=true`)

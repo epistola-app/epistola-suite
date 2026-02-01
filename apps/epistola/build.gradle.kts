@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.jdbi.kotlin)
     implementation(libs.jdbi.postgres)
     implementation(libs.jdbi.jackson3)
+    implementation(libs.jdbi.spring)
     implementation(libs.json.schema.validator)
     implementation(libs.uuid.creator)
     implementation("org.flywaydb:flyway-database-postgresql")

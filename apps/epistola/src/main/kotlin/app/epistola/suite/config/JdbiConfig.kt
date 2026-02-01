@@ -5,6 +5,7 @@ import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.jackson3.Jackson3Config
 import org.jdbi.v3.jackson3.Jackson3Plugin
 import org.jdbi.v3.postgres.PostgresPlugin
+import org.jdbi.v3.spring.SpringConnectionFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.ObjectMapper
@@ -16,7 +17,7 @@ class JdbiConfig {
     fun jdbi(
         dataSource: DataSource,
         mapper: ObjectMapper,
-    ): Jdbi = Jdbi.create(dataSource)
+    ): Jdbi = Jdbi.create(SpringConnectionFactory(dataSource))
         .installPlugin(KotlinPlugin())
         .installPlugin(PostgresPlugin())
         .installPlugin(Jackson3Plugin())
