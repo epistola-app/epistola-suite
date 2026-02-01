@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${theme.name + ' - Epistola'}">Theme - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <main class="regular">
+        <nav class="breadcrumb">
+            <a th:href="@{/}">Tenants</a> &raquo;
+            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
+            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo;
+            <span th:text="${theme.name}">Theme Name</span>
+        </nav>
+
+        <div class="page-header">
+            <h1 th:text="${theme.name}">Theme Name</h1>
+            <form th:action="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
+                  method="post"
+                  onsubmit="return confirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.')">
+                <button type="submit" class="btn btn-danger btn-small">Delete Theme</button>
+            </form>
+        </div>
+
+        <!-- Basic Info Section -->
+        <section>
+            <h2>Basic Information</h2>
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="theme-name">Name</label>
+                    <input type="text" id="theme-name" th:value="${theme.name}" placeholder="Theme name">
+                </div>
+                <div class="form-group">
+                    <label for="theme-description">Description</label>
+                    <textarea id="theme-description" rows="2" placeholder="Theme description" th:text="${theme.description}"></textarea>
+                </div>
+                <button type="button" class="btn" onclick="saveBasicInfo()">Save Basic Info</button>
+            </div>
+        </section>
+
+        <!-- Document Styles Section -->
+        <section style="margin-top: 2rem;">
+            <h2>Document Styles</h2>
+            <p class="text-muted" style="margin-bottom: 1rem;">
+                Default styles applied to all templates using this theme. Template-level styles will override these.
+            </p>
+            <div class="form-section">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doc-fontFamily">Font Family</label>
+                        <input type="text" id="doc-fontFamily" th:value="${theme.documentStyles?.fontFamily}" placeholder="e.g., Arial, Helvetica, sans-serif">
+                    </div>
+                    <div class="form-group">
+                        <label for="doc-fontSize">Font Size</label>
+                        <input type="text" id="doc-fontSize" th:value="${theme.documentStyles?.fontSize}" placeholder="e.g., 12pt">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doc-fontWeight">Font Weight</label>
+                        <select id="doc-fontWeight">
+                            <option value="" th:selected="${theme.documentStyles?.fontWeight == null}">Default</option>
+                            <option value="normal" th:selected="${theme.documentStyles?.fontWeight == 'normal'}">Normal</option>
+                            <option value="bold" th:selected="${theme.documentStyles?.fontWeight == 'bold'}">Bold</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="doc-color">Text Color</label>
+                        <input type="text" id="doc-color" th:value="${theme.documentStyles?.color}" placeholder="e.g., #333333">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doc-lineHeight">Line Height</label>
+                        <input type="text" id="doc-lineHeight" th:value="${theme.documentStyles?.lineHeight}" placeholder="e.g., 1.5">
+                    </div>
+                    <div class="form-group">
+                        <label for="doc-letterSpacing">Letter Spacing</label>
+                        <input type="text" id="doc-letterSpacing" th:value="${theme.documentStyles?.letterSpacing}" placeholder="e.g., 0.02em">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="doc-textAlign">Text Align</label>
+                        <select id="doc-textAlign">
+                            <option value="" th:selected="${theme.documentStyles?.textAlign == null}">Default</option>
+                            <option value="left" th:selected="${theme.documentStyles?.textAlign == 'left'}">Left</option>
+                            <option value="center" th:selected="${theme.documentStyles?.textAlign == 'center'}">Center</option>
+                            <option value="right" th:selected="${theme.documentStyles?.textAlign == 'right'}">Right</option>
+                            <option value="justify" th:selected="${theme.documentStyles?.textAlign == 'justify'}">Justify</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="doc-backgroundColor">Background Color</label>
+                        <input type="text" id="doc-backgroundColor" th:value="${theme.documentStyles?.backgroundColor}" placeholder="e.g., #ffffff">
+                    </div>
+                </div>
+                <button type="button" class="btn" onclick="saveDocumentStyles()">Save Document Styles</button>
+            </div>
+        </section>
+
+        <!-- Block Style Presets Section -->
+        <section style="margin-top: 2rem;">
+            <h2>Block Style Presets</h2>
+            <p class="text-muted" style="margin-bottom: 1rem;">
+                Named style collections that blocks can reference using the <code>stylePreset</code> property.
+                Similar to CSS classes, blocks can inherit these styles and override specific properties.
+            </p>
+            <div id="presets-container">
+                <!-- Presets will be rendered dynamically -->
+            </div>
+            <div style="margin-top: 1rem;">
+                <button type="button" class="btn btn-secondary" onclick="addPreset()">Add Preset</button>
+                <button type="button" class="btn" onclick="savePresets()">Save Presets</button>
+            </div>
+        </section>
+
+        <p class="text-muted" style="margin-top: 2rem;">
+            Last modified: <span th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></span>
+        </p>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+
+    <script th:inline="javascript">
+        const TENANT_ID = [[${tenantId}]];
+        const THEME_ID = [[${theme.id}]];
+        const INITIAL_PRESETS = [[${theme.blockStylePresets}]] || {};
+
+        // Render presets on load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderPresets(INITIAL_PRESETS);
+        });
+
+        function renderPresets(presets) {
+            const container = document.getElementById('presets-container');
+            container.innerHTML = '';
+
+            if (Object.keys(presets).length === 0) {
+                container.innerHTML = '<p class="text-muted">No presets defined yet.</p>';
+                return;
+            }
+
+            for (const [name, styles] of Object.entries(presets)) {
+                const presetHtml = createPresetHtml(name, styles);
+                container.insertAdjacentHTML('beforeend', presetHtml);
+            }
+        }
+
+        function createPresetHtml(name, styles) {
+            const stylesJson = JSON.stringify(styles, null, 2);
+            return `
+                <div class="preset-item form-section" style="margin-bottom: 1rem;" data-preset-name="${name}">
+                    <div class="form-row" style="align-items: flex-start;">
+                        <div class="form-group" style="flex: 0 0 200px;">
+                            <label>Preset Name</label>
+                            <input type="text" class="preset-name" value="${name}" placeholder="e.g., heading1">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Styles (JSON)</label>
+                            <textarea class="preset-styles" rows="3" placeholder='{"fontSize": "24pt", "fontWeight": "bold"}'>${stylesJson}</textarea>
+                        </div>
+                        <button type="button" class="btn btn-danger btn-small" style="margin-top: 1.5rem;" onclick="removePreset(this)">Remove</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function addPreset() {
+            const container = document.getElementById('presets-container');
+            // Remove "no presets" message if present
+            const emptyMsg = container.querySelector('.text-muted');
+            if (emptyMsg) {
+                emptyMsg.remove();
+            }
+            container.insertAdjacentHTML('beforeend', createPresetHtml('', {}));
+        }
+
+        function removePreset(button) {
+            button.closest('.preset-item').remove();
+            // Show "no presets" message if empty
+            const container = document.getElementById('presets-container');
+            if (container.children.length === 0) {
+                container.innerHTML = '<p class="text-muted">No presets defined yet.</p>';
+            }
+        }
+
+        function collectPresets() {
+            const presets = {};
+            document.querySelectorAll('.preset-item').forEach(item => {
+                const name = item.querySelector('.preset-name').value.trim();
+                const stylesText = item.querySelector('.preset-styles').value.trim();
+                if (name && stylesText) {
+                    try {
+                        presets[name] = JSON.parse(stylesText);
+                    } catch (e) {
+                        alert(`Invalid JSON for preset "${name}": ${e.message}`);
+                        throw e;
+                    }
+                }
+            });
+            return presets;
+        }
+
+        async function saveBasicInfo() {
+            const name = document.getElementById('theme-name').value.trim();
+            const description = document.getElementById('theme-description').value.trim();
+
+            const body = {
+                name: name || undefined,
+                description: description || undefined,
+                clearDescription: !description,
+            };
+
+            await saveTheme(body);
+        }
+
+        async function saveDocumentStyles() {
+            const documentStyles = {
+                fontFamily: document.getElementById('doc-fontFamily').value.trim() || null,
+                fontSize: document.getElementById('doc-fontSize').value.trim() || null,
+                fontWeight: document.getElementById('doc-fontWeight').value || null,
+                color: document.getElementById('doc-color').value.trim() || null,
+                lineHeight: document.getElementById('doc-lineHeight').value.trim() || null,
+                letterSpacing: document.getElementById('doc-letterSpacing').value.trim() || null,
+                textAlign: document.getElementById('doc-textAlign').value || null,
+                backgroundColor: document.getElementById('doc-backgroundColor').value.trim() || null,
+            };
+
+            await saveTheme({ documentStyles });
+        }
+
+        async function savePresets() {
+            try {
+                const presets = collectPresets();
+                await saveTheme({
+                    blockStylePresets: Object.keys(presets).length > 0 ? presets : undefined,
+                    clearBlockStylePresets: Object.keys(presets).length === 0,
+                });
+            } catch (e) {
+                // Error already shown in collectPresets
+            }
+        }
+
+        async function saveTheme(body) {
+            try {
+                const response = await fetch(`/tenants/${TENANT_ID}/themes/${THEME_ID}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert('Failed to save: ' + (error.message || 'Unknown error'));
+                    return;
+                }
+
+                const result = await response.json();
+                // Update page title if name changed
+                if (result.name) {
+                    document.querySelector('h1').textContent = result.name;
+                    document.title = result.name + ' - Epistola';
+                }
+                alert('Saved successfully!');
+            } catch (e) {
+                alert('Failed to save: ' + e.message);
+            }
+        }
+    </script>
+
+    <style>
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .form-row .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        .preset-item {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 0.5rem;
+        }
+        .preset-styles {
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        code {
+            background: #e5e7eb;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .text-truncate {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+        }
+    </style>
+</body>
+</html>

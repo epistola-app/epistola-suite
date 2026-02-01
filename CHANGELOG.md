@@ -6,6 +6,10 @@
 - **Theme System for Reusable Styling**: Introduced themes for defining reusable style collections across multiple templates
   - New `Theme` entity with document-level styles, page settings, and named block style presets
   - REST API endpoints for theme CRUD operations (`/v1/tenants/{tenantId}/themes`)
+  - Web UI for managing themes at `/tenants/{tenantId}/themes`
+    - List, create, search themes with Thymeleaf + HTMX
+    - Detail page for editing document styles and block style presets
+    - "Manage Themes" button added to templates list page
   - `ThemeStyleResolver` service merges theme and template styles following a cascade:
     1. Theme document styles (lowest priority)
     2. Template document styles (override theme)
