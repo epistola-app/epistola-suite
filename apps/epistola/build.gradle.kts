@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.jdbi.kotlin)
     implementation(libs.jdbi.postgres)
     implementation(libs.jdbi.jackson3)
+    implementation(libs.jdbi.spring)
     implementation(libs.json.schema.validator)
     implementation(libs.uuid.creator)
     implementation("org.flywaydb:flyway-database-postgresql")
@@ -71,6 +72,17 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    // JVM optimizations for faster test startup
+    jvmArgs(
+        "-XX:+UseParallelGC", // Parallel GC is faster for short-lived processes
+        "-XX:TieredStopAtLevel=1", // Faster JVM startup (skip C2 compilation)
+    )
+
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = false // Keep output clean
+    }
 }
 
 // Enable BuildProperties bean by generating build-info.properties

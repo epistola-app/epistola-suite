@@ -1,8 +1,6 @@
 package app.epistola.suite
 
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.documents.model.RequestStatus
-import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -15,13 +13,12 @@ import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
-import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import java.util.concurrent.TimeUnit
+import org.springframework.test.context.ActiveProfiles
 
 @Import(TestcontainersConfiguration::class)
 @SpringBootTest(
@@ -29,6 +26,7 @@ import java.util.concurrent.TimeUnit
         "epistola.demo.enabled=false",
     ],
 )
+@ActiveProfiles("test")
 abstract class BaseIntegrationTest {
     @Autowired
     protected lateinit var mediator: Mediator
@@ -95,36 +93,17 @@ abstract class BaseIntegrationTest {
 
     /**
      * Reset the database state before each test.
-     * This ensures complete test isolation by:
-     * 1. Waiting for any in-progress jobs to complete (avoiding orphaned jobs)
-     * 2. Deleting all tenants (cascades to delete all related data)
+     *
+     * With synchronous job execution enabled in tests, jobs complete immediately
+     * so there's no need to wait for pending/in-progress jobs.
      */
     @BeforeEach
     fun resetDatabaseState(): Unit = withMediator {
         val tenants = ListTenants().query()
         if (tenants.isEmpty()) return@withMediator
 
-        // First, wait for any pending/in-progress jobs to complete
-        await()
-            .atMost(30, TimeUnit.SECONDS)
-            .pollInterval(200, TimeUnit.MILLISECONDS)
-            .until {
-                withMediator {
-                    tenants.all { tenant ->
-                        val pendingJobs = ListGenerationJobs(
-                            tenantId = tenant.id,
-                            status = RequestStatus.PENDING,
-                        ).query()
-                        val inProgressJobs = ListGenerationJobs(
-                            tenantId = tenant.id,
-                            status = RequestStatus.IN_PROGRESS,
-                        ).query()
-                        pendingJobs.isEmpty() && inProgressJobs.isEmpty()
-                    }
-                }
-            }
-
-        // Then delete all tenants to ensure a clean slate
+        // Delete all tenants to ensure a clean slate
+        // With synchronous execution, jobs are already complete
         deleteAllTenants()
     }
 

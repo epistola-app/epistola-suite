@@ -21,6 +21,7 @@ jdbi-core = { module = "org.jdbi:jdbi3-core", version.ref = "jdbi" }
 jdbi-kotlin = { module = "org.jdbi:jdbi3-kotlin", version.ref = "jdbi" }
 jdbi-postgres = { module = "org.jdbi:jdbi3-postgres", version.ref = "jdbi" }
 jdbi-jackson3 = { module = "org.jdbi:jdbi3-jackson3", version.ref = "jdbi" }
+jdbi-spring = { module = "org.jdbi:jdbi3-spring", version.ref = "jdbi" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-creator" }
 jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }

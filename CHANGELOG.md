@@ -3,6 +3,22 @@
 ## [Unreleased]
 
 ### Added
+- **Spring Transaction Support for JDBI**: Integrated `jdbi3-spring` to enable JDBI participation in Spring-managed transactions
+  - JDBI now uses `SpringConnectionFactory` to reuse Spring's transactionally-managed connections
+  - Services can compose multiple commands atomically using `@Transactional` or `TransactionTemplate`
+  - Existing handler code continues to work unchanged - JDBI operations automatically participate in surrounding Spring transactions when they exist
+  - `DemoLoader.recreateDemoTenant()` now runs in a single transaction - if any operation fails, the entire demo recreation is rolled back
+
+### Changed
+- **Test suite performance optimization**: Reduced test execution time from ~2 minutes to ~35 seconds (82% faster)
+  - Added synchronous job execution mode for tests (`epistola.generation.synchronous=true`)
+  - `SynchronousGenerationListener` executes document generation jobs immediately via Spring events
+  - Eliminated Awaitility polling waits that were blocking test execution
+  - Added JVM optimization flags for faster test startup (`-XX:+UseParallelGC`, `-XX:TieredStopAtLevel=1`)
+  - Added `@ActiveProfiles("test")` to load test-specific configuration
+  - JUnit 5 parallel execution prepared but disabled (data isolation needed for future enablement)
+
+### Added
 - **ScopedValue-based Mediator context**: Cleaner command/query dispatch using extension functions
   - `MediatorContext` object using JDK 21+ `ScopedValue` for thread-safe, virtual thread compatible mediator access
   - Extension functions: `Command<R>.execute()` and `Query<R>.query()` for idiomatic dispatch

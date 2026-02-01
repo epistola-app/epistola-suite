@@ -18,6 +18,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.core.io.ResourceLoader
 import org.springframework.core.io.support.ResourcePatternUtils
 import org.springframework.stereotype.Component
+import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.ObjectMapper
 
 @Component
@@ -31,6 +32,7 @@ class DemoLoader(
     private val metadataService: AppMetadataService,
     private val resourceLoader: ResourceLoader,
     private val objectMapper: ObjectMapper,
+    private val transactionTemplate: TransactionTemplate,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -52,28 +54,30 @@ class DemoLoader(
     }
 
     private fun recreateDemoTenant() {
-        // Find and delete existing demo tenant (if exists)
-        val existingTenants = mediator.query(ListTenants())
-        val demoTenant = existingTenants.find { it.name == DEMO_TENANT_NAME }
+        transactionTemplate.executeWithoutResult {
+            // Find and delete existing demo tenant (if exists)
+            val existingTenants = mediator.query(ListTenants())
+            val demoTenant = existingTenants.find { it.name == DEMO_TENANT_NAME }
 
-        if (demoTenant != null) {
-            log.info("Deleting existing demo tenant (id={})", demoTenant.id)
-            mediator.send(DeleteTenant(id = demoTenant.id))
+            if (demoTenant != null) {
+                log.info("Deleting existing demo tenant (id={})", demoTenant.id)
+                mediator.send(DeleteTenant(id = demoTenant.id))
+            }
+
+            // Create new demo tenant
+            val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
+            log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
+
+            // Load and create templates from JSON definitions
+            val definitions = loadTemplateDefinitions()
+            log.info("Loaded {} template definitions", definitions.size)
+
+            definitions.forEach { definition ->
+                createTemplateFromDefinition(tenant.id, definition)
+            }
+
+            log.info("Created {} demo templates", definitions.size)
         }
-
-        // Create new demo tenant
-        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
-        log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
-
-        // Load and create templates from JSON definitions
-        val definitions = loadTemplateDefinitions()
-        log.info("Loaded {} template definitions", definitions.size)
-
-        definitions.forEach { definition ->
-            createTemplateFromDefinition(tenant.id, definition)
-        }
-
-        log.info("Created {} demo templates", definitions.size)
     }
 
     private fun createTemplateFromDefinition(tenantId: TenantId, definition: TemplateDefinition) {

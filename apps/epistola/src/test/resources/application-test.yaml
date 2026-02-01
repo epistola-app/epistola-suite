@@ -1,11 +1,16 @@
+logging:
+  level:
+    app.epistola.suite.documents.batch: INFO
+
 epistola:
   demo:
     enabled: false  # Disable demo loading in tests
   generation:
+    synchronous: true  # Execute jobs immediately in tests (no polling needed)
     polling:
-      enabled: true
-      interval-ms: 500          # Fast polling for tests (every 500ms)
-      max-concurrent-jobs: 5    # Allow more concurrent jobs in tests
-      stale-timeout-minutes: 1  # Short timeout for tests
+      enabled: false   # Disable poller when using synchronous execution
+      interval-ms: 500
+      max-concurrent-jobs: 5
+      stale-timeout-minutes: 1
     async:
-      concurrency: 20           # Higher concurrency for tests
+      concurrency: 20
