@@ -27,6 +27,66 @@ object StyleApplicator {
         blockStyles?.let { applyBlockStyles(element, it, fontCache) }
     }
 
+    /**
+     * Applies styles with theme preset resolution.
+     *
+     * Style cascade order (lowest to highest priority):
+     * 1. Document styles (from template or theme)
+     * 2. Theme block preset (when block has stylePreset)
+     * 3. Block inline styles
+     *
+     * @param element The iText element to style
+     * @param blockInlineStyles The block's inline styles (may be null)
+     * @param blockStylePreset The name of the theme preset referenced by the block (may be null)
+     * @param blockStylePresets All available presets from the theme
+     * @param documentStyles Document-level default styles
+     * @param fontCache The font cache for font lookups
+     */
+    fun <T : BlockElement<T>> applyStylesWithPreset(
+        element: T,
+        blockInlineStyles: Map<String, Any>?,
+        blockStylePreset: String?,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        documentStyles: DocumentStyles?,
+        fontCache: FontCache,
+    ) {
+        // Apply document-level styles first (as defaults)
+        documentStyles?.let { applyDocumentStyles(element, it) }
+
+        // Resolve preset styles (if preset exists)
+        val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
+
+        // Apply preset styles (override document styles)
+        presetStyles?.let { applyBlockStyles(element, it, fontCache) }
+
+        // Apply block inline styles (override preset styles)
+        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache) }
+    }
+
+    /**
+     * Resolves block styles by merging preset styles with inline styles.
+     * Inline styles override preset styles.
+     *
+     * @param blockStylePresets The presets from the theme
+     * @param presetName The name of the preset referenced by the block (may be null)
+     * @param inlineStyles The block's inline styles (may be null)
+     * @return Merged styles map with inline styles taking precedence
+     */
+    fun resolveBlockStyles(
+        blockStylePresets: Map<String, Map<String, Any>>,
+        presetName: String?,
+        inlineStyles: Map<String, Any>?,
+    ): Map<String, Any>? {
+        val presetStyles = presetName?.let { blockStylePresets[it] }
+
+        return when {
+            presetStyles == null && inlineStyles == null -> null
+            presetStyles == null -> inlineStyles
+            inlineStyles == null -> presetStyles
+            else -> presetStyles + inlineStyles // inline styles override preset
+        }
+    }
+
     private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles) {
         styles.fontFamily?.let { fontFamily ->
             // iText uses font programs, we'll use a default font

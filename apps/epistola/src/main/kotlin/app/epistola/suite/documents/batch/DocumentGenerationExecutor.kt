@@ -192,7 +192,7 @@ class DocumentGenerationExecutor(
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(item.data, Map::class.java) as Map<String, Any?>
-        generationService.renderPdf(templateModel, dataMap, outputStream)
+        generationService.renderPdf(tenantId, templateModel, dataMap, outputStream)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()

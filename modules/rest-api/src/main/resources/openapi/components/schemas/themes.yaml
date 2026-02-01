@@ -1,0 +1,172 @@
+ThemeDto:
+  type: object
+  description: A theme defines reusable styling that can be applied across multiple templates
+  required:
+    - id
+    - tenantId
+    - name
+    - documentStyles
+    - createdAt
+    - lastModified
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Unique identifier of the theme
+    tenantId:
+      type: string
+      format: uuid
+      description: ID of the tenant this theme belongs to
+    name:
+      type: string
+      description: Name of the theme
+    description:
+      type: string
+      description: Optional description of the theme
+    documentStyles:
+      $ref: '#/DocumentStylesDto'
+    pageSettings:
+      $ref: '#/PageSettingsDto'
+    blockStylePresets:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties: true
+      description: Named block style presets (like CSS classes)
+    createdAt:
+      type: string
+      format: date-time
+      description: Timestamp when the theme was created
+    lastModified:
+      type: string
+      format: date-time
+      description: Timestamp when the theme was last modified
+
+DocumentStylesDto:
+  type: object
+  description: Document-level styling defaults
+  properties:
+    fontFamily:
+      type: string
+      description: Default font family
+    fontSize:
+      type: string
+      description: Default font size (e.g., "12pt", "16px")
+    fontWeight:
+      type: string
+      description: Default font weight (e.g., "normal", "bold")
+    color:
+      type: string
+      description: Default text color (e.g., "#000000")
+    lineHeight:
+      type: string
+      description: Default line height (e.g., "1.5", "24px")
+    letterSpacing:
+      type: string
+      description: Default letter spacing
+    textAlign:
+      type: string
+      enum: [left, center, right, justify]
+      description: Default text alignment
+    backgroundColor:
+      type: string
+      description: Default background color
+
+PageSettingsDto:
+  type: object
+  description: Page layout settings
+  properties:
+    format:
+      type: string
+      enum: [A4, Letter, Custom]
+      description: Page format
+    orientation:
+      type: string
+      enum: [portrait, landscape]
+      description: Page orientation
+    margins:
+      $ref: '#/MarginsDto'
+
+MarginsDto:
+  type: object
+  description: Page margins in pixels
+  properties:
+    top:
+      type: integer
+      description: Top margin in pixels
+    right:
+      type: integer
+      description: Right margin in pixels
+    bottom:
+      type: integer
+      description: Bottom margin in pixels
+    left:
+      type: integer
+      description: Left margin in pixels
+
+CreateThemeRequest:
+  type: object
+  description: Request body for creating a new theme
+  required:
+    - id
+    - name
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: Client-provided unique identifier for the theme (UUIDv7 recommended)
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: Name of the theme
+    description:
+      type: string
+      description: Optional description of the theme
+    documentStyles:
+      $ref: '#/DocumentStylesDto'
+    pageSettings:
+      $ref: '#/PageSettingsDto'
+    blockStylePresets:
+      type: object
+      additionalProperties:
+        type: object
+        additionalProperties: true
+      description: Named block style presets
+
+UpdateThemeRequest:
+  type: object
+  description: Request body for updating a theme (partial update)
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 255
+      description: New name for the theme
+    description:
+      type: string
+      nullable: true
+      description: New description for the theme (null to clear)
+    documentStyles:
+      $ref: '#/DocumentStylesDto'
+    pageSettings:
+      $ref: '#/PageSettingsDto'
+    blockStylePresets:
+      type: object
+      nullable: true
+      additionalProperties:
+        type: object
+        additionalProperties: true
+      description: Named block style presets (null to clear)
+
+ThemeListResponse:
+  type: object
+  description: List of themes
+  required:
+    - items
+  properties:
+    items:
+      type: array
+      description: List of themes
+      items:
+        $ref: '#/ThemeDto'

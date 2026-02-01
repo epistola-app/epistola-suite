@@ -638,7 +638,7 @@ class DocumentTemplateHandler(
             .contentType(MediaType.APPLICATION_PDF)
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
             .build { _, response ->
-                generationService.renderPdf(templateModel, data, response.outputStream)
+                generationService.renderPdf(TenantId.of(tenantId), templateModel, data, response.outputStream)
                 response.outputStream.flush()
                 null // Return null to indicate no view to render
             }

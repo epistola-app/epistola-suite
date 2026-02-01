@@ -18,4 +18,6 @@ data class RenderContext(
     val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.Jsonata,
     /** Font cache scoped to this document */
     val fontCache: FontCache,
+    /** Block style presets from theme (named style collections like CSS classes) */
+    val blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
 )

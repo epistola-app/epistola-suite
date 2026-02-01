@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.template.model.TemplateModel
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
@@ -30,16 +31,48 @@ data class PreviewValidationResult(
 class GenerationService(
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
+    private val themeStyleResolver: ThemeStyleResolver,
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
 ) {
     /**
      * Renders a PDF from a template model and data context.
      *
+     * When the template has a themeId, theme styles are resolved and merged:
+     * - Theme document styles serve as defaults, template document styles override
+     * - Theme block style presets are made available for blocks with stylePreset
+     *
+     * @param tenantId The tenant ID (required for theme lookup)
      * @param templateModel The template model (either from live editor or pre-fetched draft)
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      */
     fun renderPdf(
+        tenantId: TenantId,
+        templateModel: TemplateModel,
+        data: Map<String, Any?>,
+        outputStream: OutputStream,
+    ) {
+        // Resolve styles from theme (if template has themeId)
+        val resolvedStyles = themeStyleResolver.resolveStyles(tenantId, templateModel)
+
+        pdfRenderer.render(
+            template = templateModel,
+            data = data,
+            outputStream = outputStream,
+            blockStylePresets = resolvedStyles.blockStylePresets,
+            resolvedDocumentStyles = resolvedStyles.documentStyles,
+        )
+    }
+
+    /**
+     * Renders a PDF without theme resolution.
+     * Use this for previews where theme lookup is not needed or tenant context is unavailable.
+     *
+     * @param templateModel The template model
+     * @param data The data context for expression evaluation
+     * @param outputStream The output stream to write the PDF to
+     */
+    fun renderPdfWithoutTheme(
         templateModel: TemplateModel,
         data: Map<String, Any?>,
         outputStream: OutputStream,

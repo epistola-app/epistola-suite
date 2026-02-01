@@ -3,6 +3,19 @@
 ## [Unreleased]
 
 ### Added
+- **Theme System for Reusable Styling**: Introduced themes for defining reusable style collections across multiple templates
+  - New `Theme` entity with document-level styles, page settings, and named block style presets
+  - REST API endpoints for theme CRUD operations (`/v1/tenants/{tenantId}/themes`)
+  - `ThemeStyleResolver` service merges theme and template styles following a cascade:
+    1. Theme document styles (lowest priority)
+    2. Template document styles (override theme)
+    3. Theme block preset (when block has `stylePreset`)
+    4. Block inline styles (highest priority)
+  - `TemplateModel.themeId` field for referencing a theme
+  - `Block.stylePreset` field for referencing named style presets (like CSS classes)
+  - Soft reference design: templates gracefully fall back to own styles if theme is deleted
+  - Block style presets support all CSS-like properties: font, colors, margins, padding, alignment
+
 - **Spring Transaction Support for JDBI**: Integrated `jdbi3-spring` to enable JDBI participation in Spring-managed transactions
   - JDBI now uses `SpringConnectionFactory` to reuse Spring's transactionally-managed connections
   - Services can compose multiple commands atomically using `@Transactional` or `TransactionTemplate`

@@ -31,11 +31,15 @@ class DirectPdfRenderer(
      * @param template The template model containing page settings and blocks
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
+     * @param blockStylePresets Optional block style presets from theme (named style collections like CSS classes)
+     * @param resolvedDocumentStyles Optional pre-resolved document styles (merging theme + template styles)
      */
     fun render(
         template: TemplateModel,
         data: Map<String, Any?>,
         outputStream: OutputStream,
+        blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
+        resolvedDocumentStyles: app.epistola.template.model.DocumentStyles? = null,
     ) {
         val writer = PdfWriter(outputStream)
         val pdfDocument = PdfDocument(writer)
@@ -51,17 +55,19 @@ class DirectPdfRenderer(
             margins.left.toFloat(),
         )
 
-        // Create render context
+        // Create render context with resolved styles
         val fontCache = FontCache()
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage)
+        val effectiveDocumentStyles = resolvedDocumentStyles ?: template.documentStyles
         val context = RenderContext(
             data = data,
             loopContext = emptyMap(),
-            documentStyles = template.documentStyles,
+            documentStyles = effectiveDocumentStyles,
             expressionEvaluator = expressionEvaluator,
             tipTapConverter = tipTapConverter,
             defaultExpressionLanguage = defaultExpressionLanguage,
             fontCache = fontCache,
+            blockStylePresets = blockStylePresets,
         )
 
         // Register page header event handler if present

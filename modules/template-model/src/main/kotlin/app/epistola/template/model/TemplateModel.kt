@@ -7,11 +7,15 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 /**
  * Template model structure matching the frontend editor's Template type.
  * This is the visual layout structure stored in the database as JSON.
+ *
+ * @param themeId Optional reference to a Theme entity. When set, the template inherits
+ *                document-level styles and block style presets from the theme.
  */
 data class TemplateModel(
     val id: String,
     val name: String,
     val version: Int = 1,
+    val themeId: String? = null,
     val pageSettings: PageSettings,
     val blocks: List<Block> = emptyList(),
     val documentStyles: DocumentStyles = DocumentStyles(),
@@ -69,6 +73,12 @@ enum class TextAlign {
     Justify,
 }
 
+/**
+ * Base class for all block types in a template.
+ *
+ * @property stylePreset Optional reference to a named preset in the theme's blockStylePresets.
+ *                       Works like CSS classes - preset styles are applied first, then inline styles override.
+ */
 @JsonTypeInfo(
     use = JsonTypeInfo.Id.NAME,
     include = JsonTypeInfo.As.PROPERTY,
@@ -89,11 +99,13 @@ sealed class Block {
     abstract val id: String
     abstract val type: String
     abstract val styles: Map<String, Any>?
+    abstract val stylePreset: String?
 }
 
 data class TextBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val content: Map<String, Any>? = null, // TipTap JSONContent
 ) : Block() {
     override val type: String = "text"
@@ -102,6 +114,7 @@ data class TextBlock(
 data class ContainerBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val children: List<Block> = emptyList(),
 ) : Block() {
     override val type: String = "container"
@@ -110,6 +123,7 @@ data class ContainerBlock(
 data class ConditionalBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val condition: Expression,
     val inverse: Boolean? = null,
     val children: List<Block> = emptyList(),
@@ -120,6 +134,7 @@ data class ConditionalBlock(
 data class LoopBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val expression: Expression,
     val itemAlias: String,
     val indexAlias: String? = null,
@@ -131,6 +146,7 @@ data class LoopBlock(
 data class ColumnsBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val columns: List<Column> = emptyList(),
     val gap: Int? = null,
 ) : Block() {
@@ -146,6 +162,7 @@ data class Column(
 data class TableBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val rows: List<TableRow> = emptyList(),
     val columnWidths: List<Int>? = null,
     val borderStyle: BorderStyle? = null,
@@ -184,6 +201,7 @@ data class TableCell(
 data class PageBreakBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
 ) : Block() {
     override val type: String = "pagebreak"
 }
@@ -191,6 +209,7 @@ data class PageBreakBlock(
 data class PageHeaderBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val children: List<Block> = emptyList(),
 ) : Block() {
     override val type: String = "pageheader"
@@ -199,6 +218,7 @@ data class PageHeaderBlock(
 data class PageFooterBlock(
     override val id: String,
     override val styles: Map<String, Any>? = null,
+    override val stylePreset: String? = null,
     val children: List<Block> = emptyList(),
 ) : Block() {
     override val type: String = "pagefooter"

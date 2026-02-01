@@ -18,8 +18,15 @@ class ContainerBlockRenderer : BlockRenderer {
 
         val div = Div()
 
-        // Apply block styles
-        StyleApplicator.applyStyles(div, block.styles, context.documentStyles, context.fontCache)
+        // Apply block styles with theme preset resolution
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            block.styles,
+            block.stylePreset,
+            context.blockStylePresets,
+            context.documentStyles,
+            context.fontCache,
+        )
 
         // Render children
         val childElements = blockRenderers.renderBlocks(block.children, context)
