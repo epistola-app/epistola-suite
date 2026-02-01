@@ -7,7 +7,7 @@
   - New value classes: `TenantId`, `TemplateId`, `VariantId`, `VersionId`, `EnvironmentId`, `DocumentId`, `GenerationRequestId`, `GenerationItemId`
   - Prevents accidental misuse of IDs (e.g., passing `TemplateId` where `TenantId` is expected)
   - Zero runtime overhead using Kotlin `@JvmInline value class`
-  - JDBI integration: `EntityIdColumnMapperFactory` and `EntityIdArgumentFactory` for database mapping
+  - JDBI integration handled natively by `KotlinPlugin` (no custom factories needed)
   - OpenAPI schemas unchanged - still use `format: uuid` for standard client compatibility
   - Commands, queries, and entities now use typed IDs instead of raw `UUID`
 
