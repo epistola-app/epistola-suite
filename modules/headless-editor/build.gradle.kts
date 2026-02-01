@@ -1,30 +1,10 @@
 plugins {
     `java-library`
-    id("com.github.node-gradle.node")
-}
-
-node {
-    download = false
-}
-
-tasks.register<com.github.gradle.node.pnpm.task.PnpmTask>("pnpmInstall") {
-    args = listOf("install")
-}
-
-tasks.register<com.github.gradle.node.pnpm.task.PnpmTask>("pnpmBuild") {
-    dependsOn("pnpmInstall")
-    args = listOf("build")
-}
-
-tasks.register<com.github.gradle.node.pnpm.task.PnpmTask>("pnpmTest") {
-    dependsOn("pnpmInstall")
-    args = listOf("test")
 }
 
 val verifyFrontendBuild by tasks.registering {
     description = "Verifies that the frontend build output exists"
     group = "verification"
-    dependsOn("pnpmBuild")
 
     doLast {
         val distDir = file("dist")
