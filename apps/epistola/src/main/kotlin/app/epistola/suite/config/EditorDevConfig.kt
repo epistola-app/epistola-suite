@@ -16,7 +16,14 @@ class EditorDevConfig : WebMvcConfigurer {
         val projectRoot = findProjectRoot()
 
         registry.addResourceHandler("/editor/**")
-            .addResourceLocations("file:$projectRoot/modules/editor/dist/")
+            .addResourceLocations(
+                "file:$projectRoot/modules/editor/dist/",
+                "classpath:static/editor/",
+            )
+            .setCacheControl(CacheControl.noCache())
+
+        registry.addResourceHandler("/headless-editor/**")
+            .addResourceLocations("file:$projectRoot/modules/headless-editor/dist/")
             .setCacheControl(CacheControl.noCache())
 
         registry.addResourceHandler("/vendor/**")
