@@ -3,7 +3,7 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
@@ -28,7 +28,6 @@ data class PreviewValidationResult(
  */
 @Service
 class GenerationService(
-    private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
@@ -71,7 +70,7 @@ class GenerationService(
         templateId: UUID,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = mediator.query(GetDocumentTemplate(TenantId.of(tenantId), TemplateId.of(templateId)))
+        val template = GetDocumentTemplate(TenantId.of(tenantId), TemplateId.of(templateId)).query()
             ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
 
         if (template.dataModel == null) {
