@@ -1,6 +1,8 @@
 package app.epistola.suite.generation
 
 import app.epistola.generation.pdf.DirectPdfRenderer
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -69,7 +71,7 @@ class GenerationService(
         templateId: UUID,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = mediator.query(GetDocumentTemplate(tenantId, templateId))
+        val template = mediator.query(GetDocumentTemplate(TenantId.of(tenantId), TemplateId.of(templateId)))
             ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
 
         if (template.dataModel == null) {

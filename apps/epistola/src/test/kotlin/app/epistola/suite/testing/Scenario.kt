@@ -1,6 +1,8 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.Query
@@ -15,7 +17,6 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * DSL marker to scope the scenario builder and prevent scope leakage.
@@ -123,7 +124,7 @@ class ScenarioBuilder(
          * @return the created [Tenant]
          */
         fun tenant(name: String): Tenant {
-            val tenant = scopeMediator.send(CreateTenant(id = UUIDv7.generate(), name = name))
+            val tenant = scopeMediator.send(CreateTenant(id = TenantId.generate(), name = name))
             this@ScenarioBuilder.registerCleanup {
                 scopeMediator.send(DeleteTenant(tenant.id))
             }
@@ -138,11 +139,11 @@ class ScenarioBuilder(
          * @return the created [DocumentTemplate]
          */
         fun template(
-            tenantId: UUID,
+            tenantId: TenantId,
             name: String,
         ): DocumentTemplate = scopeMediator.send(
             CreateDocumentTemplate(
-                id = UUIDv7.generate(),
+                id = TemplateId.generate(),
                 tenantId = tenantId,
                 name = name,
             ),
@@ -159,14 +160,14 @@ class ScenarioBuilder(
          * @return the created [TemplateVariant]
          */
         fun variant(
-            tenantId: UUID,
-            templateId: UUID,
+            tenantId: TenantId,
+            templateId: TemplateId,
             title: String? = null,
             description: String? = null,
             tags: Map<String, String> = emptyMap(),
         ): TemplateVariant = scopeMediator.send(
             CreateVariant(
-                id = UUIDv7.generate(),
+                id = VariantId.generate(),
                 tenantId = tenantId,
                 templateId = templateId,
                 title = title,
@@ -185,9 +186,9 @@ class ScenarioBuilder(
          * @return the updated [TemplateVersion]
          */
         fun version(
-            tenantId: UUID,
-            templateId: UUID,
-            variantId: UUID,
+            tenantId: TenantId,
+            templateId: TemplateId,
+            variantId: VariantId,
             templateModel: TemplateModel,
         ): TemplateVersion = scopeMediator.send(
             UpdateDraft(

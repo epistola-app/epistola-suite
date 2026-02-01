@@ -1,12 +1,13 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Command to cancel a pending or in-progress generation job.
@@ -15,8 +16,8 @@ import java.util.UUID
  * @property requestId The generation request ID to cancel
  */
 data class CancelGenerationJob(
-    val tenantId: UUID,
-    val requestId: UUID,
+    val tenantId: TenantId,
+    val requestId: GenerationRequestId,
 ) : Command<Boolean>
 
 @Component

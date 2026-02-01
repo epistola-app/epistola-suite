@@ -1,21 +1,24 @@
 package app.epistola.suite.templates.queries.activations
 
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Gets the active version for a variant in a specific environment.
  */
 data class GetActiveVersion(
-    val tenantId: UUID,
-    val templateId: UUID,
-    val variantId: UUID,
-    val environmentId: UUID,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val environmentId: EnvironmentId,
 ) : Query<TemplateVersion?>
 
 @Component

@@ -1,7 +1,11 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -12,7 +16,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 class GenerateDocumentHandlerTest : BaseIntegrationTest() {
     private val objectMapper = ObjectMapper()
@@ -30,8 +33,8 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
         }
 
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -76,9 +79,9 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
             mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
-                    templateId = UUID.randomUUID(),
-                    variantId = UUID.randomUUID(),
-                    versionId = UUID.randomUUID(),
+                    templateId = TemplateId.generate(),
+                    variantId = VariantId.generate(),
+                    versionId = VersionId.generate(),
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -91,8 +94,8 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
     @Test
     fun `fails with non-existent version`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
 
         val data = objectMapper.createObjectNode().put("test", "value")
 
@@ -102,7 +105,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = UUID.randomUUID(),
+                    versionId = VersionId.generate(),
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -114,14 +117,13 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates versionId and environmentId are mutually exclusive`() {
-        val testUuid = UUID.randomUUID()
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = testUuid,
-                templateId = testUuid,
-                variantId = testUuid,
-                versionId = testUuid,
-                environmentId = testUuid, // Both set - should fail
+                tenantId = TenantId.generate(),
+                templateId = TemplateId.generate(),
+                variantId = VariantId.generate(),
+                versionId = VersionId.generate(),
+                environmentId = EnvironmentId.generate(), // Both set - should fail
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
             )
@@ -131,12 +133,11 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates either versionId or environmentId is set`() {
-        val testUuid = UUID.randomUUID()
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = testUuid,
-                templateId = testUuid,
-                variantId = testUuid,
+                tenantId = TenantId.generate(),
+                templateId = TemplateId.generate(),
+                variantId = VariantId.generate(),
                 versionId = null,
                 environmentId = null, // Neither set - should fail
                 data = objectMapper.createObjectNode(),

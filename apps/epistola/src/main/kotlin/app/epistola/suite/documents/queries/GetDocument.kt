@@ -1,12 +1,13 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Query to get a document with its full content.
@@ -15,8 +16,8 @@ import java.util.UUID
  * @property documentId The document ID
  */
 data class GetDocument(
-    val tenantId: UUID,
-    val documentId: UUID,
+    val tenantId: TenantId,
+    val documentId: DocumentId,
 ) : Query<Document?>
 
 @Component

@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateModel
@@ -8,17 +12,16 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 /**
  * Updates a draft version's content.
  * Only draft versions can be updated; published/archived versions are immutable.
  */
 data class UpdateVersion(
-    val tenantId: UUID,
-    val templateId: UUID,
-    val variantId: UUID,
-    val versionId: UUID,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId,
     val templateModel: TemplateModel?,
 ) : Command<TemplateVersion?>
 

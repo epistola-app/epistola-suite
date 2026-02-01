@@ -1,13 +1,13 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import java.util.UUID
 
 class TenantIsolationTest : BaseIntegrationTest() {
     @Autowired
@@ -43,7 +43,7 @@ class TenantIsolationTest : BaseIntegrationTest() {
     @Test
     fun `cannot get template from different tenant`() = fixture {
         lateinit var tenant2: Tenant
-        lateinit var templateId: UUID
+        var templateId: TemplateId? = null
 
         given {
             val tenant1 = tenant("Tenant 1")
@@ -52,7 +52,7 @@ class TenantIsolationTest : BaseIntegrationTest() {
         }
 
         whenever {
-            getTemplateHandler.handle(GetDocumentTemplate(tenantId = tenant2.id, id = templateId))
+            getTemplateHandler.handle(GetDocumentTemplate(tenantId = tenant2.id, id = templateId!!))
         }
 
         then {

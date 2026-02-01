@@ -1,5 +1,7 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.DocumentGenerationItem
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Query
@@ -7,7 +9,6 @@ import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Result of GetGenerationJob query.
@@ -24,8 +25,8 @@ data class GenerationJobResult(
  * @property requestId The generation request ID
  */
 data class GetGenerationJob(
-    val tenantId: UUID,
-    val requestId: UUID,
+    val tenantId: TenantId,
+    val requestId: GenerationRequestId,
 ) : Query<GenerationJobResult?>
 
 @Component

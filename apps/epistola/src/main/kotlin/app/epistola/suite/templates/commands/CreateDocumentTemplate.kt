@@ -1,6 +1,9 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -18,8 +21,8 @@ import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 data class CreateDocumentTemplate(
-    val id: UUID,
-    val tenantId: UUID,
+    val id: TemplateId,
+    val tenantId: TenantId,
     val name: String,
     val schema: String? = null,
 ) : Command<DocumentTemplate> {
@@ -61,7 +64,7 @@ class CreateDocumentTemplateHandler(
                 .one()
 
             // 2. Create default variant
-            val variantId = UUIDv7.generate()
+            val variantId = VariantId.generate()
             handle.createUpdate(
                 """
                 INSERT INTO template_variants (id, template_id, tags, created_at, last_modified)
@@ -81,7 +84,7 @@ class CreateDocumentTemplateHandler(
                 blocks = emptyList(),
             )
             val templateModelJson = objectMapper.writeValueAsString(templateModel)
-            val versionId = UUIDv7.generate()
+            val versionId = VersionId.generate()
 
             handle.createUpdate(
                 """

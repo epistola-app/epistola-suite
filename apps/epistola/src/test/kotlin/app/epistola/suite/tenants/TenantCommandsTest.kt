@@ -1,9 +1,9 @@
 package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.TenantId
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.util.UUID
 
 class TenantCommandsTest : BaseIntegrationTest() {
     @Test
@@ -22,14 +22,14 @@ class TenantCommandsTest : BaseIntegrationTest() {
 
     @Test
     fun `DeleteTenant removes tenant by id`() = fixture {
-        lateinit var tenantId: UUID
+        var tenantId: TenantId? = null
 
         given {
             tenantId = tenant("To Delete").id
         }
 
         whenever {
-            deleteTenant(tenantId)
+            deleteTenant(tenantId!!)
         }
 
         then {
@@ -40,7 +40,7 @@ class TenantCommandsTest : BaseIntegrationTest() {
     @Test
     fun `DeleteTenant returns false for non-existent id`() = fixture {
         whenever {
-            deleteTenant(UUID.randomUUID())
+            deleteTenant(TenantId.generate())
         }
 
         then {

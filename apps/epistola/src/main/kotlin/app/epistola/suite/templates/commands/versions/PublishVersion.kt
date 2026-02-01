@@ -1,13 +1,15 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Publishes a draft version by creating a new immutable published version.
@@ -19,10 +21,10 @@ import java.util.UUID
  * - The tenant doesn't own the template
  */
 data class PublishVersion(
-    val tenantId: UUID,
-    val templateId: UUID,
-    val variantId: UUID,
-    val versionId: UUID,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId,
 ) : Command<TemplateVersion?>
 
 @Component
@@ -69,7 +71,7 @@ class PublishVersionHandler(
             .one()
 
         // Create a new published version with the draft's content
-        val newVersionId = UUIDv7.generate()
+        val newVersionId = VersionId.generate()
         handle.createQuery(
             """
                 INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at, published_at)

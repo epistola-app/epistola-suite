@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateModel
@@ -8,7 +12,6 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 /**
  * Creates a new draft version for a variant.
@@ -16,10 +19,10 @@ import java.util.UUID
  * Throws exception if a draft already exists for this variant.
  */
 data class CreateVersion(
-    val id: UUID,
-    val tenantId: UUID,
-    val templateId: UUID,
-    val variantId: UUID,
+    val id: VersionId,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
     val templateModel: TemplateModel? = null,
 ) : Command<TemplateVersion?>
 

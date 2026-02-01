@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Changed
+- **BREAKING**: Added type-safe entity ID wrapper classes for compile-time type safety
+  - New value classes: `TenantId`, `TemplateId`, `VariantId`, `VersionId`, `EnvironmentId`, `DocumentId`, `GenerationRequestId`, `GenerationItemId`
+  - Prevents accidental misuse of IDs (e.g., passing `TemplateId` where `TenantId` is expected)
+  - Zero runtime overhead using Kotlin `@JvmInline value class`
+  - JDBI integration: `EntityIdColumnMapperFactory` and `EntityIdArgumentFactory` for database mapping
+  - OpenAPI schemas unchanged - still use `format: uuid` for standard client compatibility
+  - Commands, queries, and entities now use typed IDs instead of raw `UUID`
+
+### Fixed
+- **JSON deserialization of `List<DataExample>`**: Fixed `ClassCastException` when deserializing template data examples from database
+  - Created `DataExamples` wrapper type with custom Jackson serializer/deserializer
+  - Properly handles Java type erasure that caused `List<LinkedHashMap>` instead of `List<DataExample>`
+
+### Changed
 - **BREAKING**: Migrated all entity IDs from database-generated Long/BIGSERIAL to client-provided UUIDv7
   - All entity IDs (Tenant, Template, Variant, Version, Environment, Document, GenerationRequest, GenerationItem) now use UUID
   - IDs must be provided by the client when creating entities via API or commands

@@ -1,5 +1,7 @@
 package app.epistola.suite.environments.commands
 
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -7,11 +9,10 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 data class CreateEnvironment(
-    val id: UUID,
-    val tenantId: UUID,
+    val id: EnvironmentId,
+    val tenantId: TenantId,
     val name: String,
 ) : Command<Environment> {
     init {

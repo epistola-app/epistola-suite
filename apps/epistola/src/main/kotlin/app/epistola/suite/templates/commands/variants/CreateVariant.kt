@@ -1,6 +1,9 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVariant
@@ -8,12 +11,11 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 data class CreateVariant(
-    val id: UUID,
-    val tenantId: UUID,
-    val templateId: UUID,
+    val id: VariantId,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
     val title: String?,
     val description: String?,
     val tags: Map<String, String> = emptyMap(),
@@ -60,7 +62,7 @@ class CreateVariantHandler(
             .one()
 
         // Create an initial draft version for the new variant
-        val versionId = UUIDv7.generate()
+        val versionId = VersionId.generate()
         handle.createUpdate(
             """
                 INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)

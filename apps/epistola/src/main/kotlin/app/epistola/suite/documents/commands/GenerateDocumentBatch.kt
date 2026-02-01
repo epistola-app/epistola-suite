@@ -1,6 +1,12 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.GenerationItemId
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -11,16 +17,15 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
-import java.util.UUID
 
 /**
  * Individual item in a batch generation request.
  */
 data class BatchGenerationItem(
-    val templateId: UUID,
-    val variantId: UUID,
-    val versionId: UUID?,
-    val environmentId: UUID?,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId?,
+    val environmentId: EnvironmentId?,
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
@@ -60,7 +65,7 @@ class BatchValidationException(
  * @property items List of items to generate
  */
 data class GenerateDocumentBatch(
-    val tenantId: UUID,
+    val tenantId: TenantId,
     val items: List<BatchGenerationItem>,
 ) : Command<DocumentGenerationRequest> {
     init {
@@ -163,7 +168,7 @@ class GenerateDocumentBatchHandler(
             }
 
             // 2. Create generation request (stays in PENDING status for poller to pick up)
-            val requestId = UUIDv7.generate()
+            val requestId = GenerationRequestId.generate()
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
@@ -196,7 +201,7 @@ class GenerateDocumentBatchHandler(
             )
 
             for (item in command.items) {
-                val itemId = UUIDv7.generate()
+                val itemId = GenerationItemId.generate()
                 batch.bind("id", itemId)
                     .bind("requestId", request.id)
                     .bind("templateId", item.templateId)

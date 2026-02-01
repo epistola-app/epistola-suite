@@ -1,14 +1,15 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 data class DeleteDocumentTemplate(
-    val tenantId: UUID,
-    val id: UUID,
+    val tenantId: TenantId,
+    val id: TemplateId,
 ) : Command<Boolean>
 
 @Component

@@ -1,5 +1,7 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.EntityIdArgumentFactory
+import app.epistola.suite.common.ids.EntityIdColumnMapperFactory
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.jackson3.Jackson3Config
@@ -23,5 +25,8 @@ class JdbiConfig {
         .apply {
             // fix: use the spring boot mapper as this is preconfigured with kotlin support
             getConfig(Jackson3Config::class.java).mapper = mapper
+            // Register typed entity ID support
+            registerColumnMapper(EntityIdColumnMapperFactory())
+            registerArgument(EntityIdArgumentFactory())
         }
 }

@@ -1,9 +1,15 @@
 package app.epistola.suite.documents.model
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.GenerationItemId
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
-import java.util.UUID
 
 /**
  * An individual item in a document generation batch.
@@ -28,18 +34,18 @@ import java.util.UUID
  * @property completedAt When processing completed (success or failure)
  */
 data class DocumentGenerationItem(
-    val id: UUID,
-    val requestId: UUID,
-    val templateId: UUID,
-    val variantId: UUID,
-    val versionId: UUID?,
-    val environmentId: UUID?,
+    val id: GenerationItemId,
+    val requestId: GenerationRequestId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId?,
+    val environmentId: EnvironmentId?,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationId: String?,
     val status: ItemStatus,
     val errorMessage: String?,
-    val documentId: UUID?,
+    val documentId: DocumentId?,
     val createdAt: OffsetDateTime,
     val startedAt: OffsetDateTime?,
     val completedAt: OffsetDateTime?,

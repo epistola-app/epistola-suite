@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.tenants.Tenant
@@ -7,10 +8,9 @@ import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 data class CreateTenant(
-    val id: UUID,
+    val id: TenantId,
     val name: String,
 ) : Command<Tenant> {
     init {

@@ -1,6 +1,7 @@
 package app.epistola.suite.demo
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -18,7 +19,6 @@ import org.springframework.core.io.ResourceLoader
 import org.springframework.core.io.support.ResourcePatternUtils
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 @Component
 @ConditionalOnProperty(
@@ -62,7 +62,7 @@ class DemoLoader(
         }
 
         // Create new demo tenant
-        val tenant = mediator.send(CreateTenant(id = UUIDv7.generate(), name = DEMO_TENANT_NAME))
+        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
         log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
         // Load and create templates from JSON definitions
@@ -76,11 +76,11 @@ class DemoLoader(
         log.info("Created {} demo templates", definitions.size)
     }
 
-    private fun createTemplateFromDefinition(tenantId: UUID, definition: TemplateDefinition) {
+    private fun createTemplateFromDefinition(tenantId: TenantId, definition: TemplateDefinition) {
         // 1. Create template with basic metadata
         val template = mediator.send(
             CreateDocumentTemplate(
-                id = UUIDv7.generate(),
+                id = TemplateId.generate(),
                 tenantId = tenantId,
                 name = definition.name,
             ),

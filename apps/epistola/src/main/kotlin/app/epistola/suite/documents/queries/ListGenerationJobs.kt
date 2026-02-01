@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Query
@@ -7,7 +8,6 @@ import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Query to list generation jobs for a tenant.
@@ -18,7 +18,7 @@ import java.util.UUID
  * @property offset Pagination offset (default: 0)
  */
 data class ListGenerationJobs(
-    val tenantId: UUID,
+    val tenantId: TenantId,
     val status: RequestStatus? = null,
     val limit: Int = 50,
     val offset: Int = 0,

@@ -1,7 +1,11 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -13,16 +17,15 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     private val objectMapper = ObjectMapper()
 
     @Test
     fun `creates batch generation request`() {
-        val tenant = mediator.send(CreateTenant(id = UUIDv7.generate(), name = "Test Tenant"))
-        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -59,9 +62,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates all items before creating request`() {
-        val tenant = mediator.send(CreateTenant(id = UUIDv7.generate(), name = "Test Tenant"))
-        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -84,9 +87,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
                 filename = "doc-1.pdf",
             ),
             BatchGenerationItem(
-                templateId = UUID.randomUUID(), // Non-existent template
-                variantId = UUID.randomUUID(),
-                versionId = UUID.randomUUID(),
+                templateId = TemplateId.generate(), // Non-existent template
+                variantId = VariantId.generate(),
+                versionId = VersionId.generate(),
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
@@ -102,10 +105,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `requires at least one item`() {
-        val testUuid = UUID.randomUUID()
         assertThatThrownBy {
             GenerateDocumentBatch(
-                tenantId = testUuid,
+                tenantId = TenantId.generate(),
                 items = emptyList(),
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
@@ -114,13 +116,12 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates item versionId and environmentId are mutually exclusive`() {
-        val testUuid = UUID.randomUUID()
         assertThatThrownBy {
             BatchGenerationItem(
-                templateId = testUuid,
-                variantId = testUuid,
-                versionId = testUuid,
-                environmentId = testUuid, // Both set
+                templateId = TemplateId.generate(),
+                variantId = VariantId.generate(),
+                versionId = VersionId.generate(),
+                environmentId = EnvironmentId.generate(), // Both set
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
             )

@@ -1,7 +1,9 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -11,7 +13,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 class CancelGenerationJobHandlerTest : BaseIntegrationTest() {
@@ -20,7 +21,7 @@ class CancelGenerationJobHandlerTest : BaseIntegrationTest() {
     @Test
     fun `returns false for non-existent job`() {
         val tenant = createTenant("Test Tenant")
-        val randomId = UUID.randomUUID()
+        val randomId = GenerationRequestId.generate()
 
         val cancelled = mediator.send(CancelGenerationJob(tenant.id, randomId))
 
@@ -32,8 +33,8 @@ class CancelGenerationJobHandlerTest : BaseIntegrationTest() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant1.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant1.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -67,8 +68,8 @@ class CancelGenerationJobHandlerTest : BaseIntegrationTest() {
     @Test
     fun `cannot cancel completed job`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = UUIDv7.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = UUIDv7.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )

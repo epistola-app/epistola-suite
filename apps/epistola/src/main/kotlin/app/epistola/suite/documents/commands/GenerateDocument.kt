@@ -1,6 +1,12 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.common.UUIDv7
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.GenerationItemId
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -11,7 +17,6 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
-import java.util.UUID
 
 /**
  * Command to generate a single document asynchronously.
@@ -26,11 +31,11 @@ import java.util.UUID
  * @property correlationId Client-provided ID for tracking documents across systems
  */
 data class GenerateDocument(
-    val tenantId: UUID,
-    val templateId: UUID,
-    val variantId: UUID,
-    val versionId: UUID?,
-    val environmentId: UUID?,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId?,
+    val environmentId: EnvironmentId?,
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
@@ -125,7 +130,7 @@ class GenerateDocumentHandler(
             }
 
             // 3. Create generation request (stays in PENDING status for poller to pick up)
-            val requestId = UUIDv7.generate()
+            val requestId = GenerationRequestId.generate()
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
@@ -145,7 +150,7 @@ class GenerateDocumentHandler(
                 .one()
 
             // 4. Create generation item
-            val itemId = UUIDv7.generate()
+            val itemId = GenerationItemId.generate()
             handle.createUpdate(
                 """
                 INSERT INTO document_generation_items (

@@ -1,7 +1,8 @@
 package app.epistola.suite.documents.model
 
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TenantId
 import java.time.OffsetDateTime
-import java.util.UUID
 
 /**
  * A document generation request (single or batch).
@@ -25,8 +26,8 @@ import java.util.UUID
  * @property expiresAt When this request should be cleaned up
  */
 data class DocumentGenerationRequest(
-    val id: UUID,
-    val tenantId: UUID,
+    val id: GenerationRequestId,
+    val tenantId: TenantId,
     val jobType: JobType,
     val status: RequestStatus,
     val claimedBy: String?,
