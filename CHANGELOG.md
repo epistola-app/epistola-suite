@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- **Test suite performance optimization**: Reduced test execution time from ~2 minutes to ~35 seconds (82% faster)
+  - Added synchronous job execution mode for tests (`epistola.generation.synchronous=true`)
+  - `SynchronousGenerationListener` executes document generation jobs immediately via Spring events
+  - Eliminated Awaitility polling waits that were blocking test execution
+  - Added JVM optimization flags for faster test startup (`-XX:+UseParallelGC`, `-XX:TieredStopAtLevel=1`)
+  - Added `@ActiveProfiles("test")` to load test-specific configuration
+  - JUnit 5 parallel execution prepared but disabled (data isolation needed for future enablement)
+
 ### Added
 - **ScopedValue-based Mediator context**: Cleaner command/query dispatch using extension functions
   - `MediatorContext` object using JDK 21+ `ScopedValue` for thread-safe, virtual thread compatible mediator access

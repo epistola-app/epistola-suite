@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.documents.batch.GenerationRequestCreatedEvent
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -15,6 +16,7 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import tools.jackson.databind.node.ObjectNode
 
@@ -51,6 +53,7 @@ data class GenerateDocument(
 @Component
 class GenerateDocumentHandler(
     private val jdbi: Jdbi,
+    private val eventPublisher: ApplicationEventPublisher,
 ) : CommandHandler<GenerateDocument, DocumentGenerationRequest> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -58,7 +61,7 @@ class GenerateDocumentHandler(
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
         logger.info("Generating single document for tenant {} template {}", command.tenantId, command.templateId)
 
-        return jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
+        val request = jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
             // 1. Verify template exists and belongs to tenant
             val templateExists = handle.createQuery(
                 """
@@ -175,8 +178,13 @@ class GenerateDocumentHandler(
 
             logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
 
-            // Request stays in PENDING status - the JobPoller will pick it up
+            // Request stays in PENDING status - the JobPoller will pick it up (in async mode)
             request
         }
+
+        // Publish event AFTER transaction commits for synchronous execution in tests
+        eventPublisher.publishEvent(GenerationRequestCreatedEvent(request))
+
+        return request
     }
 }

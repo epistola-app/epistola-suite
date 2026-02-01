@@ -71,6 +71,17 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    // JVM optimizations for faster test startup
+    jvmArgs(
+        "-XX:+UseParallelGC", // Parallel GC is faster for short-lived processes
+        "-XX:TieredStopAtLevel=1", // Faster JVM startup (skip C2 compilation)
+    )
+
+    testLogging {
+        events("passed", "skipped", "failed")
+        showStandardStreams = false // Keep output clean
+    }
 }
 
 // Enable BuildProperties bean by generating build-info.properties
