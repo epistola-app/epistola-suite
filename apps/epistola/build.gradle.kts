@@ -28,7 +28,6 @@ dependencies {
 
     // UI/Frontend modules
     implementation(project(":modules:vendor"))
-    implementation(project(":modules:editor"))
     implementation(project(":modules:headless-editor"))
     implementation(project(":modules:schema-manager"))
 
