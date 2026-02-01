@@ -1,0 +1,431 @@
+/**
+ * Headless Editor Core Types
+ *
+ * Pure TypeScript types with no framework dependencies.
+ * Used by both the headless core and UI adapters.
+ */
+
+// ============================================================================
+// CSS Types (framework-agnostic replacement for React.CSSProperties)
+// ============================================================================
+
+/**
+ * CSS property values - a subset of common CSS properties.
+ * This is a framework-agnostic alternative to React.CSSProperties.
+ */
+export interface CSSStyles {
+  // Layout
+  display?: string;
+  position?: string;
+  top?: string | number;
+  right?: string | number;
+  bottom?: string | number;
+  left?: string | number;
+  width?: string | number;
+  height?: string | number;
+  minWidth?: string | number;
+  minHeight?: string | number;
+  maxWidth?: string | number;
+  maxHeight?: string | number;
+  overflow?: string;
+  overflowX?: string;
+  overflowY?: string;
+
+  // Flexbox
+  flex?: string | number;
+  flexDirection?: string;
+  flexWrap?: string;
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: string | number;
+  justifyContent?: string;
+  alignItems?: string;
+  alignContent?: string;
+  alignSelf?: string;
+  gap?: string | number;
+  rowGap?: string | number;
+  columnGap?: string | number;
+
+  // Grid
+  gridTemplateColumns?: string;
+  gridTemplateRows?: string;
+  gridColumn?: string;
+  gridRow?: string;
+  gridArea?: string;
+
+  // Spacing
+  margin?: string | number;
+  marginTop?: string | number;
+  marginRight?: string | number;
+  marginBottom?: string | number;
+  marginLeft?: string | number;
+  padding?: string | number;
+  paddingTop?: string | number;
+  paddingRight?: string | number;
+  paddingBottom?: string | number;
+  paddingLeft?: string | number;
+
+  // Typography
+  fontFamily?: string;
+  fontSize?: string | number;
+  fontWeight?: string | number;
+  fontStyle?: string;
+  lineHeight?: string | number;
+  letterSpacing?: string | number;
+  textAlign?: string;
+  textDecoration?: string;
+  textTransform?: string;
+  whiteSpace?: string;
+  wordBreak?: string;
+  wordWrap?: string;
+
+  // Colors
+  color?: string;
+  backgroundColor?: string;
+  opacity?: number;
+
+  // Borders
+  border?: string;
+  borderTop?: string;
+  borderRight?: string;
+  borderBottom?: string;
+  borderLeft?: string;
+  borderWidth?: string | number;
+  borderStyle?: string;
+  borderColor?: string;
+  borderRadius?: string | number;
+
+  // Shadows
+  boxShadow?: string;
+  textShadow?: string;
+
+  // Transforms
+  transform?: string;
+  transformOrigin?: string;
+
+  // Transitions
+  transition?: string;
+  transitionProperty?: string;
+  transitionDuration?: string;
+  transitionTimingFunction?: string;
+
+  // Other
+  cursor?: string;
+  visibility?: string;
+  zIndex?: number;
+  objectFit?: string;
+  objectPosition?: string;
+
+  // Allow any additional string properties for flexibility
+  [key: string]: string | number | undefined;
+}
+
+// ============================================================================
+// Expression Types
+// ============================================================================
+
+/**
+ * Expression language for template expressions.
+ * - jsonata: Concise syntax purpose-built for JSON transformation (recommended)
+ * - javascript: Full JS power for advanced use cases
+ */
+export type ExpressionLanguage = 'jsonata' | 'javascript';
+
+/**
+ * An expression that can be evaluated against input data.
+ */
+export interface Expression {
+  raw: string;
+  language?: ExpressionLanguage; // defaults to "jsonata"
+}
+
+// ============================================================================
+// Block Types
+// ============================================================================
+
+/**
+ * Base block interface - all blocks extend this
+ */
+export interface BaseBlock {
+  id: string;
+  type: string;
+  styles?: CSSStyles;
+}
+
+/**
+ * Text block - simple string content (no rich text for vanilla implementation)
+ */
+export interface TextBlock extends BaseBlock {
+  type: 'text';
+  content: string;
+}
+
+/**
+ * Container block - holds child blocks
+ */
+export interface ContainerBlock extends BaseBlock {
+  type: 'container';
+  children: Block[];
+}
+
+/**
+ * Conditional block - shows content based on expression evaluation
+ */
+export interface ConditionalBlock extends BaseBlock {
+  type: 'conditional';
+  condition: Expression;
+  inverse?: boolean; // if true, shows content when condition is FALSE
+  children: Block[]; // blocks shown when condition matches (or inverse matches)
+}
+
+/**
+ * Loop block - iterates over an array expression
+ */
+export interface LoopBlock extends BaseBlock {
+  type: 'loop';
+  expression: Expression;
+  itemAlias: string;
+  indexAlias?: string;
+  children: Block[];
+}
+
+/**
+ * Column within a ColumnsBlock
+ */
+export interface Column {
+  id: string;
+  size: number; // ratio/weight for flexbox (e.g., 1, 2, 3)
+  children: Block[];
+}
+
+/**
+ * Columns block - multi-column layout
+ * Note: Uses columns[] array instead of children[]
+ */
+export interface ColumnsBlock extends BaseBlock {
+  type: 'columns';
+  columns: Column[];
+  gap?: number; // spacing between columns in pixels
+}
+
+/**
+ * Table cell
+ */
+export interface TableCell {
+  id: string;
+  children: Block[];
+  colspan?: number;
+  rowspan?: number;
+  styles?: CSSStyles;
+}
+
+/**
+ * Table row
+ */
+export interface TableRow {
+  id: string;
+  cells: TableCell[];
+  isHeader?: boolean;
+}
+
+/**
+ * Table block - tabular layout with rows and cells
+ * Note: Uses rows[]/cells[] instead of children[]
+ */
+export interface TableBlock extends BaseBlock {
+  type: 'table';
+  rows: TableRow[];
+  columnWidths?: number[]; // ratio-based widths for each column
+  borderStyle?: 'none' | 'all' | 'horizontal' | 'vertical';
+}
+
+/**
+ * Page break block - forces a new page in PDF output
+ */
+export interface PageBreakBlock extends BaseBlock {
+  type: 'pagebreak';
+}
+
+/**
+ * Page header block - content repeated at top of each page
+ */
+export interface PageHeaderBlock extends BaseBlock {
+  type: 'pageheader';
+  children: Block[];
+}
+
+/**
+ * Page footer block - content repeated at bottom of each page
+ */
+export interface PageFooterBlock extends BaseBlock {
+  type: 'pagefooter';
+  children: Block[];
+}
+
+/**
+ * Union of all block types
+ */
+export type Block =
+  | TextBlock
+  | ContainerBlock
+  | ConditionalBlock
+  | LoopBlock
+  | ColumnsBlock
+  | TableBlock
+  | PageBreakBlock
+  | PageHeaderBlock
+  | PageFooterBlock;
+
+/**
+ * Block type string literals
+ */
+export type BlockType = Block['type'];
+
+// ============================================================================
+// Template Types
+// ============================================================================
+
+/**
+ * Page settings for PDF output
+ */
+export interface PageSettings {
+  format: 'A4' | 'Letter' | 'Custom';
+  orientation: 'portrait' | 'landscape';
+  margins: { top: number; right: number; bottom: number; left: number };
+}
+
+/**
+ * Document-level styles that cascade to child blocks
+ */
+export interface DocumentStyles {
+  fontFamily?: string;
+  fontSize?: string;
+  fontWeight?: string;
+  color?: string;
+  lineHeight?: string;
+  letterSpacing?: string;
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  backgroundColor?: string;
+}
+
+/**
+ * Template structure
+ */
+export interface Template {
+  id: string;
+  name: string;
+  version?: number;
+  pageSettings?: PageSettings;
+  blocks: Block[];
+  documentStyles?: DocumentStyles;
+}
+
+// ============================================================================
+// Constraint Types
+// ============================================================================
+
+/**
+ * Block constraints - block declares its own rules
+ */
+export interface BlockConstraints {
+  // As a container
+  canHaveChildren: boolean;
+  allowedChildTypes: string[] | null; // null = any, [] = none
+  maxChildren?: number;
+
+  // As a draggable item
+  canBeDragged: boolean;
+  canBeNested: boolean;
+  allowedParentTypes: string[] | null; // null = any, ['root'] = only root
+}
+
+/**
+ * Validation result
+ */
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Block definition - describes what a block can do (logic only, no UI)
+ */
+export interface BlockDefinition {
+  type: string;
+
+  /** Create a new block with defaults */
+  create: (id: string) => Block;
+
+  /** Validate block structure */
+  validate: (block: Block) => ValidationResult;
+
+  /** Block declares its own constraints */
+  constraints: BlockConstraints;
+}
+
+// ============================================================================
+// Drag & Drop Types
+// ============================================================================
+
+/**
+ * Drop position relative to target
+ */
+export type DropPosition = 'before' | 'after' | 'inside';
+
+/**
+ * Drop zone info for UI hints
+ */
+export interface DropZone {
+  targetId: string | null; // null = root
+  position: DropPosition;
+  targetType: string | null;
+}
+
+/**
+ * Drag & Drop Port - editor provides, user's adapter consumes
+ */
+export interface DragDropPort {
+  /** Can this block be dragged? */
+  canDrag(blockId: string): boolean;
+
+  /** Can this block be dropped at this location? */
+  canDrop(draggedId: string, targetId: string | null, position: DropPosition): boolean;
+
+  /** Get valid drop zones for visual hints */
+  getDropZones(draggedId: string): DropZone[];
+
+  /** Execute the drop */
+  drop(draggedId: string, targetId: string | null, index: number): void;
+}
+
+// ============================================================================
+// Editor State Types
+// ============================================================================
+
+/**
+ * Editor state
+ */
+export interface EditorState {
+  template: Template;
+  selectedBlockId: string | null;
+}
+
+/**
+ * Editor callbacks
+ */
+export interface EditorCallbacks {
+  onTemplateChange?: (template: Template) => void;
+  onBlockSelect?: (blockId: string | null) => void;
+  onBeforeBlockAdd?: (block: Block, parentId: string | null) => boolean;
+  onBeforeBlockDelete?: (blockId: string) => boolean;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Editor configuration
+ */
+export interface EditorConfig {
+  template?: Template;
+  blocks?: Record<string, BlockDefinition>;
+  callbacks?: EditorCallbacks;
+}
