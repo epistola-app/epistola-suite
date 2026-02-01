@@ -50,9 +50,9 @@ class ScenarioFactory(
     /**
      * Creates and executes a scenario with automatic resource cleanup.
      */
-    fun <T> scenario(block: ScenarioBuilder.() -> T): T {
-        val builder = ScenarioBuilder(mediator)
-        return try {
+    fun <T> scenario(block: ScenarioBuilder.() -> T): T = MediatorContext.runWithMediator(mediator) {
+        val builder = ScenarioBuilder()
+        try {
             builder.block()
         } finally {
             builder.cleanup()
@@ -70,9 +70,7 @@ class ScenarioFactory(
  * Builder for constructing test scenarios using Given-When-Then pattern.
  */
 @ScenarioDsl
-class ScenarioBuilder(
-    private val mediator: Mediator,
-) {
+class ScenarioBuilder {
     private val cleanupActions = mutableListOf<() -> Unit>()
 
     /**
@@ -86,7 +84,7 @@ class ScenarioBuilder(
     fun <G> given(block: GivenScope.() -> G): GivenResult<G> {
         val scope = GivenScope()
         val value = scope.block()
-        return GivenResult(value, mediator)
+        return GivenResult(value)
     }
 
     /**
@@ -108,21 +106,24 @@ class ScenarioBuilder(
 
     /**
      * Scope for the "given" block providing test data setup methods.
+     *
+     * Note: The mediator is captured at construction time to support cleanup
+     * actions that run outside the MediatorContext scope.
      */
     @ScenarioDsl
     inner class GivenScope {
-        // Capture mediator reference to work with DSL marker restrictions
-        private val scopeMediator = this@ScenarioBuilder.mediator
+        // Capture mediator reference for cleanup actions and DSL methods
+        private val capturedMediator = MediatorContext.current()
 
         /**
          * Executes a command and returns its result.
          */
-        fun <R> execute(command: Command<R>): R = scopeMediator.send(command)
+        fun <R> execute(command: Command<R>): R = capturedMediator.send(command)
 
         /**
          * Executes a query and returns its result.
          */
-        fun <R> query(query: Query<R>): R = scopeMediator.query(query)
+        fun <R> query(query: Query<R>): R = capturedMediator.query(query)
 
         /**
          * Creates a tenant with automatic cleanup when the scenario ends.
@@ -131,9 +132,9 @@ class ScenarioBuilder(
          * @return the created [Tenant]
          */
         fun tenant(name: String): Tenant {
-            val tenant = scopeMediator.send(CreateTenant(id = TenantId.generate(), name = name))
+            val tenant = capturedMediator.send(CreateTenant(id = TenantId.generate(), name = name))
             this@ScenarioBuilder.registerCleanup {
-                scopeMediator.send(DeleteTenant(tenant.id))
+                capturedMediator.send(DeleteTenant(tenant.id))
             }
             return tenant
         }
@@ -148,7 +149,7 @@ class ScenarioBuilder(
         fun template(
             tenantId: TenantId,
             name: String,
-        ): DocumentTemplate = scopeMediator.send(
+        ): DocumentTemplate = capturedMediator.send(
             CreateDocumentTemplate(
                 id = TemplateId.generate(),
                 tenantId = tenantId,
@@ -172,7 +173,7 @@ class ScenarioBuilder(
             title: String? = null,
             description: String? = null,
             tags: Map<String, String> = emptyMap(),
-        ): TemplateVariant = scopeMediator.send(
+        ): TemplateVariant = capturedMediator.send(
             CreateVariant(
                 id = VariantId.generate(),
                 tenantId = tenantId,
@@ -197,7 +198,7 @@ class ScenarioBuilder(
             templateId: TemplateId,
             variantId: VariantId,
             templateModel: TemplateModel,
-        ): TemplateVersion = scopeMediator.send(
+        ): TemplateVersion = capturedMediator.send(
             UpdateDraft(
                 tenantId = tenantId,
                 templateId = templateId,
@@ -216,7 +217,6 @@ class ScenarioBuilder(
  */
 class GivenResult<G>(
     val value: G,
-    private val mediator: Mediator,
 ) {
     /**
      * Defines the action to test, with access to the setup data.
@@ -226,7 +226,7 @@ class GivenResult<G>(
      * @return [WhenResult] containing both setup and action result
      */
     fun <W> whenever(block: WhenScope.(G) -> W): WhenResult<G, W> {
-        val scope = WhenScope(mediator)
+        val scope = WhenScope()
         val result = scope.block(value)
         return WhenResult(value, result)
     }
@@ -234,20 +234,25 @@ class GivenResult<G>(
 
 /**
  * Scope for the "whenever" block providing command/query execution methods.
+ *
+ * Note: The mediator is captured at construction time to support usage in
+ * callbacks that may run on different threads (e.g., awaitility polling),
+ * where ScopedValue would not be bound.
  */
 @ScenarioDsl
-class WhenScope(
-    private val mediator: Mediator,
-) {
+class WhenScope {
+    // Capture mediator reference to support awaitility and other thread-switching callbacks
+    private val capturedMediator = MediatorContext.current()
+
     /**
      * Executes a command and returns its result.
      */
-    fun <R> execute(command: Command<R>): R = mediator.send(command)
+    fun <R> execute(command: Command<R>): R = capturedMediator.send(command)
 
     /**
      * Executes a query and returns its result.
      */
-    fun <R> query(query: Query<R>): R = mediator.query(query)
+    fun <R> query(query: Query<R>): R = capturedMediator.query(query)
 }
 
 /**

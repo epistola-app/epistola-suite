@@ -5,6 +5,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -23,9 +25,9 @@ annotation class TestFixtureDsl
 class TestFixtureFactory(
     private val mediator: Mediator,
 ) {
-    fun <T> fixture(block: TestFixture.() -> T): T {
-        val fixture = TestFixture(mediator)
-        return try {
+    fun <T> fixture(block: TestFixture.() -> T): T = MediatorContext.runWithMediator(mediator) {
+        val fixture = TestFixture()
+        try {
             fixture.block()
         } finally {
             fixture.cleanup()
@@ -48,9 +50,7 @@ class TestFixtureFactory(
 }
 
 @TestFixtureDsl
-class TestFixture(
-    private val mediator: Mediator,
-) {
+class TestFixture {
     private val createdTenants = mutableListOf<TenantId>()
     private var givenContext: GivenContext? = null
     private var result: Any? = null
@@ -72,14 +72,14 @@ class TestFixture(
 
     fun cleanup() {
         createdTenants.forEach { tenantId ->
-            mediator.send(DeleteTenant(tenantId))
+            DeleteTenant(tenantId).execute()
         }
         createdTenants.clear()
     }
 
     fun deleteAllTenants() {
-        mediator.query(ListTenants()).forEach { tenant ->
-            mediator.send(DeleteTenant(tenant.id))
+        ListTenants().query().forEach { tenant ->
+            DeleteTenant(tenant.id).execute()
         }
         createdTenants.clear()
     }
@@ -87,7 +87,7 @@ class TestFixture(
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant {
-            val tenant = this@TestFixture.mediator.send(CreateTenant(id = TenantId.generate(), name = name))
+            val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
@@ -95,29 +95,25 @@ class TestFixture(
         fun template(
             tenant: Tenant,
             name: String,
-        ): DocumentTemplate = this@TestFixture.mediator.send(
-            CreateDocumentTemplate(
-                id = TemplateId.generate(),
-                tenantId = tenant.id,
-                name = name,
-            ),
-        )
+        ): DocumentTemplate = CreateDocumentTemplate(
+            id = TemplateId.generate(),
+            tenantId = tenant.id,
+            name = name,
+        ).execute()
 
         fun variant(
             tenant: Tenant,
             template: DocumentTemplate,
             title: String? = null,
             tags: Map<String, String> = emptyMap(),
-        ): TemplateVariant = this@TestFixture.mediator.send(
-            CreateVariant(
-                id = VariantId.generate(),
-                tenantId = tenant.id,
-                templateId = template.id,
-                title = title,
-                description = null,
-                tags = tags,
-            ),
-        )!!
+        ): TemplateVariant = CreateVariant(
+            id = VariantId.generate(),
+            tenantId = tenant.id,
+            templateId = template.id,
+            title = title,
+            description = null,
+            tags = tags,
+        ).execute()!!
 
         fun noTenants() {
             this@TestFixture.deleteAllTenants()
@@ -127,16 +123,16 @@ class TestFixture(
     @TestFixtureDsl
     inner class WhenContext {
         fun createTenant(name: String): Tenant {
-            val tenant = this@TestFixture.mediator.send(CreateTenant(id = TenantId.generate(), name = name))
+            val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
 
-        fun deleteTenant(id: TenantId): Boolean = this@TestFixture.mediator.send(DeleteTenant(id))
+        fun deleteTenant(id: TenantId): Boolean = DeleteTenant(id).execute()
 
-        fun listTemplates(tenant: Tenant): List<DocumentTemplate> = this@TestFixture.mediator.query(ListDocumentTemplates(tenant.id))
+        fun listTemplates(tenant: Tenant): List<DocumentTemplate> = ListDocumentTemplates(tenant.id).query()
 
-        fun listTenants(searchTerm: String? = null): List<Tenant> = this@TestFixture.mediator.query(ListTenants(searchTerm))
+        fun listTenants(searchTerm: String? = null): List<Tenant> = ListTenants(searchTerm).query()
     }
 
     @TestFixtureDsl

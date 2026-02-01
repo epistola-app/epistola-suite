@@ -10,6 +10,8 @@
   - API handlers no longer need `Mediator` constructor injection
   - Test helpers: `withMediator { }` in `BaseIntegrationTest` and `TestFixtureFactory`
   - Before: `mediator.send(CreateTenant(...))` / After: `CreateTenant(...).execute()`
+  - Test infrastructure (`TestFixture`, `Scenario` DSLs) now uses extension functions internally
+  - DSL scopes (`GivenScope`, `WhenScope`) capture mediator at construction for thread-safety (supports awaitility callbacks)
 
 ### Changed
 - **BREAKING**: Added type-safe entity ID wrapper classes for compile-time type safety
