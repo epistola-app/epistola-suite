@@ -16,8 +16,7 @@
   ],
   "scripts": {
     "dev": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.js --format=esm --watch",
-    "build": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.js --format=esm --minify --external:nanostores && tsc --emitDeclarationOnly",
-    "build:bundled": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.bundled.js --format=esm --minify",
+    "build": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.js --format=esm --minify && tsc --emitDeclarationOnly",
     "test": "vitest run",
     "test:watch": "vitest"
   },
