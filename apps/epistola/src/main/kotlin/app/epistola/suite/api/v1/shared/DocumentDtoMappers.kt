@@ -7,6 +7,11 @@ import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.DocumentGenerationItem
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
@@ -21,11 +26,11 @@ import tools.jackson.databind.node.ObjectNode
 // ==================== Document ====================
 
 internal fun DocumentMetadata.toDto() = DocumentDto(
-    id = id,
-    tenantId = tenantId,
-    templateId = templateId,
-    variantId = variantId,
-    versionId = versionId,
+    id = id.value,
+    tenantId = tenantId.value,
+    templateId = templateId.value,
+    variantId = variantId.value,
+    versionId = versionId.value,
     filename = filename,
     correlationId = correlationId,
     contentType = contentType,
@@ -37,7 +42,7 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
 // ==================== Document Generation Request ====================
 
 internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
-    id = id,
+    id = id.value,
     jobType = DocumentGenerationJobDto.JobType.valueOf(jobType.name),
     status = DocumentGenerationJobDto.Status.valueOf(status.name),
     totalCount = totalCount,
@@ -51,7 +56,7 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
 )
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
-    requestId = id,
+    requestId = id.value,
     status = GenerationJobResponse.Status.valueOf(status.name),
     jobType = GenerationJobResponse.JobType.valueOf(jobType.name),
     totalCount = totalCount,
@@ -61,17 +66,17 @@ internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
 // ==================== Document Generation Item ====================
 
 internal fun DocumentGenerationItem.toDto(objectMapper: ObjectMapper) = DocumentGenerationItemDto(
-    id = id,
-    templateId = templateId,
-    variantId = variantId,
-    versionId = versionId,
-    environmentId = environmentId,
+    id = id.value,
+    templateId = templateId.value,
+    variantId = variantId.value,
+    versionId = versionId?.value,
+    environmentId = environmentId?.value,
     data = objectMapper.convertValue(data, Map::class.java) as Map<String, Any>,
     filename = filename,
     correlationId = correlationId,
     status = DocumentGenerationItemDto.Status.valueOf(status.name),
     errorMessage = errorMessage,
-    documentId = documentId,
+    documentId = documentId?.value,
     createdAt = createdAt,
     startedAt = startedAt,
     completedAt = completedAt,
@@ -87,14 +92,14 @@ internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJ
 // ==================== Request DTOs to Commands ====================
 
 internal fun GenerateDocumentRequest.toCommand(
-    tenantId: Long,
+    tenantId: java.util.UUID,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocument(
-    tenantId = tenantId,
-    templateId = templateId,
-    variantId = variantId,
-    versionId = versionId,
-    environmentId = environmentId,
+    tenantId = TenantId.of(tenantId),
+    templateId = TemplateId.of(templateId),
+    variantId = VariantId.of(requireNotNull(variantId) { "variantId is required" }),
+    versionId = versionId?.let { VersionId.of(it) },
+    environmentId = environmentId?.let { EnvironmentId.of(it) },
     data = objectMapper.valueToTree(data),
     filename = filename,
     correlationId = correlationId,
@@ -103,19 +108,19 @@ internal fun GenerateDocumentRequest.toCommand(
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.BatchGenerationItem(
-    templateId = templateId,
-    variantId = variantId,
-    versionId = versionId,
-    environmentId = environmentId,
+    templateId = TemplateId.of(templateId),
+    variantId = VariantId.of(requireNotNull(variantId) { "variantId is required" }),
+    versionId = versionId?.let { VersionId.of(it) },
+    environmentId = environmentId?.let { EnvironmentId.of(it) },
     data = objectMapper.valueToTree<ObjectNode>(data),
     filename = filename,
     correlationId = correlationId,
 )
 
 internal fun GenerateBatchRequest.toCommand(
-    tenantId: Long,
+    tenantId: java.util.UUID,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
-    tenantId = tenantId,
+    tenantId = TenantId.of(tenantId),
     items = items.map { it.toBatchItem(objectMapper) },
 )

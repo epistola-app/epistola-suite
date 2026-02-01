@@ -8,12 +8,12 @@ VersionDto:
     - createdAt
   properties:
     id:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: Unique identifier of the version
     variantId:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: ID of the variant this version belongs to
     versionNumber:
       type:
@@ -58,12 +58,12 @@ VersionSummaryDto:
     - createdAt
   properties:
     id:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: Unique identifier of the version
     variantId:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: ID of the variant this version belongs to
     versionNumber:
       type:

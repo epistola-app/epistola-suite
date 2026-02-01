@@ -1,9 +1,11 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
-import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.validation.ValidationException
@@ -12,17 +14,15 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 @Component
-class TenantHandler(
-    private val mediator: Mediator,
-) {
+class TenantHandler {
     fun list(request: ServerRequest): ServerResponse {
-        val tenants = mediator.query(ListTenants())
+        val tenants = ListTenants().query()
         return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants))
     }
 
     fun search(request: ServerRequest): ServerResponse {
         val searchTerm = request.param("q").orElse(null)
-        val tenants = mediator.query(ListTenants(searchTerm = searchTerm))
+        val tenants = ListTenants(searchTerm = searchTerm).query()
         return request.htmx {
             fragment("tenants/list", "rows") {
                 "tenants" to tenants
@@ -35,7 +35,7 @@ class TenantHandler(
         val name = request.params().getFirst("name")?.trim().orEmpty()
 
         val command = try {
-            CreateTenant(name = name)
+            CreateTenant(id = TenantId.generate(), name = name)
         } catch (e: ValidationException) {
             val formData = mapOf("name" to name)
             val errors = mapOf(e.field to e.message)
@@ -50,9 +50,9 @@ class TenantHandler(
             }
         }
 
-        mediator.send(command)
+        command.execute()
 
-        val tenants = mediator.query(ListTenants())
+        val tenants = ListTenants().query()
         return request.htmx {
             fragment("tenants/list", "rows") {
                 "tenants" to tenants

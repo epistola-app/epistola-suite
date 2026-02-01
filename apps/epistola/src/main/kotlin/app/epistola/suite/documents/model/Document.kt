@@ -1,5 +1,10 @@
 package app.epistola.suite.documents.model
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import java.time.OffsetDateTime
 
 /**
@@ -22,11 +27,11 @@ import java.time.OffsetDateTime
  * @property createdBy User ID from Keycloak (future feature)
  */
 data class Document(
-    val id: Long,
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val id: DocumentId,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId,
     val filename: String,
     val correlationId: String?,
     val contentType: String,

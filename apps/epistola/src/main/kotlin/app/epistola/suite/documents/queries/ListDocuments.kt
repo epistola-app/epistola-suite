@@ -1,10 +1,16 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * Query to list documents for a tenant.
@@ -16,8 +22,8 @@ import java.time.OffsetDateTime
  * @property offset Pagination offset (default: 0)
  */
 data class ListDocuments(
-    val tenantId: Long,
-    val templateId: Long? = null,
+    val tenantId: TenantId,
+    val templateId: TemplateId? = null,
     val correlationId: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
@@ -65,11 +71,11 @@ class ListDocumentsHandler(
 
         q.map { rs, _ ->
             DocumentMetadata(
-                id = rs.getLong("id"),
-                tenantId = rs.getLong("tenant_id"),
-                templateId = rs.getLong("template_id"),
-                variantId = rs.getLong("variant_id"),
-                versionId = rs.getLong("version_id"),
+                id = DocumentId(rs.getObject("id", UUID::class.java)),
+                tenantId = TenantId(rs.getObject("tenant_id", UUID::class.java)),
+                templateId = TemplateId(rs.getObject("template_id", UUID::class.java)),
+                variantId = VariantId(rs.getObject("variant_id", UUID::class.java)),
+                versionId = VersionId(rs.getObject("version_id", UUID::class.java)),
                 filename = rs.getString("filename"),
                 correlationId = rs.getString("correlation_id"),
                 contentType = rs.getString("content_type"),

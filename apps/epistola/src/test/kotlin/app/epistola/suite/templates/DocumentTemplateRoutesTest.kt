@@ -1,6 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import tools.jackson.databind.ObjectMapper
+import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -452,6 +454,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `POST validate-schema returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
+            val nonExistentTemplateId = UUID.randomUUID()
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -463,7 +466,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/99999/validate-schema",
+                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/validate-schema",
                     request,
                     String::class.java,
                 )
@@ -665,6 +668,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `PATCH data-example returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
+            val nonExistentTemplateId = UUID.randomUUID()
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -676,7 +680,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"name": "Updated"}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/99999/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.PATCH,
                     request,
                     String::class.java,
@@ -880,6 +884,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `DELETE data-example returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
+            val nonExistentTemplateId = UUID.randomUUID()
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -887,7 +892,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
             whenever {
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/templates/99999/data-examples/example-1",
+                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/data-examples/example-1",
                     HttpMethod.DELETE,
                     null,
                     String::class.java,
@@ -908,7 +913,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 400 with structured errors when data validation fails`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: Long = 0
+            var variantId: VariantId? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -955,7 +960,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 400 with structured errors when data type is wrong`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: Long = 0
+            var variantId: VariantId? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1000,6 +1005,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 404 for non-existent variant`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
+            val nonExistentVariantId = UUID.randomUUID()
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1012,7 +1018,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/${template.id}/variants/99999/preview",
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1027,6 +1033,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `POST preview returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
+            val nonExistentTemplateId = UUID.randomUUID()
+            val nonExistentVariantId = UUID.randomUUID()
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1038,7 +1046,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{"data": {}}"""
                 val request = HttpEntity(body, headers)
                 restTemplate.postForEntity(
-                    "/tenants/${testTenant.id}/templates/99999/variants/1/preview",
+                    "/tenants/${testTenant.id}/templates/$nonExistentTemplateId/variants/$nonExistentVariantId/preview",
                     request,
                     String::class.java,
                 )
@@ -1054,7 +1062,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns PDF when data is valid`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: Long = 0
+            var variantId: VariantId? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1112,7 +1120,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns PDF when no schema is defined`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: Long = 0
+            var variantId: VariantId? = null
 
             given {
                 testTenant = tenant("Test Tenant")

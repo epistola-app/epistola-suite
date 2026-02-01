@@ -1,5 +1,10 @@
 package app.epistola.suite.templates.commands.activations
 
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.EnvironmentActivation
@@ -17,11 +22,11 @@ import org.springframework.stereotype.Component
  * - The version doesn't exist or is not published
  */
 data class SetActivation(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val environmentId: Long,
-    val versionId: Long,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val environmentId: EnvironmentId,
+    val versionId: VersionId,
 ) : Command<EnvironmentActivation?>
 
 @Component

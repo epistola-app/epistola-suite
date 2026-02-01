@@ -1,5 +1,8 @@
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
@@ -7,9 +10,9 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class DeleteVariant(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
 ) : Command<Boolean>
 
 @Component

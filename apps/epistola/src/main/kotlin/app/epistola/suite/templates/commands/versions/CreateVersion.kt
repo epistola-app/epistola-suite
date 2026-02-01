@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateModel
@@ -15,9 +19,10 @@ import tools.jackson.databind.ObjectMapper
  * Throws exception if a draft already exists for this variant.
  */
 data class CreateVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val id: VersionId,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
     val templateModel: TemplateModel? = null,
 ) : Command<TemplateVersion?>
 
@@ -52,11 +57,12 @@ class CreateVersionHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
-                VALUES (:variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
+                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
+            .bind("id", command.id)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.suite.common.ids.GenerationRequestId
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -9,7 +10,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.InetAddress
-import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -50,14 +50,14 @@ class JobPoller(
         val request = claimNextPendingRequest()
         if (request != null) {
             activeJobs.incrementAndGet()
-            logger.info("Claimed request {} (active jobs: {})", request.id, activeJobs.get())
+            logger.info("Claimed request {} (active jobs: {})", request.id.value, activeJobs.get())
 
             // Execute on virtual thread, don't block the scheduler
             executor.submit {
                 try {
                     jobExecutor.execute(request)
                 } catch (e: Exception) {
-                    logger.error("Job execution failed for request {}: {}", request.id, e.message, e)
+                    logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
                     markRequestFailed(request.id, e.message)
                 } finally {
                     activeJobs.decrementAndGet()
@@ -113,7 +113,7 @@ class JobPoller(
     /**
      * Mark a request as failed when job execution throws an exception.
      */
-    private fun markRequestFailed(requestId: UUID, errorMessage: String?) {
+    private fun markRequestFailed(requestId: GenerationRequestId, errorMessage: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

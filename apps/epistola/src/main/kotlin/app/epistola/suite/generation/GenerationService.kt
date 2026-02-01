@@ -1,7 +1,9 @@
 package app.epistola.suite.generation
 
 import app.epistola.generation.pdf.DirectPdfRenderer
-import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.OutputStream
+import java.util.UUID
 
 /**
  * Result of preview data validation.
@@ -25,7 +28,6 @@ data class PreviewValidationResult(
  */
 @Service
 class GenerationService(
-    private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
@@ -64,11 +66,11 @@ class GenerationService(
      * @return Validation result with any errors found
      */
     fun validatePreviewData(
-        tenantId: Long,
-        templateId: Long,
+        tenantId: UUID,
+        templateId: UUID,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
-        val template = mediator.query(GetDocumentTemplate(tenantId, templateId))
+        val template = GetDocumentTemplate(TenantId.of(tenantId), TemplateId.of(templateId)).query()
             ?: return PreviewValidationResult(valid = true) // No template means nothing to validate against
 
         if (template.dataModel == null) {

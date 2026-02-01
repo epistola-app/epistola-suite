@@ -1,5 +1,6 @@
 package app.epistola.suite.environments.queries
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -8,7 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListEnvironments(
-    val tenantId: Long,
+    val tenantId: TenantId,
 ) : Query<List<Environment>>
 
 @Component

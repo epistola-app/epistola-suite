@@ -1,6 +1,11 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
@@ -18,9 +23,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `creates batch generation request`() {
-        val tenant = mediator.send(CreateTenant("Test Tenant"))
-        val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
-        val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
+        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -57,9 +62,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates all items before creating request`() {
-        val tenant = mediator.send(CreateTenant("Test Tenant"))
-        val template = mediator.send(CreateDocumentTemplate(tenant.id, "Test Template"))
-        val variant = mediator.send(CreateVariant(tenant.id, template.id, "Default", null, emptyMap()))!!
+        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
+        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -82,9 +87,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
                 filename = "doc-1.pdf",
             ),
             BatchGenerationItem(
-                templateId = 99999, // Non-existent template
-                variantId = 99999,
-                versionId = 99999,
+                templateId = TemplateId.generate(), // Non-existent template
+                variantId = VariantId.generate(),
+                versionId = VersionId.generate(),
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
@@ -102,7 +107,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `requires at least one item`() {
         assertThatThrownBy {
             GenerateDocumentBatch(
-                tenantId = 1,
+                tenantId = TenantId.generate(),
                 items = emptyList(),
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
@@ -113,10 +118,10 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `validates item versionId and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             BatchGenerationItem(
-                templateId = 1,
-                variantId = 1,
-                versionId = 1,
-                environmentId = 1, // Both set
+                templateId = TemplateId.generate(),
+                variantId = VariantId.generate(),
+                versionId = VersionId.generate(),
+                environmentId = EnvironmentId.generate(), // Both set
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
             )

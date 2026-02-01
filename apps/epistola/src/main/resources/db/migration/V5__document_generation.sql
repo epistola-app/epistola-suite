@@ -6,6 +6,8 @@
 -- - Multi-tenant support with proper isolation
 -- - BYTEA storage for generated PDFs
 -- - Polling-based job execution with instance claiming
+--
+-- IDs are client-provided UUIDv7 for better testability and distributed system properties
 
 -- ============================================================================
 -- APPLICATION TABLES: DOCUMENT STORAGE
@@ -13,11 +15,11 @@
 
 -- Generated documents stored in PostgreSQL BYTEA
 CREATE TABLE documents (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    template_id BIGINT NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id BIGINT NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
-    version_id BIGINT NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    template_id UUID NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
     filename VARCHAR(255) NOT NULL,
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
@@ -43,8 +45,8 @@ CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id
 
 -- Track document generation jobs (single or batch)
 CREATE TABLE document_generation_requests (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     job_type VARCHAR(20) NOT NULL CHECK (job_type IN ('SINGLE', 'BATCH')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),                    -- Instance identifier that claimed this job
@@ -80,18 +82,18 @@ CREATE INDEX idx_dgr_pending_poll ON document_generation_requests(status, create
 
 -- Individual items in a batch generation request
 CREATE TABLE document_generation_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     request_id UUID NOT NULL REFERENCES document_generation_requests(id) ON DELETE CASCADE,
-    template_id BIGINT NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id BIGINT NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
-    version_id BIGINT REFERENCES template_versions(id) ON DELETE CASCADE,  -- NULL = use environment to determine version
-    environment_id BIGINT REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
+    template_id UUID NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    version_id UUID REFERENCES template_versions(id) ON DELETE CASCADE,  -- NULL = use environment to determine version
+    environment_id UUID REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
     data JSONB NOT NULL,
     filename VARCHAR(255),
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
     error_message TEXT,
-    document_id BIGINT REFERENCES documents(id) ON DELETE SET NULL,
+    document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
@@ -112,9 +114,9 @@ CREATE INDEX idx_generation_items_document_id ON document_generation_items(docum
 -- COMMENTS
 -- ============================================================================
 
-COMMENT ON TABLE documents IS 'Generated documents stored as BYTEA. Future: migrate to S3/MinIO.';
-COMMENT ON TABLE document_generation_requests IS 'Track async document generation jobs (single or batch).';
-COMMENT ON TABLE document_generation_items IS 'Individual items in a batch generation request.';
+COMMENT ON TABLE documents IS 'Generated documents stored as BYTEA. IDs are client-provided UUIDv7.';
+COMMENT ON TABLE document_generation_requests IS 'Track async document generation jobs. IDs are client-provided UUIDv7.';
+COMMENT ON TABLE document_generation_items IS 'Individual items in a batch generation request. IDs are client-provided UUIDv7.';
 
 COMMENT ON COLUMN documents.content IS 'PDF content stored as BYTEA. Future: migrate to object storage.';
 COMMENT ON COLUMN documents.created_by IS 'User ID from Keycloak. Not yet implemented.';

@@ -1,5 +1,7 @@
 package app.epistola.suite.templates.model
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.VariantId
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
@@ -7,8 +9,8 @@ import java.time.OffsetDateTime
  * Template variant representing a presentation variation (language, brand, audience).
  */
 data class TemplateVariant(
-    val id: Long,
-    val templateId: Long,
+    val id: VariantId,
+    val templateId: TemplateId,
     val title: String?,
     val description: String?,
     @Json val tags: Map<String, String> = emptyMap(),
@@ -20,7 +22,7 @@ data class TemplateVariant(
  * Summary of a variant with version statistics.
  */
 data class VariantSummary(
-    val id: Long,
+    val id: VariantId,
     val title: String?,
     @Json val tags: Map<String, String>,
     val hasDraft: Boolean,

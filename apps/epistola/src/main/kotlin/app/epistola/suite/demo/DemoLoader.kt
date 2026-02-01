@@ -1,5 +1,7 @@
 package app.epistola.suite.demo
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -60,7 +62,7 @@ class DemoLoader(
         }
 
         // Create new demo tenant
-        val tenant = mediator.send(CreateTenant(name = DEMO_TENANT_NAME))
+        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
         log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
 
         // Load and create templates from JSON definitions
@@ -74,10 +76,11 @@ class DemoLoader(
         log.info("Created {} demo templates", definitions.size)
     }
 
-    private fun createTemplateFromDefinition(tenantId: Long, definition: TemplateDefinition) {
+    private fun createTemplateFromDefinition(tenantId: TenantId, definition: TemplateDefinition) {
         // 1. Create template with basic metadata
         val template = mediator.send(
             CreateDocumentTemplate(
+                id = TemplateId.generate(),
                 tenantId = tenantId,
                 name = definition.name,
             ),

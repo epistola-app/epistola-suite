@@ -1,12 +1,18 @@
 package app.epistola.suite
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.testing.ScenarioBuilder
+import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
 import org.awaitility.Awaitility.await
@@ -30,19 +36,59 @@ abstract class BaseIntegrationTest {
     @Autowired
     protected lateinit var testFixtureFactory: TestFixtureFactory
 
-    private val createdTenants = mutableListOf<Long>()
+    @Autowired
+    protected lateinit var scenarioFactory: ScenarioFactory
+
+    private val createdTenants = mutableListOf<TenantId>()
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(block)
 
-    protected fun createTenant(name: String): Tenant {
-        val tenant = mediator.send(CreateTenant(name))
+    /**
+     * Runs the given block with the mediator bound to the current scope.
+     * This enables use of Command.execute() and Query.query() extension functions.
+     *
+     * Usage:
+     * ```kotlin
+     * withMediator {
+     *     val tenant = CreateTenant("name").execute()
+     *     val tenants = ListTenants().query()
+     * }
+     * ```
+     */
+    protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
+
+    /**
+     * Creates a test scenario with type-safe Given-When-Then DSL and automatic cleanup.
+     *
+     * Example:
+     * ```kotlin
+     * @Test
+     * fun `generate document successfully`() = scenario {
+     *     given {
+     *         val tenant = tenant("Test Tenant")
+     *         val template = template(tenant.id, "Invoice")
+     *         val variant = variant(tenant.id, template.id)
+     *         val version = version(tenant.id, template.id, variant.id, templateModel)
+     *         DocumentSetup(tenant, template, variant, version)
+     *     }.whenever { setup ->
+     *         execute(GenerateDocument(setup.tenant.id, ...))
+     *     }.then { setup, result ->
+     *         assertThat(result.id).isNotNull()
+     *     }
+     * }
+     * ```
+     */
+    protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(block)
+
+    protected fun createTenant(name: String): Tenant = withMediator {
+        val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
         createdTenants.add(tenant.id)
-        return tenant
+        tenant
     }
 
-    protected fun deleteAllTenants() {
-        mediator.query(ListTenants()).forEach { tenant ->
-            mediator.send(DeleteTenant(tenant.id))
+    protected fun deleteAllTenants(): Unit = withMediator {
+        ListTenants().query().forEach { tenant ->
+            DeleteTenant(tenant.id).execute()
         }
         createdTenants.clear()
     }
@@ -54,29 +100,27 @@ abstract class BaseIntegrationTest {
      * 2. Deleting all tenants (cascades to delete all related data)
      */
     @BeforeEach
-    fun resetDatabaseState() {
-        val tenants = mediator.query(ListTenants())
-        if (tenants.isEmpty()) return
+    fun resetDatabaseState(): Unit = withMediator {
+        val tenants = ListTenants().query()
+        if (tenants.isEmpty()) return@withMediator
 
         // First, wait for any pending/in-progress jobs to complete
         await()
             .atMost(30, TimeUnit.SECONDS)
             .pollInterval(200, TimeUnit.MILLISECONDS)
             .until {
-                tenants.all { tenant ->
-                    val pendingJobs = mediator.query(
-                        ListGenerationJobs(
+                withMediator {
+                    tenants.all { tenant ->
+                        val pendingJobs = ListGenerationJobs(
                             tenantId = tenant.id,
                             status = RequestStatus.PENDING,
-                        ),
-                    )
-                    val inProgressJobs = mediator.query(
-                        ListGenerationJobs(
+                        ).query()
+                        val inProgressJobs = ListGenerationJobs(
                             tenantId = tenant.id,
                             status = RequestStatus.IN_PROGRESS,
-                        ),
-                    )
-                    pendingJobs.isEmpty() && inProgressJobs.isEmpty()
+                        ).query()
+                        pendingJobs.isEmpty() && inProgressJobs.isEmpty()
+                    }
                 }
             }
 
@@ -85,9 +129,9 @@ abstract class BaseIntegrationTest {
     }
 
     @AfterEach
-    fun cleanUpCreatedTenants() {
+    fun cleanUpCreatedTenants(): Unit = withMediator {
         createdTenants.forEach { tenantId ->
-            mediator.send(DeleteTenant(tenantId))
+            DeleteTenant(tenantId).execute()
         }
         createdTenants.clear()
     }

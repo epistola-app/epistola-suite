@@ -11,12 +11,12 @@ VariantDto:
     - lastModified
   properties:
     id:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: Unique identifier of the variant
     templateId:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: ID of the template this variant belongs to
     title:
       type:
@@ -60,8 +60,8 @@ VariantSummaryDto:
     - publishedVersions
   properties:
     id:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: Unique identifier of the variant
     title:
       type:
@@ -85,7 +85,13 @@ VariantSummaryDto:
 CreateVariantRequest:
   type: object
   description: Request body for creating a new variant
+  required:
+    - id
   properties:
+    id:
+      type: string
+      format: uuid
+      description: Client-provided unique identifier for the variant (UUIDv7 recommended)
     title:
       type:
         - string
@@ -145,15 +151,15 @@ ActivationDto:
     - activatedAt
   properties:
     environmentId:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: ID of the environment
     environmentName:
       type: string
       description: Name of the environment
     versionId:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: ID of the active version
     versionNumber:
       type: integer
@@ -170,8 +176,8 @@ SetActivationRequest:
     - versionId
   properties:
     versionId:
-      type: integer
-      format: int64
+      type: string
+      format: uuid
       description: ID of the version to activate
 
 ActivationListResponse:

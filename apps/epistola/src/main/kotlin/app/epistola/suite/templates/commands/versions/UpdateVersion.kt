@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateModel
@@ -14,10 +18,10 @@ import tools.jackson.databind.ObjectMapper
  * Only draft versions can be updated; published/archived versions are immutable.
  */
 data class UpdateVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId,
     val templateModel: TemplateModel?,
 ) : Command<TemplateVersion?>
 

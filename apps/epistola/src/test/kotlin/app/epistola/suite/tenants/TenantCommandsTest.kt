@@ -1,6 +1,7 @@
 package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.TenantId
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -13,7 +14,7 @@ class TenantCommandsTest : BaseIntegrationTest() {
 
         then {
             val tenant = result<Tenant>()
-            assertThat(tenant.id).isPositive()
+            assertThat(tenant.id).isNotNull()
             assertThat(tenant.name).isEqualTo("Acme Corp")
             assertThat(tenant.createdAt).isNotNull()
         }
@@ -21,14 +22,14 @@ class TenantCommandsTest : BaseIntegrationTest() {
 
     @Test
     fun `DeleteTenant removes tenant by id`() = fixture {
-        var tenantId: Long = 0
+        var tenantId: TenantId? = null
 
         given {
             tenantId = tenant("To Delete").id
         }
 
         whenever {
-            deleteTenant(tenantId)
+            deleteTenant(tenantId!!)
         }
 
         then {
@@ -39,7 +40,7 @@ class TenantCommandsTest : BaseIntegrationTest() {
     @Test
     fun `DeleteTenant returns false for non-existent id`() = fixture {
         whenever {
-            deleteTenant(99999)
+            deleteTenant(TenantId.generate())
         }
 
         then {

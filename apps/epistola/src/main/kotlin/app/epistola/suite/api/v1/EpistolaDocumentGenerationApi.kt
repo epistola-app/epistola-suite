@@ -11,6 +11,10 @@ import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toJobDto
 import app.epistola.suite.api.v1.shared.toJobResponse
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
@@ -18,7 +22,8 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
-import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import org.springframework.core.io.ByteArrayResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -31,18 +36,17 @@ import java.util.UUID
 
 @RestController
 class EpistolaDocumentGenerationApi(
-    private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
 ) : GenerationApi {
 
     // ================== Document Generation ==================
 
     override fun generateDocument(
-        tenantId: Long,
+        tenantId: UUID,
         generateDocumentRequest: GenerateDocumentRequest,
     ): ResponseEntity<GenerationJobResponse> {
         val command = generateDocumentRequest.toCommand(tenantId, objectMapper)
-        val request = mediator.send(command)
+        val request = command.execute()
 
         return ResponseEntity
             .status(HttpStatus.ACCEPTED)
@@ -50,11 +54,11 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun generateDocumentBatch(
-        tenantId: Long,
+        tenantId: UUID,
         generateBatchRequest: GenerateBatchRequest,
     ): ResponseEntity<GenerationJobResponse> {
         val command = generateBatchRequest.toCommand(tenantId, objectMapper)
-        val request = mediator.send(command)
+        val request = command.execute()
 
         return ResponseEntity
             .status(HttpStatus.ACCEPTED)
@@ -64,20 +68,18 @@ class EpistolaDocumentGenerationApi(
     // ================== Job Management ==================
 
     override fun listGenerationJobs(
-        tenantId: Long,
+        tenantId: UUID,
         status: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<GenerationJobListResponse> {
         val statusEnum = status?.let { RequestStatus.valueOf(it) }
-        val jobs = mediator.query(
-            ListGenerationJobs(
-                tenantId = tenantId,
-                status = statusEnum,
-                limit = size,
-                offset = page * size,
-            ),
-        )
+        val jobs = ListGenerationJobs(
+            tenantId = TenantId.of(tenantId),
+            status = statusEnum,
+            limit = size,
+            offset = page * size,
+        ).query()
 
         // TODO: Get total count for pagination
         val response = GenerationJobListResponse(
@@ -92,20 +94,20 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun getGenerationJobStatus(
-        tenantId: Long,
+        tenantId: UUID,
         requestId: UUID,
     ): ResponseEntity<GenerationJobDetail> {
-        val jobResult = mediator.query(GetGenerationJob(tenantId, requestId))
+        val jobResult = GetGenerationJob(TenantId.of(tenantId), GenerationRequestId.of(requestId)).query()
             ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(jobResult.toDto(objectMapper))
     }
 
     override fun cancelGenerationJob(
-        tenantId: Long,
+        tenantId: UUID,
         requestId: UUID,
     ): ResponseEntity<Unit> {
-        val cancelled = mediator.send(CancelGenerationJob(tenantId, requestId))
+        val cancelled = CancelGenerationJob(TenantId.of(tenantId), GenerationRequestId.of(requestId)).execute()
 
         return if (cancelled) {
             ResponseEntity.noContent().build()
@@ -118,10 +120,10 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Download ==================
 
     override fun downloadDocument(
-        tenantId: Long,
-        documentId: Long,
+        tenantId: UUID,
+        documentId: UUID,
     ): ResponseEntity<Resource> {
-        val document = mediator.query(GetDocument(tenantId, documentId))
+        val document = GetDocument(TenantId.of(tenantId), DocumentId.of(documentId)).query()
             ?: return ResponseEntity.notFound().build()
 
         val resource = ByteArrayResource(document.content)
@@ -134,10 +136,10 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun deleteDocument(
-        tenantId: Long,
-        documentId: Long,
+        tenantId: UUID,
+        documentId: UUID,
     ): ResponseEntity<Unit> {
-        val deleted = mediator.send(DeleteDocument(tenantId, documentId))
+        val deleted = DeleteDocument(TenantId.of(tenantId), DocumentId.of(documentId)).execute()
 
         return if (deleted) {
             ResponseEntity.noContent().build()
@@ -149,21 +151,19 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Listing ==================
 
     override fun listDocuments(
-        tenantId: Long,
-        templateId: Long?,
+        tenantId: UUID,
+        templateId: UUID?,
         correlationId: String?,
         page: Int,
         size: Int,
     ): ResponseEntity<DocumentListResponse> {
-        val documents = mediator.query(
-            ListDocuments(
-                tenantId = tenantId,
-                templateId = templateId,
-                correlationId = correlationId,
-                limit = size,
-                offset = page * size,
-            ),
-        )
+        val documents = ListDocuments(
+            tenantId = TenantId.of(tenantId),
+            templateId = templateId?.let { TemplateId.of(it) },
+            correlationId = correlationId,
+            limit = size,
+            offset = page * size,
+        ).query()
 
         // TODO: Get total count for pagination
         val response = DocumentListResponse(

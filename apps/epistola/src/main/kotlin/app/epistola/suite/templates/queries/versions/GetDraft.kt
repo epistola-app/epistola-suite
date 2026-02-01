@@ -1,5 +1,8 @@
 package app.epistola.suite.templates.queries.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.TemplateVersion
@@ -11,9 +14,9 @@ import org.springframework.stereotype.Component
  * Gets the current draft version for a variant, if one exists.
  */
 data class GetDraft(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
 ) : Query<TemplateVersion?>
 
 @Component

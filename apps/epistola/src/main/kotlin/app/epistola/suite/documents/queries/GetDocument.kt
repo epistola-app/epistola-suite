@@ -1,5 +1,7 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -14,8 +16,8 @@ import org.springframework.stereotype.Component
  * @property documentId The document ID
  */
 data class GetDocument(
-    val tenantId: Long,
-    val documentId: Long,
+    val tenantId: TenantId,
+    val documentId: DocumentId,
 ) : Query<Document?>
 
 @Component

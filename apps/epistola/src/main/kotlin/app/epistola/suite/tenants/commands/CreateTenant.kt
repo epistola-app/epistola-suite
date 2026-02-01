@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.tenants.Tenant
@@ -9,6 +10,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class CreateTenant(
+    val id: TenantId,
     val name: String,
 ) : Command<Tenant> {
     init {
@@ -24,11 +26,12 @@ class CreateTenantHandler(
     override fun handle(command: CreateTenant): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         handle.createQuery(
             """
-                INSERT INTO tenants (name, created_at)
-                VALUES (:name, NOW())
+                INSERT INTO tenants (id, name, created_at)
+                VALUES (:id, :name, NOW())
                 RETURNING *
                 """,
         )
+            .bind("id", command.id)
             .bind("name", command.name)
             .mapTo<Tenant>()
             .one()

@@ -9,6 +9,7 @@ cyclonedx = "3.1.0"
 kover = "0.9.5"
 jdbi = "3.51.0"
 json-schema-validator = "3.0.0"
+uuid-creator = "6.1.0"
 openapi-generator = "7.19.0"
 jackson2 = "2.21.0"
 spring-web = "7.0.3"
@@ -21,6 +22,7 @@ jdbi-kotlin = { module = "org.jdbi:jdbi3-kotlin", version.ref = "jdbi" }
 jdbi-postgres = { module = "org.jdbi:jdbi3-postgres", version.ref = "jdbi" }
 jdbi-jackson3 = { module = "org.jdbi:jdbi3-jackson3", version.ref = "jdbi" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
+uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-creator" }
 jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }
 jackson2-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson2" }
 jackson2-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson2" }

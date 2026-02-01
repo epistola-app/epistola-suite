@@ -1,20 +1,26 @@
 package app.epistola.suite.documents.queries
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
+import java.util.UUID
 
 /**
  * Document metadata without content (for efficient listing).
  */
 data class DocumentMetadata(
-    val id: Long,
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val id: DocumentId,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId,
     val filename: String,
     val correlationId: String?,
     val contentType: String,
@@ -30,8 +36,8 @@ data class DocumentMetadata(
  * @property documentId The document ID
  */
 data class GetDocumentMetadata(
-    val tenantId: Long,
-    val documentId: Long,
+    val tenantId: TenantId,
+    val documentId: DocumentId,
 ) : Query<DocumentMetadata?>
 
 @Component
@@ -54,11 +60,11 @@ class GetDocumentMetadataHandler(
             .bind("tenantId", query.tenantId)
             .map { rs, _ ->
                 DocumentMetadata(
-                    id = rs.getLong("id"),
-                    tenantId = rs.getLong("tenant_id"),
-                    templateId = rs.getLong("template_id"),
-                    variantId = rs.getLong("variant_id"),
-                    versionId = rs.getLong("version_id"),
+                    id = DocumentId(rs.getObject("id", UUID::class.java)),
+                    tenantId = TenantId(rs.getObject("tenant_id", UUID::class.java)),
+                    templateId = TemplateId(rs.getObject("template_id", UUID::class.java)),
+                    variantId = VariantId(rs.getObject("variant_id", UUID::class.java)),
+                    versionId = VersionId(rs.getObject("version_id", UUID::class.java)),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

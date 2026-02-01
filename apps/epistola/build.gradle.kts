@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.jdbi.postgres)
     implementation(libs.jdbi.jackson3)
     implementation(libs.json.schema.validator)
+    implementation(libs.uuid.creator)
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")

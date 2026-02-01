@@ -1,5 +1,7 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
@@ -13,8 +15,8 @@ import org.springframework.stereotype.Component
  * @property documentId The document ID to delete
  */
 data class DeleteDocument(
-    val tenantId: Long,
-    val documentId: Long,
+    val tenantId: TenantId,
+    val documentId: DocumentId,
 ) : Command<Boolean>
 
 @Component

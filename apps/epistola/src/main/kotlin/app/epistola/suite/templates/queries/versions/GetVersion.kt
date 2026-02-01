@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.queries.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.TemplateVersion
@@ -8,10 +12,10 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetVersion(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
-    val versionId: Long,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
+    val versionId: VersionId,
 ) : Query<TemplateVersion?>
 
 @Component

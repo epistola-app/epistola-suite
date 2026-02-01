@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateModel
@@ -14,9 +18,9 @@ import tools.jackson.databind.ObjectMapper
  * If no draft exists, creates one. If a draft exists, updates it.
  */
 data class UpdateDraft(
-    val tenantId: Long,
-    val templateId: Long,
-    val variantId: Long,
+    val tenantId: TenantId,
+    val templateId: TemplateId,
+    val variantId: VariantId,
     val templateModel: TemplateModel?,
 ) : Command<TemplateVersion?>
 
@@ -50,15 +54,17 @@ class UpdateDraftHandler(
         val templateModelJson = command.templateModel?.let { objectMapper.writeValueAsString(it) }
 
         // Use upsert to create or update draft
+        val newId = VersionId.generate()
         handle.createQuery(
             """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
-                VALUES (:variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
+                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
                 ON CONFLICT (variant_id) WHERE status = 'draft'
                 DO UPDATE SET template_model = :templateModel::jsonb
                 RETURNING *
                 """,
         )
+            .bind("id", newId)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

@@ -2,6 +2,51 @@
 
 ## [Unreleased]
 
+### Added
+- **ScopedValue-based Mediator context**: Cleaner command/query dispatch using extension functions
+  - `MediatorContext` object using JDK 21+ `ScopedValue` for thread-safe, virtual thread compatible mediator access
+  - Extension functions: `Command<R>.execute()` and `Query<R>.query()` for idiomatic dispatch
+  - `MediatorFilter` automatically binds mediator context for HTTP requests
+  - API handlers no longer need `Mediator` constructor injection
+  - Test helpers: `withMediator { }` in `BaseIntegrationTest` and `TestFixtureFactory`
+  - Before: `mediator.send(CreateTenant(...))` / After: `CreateTenant(...).execute()`
+  - Test infrastructure (`TestFixture`, `Scenario` DSLs) now uses extension functions internally
+  - DSL scopes (`GivenScope`, `WhenScope`) capture mediator at construction for thread-safety (supports awaitility callbacks)
+
+### Changed
+- **BREAKING**: Added type-safe entity ID wrapper classes for compile-time type safety
+  - New value classes: `TenantId`, `TemplateId`, `VariantId`, `VersionId`, `EnvironmentId`, `DocumentId`, `GenerationRequestId`, `GenerationItemId`
+  - Prevents accidental misuse of IDs (e.g., passing `TemplateId` where `TenantId` is expected)
+  - Zero runtime overhead using Kotlin `@JvmInline value class`
+  - JDBI integration handled natively by `KotlinPlugin` (no custom factories needed)
+  - OpenAPI schemas unchanged - still use `format: uuid` for standard client compatibility
+  - Commands, queries, and entities now use typed IDs instead of raw `UUID`
+
+### Fixed
+- **JSON deserialization of `List<DataExample>`**: Fixed `ClassCastException` when deserializing template data examples from database
+  - Created `DataExamples` wrapper type with custom Jackson serializer/deserializer
+  - Properly handles Java type erasure that caused `List<LinkedHashMap>` instead of `List<DataExample>`
+
+### Changed
+- **BREAKING**: Migrated all entity IDs from database-generated Long/BIGSERIAL to client-provided UUIDv7
+  - All entity IDs (Tenant, Template, Variant, Version, Environment, Document, GenerationRequest, GenerationItem) now use UUID
+  - IDs must be provided by the client when creating entities via API or commands
+  - Uses [uuid-creator](https://github.com/f4b6a3/uuid-creator) library v6.1.0 for RFC 9562 compliant UUIDv7 generation
+  - UUIDv7 provides time-sortable identifiers with better distributed system properties
+  - Added `UUIDv7` utility class for consistent ID generation
+  - Database migrations updated to use UUID primary keys from the start
+  - OpenAPI schemas updated: all ID fields changed from `integer/int64` to `string/uuid`
+  - Test DSL updated: `tenant()`, `template()`, `variant()`, `version()` helpers now generate UUIDv7 IDs automatically
+
+### Added
+- **Type-safe Scenario DSL for integration tests**: New `scenario {}` DSL with Given-When-Then pattern
+  - Type-safe flow: `given` block returns typed setup data accessible in `whenever` and `then` blocks
+  - Automatic cleanup: `tenant()` helper automatically registers cleanup on scenario completion
+  - Cleaner test setup: Reduced boilerplate from 8+ lines to 5 lines for common document generation setup
+  - Reusable setup data classes: `DocumentSetup` for document generation tests
+  - Helper methods: `tenant()`, `template()`, `variant()`, `version()` for common operations
+  - Coexists with existing `fixture {}` DSL - no breaking changes
+
 ### Changed
 - **Simplified gradlew wrapper**: Replaced traditional Gradle wrapper with mise-aware scripts
   - `gradlew` and `gradlew.bat` now activate mise environment and delegate to mise-managed Gradle

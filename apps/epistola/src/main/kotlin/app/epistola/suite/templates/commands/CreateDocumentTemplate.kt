@@ -1,5 +1,9 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -17,7 +21,8 @@ import tools.jackson.databind.ObjectMapper
 import java.util.UUID
 
 data class CreateDocumentTemplate(
-    val tenantId: Long,
+    val id: TemplateId,
+    val tenantId: TenantId,
     val name: String,
     val schema: String? = null,
 ) : Command<DocumentTemplate> {
@@ -46,11 +51,12 @@ class CreateDocumentTemplateHandler(
             // 1. Create the template
             val template = handle.createQuery(
                 """
-                INSERT INTO document_templates (tenant_id, name, schema, data_model, data_examples, created_at, last_modified)
-                VALUES (:tenantId, :name, :schema::jsonb, NULL, '[]'::jsonb, NOW(), NOW())
+                INSERT INTO document_templates (id, tenant_id, name, schema, data_model, data_examples, created_at, last_modified)
+                VALUES (:id, :tenantId, :name, :schema::jsonb, NULL, '[]'::jsonb, NOW(), NOW())
                 RETURNING id, tenant_id, name, schema, data_model, data_examples, created_at, last_modified
                 """,
             )
+                .bind("id", command.id)
                 .bind("tenantId", command.tenantId)
                 .bind("name", command.name)
                 .bind("schema", command.schema)
@@ -58,16 +64,16 @@ class CreateDocumentTemplateHandler(
                 .one()
 
             // 2. Create default variant
-            val variantId = handle.createQuery(
+            val variantId = VariantId.generate()
+            handle.createUpdate(
                 """
-                INSERT INTO template_variants (template_id, tags, created_at, last_modified)
-                VALUES (:templateId, '{}'::jsonb, NOW(), NOW())
-                RETURNING id
+                INSERT INTO template_variants (id, template_id, tags, created_at, last_modified)
+                VALUES (:id, :templateId, '{}'::jsonb, NOW(), NOW())
                 """,
             )
+                .bind("id", variantId)
                 .bind("templateId", template.id)
-                .mapTo<Long>()
-                .one()
+                .execute()
 
             // 3. Create draft version with default TemplateModel
             val templateModel = TemplateModel(
@@ -78,13 +84,15 @@ class CreateDocumentTemplateHandler(
                 blocks = emptyList(),
             )
             val templateModelJson = objectMapper.writeValueAsString(templateModel)
+            val versionId = VersionId.generate()
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (variant_id, version_number, template_model, status, created_at)
-                VALUES (:variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
+                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
+                .bind("id", versionId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
                 .execute()
