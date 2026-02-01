@@ -1,0 +1,32 @@
+{
+  "name": "@epistola/headless-editor",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/headless-editor.js",
+  "module": "dist/headless-editor.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/headless-editor.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.js --format=esm --watch",
+    "build": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.js --format=esm --minify --external:nanostores && tsc --emitDeclarationOnly",
+    "build:bundled": "esbuild src/index.ts --bundle --outfile=dist/headless-editor.bundled.js --format=esm --minify",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "nanostores": "^0.11.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.16"
+  }
+}
