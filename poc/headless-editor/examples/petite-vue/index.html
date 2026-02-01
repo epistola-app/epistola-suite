@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Headless Editor PoC - petite-vue</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/petite-vue@0.4.1/dist/petite-vue.iife.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <style>
+    body { background: #f8f9fa; }
+    .block {
+      border: 2px solid #dee2e6;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      transition: all 0.15s;
+      background: #fff;
+    }
+    .block:hover { border-color: #adb5bd; }
+    .block.selected { border-color: #0d6efd; background: #e7f1ff; }
+    .block.sortable-ghost { opacity: 0.4; border: 2px dashed #0d6efd; }
+    .block.sortable-drag { box-shadow: 0 8px 20px rgba(0,0,0,0.2); transform: rotate(2deg); }
+    .block.sortable-chosen { border-color: #0d6efd; }
+    .block[data-block-type="columns"] {
+      border-color: #6f42c1;
+      background: #f8f5ff;
+    }
+    .block[data-block-type="columns"].selected {
+      border-color: #6f42c1;
+      background: #ede5ff;
+    }
+    .block[data-block-type="column"] {
+      border-color: #6f42c1;
+      border-style: dashed;
+      background: #faf8ff;
+    }
+    .columns-layout {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .columns-layout > .block {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      cursor: grab;
+      padding: 0.25rem;
+      margin: -0.25rem -0.25rem 0.5rem -0.25rem;
+      border-radius: 0.25rem;
+    }
+    .block-header:hover { background: rgba(0,0,0,0.03); }
+    .block-header:active { cursor: grabbing; }
+    .drag-handle { padding: 0 0.5rem; color: #adb5bd; }
+    .block-children {
+      margin-left: 1rem;
+      padding-left: 1rem;
+      border-left: 2px solid #dee2e6;
+      margin-top: 0.5rem;
+      min-height: 50px;
+      transition: all 0.15s;
+    }
+    .state-display {
+      font-family: monospace;
+      font-size: 0.8rem;
+      background: #f8f9fa;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow: auto;
+    }
+    .callbacks-log {
+      font-family: monospace;
+      font-size: 0.75rem;
+      max-height: 150px;
+      overflow: auto;
+      background: #212529;
+      color: #20c997;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+    }
+    .callbacks-log div {
+      padding: 2px 0;
+      border-bottom: 1px solid #495057;
+    }
+    .empty-state {
+      color: #6c757d;
+      font-style: italic;
+      text-align: center;
+      padding: 2rem;
+    }
+    .block-list { min-height: 200px; }
+    .toolbar-section {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    kbd {
+      background: #212529;
+      color: #fff;
+      padding: 0.1rem 0.3rem;
+      border-radius: 0.2rem;
+      font-size: 0.75rem;
+    }
+    .btn-outline-purple {
+      border-color: #6f42c1;
+      color: #6f42c1;
+    }
+    .btn-outline-purple:hover {
+      background-color: #6f42c1;
+      color: #fff;
+    }
+    .bg-purple {
+      background-color: #6f42c1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4" v-scope="editorApp()" @vue:mounted="init">
+    <h1 class="mb-1">Headless Editor PoC - petite-vue</h1>
+    <p class="text-muted mb-4">
+      Pure TypeScript logic + petite-vue + SortableJS.
+      <strong>Drag blocks to reorder!</strong>
+      <kbd>Ctrl+Z</kbd> undo, <kbd>Ctrl+Shift+Z</kbd> redo
+    </p>
+
+    <div class="row g-4">
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Editor</span>
+            <small class="text-muted">petite-vue + Headless Editor</small>
+          </div>
+          <div class="card-body">
+            <div class="toolbar-section">
+              <div class="btn-group">
+                <button @click="addBlock('text')" class="btn btn-outline-primary btn-sm">
+                  <i class="bi bi-plus"></i> Text
+                </button>
+                <button @click="addBlock('container')" class="btn btn-outline-primary btn-sm">
+                  <i class="bi bi-plus"></i> Container
+                </button>
+                <button @click="addColumns()" class="btn btn-outline-purple btn-sm">
+                  <i class="bi bi-layout-three-columns"></i> Columns
+                </button>
+              </div>
+
+              <div class="btn-group">
+                <button @click="undo()" class="btn btn-outline-secondary btn-sm" :disabled="!canUndo">
+                  <i class="bi bi-arrow-counterclockwise"></i> Undo
+                </button>
+                <button @click="redo()" class="btn btn-outline-secondary btn-sm" :disabled="!canRedo">
+                  <i class="bi bi-arrow-clockwise"></i> Redo
+                </button>
+              </div>
+
+              <button @click="addToSelected()" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-plus"></i> Add to Selected
+              </button>
+            </div>
+            <div id="block-list" class="block-list" ref="blockList">
+              <div v-if="template.blocks.length === 0" class="empty-state">
+                No blocks yet. Add one above.
+              </div>
+              <div v-for="block in template.blocks" :key="block.id" v-html="renderBlock(block)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-header">Current State</div>
+          <div class="card-body">
+            <div class="state-display">{{ stateDisplay }}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">Callbacks Log</div>
+          <div class="card-body p-2">
+            <div class="callbacks-log">
+              <div v-for="log in callbackLogs" :key="log.id">{{ log.message }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { TemplateEditor } from '../../dist/editor.bundle.js';
+    const { createApp } = PetiteVue;
+
+    function editorApp() {
+      return {
+        editor: null,
+        template: { blocks: [] },
+        selectedBlockId: null,
+        canUndo: false,
+        canRedo: false,
+        callbackLogs: [],
+        logId: 0,
+        sortableInstances: [],
+
+        get stateDisplay() {
+          return JSON.stringify({
+            selectedBlockId: this.selectedBlockId,
+            blockCount: this.template.blocks.length,
+            canUndo: this.canUndo,
+            canRedo: this.canRedo,
+            template: this.template
+          }, null, 2);
+        },
+
+        init() {
+          // Create editor instance first
+          const editor = new TemplateEditor({
+            template: { id: 'petite-vue-template', name: 'petite-vue Template', blocks: [] },
+            callbacks: {
+              onTemplateChange: (template) => {
+                this.template = template;
+                if (this.editor) this.updateButtons();
+                this.$nextTick(() => this.setupSortable());
+              },
+              onBlockSelect: (blockId) => {
+                this.selectedBlockId = blockId;
+                if (this.editor) this.updateButtons();
+              },
+              onBeforeBlockAdd: (block, parentId) => {
+                this.logCallback(`Adding ${block.type} to ${parentId || 'root'}`);
+                return true;
+              },
+              onBeforeBlockDelete: (blockId) => {
+                this.logCallback(`Deleting ${blockId}`);
+                return true;
+              },
+              onError: (error) => {
+                this.logCallback(`ERROR: ${error.message}`);
+              }
+            }
+          });
+          
+          // Assign after creation to avoid race conditions during init
+          this.editor = editor;
+          
+          // Initial state sync
+          const state = this.editor.getState();
+          this.template = state.template;
+          this.selectedBlockId = state.selectedBlockId;
+          this.updateButtons();
+          this.$nextTick(() => this.setupSortable());
+
+          // Keyboard shortcuts
+          document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+              if (e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                this.undo();
+              } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+                e.preventDefault();
+                this.redo();
+              }
+            }
+          });
+
+          this.logCallback('Editor initialized with petite-vue');
+        },
+
+        logCallback(msg) {
+          this.callbackLogs.unshift({
+            id: ++this.logId,
+            message: `${new Date().toLocaleTimeString()}: ${msg}`
+          });
+          if (this.callbackLogs.length > 20) {
+            this.callbackLogs.pop();
+          }
+        },
+
+        addBlock(type) {
+          this.editor.addBlock(type);
+        },
+
+        addColumns() {
+          const columns = this.editor.addBlock('columns');
+          if (columns) {
+            this.editor.addBlock('column', columns.id);
+            this.editor.addBlock('column', columns.id);
+          }
+        },
+
+        addToSelected() {
+          if (!this.selectedBlockId) {
+            this.logCallback('No block selected');
+            return;
+          }
+          const block = this.editor.findBlock(this.selectedBlockId);
+          if (!block) return;
+
+          if (block.type === 'columns') {
+            if (block.children && block.children.length >= 4) {
+              this.logCallback('Max 4 columns allowed');
+              return;
+            }
+            this.editor.addBlock('column', this.selectedBlockId);
+          } else if (block.type === 'container' || block.type === 'column') {
+            this.editor.addBlock('text', this.selectedBlockId);
+          } else {
+            this.logCallback(`Cannot add children to ${block.type}`);
+          }
+        },
+
+        undo() {
+          if (this.editor.undo()) {
+            this.logCallback('Undo');
+            this.syncState();
+          }
+        },
+
+        redo() {
+          if (this.editor.redo()) {
+            this.logCallback('Redo');
+            this.syncState();
+          }
+        },
+
+        syncState() {
+          const state = this.editor.getState();
+          this.template = state.template;
+          this.selectedBlockId = state.selectedBlockId;
+          this.updateButtons();
+        },
+
+        updateButtons() {
+          if (!this.editor) {
+            this.canUndo = false;
+            this.canRedo = false;
+            return;
+          }
+          this.canUndo = this.editor.canUndo();
+          this.canRedo = this.editor.canRedo();
+        },
+
+        selectBlock(id) {
+          this.editor.selectBlock(id);
+        },
+
+        deleteBlock(id, event) {
+          event.stopPropagation();
+          this.editor.deleteBlock(id);
+        },
+
+        updateBlockContent(id, content) {
+          this.editor.updateBlock(id, { content });
+        },
+
+        getBadgeClass(type) {
+          switch (type) {
+            case 'container': return 'bg-primary';
+            case 'columns':
+            case 'column': return 'bg-purple';
+            default: return 'bg-secondary';
+          }
+        },
+
+        getBadgeStyle(type) {
+          if (type === 'columns' || type === 'column') {
+            return 'background-color: #6f42c1;';
+          }
+          return '';
+        },
+
+        renderBlock(block) {
+          const isSelected = this.selectedBlockId === block.id;
+          const badgeClass = this.getBadgeClass(block.type);
+          const badgeStyle = this.getBadgeStyle(block.type);
+
+          let contentHtml = '';
+
+          if (block.type === 'text') {
+            contentHtml = `
+              <textarea class="form-control form-control-sm" 
+                        placeholder="Enter text..." rows="2"
+                        @click.stop
+                        @input="updateBlockContent('${block.id}', $event.target.value)">${block.content || ''}</textarea>
+            `;
+          }
+
+          if (block.type === 'container' && block.children) {
+            const childrenHtml = block.children.length === 0
+              ? '<div class="empty-state" style="padding: 0.5rem;">Drop blocks here</div>'
+              : block.children.map(child => this.renderBlock(child)).join('');
+
+            contentHtml = `
+              <div class="block-children sortable-container" data-parent-id="${block.id}">
+                ${childrenHtml}
+              </div>
+            `;
+          }
+
+          if (block.type === 'columns' && block.children) {
+            const columnsHtml = block.children.length === 0
+              ? '<div class="empty-state" style="padding: 0.5rem; flex: 1;">Add columns (max 4)</div>'
+              : block.children.map(child => this.renderBlock(child)).join('');
+
+            contentHtml = `
+              <div class="columns-layout sortable-container" data-parent-id="${block.id}">
+                ${columnsHtml}
+              </div>
+            `;
+          }
+
+          if (block.type === 'column' && block.children) {
+            const columnChildrenHtml = block.children.length === 0
+              ? '<div class="empty-state" style="padding: 0.5rem;">Drop content here</div>'
+              : block.children.map(child => this.renderBlock(child)).join('');
+
+            contentHtml = `
+              <div class="block-children sortable-container" data-parent-id="${block.id}" 
+                   style="margin-left: 0; padding-left: 0.5rem; border-left-color: #6f42c1;">
+                ${columnChildrenHtml}
+              </div>
+            `;
+          }
+
+          return `
+            <div class="block ${isSelected ? 'selected' : ''}" 
+                 data-block-id="${block.id}" data-block-type="${block.type}"
+                 @click="selectBlock('${block.id}')">
+              <div class="block-header">
+                <div class="d-flex align-items-center gap-2">
+                  <i class="bi bi-grip-vertical drag-handle text-muted"></i>
+                  <span class="badge ${badgeClass}" style="${badgeStyle}">${block.type}</span>
+                </div>
+                <button class="btn btn-outline-danger btn-sm" @click="deleteBlock('${block.id}', $event)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+              ${contentHtml}
+            </div>
+          `;
+        },
+
+        setupSortable() {
+          this.sortableInstances.forEach(s => s.destroy());
+          this.sortableInstances = [];
+
+          const rootContainer = this.$refs.blockList;
+          const dnd = this.editor.getDragDropPort();
+
+          const handleDrop = (evt) => {
+            const draggedId = evt.item.dataset.blockId;
+            const toContainer = evt.to;
+            const newIndex = evt.newIndex;
+            let targetParentId = null;
+
+            if (toContainer.classList.contains('sortable-container')) {
+              targetParentId = toContainer.dataset.parentId;
+            }
+
+            this.logCallback(`Drop: ${draggedId} -> ${targetParentId || 'root'} at ${newIndex}`);
+
+            if (dnd.canDrop(draggedId, targetParentId, 'inside')) {
+              this.editor.moveBlock(draggedId, targetParentId, newIndex);
+              this.logCallback('Drop accepted');
+            } else {
+              this.logCallback('Invalid drop rejected');
+              this.$nextTick(() => this.syncState());
+            }
+          };
+
+          // Root sortable
+          if (rootContainer && this.template.blocks.length > 0) {
+            this.sortableInstances.push(new Sortable(rootContainer, {
+              group: 'blocks',
+              animation: 150,
+              handle: '.block-header',
+              ghostClass: 'sortable-ghost',
+              chosenClass: 'sortable-chosen',
+              dragClass: 'sortable-drag',
+              fallbackOnBody: true,
+              swapThreshold: 0.65,
+              emptyInsertThreshold: 0,
+              onEnd: handleDrop
+            }));
+          }
+
+          // Nested sortables
+          this.$nextTick(() => {
+            document.querySelectorAll('.sortable-container').forEach(container => {
+              this.sortableInstances.push(new Sortable(container, {
+                group: 'blocks',
+                animation: 150,
+                handle: '.block-header',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                fallbackOnBody: true,
+                swapThreshold: 0.65,
+                emptyInsertThreshold: 30,
+                onEnd: handleDrop
+              }));
+            });
+          });
+        }
+      };
+    }
+
+    createApp({ editorApp }).mount();
+  </script>
+</body>
+</html>
