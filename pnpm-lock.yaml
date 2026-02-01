@@ -136,7 +136,10 @@ importers:
         version: 0.563.0(react@19.2.4)
       motion:
         specifier: ^12.23.26
-        version: 12.33.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 12.29.3(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      nanostores:
+        specifier: ^0.11.4
+        version: 0.11.4
       react:
         specifier: ^19.2.0
         version: 19.2.4
@@ -145,7 +148,10 @@ importers:
         version: 19.2.4(react@19.2.4)
       react-resizable-panels:
         specifier: ^4.0.15
-        version: 4.6.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 4.5.8(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      sortablejs:
+        specifier: ^1.15.6
+        version: 1.15.6
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
@@ -176,7 +182,10 @@ importers:
         version: 19.2.13
       '@types/react-dom':
         specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.13)
+        version: 19.2.3(@types/react@19.2.10)
+      '@types/sortablejs':
+        specifier: ^1.15.8
+        version: 1.15.9
       '@types/uuid':
         specifier: ^11.0.0
         version: 11.0.0
@@ -311,7 +320,7 @@ importers:
         version: 0.563.0(react@19.2.4)
       motion:
         specifier: ^12.23.26
-        version: 12.33.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 12.29.3(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react:
         specifier: ^19.2.0
         version: 19.2.4
@@ -498,7 +507,7 @@ importers:
         version: 0.563.0(react@19.2.4)
       motion:
         specifier: ^12.23.26
-        version: 12.33.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 12.29.3(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.13))(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -510,7 +519,7 @@ importers:
         version: 19.2.4(react@19.2.4)
       react-resizable-panels:
         specifier: ^4.0.15
-        version: 4.6.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 4.5.8(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
@@ -2652,6 +2661,9 @@ packages:
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
 
+  '@types/sortablejs@1.15.9':
+    resolution: {integrity: sha512-7HP+rZGE2p886PKV9c9OJzLBI6BBJu1O7lJGYnPyG3fS4/duUCcngkNCjsLwIMV+WMqANe3tt4irrXHSIe68OQ==}
+
   '@types/stylis@4.2.7':
     resolution: {integrity: sha512-VgDNokpBoKF+wrdvhAAfS55OMQpL6QRglwTwNC3kIgBrzZxA4WsFj+2eLfEA/uMUDzBcEhYmjSbwQakn/i3ajA==}
 
@@ -3297,8 +3309,8 @@ packages:
   fraction.js@5.3.4:
     resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
 
-  framer-motion@12.33.0:
-    resolution: {integrity: sha512-ca8d+rRPcDP5iIF+MoT3WNc0KHJMjIyFAbtVLvM9eA7joGSpeqDfiNH/kCs1t4CHi04njYvWyj0jS4QlEK/rJQ==}
+  framer-motion@12.29.3:
+    resolution: {integrity: sha512-naVvtFA7IiRTU5n7w7Nj51QFVWu955bU0p9H0gGC4AbhHDQR0TcohoEYwdOZXWEkXrEYNTl95EDOxsjDqn1AvQ==}
     peerDependencies:
       '@emotion/is-prop-valid': '*'
       react: ^18.0.0 || ^19.0.0
@@ -3818,8 +3830,8 @@ packages:
   motion-utils@12.29.2:
     resolution: {integrity: sha512-G3kc34H2cX2gI63RqU+cZq+zWRRPSsNIOjpdl9TN4AQwC4sgwYPl/Q/Obf/d53nOm569T0fYK+tcoSV50BWx8A==}
 
-  motion@12.33.0:
-    resolution: {integrity: sha512-TcND7PijsrTeIA9SRVUB8TOJQ+6mJnJ5K4a9oAJZvyI0Zy47Gq5oofU+VkTxbLcvDoKXnHspQcII2mnk3TbFsQ==}
+  motion@12.29.3:
+    resolution: {integrity: sha512-susHRkAolcmJQNy7xkV8UJ1DrB2Rg9IDTHnGR2ASXBCzc1L9eC5GVLj08zUU6ZnNLNX6Jb7urD6N0IJjOSGQBQ==}
     peerDependencies:
       '@emotion/is-prop-valid': '*'
       react: ^18.0.0 || ^19.0.0
@@ -3839,6 +3851,10 @@ packages:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+
+  nanostores@0.11.4:
+    resolution: {integrity: sha512-k1oiVNN4hDK8NcNERSZLQiMfRzEGtfnvZvdBvey3SQbgn8Dcrk0h1I6vpxApjb10PFUflZrgJ2WEZyJQ+5v7YQ==}
+    engines: {node: ^18.0.0 || >=20.0.0}
 
   napi-build-utils@2.0.0:
     resolution: {integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==}
@@ -4142,8 +4158,8 @@ packages:
       '@types/react':
         optional: true
 
-  react-resizable-panels@4.6.2:
-    resolution: {integrity: sha512-d6hyD6s7ewNAI+oINrZznR/08GUyAszrowXouUDztePEn/tQ2z/LEI2qRvrizYBe3TpgBi0cCjc10pXTTOc4jw==}
+  react-resizable-panels@4.5.8:
+    resolution: {integrity: sha512-X2S5YoYWbjd7Ove6e6T/kzOrjiUD6ccz55a+XW0H3JXbrPb+Gmz7YRAJy4ysOkua/U5jSOG9SoySbebMBjtQJQ==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
@@ -4294,6 +4310,9 @@ packages:
 
   smob@1.5.0:
     resolution: {integrity: sha512-g6T+p7QO8npa+/hNx9ohv1E5pVCmWrVCUzUXJyLdMmftX6ER0oiWY/w9knEonLpnOp6b6FenKnMfR8gqwWdwig==}
+
+  sortablejs@1.15.6:
+    resolution: {integrity: sha512-aNfiuwMEpfBM/CN6LY0ibyhxPfPbyFeBTYJKCvzkJ2GkUpazIt3H+QIPAMHwqQ7tMKaHz1Qj+rJJCqljnf4p3A==}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -6908,6 +6927,8 @@ snapshots:
 
   '@types/resolve@1.20.2': {}
 
+  '@types/sortablejs@1.15.9': {}
+
   '@types/stylis@4.2.7': {}
 
   '@types/trusted-types@2.0.7':
@@ -7614,7 +7635,7 @@ snapshots:
 
   fraction.js@5.3.4: {}
 
-  framer-motion@12.33.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  framer-motion@12.29.3(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       motion-dom: 12.33.0
       motion-utils: 12.29.2
@@ -8047,9 +8068,9 @@ snapshots:
 
   motion-utils@12.29.2: {}
 
-  motion@12.33.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  motion@12.29.3(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
-      framer-motion: 12.33.0(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      framer-motion: 12.29.3(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tslib: 2.8.1
     optionalDependencies:
       '@emotion/is-prop-valid': 1.4.0
@@ -8059,6 +8080,8 @@ snapshots:
   ms@2.1.3: {}
 
   nanoid@3.3.11: {}
+
+  nanostores@0.11.4: {}
 
   napi-build-utils@2.0.0: {}
 
@@ -8476,7 +8499,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.13
 
-  react-resizable-panels@4.6.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  react-resizable-panels@4.5.8(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
@@ -8695,6 +8718,8 @@ snapshots:
   slugify@1.4.7: {}
 
   smob@1.5.0: {}
+
+  sortablejs@1.15.6: {}
 
   source-map-js@1.2.1: {}
 

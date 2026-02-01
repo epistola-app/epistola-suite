@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path, {resolve} from 'path'
 
-// Shared dependencies loaded via import map - excluded from bundle
-const EXTERNALS = [
+// Shared dependencies loaded via import map - excluded from bundle (React editor)
+const REACT_EXTERNALS = [
   'react',
   'react-dom',
   'react-dom/client',
@@ -42,6 +42,14 @@ const EXTERNALS = [
   // They are bundled directly to avoid multiple @codemirror/state and @tiptap/pm instances.
 ]
 
+// Externals for vanilla editor (SortableJS loaded via CDN in vanilla-dev.html)
+const VANILLA_EXTERNALS = [
+  'sortablejs',
+]
+
+// Check which build mode we're in
+const buildMode = process.env.BUILD_MODE || 'react'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -59,7 +67,22 @@ export default defineConfig({
     cors: true,
     origin: 'http://localhost:5173',
   },
-  build: {
+  build: buildMode === 'vanilla' ? {
+    // Vanilla editor build
+    lib: {
+      entry: resolve(__dirname, 'src/main/typescript/vanilla-lib.ts'),
+      name: 'VanillaTemplateEditor',
+      fileName: 'vanilla-template-editor',
+      formats: ['es'],
+    },
+    rollupOptions: {
+      external: VANILLA_EXTERNALS,
+      output: {
+        assetFileNames: 'vanilla-template-editor.[ext]',
+      },
+    },
+  } : {
+    // React editor build (default)
     lib: {
       entry: resolve(__dirname, 'src/main/typescript/lib.tsx'),
       name: 'TemplateEditor',
@@ -67,7 +90,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: EXTERNALS,
+      external: REACT_EXTERNALS,
       output: {
         assetFileNames: 'template-editor.[ext]',
       },
