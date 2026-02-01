@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- **ScopedValue-based Mediator context**: Cleaner command/query dispatch using extension functions
+  - `MediatorContext` object using JDK 21+ `ScopedValue` for thread-safe, virtual thread compatible mediator access
+  - Extension functions: `Command<R>.execute()` and `Query<R>.query()` for idiomatic dispatch
+  - `MediatorFilter` automatically binds mediator context for HTTP requests
+  - API handlers no longer need `Mediator` constructor injection
+  - Test helpers: `withMediator { }` in `BaseIntegrationTest` and `TestFixtureFactory`
+  - Before: `mediator.send(CreateTenant(...))` / After: `CreateTenant(...).execute()`
+
 ### Changed
 - **BREAKING**: Added type-safe entity ID wrapper classes for compile-time type safety
   - New value classes: `TenantId`, `TemplateId`, `VariantId`, `VersionId`, `EnvironmentId`, `DocumentId`, `GenerationRequestId`, `GenerationItemId`

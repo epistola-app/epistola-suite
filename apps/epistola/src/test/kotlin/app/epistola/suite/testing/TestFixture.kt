@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -30,6 +31,20 @@ class TestFixtureFactory(
             fixture.cleanup()
         }
     }
+
+    /**
+     * Runs the given block with the mediator bound to the current scope.
+     * This enables use of Command.execute() and Query.query() extension functions in tests.
+     *
+     * Usage:
+     * ```kotlin
+     * withMediator {
+     *     val tenant = CreateTenant("name").execute()
+     *     val tenants = ListTenants().query()
+     * }
+     * ```
+     */
+    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
 }
 
 @TestFixtureDsl

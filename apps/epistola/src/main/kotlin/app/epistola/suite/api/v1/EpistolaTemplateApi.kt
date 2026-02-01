@@ -26,7 +26,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -61,7 +62,6 @@ import java.util.UUID
 
 @RestController
 class EpistolaTemplateApi(
-    private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
 ) : TemplatesApi,
     VariantsApi,
@@ -73,7 +73,7 @@ class EpistolaTemplateApi(
         tenantId: UUID,
         q: String?,
     ): ResponseEntity<TemplateListResponse> {
-        val templates = mediator.query(ListDocumentTemplates(tenantId = TenantId.of(tenantId), searchTerm = q))
+        val templates = ListDocumentTemplates(tenantId = TenantId.of(tenantId), searchTerm = q).query()
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
@@ -86,15 +86,13 @@ class EpistolaTemplateApi(
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val schemaJson = createTemplateRequest.schema?.let { objectMapper.writeValueAsString(it) }
-        val template = mediator.send(
-            CreateDocumentTemplate(
-                id = TemplateId.of(createTemplateRequest.id),
-                tenantId = TenantId.of(tenantId),
-                name = createTemplateRequest.name,
-                schema = schemaJson,
-            ),
-        )
-        val variantSummaries = mediator.query(GetVariantSummaries(templateId = template.id))
+        val template = CreateDocumentTemplate(
+            id = TemplateId.of(createTemplateRequest.id),
+            tenantId = TenantId.of(tenantId),
+            name = createTemplateRequest.name,
+            schema = schemaJson,
+        ).execute()
+        val variantSummaries = GetVariantSummaries(templateId = template.id).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -102,9 +100,9 @@ class EpistolaTemplateApi(
         tenantId: UUID,
         templateId: UUID,
     ): ResponseEntity<TemplateDto> {
-        val template = mediator.query(GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)))
+        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
             ?: return ResponseEntity.notFound().build()
-        val variantSummaries = mediator.query(GetVariantSummaries(templateId = TemplateId.of(templateId)))
+        val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -119,17 +117,15 @@ class EpistolaTemplateApi(
         val dataModel = updateTemplateRequest.dataModel?.let {
             objectMapper.valueToTree<ObjectNode>(it)
         }
-        val result = mediator.send(
-            UpdateDocumentTemplate(
-                tenantId = TenantId.of(tenantId),
-                id = TemplateId.of(templateId),
-                name = updateTemplateRequest.name,
-                dataModel = dataModel,
-                dataExamples = dataExamples,
-                forceUpdate = updateTemplateRequest.forceUpdate ?: false,
-            ),
-        ) ?: return ResponseEntity.notFound().build()
-        val variantSummaries = mediator.query(GetVariantSummaries(templateId = TemplateId.of(templateId)))
+        val result = UpdateDocumentTemplate(
+            tenantId = TenantId.of(tenantId),
+            id = TemplateId.of(templateId),
+            name = updateTemplateRequest.name,
+            dataModel = dataModel,
+            dataExamples = dataExamples,
+            forceUpdate = updateTemplateRequest.forceUpdate ?: false,
+        ).execute() ?: return ResponseEntity.notFound().build()
+        val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
     }
 
@@ -137,7 +133,7 @@ class EpistolaTemplateApi(
         tenantId: UUID,
         templateId: UUID,
     ): ResponseEntity<Unit> {
-        val deleted = mediator.send(DeleteDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)))
+        val deleted = DeleteDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
@@ -152,7 +148,7 @@ class EpistolaTemplateApi(
         templateId: UUID,
     ): ResponseEntity<VariantListResponse> {
         val typedTenantId = TenantId.of(tenantId)
-        val variants = mediator.query(ListVariants(tenantId = typedTenantId, templateId = TemplateId.of(templateId)))
+        val variants = ListVariants(tenantId = typedTenantId, templateId = TemplateId.of(templateId)).query()
         val variantDtos = variants.map { variant ->
             val summary = getVariantSummary(variant, typedTenantId)
             variant.toDto(summary)
@@ -166,16 +162,14 @@ class EpistolaTemplateApi(
         createVariantRequest: CreateVariantRequest,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantId.of(tenantId)
-        val variant = mediator.send(
-            CreateVariant(
-                id = VariantId.of(createVariantRequest.id),
-                tenantId = typedTenantId,
-                templateId = TemplateId.of(templateId),
-                title = createVariantRequest.title,
-                description = createVariantRequest.description,
-                tags = createVariantRequest.tags ?: emptyMap(),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val variant = CreateVariant(
+            id = VariantId.of(createVariantRequest.id),
+            tenantId = typedTenantId,
+            templateId = TemplateId.of(templateId),
+            title = createVariantRequest.title,
+            description = createVariantRequest.description,
+            tags = createVariantRequest.tags ?: emptyMap(),
+        ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.status(HttpStatus.CREATED).body(variant.toDto(summary))
     }
@@ -186,13 +180,11 @@ class EpistolaTemplateApi(
         variantId: UUID,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantId.of(tenantId)
-        val variant = mediator.query(
-            GetVariant(
-                tenantId = typedTenantId,
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val variant = GetVariant(
+            tenantId = typedTenantId,
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.ok(variant.toDto(summary))
     }
@@ -206,14 +198,12 @@ class EpistolaTemplateApi(
         val tags = updateVariantRequest.tags
             ?: return ResponseEntity.badRequest().build()
         val typedTenantId = TenantId.of(tenantId)
-        val variant = mediator.send(
-            UpdateVariant(
-                tenantId = typedTenantId,
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                tags = tags,
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val variant = UpdateVariant(
+            tenantId = typedTenantId,
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            tags = tags,
+        ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.ok(variant.toDto(summary))
     }
@@ -223,13 +213,11 @@ class EpistolaTemplateApi(
         templateId: UUID,
         variantId: UUID,
     ): ResponseEntity<Unit> {
-        val deleted = mediator.send(
-            DeleteVariant(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ),
-        )
+        val deleted = DeleteVariant(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
@@ -244,13 +232,11 @@ class EpistolaTemplateApi(
         templateId: UUID,
         variantId: UUID,
     ): ResponseEntity<VersionDto> {
-        val draft = mediator.query(
-            GetDraft(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val draft = GetDraft(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(draft.toDto(objectMapper))
     }
 
@@ -261,14 +247,12 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
-        val draft = mediator.send(
-            UpdateDraft(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                templateModel = templateModel,
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val draft = UpdateDraft(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            templateModel = templateModel,
+        ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(draft.toDto(objectMapper))
     }
 
@@ -279,13 +263,11 @@ class EpistolaTemplateApi(
         templateId: UUID,
         variantId: UUID,
     ): ResponseEntity<ActivationListResponse> {
-        val activations = mediator.query(
-            ListActivations(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ),
-        )
+        val activations = ListActivations(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query()
         return ResponseEntity.ok(ActivationListResponse(items = activations.map { it.toDto() }))
     }
 
@@ -296,24 +278,20 @@ class EpistolaTemplateApi(
         environmentId: UUID,
         setActivationRequest: SetActivationRequest,
     ): ResponseEntity<ActivationDto> {
-        val activation = mediator.send(
-            SetActivation(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                environmentId = EnvironmentId.of(environmentId),
-                versionId = VersionId.of(setActivationRequest.versionId),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val activation = SetActivation(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            environmentId = EnvironmentId.of(environmentId),
+            versionId = VersionId.of(setActivationRequest.versionId),
+        ).execute() ?: return ResponseEntity.notFound().build()
 
         // Fetch full activation details for response
-        val activations = mediator.query(
-            ListActivations(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ),
-        )
+        val activations = ListActivations(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query()
         val typedEnvId = EnvironmentId.of(environmentId)
         val activationDetails = activations.find { it.environmentId == typedEnvId }
             ?: return ResponseEntity.notFound().build()
@@ -327,14 +305,12 @@ class EpistolaTemplateApi(
         variantId: UUID,
         environmentId: UUID,
     ): ResponseEntity<Unit> {
-        val removed = mediator.send(
-            RemoveActivation(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                environmentId = EnvironmentId.of(environmentId),
-            ),
-        )
+        val removed = RemoveActivation(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            environmentId = EnvironmentId.of(environmentId),
+        ).execute()
         return if (removed) {
             ResponseEntity.noContent().build()
         } else {
@@ -348,14 +324,12 @@ class EpistolaTemplateApi(
         templateId: UUID,
         variantId: UUID,
     ): ResponseEntity<VersionDto> {
-        val version = mediator.query(
-            GetActiveVersion(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                environmentId = EnvironmentId.of(environment),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val version = GetActiveVersion(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            environmentId = EnvironmentId.of(environment),
+        ).query() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -367,13 +341,11 @@ class EpistolaTemplateApi(
         variantId: UUID,
         status: String?,
     ): ResponseEntity<VersionListResponse> {
-        val versions = mediator.query(
-            ListVersions(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ),
-        )
+        val versions = ListVersions(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query()
         val filteredVersions = if (status != null) {
             versions.filter { it.status.name.equals(status, ignoreCase = true) }
         } else {
@@ -392,14 +364,12 @@ class EpistolaTemplateApi(
         variantId: UUID,
         versionId: UUID,
     ): ResponseEntity<VersionDto> {
-        val version = mediator.query(
-            GetVersion(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                versionId = VersionId.of(versionId),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val version = GetVersion(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            versionId = VersionId.of(versionId),
+        ).query() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -411,15 +381,13 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
-        val version = mediator.send(
-            UpdateVersion(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                versionId = VersionId.of(versionId),
-                templateModel = templateModel,
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val version = UpdateVersion(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            versionId = VersionId.of(versionId),
+            templateModel = templateModel,
+        ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -429,14 +397,12 @@ class EpistolaTemplateApi(
         variantId: UUID,
         versionId: UUID,
     ): ResponseEntity<VersionDto> {
-        val published = mediator.send(
-            PublishVersion(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                versionId = VersionId.of(versionId),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val published = PublishVersion(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            versionId = VersionId.of(versionId),
+        ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(published.toDto(objectMapper))
     }
 
@@ -446,27 +412,23 @@ class EpistolaTemplateApi(
         variantId: UUID,
         versionId: UUID,
     ): ResponseEntity<VersionDto> {
-        val archived = mediator.send(
-            ArchiveVersion(
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-                versionId = VersionId.of(versionId),
-            ),
-        ) ?: return ResponseEntity.notFound().build()
+        val archived = ArchiveVersion(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+            versionId = VersionId.of(versionId),
+        ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(archived.toDto(objectMapper))
     }
 
     // ================== Helper methods ==================
 
     private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantId): VariantVersionInfo {
-        val versions = mediator.query(
-            ListVersions(
-                tenantId = tenantId,
-                templateId = variant.templateId,
-                variantId = variant.id,
-            ),
-        )
+        val versions = ListVersions(
+            tenantId = tenantId,
+            templateId = variant.templateId,
+            variantId = variant.id,
+        ).query()
         val hasDraft = versions.any { it.status == VersionStatus.DRAFT }
         val publishedVersions = versions
             .filter { it.status == VersionStatus.PUBLISHED }

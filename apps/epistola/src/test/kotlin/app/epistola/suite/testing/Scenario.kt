@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -57,6 +58,12 @@ class ScenarioFactory(
             builder.cleanup()
         }
     }
+
+    /**
+     * Runs the given block with the mediator bound to the current scope.
+     * This enables use of Command.execute() and Query.query() extension functions.
+     */
+    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
 }
 
 /**

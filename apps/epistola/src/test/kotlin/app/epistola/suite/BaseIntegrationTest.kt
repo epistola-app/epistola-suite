@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
@@ -39,6 +40,20 @@ abstract class BaseIntegrationTest {
     private val createdTenants = mutableListOf<TenantId>()
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(block)
+
+    /**
+     * Runs the given block with the mediator bound to the current scope.
+     * This enables use of Command.execute() and Query.query() extension functions.
+     *
+     * Usage:
+     * ```kotlin
+     * withMediator {
+     *     val tenant = CreateTenant("name").execute()
+     *     val tenants = ListTenants().query()
+     * }
+     * ```
+     */
+    protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
 
     /**
      * Creates a test scenario with type-safe Given-When-Then DSL and automatic cleanup.
