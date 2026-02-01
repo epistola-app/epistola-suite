@@ -1,12 +1,12 @@
 -- Document templates table with tenant isolation
+-- IDs are client-provided UUIDv7 for better testability and distributed system properties
 CREATE TABLE document_templates (
-    id BIGSERIAL PRIMARY KEY,
-    tenant_id BIGINT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    template_model jsonb,
     schema JSONB,
-    data_model jsonb,
-    data_examples jsonb DEFAULT '[]'::jsonb,
+    data_model JSONB,
+    data_examples JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
