@@ -22,7 +22,10 @@ import type {
   DragDropPort,
   ColumnsBlock,
   TableBlock,
+  DataExample,
+  JsonObject,
 } from './types.js';
+import { DEFAULT_TEST_DATA } from './types.js';
 
 /**
  * Generate a simple unique ID
@@ -81,6 +84,9 @@ export class TemplateEditor {
     return {
       template: this.store.getTemplate(),
       selectedBlockId: this.store.getSelectedBlockId(),
+      dataExamples: this.store.getDataExamples(),
+      selectedDataExampleId: this.store.getSelectedDataExampleId(),
+      testData: this.store.getTestData(),
     };
   }
 
@@ -95,10 +101,22 @@ export class TemplateEditor {
     const unsubSelected = this.store.subscribeSelectedBlockId(() => {
       callback(this.getState());
     });
+    const unsubDataExamples = this.store.subscribeDataExamples(() => {
+      callback(this.getState());
+    });
+    const unsubSelectedDataExampleId = this.store.subscribeSelectedDataExampleId(() => {
+      callback(this.getState());
+    });
+    const unsubTestData = this.store.subscribeTestData(() => {
+      callback(this.getState());
+    });
 
     return () => {
       unsubTemplate();
       unsubSelected();
+      unsubDataExamples();
+      unsubSelectedDataExampleId();
+      unsubTestData();
     };
   }
 
@@ -109,7 +127,127 @@ export class TemplateEditor {
     return {
       $template: this.store.$template,
       $selectedBlockId: this.store.$selectedBlockId,
+      $dataExamples: this.store.$dataExamples,
+      $selectedDataExampleId: this.store.$selectedDataExampleId,
+      $testData: this.store.$testData,
     };
+  }
+
+  // =========================================================================
+  // DATA EXAMPLES
+  // =========================================================================
+
+  /**
+   * Set all data examples with auto-select logic
+   * If examples is non-empty and no example is selected, auto-select the first one
+   */
+  setDataExamples(examples: DataExample[]): void {
+    const currentSelectedId = this.store.getSelectedDataExampleId();
+
+    this.store.setDataExamples(examples);
+
+    if (examples.length > 0 && !currentSelectedId) {
+      // Auto-select first example
+      this.selectDataExample(examples[0]!.id);
+    } else if (examples.length === 0) {
+      // Clear selection and restore default test data
+      this.store.setSelectedDataExampleId(null);
+      this.store.setTestData(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+    }
+  }
+
+  /**
+   * Add a single data example
+   */
+  addDataExample(example: DataExample): void {
+    const current = this.store.getDataExamples();
+    this.store.setDataExamples([...current, example]);
+  }
+
+  /**
+   * Update a data example by ID
+   * If the updated example is selected, sync its data to testData
+   */
+  updateDataExample(id: string, updates: Partial<DataExample>): void {
+    const current = this.store.getDataExamples();
+    const updatedExamples = current.map((ex) => {
+      if (ex.id === id) {
+        const updated = { ...ex, ...updates };
+        return updated;
+      }
+      return ex;
+    });
+
+    this.store.setDataExamples(updatedExamples);
+
+    // If the updated example is currently selected, sync testData
+    if (this.store.getSelectedDataExampleId() === id && updates.data) {
+      this.store.setTestData(JSON.parse(JSON.stringify(updates.data)) as JsonObject);
+    }
+  }
+
+  /**
+   * Delete a data example by ID
+   * If the deleted example was selected, select another or restore defaults
+   */
+  deleteDataExample(id: string): void {
+    const current = this.store.getDataExamples();
+    const wasSelected = this.store.getSelectedDataExampleId() === id;
+
+    const filtered = current.filter((ex) => ex.id !== id);
+    this.store.setDataExamples(filtered);
+
+    if (wasSelected) {
+      if (filtered.length > 0) {
+        // Select first remaining example
+        this.selectDataExample(filtered[0]!.id);
+      } else {
+        // Clear selection and restore default test data
+        this.store.setSelectedDataExampleId(null);
+        this.store.setTestData(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+      }
+    }
+  }
+
+  /**
+   * Select a data example by ID (or null to deselect)
+   * Copies the example's data to testData
+   */
+  selectDataExample(id: string | null): void {
+    this.store.setSelectedDataExampleId(id);
+
+    if (id === null) {
+      // Restore default test data
+      this.store.setTestData(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+    } else {
+      const examples = this.store.getDataExamples();
+      const selected = examples.find((ex) => ex.id === id);
+      if (selected) {
+        // Deep copy to avoid mutation issues
+        this.store.setTestData(JSON.parse(JSON.stringify(selected.data)) as JsonObject);
+      }
+    }
+  }
+
+  /**
+   * Get all data examples
+   */
+  getDataExamples(): DataExample[] {
+    return this.store.getDataExamples();
+  }
+
+  /**
+   * Get the currently selected data example ID
+   */
+  getSelectedDataExampleId(): string | null {
+    return this.store.getSelectedDataExampleId();
+  }
+
+  /**
+   * Get current test data
+   */
+  getTestData(): JsonObject {
+    return this.store.getTestData();
   }
 
   // =========================================================================
