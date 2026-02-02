@@ -67,7 +67,7 @@ describe("TemplateEditor", () => {
       expect(editor.getTemplate().blocks).toHaveLength(3);
     });
 
-    it("should append to end when index is -1", () => {
+    it("should add multiple blocks to root in order", () => {
       const editor = new TemplateEditor();
       editor.addBlock("text");
       const second = editor.addBlock("text");
@@ -183,6 +183,20 @@ describe("TemplateEditor", () => {
       };
       expect(updated.styles.color).toBe("red");
       expect(updated.styles.fontSize).toBe(16);
+    });
+
+    it("should save to history before updating (undoable)", () => {
+      const editor = new TemplateEditor();
+      const block = editor.addBlock("text")!;
+
+      editor.updateBlock(block.id, { content: "Updated content" });
+
+      expect(editor.canUndo()).toBe(true);
+
+      editor.undo();
+
+      const reverted = editor.findBlock(block.id) as { content: string };
+      expect(reverted.content).toBe(""); // Default text block content
     });
   });
 
@@ -512,6 +526,70 @@ describe("TemplateEditor", () => {
       expect(onError).toHaveBeenCalled();
     });
 
+    it("should reject JSON that is not an object", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+
+      editor.importJSON('"just a string"');
+
+      expect(onError).toHaveBeenCalled();
+      expect(onError.mock.calls[0][0].message).toContain(
+        "Template must be an object",
+      );
+    });
+
+    it("should reject JSON without id", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+
+      editor.importJSON(JSON.stringify({ name: "Test", blocks: [] }));
+
+      expect(onError).toHaveBeenCalled();
+      expect(onError.mock.calls[0][0].message).toContain("non-empty string id");
+    });
+
+    it("should reject JSON with empty id", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+
+      editor.importJSON(JSON.stringify({ id: "", name: "Test", blocks: [] }));
+
+      expect(onError).toHaveBeenCalled();
+      expect(onError.mock.calls[0][0].message).toContain("non-empty string id");
+    });
+
+    it("should reject JSON without name", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+
+      editor.importJSON(JSON.stringify({ id: "test-1", blocks: [] }));
+
+      expect(onError).toHaveBeenCalled();
+      expect(onError.mock.calls[0][0].message).toContain("string name");
+    });
+
+    it("should reject JSON without blocks array", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+
+      editor.importJSON(JSON.stringify({ id: "test-1", name: "Test" }));
+
+      expect(onError).toHaveBeenCalled();
+      expect(onError.mock.calls[0][0].message).toContain("blocks array");
+    });
+
+    it("should reject JSON with non-array blocks", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+
+      editor.importJSON(
+        JSON.stringify({ id: "test-1", name: "Test", blocks: "not an array" }),
+      );
+
+      expect(onError).toHaveBeenCalled();
+      expect(onError.mock.calls[0][0].message).toContain("blocks array");
+    });
+
     it("should roundtrip through JSON serialization", () => {
       const editor = new TemplateEditor();
       editor.addBlock("container");
@@ -640,6 +718,72 @@ describe("TemplateEditor", () => {
       port.drop(text.id, text.id, 0);
 
       expect(onError).toHaveBeenCalled();
+    });
+
+    it("should validate drop with before position", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+      const container = editor.addBlock("container")!;
+      const pagebreak = editor.addBlock("pagebreak")!;
+
+      // pagebreak cannot be inside container (via 'inside' position)
+      expect(editor.canDrop(pagebreak.id, container.id, "inside")).toBe(false);
+
+      // but pagebreak CAN be before container at root level
+      expect(editor.canDrop(pagebreak.id, container.id, "before")).toBe(true);
+
+      // Execute drop with 'before' position (should succeed)
+      const port = editor.getDragDropPort();
+      port.drop(pagebreak.id, container.id, 0, "before");
+
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it("should validate drop with after position", () => {
+      const editor = new TemplateEditor();
+      const text = editor.addBlock("text")!;
+      const pagebreak = editor.addBlock("pagebreak")!;
+
+      // pagebreak can be after text at root level
+      expect(editor.canDrop(pagebreak.id, text.id, "after")).toBe(true);
+
+      // Execute drop with 'after' position
+      const port = editor.getDragDropPort();
+      port.drop(pagebreak.id, text.id, 1, "after");
+
+      // Should have moved successfully
+      expect(editor.getTemplate().blocks).toHaveLength(2);
+    });
+
+    it("should reject drop when position validation fails", () => {
+      const onError = vi.fn();
+      const editor = new TemplateEditor({ callbacks: { onError } });
+      const container = editor.addBlock("container")!;
+      const nested = editor.addBlock("container", container.id)!;
+      const pagebreak = editor.addBlock("pagebreak")!;
+
+      // pagebreak cannot be 'before' nested container (because parent is container, not root)
+      expect(editor.canDrop(pagebreak.id, nested.id, "before")).toBe(false);
+
+      // Attempting drop with 'before' position should fail
+      const port = editor.getDragDropPort();
+      port.drop(pagebreak.id, nested.id, 0, "before");
+
+      expect(onError).toHaveBeenCalled();
+    });
+
+    it("should default to inside position when not specified", () => {
+      const editor = new TemplateEditor();
+      const container = editor.addBlock("container")!;
+      const text = editor.addBlock("text")!;
+
+      const port = editor.getDragDropPort();
+      // No position = defaults to 'inside'
+      port.drop(text.id, container.id, 0);
+
+      const updated = editor.findBlock(container.id) as { children: Block[] };
+      expect(updated.children).toHaveLength(1);
+      expect(updated.children[0].id).toBe(text.id);
     });
   });
 

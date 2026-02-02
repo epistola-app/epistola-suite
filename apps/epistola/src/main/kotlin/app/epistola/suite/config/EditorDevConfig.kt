@@ -11,11 +11,12 @@ import java.nio.file.Paths
 @Profile("local")
 class EditorDevConfig : WebMvcConfigurer {
     override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
-        // In local profile, serve frontend files from filesystem for live updates
+        // In local profile, serve editor files from filesystem for live updates (browser refresh)
+        // headless-editor and vendor are served from their built dist/ folders (tsc --watch required)
         val projectRoot = findProjectRoot()
 
         registry.addResourceHandler("/editor/**")
-            .addResourceLocations("classpath:static/editor/")
+            .addResourceLocations("file:$projectRoot/apps/epistola/src/main/resources/static/editor/")
             .setCacheControl(CacheControl.noCache())
 
         registry.addResourceHandler("/headless-editor/**")
