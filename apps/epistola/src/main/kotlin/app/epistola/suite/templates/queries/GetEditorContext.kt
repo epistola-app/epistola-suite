@@ -31,8 +31,7 @@ data class EditorContext(
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
     val themes: List<ThemeSummary>,
-    val defaultTheme: ThemeSummary?,
-    val tenantDefaultTheme: ThemeSummary?,
+    val defaultTheme: ThemeSummary?, // resolved effective theme (template ?? tenant)
 )
 
 /**
@@ -118,8 +117,8 @@ class GetEditorContextHandler(
         @Suppress("UNCHECKED_CAST")
         val variantTags: Map<String, String> = (row["variant_tags"] as? Map<String, String>) ?: emptyMap()
 
-        // Build default theme summary if template has one
-        val defaultTheme = (row["default_theme_id"] as? java.util.UUID)?.let { themeId ->
+        // Build template theme summary if template has one
+        val templateTheme = (row["default_theme_id"] as? java.util.UUID)?.let { themeId ->
             ThemeSummary(
                 id = themeId.toString(),
                 name = row["default_theme_name"] as String,
@@ -136,6 +135,9 @@ class GetEditorContextHandler(
             )
         }
 
+        // Resolve theme cascade: template theme takes precedence over tenant default
+        val resolvedTheme = templateTheme ?: tenantDefaultTheme
+
         EditorContext(
             templateName = row["template_name"] as String,
             variantTags = variantTags,
@@ -143,8 +145,7 @@ class GetEditorContextHandler(
             dataExamples = dataExamples,
             dataModel = row["data_model"] as? ObjectNode,
             themes = themes,
-            defaultTheme = defaultTheme,
-            tenantDefaultTheme = tenantDefaultTheme,
+            defaultTheme = resolvedTheme,
         )
     }
 }

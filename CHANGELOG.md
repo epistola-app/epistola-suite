@@ -16,6 +16,7 @@
 - **PDF preview not applying template's default theme**: Preview endpoint was not passing the template's default theme to the PDF renderer, causing previews to miss the template-level theme cascade. Now correctly fetches the template and passes its `themeId` to `renderPdf()`.
 
 ### Changed
+- **EditorContext theme resolution simplified**: Removed `tenantDefaultTheme` field from `EditorContext` data class. The theme cascade (template → tenant) is now resolved server-side, returning a single `defaultTheme` field containing the effective theme for the editor.
 - **Theme dropdown shows inherited theme**: When a variant has no theme override but the parent template has a default theme, the dropdown now shows "Default ({theme name})" instead of "No theme", making the theme cascade more obvious to users.
 
 ### Added
