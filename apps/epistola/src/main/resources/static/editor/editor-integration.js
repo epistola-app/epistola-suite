@@ -22,13 +22,17 @@ import { UIController } from './adapters/ui-controller.js';
  * @returns {{ getTemplate: () => object, setTemplate: (t: object) => void, undo: () => boolean, redo: () => boolean, destroy: () => void }}
  */
 export function mountVanillaEditor(options) {
-  const container =
+  let container =
     typeof options.container === 'string'
       ? document.getElementById(options.container)
       : options.container;
 
   if (!container) {
     throw new Error('Container element not found');
+  }
+
+  if (!container.id) {
+    container.id = 'vanilla-editor-' + Math.random().toString(36).slice(2);
   }
 
   const editor = new TemplateEditor({
