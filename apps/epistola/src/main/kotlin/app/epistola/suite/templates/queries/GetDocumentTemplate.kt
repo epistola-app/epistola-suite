@@ -21,7 +21,7 @@ class GetDocumentTemplateHandler(
     override fun handle(query: GetDocumentTemplate): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_id, name, schema, data_model, data_examples, created_at, last_modified
+                SELECT id, tenant_id, name, theme_id, schema, data_model, data_examples, created_at, last_modified
                 FROM document_templates
                 WHERE id = :id AND tenant_id = :tenantId
                 """,

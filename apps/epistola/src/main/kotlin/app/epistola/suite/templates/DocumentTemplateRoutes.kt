@@ -19,6 +19,7 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             GET("/{id}", handler::detail)
             POST("/{id}/delete", handler::delete)
             PATCH("/{id}", handler::update)
+            PATCH("/{id}/theme", handler::updateTheme)
             GET("/{id}/api", handler::get)
             POST("/{id}/validate-schema", handler::validateSchema)
 

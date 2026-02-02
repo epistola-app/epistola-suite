@@ -10,12 +10,16 @@
     - List, create, search themes with Thymeleaf + HTMX
     - Detail page for editing document styles and block style presets
     - "Manage Themes" button added to templates list page
+  - Two-level theme assignment for flexible override patterns:
+    - Template-level default theme (`DocumentTemplate.themeId`) - dropdown on template detail page
+    - Variant-level theme override (`TemplateModel.themeId`) - in editor's Document Properties panel
+    - Variant theme overrides template default; variants without override inherit template's theme
+  - Demo tenant includes two sample themes: "Corporate" and "Modern"
   - `ThemeStyleResolver` service merges theme and template styles following a cascade:
     1. Theme document styles (lowest priority)
     2. Template document styles (override theme)
     3. Theme block preset (when block has `stylePreset`)
     4. Block inline styles (highest priority)
-  - `TemplateModel.themeId` field for referencing a theme
   - `Block.stylePreset` field for referencing named style presets (like CSS classes)
   - Soft reference design: templates gracefully fall back to own styles if theme is deleted
   - Block style presets support all CSS-like properties: font, colors, margins, padding, alignment

@@ -3,6 +3,7 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -37,7 +38,12 @@ class GenerationService(
     /**
      * Renders a PDF from a template model and data context.
      *
-     * When the template has a themeId, theme styles are resolved and merged:
+     * Theme resolution cascade:
+     * 1. Variant-level theme (TemplateModel.themeId) - highest priority
+     * 2. Template-level default theme (templateDefaultThemeId parameter) - fallback
+     * 3. No theme - if neither is set
+     *
+     * When a theme is resolved, theme styles are merged:
      * - Theme document styles serve as defaults, template document styles override
      * - Theme block style presets are made available for blocks with stylePreset
      *
@@ -45,15 +51,17 @@ class GenerationService(
      * @param templateModel The template model (either from live editor or pre-fetched draft)
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
+     * @param templateDefaultThemeId Optional default theme from DocumentTemplate (variant can override)
      */
     fun renderPdf(
         tenantId: TenantId,
         templateModel: TemplateModel,
         data: Map<String, Any?>,
         outputStream: OutputStream,
+        templateDefaultThemeId: ThemeId? = null,
     ) {
-        // Resolve styles from theme (if template has themeId)
-        val resolvedStyles = themeStyleResolver.resolveStyles(tenantId, templateModel)
+        // Resolve styles from theme (variant-level overrides template-level default)
+        val resolvedStyles = themeStyleResolver.resolveStyles(tenantId, templateDefaultThemeId, templateModel)
 
         pdfRenderer.render(
             template = templateModel,

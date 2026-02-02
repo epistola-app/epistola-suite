@@ -2,6 +2,7 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.generation.GenerationService
@@ -33,6 +34,7 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.validation.ValidationException
 import org.springframework.boot.info.BuildProperties
 import org.springframework.http.HttpHeaders
@@ -50,9 +52,13 @@ import java.util.UUID
  * Note: templateModel is now stored in TemplateVersion and updated separately.
  *
  * @property forceUpdate When true, validation warnings don't block the update
+ * @property themeId The default theme ID for this template (optional)
+ * @property clearThemeId When true, removes the default theme assignment
  */
 data class UpdateTemplateRequest(
     val name: String? = null,
+    val themeId: String? = null,
+    val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
     val forceUpdate: Boolean = false,
@@ -218,6 +224,16 @@ class DocumentTemplateHandler(
             null
         }
 
+        // Load available themes for the tenant
+        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
+        val themesForJs = themes.map { theme ->
+            mapOf(
+                "id" to theme.id.value.toString(),
+                "name" to theme.name,
+                "description" to theme.description,
+            )
+        }
+
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -229,6 +245,7 @@ class DocumentTemplateHandler(
                 "templateModel" to templateModel,
                 "dataExamples" to dataExamplesForJs,
                 "dataModel" to dataModelForJs,
+                "themes" to themesForJs,
                 "appVersion" to (buildProperties?.version ?: "dev"),
                 "appName" to (buildProperties?.name ?: "Epistola"),
             ),
@@ -289,6 +306,8 @@ class DocumentTemplateHandler(
                 tenantId = TenantId.of(tenantId),
                 id = TemplateId.of(id),
                 name = updateRequest.name,
+                themeId = updateRequest.themeId?.let { ThemeId.of(UUID.fromString(it)) },
+                clearThemeId = updateRequest.clearThemeId,
                 dataModel = updateRequest.dataModel,
                 dataExamples = updateRequest.dataExamples,
                 forceUpdate = updateRequest.forceUpdate,
@@ -316,6 +335,44 @@ class DocumentTemplateHandler(
             ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(mapOf("errors" to e.validationErrors))
+        }
+    }
+
+    /**
+     * Validates a schema against existing data examples without persisting.
+     * Returns migration suggestions for incompatible examples.
+     */
+    /**
+     * Updates the template's default theme via HTMX.
+     * Returns the theme-section fragment for seamless UI updates.
+     */
+    fun updateTheme(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val id = parseUUID(request.pathVariable("id"))
+            ?: return ServerResponse.badRequest().build()
+
+        val body = request.body(String::class.java)
+        val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
+
+        val result = UpdateDocumentTemplate(
+            tenantId = TenantId.of(tenantId),
+            id = TemplateId.of(id),
+            themeId = updateRequest.themeId?.let { ThemeId.of(UUID.fromString(it)) },
+            clearThemeId = updateRequest.clearThemeId,
+        ).execute() ?: return ServerResponse.notFound().build()
+
+        // Load available themes for the fragment
+        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
+
+        return request.htmx {
+            fragment("templates/detail", "theme-section") {
+                "tenantId" to tenantId
+                "template" to result.template
+                "themes" to themes
+            }
+            onNonHtmx {
+                redirect("/tenants/$tenantId/templates/$id")
+            }
         }
     }
 
@@ -422,12 +479,16 @@ class DocumentTemplateHandler(
 
         val variants = GetVariantSummaries(templateId = TemplateId.of(id)).query()
 
+        // Load available themes for theme selection
+        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
+
         return ServerResponse.ok().render(
             "templates/detail",
             mapOf(
                 "tenantId" to tenantId,
                 "template" to template,
                 "variants" to variants,
+                "themes" to themes,
                 "selectedVariant" to null,
                 "versions" to emptyList<Any>(),
             ),
@@ -451,6 +512,9 @@ class DocumentTemplateHandler(
 
         val versions = ListVersions(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
 
+        // Load available themes for theme selection
+        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
+
         // Create a variant summary for the selected variant
         val selectedVariantSummary = variants.find { it.id == VariantId.of(variantId) }
             ?: VariantSummary(
@@ -467,6 +531,7 @@ class DocumentTemplateHandler(
                 "tenantId" to tenantId,
                 "template" to template,
                 "variants" to variants,
+                "themes" to themes,
                 "selectedVariant" to selectedVariantSummary,
                 "versions" to versions,
             ),

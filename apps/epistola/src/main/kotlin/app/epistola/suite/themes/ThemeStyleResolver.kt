@@ -26,6 +26,11 @@ data class ResolvedStyles(
  * 2. Template document styles (override theme)
  * 3. Theme block preset (when block has stylePreset)
  * 4. Block inline styles (highest priority)
+ *
+ * Theme selection cascade:
+ * 1. Variant-level theme (TemplateModel.themeId) - highest priority
+ * 2. Template-level default theme (DocumentTemplate.themeId) - fallback
+ * 3. No theme - if neither is set
  */
 @Service
 class ThemeStyleResolver(
@@ -33,14 +38,33 @@ class ThemeStyleResolver(
 ) {
     /**
      * Resolves document-level styles by merging theme styles with template styles.
-     * Template styles override theme styles where both are defined.
+     * Uses the variant-level theme from TemplateModel if set, otherwise no theme.
      *
      * @param tenantId The tenant ID for theme lookup
      * @param templateModel The template model containing themeId and template-level styles
      * @return Resolved styles combining theme and template settings
      */
-    fun resolveStyles(tenantId: TenantId, templateModel: TemplateModel): ResolvedStyles {
-        val theme = templateModel.themeId?.let { getTheme(tenantId, ThemeId.of(UUID.fromString(it))) }
+    fun resolveStyles(tenantId: TenantId, templateModel: TemplateModel): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, templateModel = templateModel)
+
+    /**
+     * Resolves document-level styles with support for both template-level and variant-level themes.
+     * Variant-level theme (in TemplateModel) overrides template-level default theme.
+     *
+     * @param tenantId The tenant ID for theme lookup
+     * @param templateDefaultThemeId The default theme from DocumentTemplate (may be null)
+     * @param templateModel The template model containing optional themeId override and styles
+     * @return Resolved styles combining theme and template settings
+     */
+    fun resolveStyles(
+        tenantId: TenantId,
+        templateDefaultThemeId: ThemeId?,
+        templateModel: TemplateModel,
+    ): ResolvedStyles {
+        // Variant-level theme overrides template-level default
+        val effectiveThemeId = templateModel.themeId?.let { ThemeId.of(UUID.fromString(it)) }
+            ?: templateDefaultThemeId
+
+        val theme = effectiveThemeId?.let { getTheme(tenantId, it) }
 
         return if (theme != null) {
             ResolvedStyles(
