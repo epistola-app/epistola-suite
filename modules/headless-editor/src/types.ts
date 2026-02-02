@@ -129,7 +129,7 @@ export interface CSSStyles {
  * - jsonata: Concise syntax purpose-built for JSON transformation (recommended)
  * - javascript: Full JS power for advanced use cases
  */
-export type ExpressionLanguage = 'jsonata' | 'javascript';
+export type ExpressionLanguage = "jsonata" | "javascript";
 
 /**
  * An expression that can be evaluated against input data.
@@ -156,7 +156,7 @@ export interface BaseBlock {
  * Text block - simple string content (no rich text for vanilla implementation)
  */
 export interface TextBlock extends BaseBlock {
-  type: 'text';
+  type: "text";
   content: string;
 }
 
@@ -164,7 +164,7 @@ export interface TextBlock extends BaseBlock {
  * Container block - holds child blocks
  */
 export interface ContainerBlock extends BaseBlock {
-  type: 'container';
+  type: "container";
   children: Block[];
 }
 
@@ -172,7 +172,7 @@ export interface ContainerBlock extends BaseBlock {
  * Conditional block - shows content based on expression evaluation
  */
 export interface ConditionalBlock extends BaseBlock {
-  type: 'conditional';
+  type: "conditional";
   condition: Expression;
   inverse?: boolean; // if true, shows content when condition is FALSE
   children: Block[]; // blocks shown when condition matches (or inverse matches)
@@ -182,7 +182,7 @@ export interface ConditionalBlock extends BaseBlock {
  * Loop block - iterates over an array expression
  */
 export interface LoopBlock extends BaseBlock {
-  type: 'loop';
+  type: "loop";
   expression: Expression;
   itemAlias: string;
   indexAlias?: string;
@@ -203,7 +203,7 @@ export interface Column {
  * Note: Uses columns[] array instead of children[]
  */
 export interface ColumnsBlock extends BaseBlock {
-  type: 'columns';
+  type: "columns";
   columns: Column[];
   gap?: number; // spacing between columns in pixels
 }
@@ -233,24 +233,24 @@ export interface TableRow {
  * Note: Uses rows[]/cells[] instead of children[]
  */
 export interface TableBlock extends BaseBlock {
-  type: 'table';
+  type: "table";
   rows: TableRow[];
   columnWidths?: number[]; // ratio-based widths for each column
-  borderStyle?: 'none' | 'all' | 'horizontal' | 'vertical';
+  borderStyle?: "none" | "all" | "horizontal" | "vertical";
 }
 
 /**
  * Page break block - forces a new page in PDF output
  */
 export interface PageBreakBlock extends BaseBlock {
-  type: 'pagebreak';
+  type: "pagebreak";
 }
 
 /**
  * Page header block - content repeated at top of each page
  */
 export interface PageHeaderBlock extends BaseBlock {
-  type: 'pageheader';
+  type: "pageheader";
   children: Block[];
 }
 
@@ -258,7 +258,7 @@ export interface PageHeaderBlock extends BaseBlock {
  * Page footer block - content repeated at bottom of each page
  */
 export interface PageFooterBlock extends BaseBlock {
-  type: 'pagefooter';
+  type: "pagefooter";
   children: Block[];
 }
 
@@ -279,7 +279,7 @@ export type Block =
 /**
  * Block type string literals
  */
-export type BlockType = Block['type'];
+export type BlockType = Block["type"];
 
 // ============================================================================
 // Theme Types
@@ -302,8 +302,8 @@ export interface ThemeSummary {
  * Page settings for PDF output
  */
 export interface PageSettings {
-  format: 'A4' | 'Letter' | 'Custom';
-  orientation: 'portrait' | 'landscape';
+  format: "A4" | "Letter" | "Custom";
+  orientation: "portrait" | "landscape";
   margins: { top: number; right: number; bottom: number; left: number };
 }
 
@@ -317,7 +317,7 @@ export interface DocumentStyles {
   color?: string;
   lineHeight?: string;
   letterSpacing?: string;
-  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  textAlign?: "left" | "center" | "right" | "justify";
   backgroundColor?: string;
 }
 
@@ -384,7 +384,7 @@ export interface BlockDefinition {
 /**
  * Drop position relative to target
  */
-export type DropPosition = 'before' | 'after' | 'inside';
+export type DropPosition = "before" | "after" | "inside";
 
 /**
  * Drop zone info for UI hints
@@ -403,7 +403,11 @@ export interface DragDropPort {
   canDrag(blockId: string): boolean;
 
   /** Can this block be dropped at this location? */
-  canDrop(draggedId: string, targetId: string | null, position: DropPosition): boolean;
+  canDrop(
+    draggedId: string,
+    targetId: string | null,
+    position: DropPosition,
+  ): boolean;
 
   /** Get valid drop zones for visual hints */
   getDropZones(draggedId: string): DropZone[];
@@ -419,7 +423,13 @@ export interface DragDropPort {
 /**
  * JSON value types for test data
  */
-export type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonObject
+  | JsonArray;
 
 /**
  * JSON object type
@@ -441,12 +451,12 @@ export interface JsonArray extends Array<JsonValue> {}
  * Valid JSON Schema field types for data model definition
  */
 export type SchemaFieldType =
-  | 'string'
-  | 'number'
-  | 'integer'
-  | 'boolean'
-  | 'array'
-  | 'object';
+  | "string"
+  | "number"
+  | "integer"
+  | "boolean"
+  | "array"
+  | "object";
 
 /**
  * JSON Schema property definition (recursive structure)
@@ -467,7 +477,7 @@ export interface JsonSchemaProperty {
  * Subset of JSON Schema standard focused on data validation needs
  */
 export interface JsonSchema {
-  type: 'object';
+  type: "object";
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
 }
@@ -490,14 +500,14 @@ export interface DataExample {
  * Default test data used when no data example is selected
  */
 export const DEFAULT_TEST_DATA: JsonObject = {
-  name: 'John Doe',
-  email: 'john@example.com',
-  company: 'Example Inc.',
+  name: "John Doe",
+  email: "john@example.com",
+  company: "Example Inc.",
   order: {
-    id: 'ORD-001',
+    id: "ORD-001",
     items: [
-      { name: 'Product A', price: 99.99, quantity: 2 },
-      { name: 'Product B', price: 49.99, quantity: 1 },
+      { name: "Product A", price: 99.99, quantity: 2 },
+      { name: "Product B", price: 49.99, quantity: 1 },
     ],
     total: 249.97,
   },
@@ -547,8 +557,8 @@ export interface EditorConfig {
  * Allows forcing conditionals to show/hide and loops to iterate a fixed number of times
  */
 export interface PreviewOverrides {
-  conditionals: Record<string, 'data' | 'show' | 'hide'>;
-  loops: Record<string, number | 'data'>;
+  conditionals: Record<string, "data" | "show" | "hide">;
+  loops: Record<string, number | "data">;
 }
 
 /**

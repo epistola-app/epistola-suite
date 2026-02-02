@@ -7,14 +7,14 @@
  */
 
 // Main editor class
-export { TemplateEditor } from './editor.js';
+export { TemplateEditor } from "./editor.js";
 
 // Store utilities
-export { createEditorStore, BlockTree } from './store.js';
-export type { EditorStore } from './store.js';
+export { createEditorStore, BlockTree } from "./store.js";
+export type { EditorStore } from "./store.js";
 
 // Undo manager
-export { UndoManager } from './undo.js';
+export { UndoManager } from "./undo.js";
 
 // Block definitions
 export {
@@ -29,7 +29,7 @@ export {
   pageHeaderBlockDefinition,
   pageFooterBlockDefinition,
   blockHelpers,
-} from './blocks/index.js';
+} from "./blocks/index.js";
 
 // Types
 export type {
@@ -84,7 +84,7 @@ export type {
   PreviewOverrides,
   // Theme types
   ThemeSummary,
-} from './types.js';
+} from "./types.js";
 
 // Constants
-export { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
+export { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from "./types.js";
