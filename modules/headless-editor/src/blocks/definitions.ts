@@ -20,7 +20,7 @@ import type {
   Column,
   TableRow,
   TableCell,
-} from '../types.js';
+} from "../types.js";
 
 /**
  * Generate a simple unique ID
@@ -34,20 +34,20 @@ function generateId(): string {
 // ============================================================================
 
 export const textBlockDefinition: BlockDefinition = {
-  type: 'text',
+  type: "text",
 
   create: (id: string): TextBlock => ({
     id,
-    type: 'text',
-    content: '',
+    type: "text",
+    content: "",
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'text') {
+    if (block.type === "text") {
       const textBlock = block as TextBlock;
-      if (typeof textBlock.content !== 'string') {
-        errors.push('Text block content must be a string');
+      if (typeof textBlock.content !== "string") {
+        errors.push("Text block content must be a string");
       }
     }
     return { valid: errors.length === 0, errors };
@@ -67,20 +67,20 @@ export const textBlockDefinition: BlockDefinition = {
 // ============================================================================
 
 export const containerBlockDefinition: BlockDefinition = {
-  type: 'container',
+  type: "container",
 
   create: (id: string): ContainerBlock => ({
     id,
-    type: 'container',
+    type: "container",
     children: [],
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'container') {
+    if (block.type === "container") {
       const containerBlock = block as ContainerBlock;
       if (!Array.isArray(containerBlock.children)) {
-        errors.push('Container block must have children array');
+        errors.push("Container block must have children array");
       }
     }
     return { valid: errors.length === 0, errors };
@@ -100,25 +100,28 @@ export const containerBlockDefinition: BlockDefinition = {
 // ============================================================================
 
 export const conditionalBlockDefinition: BlockDefinition = {
-  type: 'conditional',
+  type: "conditional",
 
   create: (id: string): ConditionalBlock => ({
     id,
-    type: 'conditional',
-    condition: { raw: '', language: 'jsonata' },
+    type: "conditional",
+    condition: { raw: "", language: "jsonata" },
     inverse: false,
     children: [],
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'conditional') {
+    if (block.type === "conditional") {
       const conditionalBlock = block as ConditionalBlock;
-      if (!conditionalBlock.condition || typeof conditionalBlock.condition.raw !== 'string') {
-        errors.push('Conditional block must have a condition expression');
+      if (
+        !conditionalBlock.condition ||
+        typeof conditionalBlock.condition.raw !== "string"
+      ) {
+        errors.push("Conditional block must have a condition expression");
       }
       if (!Array.isArray(conditionalBlock.children)) {
-        errors.push('Conditional block must have children array');
+        errors.push("Conditional block must have children array");
       }
     }
     return { valid: errors.length === 0, errors };
@@ -138,28 +141,31 @@ export const conditionalBlockDefinition: BlockDefinition = {
 // ============================================================================
 
 export const loopBlockDefinition: BlockDefinition = {
-  type: 'loop',
+  type: "loop",
 
   create: (id: string): LoopBlock => ({
     id,
-    type: 'loop',
-    expression: { raw: '', language: 'jsonata' },
-    itemAlias: 'item',
+    type: "loop",
+    expression: { raw: "", language: "jsonata" },
+    itemAlias: "item",
     children: [],
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'loop') {
+    if (block.type === "loop") {
       const loopBlock = block as LoopBlock;
-      if (!loopBlock.expression || typeof loopBlock.expression.raw !== 'string') {
-        errors.push('Loop block must have an expression');
+      if (
+        !loopBlock.expression ||
+        typeof loopBlock.expression.raw !== "string"
+      ) {
+        errors.push("Loop block must have an expression");
       }
-      if (!loopBlock.itemAlias || typeof loopBlock.itemAlias !== 'string') {
-        errors.push('Loop block must have an itemAlias');
+      if (!loopBlock.itemAlias || typeof loopBlock.itemAlias !== "string") {
+        errors.push("Loop block must have an itemAlias");
       }
       if (!Array.isArray(loopBlock.children)) {
-        errors.push('Loop block must have children array');
+        errors.push("Loop block must have children array");
       }
     }
     return { valid: errors.length === 0, errors };
@@ -190,31 +196,31 @@ function createColumn(): Column {
 }
 
 export const columnsBlockDefinition: BlockDefinition = {
-  type: 'columns',
+  type: "columns",
 
   create: (id: string): ColumnsBlock => ({
     id,
-    type: 'columns',
+    type: "columns",
     columns: [createColumn(), createColumn()], // Default 2 columns
     gap: 16,
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'columns') {
+    if (block.type === "columns") {
       const columnsBlock = block as ColumnsBlock;
       if (!Array.isArray(columnsBlock.columns)) {
-        errors.push('Columns block must have columns array');
+        errors.push("Columns block must have columns array");
       } else {
         if (columnsBlock.columns.length < 1) {
-          errors.push('Columns block must have at least 1 column');
+          errors.push("Columns block must have at least 1 column");
         }
         if (columnsBlock.columns.length > 6) {
-          errors.push('Columns block can have at most 6 columns');
+          errors.push("Columns block can have at most 6 columns");
         }
         for (const col of columnsBlock.columns) {
           if (!col.id || !Array.isArray(col.children)) {
-            errors.push('Each column must have an id and children array');
+            errors.push("Each column must have an id and children array");
           }
         }
       }
@@ -257,29 +263,29 @@ function createRow(cellCount: number, isHeader = false): TableRow {
 }
 
 export const tableBlockDefinition: BlockDefinition = {
-  type: 'table',
+  type: "table",
 
   create: (id: string): TableBlock => ({
     id,
-    type: 'table',
+    type: "table",
     rows: [createRow(3, true), createRow(3), createRow(3)], // Default 3x3 with header
-    borderStyle: 'all',
+    borderStyle: "all",
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'table') {
+    if (block.type === "table") {
       const tableBlock = block as TableBlock;
       if (!Array.isArray(tableBlock.rows)) {
-        errors.push('Table block must have rows array');
+        errors.push("Table block must have rows array");
       } else {
         for (const row of tableBlock.rows) {
           if (!row.id || !Array.isArray(row.cells)) {
-            errors.push('Each row must have an id and cells array');
+            errors.push("Each row must have an id and cells array");
           }
           for (const cell of row.cells) {
             if (!cell.id || !Array.isArray(cell.children)) {
-              errors.push('Each cell must have an id and children array');
+              errors.push("Each cell must have an id and children array");
             }
           }
         }
@@ -302,11 +308,11 @@ export const tableBlockDefinition: BlockDefinition = {
 // ============================================================================
 
 export const pageBreakBlockDefinition: BlockDefinition = {
-  type: 'pagebreak',
+  type: "pagebreak",
 
   create: (id: string): PageBreakBlock => ({
     id,
-    type: 'pagebreak',
+    type: "pagebreak",
   }),
 
   validate: () => ({ valid: true, errors: [] }),
@@ -316,7 +322,7 @@ export const pageBreakBlockDefinition: BlockDefinition = {
     allowedChildTypes: [],
     canBeDragged: true,
     canBeNested: false,
-    allowedParentTypes: ['root'], // only at root level
+    allowedParentTypes: ["root"], // only at root level
   },
 };
 
@@ -325,20 +331,20 @@ export const pageBreakBlockDefinition: BlockDefinition = {
 // ============================================================================
 
 export const pageHeaderBlockDefinition: BlockDefinition = {
-  type: 'pageheader',
+  type: "pageheader",
 
   create: (id: string): PageHeaderBlock => ({
     id,
-    type: 'pageheader',
+    type: "pageheader",
     children: [],
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'pageheader') {
+    if (block.type === "pageheader") {
       const headerBlock = block as PageHeaderBlock;
       if (!Array.isArray(headerBlock.children)) {
-        errors.push('Page header block must have children array');
+        errors.push("Page header block must have children array");
       }
     }
     return { valid: errors.length === 0, errors };
@@ -349,7 +355,7 @@ export const pageHeaderBlockDefinition: BlockDefinition = {
     allowedChildTypes: null, // accepts any block type
     canBeDragged: true,
     canBeNested: false,
-    allowedParentTypes: ['root'], // only at root level
+    allowedParentTypes: ["root"], // only at root level
   },
 };
 
@@ -358,20 +364,20 @@ export const pageHeaderBlockDefinition: BlockDefinition = {
 // ============================================================================
 
 export const pageFooterBlockDefinition: BlockDefinition = {
-  type: 'pagefooter',
+  type: "pagefooter",
 
   create: (id: string): PageFooterBlock => ({
     id,
-    type: 'pagefooter',
+    type: "pagefooter",
     children: [],
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
-    if (block.type === 'pagefooter') {
+    if (block.type === "pagefooter") {
       const footerBlock = block as PageFooterBlock;
       if (!Array.isArray(footerBlock.children)) {
-        errors.push('Page footer block must have children array');
+        errors.push("Page footer block must have children array");
       }
     }
     return { valid: errors.length === 0, errors };
@@ -382,7 +388,7 @@ export const pageFooterBlockDefinition: BlockDefinition = {
     allowedChildTypes: null, // accepts any block type
     canBeDragged: true,
     canBeNested: false,
-    allowedParentTypes: ['root'], // only at root level
+    allowedParentTypes: ["root"], // only at root level
   },
 };
 
