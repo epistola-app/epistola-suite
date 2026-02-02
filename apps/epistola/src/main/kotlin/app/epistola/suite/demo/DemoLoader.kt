@@ -101,7 +101,7 @@ class DemoLoader(
         // Corporate Theme - professional styling
         val corporateTheme = mediator.send(
             CreateTheme(
-                id = ThemeId.generate(),
+                id = ThemeId.of("demo-corp"),
                 tenantId = tenantId,
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
@@ -139,7 +139,7 @@ class DemoLoader(
         // Modern Theme - contemporary design
         mediator.send(
             CreateTheme(
-                id = ThemeId.generate(),
+                id = ThemeId.of("demo-modern"),
                 tenantId = tenantId,
                 name = "Modern",
                 description = "Contemporary design with bold accents",

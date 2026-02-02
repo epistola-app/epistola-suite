@@ -19,7 +19,6 @@ import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @RestController
 class EpistolaThemeApi : ThemesApi {
@@ -61,7 +60,7 @@ class EpistolaThemeApi : ThemesApi {
 
     override fun getTheme(
         tenantId: String,
-        themeId: UUID,
+        themeId: String,
     ): ResponseEntity<ThemeDto> {
         val theme = GetTheme(
             tenantId = TenantId.of(tenantId),
@@ -73,7 +72,7 @@ class EpistolaThemeApi : ThemesApi {
 
     override fun updateTheme(
         tenantId: String,
-        themeId: UUID,
+        themeId: String,
         updateThemeRequest: UpdateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val theme = UpdateTheme(
@@ -91,7 +90,7 @@ class EpistolaThemeApi : ThemesApi {
 
     override fun deleteTheme(
         tenantId: String,
-        themeId: UUID,
+        themeId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteTheme(
             tenantId = TenantId.of(tenantId),

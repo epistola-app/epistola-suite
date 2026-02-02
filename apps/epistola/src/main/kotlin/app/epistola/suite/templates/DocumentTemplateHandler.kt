@@ -37,7 +37,6 @@ import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
-import java.util.UUID
 
 /**
  * Request body for updating a document template's metadata.
@@ -236,7 +235,7 @@ class DocumentTemplateHandler(
                 tenantId = TenantId.of(tenantId),
                 id = TemplateId.of(id),
                 name = updateRequest.name,
-                themeId = updateRequest.themeId?.let { ThemeId.of(UUID.fromString(it)) },
+                themeId = updateRequest.themeId?.let { ThemeId.of(it) },
                 clearThemeId = updateRequest.clearThemeId,
                 dataModel = updateRequest.dataModel,
                 dataExamples = updateRequest.dataExamples,
@@ -283,7 +282,7 @@ class DocumentTemplateHandler(
         val result = UpdateDocumentTemplate(
             tenantId = TenantId.of(tenantId),
             id = TemplateId.of(id),
-            themeId = updateRequest.themeId?.let { ThemeId.of(UUID.fromString(it)) },
+            themeId = updateRequest.themeId?.let { ThemeId.of(it) },
             clearThemeId = updateRequest.clearThemeId,
         ).execute() ?: return ServerResponse.notFound().build()
 

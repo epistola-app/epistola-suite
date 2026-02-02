@@ -2,7 +2,7 @@
 -- Themes define document-level styles and named block style presets that can be shared
 
 CREATE TABLE themes (
-    id UUID PRIMARY KEY,
+    id VARCHAR(20) PRIMARY KEY CHECK (id ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'),
     tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,

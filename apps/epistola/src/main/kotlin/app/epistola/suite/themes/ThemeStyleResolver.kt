@@ -8,7 +8,6 @@ import app.epistola.template.model.TemplateModel
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Service
-import java.util.UUID
 
 /**
  * Resolved styling information combining theme and template settings.
@@ -83,7 +82,7 @@ class ThemeStyleResolver(
         templateModel: TemplateModel,
     ): ResolvedStyles {
         // Theme cascade: variant-level > template-level > tenant-level
-        val effectiveThemeId = templateModel.themeId?.let { ThemeId.of(UUID.fromString(it)) }
+        val effectiveThemeId = templateModel.themeId?.let { ThemeId.of(it) }
             ?: templateDefaultThemeId
             ?: tenantDefaultThemeId
 

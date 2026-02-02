@@ -11,8 +11,10 @@ ThemeDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the theme
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 20
+      description: Slug identifier of the theme (e.g., "corporate")
     tenantId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -115,8 +117,10 @@ CreateThemeRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the theme (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 20
+      description: Client-provided slug identifier for the theme
     name:
       type: string
       minLength: 1

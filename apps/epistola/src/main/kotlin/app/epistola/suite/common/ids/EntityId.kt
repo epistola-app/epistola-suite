@@ -168,13 +168,37 @@ value class GenerationItemId(override val value: UUID) : UuidId<GenerationItemId
 
 /**
  * Typed ID for Theme entities.
+ * Uses a human-readable slug format (e.g., "corporate") instead of UUID.
+ *
+ * Validation rules:
+ * - Length: 3-20 characters
+ * - Characters: lowercase letters (a-z), numbers (0-9), hyphens (-)
+ * - Must start with a letter
+ * - Cannot end with a hyphen
+ * - No consecutive hyphens
  */
 @JvmInline
-value class ThemeId(override val value: UUID) : UuidId<ThemeId> {
-    companion object {
-        fun generate(): ThemeId = ThemeId(UUIDv7.generate())
-        fun of(value: UUID): ThemeId = ThemeId(value)
+value class ThemeId(override val value: String) : SlugId<ThemeId> {
+    init {
+        require(value.length in 3..20) {
+            "Theme ID must be 3-20 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Theme ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
     }
 
-    override fun toString(): String = value.toString()
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+
+        fun of(value: String): ThemeId = ThemeId(value)
+
+        /**
+         * Validates a slug without throwing.
+         * Returns null if invalid, or the validated slug if valid.
+         */
+        fun validateOrNull(value: String): ThemeId? = runCatching { ThemeId(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
 }
