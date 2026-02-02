@@ -82,6 +82,8 @@ export type {
   JsonSchema,
   // Preview overrides types
   PreviewOverrides,
+  // Theme types
+  ThemeSummary,
 } from './types.js';
 
 // Constants
