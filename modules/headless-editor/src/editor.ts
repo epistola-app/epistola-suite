@@ -26,6 +26,7 @@ import type {
   JsonObject,
   JsonSchema,
   PreviewOverrides,
+  PageSettings,
 } from './types.js';
 import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
 
@@ -361,6 +362,37 @@ export class TemplateEditor {
   updateTemplate(updates: Partial<Omit<Template, 'blocks'>>): void {
     const current = this.store.getTemplate();
     this.store.setTemplate({ ...current, ...updates });
+  }
+
+  /**
+   * Update page settings (format, orientation, margins)
+   * Merges partial settings into existing template.pageSettings
+   */
+  updatePageSettings(settings: Partial<PageSettings>): void {
+    this.saveToHistory();
+
+    const current = this.store.getTemplate();
+    const currentPageSettings = current.pageSettings ?? {
+      format: 'A4',
+      orientation: 'portrait',
+      margins: { top: 20, right: 20, bottom: 20, left: 20 },
+    };
+
+    // Merge margins if provided
+    const mergedMargins = settings.margins
+      ? { ...currentPageSettings.margins, ...settings.margins }
+      : currentPageSettings.margins;
+
+    const updatedPageSettings: PageSettings = {
+      ...currentPageSettings,
+      ...settings,
+      margins: mergedMargins,
+    };
+
+    this.store.setTemplate({
+      ...current,
+      pageSettings: updatedPageSettings,
+    });
   }
 
   // =========================================================================
