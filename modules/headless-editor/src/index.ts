@@ -76,6 +76,10 @@ export type {
   EditorState,
   EditorCallbacks,
   EditorConfig,
+  // JSON Schema types
+  SchemaFieldType,
+  JsonSchemaProperty,
+  JsonSchema,
 } from './types.js';
 
 // Constants
