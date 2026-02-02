@@ -256,6 +256,68 @@ describe("BlockTree", () => {
       expect(result!.block.id).toBe("columns-1");
     });
 
+    it("should find a column nested inside another column (nested ColumnsBlock)", () => {
+      const blocks: Block[] = [
+        {
+          id: "outer-columns",
+          type: "columns",
+          columns: [
+            {
+              id: "outer-col",
+              size: 1,
+              children: [
+                {
+                  id: "inner-columns",
+                  type: "columns",
+                  columns: [
+                    { id: "nested-col", size: 1, children: [] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const result = BlockTree.findColumn(blocks, "nested-col");
+      expect(result).not.toBeNull();
+      expect(result!.column.id).toBe("nested-col");
+      expect(result!.block.id).toBe("inner-columns");
+    });
+
+    it("should find a column nested inside a table cell", () => {
+      const blocks: Block[] = [
+        {
+          id: "table-1",
+          type: "table",
+          rows: [
+            {
+              id: "row-1",
+              cells: [
+                {
+                  id: "cell-1",
+                  children: [
+                    {
+                      id: "columns-in-cell",
+                      type: "columns",
+                      columns: [
+                        { id: "col-in-cell", size: 1, children: [] },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const result = BlockTree.findColumn(blocks, "col-in-cell");
+      expect(result).not.toBeNull();
+      expect(result!.column.id).toBe("col-in-cell");
+      expect(result!.block.id).toBe("columns-in-cell");
+    });
+
     it("should return null for non-existent column", () => {
       const blocks: Block[] = [
         {
@@ -284,6 +346,76 @@ describe("BlockTree", () => {
       expect(result!.cell.id).toBe("cell-x");
       expect(result!.row.id).toBe("row-1");
       expect(result!.block.id).toBe("table-1");
+    });
+
+    it("should find a cell nested inside another table cell (nested TableBlock)", () => {
+      const blocks: Block[] = [
+        {
+          id: "outer-table",
+          type: "table",
+          rows: [
+            {
+              id: "outer-row",
+              cells: [
+                {
+                  id: "outer-cell",
+                  children: [
+                    {
+                      id: "inner-table",
+                      type: "table",
+                      rows: [
+                        {
+                          id: "inner-row",
+                          cells: [{ id: "nested-cell", children: [] }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const result = BlockTree.findCell(blocks, "nested-cell");
+      expect(result).not.toBeNull();
+      expect(result!.cell.id).toBe("nested-cell");
+      expect(result!.row.id).toBe("inner-row");
+      expect(result!.block.id).toBe("inner-table");
+    });
+
+    it("should find a cell nested inside a column", () => {
+      const blocks: Block[] = [
+        {
+          id: "columns-1",
+          type: "columns",
+          columns: [
+            {
+              id: "col-1",
+              size: 1,
+              children: [
+                {
+                  id: "table-in-col",
+                  type: "table",
+                  rows: [
+                    {
+                      id: "row-in-col",
+                      cells: [{ id: "cell-in-col", children: [] }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      const result = BlockTree.findCell(blocks, "cell-in-col");
+      expect(result).not.toBeNull();
+      expect(result!.cell.id).toBe("cell-in-col");
+      expect(result!.row.id).toBe("row-in-col");
+      expect(result!.block.id).toBe("table-in-col");
     });
 
     it("should return null for non-existent cell", () => {
@@ -748,6 +880,45 @@ describe("BlockTree", () => {
       const blocks: Block[] = [];
       const count = BlockTree.getChildCount(blocks, "non-existent");
       expect(count).toBe(0);
+    });
+  });
+
+  describe("getChildIndex", () => {
+    it("should return index of root block", () => {
+      const blocks: Block[] = [
+        { id: "block-1", type: "text", content: "First" },
+        { id: "block-2", type: "text", content: "Second" },
+        { id: "block-3", type: "text", content: "Third" },
+      ];
+
+      const index = BlockTree.getChildIndex(blocks, "block-2", null);
+      expect(index).toBe(1);
+    });
+
+    it("should return index of nested block", () => {
+      const blocks: Block[] = [
+        {
+          id: "container-1",
+          type: "container",
+          children: [
+            { id: "nested-1", type: "text", content: "One" },
+            { id: "nested-2", type: "text", content: "Two" },
+            { id: "nested-3", type: "text", content: "Three" },
+          ],
+        },
+      ];
+
+      const index = BlockTree.getChildIndex(blocks, "nested-3", "container-1");
+      expect(index).toBe(2);
+    });
+
+    it("should return -1 for non-existent block", () => {
+      const blocks: Block[] = [
+        { id: "block-1", type: "text", content: "First" },
+      ];
+
+      const index = BlockTree.getChildIndex(blocks, "non-existent", null);
+      expect(index).toBe(-1);
     });
   });
 });

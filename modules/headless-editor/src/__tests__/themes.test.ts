@@ -91,6 +91,12 @@ describe("TemplateEditor themes", () => {
       expect(editor.getTemplate().themeId).toBeNull();
     });
 
+    it("should have undefined themeId initially", () => {
+      const editor = new TemplateEditor();
+
+      expect(editor.getTemplate().themeId).toBeUndefined();
+    });
+
     it("should trigger template change callback", () => {
       const onTemplateChange = vi.fn();
       const editor = new TemplateEditor({
@@ -120,7 +126,7 @@ describe("TemplateEditor themes", () => {
       expect(editor.getTemplate().themeId).toBe("theme-1");
     });
 
-    it("should revert to null on undo when themeId was initially null", () => {
+    it("should revert to undefined on undo when themeId was initially undefined", () => {
       const editor = new TemplateEditor();
 
       expect(editor.getTemplate().themeId).toBeUndefined();
