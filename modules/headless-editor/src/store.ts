@@ -196,12 +196,28 @@ export const BlockTree = {
       if (hasColumns(block)) {
         const column = block.columns.find((col) => col.id === columnId);
         if (column) return { block, column };
+
+        // Recurse into column children (nested ColumnsBlock)
+        for (const col of block.columns) {
+          const found = this.findColumn(col.children, columnId);
+          if (found) return found;
+        }
       }
 
       // Recurse into children
       if (hasChildren(block)) {
         const found = this.findColumn(block.children, columnId);
         if (found) return found;
+      }
+
+      // Recurse into table cells
+      if (hasRows(block)) {
+        for (const row of block.rows) {
+          for (const cell of row.cells) {
+            const found = this.findColumn(cell.children, columnId);
+            if (found) return found;
+          }
+        }
       }
     }
     return null;
@@ -217,12 +233,28 @@ export const BlockTree = {
           const cell = row.cells.find((c) => c.id === cellId);
           if (cell) return { block, row, cell };
         }
+
+        // Recurse into cell children (nested TableBlock)
+        for (const row of block.rows) {
+          for (const cell of row.cells) {
+            const found = this.findCell(cell.children, cellId);
+            if (found) return found;
+          }
+        }
       }
 
       // Recurse into children
       if (hasChildren(block)) {
         const found = this.findCell(block.children, cellId);
         if (found) return found;
+      }
+
+      // Recurse into columns
+      if (hasColumns(block)) {
+        for (const col of block.columns) {
+          const found = this.findCell(col.children, cellId);
+          if (found) return found;
+        }
       }
     }
     return null;
@@ -370,7 +402,12 @@ export const BlockTree = {
   },
 
   /**
-   * Move a block to a new location
+   * Move a block to a new location.
+   *
+   * Note: newIndex is the insertion position in the POST-removal array.
+   * For same-parent forward moves (lower to higher index), the caller
+   * should subtract 1 from the visual target position.
+   * This matches SortableJS/dnd-kit behavior.
    */
   moveBlock(blocks: Block[], id: string, newParentId: string | null, newIndex: number): Block[] {
     const block = this.findBlock(blocks, id);
@@ -418,5 +455,10 @@ export const BlockTree = {
    */
   getChildCount(blocks: Block[], parentId: string | null): number {
     return this.getChildren(blocks, parentId).length;
+  },
+
+  getChildIndex(blocks: Block[], childId: string, parentId: string | null): number {
+    const children = this.getChildren(blocks, parentId);
+    return children.findIndex((block) => block.id === childId);
   },
 };
