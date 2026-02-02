@@ -25,8 +25,9 @@ import type {
   DataExample,
   JsonObject,
   JsonSchema,
+  PreviewOverrides,
 } from './types.js';
-import { DEFAULT_TEST_DATA } from './types.js';
+import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
 
 /**
  * Generate a simple unique ID
@@ -133,6 +134,7 @@ export class TemplateEditor {
       $testData: this.store.$testData,
       $schema: this.store.$schema,
       $lastSavedTemplate: this.store.$lastSavedTemplate,
+      $previewOverrides: this.store.$previewOverrides,
     };
   }
 
@@ -292,6 +294,47 @@ export class TemplateEditor {
    */
   getTestData(): JsonObject {
     return this.store.getTestData();
+  }
+
+  // =========================================================================
+  // PREVIEW OVERRIDES
+  // =========================================================================
+
+  /**
+   * Set a single preview override for a conditional or loop block
+   */
+  setPreviewOverride(
+    type: 'conditionals' | 'loops',
+    blockId: string,
+    value: 'data' | 'show' | 'hide' | number
+  ): void {
+    const current = this.store.getPreviewOverrides();
+    const updated: PreviewOverrides = {
+      conditionals: { ...current.conditionals },
+      loops: { ...current.loops },
+    };
+
+    if (type === 'conditionals') {
+      updated.conditionals[blockId] = value as 'data' | 'show' | 'hide';
+    } else {
+      updated.loops[blockId] = value as number | 'data';
+    }
+
+    this.store.setPreviewOverrides(updated);
+  }
+
+  /**
+   * Get all preview overrides
+   */
+  getPreviewOverrides(): PreviewOverrides {
+    return this.store.getPreviewOverrides();
+  }
+
+  /**
+   * Clear all preview overrides (reset to empty state)
+   */
+  clearPreviewOverrides(): void {
+    this.store.setPreviewOverrides({ ...DEFAULT_PREVIEW_OVERRIDES });
   }
 
   // =========================================================================

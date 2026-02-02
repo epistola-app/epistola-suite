@@ -80,7 +80,9 @@ export type {
   SchemaFieldType,
   JsonSchemaProperty,
   JsonSchema,
+  // Preview overrides types
+  PreviewOverrides,
 } from './types.js';
 
 // Constants
-export { DEFAULT_TEST_DATA } from './types.js';
+export { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';

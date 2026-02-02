@@ -523,3 +523,24 @@ export interface EditorConfig {
   blocks?: Record<string, BlockDefinition>;
   callbacks?: EditorCallbacks;
 }
+
+// ============================================================================
+// Preview Overrides Types
+// ============================================================================
+
+/**
+ * Preview overrides for conditionals and loops during template preview
+ * Allows forcing conditionals to show/hide and loops to iterate a fixed number of times
+ */
+export interface PreviewOverrides {
+  conditionals: Record<string, 'data' | 'show' | 'hide'>;
+  loops: Record<string, number | 'data'>;
+}
+
+/**
+ * Default empty preview overrides state
+ */
+export const DEFAULT_PREVIEW_OVERRIDES: PreviewOverrides = {
+  conditionals: {},
+  loops: {},
+};
