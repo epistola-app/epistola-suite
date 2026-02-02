@@ -5,7 +5,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.pathUuid
-import app.epistola.suite.common.requirePathUuid
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -20,7 +19,6 @@ import app.epistola.suite.templates.queries.versions.ListVersions
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
-import java.util.UUID
 
 /**
  * Handles version lifecycle routes for document templates.
@@ -30,7 +28,7 @@ import java.util.UUID
 class VersionRouteHandler {
 
     fun createDraft(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")
@@ -47,7 +45,7 @@ class VersionRouteHandler {
     }
 
     fun publishVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")
@@ -66,7 +64,7 @@ class VersionRouteHandler {
     }
 
     fun archiveVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")
@@ -86,9 +84,9 @@ class VersionRouteHandler {
 
     private fun returnVersionsFragment(
         request: ServerRequest,
-        tenantId: UUID,
-        templateId: UUID,
-        variantId: UUID,
+        tenantId: String,
+        templateId: java.util.UUID,
+        variantId: java.util.UUID,
     ): ServerResponse {
         val template = GetDocumentTemplate(
             tenantId = TenantId.of(tenantId),

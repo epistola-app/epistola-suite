@@ -298,8 +298,10 @@ DocumentDto:
       description: Unique identifier of the document
     tenantId:
       type: string
-      format: uuid
-      description: Tenant that owns this document
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 63
+      description: Slug identifier of the tenant that owns this document
     templateId:
       type: string
       format: uuid

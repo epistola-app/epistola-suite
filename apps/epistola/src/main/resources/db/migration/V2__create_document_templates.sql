@@ -2,7 +2,7 @@
 -- IDs are client-provided UUIDv7 for better testability and distributed system properties
 CREATE TABLE document_templates (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     schema JSONB,
     data_model JSONB,

@@ -3,10 +3,12 @@ variants:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
@@ -72,10 +74,12 @@ variants-id:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
@@ -164,10 +168,12 @@ variant-draft:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
@@ -246,10 +252,12 @@ variant-activations:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
@@ -290,10 +298,12 @@ variant-activation-env:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
@@ -369,10 +379,12 @@ variant-active:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true

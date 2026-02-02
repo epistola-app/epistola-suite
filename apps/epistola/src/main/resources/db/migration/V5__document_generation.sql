@@ -16,7 +16,7 @@
 -- Generated documents stored in PostgreSQL BYTEA
 CREATE TABLE documents (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     template_id UUID NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
     variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
@@ -46,7 +46,7 @@ CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id
 -- Track document generation jobs (single or batch)
 CREATE TABLE document_generation_requests (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     job_type VARCHAR(20) NOT NULL CHECK (job_type IN ('SINGLE', 'BATCH')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),                    -- Instance identifier that claimed this job

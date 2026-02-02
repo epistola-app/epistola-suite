@@ -119,7 +119,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
     fun `validates versionId and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = TenantId.generate(),
+                tenantId = TenantId.of("dummy-tenant"),
                 templateId = TemplateId.generate(),
                 variantId = VariantId.generate(),
                 versionId = VersionId.generate(),
@@ -135,7 +135,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
     fun `validates either versionId or environmentId is set`() {
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = TenantId.generate(),
+                tenantId = TenantId.of("dummy-tenant"),
                 templateId = TemplateId.generate(),
                 variantId = VariantId.generate(),
                 versionId = null,

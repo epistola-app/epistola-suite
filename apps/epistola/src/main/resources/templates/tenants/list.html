@@ -19,6 +19,14 @@
                       hx-target="#tenant-rows"
                       hx-swap="innerHTML"
                       hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                        <label for="slug">Slug (ID)</label>
+                        <input type="text" id="slug" name="slug" required placeholder="my-company"
+                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$" minlength="3" maxlength="63"
+                               th:value="${formData?.slug}">
+                        <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                    </div>
                     <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
                         <label for="name">Name</label>
                         <input type="text" id="name" name="name" required placeholder="Tenant name"

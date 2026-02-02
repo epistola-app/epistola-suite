@@ -69,7 +69,7 @@ class DemoLoader(
             }
 
             // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
-            val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
+            val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
             log.info("Tenant has default theme: {}", tenant.defaultThemeId)
 
@@ -237,8 +237,9 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "2.1.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "3.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
+        private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
     }
 }

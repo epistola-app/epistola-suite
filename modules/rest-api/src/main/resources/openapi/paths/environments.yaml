@@ -3,10 +3,12 @@ environments:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
 
   get:
     operationId: listEnvironments
@@ -71,10 +73,12 @@ environments-id:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: environmentId
       in: path
       required: true

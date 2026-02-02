@@ -72,6 +72,9 @@ class ScenarioFactory(
 @ScenarioDsl
 class ScenarioBuilder {
     private val cleanupActions = mutableListOf<() -> Unit>()
+    private var tenantCounter = 0
+
+    private fun nextTenantSlug(): String = "scenario-tenant-${++tenantCounter}"
 
     /**
      * Define the test setup in the given block.
@@ -132,7 +135,7 @@ class ScenarioBuilder {
          * @return the created [Tenant]
          */
         fun tenant(name: String): Tenant {
-            val tenant = capturedMediator.send(CreateTenant(id = TenantId.generate(), name = name))
+            val tenant = capturedMediator.send(CreateTenant(id = TenantId.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
             this@ScenarioBuilder.registerCleanup {
                 capturedMediator.send(DeleteTenant(tenant.id))
             }

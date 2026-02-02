@@ -40,7 +40,7 @@ class TenantCommandsTest : BaseIntegrationTest() {
     @Test
     fun `DeleteTenant returns false for non-existent id`() = fixture {
         whenever {
-            deleteTenant(TenantId.generate())
+            deleteTenant(TenantId.of("non-existent-tenant"))
         }
 
         then {

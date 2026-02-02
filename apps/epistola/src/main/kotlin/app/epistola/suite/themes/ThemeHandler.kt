@@ -3,7 +3,6 @@ package app.epistola.suite.themes
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.pathUuid
-import app.epistola.suite.common.requirePathUuid
 import app.epistola.suite.common.toUuidOrNull
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
@@ -42,7 +41,7 @@ class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
@@ -56,7 +55,7 @@ class ThemeHandler(
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val searchTerm = request.param("q").orElse(null)
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId), searchTerm = searchTerm).query()
@@ -71,7 +70,7 @@ class ThemeHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val name = request.params().getFirst("name")?.trim().orEmpty()
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -113,7 +112,7 @@ class ThemeHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val themeId = request.pathUuid("themeId")
             ?: return ServerResponse.badRequest().build()
 
@@ -130,7 +129,7 @@ class ThemeHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val themeId = request.pathUuid("themeId")
             ?: return ServerResponse.badRequest().build()
 
@@ -164,7 +163,7 @@ class ThemeHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val themeId = request.pathUuid("themeId")
             ?: return ServerResponse.badRequest().build()
 
@@ -197,7 +196,7 @@ class ThemeHandler(
      * Sets the default theme for a tenant.
      */
     fun setDefault(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val themeIdStr = request.params().getFirst("themeId")
             ?: return ServerResponse.badRequest().build()
         val themeId = themeIdStr.toUuidOrNull()

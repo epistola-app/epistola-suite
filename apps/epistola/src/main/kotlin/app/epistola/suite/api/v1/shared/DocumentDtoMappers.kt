@@ -92,7 +92,7 @@ internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJ
 // ==================== Request DTOs to Commands ====================
 
 internal fun GenerateDocumentRequest.toCommand(
-    tenantId: java.util.UUID,
+    tenantId: String,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocument(
     tenantId = TenantId.of(tenantId),
@@ -118,7 +118,7 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
 )
 
 internal fun GenerateBatchRequest.toCommand(
-    tenantId: java.util.UUID,
+    tenantId: String,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantId.of(tenantId),

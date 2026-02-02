@@ -42,7 +42,7 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Generation ==================
 
     override fun generateDocument(
-        tenantId: UUID,
+        tenantId: String,
         generateDocumentRequest: GenerateDocumentRequest,
     ): ResponseEntity<GenerationJobResponse> {
         val command = generateDocumentRequest.toCommand(tenantId, objectMapper)
@@ -54,7 +54,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun generateDocumentBatch(
-        tenantId: UUID,
+        tenantId: String,
         generateBatchRequest: GenerateBatchRequest,
     ): ResponseEntity<GenerationJobResponse> {
         val command = generateBatchRequest.toCommand(tenantId, objectMapper)
@@ -68,7 +68,7 @@ class EpistolaDocumentGenerationApi(
     // ================== Job Management ==================
 
     override fun listGenerationJobs(
-        tenantId: UUID,
+        tenantId: String,
         status: String?,
         page: Int,
         size: Int,
@@ -94,7 +94,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun getGenerationJobStatus(
-        tenantId: UUID,
+        tenantId: String,
         requestId: UUID,
     ): ResponseEntity<GenerationJobDetail> {
         val jobResult = GetGenerationJob(TenantId.of(tenantId), GenerationRequestId.of(requestId)).query()
@@ -104,7 +104,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun cancelGenerationJob(
-        tenantId: UUID,
+        tenantId: String,
         requestId: UUID,
     ): ResponseEntity<Unit> {
         val cancelled = CancelGenerationJob(TenantId.of(tenantId), GenerationRequestId.of(requestId)).execute()
@@ -120,7 +120,7 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Download ==================
 
     override fun downloadDocument(
-        tenantId: UUID,
+        tenantId: String,
         documentId: UUID,
     ): ResponseEntity<Resource> {
         val document = GetDocument(TenantId.of(tenantId), DocumentId.of(documentId)).query()
@@ -136,7 +136,7 @@ class EpistolaDocumentGenerationApi(
     }
 
     override fun deleteDocument(
-        tenantId: UUID,
+        tenantId: String,
         documentId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = DeleteDocument(TenantId.of(tenantId), DocumentId.of(documentId)).execute()
@@ -151,7 +151,7 @@ class EpistolaDocumentGenerationApi(
     // ================== Document Listing ==================
 
     override fun listDocuments(
-        tenantId: UUID,
+        tenantId: String,
         templateId: UUID?,
         correlationId: String?,
         page: Int,

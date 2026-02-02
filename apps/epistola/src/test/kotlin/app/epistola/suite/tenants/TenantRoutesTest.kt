@@ -93,6 +93,7 @@ class TenantRoutesTest : BaseIntegrationTest() {
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "new-tenant")
             formData.add("name", "New Tenant")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants", request, String::class.java)

@@ -13,8 +13,10 @@ EnvironmentDto:
       description: Unique identifier of the environment
     tenantId:
       type: string
-      format: uuid
-      description: ID of the tenant this environment belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 63
+      description: Slug identifier of the tenant this environment belongs to
     name:
       type: string
       description: Name of the environment (e.g., staging, production)

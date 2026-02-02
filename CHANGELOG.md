@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Changed
+- **BREAKING: TenantId changed from UUID to slug format**: Tenant IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-63 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (DNS subdomain compatible)
+  - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
+  - Tenant IDs must now be client-provided (no auto-generation via `TenantId.generate()`)
+  - Examples: `acme-corp`, `demo-tenant`, `my-company-2024`
+  - Database: `tenant_id` columns changed from `UUID` to `VARCHAR(63)` with CHECK constraint
+  - API: `tenantId` path parameters changed from UUID to string with pattern validation
+  - Generic `EntityId<T, V>` architecture: `SlugId<T>` for string IDs, `UuidId<T>` for UUID IDs
 - **Code organization improvements**: Refactored large handlers and improved code maintainability
   - Split `DocumentTemplateHandler` (753 lines) into smaller focused handlers:
     - `VariantRouteHandler` for variant create/delete operations

@@ -1,5 +1,6 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.TenantId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.jackson3.Jackson3Config
@@ -24,5 +25,11 @@ class JdbiConfig {
         .apply {
             // fix: use the spring boot mapper as this is preconfigured with kotlin support
             getConfig(Jackson3Config::class.java).mapper = mapper
+
+            // Register SlugId argument factory for binding slug-based IDs to SQL statements
+            registerArgument(SlugIdArgumentFactory())
+
+            // Register TenantId column mapper for reading from result sets
+            registerColumnMapper(TenantId::class.java, TenantIdColumnMapper())
         }
 }

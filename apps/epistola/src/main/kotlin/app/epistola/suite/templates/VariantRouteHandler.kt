@@ -4,7 +4,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.pathUuid
-import app.epistola.suite.common.requirePathUuid
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -25,7 +24,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class VariantRouteHandler {
 
     fun createVariant(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
@@ -58,7 +57,7 @@ class VariantRouteHandler {
     }
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")

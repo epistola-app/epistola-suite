@@ -12,7 +12,6 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.tenants.commands.CreateTenant
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -23,7 +22,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `creates batch generation request`() {
-        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
+        val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
         val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
@@ -62,7 +61,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates all items before creating request`() {
-        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
+        val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
         val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
@@ -107,7 +106,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `requires at least one item`() {
         assertThatThrownBy {
             GenerateDocumentBatch(
-                tenantId = TenantId.generate(),
+                tenantId = TenantId.of("dummy-tenant"),
                 items = emptyList(),
             )
         }.isInstanceOf(IllegalArgumentException::class.java)

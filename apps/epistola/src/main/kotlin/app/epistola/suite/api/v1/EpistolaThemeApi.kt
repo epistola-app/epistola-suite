@@ -25,7 +25,7 @@ import java.util.UUID
 class EpistolaThemeApi : ThemesApi {
 
     override fun listThemes(
-        tenantId: UUID,
+        tenantId: String,
         q: String?,
     ): ResponseEntity<ThemeListResponse> {
         val themes = ListThemes(
@@ -41,7 +41,7 @@ class EpistolaThemeApi : ThemesApi {
     }
 
     override fun createTheme(
-        tenantId: UUID,
+        tenantId: String,
         createThemeRequest: CreateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val theme = CreateTheme(
@@ -60,7 +60,7 @@ class EpistolaThemeApi : ThemesApi {
     }
 
     override fun getTheme(
-        tenantId: UUID,
+        tenantId: String,
         themeId: UUID,
     ): ResponseEntity<ThemeDto> {
         val theme = GetTheme(
@@ -72,7 +72,7 @@ class EpistolaThemeApi : ThemesApi {
     }
 
     override fun updateTheme(
-        tenantId: UUID,
+        tenantId: String,
         themeId: UUID,
         updateThemeRequest: UpdateThemeRequest,
     ): ResponseEntity<ThemeDto> {
@@ -90,7 +90,7 @@ class EpistolaThemeApi : ThemesApi {
     }
 
     override fun deleteTheme(
-        tenantId: UUID,
+        tenantId: String,
         themeId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = DeleteTheme(

@@ -4,7 +4,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.pathUuid
-import app.epistola.suite.common.requirePathUuid
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.versions.GetPreviewContext
@@ -44,7 +43,7 @@ class TemplatePreviewHandler(
      * instead of fetching from the database. This enables live preview of unsaved changes.
      */
     fun preview(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")
@@ -65,7 +64,11 @@ class TemplatePreviewHandler(
         val data = previewRequest.data ?: emptyMap()
 
         // Validate data against schema BEFORE starting the streaming response
-        val validationResult = generationService.validatePreviewData(tenantId, templateId, data)
+        val validationResult = generationService.validatePreviewData(
+            TenantId.of(tenantId),
+            TemplateId.of(templateId),
+            data,
+        )
         if (!validationResult.valid) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)

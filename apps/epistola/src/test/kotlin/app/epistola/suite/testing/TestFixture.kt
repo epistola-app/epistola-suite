@@ -54,6 +54,9 @@ class TestFixture {
     private val createdTenants = mutableListOf<TenantId>()
     private var givenContext: GivenContext? = null
     private var result: Any? = null
+    private var tenantCounter = 0
+
+    private fun nextTenantSlug(): String = "test-tenant-${++tenantCounter}"
 
     fun given(block: GivenContext.() -> Unit): TestFixture {
         givenContext = GivenContext().apply(block)
@@ -87,7 +90,7 @@ class TestFixture {
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
+            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
@@ -123,7 +126,7 @@ class TestFixture {
     @TestFixtureDsl
     inner class WhenContext {
         fun createTenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
+            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }

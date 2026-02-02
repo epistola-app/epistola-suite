@@ -11,10 +11,12 @@ generate-document:
       - name: tenantId
         in: path
         required: true
-        description: Tenant identifier
+        description: Unique slug identifier of the tenant (e.g., "acme-corp")
         schema:
           type: string
-          format: uuid
+          pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 63
     requestBody:
       required: true
       content:
@@ -46,10 +48,12 @@ generate-batch:
       - name: tenantId
         in: path
         required: true
-        description: Tenant identifier
+        description: Unique slug identifier of the tenant (e.g., "acme-corp")
         schema:
           type: string
-          format: uuid
+          pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 63
     requestBody:
       required: true
       content:
@@ -81,10 +85,12 @@ jobs:
       - name: tenantId
         in: path
         required: true
-        description: Tenant identifier
+        description: Unique slug identifier of the tenant (e.g., "acme-corp")
         schema:
           type: string
-          format: uuid
+          pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 63
       - name: status
         in: query
         description: Filter by job status
@@ -119,10 +125,12 @@ job-detail:
     - name: tenantId
       in: path
       required: true
-      description: Tenant identifier
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: requestId
       in: path
       required: true
@@ -176,10 +184,12 @@ documents:
       - name: tenantId
         in: path
         required: true
-        description: Tenant identifier
+        description: Unique slug identifier of the tenant (e.g., "acme-corp")
         schema:
           type: string
-          format: uuid
+          pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 63
       - name: templateId
         in: query
         description: Filter by template ID
@@ -220,10 +230,12 @@ document-detail:
     - name: tenantId
       in: path
       required: true
-      description: Tenant identifier
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: documentId
       in: path
       required: true
