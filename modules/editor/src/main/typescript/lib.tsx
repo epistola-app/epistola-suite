@@ -23,6 +23,8 @@ export interface EditorOptions {
   dataModel?: JsonObject | null;
   /** Available themes for selection in the editor (optional) */
   themes?: ThemeSummary[];
+  /** The parent template's default theme (for showing inherited theme in UI) */
+  defaultTheme?: ThemeSummary | null;
   /** Callback when user clicks Save */
   onSave?: (template: Template) => void | Promise<void>;
   /** Callback when user selects a different example */
@@ -62,7 +64,7 @@ export interface EditorInstance {
  * ```
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataExamples, dataModel, themes, onSave, onExampleSelected } = options;
+  const { container, template, dataExamples, dataModel, themes, defaultTheme, onSave, onExampleSelected } = options;
 
   // Add the root class for CSS scoping
   container.classList.add("template-editor-root");
@@ -97,6 +99,11 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   // Initialize store with available themes
   if (themes && themes.length > 0) {
     useEditorStore.getState().setThemes(themes);
+  }
+
+  // Initialize store with the parent template's default theme
+  if (defaultTheme !== undefined) {
+    useEditorStore.getState().setDefaultTheme(defaultTheme);
   }
 
   // Create React root and render

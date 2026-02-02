@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- **PDF preview not applying template's default theme**: Preview endpoint was not passing the template's default theme to the PDF renderer, causing previews to miss the template-level theme cascade. Now correctly fetches the template and passes its `themeId` to `renderPdf()`.
+
+### Changed
+- **Theme dropdown shows inherited theme**: When a variant has no theme override but the parent template has a default theme, the dropdown now shows "Default ({theme name})" instead of "No theme", making the theme cascade more obvious to users.
+
 ### Added
 - **Theme System for Reusable Styling**: Introduced themes for defining reusable style collections across multiple templates
   - New `Theme` entity with document-level styles, page settings, and named block style presets

@@ -234,6 +234,17 @@ class DocumentTemplateHandler(
             )
         }
 
+        // Look up the template's default theme info (if set) for UI display
+        val defaultThemeForJs = template.themeId?.let { themeId ->
+            themes.find { it.id == themeId }?.let { theme ->
+                mapOf(
+                    "id" to theme.id.value.toString(),
+                    "name" to theme.name,
+                    "description" to theme.description,
+                )
+            }
+        }
+
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -246,6 +257,7 @@ class DocumentTemplateHandler(
                 "dataExamples" to dataExamplesForJs,
                 "dataModel" to dataModelForJs,
                 "themes" to themesForJs,
+                "defaultTheme" to defaultThemeForJs,
                 "appVersion" to (buildProperties?.version ?: "dev"),
                 "appName" to (buildProperties?.name ?: "Epistola"),
             ),
@@ -699,11 +711,14 @@ class DocumentTemplateHandler(
             draft?.templateModel ?: return ServerResponse.notFound().build()
         }
 
+        // Get template's default theme for the theme cascade
+        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
+
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_PDF)
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
             .build { _, response ->
-                generationService.renderPdf(TenantId.of(tenantId), templateModel, data, response.outputStream)
+                generationService.renderPdf(TenantId.of(tenantId), templateModel, data, response.outputStream, template?.themeId)
                 response.outputStream.flush()
                 null // Return null to indicate no view to render
             }

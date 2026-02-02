@@ -8,6 +8,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from "@/components/ui/tooltip";
 export function DocumentPropertiesEditor() {
   const template = useEditorStore((s) => s.template);
   const themes = useEditorStore((s) => s.themes);
+  const defaultTheme = useEditorStore((s) => s.defaultTheme);
   const updatePageSettings = useEditorStore((s) => s.updatePageSettings);
   const updateThemeId = useEditorStore((s) => s.updateThemeId);
 
@@ -73,7 +74,9 @@ export function DocumentPropertiesEditor() {
               <SelectValue placeholder="No theme" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No theme</SelectItem>
+              <SelectItem value="none">
+                {defaultTheme ? `Default (${defaultTheme.name})` : "No theme"}
+              </SelectItem>
               {themes.map((theme) => (
                 <SelectItem key={theme.id} value={theme.id}>
                   {theme.name}

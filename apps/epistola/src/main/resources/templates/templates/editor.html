@@ -84,6 +84,7 @@
         window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
         window.DATA_MODEL = /*[[${dataModel}]]*/ null;
         window.THEMES = /*[[${themes}]]*/ [];
+        window.DEFAULT_THEME = /*[[${defaultTheme}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
         window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
         /*]]>*/
@@ -99,6 +100,7 @@
         const dataExamples = window.DATA_EXAMPLES;
         const dataModel = window.DATA_MODEL;
         const themes = window.THEMES;
+        const defaultTheme = window.DEFAULT_THEME;
 
         mountEditor({
             container: container,
@@ -106,6 +108,7 @@
             dataExamples: dataExamples,
             dataModel: dataModel,
             themes: themes,
+            defaultTheme: defaultTheme,
             onSave: async (template) => {
                 try {
                     const response = await fetch('/v1/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {

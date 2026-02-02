@@ -38,6 +38,8 @@ interface EditorState {
   previewMode: PreviewMode;
   /** Available themes for theme selection */
   themes: ThemeSummary[];
+  /** Parent template's default theme (for showing inherited theme in UI) */
+  defaultTheme: ThemeSummary | null;
 }
 
 interface EditorActions {
@@ -64,6 +66,7 @@ interface EditorActions {
   setPreviewMode: (mode: PreviewMode) => void;
   // Theme actions
   setThemes: (themes: ThemeSummary[]) => void;
+  setDefaultTheme: (theme: ThemeSummary | null) => void;
   updateThemeId: (themeId: string | null) => void;
 }
 
@@ -164,6 +167,7 @@ export const useEditorStore = create<EditorStore>()(
     schema: null,
     previewMode: "pdf",
     themes: [],
+    defaultTheme: null,
 
     setTemplate: (template) =>
       set((state) => {
@@ -491,6 +495,11 @@ export const useEditorStore = create<EditorStore>()(
     setThemes: (themes) =>
       set((state) => {
         state.themes = themes;
+      }),
+
+    setDefaultTheme: (theme) =>
+      set((state) => {
+        state.defaultTheme = theme;
       }),
 
     updateThemeId: (themeId) =>
