@@ -282,6 +282,19 @@ export type Block =
 export type BlockType = Block['type'];
 
 // ============================================================================
+// Theme Types
+// ============================================================================
+
+/**
+ * Theme summary - minimal info for UI theme selection
+ */
+export interface ThemeSummary {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+// ============================================================================
 // Template Types
 // ============================================================================
 
@@ -318,6 +331,7 @@ export interface Template {
   pageSettings?: PageSettings;
   blocks: Block[];
   documentStyles?: DocumentStyles;
+  themeId?: string | null;
 }
 
 // ============================================================================
