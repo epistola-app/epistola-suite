@@ -4,7 +4,7 @@
  * Framework-agnostic history management for any serializable state.
  */
 
-import type { Template } from './types.js';
+import type { Template } from "./types.js";
 
 /**
  * Deep clone a template (for history snapshots)
