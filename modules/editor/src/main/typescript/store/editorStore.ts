@@ -3,7 +3,7 @@ import {immer} from "zustand/middleware/immer";
 import type {TemporalState} from "zundo";
 import {temporal} from "zundo";
 import {useStoreWithEqualityFn} from "zustand/traditional";
-import type {Block, DataExample, DocumentStyles, PageSettings, PreviewOverrides, Template,} from "../types/template";
+import type {Block, DataExample, DocumentStyles, PageSettings, PreviewOverrides, Template, ThemeSummary,} from "../types/template";
 import {DataExampleSchema} from "../types/template";
 import type {JsonSchema} from "../types/schema";
 import {JsonSchemaSchema} from "../types/schema";
@@ -36,6 +36,10 @@ interface EditorState {
   schema: JsonSchema | null;
   /** Current preview mode */
   previewMode: PreviewMode;
+  /** Available themes for theme selection */
+  themes: ThemeSummary[];
+  /** Parent template's default theme (for showing inherited theme in UI) */
+  defaultTheme: ThemeSummary | null;
 }
 
 interface EditorActions {
@@ -60,6 +64,10 @@ interface EditorActions {
   setSchema: (schema: JsonSchema | null) => void;
   // Preview mode actions
   setPreviewMode: (mode: PreviewMode) => void;
+  // Theme actions
+  setThemes: (themes: ThemeSummary[]) => void;
+  setDefaultTheme: (theme: ThemeSummary | null) => void;
+  updateThemeId: (themeId: string | null) => void;
 }
 
 type EditorStore = EditorState & EditorActions;
@@ -158,6 +166,8 @@ export const useEditorStore = create<EditorStore>()(
     selectedDataExampleId: null,
     schema: null,
     previewMode: "pdf",
+    themes: [],
+    defaultTheme: null,
 
     setTemplate: (template) =>
       set((state) => {
@@ -480,6 +490,21 @@ export const useEditorStore = create<EditorStore>()(
     setPreviewMode: (mode) =>
       set((state) => {
         state.previewMode = mode;
+      }),
+
+    setThemes: (themes) =>
+      set((state) => {
+        state.themes = themes;
+      }),
+
+    setDefaultTheme: (theme) =>
+      set((state) => {
+        state.defaultTheme = theme;
+      }),
+
+    updateThemeId: (themeId) =>
+      set((state) => {
+        state.template.themeId = themeId;
       }),
   })),
     {

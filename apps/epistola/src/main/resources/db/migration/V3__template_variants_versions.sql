@@ -31,7 +31,7 @@ CREATE TABLE template_versions (
     id UUID PRIMARY KEY,
     variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_number INTEGER,  -- NULL for draft, assigned on publish
-    template_model JSONB,
+    template_model JSONB NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     published_at TIMESTAMP WITH TIME ZONE,

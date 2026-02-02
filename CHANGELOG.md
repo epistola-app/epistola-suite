@@ -2,7 +2,74 @@
 
 ## [Unreleased]
 
+### Changed
+- **Code organization improvements**: Refactored large handlers and improved code maintainability
+  - Split `DocumentTemplateHandler` (753 lines) into smaller focused handlers:
+    - `VariantRouteHandler` for variant create/delete operations
+    - `VersionRouteHandler` for draft/publish/archive operations
+    - `TemplatePreviewHandler` for PDF preview generation
+  - Created `UuidExtensions.kt` with `String.toUuidOrNull()` and `ServerRequest.pathUuid()` extensions
+  - Updated `ThemeHandler` to use UUID extensions, removing duplicate `parseUUID()` helper
+  - Extracted inline JavaScript from `themes/detail.html` to reusable ES modules:
+    - `api-client.js` for shared fetch logic with CSRF handling
+    - `theme-editor.js` for theme editing operations
+  - Created reusable `fragments/search.html` Thymeleaf fragment for search boxes
+  - Updated templates list, tenants list, and themes list pages to use the search fragment
+- **Enhanced API exception handling**: Added exception handlers for domain exceptions
+  - `ThemeNotFoundException` → 404 Not Found
+  - `ThemeInUseException` → 409 Conflict
+  - `LastThemeException` → 400 Bad Request
+  - `DataModelValidationException` → 422 Unprocessable Entity
+  - `ValidationException` → 400 Bad Request
+  - Generic exception handler → 500 Internal Server Error (with logging)
+- **Added logging to mediator**: `SpringMediator` now logs command/query dispatch and completion
+
 ### Added
+- **Tenant Default Theme**: Each tenant now has a default theme that serves as the ultimate fallback in the theme cascade
+  - Theme cascade order: Variant theme → Template theme → Tenant default theme
+  - Creating a new tenant automatically creates a "Tenant Default" theme with sensible defaults
+  - Tenant default theme can be changed via the Themes UI or `SetTenantDefaultTheme` command
+  - At least one theme must exist per tenant (deletion constraints prevent removing last theme)
+  - Cannot delete a theme that is set as the tenant's default
+  - Themes list UI shows "Default" badge and "Set as Default" button for non-default themes
+  - Demo tenant now uses "Corporate" as default theme instead of auto-created "Tenant Default"
+
+### Fixed
+- **PDF preview not applying template's default theme**: Preview endpoint was not passing the template's default theme to the PDF renderer, causing previews to miss the template-level theme cascade. Now correctly fetches the template and passes its `themeId` to `renderPdf()`.
+- **Thymeleaf JavaScript serialization using wrong ObjectMapper**: Fixed data contract fields (schema, test data) showing Jackson `JsonNode` internal properties instead of actual values in template detail and editor pages. Created custom `IStandardJavaScriptSerializer` that uses Spring's auto-configured ObjectMapper for proper Jackson 3 serialization. Simplified `DocumentTemplateHandler.editor()` by removing manual Map conversions.
+
+### Changed
+- **EditorContext theme resolution simplified**: Removed `tenantDefaultTheme` field from `EditorContext` data class. The theme cascade (template → tenant) is now resolved server-side, returning a single `defaultTheme` field containing the effective theme for the editor.
+- **Theme dropdown shows inherited theme**: When a variant has no theme override but the parent template has a default theme, the dropdown now shows "Default ({theme name})" instead of "No theme", making the theme cascade more obvious to users.
+- **BREAKING: Template model now required for versions**: The `template_model` column in `template_versions` is now `NOT NULL`. All template versions must have content.
+  - `TemplateVersion.templateModel` is now non-nullable
+  - `EditorContext.templateModel` is now non-nullable (always returns resolved model)
+  - `UpdateDraft` and `UpdateVersion` commands now require `templateModel` parameter
+  - `CreateVariant` now creates draft versions with a default template model
+  - Existing databases with NULL template_model values will need migration (reset database for development)
+
+### Added
+- **Theme System for Reusable Styling**: Introduced themes for defining reusable style collections across multiple templates
+  - New `Theme` entity with document-level styles, page settings, and named block style presets
+  - REST API endpoints for theme CRUD operations (`/v1/tenants/{tenantId}/themes`)
+  - Web UI for managing themes at `/tenants/{tenantId}/themes`
+    - List, create, search themes with Thymeleaf + HTMX
+    - Detail page for editing document styles and block style presets
+    - "Manage Themes" button added to templates list page
+  - Two-level theme assignment for flexible override patterns:
+    - Template-level default theme (`DocumentTemplate.themeId`) - dropdown on template detail page
+    - Variant-level theme override (`TemplateModel.themeId`) - in editor's Document Properties panel
+    - Variant theme overrides template default; variants without override inherit template's theme
+  - Demo tenant includes two sample themes: "Corporate" and "Modern"
+  - `ThemeStyleResolver` service merges theme and template styles following a cascade:
+    1. Theme document styles (lowest priority)
+    2. Template document styles (override theme)
+    3. Theme block preset (when block has `stylePreset`)
+    4. Block inline styles (highest priority)
+  - `Block.stylePreset` field for referencing named style presets (like CSS classes)
+  - Soft reference design: templates gracefully fall back to own styles if theme is deleted
+  - Block style presets support all CSS-like properties: font, colors, margins, padding, alignment
+
 - **Spring Transaction Support for JDBI**: Integrated `jdbi3-spring` to enable JDBI participation in Spring-managed transactions
   - JDBI now uses `SpringConnectionFactory` to reuse Spring's transactionally-managed connections
   - Services can compose multiple commands atomically using `@Transactional` or `TransactionTemplate`

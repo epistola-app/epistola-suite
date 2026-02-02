@@ -21,7 +21,7 @@ data class UpdateDraft(
     val tenantId: TenantId,
     val templateId: TemplateId,
     val variantId: VariantId,
-    val templateModel: TemplateModel?,
+    val templateModel: TemplateModel,
 ) : Command<TemplateVersion?>
 
 @Component
@@ -51,7 +51,7 @@ class UpdateDraftHandler(
             return@inTransaction null
         }
 
-        val templateModelJson = command.templateModel?.let { objectMapper.writeValueAsString(it) }
+        val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 
         // Use upsert to create or update draft
         val newId = VersionId.generate()

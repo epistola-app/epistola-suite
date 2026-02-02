@@ -3,10 +3,12 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.template.model.TemplateModel
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
@@ -30,16 +32,62 @@ data class PreviewValidationResult(
 class GenerationService(
     private val objectMapper: ObjectMapper,
     private val schemaValidator: JsonSchemaValidator,
+    private val themeStyleResolver: ThemeStyleResolver,
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
 ) {
     /**
      * Renders a PDF from a template model and data context.
      *
+     * Theme resolution cascade:
+     * 1. Variant-level theme (TemplateModel.themeId) - highest priority
+     * 2. Template-level default theme (templateDefaultThemeId parameter) - fallback
+     * 3. Tenant default theme (tenantDefaultThemeId parameter) - ultimate fallback
+     *
+     * When a theme is resolved, theme styles are merged:
+     * - Theme document styles serve as defaults, template document styles override
+     * - Theme block style presets are made available for blocks with stylePreset
+     *
+     * @param tenantId The tenant ID (required for theme lookup)
      * @param templateModel The template model (either from live editor or pre-fetched draft)
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
+     * @param templateDefaultThemeId Optional default theme from DocumentTemplate (variant can override)
+     * @param tenantDefaultThemeId Optional default theme from Tenant (ultimate fallback)
      */
     fun renderPdf(
+        tenantId: TenantId,
+        templateModel: TemplateModel,
+        data: Map<String, Any?>,
+        outputStream: OutputStream,
+        templateDefaultThemeId: ThemeId? = null,
+        tenantDefaultThemeId: ThemeId? = null,
+    ) {
+        // Resolve styles from theme (variant-level > template-level > tenant-level)
+        val resolvedStyles = themeStyleResolver.resolveStyles(
+            tenantId,
+            templateDefaultThemeId,
+            tenantDefaultThemeId,
+            templateModel,
+        )
+
+        pdfRenderer.render(
+            template = templateModel,
+            data = data,
+            outputStream = outputStream,
+            blockStylePresets = resolvedStyles.blockStylePresets,
+            resolvedDocumentStyles = resolvedStyles.documentStyles,
+        )
+    }
+
+    /**
+     * Renders a PDF without theme resolution.
+     * Use this for previews where theme lookup is not needed or tenant context is unavailable.
+     *
+     * @param templateModel The template model
+     * @param data The data context for expression evaluation
+     * @param outputStream The output stream to write the PDF to
+     */
+    fun renderPdfWithoutTheme(
         templateModel: TemplateModel,
         data: Map<String, Any?>,
         outputStream: OutputStream,

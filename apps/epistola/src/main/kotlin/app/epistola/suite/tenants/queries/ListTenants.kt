@@ -17,7 +17,7 @@ class ListTenantsHandler(
 ) : QueryHandler<ListTenants, List<Tenant>> {
     override fun handle(query: ListTenants): List<Tenant> = jdbi.withHandle<List<Tenant>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT id, name, created_at FROM tenants WHERE 1=1")
+            append("SELECT id, name, default_theme_id, created_at FROM tenants WHERE 1=1")
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND name ILIKE :searchTerm")
             }

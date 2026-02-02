@@ -32,15 +32,11 @@
 
         <section>
             <h2>Existing Tenants</h2>
-            <div class="search-box">
-                <input type="search"
-                       name="q"
-                       placeholder="Search tenants..."
-                       hx-get="/tenants/search"
-                       hx-trigger="input changed delay:300ms, search"
-                       hx-target="#tenant-rows"
-                       hx-swap="innerHTML">
-            </div>
+            <div th:replace="~{fragments/search :: search-box(
+                placeholder='Search tenants...',
+                searchUrl='/tenants/search',
+                targetId='tenant-rows'
+            )}"></div>
             <table>
                 <thead>
                     <tr>

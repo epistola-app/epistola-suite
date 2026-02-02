@@ -10,8 +10,10 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
+import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -187,26 +189,38 @@ class DocumentGenerationExecutor(
         val templateModel = version.templateModel
             ?: throw IllegalStateException("Version ${version.id} has no template model")
 
-        // 3. Generate PDF
+        // 3. Fetch template to get default theme
+        val template = mediator.query(
+            GetDocumentTemplate(
+                tenantId = tenantId,
+                id = item.templateId,
+            ),
+        ) ?: throw IllegalStateException("Template ${item.templateId} not found")
+
+        // 4. Fetch tenant to get default theme (ultimate fallback)
+        val tenant = mediator.query(GetTenant(id = tenantId))
+            ?: throw IllegalStateException("Tenant $tenantId not found")
+
+        // 5. Generate PDF
         val outputStream = ByteArrayOutputStream()
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(item.data, Map::class.java) as Map<String, Any?>
-        generationService.renderPdf(templateModel, dataMap, outputStream)
+        generationService.renderPdf(tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()
 
-        // 4. Validate size
+        // 6. Validate size
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
         if (sizeBytes > maxSizeBytes) {
             throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
         }
 
-        // 5. Generate filename if not provided
+        // 7. Generate filename if not provided
         val filename = item.filename ?: "document-${item.id.value}.pdf"
 
-        // 6. Create Document entity
+        // 8. Create Document entity
         return Document(
             id = DocumentId.generate(),
             tenantId = tenantId,

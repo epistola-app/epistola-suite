@@ -6,9 +6,17 @@ export interface Template {
   id: string;
   name: string;
   version: number;
+  themeId?: string | null;
   pageSettings: PageSettings;
   blocks: Block[];
   documentStyles: DocumentStyles;
+}
+
+// Simplified theme for editor dropdown
+export interface ThemeSummary {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 // Document-level styles that cascade to child blocks

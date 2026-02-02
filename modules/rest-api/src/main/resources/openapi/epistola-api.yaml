@@ -23,6 +23,8 @@ tags:
     description: Multi-tenant management operations
   - name: Templates
     description: Document template operations
+  - name: Themes
+    description: Reusable style collections for templates
   - name: Environments
     description: Tenant environment configuration (staging, production, etc.)
   - name: Variants
@@ -38,6 +40,12 @@ paths:
     $ref: './paths/tenants.yaml#/tenants'
   /v1/tenants/{tenantId}:
     $ref: './paths/tenants.yaml#/tenants-id'
+
+  # Themes
+  /v1/tenants/{tenantId}/themes:
+    $ref: './paths/themes.yaml#/themes'
+  /v1/tenants/{tenantId}/themes/{themeId}:
+    $ref: './paths/themes.yaml#/themes-id'
 
   # Environments
   /v1/tenants/{tenantId}/environments:
@@ -100,6 +108,22 @@ components:
       $ref: './components/schemas/tenants.yaml#/UpdateTenantRequest'
     TenantListResponse:
       $ref: './components/schemas/tenants.yaml#/TenantListResponse'
+
+    # Theme schemas
+    ThemeDto:
+      $ref: './components/schemas/themes.yaml#/ThemeDto'
+    DocumentStylesDto:
+      $ref: './components/schemas/themes.yaml#/DocumentStylesDto'
+    PageSettingsDto:
+      $ref: './components/schemas/themes.yaml#/PageSettingsDto'
+    MarginsDto:
+      $ref: './components/schemas/themes.yaml#/MarginsDto'
+    CreateThemeRequest:
+      $ref: './components/schemas/themes.yaml#/CreateThemeRequest'
+    UpdateThemeRequest:
+      $ref: './components/schemas/themes.yaml#/UpdateThemeRequest'
+    ThemeListResponse:
+      $ref: './components/schemas/themes.yaml#/ThemeListResponse'
 
     # Environment schemas
     EnvironmentDto:

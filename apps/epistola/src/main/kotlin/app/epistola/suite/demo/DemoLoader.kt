@@ -2,15 +2,19 @@ package app.epistola.suite.demo
 
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
+import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.themes.commands.CreateTheme
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -64,9 +68,19 @@ class DemoLoader(
                 mediator.send(DeleteTenant(id = demoTenant.id))
             }
 
-            // Create new demo tenant
+            // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
             val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
+            log.info("Tenant has default theme: {}", tenant.defaultThemeId)
+
+            // Create additional demo themes
+            val corporateThemeId = createDemoThemes(tenant.id)
+
+            // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
+            if (corporateThemeId != null) {
+                mediator.send(SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
+                log.info("Set Corporate theme as tenant default")
+            }
 
             // Load and create templates from JSON definitions
             val definitions = loadTemplateDefinitions()
@@ -78,6 +92,87 @@ class DemoLoader(
 
             log.info("Created {} demo templates", definitions.size)
         }
+    }
+
+    /**
+     * Creates demo themes and returns the ID of the Corporate theme.
+     */
+    private fun createDemoThemes(tenantId: TenantId): ThemeId? {
+        // Corporate Theme - professional styling
+        val corporateTheme = mediator.send(
+            CreateTheme(
+                id = ThemeId.generate(),
+                tenantId = tenantId,
+                name = "Corporate",
+                description = "Professional corporate styling with clean typography",
+                documentStyles = DocumentStyles(
+                    fontFamily = "Helvetica, Arial, sans-serif",
+                    fontSize = "11pt",
+                    color = "#333333",
+                    lineHeight = "1.5",
+                ),
+                blockStylePresets = mapOf(
+                    "heading1" to mapOf(
+                        "fontSize" to "24pt",
+                        "fontWeight" to "bold",
+                        "color" to "#1a1a1a",
+                        "marginBottom" to "16px",
+                    ),
+                    "heading2" to mapOf(
+                        "fontSize" to "18pt",
+                        "fontWeight" to "bold",
+                        "color" to "#2a2a2a",
+                        "marginBottom" to "12px",
+                    ),
+                    "quote" to mapOf(
+                        "fontStyle" to "italic",
+                        "color" to "#666666",
+                        "marginLeft" to "20px",
+                        "borderLeft" to "3px solid #cccccc",
+                        "paddingLeft" to "12px",
+                    ),
+                ),
+            ),
+        )
+        log.info("Created Corporate theme")
+
+        // Modern Theme - contemporary design
+        mediator.send(
+            CreateTheme(
+                id = ThemeId.generate(),
+                tenantId = tenantId,
+                name = "Modern",
+                description = "Contemporary design with bold accents",
+                documentStyles = DocumentStyles(
+                    fontFamily = "Inter, system-ui, sans-serif",
+                    fontSize = "10pt",
+                    color = "#1f2937",
+                    lineHeight = "1.6",
+                ),
+                blockStylePresets = mapOf(
+                    "heading1" to mapOf(
+                        "fontSize" to "28pt",
+                        "fontWeight" to "700",
+                        "color" to "#111827",
+                        "marginBottom" to "20px",
+                    ),
+                    "heading2" to mapOf(
+                        "fontSize" to "20pt",
+                        "fontWeight" to "600",
+                        "color" to "#374151",
+                        "marginBottom" to "14px",
+                    ),
+                    "accent" to mapOf(
+                        "backgroundColor" to "#f3f4f6",
+                        "padding" to "16px",
+                        "borderRadius" to "8px",
+                    ),
+                ),
+            ),
+        )
+        log.info("Created Modern theme")
+
+        return corporateTheme.id
     }
 
     private fun createTemplateFromDefinition(tenantId: TenantId, definition: TemplateDefinition) {
@@ -142,7 +237,7 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "2.0.2" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "2.1.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
     }

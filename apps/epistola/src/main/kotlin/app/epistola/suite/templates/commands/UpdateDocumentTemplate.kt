@@ -2,6 +2,7 @@ package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -26,6 +27,8 @@ data class UpdateDocumentTemplate(
     val tenantId: TenantId,
     val id: TemplateId,
     val name: String? = null,
+    val themeId: ThemeId? = null,
+    val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
     val forceUpdate: Boolean = false,
@@ -104,6 +107,12 @@ class UpdateDocumentTemplateHandler(
             updates.add("name = :name")
             bindings["name"] = command.name
         }
+        if (command.clearThemeId) {
+            updates.add("theme_id = NULL")
+        } else if (command.themeId != null) {
+            updates.add("theme_id = :themeId")
+            bindings["themeId"] = command.themeId
+        }
         if (command.dataModel != null) {
             updates.add("data_model = :dataModel::jsonb")
             bindings["dataModel"] = objectMapper.writeValueAsString(command.dataModel)
@@ -124,7 +133,7 @@ class UpdateDocumentTemplateHandler(
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
             WHERE id = :id AND tenant_id = :tenantId
-            RETURNING id, tenant_id, name, data_model, data_examples, created_at, last_modified
+            RETURNING id, tenant_id, name, theme_id, data_model, data_examples, created_at, last_modified
         """
 
         val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
@@ -145,7 +154,7 @@ class UpdateDocumentTemplateHandler(
     private fun getExisting(tenantId: TenantId, id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
+            SELECT id, tenant_id, name, theme_id, data_model, data_examples, created_at, last_modified
             FROM document_templates
             WHERE id = :id AND tenant_id = :tenantId
             """,

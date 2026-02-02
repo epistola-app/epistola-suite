@@ -22,7 +22,7 @@ data class UpdateVersion(
     val templateId: TemplateId,
     val variantId: VariantId,
     val versionId: VersionId,
-    val templateModel: TemplateModel?,
+    val templateModel: TemplateModel,
 ) : Command<TemplateVersion?>
 
 @Component
@@ -56,7 +56,7 @@ class UpdateVersionHandler(
             return@inTransaction null
         }
 
-        val templateModelJson = command.templateModel?.let { objectMapper.writeValueAsString(it) }
+        val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 
         handle.createQuery(
             """

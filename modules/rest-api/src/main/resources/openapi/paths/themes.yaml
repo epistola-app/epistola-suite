@@ -1,0 +1,164 @@
+themes:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: string
+        format: uuid
+
+  get:
+    operationId: listThemes
+    summary: List themes for a tenant
+    description: Retrieve all themes configured for a specific tenant.
+    tags:
+      - Themes
+    parameters:
+      - name: q
+        in: query
+        description: Search term to filter themes by name
+        schema:
+          type: string
+    responses:
+      '200':
+        description: List of themes
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/themes.yaml#/ThemeListResponse'
+      '404':
+        description: Tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+  post:
+    operationId: createTheme
+    summary: Create a new theme
+    description: Create a new theme for the specified tenant.
+    tags:
+      - Themes
+    requestBody:
+      required: true
+      content:
+        application/vnd.epistola.v1+json:
+          schema:
+            $ref: '../components/schemas/themes.yaml#/CreateThemeRequest'
+    responses:
+      '201':
+        description: Theme created successfully
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/themes.yaml#/ThemeDto'
+      '400':
+        description: Invalid request
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+      '404':
+        description: Tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+      '409':
+        description: Theme with this name already exists
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+themes-id:
+  parameters:
+    - name: tenantId
+      in: path
+      required: true
+      description: Unique identifier of the tenant
+      schema:
+        type: string
+        format: uuid
+    - name: themeId
+      in: path
+      required: true
+      description: Unique identifier of the theme
+      schema:
+        type: string
+        format: uuid
+
+  get:
+    operationId: getTheme
+    summary: Get theme by ID
+    description: Retrieve details of a specific theme.
+    tags:
+      - Themes
+    responses:
+      '200':
+        description: Theme details
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/themes.yaml#/ThemeDto'
+      '404':
+        description: Theme or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+  patch:
+    operationId: updateTheme
+    summary: Update a theme
+    description: Update an existing theme. Only provided fields will be updated.
+    tags:
+      - Themes
+    requestBody:
+      required: true
+      content:
+        application/vnd.epistola.v1+json:
+          schema:
+            $ref: '../components/schemas/themes.yaml#/UpdateThemeRequest'
+    responses:
+      '200':
+        description: Theme updated successfully
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/schemas/themes.yaml#/ThemeDto'
+      '400':
+        description: Invalid request
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ValidationErrorResponse'
+      '404':
+        description: Theme or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+      '409':
+        description: Theme with this name already exists
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'
+
+  delete:
+    operationId: deleteTheme
+    summary: Delete a theme
+    description: Delete a theme. Templates referencing this theme will fall back to their own styles.
+    tags:
+      - Themes
+    responses:
+      '204':
+        description: Theme deleted successfully
+      '404':
+        description: Theme or tenant not found
+        content:
+          application/vnd.epistola.v1+json:
+            schema:
+              $ref: '../components/responses/errors.yaml#/ErrorResponse'

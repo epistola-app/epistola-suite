@@ -13,7 +13,10 @@
             <a th:href="@{/}">Tenants</a> &raquo; Templates
         </nav>
 
-        <h1>Document Templates</h1>
+        <div class="page-header">
+            <h1>Document Templates</h1>
+            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="btn btn-secondary">Manage Themes</a>
+        </div>
 
         <div id="create-form" th:fragment="create-form">
             <section class="form-section">
@@ -42,15 +45,11 @@
 
         <section>
             <h2>Existing Templates</h2>
-            <div class="search-box">
-                <input type="search"
-                       name="q"
-                       placeholder="Search templates..."
-                       th:hx-get="@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})}"
-                       hx-trigger="input changed delay:300ms, search"
-                       hx-target="#template-rows"
-                       hx-swap="innerHTML">
-            </div>
+            <div th:replace="~{fragments/search :: search-box(
+                placeholder='Search templates...',
+                searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
+                targetId='template-rows'
+            )}"></div>
             <table>
                 <thead>
                     <tr>

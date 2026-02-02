@@ -19,7 +19,7 @@ class GetTenantHandler(
     override fun handle(query: GetTenant): Tenant? = jdbi.withHandle<Tenant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, name, created_at
+                SELECT id, name, default_theme_id, created_at
                 FROM tenants
                 WHERE id = :id
                 """,

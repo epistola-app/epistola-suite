@@ -5,7 +5,7 @@ import {EditorProvider} from "./components/editor/EditorProvider";
 import {EditorLayout} from "./components/editor/EditorLayout";
 import {EvaluatorProvider} from "./context/EvaluatorContext";
 import {useEditorStore} from "./store/editorStore";
-import type {DataExample, JsonObject, Template} from "./types/template";
+import type {DataExample, JsonObject, Template, ThemeSummary} from "./types/template";
 import {JsonSchemaSchema} from "./types/schema";
 import "./index.css";
 
@@ -21,6 +21,10 @@ export interface EditorOptions {
   dataExamples?: DataExample[];
   /** Initial data model/schema for validation (optional, read-only) */
   dataModel?: JsonObject | null;
+  /** Available themes for selection in the editor (optional) */
+  themes?: ThemeSummary[];
+  /** The parent template's default theme (for showing inherited theme in UI) */
+  defaultTheme?: ThemeSummary | null;
   /** Callback when user clicks Save */
   onSave?: (template: Template) => void | Promise<void>;
   /** Callback when user selects a different example */
@@ -60,7 +64,7 @@ export interface EditorInstance {
  * ```
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataExamples, dataModel, onSave, onExampleSelected } = options;
+  const { container, template, dataExamples, dataModel, themes, defaultTheme, onSave, onExampleSelected } = options;
 
   // Add the root class for CSS scoping
   container.classList.add("template-editor-root");
@@ -92,6 +96,16 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     }
   }
 
+  // Initialize store with available themes
+  if (themes && themes.length > 0) {
+    useEditorStore.getState().setThemes(themes);
+  }
+
+  // Initialize store with the parent template's default theme
+  if (defaultTheme !== undefined) {
+    useEditorStore.getState().setDefaultTheme(defaultTheme);
+  }
+
   // Create React root and render
   const root: Root = createRoot(container);
 
@@ -118,5 +132,5 @@ export function mountEditor(options: EditorOptions): EditorInstance {
 }
 
 // Re-export types for consumers
-export type { Template, DataExample } from "./types/template";
+export type { Template, DataExample, ThemeSummary } from "./types/template";
 export { useEditorStore, useIsDirty } from "./store/editorStore";

@@ -115,3 +115,16 @@ value class GenerationItemId(override val value: UUID) : EntityId<GenerationItem
 
     override fun toString(): String = value.toString()
 }
+
+/**
+ * Typed ID for Theme entities.
+ */
+@JvmInline
+value class ThemeId(override val value: UUID) : EntityId<ThemeId> {
+    companion object {
+        fun generate(): ThemeId = ThemeId(UUIDv7.generate())
+        fun of(value: UUID): ThemeId = ThemeId(value)
+    }
+
+    override fun toString(): String = value.toString()
+}

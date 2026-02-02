@@ -15,6 +15,7 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Creates a new draft version for a variant.
+ * If no templateModel is provided, creates a default empty template structure.
  * Returns null if variant doesn't exist or tenant doesn't own the template.
  * Throws exception if a draft already exists for this variant.
  */
@@ -32,10 +33,10 @@ class CreateVersionHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateVersion, TemplateVersion?> {
     override fun handle(command: CreateVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Verify the variant belongs to a template owned by the tenant
-        val variantExists = handle.createQuery(
+        // Verify the variant exists and get template name for default model
+        val templateInfo = handle.createQuery(
             """
-                SELECT COUNT(*) > 0
+                SELECT dt.name as template_name
                 FROM template_variants tv
                 JOIN document_templates dt ON tv.template_id = dt.id
                 WHERE tv.id = :variantId
@@ -46,14 +47,15 @@ class CreateVersionHandler(
             .bind("variantId", command.variantId)
             .bind("templateId", command.templateId)
             .bind("tenantId", command.tenantId)
-            .mapTo<Boolean>()
-            .one()
+            .mapToMap()
+            .findOne()
+            .orElse(null) ?: return@inTransaction null
 
-        if (!variantExists) {
-            return@inTransaction null
-        }
+        val templateName = templateInfo["template_name"] as String
 
-        val templateModelJson = command.templateModel?.let { objectMapper.writeValueAsString(it) }
+        // Use provided model or create default empty template structure
+        val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId)
+        val templateModelJson = objectMapper.writeValueAsString(modelToSave)
 
         handle.createQuery(
             """
@@ -68,4 +70,22 @@ class CreateVersionHandler(
             .mapTo<TemplateVersion>()
             .one()
     }
+
+    private fun createDefaultTemplateModel(templateName: String, variantId: VariantId): Map<String, Any> = mapOf(
+        "id" to "template-${variantId.value}",
+        "name" to templateName,
+        "version" to 1,
+        "pageSettings" to mapOf(
+            "format" to "A4",
+            "orientation" to "portrait",
+            "margins" to mapOf(
+                "top" to 20,
+                "right" to 20,
+                "bottom" to 20,
+                "left" to 20,
+            ),
+        ),
+        "documentStyles" to mapOf<String, Any>(),
+        "blocks" to emptyList<Any>(),
+    )
 }

@@ -7,7 +7,12 @@ import org.springframework.web.servlet.function.ServerResponse
 import org.springframework.web.servlet.function.router
 
 @Configuration
-class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
+class DocumentTemplateRoutes(
+    private val handler: DocumentTemplateHandler,
+    private val variantHandler: VariantRouteHandler,
+    private val versionHandler: VersionRouteHandler,
+    private val previewHandler: TemplatePreviewHandler,
+) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
         "/tenants/{tenantId}/templates".nest {
@@ -19,6 +24,7 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             GET("/{id}", handler::detail)
             POST("/{id}/delete", handler::delete)
             PATCH("/{id}", handler::update)
+            PATCH("/{id}/theme", handler::updateTheme)
             GET("/{id}/api", handler::get)
             POST("/{id}/validate-schema", handler::validateSchema)
 
@@ -26,24 +32,24 @@ class DocumentTemplateRoutes(private val handler: DocumentTemplateHandler) {
             PATCH("/{id}/data-examples/{exampleId}", handler::updateDataExample)
             DELETE("/{id}/data-examples/{exampleId}", handler::deleteDataExample)
 
-            // Variant routes
-            POST("/{id}/variants", handler::createVariant)
+            // Variant routes (delegated to VariantRouteHandler)
+            POST("/{id}/variants", variantHandler::createVariant)
             GET("/{id}/variants/{variantId}", handler::variantDetail)
-            DELETE("/{id}/variants/{variantId}", handler::deleteVariant)
-            POST("/{id}/variants/{variantId}/delete", handler::deleteVariant)
+            DELETE("/{id}/variants/{variantId}", variantHandler::deleteVariant)
+            POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
 
             // Editor route (with variant)
             GET("/{id}/variants/{variantId}/editor", handler::editor)
 
-            // PDF preview (internal UI only)
-            POST("/{id}/variants/{variantId}/preview", handler::preview)
+            // PDF preview (delegated to TemplatePreviewHandler)
+            POST("/{id}/variants/{variantId}/preview", previewHandler::preview)
 
-            // Draft creation
-            POST("/{id}/variants/{variantId}/draft", handler::createDraft)
+            // Draft creation (delegated to VersionRouteHandler)
+            POST("/{id}/variants/{variantId}/draft", versionHandler::createDraft)
 
-            // Version lifecycle
-            POST("/{id}/variants/{variantId}/versions/{versionId}/publish", handler::publishVersion)
-            POST("/{id}/variants/{variantId}/versions/{versionId}/archive", handler::archiveVersion)
+            // Version lifecycle (delegated to VersionRouteHandler)
+            POST("/{id}/variants/{variantId}/versions/{versionId}/publish", versionHandler::publishVersion)
+            POST("/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
         }
     }
 }
