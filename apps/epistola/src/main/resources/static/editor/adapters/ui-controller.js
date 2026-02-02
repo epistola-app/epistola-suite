@@ -191,9 +191,16 @@ export class UIController {
       const reader = new FileReader();
       reader.onload = (event) => {
         const json = event.target?.result;
+        if (!json) {
+          logCallback('Error: Could not read file');
+          return;
+        }
         this.editor.importJSON(json);
         logCallback('Template imported');
         if (this.options.onBlockAdded) this.options.onBlockAdded();
+      };
+      reader.onerror = () => {
+        logCallback('Error reading file');
       };
       reader.readAsText(file);
     };
