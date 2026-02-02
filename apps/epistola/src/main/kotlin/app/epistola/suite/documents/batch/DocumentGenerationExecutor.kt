@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
+import app.epistola.suite.tenants.queries.GetTenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -196,26 +197,30 @@ class DocumentGenerationExecutor(
             ),
         ) ?: throw IllegalStateException("Template ${item.templateId} not found")
 
-        // 4. Generate PDF
+        // 4. Fetch tenant to get default theme (ultimate fallback)
+        val tenant = mediator.query(GetTenant(id = tenantId))
+            ?: throw IllegalStateException("Tenant $tenantId not found")
+
+        // 5. Generate PDF
         val outputStream = ByteArrayOutputStream()
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(item.data, Map::class.java) as Map<String, Any?>
-        generationService.renderPdf(tenantId, templateModel, dataMap, outputStream, template.themeId)
+        generationService.renderPdf(tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()
 
-        // 5. Validate size
+        // 6. Validate size
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
         if (sizeBytes > maxSizeBytes) {
             throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
         }
 
-        // 6. Generate filename if not provided
+        // 7. Generate filename if not provided
         val filename = item.filename ?: "document-${item.id.value}.pdf"
 
-        // 7. Create Document entity
+        // 8. Create Document entity
         return Document(
             id = DocumentId.generate(),
             tenantId = tenantId,

@@ -65,7 +65,10 @@
                     <!--/* Fragment contains only the rows, not the tbody wrapper */-->
                     <th:block th:fragment="rows">
                         <tr th:each="theme : ${themes}">
-                            <td th:text="${theme.name}"></td>
+                            <td>
+                                <span th:text="${theme.name}"></span>
+                                <span th:if="${tenant?.defaultThemeId?.value == theme.id.value}" class="badge badge-primary">Default</span>
+                            </td>
                             <td>
                                 <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
                                 <span th:unless="${theme.description != null}" class="text-muted">-</span>
@@ -74,6 +77,28 @@
                             <td class="actions">
                                 <a th:href="@{/tenants/{tenantId}/themes/{themeId}(tenantId=${tenantId},themeId=${theme.id})}"
                                    class="btn btn-small">Edit</a>
+                                <!--/* Show "Set as Default" only if not already default */-->
+                                <form th:unless="${tenant?.defaultThemeId?.value == theme.id.value}"
+                                      th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
+                                      hx-target="#theme-rows"
+                                      hx-swap="innerHTML"
+                                      style="display: inline;">
+                                    <input type="hidden" name="themeId" th:value="${theme.id}">
+                                    <button type="submit" class="btn btn-small btn-secondary">Set as Default</button>
+                                </form>
+                                <!--/* Disable delete button for default theme or when only one theme exists */-->
+                                <form th:if="${tenant?.defaultThemeId?.value != theme.id.value and #lists.size(themes) > 1}"
+                                      th:hx-post="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
+                                      hx-target="#theme-rows"
+                                      hx-swap="innerHTML"
+                                      hx-confirm="Delete this theme? Templates using it will fall back to their own styles."
+                                      style="display: inline;">
+                                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                                </form>
+                                <span th:if="${tenant?.defaultThemeId?.value == theme.id.value}" class="text-muted text-small"
+                                      title="Cannot delete the default theme">Cannot delete</span>
+                                <span th:if="${tenant?.defaultThemeId?.value != theme.id.value and #lists.size(themes) <= 1}" class="text-muted text-small"
+                                      title="At least one theme must exist">Cannot delete last theme</span>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(themes)}">

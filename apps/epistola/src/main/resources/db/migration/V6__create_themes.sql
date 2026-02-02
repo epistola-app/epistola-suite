@@ -17,3 +17,10 @@ CREATE TABLE themes (
 
 CREATE INDEX idx_themes_tenant_id ON themes(tenant_id);
 CREATE INDEX idx_themes_last_modified ON themes(last_modified DESC);
+
+-- Foreign key from tenants.default_theme_id to themes.id
+-- Added here because themes table must exist first
+ALTER TABLE tenants ADD CONSTRAINT fk_tenants_default_theme
+    FOREIGN KEY (default_theme_id) REFERENCES themes(id);
+CREATE INDEX idx_tenants_default_theme_id ON tenants(default_theme_id)
+    WHERE default_theme_id IS NOT NULL;

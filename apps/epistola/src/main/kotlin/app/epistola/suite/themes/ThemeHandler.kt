@@ -8,6 +8,8 @@ import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DocumentStyles
+import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
+import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.commands.CreateTheme
 import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
@@ -39,11 +41,13 @@ class ThemeHandler(
 ) {
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
+        val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
             "themes/list",
             mapOf(
                 "tenantId" to tenantId,
+                "tenant" to tenant,
                 "themes" to themes,
             ),
         )
@@ -52,10 +56,12 @@ class ThemeHandler(
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = resolveTenantId(request)
         val searchTerm = request.param("q").orElse(null)
+        val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId), searchTerm = searchTerm).query()
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId
+                "tenant" to tenant
                 "themes" to themes
             }
             onNonHtmx { redirect("/tenants/$tenantId/themes") }
@@ -91,10 +97,12 @@ class ThemeHandler(
 
         command.execute()
 
+        val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
         return request.htmx {
             fragment("themes/list", "rows") {
                 "tenantId" to tenantId
+                "tenant" to tenant
                 "themes" to themes
             }
             trigger("themeCreated")
@@ -158,11 +166,61 @@ class ThemeHandler(
         val themeId = parseUUID(request.pathVariable("themeId"))
             ?: return ServerResponse.badRequest().build()
 
-        DeleteTheme(tenantId = TenantId.of(tenantId), id = ThemeId.of(themeId)).execute()
+        try {
+            DeleteTheme(tenantId = TenantId.of(tenantId), id = ThemeId.of(themeId)).execute()
+        } catch (e: ThemeInUseException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        } catch (e: LastThemeException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/$tenantId/themes")
-            .build()
+        // Return updated rows for HTMX
+        val tenant = GetTenant(id = TenantId.of(tenantId)).query()
+        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
+        return request.htmx {
+            fragment("themes/list", "rows") {
+                "tenantId" to tenantId
+                "tenant" to tenant
+                "themes" to themes
+            }
+            onNonHtmx { redirect("/tenants/$tenantId/themes") }
+        }
+    }
+
+    /**
+     * Sets the default theme for a tenant.
+     */
+    fun setDefault(request: ServerRequest): ServerResponse {
+        val tenantId = resolveTenantId(request)
+        val themeIdStr = request.params().getFirst("themeId")
+            ?: return ServerResponse.badRequest().build()
+        val themeId = parseUUID(themeIdStr)
+            ?: return ServerResponse.badRequest().build()
+
+        try {
+            SetTenantDefaultTheme(
+                tenantId = TenantId.of(tenantId),
+                themeId = ThemeId.of(themeId),
+            ).execute()
+        } catch (e: ThemeNotFoundException) {
+            return ServerResponse.notFound().build()
+        }
+
+        // Return updated rows for HTMX
+        val tenant = GetTenant(id = TenantId.of(tenantId)).query()
+        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
+        return request.htmx {
+            fragment("themes/list", "rows") {
+                "tenantId" to tenantId
+                "tenant" to tenant
+                "themes" to themes
+            }
+            onNonHtmx { redirect("/tenants/$tenantId/themes") }
+        }
     }
 
     private fun resolveTenantId(request: ServerRequest): UUID = parseUUID(request.pathVariable("tenantId"))

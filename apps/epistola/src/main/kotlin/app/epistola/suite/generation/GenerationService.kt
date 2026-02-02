@@ -41,7 +41,7 @@ class GenerationService(
      * Theme resolution cascade:
      * 1. Variant-level theme (TemplateModel.themeId) - highest priority
      * 2. Template-level default theme (templateDefaultThemeId parameter) - fallback
-     * 3. No theme - if neither is set
+     * 3. Tenant default theme (tenantDefaultThemeId parameter) - ultimate fallback
      *
      * When a theme is resolved, theme styles are merged:
      * - Theme document styles serve as defaults, template document styles override
@@ -52,6 +52,7 @@ class GenerationService(
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      * @param templateDefaultThemeId Optional default theme from DocumentTemplate (variant can override)
+     * @param tenantDefaultThemeId Optional default theme from Tenant (ultimate fallback)
      */
     fun renderPdf(
         tenantId: TenantId,
@@ -59,9 +60,15 @@ class GenerationService(
         data: Map<String, Any?>,
         outputStream: OutputStream,
         templateDefaultThemeId: ThemeId? = null,
+        tenantDefaultThemeId: ThemeId? = null,
     ) {
-        // Resolve styles from theme (variant-level overrides template-level default)
-        val resolvedStyles = themeStyleResolver.resolveStyles(tenantId, templateDefaultThemeId, templateModel)
+        // Resolve styles from theme (variant-level > template-level > tenant-level)
+        val resolvedStyles = themeStyleResolver.resolveStyles(
+            tenantId,
+            templateDefaultThemeId,
+            tenantDefaultThemeId,
+            templateModel,
+        )
 
         pdfRenderer.render(
             template = templateModel,

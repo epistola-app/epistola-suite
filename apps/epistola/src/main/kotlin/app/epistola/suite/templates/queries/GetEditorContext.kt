@@ -32,6 +32,7 @@ data class EditorContext(
     val dataModel: ObjectNode?,
     val themes: List<ThemeSummary>,
     val defaultTheme: ThemeSummary?,
+    val tenantDefaultTheme: ThemeSummary?,
 )
 
 /**
@@ -61,11 +62,16 @@ class GetEditorContextHandler(
                 ver.template_model as draft_template_model,
                 theme.id as default_theme_id,
                 theme.name as default_theme_name,
-                theme.description as default_theme_description
+                theme.description as default_theme_description,
+                t.default_theme_id as tenant_default_theme_id,
+                tenant_theme.name as tenant_default_theme_name,
+                tenant_theme.description as tenant_default_theme_description
             FROM document_templates dt
+            JOIN tenants t ON t.id = dt.tenant_id
             JOIN template_variants tv ON tv.template_id = dt.id
             LEFT JOIN template_versions ver ON ver.variant_id = tv.id AND ver.status = 'draft'
             LEFT JOIN themes theme ON theme.id = dt.theme_id
+            LEFT JOIN themes tenant_theme ON tenant_theme.id = t.default_theme_id
             WHERE dt.id = :templateId
               AND dt.tenant_id = :tenantId
               AND tv.id = :variantId
@@ -121,6 +127,15 @@ class GetEditorContextHandler(
             )
         }
 
+        // Build tenant default theme summary if tenant has one
+        val tenantDefaultTheme = (row["tenant_default_theme_id"] as? java.util.UUID)?.let { themeId ->
+            ThemeSummary(
+                id = themeId.toString(),
+                name = row["tenant_default_theme_name"] as String,
+                description = row["tenant_default_theme_description"] as? String,
+            )
+        }
+
         EditorContext(
             templateName = row["template_name"] as String,
             variantTags = variantTags,
@@ -129,6 +144,7 @@ class GetEditorContextHandler(
             dataModel = row["data_model"] as? ObjectNode,
             themes = themes,
             defaultTheme = defaultTheme,
+            tenantDefaultTheme = tenantDefaultTheme,
         )
     }
 }

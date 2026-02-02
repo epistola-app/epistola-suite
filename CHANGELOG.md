@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Tenant Default Theme**: Each tenant now has a default theme that serves as the ultimate fallback in the theme cascade
+  - Theme cascade order: Variant theme → Template theme → Tenant default theme
+  - Creating a new tenant automatically creates a "Tenant Default" theme with sensible defaults
+  - Tenant default theme can be changed via the Themes UI or `SetTenantDefaultTheme` command
+  - At least one theme must exist per tenant (deletion constraints prevent removing last theme)
+  - Cannot delete a theme that is set as the tenant's default
+  - Themes list UI shows "Default" badge and "Set as Default" button for non-default themes
+  - Demo tenant now uses "Corporate" as default theme instead of auto-created "Tenant Default"
+
 ### Fixed
 - **PDF preview not applying template's default theme**: Preview endpoint was not passing the template's default theme to the PDF renderer, causing previews to miss the template-level theme cascade. Now correctly fetches the template and passes its `themeId` to `renderPdf()`.
 

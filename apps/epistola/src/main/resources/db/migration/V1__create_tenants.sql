@@ -3,6 +3,7 @@
 CREATE TABLE tenants (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    default_theme_id UUID,  -- FK added in V6 after themes table exists
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 

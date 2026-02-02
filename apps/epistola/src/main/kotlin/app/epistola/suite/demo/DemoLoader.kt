@@ -12,6 +12,7 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
+import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.commands.CreateTheme
 import org.slf4j.LoggerFactory
@@ -67,12 +68,19 @@ class DemoLoader(
                 mediator.send(DeleteTenant(id = demoTenant.id))
             }
 
-            // Create new demo tenant
+            // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
             val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
+            log.info("Tenant has default theme: {}", tenant.defaultThemeId)
 
-            // Create demo themes
-            createDemoThemes(tenant.id)
+            // Create additional demo themes
+            val corporateThemeId = createDemoThemes(tenant.id)
+
+            // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
+            if (corporateThemeId != null) {
+                mediator.send(SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
+                log.info("Set Corporate theme as tenant default")
+            }
 
             // Load and create templates from JSON definitions
             val definitions = loadTemplateDefinitions()
@@ -86,9 +94,12 @@ class DemoLoader(
         }
     }
 
-    private fun createDemoThemes(tenantId: TenantId) {
+    /**
+     * Creates demo themes and returns the ID of the Corporate theme.
+     */
+    private fun createDemoThemes(tenantId: TenantId): ThemeId? {
         // Corporate Theme - professional styling
-        mediator.send(
+        val corporateTheme = mediator.send(
             CreateTheme(
                 id = ThemeId.generate(),
                 tenantId = tenantId,
@@ -160,6 +171,8 @@ class DemoLoader(
             ),
         )
         log.info("Created Modern theme")
+
+        return corporateTheme.id
     }
 
     private fun createTemplateFromDefinition(tenantId: TenantId, definition: TemplateDefinition) {
@@ -224,7 +237,7 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "2.0.3" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "2.1.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
     }

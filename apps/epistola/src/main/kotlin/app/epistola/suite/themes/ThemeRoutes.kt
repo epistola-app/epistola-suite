@@ -10,14 +10,18 @@ import org.springframework.web.servlet.function.router
 class ThemeRoutes(private val handler: ThemeHandler) {
     @Bean
     fun themeRouterFunction(): RouterFunction<ServerResponse> = router {
-        "/tenants/{tenantId}/themes".nest {
-            GET("", handler::list)
-            GET("/search", handler::search)
-            POST("", handler::create)
+        "/tenants/{tenantId}".nest {
+            POST("/default-theme", handler::setDefault)
 
-            GET("/{themeId}", handler::detail)
-            PATCH("/{themeId}", handler::update)
-            POST("/{themeId}/delete", handler::delete)
+            "/themes".nest {
+                GET("", handler::list)
+                GET("/search", handler::search)
+                POST("", handler::create)
+
+                GET("/{themeId}", handler::detail)
+                PATCH("/{themeId}", handler::update)
+                POST("/{themeId}/delete", handler::delete)
+            }
         }
     }
 }
