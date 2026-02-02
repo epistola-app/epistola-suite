@@ -25,8 +25,6 @@ val copyDistToResources by tasks.registering(Copy::class) {
     dependsOn(verifyFrontendBuild)
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/headless-editor"))
-
-    outputs.upToDateWhen { layout.buildDirectory.dir("resources/main/META-INF/resources/headless-editor").get().asFile.exists() }
 }
 
 tasks.named("processResources") {
