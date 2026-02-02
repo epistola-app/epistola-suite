@@ -10,4 +10,4 @@ export {
   pageHeaderBlockDefinition,
   pageFooterBlockDefinition,
   blockHelpers,
-} from './definitions.js';
+} from "./definitions.js";

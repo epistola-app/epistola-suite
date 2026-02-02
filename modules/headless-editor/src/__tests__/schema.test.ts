@@ -1,18 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
-import { TemplateEditor } from '../editor';
-import type { JsonSchema } from '../types';
+import { describe, it, expect, vi } from "vitest";
+import { TemplateEditor } from "../editor";
+import type { JsonSchema } from "../types";
 
-describe('Schema', () => {
-  describe('setSchema', () => {
-    it('should set a valid schema', () => {
+describe("Schema", () => {
+  describe("setSchema", () => {
+    it("should set a valid schema", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
-          age: { type: 'number' },
+          name: { type: "string" },
+          age: { type: "number" },
         },
-        required: ['name'],
+        required: ["name"],
       };
 
       editor.setSchema(schema);
@@ -20,40 +20,42 @@ describe('Schema', () => {
       expect(editor.getSchema()).toEqual(schema);
     });
 
-    it('should support nested object properties', () => {
+    it("should support nested object properties", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           order: {
-            type: 'object',
+            type: "object",
             properties: {
-              id: { type: 'string' },
-              total: { type: 'number' },
+              id: { type: "string" },
+              total: { type: "number" },
             },
-            required: ['id'],
+            required: ["id"],
           },
         },
       };
 
       editor.setSchema(schema);
 
-      expect(editor.getSchema()?.properties?.order?.type).toBe('object');
-      expect(editor.getSchema()?.properties?.order?.properties?.id?.type).toBe('string');
+      expect(editor.getSchema()?.properties?.order?.type).toBe("object");
+      expect(editor.getSchema()?.properties?.order?.properties?.id?.type).toBe(
+        "string",
+      );
     });
 
-    it('should support array properties with items', () => {
+    it("should support array properties with items", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
           items: {
-            type: 'array',
+            type: "array",
             items: {
-              type: 'object',
+              type: "object",
               properties: {
-                name: { type: 'string' },
-                price: { type: 'number' },
+                name: { type: "string" },
+                price: { type: "number" },
               },
             },
           },
@@ -62,16 +64,16 @@ describe('Schema', () => {
 
       editor.setSchema(schema);
 
-      expect(editor.getSchema()?.properties?.items?.type).toBe('array');
-      expect(editor.getSchema()?.properties?.items?.items?.type).toBe('object');
+      expect(editor.getSchema()?.properties?.items?.type).toBe("array");
+      expect(editor.getSchema()?.properties?.items?.items?.type).toBe("object");
     });
 
-    it('should clear schema when setting null', () => {
+    it("should clear schema when setting null", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
+          name: { type: "string" },
         },
       };
 
@@ -82,20 +84,20 @@ describe('Schema', () => {
       expect(editor.getSchema()).toBeNull();
     });
 
-    it('should be null by default', () => {
+    it("should be null by default", () => {
       const editor = new TemplateEditor();
 
       expect(editor.getSchema()).toBeNull();
     });
   });
 
-  describe('getSchema', () => {
-    it('should return the current schema', () => {
+  describe("getSchema", () => {
+    it("should return the current schema", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          email: { type: 'string', description: 'User email' },
+          email: { type: "string", description: "User email" },
         },
       };
 
@@ -105,18 +107,18 @@ describe('Schema', () => {
       expect(retrieved).toEqual(schema);
     });
 
-    it('should return null when no schema is set', () => {
+    it("should return null when no schema is set", () => {
       const editor = new TemplateEditor();
 
       expect(editor.getSchema()).toBeNull();
     });
 
-    it('should return a reference to the same object', () => {
+    it("should return a reference to the same object", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          id: { type: 'string' },
+          id: { type: "string" },
         },
       };
 
@@ -126,8 +128,8 @@ describe('Schema', () => {
     });
   });
 
-  describe('subscribe to schema changes', () => {
-    it('should notify when schema is set', () => {
+  describe("subscribe to schema changes", () => {
+    it("should notify when schema is set", () => {
       const editor = new TemplateEditor();
       const callback = vi.fn();
       const stores = editor.getStores();
@@ -135,9 +137,9 @@ describe('Schema', () => {
       stores.$schema.subscribe(callback);
 
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
+          name: { type: "string" },
         },
       };
       editor.setSchema(schema);
@@ -146,12 +148,12 @@ describe('Schema', () => {
       expect(callback).toHaveBeenCalledWith(schema, null, undefined);
     });
 
-    it('should notify when schema is cleared', () => {
+    it("should notify when schema is cleared", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
+          name: { type: "string" },
         },
       };
       editor.setSchema(schema);
@@ -167,12 +169,12 @@ describe('Schema', () => {
       expect(callback).toHaveBeenCalledWith(null, schema, undefined);
     });
 
-    it('should not notify if schema value is unchanged', () => {
+    it("should not notify if schema value is unchanged", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          name: { type: 'string' },
+          name: { type: "string" },
         },
       };
       editor.setSchema(schema);
@@ -191,30 +193,30 @@ describe('Schema', () => {
     });
   });
 
-  describe('schema with all field types', () => {
-    it('should support all SchemaFieldType values', () => {
+  describe("schema with all field types", () => {
+    it("should support all SchemaFieldType values", () => {
       const editor = new TemplateEditor();
       const schema: JsonSchema = {
-        type: 'object',
+        type: "object",
         properties: {
-          stringField: { type: 'string' },
-          numberField: { type: 'number' },
-          integerField: { type: 'integer' },
-          booleanField: { type: 'boolean' },
-          arrayField: { type: 'array' },
-          objectField: { type: 'object' },
+          stringField: { type: "string" },
+          numberField: { type: "number" },
+          integerField: { type: "integer" },
+          booleanField: { type: "boolean" },
+          arrayField: { type: "array" },
+          objectField: { type: "object" },
         },
       };
 
       editor.setSchema(schema);
 
       const retrieved = editor.getSchema();
-      expect(retrieved?.properties?.stringField?.type).toBe('string');
-      expect(retrieved?.properties?.numberField?.type).toBe('number');
-      expect(retrieved?.properties?.integerField?.type).toBe('integer');
-      expect(retrieved?.properties?.booleanField?.type).toBe('boolean');
-      expect(retrieved?.properties?.arrayField?.type).toBe('array');
-      expect(retrieved?.properties?.objectField?.type).toBe('object');
+      expect(retrieved?.properties?.stringField?.type).toBe("string");
+      expect(retrieved?.properties?.numberField?.type).toBe("number");
+      expect(retrieved?.properties?.integerField?.type).toBe("integer");
+      expect(retrieved?.properties?.booleanField?.type).toBe("boolean");
+      expect(retrieved?.properties?.arrayField?.type).toBe("array");
+      expect(retrieved?.properties?.objectField?.type).toBe("object");
     });
   });
 });
