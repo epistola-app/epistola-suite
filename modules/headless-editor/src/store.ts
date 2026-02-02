@@ -6,7 +6,7 @@
  */
 
 import { atom, map } from 'nanostores';
-import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject, JsonSchema, PreviewOverrides } from './types.js';
+import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject, JsonSchema, PreviewOverrides, ThemeSummary } from './types.js';
 import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
 
 // ============================================================================
@@ -27,6 +27,10 @@ export function createEditorStore(initialTemplate: Template) {
   const $lastSavedTemplate = atom<Template | null>(null);
   const $previewOverrides = atom<PreviewOverrides>({ ...DEFAULT_PREVIEW_OVERRIDES });
 
+  // Theme atoms
+  const $themes = atom<ThemeSummary[]>([]);
+  const $defaultTheme = atom<ThemeSummary | null>(null);
+
   // Map for complex objects
   const $template = map<Template>(initialTemplate);
 
@@ -39,6 +43,8 @@ export function createEditorStore(initialTemplate: Template) {
     $schema,
     $lastSavedTemplate,
     $previewOverrides,
+    $themes,
+    $defaultTheme,
 
     // Getters
     getTemplate: () => $template.get(),
@@ -49,6 +55,8 @@ export function createEditorStore(initialTemplate: Template) {
     getSchema: () => $schema.get(),
     getLastSavedTemplate: () => $lastSavedTemplate.get(),
     getPreviewOverrides: () => JSON.parse(JSON.stringify($previewOverrides.get())) as PreviewOverrides,
+    getThemes: () => $themes.get(),
+    getDefaultTheme: () => $defaultTheme.get(),
 
     // Setters
     setTemplate: (template: Template) => $template.set(template),
@@ -59,6 +67,8 @@ export function createEditorStore(initialTemplate: Template) {
     setSchema: (schema: JsonSchema | null) => $schema.set(schema),
     setLastSavedTemplate: (template: Template | null) => $lastSavedTemplate.set(template),
     setPreviewOverrides: (overrides: PreviewOverrides) => $previewOverrides.set(overrides),
+    setThemes: (themes: ThemeSummary[]) => $themes.set(themes),
+    setDefaultTheme: (theme: ThemeSummary | null) => $defaultTheme.set(theme),
 
     // Subscribe to changes
     subscribeTemplate: (cb: (template: Template) => void) => $template.subscribe(cb),
@@ -69,6 +79,8 @@ export function createEditorStore(initialTemplate: Template) {
     subscribeSchema: (cb: (schema: JsonSchema | null) => void) => $schema.subscribe(cb),
     subscribeLastSavedTemplate: (cb: (template: Template | null) => void) => $lastSavedTemplate.subscribe(cb),
     subscribePreviewOverrides: (cb: (overrides: PreviewOverrides) => void) => $previewOverrides.subscribe(cb),
+    subscribeThemes: (cb: (themes: readonly ThemeSummary[]) => void) => $themes.subscribe(cb),
+    subscribeDefaultTheme: (cb: (theme: ThemeSummary | null) => void) => $defaultTheme.subscribe(cb),
   };
 }
 

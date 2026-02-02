@@ -28,6 +28,7 @@ import type {
   PreviewOverrides,
   PageSettings,
   DocumentStyles,
+  ThemeSummary,
 } from './types.js';
 import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
 
@@ -137,6 +138,8 @@ export class TemplateEditor {
       $schema: this.store.$schema,
       $lastSavedTemplate: this.store.$lastSavedTemplate,
       $previewOverrides: this.store.$previewOverrides,
+      $themes: this.store.$themes,
+      $defaultTheme: this.store.$defaultTheme,
     };
   }
 
@@ -337,6 +340,51 @@ export class TemplateEditor {
    */
   clearPreviewOverrides(): void {
     this.store.setPreviewOverrides({ ...DEFAULT_PREVIEW_OVERRIDES });
+  }
+
+  // =========================================================================
+  // THEMES
+  // =========================================================================
+
+  /**
+   * Set available themes
+   */
+  setThemes(themes: ThemeSummary[]): void {
+    this.store.setThemes(themes);
+  }
+
+  /**
+   * Set the default theme (from parent template)
+   */
+  setDefaultTheme(theme: ThemeSummary | null): void {
+    this.store.setDefaultTheme(theme);
+  }
+
+  /**
+   * Get available themes
+   */
+  getThemes(): ThemeSummary[] {
+    return this.store.getThemes();
+  }
+
+  /**
+   * Get the default theme
+   */
+  getDefaultTheme(): ThemeSummary | null {
+    return this.store.getDefaultTheme();
+  }
+
+  /**
+   * Update the template's selected theme ID with undo support
+   */
+  updateThemeId(themeId: string | null): void {
+    this.saveToHistory();
+
+    const current = this.store.getTemplate();
+    this.store.setTemplate({
+      ...current,
+      themeId,
+    });
   }
 
   // =========================================================================
