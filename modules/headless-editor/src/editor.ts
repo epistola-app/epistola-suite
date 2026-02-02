@@ -597,6 +597,8 @@ export class TemplateEditor {
    * Update a block
    */
   updateBlock(id: string, updates: Partial<Block>): void {
+    this.saveToHistory();
+
     const template = this.store.getTemplate();
     const newBlocks = BlockTree.updateBlock(template.blocks, id, updates);
     this.store.setTemplate({ ...template, blocks: newBlocks });
@@ -856,10 +858,32 @@ export class TemplateEditor {
 
   /**
    * Import template from JSON string
+   * Validates that the JSON has required Template structure
    */
   importJSON(json: string): void {
     try {
-      const template = JSON.parse(json) as Template;
+      const parsed: unknown = JSON.parse(json);
+
+      // Basic structure validation
+      if (typeof parsed !== 'object' || parsed === null) {
+        throw new Error('Template must be an object');
+      }
+
+      const obj = parsed as Record<string, unknown>;
+
+      if (typeof obj.id !== 'string' || obj.id.length === 0) {
+        throw new Error('Template must have a non-empty string id');
+      }
+
+      if (typeof obj.name !== 'string') {
+        throw new Error('Template must have a string name');
+      }
+
+      if (!Array.isArray(obj.blocks)) {
+        throw new Error('Template must have a blocks array');
+      }
+
+      const template = parsed as Template;
       this.store.setTemplate(template);
     } catch (e) {
       this.callbacks.onError?.(new Error(`Invalid JSON: ${(e as Error).message}`));
@@ -1078,13 +1102,30 @@ export class TemplateEditor {
 
   /**
    * Execute a drop operation
+   * @param draggedId - The block being dragged
+   * @param targetId - The target block (or null for root)
+   * @param index - The insertion index
+   * @param position - The drop position for validation (defaults to 'inside')
    */
-  drop(draggedId: string, targetId: string | null, index: number): void {
-    if (!this.canDrop(draggedId, targetId, 'inside')) {
+  drop(draggedId: string, targetId: string | null, index: number, position: DropPosition = 'inside'): void {
+    if (!this.canDrop(draggedId, targetId, position)) {
       this.callbacks.onError?.(new Error('Invalid drop target'));
       return;
     }
-    this.moveBlock(draggedId, targetId, index);
+
+    if (position === 'inside') {
+      this.moveBlock(draggedId, targetId, index);
+    } else {
+      const target = this.findBlock(targetId!);
+      if (!target) return;
+
+      const targetParent = BlockTree.findParent(this.store.getTemplate().blocks, targetId!, null);
+      const actualIndex = position === 'after'
+        ? BlockTree.getChildIndex(this.store.getTemplate().blocks, targetId!, null) + 1
+        : BlockTree.getChildIndex(this.store.getTemplate().blocks, targetId!, null);
+
+      this.moveBlock(draggedId, targetParent?.id ?? null, actualIndex);
+    }
   }
 
   /**

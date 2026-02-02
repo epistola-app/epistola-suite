@@ -412,8 +412,8 @@ export interface DragDropPort {
   /** Get valid drop zones for visual hints */
   getDropZones(draggedId: string): DropZone[];
 
-  /** Execute the drop */
-  drop(draggedId: string, targetId: string | null, index: number): void;
+  /** Execute the drop (position defaults to 'inside' if omitted) */
+  drop(draggedId: string, targetId: string | null, index: number, position?: DropPosition): void;
 }
 
 // ============================================================================
