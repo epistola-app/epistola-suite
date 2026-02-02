@@ -24,10 +24,11 @@ import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
-import app.epistola.suite.templates.queries.versions.GetDraft
+import app.epistola.suite.templates.queries.versions.GetPreviewContext
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -184,27 +185,28 @@ class DocumentTemplateHandler(
         val variantId = parseUUID(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
 
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
-            ?: return ServerResponse.notFound().build()
+        // Get all editor context in a single query
+        val context = GetEditorContext(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query() ?: return ServerResponse.notFound().build()
 
-        val variant = GetVariant(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
-            ?: return ServerResponse.notFound().build()
-
-        // Get or create draft for this variant
-        var draft = GetDraft(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
-        if (draft == null) {
-            // Create a new draft if one doesn't exist
-            draft = CreateVersion(id = VersionId.generate(), tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).execute()
-                ?: return ServerResponse.status(500).build()
+        // Create draft if none exists
+        val templateModel = context.templateModel ?: run {
+            val draft = CreateVersion(
+                id = VersionId.generate(),
+                tenantId = TenantId.of(tenantId),
+                templateId = TemplateId.of(templateId),
+                variantId = VariantId.of(variantId),
+            ).execute() ?: return ServerResponse.status(500).build()
+            draft.templateModel ?: createDefaultTemplateModel(context.templateName, variantId)
         }
-
-        // Provide a default empty template structure if none exists
-        val templateModel = draft.templateModel ?: createDefaultTemplateModel(template.name, variantId)
 
         // Convert dataExamples to plain maps for proper Thymeleaf/JS serialization
         val mapTypeRef = object : TypeReference<Map<String, Any?>>() {}
         val dataExamplesForJs = try {
-            template.dataExamples.map { example ->
+            context.dataExamples.map { example ->
                 mapOf(
                     "id" to example.id,
                     "name" to example.name,
@@ -217,32 +219,19 @@ class DocumentTemplateHandler(
 
         // Convert dataModel to plain map for proper Thymeleaf/JS serialization
         val dataModelForJs = try {
-            template.dataModel?.let {
-                objectMapper.convertValue(it, mapTypeRef)
-            }
+            context.dataModel?.let { objectMapper.convertValue(it, mapTypeRef) }
         } catch (e: Exception) {
             null
         }
 
-        // Load available themes for the tenant
-        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
-        val themesForJs = themes.map { theme ->
-            mapOf(
-                "id" to theme.id.value.toString(),
-                "name" to theme.name,
-                "description" to theme.description,
-            )
+        // Convert themes to plain maps for JS
+        val themesForJs = context.themes.map { theme ->
+            mapOf("id" to theme.id, "name" to theme.name, "description" to theme.description)
         }
 
-        // Look up the template's default theme info (if set) for UI display
-        val defaultThemeForJs = template.themeId?.let { themeId ->
-            themes.find { it.id == themeId }?.let { theme ->
-                mapOf(
-                    "id" to theme.id.value.toString(),
-                    "name" to theme.name,
-                    "description" to theme.description,
-                )
-            }
+        // Convert default theme to plain map for JS
+        val defaultThemeForJs = context.defaultTheme?.let { theme ->
+            mapOf("id" to theme.id, "name" to theme.name, "description" to theme.description)
         }
 
         return ServerResponse.ok().render(
@@ -251,8 +240,8 @@ class DocumentTemplateHandler(
                 "tenantId" to tenantId,
                 "templateId" to templateId,
                 "variantId" to variantId,
-                "templateName" to template.name,
-                "variantTags" to variant.tags,
+                "templateName" to context.templateName,
+                "variantTags" to context.variantTags,
                 "templateModel" to templateModel,
                 "dataExamples" to dataExamplesForJs,
                 "dataModel" to dataModelForJs,
@@ -703,22 +692,25 @@ class DocumentTemplateHandler(
                 )
         }
 
+        // Get preview context: draft template model and template's default theme
+        val previewContext = GetPreviewContext(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query() ?: return ServerResponse.notFound().build()
+
         // Resolve the template model - either from request (live preview) or from draft
         val templateModel = if (previewRequest.templateModel != null) {
             generationService.convertTemplateModel(previewRequest.templateModel)
         } else {
-            val draft = GetDraft(TenantId.of(tenantId), TemplateId.of(templateId), VariantId.of(variantId)).query()
-            draft?.templateModel ?: return ServerResponse.notFound().build()
+            previewContext.draftTemplateModel ?: return ServerResponse.notFound().build()
         }
-
-        // Get template's default theme for the theme cascade
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_PDF)
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
             .build { _, response ->
-                generationService.renderPdf(TenantId.of(tenantId), templateModel, data, response.outputStream, template?.themeId)
+                generationService.renderPdf(TenantId.of(tenantId), templateModel, data, response.outputStream, previewContext.templateThemeId)
                 response.outputStream.flush()
                 null // Return null to indicate no view to render
             }
