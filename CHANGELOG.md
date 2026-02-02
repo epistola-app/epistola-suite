@@ -18,6 +18,11 @@
 ### Changed
 - **EditorContext theme resolution simplified**: Removed `tenantDefaultTheme` field from `EditorContext` data class. The theme cascade (template → tenant) is now resolved server-side, returning a single `defaultTheme` field containing the effective theme for the editor.
 - **Theme dropdown shows inherited theme**: When a variant has no theme override but the parent template has a default theme, the dropdown now shows "Default ({theme name})" instead of "No theme", making the theme cascade more obvious to users.
+- **BREAKING: Template model now required for versions**: The `template_model` column in `template_versions` is now `NOT NULL`. All template versions must have content.
+  - `TemplateVersion.templateModel` is now non-nullable
+  - `UpdateDraft` and `UpdateVersion` commands now require `templateModel` parameter
+  - `CreateVariant` now creates draft versions with a default template model
+  - Existing databases with NULL template_model values will need migration (reset database for development)
 
 ### Added
 - **Theme System for Reusable Styling**: Introduced themes for defining reusable style collections across multiple templates

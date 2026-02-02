@@ -22,7 +22,7 @@ data class TemplateVersion(
     val id: VersionId,
     val variantId: VariantId,
     val versionNumber: Int?,
-    @Json val templateModel: TemplateModel?,
+    @Json val templateModel: TemplateModel,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,

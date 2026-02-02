@@ -200,7 +200,7 @@ class DocumentTemplateHandler(
                 templateId = TemplateId.of(templateId),
                 variantId = VariantId.of(variantId),
             ).execute() ?: return ServerResponse.status(500).build()
-            draft.templateModel ?: return ServerResponse.status(500).build()
+            draft.templateModel
         }
 
         // Convert dataExamples to plain maps for proper Thymeleaf/JS serialization

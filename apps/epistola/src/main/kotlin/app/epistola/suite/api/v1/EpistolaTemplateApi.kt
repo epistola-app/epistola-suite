@@ -247,6 +247,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
+            ?: return ResponseEntity.badRequest().build()
         val draft = UpdateDraft(
             tenantId = TenantId.of(tenantId),
             templateId = TemplateId.of(templateId),
@@ -381,6 +382,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
+            ?: return ResponseEntity.badRequest().build()
         val version = UpdateVersion(
             tenantId = TenantId.of(tenantId),
             templateId = TemplateId.of(templateId),
