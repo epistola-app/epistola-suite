@@ -6,7 +6,7 @@
  */
 
 import { atom, map } from 'nanostores';
-import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject } from './types.js';
+import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject, JsonSchema } from './types.js';
 import { DEFAULT_TEST_DATA } from './types.js';
 
 // ============================================================================
@@ -23,6 +23,7 @@ export function createEditorStore(initialTemplate: Template) {
   const $dataExamples = atom<DataExample[]>([]);
   const $selectedDataExampleId = atom<string | null>(null);
   const $testData = atom<JsonObject>(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+  const $schema = atom<JsonSchema | null>(null);
 
   // Map for complex objects
   const $template = map<Template>(initialTemplate);
@@ -33,6 +34,7 @@ export function createEditorStore(initialTemplate: Template) {
     $dataExamples,
     $selectedDataExampleId,
     $testData,
+    $schema,
 
     // Getters
     getTemplate: () => $template.get(),
@@ -40,6 +42,7 @@ export function createEditorStore(initialTemplate: Template) {
     getDataExamples: () => $dataExamples.get(),
     getSelectedDataExampleId: () => $selectedDataExampleId.get(),
     getTestData: () => $testData.get(),
+    getSchema: () => $schema.get(),
 
     // Setters
     setTemplate: (template: Template) => $template.set(template),
@@ -47,6 +50,7 @@ export function createEditorStore(initialTemplate: Template) {
     setDataExamples: (examples: DataExample[]) => $dataExamples.set(examples),
     setSelectedDataExampleId: (id: string | null) => $selectedDataExampleId.set(id),
     setTestData: (data: JsonObject) => $testData.set(data),
+    setSchema: (schema: JsonSchema | null) => $schema.set(schema),
 
     // Subscribe to changes
     subscribeTemplate: (cb: (template: Template) => void) => $template.subscribe(cb),
@@ -54,6 +58,7 @@ export function createEditorStore(initialTemplate: Template) {
     subscribeDataExamples: (cb: (examples: readonly DataExample[]) => void) => $dataExamples.subscribe(cb),
     subscribeSelectedDataExampleId: (cb: (id: string | null) => void) => $selectedDataExampleId.subscribe(cb),
     subscribeTestData: (cb: (data: JsonObject) => void) => $testData.subscribe(cb),
+    subscribeSchema: (cb: (schema: JsonSchema | null) => void) => $schema.subscribe(cb),
   };
 }
 
