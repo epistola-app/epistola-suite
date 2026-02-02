@@ -10,6 +10,7 @@ import app.epistola.suite.templates.model.DataExamples
 import app.epistola.template.model.TemplateModel
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -27,7 +28,7 @@ data class ThemeSummary(
 data class EditorContext(
     val templateName: String,
     val variantTags: Map<String, String>,
-    val templateModel: TemplateModel?,
+    val templateModel: TemplateModel,
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
     val themes: List<ThemeSummary>,
@@ -47,6 +48,7 @@ data class GetEditorContext(
 @Component
 class GetEditorContextHandler(
     private val jdbi: Jdbi,
+    private val objectMapper: ObjectMapper,
 ) : QueryHandler<GetEditorContext, EditorContext?> {
     override fun handle(query: GetEditorContext): EditorContext? = jdbi.withHandle<EditorContext?, Exception> { handle ->
         // Single query to get template, variant, draft, and default theme info
@@ -138,10 +140,21 @@ class GetEditorContextHandler(
         // Resolve theme cascade: template theme takes precedence over tenant default
         val resolvedTheme = templateTheme ?: tenantDefaultTheme
 
+        // Deserialize draft_template_model from JSONB (comes as String or PGobject from mapToMap)
+        // Every variant must have a draft with a templateModel - if not, it's a data integrity issue
+        val templateModel = row["draft_template_model"]?.let { raw ->
+            val json = raw.toString()
+            if (json.isNotBlank()) {
+                objectMapper.readValue(json, TemplateModel::class.java)
+            } else {
+                null
+            }
+        } ?: error("Variant ${query.variantId} has no draft with templateModel - data integrity issue")
+
         EditorContext(
             templateName = row["template_name"] as String,
             variantTags = variantTags,
-            templateModel = row["draft_template_model"] as? TemplateModel,
+            templateModel = templateModel,
             dataExamples = dataExamples,
             dataModel = row["data_model"] as? ObjectNode,
             themes = themes,

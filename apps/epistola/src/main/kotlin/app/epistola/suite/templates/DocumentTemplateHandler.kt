@@ -192,16 +192,8 @@ class DocumentTemplateHandler(
             variantId = VariantId.of(variantId),
         ).query() ?: return ServerResponse.notFound().build()
 
-        // Create draft if none exists (CreateVersion creates default template model)
-        val templateModel = context.templateModel ?: run {
-            val draft = CreateVersion(
-                id = VersionId.generate(),
-                tenantId = TenantId.of(tenantId),
-                templateId = TemplateId.of(templateId),
-                variantId = VariantId.of(variantId),
-            ).execute() ?: return ServerResponse.status(500).build()
-            draft.templateModel
-        }
+        // Every variant has a draft with templateModel (created when variant is created)
+        val templateModel = context.templateModel
 
         // Convert dataExamples to plain maps for proper Thymeleaf/JS serialization
         val mapTypeRef = object : TypeReference<Map<String, Any?>>() {}

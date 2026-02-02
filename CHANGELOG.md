@@ -20,6 +20,7 @@
 - **Theme dropdown shows inherited theme**: When a variant has no theme override but the parent template has a default theme, the dropdown now shows "Default ({theme name})" instead of "No theme", making the theme cascade more obvious to users.
 - **BREAKING: Template model now required for versions**: The `template_model` column in `template_versions` is now `NOT NULL`. All template versions must have content.
   - `TemplateVersion.templateModel` is now non-nullable
+  - `EditorContext.templateModel` is now non-nullable (always returns resolved model)
   - `UpdateDraft` and `UpdateVersion` commands now require `templateModel` parameter
   - `CreateVariant` now creates draft versions with a default template model
   - Existing databases with NULL template_model values will need migration (reset database for development)
