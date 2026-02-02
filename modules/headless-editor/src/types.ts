@@ -399,6 +399,58 @@ export interface DragDropPort {
 }
 
 // ============================================================================
+// JSON Types
+// ============================================================================
+
+/**
+ * JSON value types for test data
+ */
+export type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
+
+/**
+ * JSON object type
+ */
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+/**
+ * JSON array type
+ */
+export interface JsonArray extends Array<JsonValue> {}
+
+// ============================================================================
+// Data Example Types
+// ============================================================================
+
+/**
+ * Data example for template preview
+ * Matches backend's DataExample model
+ */
+export interface DataExample {
+  id: string;
+  name: string;
+  data: JsonObject;
+}
+
+/**
+ * Default test data used when no data example is selected
+ */
+export const DEFAULT_TEST_DATA: JsonObject = {
+  name: 'John Doe',
+  email: 'john@example.com',
+  company: 'Example Inc.',
+  order: {
+    id: 'ORD-001',
+    items: [
+      { name: 'Product A', price: 99.99, quantity: 2 },
+      { name: 'Product B', price: 49.99, quantity: 1 },
+    ],
+    total: 249.97,
+  },
+};
+
+// ============================================================================
 // Editor State Types
 // ============================================================================
 
@@ -408,6 +460,9 @@ export interface DragDropPort {
 export interface EditorState {
   template: Template;
   selectedBlockId: string | null;
+  dataExamples: DataExample[];
+  selectedDataExampleId: string | null;
+  testData: JsonObject;
 }
 
 /**
