@@ -420,6 +420,45 @@ export interface JsonObject {
 export interface JsonArray extends Array<JsonValue> {}
 
 // ============================================================================
+// JSON Schema Types
+// ============================================================================
+
+/**
+ * Valid JSON Schema field types for data model definition
+ */
+export type SchemaFieldType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'array'
+  | 'object';
+
+/**
+ * JSON Schema property definition (recursive structure)
+ * Supports nested objects and arrays
+ */
+export interface JsonSchemaProperty {
+  type: SchemaFieldType;
+  description?: string;
+  // For array type
+  items?: JsonSchemaProperty;
+  // For object type - recursive structure
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+}
+
+/**
+ * JSON Schema for template data model
+ * Subset of JSON Schema standard focused on data validation needs
+ */
+export interface JsonSchema {
+  type: 'object';
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+}
+
+// ============================================================================
 // Data Example Types
 // ============================================================================
 

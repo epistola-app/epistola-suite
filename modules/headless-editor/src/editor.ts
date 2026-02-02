@@ -24,6 +24,7 @@ import type {
   TableBlock,
   DataExample,
   JsonObject,
+  JsonSchema,
 } from './types.js';
 import { DEFAULT_TEST_DATA } from './types.js';
 
@@ -130,7 +131,22 @@ export class TemplateEditor {
       $dataExamples: this.store.$dataExamples,
       $selectedDataExampleId: this.store.$selectedDataExampleId,
       $testData: this.store.$testData,
+      $schema: this.store.$schema,
     };
+  }
+
+  /**
+   * Set the JSON schema for data model
+   */
+  setSchema(schema: JsonSchema | null): void {
+    this.store.setSchema(schema);
+  }
+
+  /**
+   * Get the current JSON schema
+   */
+  getSchema(): JsonSchema | null {
+    return this.store.getSchema();
   }
 
   // =========================================================================
