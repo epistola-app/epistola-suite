@@ -36,7 +36,6 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
-import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 import java.util.UUID
@@ -184,40 +183,6 @@ class DocumentTemplateHandler(
             variantId = VariantId.of(variantId),
         ).query() ?: return ServerResponse.notFound().build()
 
-        // Every variant has a draft with templateModel (created when variant is created)
-        val templateModel = context.templateModel
-
-        // Convert dataExamples to plain maps for proper Thymeleaf/JS serialization
-        val mapTypeRef = object : TypeReference<Map<String, Any?>>() {}
-        val dataExamplesForJs = try {
-            context.dataExamples.map { example ->
-                mapOf(
-                    "id" to example.id,
-                    "name" to example.name,
-                    "data" to objectMapper.convertValue(example.data, mapTypeRef),
-                )
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-
-        // Convert dataModel to plain map for proper Thymeleaf/JS serialization
-        val dataModelForJs = try {
-            context.dataModel?.let { objectMapper.convertValue(it, mapTypeRef) }
-        } catch (_: Exception) {
-            null
-        }
-
-        // Convert themes to plain maps for JS
-        val themesForJs = context.themes.map { theme ->
-            mapOf("id" to theme.id, "name" to theme.name, "description" to theme.description)
-        }
-
-        // Convert default theme to plain map for JS
-        val defaultThemeForJs = context.defaultTheme?.let { theme ->
-            mapOf("id" to theme.id, "name" to theme.name, "description" to theme.description)
-        }
-
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
@@ -226,11 +191,11 @@ class DocumentTemplateHandler(
                 "variantId" to variantId,
                 "templateName" to context.templateName,
                 "variantTags" to context.variantTags,
-                "templateModel" to templateModel,
-                "dataExamples" to dataExamplesForJs,
-                "dataModel" to dataModelForJs,
-                "themes" to themesForJs,
-                "defaultTheme" to defaultThemeForJs,
+                "templateModel" to context.templateModel,
+                "dataExamples" to context.dataExamples,
+                "dataModel" to context.dataModel,
+                "themes" to context.themes,
+                "defaultTheme" to context.defaultTheme,
                 "appVersion" to (buildProperties?.version ?: "dev"),
                 "appName" to (buildProperties?.name ?: "Epistola"),
             ),
