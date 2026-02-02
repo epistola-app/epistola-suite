@@ -10,8 +10,10 @@ GenerateDocumentRequest:
   properties:
     templateId:
       type: string
-      format: uuid
-      description: Template to use for generation
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of template to use for generation
     variantId:
       type: string
       format: uuid
@@ -47,8 +49,10 @@ BatchGenerationItem:
   properties:
     templateId:
       type: string
-      format: uuid
-      description: Template to use for generation
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of template to use for generation
     variantId:
       type: string
       format: uuid
@@ -134,8 +138,10 @@ DocumentGenerationItemDto:
       description: Unique identifier of this item
     templateId:
       type: string
-      format: uuid
-      description: Template used for generation
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of template used for generation
     variantId:
       type: string
       format: uuid
@@ -304,8 +310,10 @@ DocumentDto:
       description: Slug identifier of the tenant that owns this document
     templateId:
       type: string
-      format: uuid
-      description: Template used to generate this document
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of template used to generate this document
     variantId:
       type: string
       format: uuid

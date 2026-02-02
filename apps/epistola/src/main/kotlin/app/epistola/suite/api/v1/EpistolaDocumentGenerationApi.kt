@@ -152,7 +152,7 @@ class EpistolaDocumentGenerationApi(
 
     override fun listDocuments(
         tenantId: String,
-        templateId: UUID?,
+        templateId: String?,
         correlationId: String?,
         page: Int,
         size: Int,

@@ -44,7 +44,8 @@ class TemplatePreviewHandler(
      */
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
-        val templateId = request.pathUuid("id")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")
             ?: return ServerResponse.badRequest().build()
@@ -66,7 +67,7 @@ class TemplatePreviewHandler(
         // Validate data against schema BEFORE starting the streaming response
         val validationResult = generationService.validatePreviewData(
             TenantId.of(tenantId),
-            TemplateId.of(templateId),
+            templateId,
             data,
         )
         if (!validationResult.valid) {
@@ -87,7 +88,7 @@ class TemplatePreviewHandler(
         // Get preview context: draft template model and template's default theme
         val previewContext = GetPreviewContext(
             tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
+            templateId = templateId,
             variantId = VariantId.of(variantId),
         ).query() ?: return ServerResponse.notFound().build()
 

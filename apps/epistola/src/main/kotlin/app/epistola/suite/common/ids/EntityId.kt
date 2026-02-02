@@ -77,15 +77,56 @@ value class TenantId(override val value: String) : SlugId<TenantId> {
 
 /**
  * Typed ID for DocumentTemplate entities.
+ * Uses a human-readable slug format (e.g., "monthly-invoice") instead of UUID.
+ *
+ * Validation rules:
+ * - Length: 3-50 characters
+ * - Characters: lowercase letters (a-z), numbers (0-9), hyphens (-)
+ * - Must start with a letter
+ * - Cannot end with a hyphen
+ * - No consecutive hyphens
  */
 @JvmInline
-value class TemplateId(override val value: UUID) : UuidId<TemplateId> {
-    companion object {
-        fun generate(): TemplateId = TemplateId(UUIDv7.generate())
-        fun of(value: UUID): TemplateId = TemplateId(value)
+value class TemplateId(override val value: String) : SlugId<TemplateId> {
+    init {
+        require(value.length in 3..50) {
+            "Template ID must be 3-50 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Template ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+        require(value !in RESERVED_WORDS) {
+            "Template ID '$value' is reserved and cannot be used"
+        }
     }
 
-    override fun toString(): String = value.toString()
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        private val RESERVED_WORDS = setOf(
+            "admin",
+            "api",
+            "www",
+            "system",
+            "internal",
+            "null",
+            "undefined",
+            "default",
+            "new",
+            "create",
+            "edit",
+            "delete",
+        )
+
+        fun of(value: String): TemplateId = TemplateId(value)
+
+        /**
+         * Validates a slug without throwing.
+         * Returns null if invalid, or the validated slug if valid.
+         */
+        fun validateOrNull(value: String): TemplateId? = runCatching { TemplateId(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
 }
 
 /**

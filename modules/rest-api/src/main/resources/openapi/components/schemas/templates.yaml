@@ -11,8 +11,10 @@ TemplateDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the template
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the template (e.g., "monthly-invoice")
     tenantId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -61,8 +63,10 @@ TemplateSummaryDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the template
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the template (e.g., "monthly-invoice")
     tenantId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -109,8 +113,10 @@ CreateTemplateRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the template (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Client-provided slug identifier for the template
     name:
       type: string
       minLength: 1

@@ -25,7 +25,8 @@ class VariantRouteHandler {
 
     fun createVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
-        val templateId = request.pathUuid("id")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
 
         val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
@@ -36,14 +37,14 @@ class VariantRouteHandler {
         CreateVariant(
             id = VariantId.generate(),
             tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
+            templateId = templateId,
             title = title,
             description = description,
             tags = tags,
         ).execute()
 
-        val variants = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
+        val variants = GetVariantSummaries(templateId = templateId).query()
+        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()
 
         return request.htmx {
@@ -58,19 +59,20 @@ class VariantRouteHandler {
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
-        val templateId = request.pathUuid("id")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
         val variantId = request.pathUuid("variantId")
             ?: return ServerResponse.badRequest().build()
 
         DeleteVariant(
             tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
+            templateId = templateId,
             variantId = VariantId.of(variantId),
         ).execute()
 
-        val variants = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
+        val variants = GetVariantSummaries(templateId = templateId).query()
+        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()
 
         return request.htmx {

@@ -12,6 +12,9 @@ import tools.jackson.databind.node.ObjectNode
  * making it easy to version control and maintain demo content without code changes.
  */
 data class TemplateDefinition(
+    /** Slug identifier for the template (3-50 chars, lowercase, hyphens allowed) */
+    val slug: String,
+
     /** Display name of the template */
     val name: String,
 

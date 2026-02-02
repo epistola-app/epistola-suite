@@ -179,7 +179,7 @@ class DemoLoader(
         // 1. Create template with basic metadata
         val template = mediator.send(
             CreateDocumentTemplate(
-                id = TemplateId.generate(),
+                id = TemplateId.of(definition.slug),
                 tenantId = tenantId,
                 name = definition.name,
             ),

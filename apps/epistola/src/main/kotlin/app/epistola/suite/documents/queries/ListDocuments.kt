@@ -73,7 +73,7 @@ class ListDocumentsHandler(
             DocumentMetadata(
                 id = DocumentId(rs.getObject("id", UUID::class.java)),
                 tenantId = TenantId(rs.getString("tenant_id")),
-                templateId = TemplateId(rs.getObject("template_id", UUID::class.java)),
+                templateId = TemplateId(rs.getString("template_id")),
                 variantId = VariantId(rs.getObject("variant_id", UUID::class.java)),
                 versionId = VersionId(rs.getObject("version_id", UUID::class.java)),
                 filename = rs.getString("filename"),

@@ -1,5 +1,6 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import org.jdbi.v3.core.Jdbi
@@ -35,5 +36,8 @@ class JdbiConfig {
 
             // Register ThemeId column mapper for reading from result sets
             registerColumnMapper(ThemeId::class.java, ThemeIdColumnMapper())
+
+            // Register TemplateId column mapper for reading from result sets
+            registerColumnMapper(TemplateId::class.java, TemplateIdColumnMapper())
         }
 }

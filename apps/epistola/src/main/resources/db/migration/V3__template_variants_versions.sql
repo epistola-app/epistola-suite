@@ -16,7 +16,7 @@ CREATE INDEX idx_environments_tenant_id ON environments(tenant_id);
 -- Template variants (language, brand, audience variations)
 CREATE TABLE template_variants (
     id UUID PRIMARY KEY,
-    template_id UUID NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
     title VARCHAR(255),
     description TEXT,
     tags JSONB NOT NULL DEFAULT '{}'::jsonb,

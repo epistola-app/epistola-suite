@@ -98,7 +98,7 @@ class EpistolaTemplateApi(
 
     override fun getTemplate(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
     ): ResponseEntity<TemplateDto> {
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
             ?: return ResponseEntity.notFound().build()
@@ -108,7 +108,7 @@ class EpistolaTemplateApi(
 
     override fun updateTemplate(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val dataExamples = updateTemplateRequest.dataExamples?.map {
@@ -131,7 +131,7 @@ class EpistolaTemplateApi(
 
     override fun deleteTemplate(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).execute()
         return if (deleted) {
@@ -145,7 +145,7 @@ class EpistolaTemplateApi(
 
     override fun listVariants(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
     ): ResponseEntity<VariantListResponse> {
         val typedTenantId = TenantId.of(tenantId)
         val variants = ListVariants(tenantId = typedTenantId, templateId = TemplateId.of(templateId)).query()
@@ -158,7 +158,7 @@ class EpistolaTemplateApi(
 
     override fun createVariant(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         createVariantRequest: CreateVariantRequest,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantId.of(tenantId)
@@ -176,7 +176,7 @@ class EpistolaTemplateApi(
 
     override fun getVariant(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantId.of(tenantId)
@@ -191,7 +191,7 @@ class EpistolaTemplateApi(
 
     override fun updateVariant(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         updateVariantRequest: UpdateVariantRequest,
     ): ResponseEntity<VariantDto> {
@@ -210,7 +210,7 @@ class EpistolaTemplateApi(
 
     override fun deleteVariant(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
     ): ResponseEntity<Unit> {
         val deleted = DeleteVariant(
@@ -229,7 +229,7 @@ class EpistolaTemplateApi(
 
     override fun getVariantDraft(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
     ): ResponseEntity<VersionDto> {
         val draft = GetDraft(
@@ -242,7 +242,7 @@ class EpistolaTemplateApi(
 
     override fun upsertVariantDraft(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
@@ -261,7 +261,7 @@ class EpistolaTemplateApi(
 
     override fun listVariantActivations(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
     ): ResponseEntity<ActivationListResponse> {
         val activations = ListActivations(
@@ -274,7 +274,7 @@ class EpistolaTemplateApi(
 
     override fun setVariantActivation(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         environmentId: UUID,
         setActivationRequest: SetActivationRequest,
@@ -302,7 +302,7 @@ class EpistolaTemplateApi(
 
     override fun removeVariantActivation(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         environmentId: UUID,
     ): ResponseEntity<Unit> {
@@ -322,7 +322,7 @@ class EpistolaTemplateApi(
     override fun getActiveVersion(
         environment: UUID,
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
     ): ResponseEntity<VersionDto> {
         val version = GetActiveVersion(
@@ -338,7 +338,7 @@ class EpistolaTemplateApi(
 
     override fun listVersions(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         status: String?,
     ): ResponseEntity<VersionListResponse> {
@@ -361,7 +361,7 @@ class EpistolaTemplateApi(
 
     override fun getVersion(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         versionId: UUID,
     ): ResponseEntity<VersionDto> {
@@ -376,7 +376,7 @@ class EpistolaTemplateApi(
 
     override fun updateVersion(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         versionId: UUID,
         updateDraftRequest: UpdateDraftRequest,
@@ -395,7 +395,7 @@ class EpistolaTemplateApi(
 
     override fun publishVersion(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         versionId: UUID,
     ): ResponseEntity<VersionDto> {
@@ -410,7 +410,7 @@ class EpistolaTemplateApi(
 
     override fun archiveVersion(
         tenantId: String,
-        templateId: UUID,
+        templateId: String,
         variantId: UUID,
         versionId: UUID,
     ): ResponseEntity<VersionDto> {

@@ -16,8 +16,10 @@ VariantDto:
       description: Unique identifier of the variant
     templateId:
       type: string
-      format: uuid
-      description: ID of the template this variant belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the template this variant belongs to
     title:
       type:
         - string

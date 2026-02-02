@@ -1,4 +1,5 @@
 {
+  "slug": "demo-invoice",
   "name": "Invoice Template",
   "dataModel": {
     "type": "object",

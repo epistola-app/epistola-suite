@@ -1,6 +1,7 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.common.ids.SlugId
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
@@ -38,5 +39,16 @@ class ThemeIdColumnMapper : ColumnMapper<ThemeId> {
     override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): ThemeId? {
         val value = r.getString(columnNumber)
         return if (r.wasNull()) null else ThemeId.of(value)
+    }
+}
+
+/**
+ * JDBI ColumnMapper for TemplateId.
+ * Maps VARCHAR database columns to TemplateId value class.
+ */
+class TemplateIdColumnMapper : ColumnMapper<TemplateId> {
+    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): TemplateId? {
+        val value = r.getString(columnNumber)
+        return if (r.wasNull()) null else TemplateId.of(value)
     }
 }

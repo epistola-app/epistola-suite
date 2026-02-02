@@ -1,8 +1,8 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
@@ -33,7 +33,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
         }
 
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
         val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
@@ -79,7 +79,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
             mediator.send(
                 GenerateDocument(
                     tenantId = tenant.id,
-                    templateId = TemplateId.generate(),
+                    templateId = TestIdHelpers.nextTemplateId(),
                     variantId = VariantId.generate(),
                     versionId = VersionId.generate(),
                     environmentId = null,
@@ -94,7 +94,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
     @Test
     fun `fails with non-existent version`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
         val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
 
         val data = objectMapper.createObjectNode().put("test", "value")
@@ -120,7 +120,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
         assertThatThrownBy {
             GenerateDocument(
                 tenantId = TenantId.of("dummy-tenant"),
-                templateId = TemplateId.generate(),
+                templateId = TestIdHelpers.nextTemplateId(),
                 variantId = VariantId.generate(),
                 versionId = VersionId.generate(),
                 environmentId = EnvironmentId.generate(), // Both set - should fail
@@ -136,7 +136,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
         assertThatThrownBy {
             GenerateDocument(
                 tenantId = TenantId.of("dummy-tenant"),
-                templateId = TemplateId.generate(),
+                templateId = TestIdHelpers.nextTemplateId(),
                 variantId = VariantId.generate(),
                 versionId = null,
                 environmentId = null, // Neither set - should fail

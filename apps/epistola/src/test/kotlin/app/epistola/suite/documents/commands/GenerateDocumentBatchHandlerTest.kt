@@ -1,8 +1,8 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
@@ -23,7 +23,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     @Test
     fun `creates batch generation request`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
         val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
@@ -62,7 +62,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     @Test
     fun `validates all items before creating request`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
+        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
         val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
@@ -86,7 +86,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
                 filename = "doc-1.pdf",
             ),
             BatchGenerationItem(
-                templateId = TemplateId.generate(), // Non-existent template
+                templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
                 variantId = VariantId.generate(),
                 versionId = VersionId.generate(),
                 environmentId = null,
@@ -117,7 +117,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `validates item versionId and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             BatchGenerationItem(
-                templateId = TemplateId.generate(),
+                templateId = TestIdHelpers.nextTemplateId(),
                 variantId = VariantId.generate(),
                 versionId = VersionId.generate(),
                 environmentId = EnvironmentId.generate(), // Both set
