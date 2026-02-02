@@ -132,7 +132,35 @@ export class TemplateEditor {
       $selectedDataExampleId: this.store.$selectedDataExampleId,
       $testData: this.store.$testData,
       $schema: this.store.$schema,
+      $lastSavedTemplate: this.store.$lastSavedTemplate,
     };
+  }
+
+  /**
+   * Mark current template as saved (snapshot for dirty tracking)
+   */
+  markAsSaved(): void {
+    const currentTemplate = this.store.getTemplate();
+    // Deep copy to prevent accidental mutation of saved state
+    this.store.setLastSavedTemplate(JSON.parse(JSON.stringify(currentTemplate)) as Template);
+  }
+
+  /**
+   * Check if template has unsaved changes
+   * Returns true if never saved and has content, or if current differs from saved
+   */
+  isDirty(): boolean {
+    const currentTemplate = this.store.getTemplate();
+    const lastSaved = this.store.getLastSavedTemplate();
+
+    // Never saved - check if there's any content
+    if (lastSaved === null) {
+      // Consider dirty if there are blocks (not empty/default)
+      return currentTemplate.blocks.length > 0 || currentTemplate.name !== 'Untitled';
+    }
+
+    // Compare using JSON.stringify (simple deep equality)
+    return JSON.stringify(currentTemplate) !== JSON.stringify(lastSaved);
   }
 
   /**
