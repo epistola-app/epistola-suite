@@ -67,7 +67,7 @@
                         <tr th:each="theme : ${themes}">
                             <td>
                                 <span th:text="${theme.name}"></span>
-                                <span th:if="${tenant?.defaultThemeId?.value == theme.id.value}" class="badge badge-primary">Default</span>
+                                <span th:if="${tenant?.defaultThemeId == theme.id}" class="badge badge-primary">Default</span>
                             </td>
                             <td>
                                 <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
@@ -78,7 +78,7 @@
                                 <a th:href="@{/tenants/{tenantId}/themes/{themeId}(tenantId=${tenantId},themeId=${theme.id})}"
                                    class="btn btn-small">Edit</a>
                                 <!--/* Show "Set as Default" only if not already default */-->
-                                <form th:unless="${tenant?.defaultThemeId?.value == theme.id.value}"
+                                <form th:unless="${tenant?.defaultThemeId == theme.id}"
                                       th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                       hx-target="#theme-rows"
                                       hx-swap="innerHTML"
@@ -87,7 +87,7 @@
                                     <button type="submit" class="btn btn-small btn-secondary">Set as Default</button>
                                 </form>
                                 <!--/* Disable delete button for default theme or when only one theme exists */-->
-                                <form th:if="${tenant?.defaultThemeId?.value != theme.id.value and #lists.size(themes) > 1}"
+                                <form th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) > 1}"
                                       th:hx-post="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
                                       hx-target="#theme-rows"
                                       hx-swap="innerHTML"
@@ -95,9 +95,9 @@
                                       style="display: inline;">
                                     <button type="submit" class="btn btn-small btn-danger">Delete</button>
                                 </form>
-                                <span th:if="${tenant?.defaultThemeId?.value == theme.id.value}" class="text-muted text-small"
+                                <span th:if="${tenant?.defaultThemeId == theme.id}" class="text-muted text-small"
                                       title="Cannot delete the default theme">Cannot delete</span>
-                                <span th:if="${tenant?.defaultThemeId?.value != theme.id.value and #lists.size(themes) <= 1}" class="text-muted text-small"
+                                <span th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) <= 1}" class="text-muted text-small"
                                       title="At least one theme must exist">Cannot delete last theme</span>
                             </td>
                         </tr>
