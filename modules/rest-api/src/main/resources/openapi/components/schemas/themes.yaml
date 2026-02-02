@@ -144,16 +144,18 @@ UpdateThemeRequest:
       maxLength: 255
       description: New name for the theme
     description:
-      type: string
-      nullable: true
+      type:
+        - string
+        - 'null'
       description: New description for the theme (null to clear)
     documentStyles:
       $ref: '#/DocumentStylesDto'
     pageSettings:
       $ref: '#/PageSettingsDto'
     blockStylePresets:
-      type: object
-      nullable: true
+      type:
+        - object
+        - 'null'
       additionalProperties:
         type: object
         additionalProperties: true
