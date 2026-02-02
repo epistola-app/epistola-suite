@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Changed
+- **Code organization improvements**: Refactored large handlers and improved code maintainability
+  - Split `DocumentTemplateHandler` (753 lines) into smaller focused handlers:
+    - `VariantRouteHandler` for variant create/delete operations
+    - `VersionRouteHandler` for draft/publish/archive operations
+    - `TemplatePreviewHandler` for PDF preview generation
+  - Created `UuidExtensions.kt` with `String.toUuidOrNull()` and `ServerRequest.pathUuid()` extensions
+  - Updated `ThemeHandler` to use UUID extensions, removing duplicate `parseUUID()` helper
+  - Extracted inline JavaScript from `themes/detail.html` to reusable ES modules:
+    - `api-client.js` for shared fetch logic with CSRF handling
+    - `theme-editor.js` for theme editing operations
+  - Created reusable `fragments/search.html` Thymeleaf fragment for search boxes
+  - Updated templates list, tenants list, and themes list pages to use the search fragment
+- **Enhanced API exception handling**: Added exception handlers for domain exceptions
+  - `ThemeNotFoundException` → 404 Not Found
+  - `ThemeInUseException` → 409 Conflict
+  - `LastThemeException` → 400 Bad Request
+  - `DataModelValidationException` → 422 Unprocessable Entity
+  - `ValidationException` → 400 Bad Request
+  - Generic exception handler → 500 Internal Server Error (with logging)
+- **Added logging to mediator**: `SpringMediator` now logs command/query dispatch and completion
+
 ### Added
 - **Tenant Default Theme**: Each tenant now has a default theme that serves as the ultimate fallback in the theme cascade
   - Theme cascade order: Variant theme → Template theme → Tenant default theme

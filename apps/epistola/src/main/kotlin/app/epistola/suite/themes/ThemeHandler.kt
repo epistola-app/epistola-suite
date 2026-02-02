@@ -2,6 +2,9 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.pathUuid
+import app.epistola.suite.common.requirePathUuid
+import app.epistola.suite.common.toUuidOrNull
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
@@ -21,7 +24,6 @@ import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 /**
  * Request body for updating a theme via PATCH.
@@ -40,7 +42,7 @@ class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
@@ -54,7 +56,7 @@ class ThemeHandler(
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val searchTerm = request.param("q").orElse(null)
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId), searchTerm = searchTerm).query()
@@ -69,7 +71,7 @@ class ThemeHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val name = request.params().getFirst("name")?.trim().orEmpty()
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
 
@@ -111,8 +113,8 @@ class ThemeHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val themeId = parseUUID(request.pathVariable("themeId"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val themeId = request.pathUuid("themeId")
             ?: return ServerResponse.badRequest().build()
 
         val theme = GetTheme(tenantId = TenantId.of(tenantId), id = ThemeId.of(themeId)).query()
@@ -128,8 +130,8 @@ class ThemeHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val themeId = parseUUID(request.pathVariable("themeId"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val themeId = request.pathUuid("themeId")
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -162,8 +164,8 @@ class ThemeHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val themeId = parseUUID(request.pathVariable("themeId"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val themeId = request.pathUuid("themeId")
             ?: return ServerResponse.badRequest().build()
 
         try {
@@ -195,10 +197,10 @@ class ThemeHandler(
      * Sets the default theme for a tenant.
      */
     fun setDefault(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val themeIdStr = request.params().getFirst("themeId")
             ?: return ServerResponse.badRequest().build()
-        val themeId = parseUUID(themeIdStr)
+        val themeId = themeIdStr.toUuidOrNull()
             ?: return ServerResponse.badRequest().build()
 
         try {
@@ -221,14 +223,5 @@ class ThemeHandler(
             }
             onNonHtmx { redirect("/tenants/$tenantId/themes") }
         }
-    }
-
-    private fun resolveTenantId(request: ServerRequest): UUID = parseUUID(request.pathVariable("tenantId"))
-        ?: throw IllegalArgumentException("Invalid tenant ID")
-
-    private fun parseUUID(value: String): UUID? = try {
-        UUID.fromString(value)
-    } catch (_: Exception) {
-        null
     }
 }

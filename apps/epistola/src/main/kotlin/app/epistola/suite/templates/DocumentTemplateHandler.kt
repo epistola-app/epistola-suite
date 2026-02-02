@@ -4,8 +4,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.common.pathUuid
+import app.epistola.suite.common.requirePathUuid
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
@@ -16,11 +16,6 @@ import app.epistola.suite.templates.commands.DeleteDataExample
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
-import app.epistola.suite.templates.commands.variants.CreateVariant
-import app.epistola.suite.templates.commands.variants.DeleteVariant
-import app.epistola.suite.templates.commands.versions.ArchiveVersion
-import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -28,7 +23,6 @@ import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
-import app.epistola.suite.templates.queries.versions.GetPreviewContext
 import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -38,7 +32,6 @@ import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.queries.ListThemes
 import app.epistola.suite.validation.ValidationException
 import org.springframework.boot.info.BuildProperties
-import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -85,17 +78,6 @@ data class UpdateDataExampleRequest(
 )
 
 /**
- * Request body for PDF preview generation.
- *
- * @property data The data context for expression evaluation
- * @property templateModel Optional template model for live preview (uses current editor state instead of saved draft)
- */
-data class PreviewRequest(
-    val data: Map<String, Any?>? = null,
-    val templateModel: Map<String, Any?>? = null,
-)
-
-/**
  * Response for schema validation preview.
  */
 data class ValidateSchemaResponse(
@@ -112,15 +94,20 @@ data class ValidateSchemaResponse(
     }
 }
 
+/**
+ * Handles core template CRUD operations and template detail views.
+ * Variant operations are handled by [VariantRouteHandler].
+ * Version lifecycle operations are handled by [VersionRouteHandler].
+ * Preview generation is handled by [TemplatePreviewHandler].
+ */
 @Component
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
     private val buildProperties: BuildProperties?,
-    private val generationService: GenerationService,
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val templates = ListTemplateSummaries(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
             "templates/list",
@@ -132,7 +119,7 @@ class DocumentTemplateHandler(
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val searchTerm = request.param("q").orElse(null)
         val templates = ListTemplateSummaries(tenantId = TenantId.of(tenantId), searchTerm = searchTerm).query()
         return request.htmx {
@@ -145,12 +132,17 @@ class DocumentTemplateHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
+        val tenantId = request.requirePathUuid("tenantId")
         val name = request.params().getFirst("name")?.trim().orEmpty()
         val schema = request.params().getFirst("schema")?.trim()?.takeIf { it.isNotEmpty() }
 
         try {
-            val command = CreateDocumentTemplate(id = TemplateId.generate(), tenantId = TenantId.of(tenantId), name = name, schema = schema)
+            val command = CreateDocumentTemplate(
+                id = TemplateId.generate(),
+                tenantId = TenantId.of(tenantId),
+                name = name,
+                schema = schema,
+            )
             command.execute()
         } catch (e: ValidationException) {
             val formData = mapOf("name" to name, "schema" to (schema ?: ""))
@@ -179,10 +171,10 @@ class DocumentTemplateHandler(
     }
 
     fun editor(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
+        val variantId = request.pathUuid("variantId")
             ?: return ServerResponse.badRequest().build()
 
         // Get all editor context in a single query
@@ -205,14 +197,14 @@ class DocumentTemplateHandler(
                     "data" to objectMapper.convertValue(example.data, mapTypeRef),
                 )
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
 
         // Convert dataModel to plain map for proper Thymeleaf/JS serialization
         val dataModelForJs = try {
             context.dataModel?.let { objectMapper.convertValue(it, mapTypeRef) }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
 
@@ -246,14 +238,13 @@ class DocumentTemplateHandler(
     }
 
     fun get(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val id = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val id = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(id)).query()
             ?: return ServerResponse.notFound().build()
 
-        // Note: templateModel is now in versions, not in template
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(
@@ -269,14 +260,13 @@ class DocumentTemplateHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val id = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val id = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
         val updateRequest = objectMapper.readValue(body, UpdateTemplateRequest::class.java)
 
-        // Note: templateModel updates should go through version commands now
         return try {
             val result = UpdateDocumentTemplate(
                 tenantId = TenantId.of(tenantId),
@@ -315,16 +305,12 @@ class DocumentTemplateHandler(
     }
 
     /**
-     * Validates a schema against existing data examples without persisting.
-     * Returns migration suggestions for incompatible examples.
-     */
-    /**
      * Updates the template's default theme via HTMX.
      * Returns the theme-section fragment for seamless UI updates.
      */
     fun updateTheme(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val id = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val id = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -357,8 +343,8 @@ class DocumentTemplateHandler(
      * Returns migration suggestions for incompatible examples.
      */
     fun validateSchema(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val id = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val id = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -385,8 +371,8 @@ class DocumentTemplateHandler(
      * Only validates the single example being updated against the schema.
      */
     fun updateDataExample(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
@@ -427,8 +413,8 @@ class DocumentTemplateHandler(
      * Deletes a single data example from a template.
      */
     fun deleteDataExample(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
@@ -446,8 +432,8 @@ class DocumentTemplateHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val id = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val id = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(id)).query()
@@ -472,10 +458,10 @@ class DocumentTemplateHandler(
     }
 
     fun variantDetail(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val templateId = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
+        val variantId = request.pathUuid("variantId")
             ?: return ServerResponse.badRequest().build()
 
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
@@ -483,10 +469,17 @@ class DocumentTemplateHandler(
 
         val variants = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
 
-        val variant = GetVariant(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
-            ?: return ServerResponse.notFound().build()
+        val variant = GetVariant(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query() ?: return ServerResponse.notFound().build()
 
-        val versions = ListVersions(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
+        val versions = ListVersions(
+            tenantId = TenantId.of(tenantId),
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).query()
 
         // Load available themes for theme selection
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
@@ -515,8 +508,8 @@ class DocumentTemplateHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val id = parseUUID(request.pathVariable("id"))
+        val tenantId = request.requirePathUuid("tenantId")
+        val id = request.pathUuid("id")
             ?: return ServerResponse.badRequest().build()
 
         DeleteDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(id)).execute()
@@ -524,230 +517,5 @@ class DocumentTemplateHandler(
         return ServerResponse.status(303)
             .header("Location", "/tenants/$tenantId/templates")
             .build()
-    }
-
-    fun createVariant(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
-            ?: return ServerResponse.badRequest().build()
-
-        val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
-        val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
-        val tagsInput = request.params().getFirst("tags")?.trim().orEmpty()
-        val tags = parseTags(tagsInput)
-
-        CreateVariant(
-            id = VariantId.generate(),
-            tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
-            title = title,
-            description = description,
-            tags = tags,
-        ).execute()
-
-        val variants = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
-            ?: return ServerResponse.notFound().build()
-
-        return request.htmx {
-            fragment("templates/detail", "variants-section") {
-                "tenantId" to tenantId
-                "template" to template
-                "variants" to variants
-            }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
-        }
-    }
-
-    fun deleteVariant(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
-            ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
-            ?: return ServerResponse.badRequest().build()
-
-        DeleteVariant(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).execute()
-
-        val variants = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
-            ?: return ServerResponse.notFound().build()
-
-        return request.htmx {
-            fragment("templates/detail", "variants-section") {
-                "tenantId" to tenantId
-                "template" to template
-                "variants" to variants
-            }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
-        }
-    }
-
-    fun createDraft(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
-            ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
-            ?: return ServerResponse.badRequest().build()
-
-        CreateVersion(id = VersionId.generate(), tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).execute()
-
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
-    }
-
-    fun publishVersion(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
-            ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
-            ?: return ServerResponse.badRequest().build()
-        val versionId = parseUUID(request.pathVariable("versionId"))
-            ?: return ServerResponse.badRequest().build()
-
-        PublishVersion(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId), versionId = VersionId.of(versionId)).execute()
-
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
-    }
-
-    fun archiveVersion(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
-            ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
-            ?: return ServerResponse.badRequest().build()
-        val versionId = parseUUID(request.pathVariable("versionId"))
-            ?: return ServerResponse.badRequest().build()
-
-        ArchiveVersion(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId), versionId = VersionId.of(versionId)).execute()
-
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
-    }
-
-    /**
-     * Generates a PDF preview of a variant's draft version.
-     * Streams the PDF directly to the response.
-     *
-     * If `templateModel` is provided in the request body, it will be used for rendering
-     * instead of fetching from the database. This enables live preview of unsaved changes.
-     */
-    fun preview(request: ServerRequest): ServerResponse {
-        val tenantId = resolveTenantId(request)
-        val templateId = parseUUID(request.pathVariable("id"))
-            ?: return ServerResponse.badRequest().build()
-        val variantId = parseUUID(request.pathVariable("variantId"))
-            ?: return ServerResponse.badRequest().build()
-
-        // Parse the request body
-        val previewRequest: PreviewRequest = try {
-            val body = request.body(String::class.java)
-            if (body.isBlank()) {
-                PreviewRequest()
-            } else {
-                objectMapper.readValue(body, PreviewRequest::class.java)
-            }
-        } catch (_: Exception) {
-            PreviewRequest()
-        }
-
-        val data = previewRequest.data ?: emptyMap()
-
-        // Validate data against schema BEFORE starting the streaming response
-        val validationResult = generationService.validatePreviewData(tenantId, templateId, data)
-        if (!validationResult.valid) {
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(
-                    mapOf(
-                        "errors" to validationResult.errors.map { error ->
-                            mapOf(
-                                "path" to error.path,
-                                "message" to error.message,
-                            )
-                        },
-                    ),
-                )
-        }
-
-        // Get preview context: draft template model and template's default theme
-        val previewContext = GetPreviewContext(
-            tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
-            variantId = VariantId.of(variantId),
-        ).query() ?: return ServerResponse.notFound().build()
-
-        // Resolve the template model - either from request (live preview) or from draft
-        val templateModel = if (previewRequest.templateModel != null) {
-            generationService.convertTemplateModel(previewRequest.templateModel)
-        } else {
-            previewContext.draftTemplateModel ?: return ServerResponse.notFound().build()
-        }
-
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
-            .build { _, response ->
-                generationService.renderPdf(
-                    TenantId.of(tenantId),
-                    templateModel,
-                    data,
-                    response.outputStream,
-                    previewContext.templateThemeId,
-                    previewContext.tenantDefaultThemeId,
-                )
-                response.outputStream.flush()
-                null // Return null to indicate no view to render
-            }
-    }
-
-    private fun returnVersionsFragment(
-        request: ServerRequest,
-        tenantId: UUID,
-        templateId: UUID,
-        variantId: UUID,
-    ): ServerResponse {
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
-            ?: return ServerResponse.notFound().build()
-
-        val variant = GetVariant(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
-            ?: return ServerResponse.notFound().build()
-
-        val versions = ListVersions(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId), variantId = VariantId.of(variantId)).query()
-
-        val selectedVariantSummary = VariantSummary(
-            id = variant.id,
-            title = variant.title,
-            tags = variant.tags,
-            hasDraft = versions.any { it.status.name == "DRAFT" },
-            publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.mapNotNull { it.versionNumber }.sorted(),
-        )
-
-        return request.htmx {
-            fragment("templates/detail", "versions-section") {
-                "tenantId" to tenantId
-                "template" to template
-                "selectedVariant" to selectedVariantSummary
-                "versions" to versions
-            }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId/variants/$variantId") }
-        }
-    }
-
-    private fun parseTags(input: String): Map<String, String> {
-        if (input.isBlank()) return emptyMap()
-        return input.lines()
-            .map { it.trim() }
-            .filter { it.isNotBlank() && it.contains("=") }
-            .associate { line ->
-                val parts = line.split("=", limit = 2)
-                parts[0].trim() to parts.getOrElse(1) { "" }.trim()
-            }
-    }
-
-    private fun resolveTenantId(request: ServerRequest): UUID = parseUUID(request.pathVariable("tenantId"))
-        ?: throw IllegalArgumentException("Invalid tenant ID")
-
-    private fun parseUUID(value: String): UUID? = try {
-        UUID.fromString(value)
-    } catch (_: Exception) {
-        null
     }
 }

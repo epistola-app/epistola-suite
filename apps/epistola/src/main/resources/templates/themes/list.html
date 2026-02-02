@@ -43,15 +43,11 @@
 
         <section>
             <h2>Existing Themes</h2>
-            <div class="search-box">
-                <input type="search"
-                       name="q"
-                       placeholder="Search themes..."
-                       th:hx-get="@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})}"
-                       hx-trigger="input changed delay:300ms, search"
-                       hx-target="#theme-rows"
-                       hx-swap="innerHTML">
-            </div>
+            <div th:replace="~{fragments/search :: search-box(
+                placeholder='Search themes...',
+                searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
+                targetId='theme-rows'
+            )}"></div>
             <table>
                 <thead>
                     <tr>

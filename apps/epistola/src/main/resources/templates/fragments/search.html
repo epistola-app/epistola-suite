@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<!--
+    Reusable search input fragment for list pages.
+
+    Usage:
+    <div th:replace="~{fragments/search :: search-box(
+        placeholder='Search templates...',
+        searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
+        targetId='template-rows'
+    )}"></div>
+
+    Parameters:
+    - placeholder: The placeholder text for the search input
+    - searchUrl: The URL to fetch search results from (should return HTMX-compatible fragment)
+    - targetId: The ID of the element to swap with search results
+-->
+<body>
+
+<!--/* Search box fragment with HTMX integration */-->
+<div class="search-box" th:fragment="search-box(placeholder, searchUrl, targetId)">
+    <input type="search"
+           name="q"
+           th:placeholder="${placeholder}"
+           th:hx-get="${searchUrl}"
+           hx-trigger="input changed delay:300ms, search"
+           th:hx-target="${'#' + targetId}"
+           hx-swap="innerHTML">
+</div>
+
+</body>
+</html>

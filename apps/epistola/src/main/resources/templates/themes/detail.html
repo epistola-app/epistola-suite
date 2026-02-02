@@ -37,7 +37,7 @@
                     <label for="theme-description">Description</label>
                     <textarea id="theme-description" rows="2" placeholder="Theme description" th:text="${theme.description}"></textarea>
                 </div>
-                <button type="button" class="btn" onclick="saveBasicInfo()">Save Basic Info</button>
+                <button type="button" class="btn" onclick="window.themeEditor.saveBasicInfo()">Save Basic Info</button>
             </div>
         </section>
 
@@ -98,7 +98,7 @@
                         <input type="text" id="doc-backgroundColor" th:value="${theme.documentStyles?.backgroundColor}" placeholder="e.g., #ffffff">
                     </div>
                 </div>
-                <button type="button" class="btn" onclick="saveDocumentStyles()">Save Document Styles</button>
+                <button type="button" class="btn" onclick="window.themeEditor.saveDocumentStyles()">Save Document Styles</button>
             </div>
         </section>
 
@@ -113,8 +113,8 @@
                 <!-- Presets will be rendered dynamically -->
             </div>
             <div style="margin-top: 1rem;">
-                <button type="button" class="btn btn-secondary" onclick="addPreset()">Add Preset</button>
-                <button type="button" class="btn" onclick="savePresets()">Save Presets</button>
+                <button type="button" class="btn btn-secondary" onclick="window.themeEditor.addPreset()">Add Preset</button>
+                <button type="button" class="btn" onclick="window.themeEditor.savePresets()">Save Presets</button>
             </div>
         </section>
 
@@ -125,153 +125,19 @@
 
     <th:block th:replace="~{fragments/footer :: footer}" />
 
+    <!-- Initialize theme editor with context data -->
     <script th:inline="javascript">
-        const TENANT_ID = [[${tenantId}]];
-        const THEME_ID = [[${theme.id}]];
-        const INITIAL_PRESETS = [[${theme.blockStylePresets}]] || {};
-
-        // Render presets on load
+        window.THEME_EDITOR_CONFIG = {
+            tenantId: [[${tenantId}]],
+            themeId: [[${theme.id}]],
+            initialPresets: [[${theme.blockStylePresets}]] || {}
+        };
+    </script>
+    <script type="module">
+        import { initThemeEditor } from '/js/modules/theme-editor.js';
         document.addEventListener('DOMContentLoaded', () => {
-            renderPresets(INITIAL_PRESETS);
+            initThemeEditor(window.THEME_EDITOR_CONFIG);
         });
-
-        function renderPresets(presets) {
-            const container = document.getElementById('presets-container');
-            container.innerHTML = '';
-
-            if (Object.keys(presets).length === 0) {
-                container.innerHTML = '<p class="text-muted">No presets defined yet.</p>';
-                return;
-            }
-
-            for (const [name, styles] of Object.entries(presets)) {
-                const presetHtml = createPresetHtml(name, styles);
-                container.insertAdjacentHTML('beforeend', presetHtml);
-            }
-        }
-
-        function createPresetHtml(name, styles) {
-            const stylesJson = JSON.stringify(styles, null, 2);
-            return `
-                <div class="preset-item form-section" style="margin-bottom: 1rem;" data-preset-name="${name}">
-                    <div class="form-row" style="align-items: flex-start;">
-                        <div class="form-group" style="flex: 0 0 200px;">
-                            <label>Preset Name</label>
-                            <input type="text" class="preset-name" value="${name}" placeholder="e.g., heading1">
-                        </div>
-                        <div class="form-group" style="flex: 1;">
-                            <label>Styles (JSON)</label>
-                            <textarea class="preset-styles" rows="3" placeholder='{"fontSize": "24pt", "fontWeight": "bold"}'>${stylesJson}</textarea>
-                        </div>
-                        <button type="button" class="btn btn-danger btn-small" style="margin-top: 1.5rem;" onclick="removePreset(this)">Remove</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function addPreset() {
-            const container = document.getElementById('presets-container');
-            // Remove "no presets" message if present
-            const emptyMsg = container.querySelector('.text-muted');
-            if (emptyMsg) {
-                emptyMsg.remove();
-            }
-            container.insertAdjacentHTML('beforeend', createPresetHtml('', {}));
-        }
-
-        function removePreset(button) {
-            button.closest('.preset-item').remove();
-            // Show "no presets" message if empty
-            const container = document.getElementById('presets-container');
-            if (container.children.length === 0) {
-                container.innerHTML = '<p class="text-muted">No presets defined yet.</p>';
-            }
-        }
-
-        function collectPresets() {
-            const presets = {};
-            document.querySelectorAll('.preset-item').forEach(item => {
-                const name = item.querySelector('.preset-name').value.trim();
-                const stylesText = item.querySelector('.preset-styles').value.trim();
-                if (name && stylesText) {
-                    try {
-                        presets[name] = JSON.parse(stylesText);
-                    } catch (e) {
-                        alert(`Invalid JSON for preset "${name}": ${e.message}`);
-                        throw e;
-                    }
-                }
-            });
-            return presets;
-        }
-
-        async function saveBasicInfo() {
-            const name = document.getElementById('theme-name').value.trim();
-            const description = document.getElementById('theme-description').value.trim();
-
-            const body = {
-                name: name || undefined,
-                description: description || undefined,
-                clearDescription: !description,
-            };
-
-            await saveTheme(body);
-        }
-
-        async function saveDocumentStyles() {
-            const documentStyles = {
-                fontFamily: document.getElementById('doc-fontFamily').value.trim() || null,
-                fontSize: document.getElementById('doc-fontSize').value.trim() || null,
-                fontWeight: document.getElementById('doc-fontWeight').value || null,
-                color: document.getElementById('doc-color').value.trim() || null,
-                lineHeight: document.getElementById('doc-lineHeight').value.trim() || null,
-                letterSpacing: document.getElementById('doc-letterSpacing').value.trim() || null,
-                textAlign: document.getElementById('doc-textAlign').value || null,
-                backgroundColor: document.getElementById('doc-backgroundColor').value.trim() || null,
-            };
-
-            await saveTheme({ documentStyles });
-        }
-
-        async function savePresets() {
-            try {
-                const presets = collectPresets();
-                await saveTheme({
-                    blockStylePresets: Object.keys(presets).length > 0 ? presets : undefined,
-                    clearBlockStylePresets: Object.keys(presets).length === 0,
-                });
-            } catch (e) {
-                // Error already shown in collectPresets
-            }
-        }
-
-        async function saveTheme(body) {
-            try {
-                const response = await fetch(`/tenants/${TENANT_ID}/themes/${THEME_ID}`, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(body),
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    alert('Failed to save: ' + (error.message || 'Unknown error'));
-                    return;
-                }
-
-                const result = await response.json();
-                // Update page title if name changed
-                if (result.name) {
-                    document.querySelector('h1').textContent = result.name;
-                    document.title = result.name + ' - Epistola';
-                }
-                alert('Saved successfully!');
-            } catch (e) {
-                alert('Failed to save: ' + e.message);
-            }
-        }
     </script>
 
     <style>

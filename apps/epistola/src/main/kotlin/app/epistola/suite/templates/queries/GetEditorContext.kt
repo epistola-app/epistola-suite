@@ -6,7 +6,6 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.model.DataExamples
 import app.epistola.template.model.TemplateModel
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
