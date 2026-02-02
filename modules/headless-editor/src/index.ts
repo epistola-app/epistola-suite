@@ -66,8 +66,17 @@ export type {
   DropPosition,
   DropZone,
   DragDropPort,
+  // JSON types
+  JsonValue,
+  JsonObject,
+  JsonArray,
+  // Data example types
+  DataExample,
   // Editor state types
   EditorState,
   EditorCallbacks,
   EditorConfig,
 } from './types.js';
+
+// Constants
+export { DEFAULT_TEST_DATA } from './types.js';
