@@ -6,8 +6,8 @@
  */
 
 import { atom, map } from 'nanostores';
-import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject, JsonSchema } from './types.js';
-import { DEFAULT_TEST_DATA } from './types.js';
+import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject, JsonSchema, PreviewOverrides } from './types.js';
+import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
 
 // ============================================================================
 // Editor Store
@@ -25,6 +25,7 @@ export function createEditorStore(initialTemplate: Template) {
   const $testData = atom<JsonObject>(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
   const $schema = atom<JsonSchema | null>(null);
   const $lastSavedTemplate = atom<Template | null>(null);
+  const $previewOverrides = atom<PreviewOverrides>({ ...DEFAULT_PREVIEW_OVERRIDES });
 
   // Map for complex objects
   const $template = map<Template>(initialTemplate);
@@ -37,6 +38,7 @@ export function createEditorStore(initialTemplate: Template) {
     $testData,
     $schema,
     $lastSavedTemplate,
+    $previewOverrides,
 
     // Getters
     getTemplate: () => $template.get(),
@@ -46,6 +48,7 @@ export function createEditorStore(initialTemplate: Template) {
     getTestData: () => $testData.get(),
     getSchema: () => $schema.get(),
     getLastSavedTemplate: () => $lastSavedTemplate.get(),
+    getPreviewOverrides: () => JSON.parse(JSON.stringify($previewOverrides.get())) as PreviewOverrides,
 
     // Setters
     setTemplate: (template: Template) => $template.set(template),
@@ -55,6 +58,7 @@ export function createEditorStore(initialTemplate: Template) {
     setTestData: (data: JsonObject) => $testData.set(data),
     setSchema: (schema: JsonSchema | null) => $schema.set(schema),
     setLastSavedTemplate: (template: Template | null) => $lastSavedTemplate.set(template),
+    setPreviewOverrides: (overrides: PreviewOverrides) => $previewOverrides.set(overrides),
 
     // Subscribe to changes
     subscribeTemplate: (cb: (template: Template) => void) => $template.subscribe(cb),
@@ -64,6 +68,7 @@ export function createEditorStore(initialTemplate: Template) {
     subscribeTestData: (cb: (data: JsonObject) => void) => $testData.subscribe(cb),
     subscribeSchema: (cb: (schema: JsonSchema | null) => void) => $schema.subscribe(cb),
     subscribeLastSavedTemplate: (cb: (template: Template | null) => void) => $lastSavedTemplate.subscribe(cb),
+    subscribePreviewOverrides: (cb: (overrides: PreviewOverrides) => void) => $previewOverrides.subscribe(cb),
   };
 }
 
