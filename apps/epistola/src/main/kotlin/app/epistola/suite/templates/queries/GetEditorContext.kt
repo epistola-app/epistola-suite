@@ -104,16 +104,20 @@ class GetEditorContextHandler(
             }
             .list()
 
-        // Parse the data examples - DataExamples implements List<DataExample>
-        val dataExamplesJson = row["data_examples"]
-        val dataExamples: List<DataExample> = when (dataExamplesJson) {
-            is DataExamples -> dataExamplesJson.toList()
-            is List<*> -> {
-                @Suppress("UNCHECKED_CAST")
-                (dataExamplesJson as? List<DataExample>) ?: emptyList()
+        // Deserialize data_examples from JSONB (comes as String or PGobject from mapToMap)
+        val dataExamples: List<DataExample> = row["data_examples"]?.let { raw ->
+            val json = raw.toString()
+            if (json.isNotBlank() && json != "null") {
+                try {
+                    val typeRef = object : tools.jackson.core.type.TypeReference<List<DataExample>>() {}
+                    objectMapper.readValue(json, typeRef)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            } else {
+                emptyList()
             }
-            else -> emptyList()
-        }
+        } ?: emptyList()
 
         // Parse variant tags
         @Suppress("UNCHECKED_CAST")

@@ -7,7 +7,7 @@ async function previewPdf(button) {
     const tenantId = button.dataset.tenantId;
     const templateId = button.dataset.templateId;
     const variantId = button.dataset.variantId;
-    const testData = button.dataset.testData || '{}';
+    const testDataJson = button.dataset.testData || '{}';
 
     const url = `/tenants/${tenantId}/templates/${templateId}/variants/${variantId}/preview`;
 
@@ -17,10 +17,14 @@ async function previewPdf(button) {
     button.disabled = true;
 
     try {
+        // Parse the test data and wrap it in the expected request format
+        const testData = JSON.parse(testDataJson);
+        const requestBody = JSON.stringify({ data: testData });
+
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: testData
+            body: requestBody
         });
 
         if (!response.ok) {
