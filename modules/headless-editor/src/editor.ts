@@ -27,6 +27,7 @@ import type {
   JsonSchema,
   PreviewOverrides,
   PageSettings,
+  DocumentStyles,
 } from './types.js';
 import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
 
@@ -392,6 +393,27 @@ export class TemplateEditor {
     this.store.setTemplate({
       ...current,
       pageSettings: updatedPageSettings,
+    });
+  }
+
+  /**
+   * Update document styles (fontFamily, fontSize, color, etc.)
+   * Merges partial styles into existing template.documentStyles
+   */
+  updateDocumentStyles(styles: Partial<DocumentStyles>): void {
+    this.saveToHistory();
+
+    const current = this.store.getTemplate();
+    const currentDocumentStyles = current.documentStyles ?? {};
+
+    const updatedDocumentStyles: DocumentStyles = {
+      ...currentDocumentStyles,
+      ...styles,
+    };
+
+    this.store.setTemplate({
+      ...current,
+      documentStyles: updatedDocumentStyles,
     });
   }
 
