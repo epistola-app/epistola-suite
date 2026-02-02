@@ -6,7 +6,8 @@
  */
 
 import { atom, map } from 'nanostores';
-import type { Template, Block, Column, TableRow, TableCell } from './types.js';
+import type { Template, Block, Column, TableRow, TableCell, DataExample, JsonObject } from './types.js';
+import { DEFAULT_TEST_DATA } from './types.js';
 
 // ============================================================================
 // Editor Store
@@ -19,6 +20,9 @@ import type { Template, Block, Column, TableRow, TableCell } from './types.js';
 export function createEditorStore(initialTemplate: Template) {
   // Atoms for simple values
   const $selectedBlockId = atom<string | null>(null);
+  const $dataExamples = atom<DataExample[]>([]);
+  const $selectedDataExampleId = atom<string | null>(null);
+  const $testData = atom<JsonObject>(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
 
   // Map for complex objects
   const $template = map<Template>(initialTemplate);
@@ -26,18 +30,30 @@ export function createEditorStore(initialTemplate: Template) {
   return {
     $template,
     $selectedBlockId,
+    $dataExamples,
+    $selectedDataExampleId,
+    $testData,
 
     // Getters
     getTemplate: () => $template.get(),
     getSelectedBlockId: () => $selectedBlockId.get(),
+    getDataExamples: () => $dataExamples.get(),
+    getSelectedDataExampleId: () => $selectedDataExampleId.get(),
+    getTestData: () => $testData.get(),
 
     // Setters
     setTemplate: (template: Template) => $template.set(template),
     setSelectedBlockId: (id: string | null) => $selectedBlockId.set(id),
+    setDataExamples: (examples: DataExample[]) => $dataExamples.set(examples),
+    setSelectedDataExampleId: (id: string | null) => $selectedDataExampleId.set(id),
+    setTestData: (data: JsonObject) => $testData.set(data),
 
     // Subscribe to changes
     subscribeTemplate: (cb: (template: Template) => void) => $template.subscribe(cb),
     subscribeSelectedBlockId: (cb: (id: string | null) => void) => $selectedBlockId.subscribe(cb),
+    subscribeDataExamples: (cb: (examples: readonly DataExample[]) => void) => $dataExamples.subscribe(cb),
+    subscribeSelectedDataExampleId: (cb: (id: string | null) => void) => $selectedDataExampleId.subscribe(cb),
+    subscribeTestData: (cb: (data: JsonObject) => void) => $testData.subscribe(cb),
   };
 }
 
