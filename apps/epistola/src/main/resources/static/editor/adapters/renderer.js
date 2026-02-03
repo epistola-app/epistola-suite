@@ -132,11 +132,38 @@ export class BlockRenderer {
       rows: '3',
       onClick: (e) => e.stopPropagation(),
       onInput: (e) => {
-        this.editor.updateBlock(block.id, { content: e.target.value });
+        // Convert plaintext to TipTap JSONContent format
+        const text = e.target.value;
+        const tipTapContent = text ? {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text }] }]
+        } : null;
+        this.editor.updateBlock(block.id, { content: tipTapContent });
       },
     });
-    textarea.value = block.content || '';
+    // Extract plaintext from TipTap JSONContent format
+    textarea.value = this._extractTextFromTipTap(block.content);
     blockEl.appendChild(textarea);
+  }
+
+  /**
+   * Extract plain text from TipTap JSONContent structure
+   * @param {object|null} content - TipTap JSONContent or null
+   * @returns {string}
+   */
+  _extractTextFromTipTap(content) {
+    if (!content || typeof content !== 'object') return '';
+
+    const extractFromNode = (node) => {
+      if (!node) return '';
+      if (node.type === 'text' && node.text) return node.text;
+      if (Array.isArray(node.content)) {
+        return node.content.map(extractFromNode).join('');
+      }
+      return '';
+    };
+
+    return extractFromNode(content);
   }
 
   _renderContainerContent(blockEl, block) {

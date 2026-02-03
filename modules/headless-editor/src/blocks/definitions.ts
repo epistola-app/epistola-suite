@@ -39,15 +39,19 @@ export const textBlockDefinition: BlockDefinition = {
   create: (id: string): TextBlock => ({
     id,
     type: "text",
-    content: "",
+    content: null,
   }),
 
   validate: (block: Block) => {
     const errors: string[] = [];
     if (block.type === "text") {
       const textBlock = block as TextBlock;
-      if (typeof textBlock.content !== "string") {
-        errors.push("Text block content must be a string");
+      // content can be null or a TipTap JSONContent object
+      if (
+        textBlock.content !== null &&
+        typeof textBlock.content !== "object"
+      ) {
+        errors.push("Text block content must be null or an object");
       }
     }
     return { valid: errors.length === 0, errors };

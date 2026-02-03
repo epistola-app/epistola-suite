@@ -9,6 +9,13 @@
 import { createEditorStore, BlockTree, type EditorStore } from './store.js';
 import { defaultBlockDefinitions } from './blocks/definitions.js';
 import { UndoManager } from './undo.js';
+import {
+  evaluateJsonata,
+  evaluateJsonataBoolean,
+  evaluateJsonataArray,
+  evaluateJsonataString,
+} from './evaluator/index.js';
+import type { EvaluationResult, EvaluationContext, ScopeVariable } from './evaluator/index.js';
 import type {
   Template,
   Block,
@@ -22,6 +29,10 @@ import type {
   DragDropPort,
   ColumnsBlock,
   TableBlock,
+  ConditionalBlock,
+  LoopBlock,
+  TextBlock,
+  TipTapContent,
   DataExample,
   JsonObject,
   JsonSchema,
@@ -340,6 +351,184 @@ export class TemplateEditor {
    */
   clearPreviewOverrides(): void {
     this.store.setPreviewOverrides({ ...DEFAULT_PREVIEW_OVERRIDES });
+  }
+
+  // =========================================================================
+  // EXPRESSION EVALUATION
+  // =========================================================================
+
+  /**
+   * Evaluate an expression against current test data with optional scope variables
+   * @param expression - Raw expression string (JSONata syntax)
+   * @param scope - Additional scope variables (e.g., loop item/index)
+   */
+  async evaluateExpression(expression: string, scope?: EvaluationContext): Promise<EvaluationResult> {
+    const testData = this.store.getTestData();
+    const context: EvaluationContext = { ...testData, ...scope };
+    return evaluateJsonata(expression, context);
+  }
+
+  /**
+   * Evaluate a conditional block's condition
+   * Returns true if condition passes, respecting inverse flag and preview overrides
+   * @param blockId - ID of the conditional block
+   * @param scope - Additional scope variables
+   */
+  async evaluateCondition(blockId: string, scope?: EvaluationContext): Promise<boolean> {
+    const block = this.findBlock(blockId);
+    if (!block || block.type !== 'conditional') return false;
+
+    const conditionalBlock = block as ConditionalBlock;
+
+    // Check for preview override
+    const overrides = this.store.getPreviewOverrides();
+    const override = overrides.conditionals[blockId];
+    if (override === 'show') return true;
+    if (override === 'hide') return false;
+
+    // Evaluate the actual condition
+    const testData = this.store.getTestData();
+    const context: EvaluationContext = { ...testData, ...scope };
+    let result = await evaluateJsonataBoolean(conditionalBlock.condition.raw, context);
+
+    // Apply inverse if set
+    if (conditionalBlock.inverse) {
+      result = !result;
+    }
+
+    return result;
+  }
+
+  /**
+   * Evaluate a loop block's expression to get the array
+   * Returns the array or empty array if evaluation fails
+   * @param blockId - ID of the loop block
+   * @param scope - Additional scope variables
+   */
+  async evaluateLoopArray(blockId: string, scope?: EvaluationContext): Promise<unknown[]> {
+    const block = this.findBlock(blockId);
+    if (!block || block.type !== 'loop') return [];
+
+    const loopBlock = block as LoopBlock;
+
+    const testData = this.store.getTestData();
+    const context: EvaluationContext = { ...testData, ...scope };
+    return evaluateJsonataArray(loopBlock.expression.raw, context);
+  }
+
+  /**
+   * Get the number of iterations for a loop in preview
+   * Respects preview overrides
+   * @param blockId - ID of the loop block
+   * @param scope - Additional scope variables
+   */
+  async getLoopIterationCount(blockId: string, scope?: EvaluationContext): Promise<number> {
+    // Check for preview override
+    const overrides = this.store.getPreviewOverrides();
+    const override = overrides.loops[blockId];
+    if (typeof override === 'number') return override;
+
+    // Use actual array length
+    const array = await this.evaluateLoopArray(blockId, scope);
+    return array.length;
+  }
+
+  /**
+   * Build evaluation context for a loop iteration
+   * @param blockId - ID of the loop block
+   * @param index - Current iteration index
+   * @param scope - Parent scope variables
+   */
+  async buildLoopIterationContext(
+    blockId: string,
+    index: number,
+    scope?: EvaluationContext
+  ): Promise<EvaluationContext> {
+    const block = this.findBlock(blockId);
+    if (!block || block.type !== 'loop') return { ...scope };
+
+    const loopBlock = block as LoopBlock;
+    const array = await this.evaluateLoopArray(blockId, scope);
+    const item = array[index];
+
+    const iterationScope: EvaluationContext = {
+      ...scope,
+      [loopBlock.itemAlias]: item,
+    };
+
+    if (loopBlock.indexAlias) {
+      iterationScope[loopBlock.indexAlias] = index;
+    }
+
+    return iterationScope;
+  }
+
+  /**
+   * Interpolate expressions in text content (TipTap JSONContent)
+   * Replaces {{expression}} patterns with evaluated values
+   * @param content - TipTap JSONContent
+   * @param scope - Evaluation scope
+   */
+  async interpolateText(content: TipTapContent, scope?: EvaluationContext): Promise<string> {
+    if (!content) return '';
+
+    const testData = this.store.getTestData();
+    const context: EvaluationContext = { ...testData, ...scope };
+
+    // Extract text from TipTap content
+    const rawText = this.extractTextFromTipTap(content);
+
+    // Find all {{expression}} patterns and evaluate them
+    const matches = rawText.matchAll(/\{\{([^}]+)\}\}/g);
+    const replacements: Array<{ match: string; value: string }> = [];
+
+    for (const match of matches) {
+      const expr = match[1].trim();
+      const value = await evaluateJsonataString(expr, context);
+      replacements.push({ match: match[0], value });
+    }
+
+    // Apply replacements
+    let result = rawText;
+    for (const { match, value } of replacements) {
+      result = result.replace(match, value);
+    }
+
+    return result;
+  }
+
+  /**
+   * Extract plain text from TipTap JSONContent structure
+   * Also handles expression nodes from the React editor
+   */
+  private extractTextFromTipTap(content: TipTapContent): string {
+    if (!content || typeof content !== 'object') return '';
+
+    const extractFromNode = (node: Record<string, unknown>): string => {
+      if (!node) return '';
+
+      // Handle expression nodes (from React editor's TipTap extension)
+      if (node.type === 'expression' && node.attrs) {
+        const attrs = node.attrs as Record<string, unknown>;
+        if (attrs.expression) {
+          return `{{${attrs.expression}}}`;
+        }
+      }
+
+      // Handle regular text nodes
+      if (node.type === 'text' && typeof node.text === 'string') {
+        return node.text;
+      }
+
+      // Recurse into content array
+      if (Array.isArray(node.content)) {
+        return node.content.map((child) => extractFromNode(child as Record<string, unknown>)).join('');
+      }
+
+      return '';
+    };
+
+    return extractFromNode(content as Record<string, unknown>);
   }
 
   // =========================================================================
