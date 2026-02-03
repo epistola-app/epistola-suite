@@ -83,6 +83,7 @@ export function mountVanillaEditor(options) {
     },
     destroy: () => {
       unsubscribe();
+      renderer.destroy();
       sortableAdapter.destroy();
       uiController.destroy();
     },
