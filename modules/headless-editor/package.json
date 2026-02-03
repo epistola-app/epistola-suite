@@ -21,6 +21,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "jsonata": "^2.0.5",
     "nanostores": "^0.11.4"
   },
   "devDependencies": {
