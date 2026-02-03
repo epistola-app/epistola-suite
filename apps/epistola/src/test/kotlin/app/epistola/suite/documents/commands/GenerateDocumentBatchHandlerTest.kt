@@ -86,7 +86,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.generate(),
+                versionId = VersionId.of(999), // Non-existent version for testing
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
@@ -117,7 +117,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.generate(),
+                versionId = VersionId.of(999), // Non-existent version for testing
                 environmentId = TestIdHelpers.nextEnvironmentId(), // Both set
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",

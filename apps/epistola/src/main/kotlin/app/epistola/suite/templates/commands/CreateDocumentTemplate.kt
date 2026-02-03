@@ -75,7 +75,7 @@ class CreateDocumentTemplateHandler(
                 .bind("templateId", template.id)
                 .execute()
 
-            // 3. Create draft version with default TemplateModel
+            // 3. Create draft version with default TemplateModel (version ID = 1)
             val templateModel = TemplateModel(
                 id = UUID.randomUUID().toString(),
                 name = command.name,
@@ -84,12 +84,12 @@ class CreateDocumentTemplateHandler(
                 blocks = emptyList(),
             )
             val templateModelJson = objectMapper.writeValueAsString(templateModel)
-            val versionId = VersionId.generate()
+            val versionId = VersionId.of(1) // First version is always 1
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
-                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
+                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
                 .bind("id", versionId)

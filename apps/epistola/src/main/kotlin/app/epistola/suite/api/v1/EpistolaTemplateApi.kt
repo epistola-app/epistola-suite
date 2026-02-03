@@ -58,7 +58,6 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
-import java.util.UUID
 
 @RestController
 class EpistolaTemplateApi(
@@ -363,7 +362,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
         variantId: String,
-        versionId: UUID,
+        versionId: Int,
     ): ResponseEntity<VersionDto> {
         val version = GetVersion(
             tenantId = TenantId.of(tenantId),
@@ -378,7 +377,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
         variantId: String,
-        versionId: UUID,
+        versionId: Int,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
@@ -397,7 +396,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
         variantId: String,
-        versionId: UUID,
+        versionId: Int,
     ): ResponseEntity<VersionDto> {
         val published = PublishVersion(
             tenantId = TenantId.of(tenantId),
@@ -412,7 +411,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
         variantId: String,
-        versionId: UUID,
+        versionId: Int,
     ): ResponseEntity<VersionDto> {
         val archived = ArchiveVersion(
             tenantId = TenantId.of(tenantId),
@@ -434,7 +433,7 @@ class EpistolaTemplateApi(
         val hasDraft = versions.any { it.status == VersionStatus.DRAFT }
         val publishedVersions = versions
             .filter { it.status == VersionStatus.PUBLISHED }
-            .mapNotNull { it.versionNumber }
+            .map { it.id.value }
             .sorted()
         return VariantVersionInfo(
             hasDraft = hasDraft,

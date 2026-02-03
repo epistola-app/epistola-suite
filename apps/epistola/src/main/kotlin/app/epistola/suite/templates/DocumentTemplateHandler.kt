@@ -482,7 +482,7 @@ class DocumentTemplateHandler(
                 title = variant.title,
                 tags = variant.tags,
                 hasDraft = versions.any { it.status.name == "DRAFT" },
-                publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.mapNotNull { it.versionNumber }.sorted(),
+                publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.map { it.id.value }.sorted(),
             )
 
         return ServerResponse.ok().render(

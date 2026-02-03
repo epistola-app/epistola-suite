@@ -1,6 +1,6 @@
 VersionDto:
   type: object
-  description: Template version with content and lifecycle state
+  description: Template version with content and lifecycle state. The id field IS the version number (1-200).
   required:
     - id
     - variantId
@@ -8,20 +8,16 @@ VersionDto:
     - createdAt
   properties:
     id:
-      type: string
-      format: uuid
-      description: Unique identifier of the version
+      type: integer
+      minimum: 1
+      maximum: 200
+      description: Version identifier (also the version number, 1-200)
     variantId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
       minLength: 3
       maxLength: 50
       description: Slug identifier of the variant this version belongs to
-    versionNumber:
-      type:
-        - integer
-        - 'null'
-      description: Version number (null for drafts, assigned on publish)
     templateModel:
       type: object
       additionalProperties: true
@@ -52,7 +48,7 @@ VersionDto:
 
 VersionSummaryDto:
   type: object
-  description: Summary view of a version for list displays
+  description: Summary view of a version for list displays. The id field IS the version number (1-200).
   required:
     - id
     - variantId
@@ -60,20 +56,16 @@ VersionSummaryDto:
     - createdAt
   properties:
     id:
-      type: string
-      format: uuid
-      description: Unique identifier of the version
+      type: integer
+      minimum: 1
+      maximum: 200
+      description: Version identifier (also the version number, 1-200)
     variantId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
       minLength: 3
       maxLength: 50
       description: Slug identifier of the variant this version belongs to
-    versionNumber:
-      type:
-        - integer
-        - 'null'
-      description: Version number (null for drafts)
     status:
       type: string
       enum:

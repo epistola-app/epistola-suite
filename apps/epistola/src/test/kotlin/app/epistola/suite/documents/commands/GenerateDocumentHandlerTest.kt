@@ -79,7 +79,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
                     tenantId = tenant.id,
                     templateId = TestIdHelpers.nextTemplateId(),
                     variantId = TestIdHelpers.nextVariantId(),
-                    versionId = VersionId.generate(),
+                    versionId = VersionId.of(999), // Non-existent version for testing
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -103,7 +103,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = VersionId.generate(),
+                    versionId = VersionId.of(999), // Non-existent version for testing
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",

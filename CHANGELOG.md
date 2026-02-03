@@ -48,6 +48,28 @@
 - **BREAKING: EnvironmentId changed from UUID to slug format**: Environment IDs are now human-readable, URL-safe slugs instead of UUIDs
   - Format: 3-30 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
   - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+- **BREAKING: VersionId changed from UUID to auto-incrementing integer (1-200)**: Version IDs are now sequential integers per variant instead of UUIDs
+  - Version IDs are now sequential integers (1-200) calculated automatically per variant
+  - First version is always 1, maximum 200 versions per variant
+  - The `id` field IS the version number - no separate `versionNumber` field
+  - **MAJOR BEHAVIOR CHANGE**: Publishing now updates the draft status instead of creating a new version record
+    - Publishing converts the draft to published (draft is NOT preserved)
+    - After publishing v1, must explicitly create a new draft for v2
+    - Sequential versioning enforced (cannot skip version numbers)
+  - Database changes:
+    - `template_versions.id` changed from `UUID` to `INTEGER` with CHECK constraint (1-200)
+    - Removed `version_number` column (merged into `id`)
+    - Changed primary key from `id` to composite `(variant_id, id)`
+    - Foreign keys now use composite references: `(variant_id, version_id)`
+  - API changes:
+    - `versionId` path parameters changed from UUID to integer (1-200)
+    - Removed `versionNumber` field from VersionDto and VersionSummaryDto
+    - Removed `versionNumber` field from ActivationDto
+  - Code changes:
+    - Removed `VersionId.generate()` method - IDs are calculated based on existing versions
+    - `CreateVersion` command no longer accepts `id` parameter
+    - `PublishVersion` command now updates status instead of creating new record
+    - `UpdateDraft` command creates new draft with next version ID if none exists
   - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
   - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
   - Environment IDs must now be client-provided (no auto-generation via `EnvironmentId.generate()`)

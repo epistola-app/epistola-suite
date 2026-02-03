@@ -12,10 +12,11 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 /**
- * Publishes a draft version by creating a new immutable published version.
- * The draft is preserved for continued editing.
+ * Publishes a draft version by updating its status to 'published'.
+ * BREAKING CHANGE: Publishing now updates the same record instead of creating a new one.
+ * The draft is NOT preserved - it becomes the published version.
  *
- * Returns the newly created published version, or null if:
+ * Returns the published version (same ID), or null if:
  * - The version doesn't exist
  * - The version is not a draft
  * - The tenant doesn't own the template
@@ -32,10 +33,10 @@ class PublishVersionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<PublishVersion, TemplateVersion?> {
     override fun handle(command: PublishVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Get the draft version and verify ownership
-        val draft = handle.createQuery(
+        // Verify the version exists, is a draft, and tenant owns it
+        val exists = handle.createQuery(
             """
-                SELECT ver.id, ver.variant_id, ver.version_number, ver.template_model, ver.status, ver.created_at, ver.published_at, ver.archived_at
+                SELECT COUNT(*) > 0
                 FROM template_versions ver
                 JOIN template_variants tv ON ver.variant_id = tv.id
                 JOIN document_templates dt ON tv.template_id = dt.id
@@ -50,41 +51,43 @@ class PublishVersionHandler(
             .bind("variantId", command.variantId)
             .bind("templateId", command.templateId)
             .bind("tenantId", command.tenantId)
-            .mapTo<TemplateVersion>()
-            .findOne()
-            .orElse(null)
+            .mapTo(Boolean::class.java)
+            .one()
 
-        if (draft == null) {
+        if (!exists) {
             return@inTransaction null
         }
 
-        // Get the next version number for this variant
-        val nextVersionNumber = handle.createQuery(
+        // Update the draft to published status (no new record created)
+        val updated = handle.createUpdate(
             """
-                SELECT COALESCE(MAX(version_number), 0) + 1
-                FROM template_versions
-                WHERE variant_id = :variantId AND version_number IS NOT NULL
+                UPDATE template_versions
+                SET status = 'published',
+                    published_at = NOW()
+                WHERE variant_id = :variantId
+                  AND id = :versionId
+                  AND status = 'draft'
                 """,
         )
             .bind("variantId", command.variantId)
-            .mapTo<Int>()
-            .one()
+            .bind("versionId", command.versionId)
+            .execute()
 
-        // Create a new published version with the draft's content
-        val newVersionId = VersionId.generate()
+        if (updated == 0) {
+            return@inTransaction null
+        }
+
+        // Return the same version (now published)
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at, published_at)
-                SELECT :newId, :variantId, :versionNumber, template_model, 'published', NOW(), NOW()
+                SELECT *
                 FROM template_versions
-                WHERE id = :draftId
-                RETURNING *
+                WHERE variant_id = :variantId
+                  AND id = :versionId
                 """,
         )
-            .bind("newId", newVersionId)
             .bind("variantId", command.variantId)
-            .bind("versionNumber", nextVersionNumber)
-            .bind("draftId", draft.id)
+            .bind("versionId", command.versionId)
             .mapTo<TemplateVersion>()
             .one()
     }

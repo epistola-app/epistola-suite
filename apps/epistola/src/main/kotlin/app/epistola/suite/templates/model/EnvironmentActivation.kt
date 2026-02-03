@@ -17,11 +17,11 @@ data class EnvironmentActivation(
 
 /**
  * Enriched activation with environment and version details.
+ * versionId.value IS the version number (1-200).
  */
 data class ActivationDetails(
     val environmentId: EnvironmentId,
     val environmentName: String,
     val versionId: VersionId,
-    val versionNumber: Int,
     val activatedAt: OffsetDateTime,
 )

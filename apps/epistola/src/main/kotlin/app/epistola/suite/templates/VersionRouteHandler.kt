@@ -4,7 +4,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.pathUuid
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -37,7 +36,6 @@ class VersionRouteHandler {
             ?: return ServerResponse.badRequest().build()
 
         CreateVersion(
-            id = VersionId.generate(),
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             variantId = variantId,
@@ -54,14 +52,18 @@ class VersionRouteHandler {
         val variantIdStr = request.pathVariable("variantId")
         val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathUuid("versionId")
+        val versionIdInt = request.pathVariable("versionId").toIntOrNull()
             ?: return ServerResponse.badRequest().build()
+
+        if (versionIdInt !in VersionId.MIN_VERSION..VersionId.MAX_VERSION) {
+            return ServerResponse.badRequest().build()
+        }
 
         PublishVersion(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             variantId = variantId,
-            versionId = VersionId.of(versionId),
+            versionId = VersionId.of(versionIdInt),
         ).execute()
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
@@ -75,14 +77,18 @@ class VersionRouteHandler {
         val variantIdStr = request.pathVariable("variantId")
         val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
-        val versionId = request.pathUuid("versionId")
+        val versionIdInt = request.pathVariable("versionId").toIntOrNull()
             ?: return ServerResponse.badRequest().build()
+
+        if (versionIdInt !in VersionId.MIN_VERSION..VersionId.MAX_VERSION) {
+            return ServerResponse.badRequest().build()
+        }
 
         ArchiveVersion(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             variantId = variantId,
-            versionId = VersionId.of(versionId),
+            versionId = VersionId.of(versionIdInt),
         ).execute()
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
@@ -116,7 +122,7 @@ class VersionRouteHandler {
             title = variant.title,
             tags = variant.tags,
             hasDraft = versions.any { it.status.name == "DRAFT" },
-            publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.mapNotNull { it.versionNumber }.sorted(),
+            publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.map { it.id.value }.sorted(),
         )
 
         return request.htmx {

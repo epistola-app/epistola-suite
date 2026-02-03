@@ -25,7 +25,7 @@ class GetVersionHandler(
     override fun handle(query: GetVersion): TemplateVersion? = jdbi.withHandle<TemplateVersion?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT ver.id, ver.variant_id, ver.version_number, ver.template_model, ver.status, ver.created_at, ver.published_at, ver.archived_at
+                SELECT ver.id, ver.variant_id, ver.template_model, ver.status, ver.created_at, ver.published_at, ver.archived_at
                 FROM template_versions ver
                 JOIN template_variants tv ON ver.variant_id = tv.id
                 JOIN document_templates dt ON tv.template_id = dt.id

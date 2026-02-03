@@ -15,12 +15,13 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Creates a new draft version for a variant.
+ * Version ID is calculated automatically as MAX(id) + 1 for the variant.
  * If no templateModel is provided, creates a default empty template structure.
  * Returns null if variant doesn't exist or tenant doesn't own the template.
  * Throws exception if a draft already exists for this variant.
+ * Throws exception if maximum version limit (200) is reached.
  */
 data class CreateVersion(
-    val id: VersionId,
     val tenantId: TenantId,
     val templateId: TemplateId,
     val variantId: VariantId,
@@ -53,18 +54,37 @@ class CreateVersionHandler(
 
         val templateName = templateInfo["template_name"] as String
 
+        // Calculate next version ID for this variant
+        val nextVersionId = handle.createQuery(
+            """
+                SELECT COALESCE(MAX(id), 0) + 1 as next_id
+                FROM template_versions
+                WHERE variant_id = :variantId
+                """,
+        )
+            .bind("variantId", command.variantId)
+            .mapTo(Int::class.java)
+            .one()
+
+        // Enforce max version limit
+        require(nextVersionId <= VersionId.MAX_VERSION) {
+            "Maximum version limit (${VersionId.MAX_VERSION}) reached for variant ${command.variantId}"
+        }
+
+        val versionId = VersionId.of(nextVersionId)
+
         // Use provided model or create default empty template structure
         val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId)
         val templateModelJson = objectMapper.writeValueAsString(modelToSave)
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
-                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
+                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
-            .bind("id", command.id)
+            .bind("id", versionId)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

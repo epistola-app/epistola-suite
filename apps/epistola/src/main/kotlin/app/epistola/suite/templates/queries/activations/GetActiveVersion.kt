@@ -31,14 +31,13 @@ class GetActiveVersionHandler(
                 SELECT
                     ver.id,
                     ver.variant_id,
-                    ver.version_number,
                     ver.template_model,
                     ver.status,
                     ver.created_at,
                     ver.published_at,
                     ver.archived_at
                 FROM environment_activations ea
-                JOIN template_versions ver ON ea.version_id = ver.id
+                JOIN template_versions ver ON ea.variant_id = ver.variant_id AND ea.version_id = ver.id
                 JOIN environments e ON ea.environment_id = e.id
                 JOIN template_variants tv ON ea.variant_id = tv.id
                 JOIN document_templates dt ON tv.template_id = dt.id

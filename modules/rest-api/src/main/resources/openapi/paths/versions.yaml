@@ -90,10 +90,11 @@ versions-id:
     - name: versionId
       in: path
       required: true
-      description: Unique identifier of the version
+      description: Version identifier (version number, 1-200)
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
+        maximum: 200
 
   get:
     operationId: getVersion
@@ -179,17 +180,18 @@ version-publish:
     - name: versionId
       in: path
       required: true
-      description: Unique identifier of the version
+      description: Version identifier (version number, 1-200)
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
+        maximum: 200
 
   post:
     operationId: publishVersion
     summary: Publish a draft version
     description: |
-      Publish a draft version. This copies the draft content to a new published version
-      with the next sequential version number. The draft is preserved for continued editing.
+      Publish a draft version. BREAKING CHANGE: Publishing now updates the draft status to 'published'
+      instead of creating a new version. The draft is NOT preserved - it becomes the published version.
     tags:
       - Versions
     responses:
@@ -244,10 +246,11 @@ version-archive:
     - name: versionId
       in: path
       required: true
-      description: Unique identifier of the version
+      description: Version identifier (version number, 1-200)
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
+        maximum: 200
 
   post:
     operationId: archiveVersion

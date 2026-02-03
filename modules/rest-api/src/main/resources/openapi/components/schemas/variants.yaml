@@ -150,12 +150,11 @@ VariantListResponse:
 
 ActivationDto:
   type: object
-  description: Environment activation for a variant
+  description: Environment activation for a variant. versionId IS the version number (1-200).
   required:
     - environmentId
     - environmentName
     - versionId
-    - versionNumber
     - activatedAt
   properties:
     environmentId:
@@ -168,12 +167,10 @@ ActivationDto:
       type: string
       description: Name of the environment
     versionId:
-      type: string
-      format: uuid
-      description: ID of the active version
-    versionNumber:
       type: integer
-      description: Version number of the active version
+      minimum: 1
+      maximum: 200
+      description: ID of the active version (also the version number, 1-200)
     activatedAt:
       type: string
       format: date-time
@@ -186,9 +183,10 @@ SetActivationRequest:
     - versionId
   properties:
     versionId:
-      type: string
-      format: uuid
-      description: ID of the version to activate
+      type: integer
+      minimum: 1
+      maximum: 200
+      description: ID of the version to activate (version number, 1-200)
 
 ActivationListResponse:
   type: object

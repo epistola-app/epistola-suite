@@ -27,18 +27,19 @@ CREATE TABLE template_variants (
 CREATE INDEX idx_template_variants_template_id ON template_variants(template_id);
 
 -- Version history with lifecycle states
+-- BREAKING CHANGE: id is now an auto-incrementing integer (1-200) per variant, not UUID
+-- The id IS the version number - no separate version_number column
 CREATE TABLE template_versions (
-    id UUID PRIMARY KEY,
+    id INTEGER NOT NULL,
     variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
-    version_number INTEGER,  -- NULL for draft, assigned on publish
     template_model JSONB NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     published_at TIMESTAMP WITH TIME ZONE,
     archived_at TIMESTAMP WITH TIME ZONE,
-    UNIQUE (variant_id, version_number),
+    PRIMARY KEY (variant_id, id),
     CHECK (status IN ('draft', 'published', 'archived')),
-    CHECK ((status = 'draft' AND version_number IS NULL) OR (status != 'draft' AND version_number IS NOT NULL))
+    CHECK (id BETWEEN 1 AND 200)
 );
 
 CREATE INDEX idx_template_versions_variant_id ON template_versions(variant_id);
@@ -50,10 +51,12 @@ CREATE UNIQUE INDEX idx_one_draft_per_variant
     WHERE status = 'draft';
 
 -- Environment activations (which version is active per environment)
+-- Foreign key now references composite primary key (variant_id, id) of template_versions
 CREATE TABLE environment_activations (
     environment_id VARCHAR(30) NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
     variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
-    version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
+    version_id INTEGER NOT NULL,
     activated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (environment_id, variant_id)
+    PRIMARY KEY (environment_id, variant_id),
+    FOREIGN KEY (variant_id, version_id) REFERENCES template_versions(variant_id, id) ON DELETE CASCADE
 );

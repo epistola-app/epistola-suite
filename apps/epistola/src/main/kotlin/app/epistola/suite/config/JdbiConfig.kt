@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.jackson3.Jackson3Config
@@ -47,5 +48,9 @@ class JdbiConfig {
 
             // Register EnvironmentId column mapper for reading from result sets
             registerColumnMapper(EnvironmentId::class.java, EnvironmentIdColumnMapper())
+
+            // Register VersionId argument factory and column mapper for integer-based version IDs
+            registerArgument(VersionIdArgumentFactory())
+            registerColumnMapper(VersionId::class.java, VersionIdColumnMapper())
         }
 }

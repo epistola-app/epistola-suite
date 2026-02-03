@@ -21,9 +21,10 @@ GenerateDocumentRequest:
       maxLength: 50
       description: Slug identifier of the variant to use
     versionId:
-      type: [string, "null"]
-      format: uuid
-      description: Explicit version ID (mutually exclusive with environmentId)
+      type: [integer, "null"]
+      minimum: 1
+      maximum: 200
+      description: Explicit version ID (version number, 1-200, mutually exclusive with environmentId)
     environmentId:
       type: [string, "null"]
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -64,9 +65,10 @@ BatchGenerationItem:
       maxLength: 50
       description: Slug identifier of the variant to use
     versionId:
-      type: [string, "null"]
-      format: uuid
-      description: Explicit version ID (mutually exclusive with environmentId)
+      type: [integer, "null"]
+      minimum: 1
+      maximum: 200
+      description: Explicit version ID (version number, 1-200, mutually exclusive with environmentId)
     environmentId:
       type: [string, "null"]
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -157,9 +159,10 @@ DocumentGenerationItemDto:
       maxLength: 50
       description: Slug identifier of the variant used for generation
     versionId:
-      type: [string, "null"]
-      format: uuid
-      description: Explicit version ID (if specified)
+      type: [integer, "null"]
+      minimum: 1
+      maximum: 200
+      description: Explicit version ID (version number, 1-200, if specified)
     environmentId:
       type: [string, "null"]
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -333,9 +336,10 @@ DocumentDto:
       maxLength: 50
       description: Slug identifier of the variant used to generate this document
     versionId:
-      type: string
-      format: uuid
-      description: Version used to generate this document
+      type: integer
+      minimum: 1
+      maximum: 200
+      description: Version used to generate this document (version number, 1-200)
     filename:
       type: string
       description: Filename of the document

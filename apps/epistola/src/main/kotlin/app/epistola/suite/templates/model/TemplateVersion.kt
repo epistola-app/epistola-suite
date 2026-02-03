@@ -17,11 +17,11 @@ enum class VersionStatus {
 
 /**
  * Template version containing the actual content with lifecycle state.
+ * The id field IS the version number (1-200) - no separate versionNumber field.
  */
 data class TemplateVersion(
     val id: VersionId,
     val variantId: VariantId,
-    val versionNumber: Int?,
     @Json val templateModel: TemplateModel,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,
@@ -31,11 +31,11 @@ data class TemplateVersion(
 
 /**
  * Summary view of a version for list displays.
+ * The id field IS the version number (1-200) - no separate versionNumber field.
  */
 data class VersionSummary(
     val id: VersionId,
     val variantId: VariantId,
-    val versionNumber: Int?,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,

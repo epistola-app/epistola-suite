@@ -23,7 +23,7 @@ class ListVersionsHandler(
     override fun handle(query: ListVersions): List<VersionSummary> = jdbi.withHandle<List<VersionSummary>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT ver.id, ver.variant_id, ver.version_number, ver.status, ver.created_at, ver.published_at, ver.archived_at
+                SELECT ver.id, ver.variant_id, ver.status, ver.created_at, ver.published_at, ver.archived_at
                 FROM template_versions ver
                 JOIN template_variants tv ON ver.variant_id = tv.id
                 JOIN document_templates dt ON tv.template_id = dt.id
@@ -32,7 +32,7 @@ class ListVersionsHandler(
                   AND dt.tenant_id = :tenantId
                 ORDER BY
                     CASE ver.status WHEN 'draft' THEN 0 ELSE 1 END,
-                    ver.version_number DESC NULLS FIRST
+                    ver.id DESC
                 """,
         )
             .bind("variantId", query.variantId)

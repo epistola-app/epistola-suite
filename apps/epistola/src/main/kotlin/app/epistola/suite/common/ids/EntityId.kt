@@ -163,15 +163,27 @@ value class VariantId(override val value: String) : SlugId<VariantId> {
 
 /**
  * Typed ID for TemplateVersion entities.
+ * Uses auto-incrementing integers (1-200) per variant instead of UUIDs.
+ * The version ID IS the version number - no separate version_number field.
  */
 @JvmInline
-value class VersionId(override val value: UUID) : UuidId<VersionId> {
-    companion object {
-        fun generate(): VersionId = VersionId(UUIDv7.generate())
-        fun of(value: UUID): VersionId = VersionId(value)
+value class VersionId(override val value: Int) : EntityId<VersionId, Int> {
+    init {
+        require(value in MIN_VERSION..MAX_VERSION) {
+            "Version ID must be between $MIN_VERSION and $MAX_VERSION, got $value"
+        }
     }
 
     override fun toString(): String = value.toString()
+
+    companion object {
+        const val MIN_VERSION = 1
+        const val MAX_VERSION = 200
+
+        fun of(value: Int): VersionId = VersionId(value)
+
+        // No generate() method - version IDs are calculated per variant based on existing versions
+    }
 }
 
 /**
