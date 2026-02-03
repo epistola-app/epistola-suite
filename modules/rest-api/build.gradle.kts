@@ -20,6 +20,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("tools.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation(project(":modules:template-model"))
 }
 
 val specDir = file("src/main/resources/openapi")
@@ -89,6 +90,19 @@ openApiGenerate {
             "gradleBuildFile" to "false",
             "documentationProvider" to "none",
             "useJakartaEe" to "true",
+        ),
+    )
+
+    // Use ObjectNode for generic objects to properly handle null values
+    importMappings.set(
+        mapOf(
+            "ObjectNode" to "tools.jackson.databind.node.ObjectNode",
+        ),
+    )
+
+    typeMappings.set(
+        mapOf(
+            "object" to "ObjectNode",
         ),
     )
 

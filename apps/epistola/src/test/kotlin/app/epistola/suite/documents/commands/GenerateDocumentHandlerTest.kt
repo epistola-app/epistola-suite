@@ -79,7 +79,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
                     tenantId = tenant.id,
                     templateId = TestIdHelpers.nextTemplateId(),
                     variantId = TestIdHelpers.nextVariantId(),
-                    versionId = VersionId.of(999), // Non-existent version for testing
+                    versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -103,7 +103,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = VersionId.of(999), // Non-existent version for testing
+                    versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -120,7 +120,7 @@ class GenerateDocumentHandlerTest : BaseIntegrationTest() {
                 tenantId = TenantId.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.generate(),
+                versionId = VersionId.of(1),
                 environmentId = TestIdHelpers.nextEnvironmentId(), // Both set - should fail
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",

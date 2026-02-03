@@ -17,7 +17,6 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionListResponse
-import app.epistola.suite.api.v1.shared.TemplateModelHelper
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
@@ -245,8 +244,9 @@ class EpistolaTemplateApi(
         variantId: String,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
-        val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
-            ?: return ResponseEntity.badRequest().build()
+        val templateModel = updateDraftRequest.templateModel?.let {
+            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateModel::class.java)
+        } ?: return ResponseEntity.badRequest().build()
         val draft = UpdateDraft(
             tenantId = TenantId.of(tenantId),
             templateId = TemplateId.of(templateId),
@@ -380,8 +380,9 @@ class EpistolaTemplateApi(
         versionId: Int,
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
-        val templateModel = updateDraftRequest.templateModel?.let { TemplateModelHelper.parseTemplateModel(objectMapper, it) }
-            ?: return ResponseEntity.badRequest().build()
+        val templateModel = updateDraftRequest.templateModel?.let {
+            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateModel::class.java)
+        } ?: return ResponseEntity.badRequest().build()
         val version = UpdateVersion(
             tenantId = TenantId.of(tenantId),
             templateId = TemplateId.of(templateId),

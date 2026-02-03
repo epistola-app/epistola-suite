@@ -108,6 +108,7 @@
   - Demo tenant now uses "Corporate" as default theme instead of auto-created "Tenant Default"
 
 ### Fixed
+- **Null value handling in draft updates**: Fixed `InvalidNullException` when saving drafts with nullable TemplateModel fields (e.g., `themeId: null`). OpenAPI DTOs now use Jackson `ObjectNode` instead of `Map<String, Any>` for proper null value handling. ObjectNode correctly preserves null values during JSON deserialization and serialization.
 - **PDF preview not applying template's default theme**: Preview endpoint was not passing the template's default theme to the PDF renderer, causing previews to miss the template-level theme cascade. Now correctly fetches the template and passes its `themeId` to `renderPdf()`.
 - **Thymeleaf JavaScript serialization using wrong ObjectMapper**: Fixed data contract fields (schema, test data) showing Jackson `JsonNode` internal properties instead of actual values in template detail and editor pages. Created custom `IStandardJavaScriptSerializer` that uses Spring's auto-configured ObjectMapper for proper Jackson 3 serialization. Simplified `DocumentTemplateHandler.editor()` by removing manual Map conversions.
 - **CreateVersion command now idempotent**: Fixed unique constraint violation when clicking "Create Draft" multiple times. The command now checks for an existing draft first and returns it if found, making the operation safe to call repeatedly without errors.
