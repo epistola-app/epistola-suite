@@ -2,7 +2,6 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
@@ -119,7 +118,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 versionId = VersionId.generate(),
-                environmentId = EnvironmentId.generate(), // Both set
+                environmentId = TestIdHelpers.nextEnvironmentId(), // Both set
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
             )

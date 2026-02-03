@@ -339,10 +339,12 @@ variant-activation-env:
     - name: environmentId
       in: path
       required: true
-      description: Unique identifier of the environment
+      description: Slug identifier of the environment (e.g., "production", "staging")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 30
 
   put:
     operationId: setVariantActivation
@@ -432,10 +434,12 @@ variant-active:
       - name: environment
         in: query
         required: true
-        description: Environment ID to get active version for
+        description: Slug identifier of environment to get active version for (e.g., "production")
         schema:
           type: string
-          format: uuid
+          pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 30
     responses:
       '200':
         description: Active version

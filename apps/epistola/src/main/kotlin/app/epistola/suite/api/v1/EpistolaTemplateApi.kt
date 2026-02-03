@@ -276,7 +276,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
         variantId: String,
-        environmentId: UUID,
+        environmentId: String,
         setActivationRequest: SetActivationRequest,
     ): ResponseEntity<ActivationDto> {
         val activation = SetActivation(
@@ -304,7 +304,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
         variantId: String,
-        environmentId: UUID,
+        environmentId: String,
     ): ResponseEntity<Unit> {
         val removed = RemoveActivation(
             tenantId = TenantId.of(tenantId),
@@ -320,7 +320,7 @@ class EpistolaTemplateApi(
     }
 
     override fun getActiveVersion(
-        environment: UUID,
+        environment: String,
         tenantId: String,
         templateId: String,
         variantId: String,

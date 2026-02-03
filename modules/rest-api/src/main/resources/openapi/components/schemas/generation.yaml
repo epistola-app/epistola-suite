@@ -26,8 +26,10 @@ GenerateDocumentRequest:
       description: Explicit version ID (mutually exclusive with environmentId)
     environmentId:
       type: [string, "null"]
-      format: uuid
-      description: Environment to determine version from (mutually exclusive with versionId)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier of environment to determine version from (mutually exclusive with versionId)
     data:
       type: object
       description: JSON data to populate the template
@@ -67,8 +69,10 @@ BatchGenerationItem:
       description: Explicit version ID (mutually exclusive with environmentId)
     environmentId:
       type: [string, "null"]
-      format: uuid
-      description: Environment to determine version from (mutually exclusive with versionId)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier of environment to determine version from (mutually exclusive with versionId)
     data:
       type: object
       description: JSON data to populate the template
@@ -158,8 +162,10 @@ DocumentGenerationItemDto:
       description: Explicit version ID (if specified)
     environmentId:
       type: [string, "null"]
-      format: uuid
-      description: Environment ID (if specified)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier of environment (if specified)
     data:
       type: object
       description: JSON data used for generation

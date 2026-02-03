@@ -9,8 +9,10 @@ EnvironmentDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the environment
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier of the environment
     tenantId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -34,8 +36,10 @@ CreateEnvironmentRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the environment (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier for the environment (e.g., production, staging, development)
     name:
       type: string
       minLength: 1

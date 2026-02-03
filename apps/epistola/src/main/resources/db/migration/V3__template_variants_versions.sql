@@ -4,7 +4,7 @@
 
 -- Tenant environments (staging, production, etc.)
 CREATE TABLE environments (
-    id UUID PRIMARY KEY,
+    id VARCHAR(30) PRIMARY KEY CHECK (id ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'),
     tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -51,7 +51,7 @@ CREATE UNIQUE INDEX idx_one_draft_per_variant
 
 -- Environment activations (which version is active per environment)
 CREATE TABLE environment_activations (
-    environment_id UUID NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
+    environment_id VARCHAR(30) NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
     variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
     activated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

@@ -1,5 +1,6 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -43,5 +44,8 @@ class JdbiConfig {
 
             // Register VariantId column mapper for reading from result sets
             registerColumnMapper(VariantId::class.java, VariantIdColumnMapper())
+
+            // Register EnvironmentId column mapper for reading from result sets
+            registerColumnMapper(EnvironmentId::class.java, EnvironmentIdColumnMapper())
         }
 }

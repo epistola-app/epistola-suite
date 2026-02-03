@@ -1,5 +1,6 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.SlugId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -62,5 +63,16 @@ class VariantIdColumnMapper : ColumnMapper<VariantId> {
     override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): VariantId? {
         val value = r.getString(columnNumber)
         return if (r.wasNull()) null else VariantId.of(value)
+    }
+}
+
+/**
+ * JDBI ColumnMapper for EnvironmentId.
+ * Maps VARCHAR database columns to EnvironmentId value class.
+ */
+class EnvironmentIdColumnMapper : ColumnMapper<EnvironmentId> {
+    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): EnvironmentId? {
+        val value = r.getString(columnNumber)
+        return if (r.wasNull()) null else EnvironmentId.of(value)
     }
 }

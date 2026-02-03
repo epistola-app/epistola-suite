@@ -68,8 +68,8 @@ val generateOpenApiDocs by tasks.registering(Exec::class) {
 
 openApiGenerate {
     generatorName.set("kotlin-spring")
-    inputSpec.set(bundledSpec.get().asFile.absolutePath)
-    outputDir.set(generatedDir.get().asFile.absolutePath)
+    inputSpec.set(bundledSpec.map { it.asFile.absolutePath })
+    outputDir.set(generatedDir.map { it.asFile.absolutePath })
 
     apiPackage.set("app.epistola.api")
     modelPackage.set("app.epistola.api.model")

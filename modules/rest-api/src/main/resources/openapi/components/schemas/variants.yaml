@@ -160,8 +160,10 @@ ActivationDto:
   properties:
     environmentId:
       type: string
-      format: uuid
-      description: ID of the environment
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier of the environment
     environmentName:
       type: string
       description: Name of the environment

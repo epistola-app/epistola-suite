@@ -27,7 +27,6 @@ import app.epistola.suite.tenants.queries.ListTenants
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @RestController
 class EpistolaTenantApi :
@@ -117,7 +116,7 @@ class EpistolaTenantApi :
 
     override fun getEnvironment(
         tenantId: String,
-        environmentId: UUID,
+        environmentId: String,
     ): ResponseEntity<EnvironmentDto> {
         val environment = GetEnvironment(tenantId = TenantId.of(tenantId), id = EnvironmentId.of(environmentId)).query()
             ?: return ResponseEntity.notFound().build()
@@ -126,7 +125,7 @@ class EpistolaTenantApi :
 
     override fun updateEnvironment(
         tenantId: String,
-        environmentId: UUID,
+        environmentId: String,
         updateEnvironmentRequest: UpdateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val name = updateEnvironmentRequest.name
@@ -141,7 +140,7 @@ class EpistolaTenantApi :
 
     override fun deleteEnvironment(
         tenantId: String,
-        environmentId: UUID,
+        environmentId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteEnvironment(tenantId = TenantId.of(tenantId), id = EnvironmentId.of(environmentId)).execute()
         return if (deleted) {

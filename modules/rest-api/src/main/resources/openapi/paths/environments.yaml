@@ -82,10 +82,12 @@ environments-id:
     - name: environmentId
       in: path
       required: true
-      description: Unique identifier of the environment
+      description: Slug identifier of the environment (e.g., "production", "staging")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 30
 
   get:
     operationId: getEnvironment

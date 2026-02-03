@@ -176,15 +176,51 @@ value class VersionId(override val value: UUID) : UuidId<VersionId> {
 
 /**
  * Typed ID for Environment entities.
+ * Uses a human-readable slug format (e.g., "production", "staging") instead of UUID.
+ *
+ * Validation rules:
+ * - Length: 3-30 characters
+ * - Characters: lowercase letters (a-z), numbers (0-9), hyphens (-)
+ * - Must start with a letter
+ * - Cannot end with a hyphen
+ * - No consecutive hyphens
  */
 @JvmInline
-value class EnvironmentId(override val value: UUID) : UuidId<EnvironmentId> {
-    companion object {
-        fun generate(): EnvironmentId = EnvironmentId(UUIDv7.generate())
-        fun of(value: UUID): EnvironmentId = EnvironmentId(value)
+value class EnvironmentId(override val value: String) : SlugId<EnvironmentId> {
+    init {
+        require(value.length in 3..30) {
+            "Environment ID must be 3-30 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Environment ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+        require(value !in RESERVED_WORDS) {
+            "Environment ID '$value' is reserved and cannot be used"
+        }
     }
 
-    override fun toString(): String = value.toString()
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        private val RESERVED_WORDS = setOf(
+            "admin",
+            "api",
+            "www",
+            "system",
+            "internal",
+            "null",
+            "undefined",
+        )
+
+        fun of(value: String): EnvironmentId = EnvironmentId(value)
+
+        /**
+         * Validates a slug without throwing.
+         * Returns null if invalid, or the validated slug if valid.
+         */
+        fun validateOrNull(value: String): EnvironmentId? = runCatching { EnvironmentId(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
 }
 
 /**
