@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Changed
+- Enforce strict separation between UI handlers and REST API endpoints
+- Editor now saves drafts via UI handler (`PUT /tenants/.../draft`) instead of REST API endpoint (`PUT /v1/tenants/.../draft`)
+- All UI code now uses `application/json` content-type instead of REST API content-type (`application/vnd.epistola.v1+json`)
+
+### Added
+- UI handler for updating drafts: `PUT /tenants/{tenantId}/templates/{id}/variants/{variantId}/draft`
+- Automated test to detect UI → REST API violations (`UiRestApiSeparationTest`)
+- Documentation in CLAUDE.md explaining UI/REST separation
+
+### Changed
 - **BREAKING: TenantId changed from UUID to slug format**: Tenant IDs are now human-readable, URL-safe slugs instead of UUIDs
   - Format: 3-63 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
   - Must start with a letter, cannot end with hyphen, no consecutive hyphens

@@ -11,6 +11,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
@@ -18,13 +19,16 @@ import app.epistola.suite.templates.queries.versions.ListVersions
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Handles version lifecycle routes for document templates.
  * Manages draft creation, publishing, and archiving of template versions.
  */
 @Component
-class VersionRouteHandler {
+class VersionRouteHandler(
+    private val objectMapper: ObjectMapper,
+) {
 
     fun createDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
@@ -42,6 +46,38 @@ class VersionRouteHandler {
         ).execute()
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
+    }
+
+    fun updateDraft(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
+            ?: return ServerResponse.badRequest().build()
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
+            ?: return ServerResponse.badRequest().build()
+
+        // Parse JSON body to get templateModel
+        val body = request.body(String::class.java)
+        val jsonNode = objectMapper.readTree(body)
+        val templateModelJson = jsonNode.get("templateModel")
+        val templateModel = objectMapper.treeToValue(
+            templateModelJson,
+            app.epistola.suite.templates.model.TemplateModel::class.java,
+        )
+
+        // Execute update command
+        UpdateDraft(
+            tenantId = TenantId.of(tenantId),
+            templateId = templateId,
+            variantId = variantId,
+            templateModel = templateModel,
+        ).execute()
+
+        // Return minimal success response (UI doesn't need full DTO)
+        return ServerResponse.ok()
+            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+            .body("""{"success": true}""")
     }
 
     fun publishVersion(request: ServerRequest): ServerResponse {

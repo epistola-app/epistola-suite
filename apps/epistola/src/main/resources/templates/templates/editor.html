@@ -111,10 +111,10 @@
             defaultTheme: defaultTheme,
             onSave: async (template) => {
                 try {
-                    const response = await fetch('/v1/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
+                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
                         method: 'PUT',
                         headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ templateModel: template })
                     });
@@ -135,7 +135,7 @@
                     const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
                         method: 'PATCH',
                         headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ dataExamples: examples })
                     });
@@ -158,7 +158,7 @@
                     const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/data-examples/' + exampleId, {
                         method: 'PATCH',
                         headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ ...updates, forceUpdate: forceUpdate })
                     });
@@ -186,7 +186,7 @@
                     const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/data-examples/' + exampleId, {
                         method: 'DELETE',
                         headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'Content-Type': 'application/json',
                         }
                     });
 
@@ -207,7 +207,7 @@
                     const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
                         method: 'PATCH',
                         headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ dataModel: schema, forceUpdate: forceUpdate })
                     });
@@ -230,7 +230,7 @@
                     const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/validate-schema', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({ schema: schema, examples: examples })
                     });
