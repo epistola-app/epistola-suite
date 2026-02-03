@@ -3,7 +3,6 @@ package app.epistola.suite.templates
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.pathUuid
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.versions.GetPreviewContext
@@ -47,7 +46,8 @@ class TemplatePreviewHandler(
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathUuid("variantId")
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
 
         // Parse the request body
@@ -89,7 +89,7 @@ class TemplatePreviewHandler(
         val previewContext = GetPreviewContext(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
         ).query() ?: return ServerResponse.notFound().build()
 
         // Resolve the template model - either from request (live preview) or from draft

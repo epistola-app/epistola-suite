@@ -4,7 +4,6 @@ import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.JobType
@@ -24,7 +23,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `creates batch generation request`() {
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -63,7 +62,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `validates all items before creating request`() {
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -87,7 +86,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
             ),
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
-                variantId = VariantId.generate(),
+                variantId = TestIdHelpers.nextVariantId(),
                 versionId = VersionId.generate(),
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
@@ -118,7 +117,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
         assertThatThrownBy {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(),
-                variantId = VariantId.generate(),
+                variantId = TestIdHelpers.nextVariantId(),
                 versionId = VersionId.generate(),
                 environmentId = EnvironmentId.generate(), // Both set
                 data = objectMapper.createObjectNode(),

@@ -13,8 +13,10 @@ VersionDto:
       description: Unique identifier of the version
     variantId:
       type: string
-      format: uuid
-      description: ID of the variant this version belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant this version belongs to
     versionNumber:
       type:
         - integer
@@ -63,8 +65,10 @@ VersionSummaryDto:
       description: Unique identifier of the version
     variantId:
       type: string
-      format: uuid
-      description: ID of the variant this version belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant this version belongs to
     versionNumber:
       type:
         - integer

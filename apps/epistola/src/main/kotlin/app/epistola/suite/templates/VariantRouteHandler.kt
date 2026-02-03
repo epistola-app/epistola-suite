@@ -3,7 +3,6 @@ package app.epistola.suite.templates
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.pathUuid
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -29,13 +28,19 @@ class VariantRouteHandler {
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
 
+        val slug = request.params().getFirst("slug")?.trim()
+        val variantId = if (slug != null) VariantId.validateOrNull(slug) else null
+        if (variantId == null) {
+            return ServerResponse.badRequest().build()
+        }
+
         val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
         val tagsInput = request.params().getFirst("tags")?.trim().orEmpty()
         val tags = parseTags(tagsInput)
 
         CreateVariant(
-            id = VariantId.generate(),
+            id = variantId,
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             title = title,
@@ -62,13 +67,14 @@ class VariantRouteHandler {
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathUuid("variantId")
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
 
         DeleteVariant(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
         ).execute()
 
         val variants = GetVariantSummaries(templateId = templateId).query()

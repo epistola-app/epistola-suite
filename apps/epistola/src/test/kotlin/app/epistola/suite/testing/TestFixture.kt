@@ -2,7 +2,6 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -110,7 +109,7 @@ class TestFixture {
             title: String? = null,
             tags: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
-            id = VariantId.generate(),
+            id = TestIdHelpers.nextVariantId(),
             tenantId = tenant.id,
             templateId = template.id,
             title = title,

@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -889,7 +888,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `DELETE data-example returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
-            val nonExistentTemplateId = UUID.randomUUID()
+            val nonExistentTemplateId = "non-existent-template"
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1010,7 +1009,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 404 for non-existent variant`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            val nonExistentVariantId = UUID.randomUUID()
+            val nonExistentVariantId = "non-existent-variant"
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1039,7 +1038,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
             val nonExistentTemplateId = "non-existent-template"
-            val nonExistentVariantId = UUID.randomUUID()
+            val nonExistentVariantId = "non-existent-variant"
 
             given {
                 testTenant = tenant("Test Tenant")

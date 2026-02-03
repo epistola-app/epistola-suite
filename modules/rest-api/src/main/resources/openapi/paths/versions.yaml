@@ -21,10 +21,12 @@ versions:
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: listVersions
@@ -79,10 +81,12 @@ versions-id:
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: versionId
       in: path
       required: true
@@ -166,10 +170,12 @@ version-publish:
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: versionId
       in: path
       required: true
@@ -229,10 +235,12 @@ version-archive:
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: versionId
       in: path
       required: true

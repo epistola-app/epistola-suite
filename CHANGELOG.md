@@ -34,6 +34,17 @@
   - API: `templateId` parameters changed from UUID to string with pattern validation
   - Web UI: Added slug input field to template creation form
   - Demo data: Updated to use explicit template slugs (e.g., `demo-invoice`)
+- **BREAKING: VariantId changed from UUID to slug format**: Variant IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-50 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+  - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `default`, `new`, `create`, `edit`, `delete`
+  - Variant IDs must now be client-provided (no auto-generation)
+  - Examples: `default`, `corporate`, `simple-v2`
+  - Database: `variant_id` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
+  - API: `variantId` parameters changed from UUID to string with pattern validation
+  - Web UI: Added slug input field to variant creation forms
+  - Auto-created default variant uses slug `{templateId}-default` to ensure uniqueness across templates
 - **Code organization improvements**: Refactored large handlers and improved code maintainability
   - Split `DocumentTemplateHandler` (753 lines) into smaller focused handlers:
     - `VariantRouteHandler` for variant create/delete operations

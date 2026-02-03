@@ -3,6 +3,7 @@ package app.epistola.suite.config
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.VariantId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.jackson3.Jackson3Config
@@ -39,5 +40,8 @@ class JdbiConfig {
 
             // Register TemplateId column mapper for reading from result sets
             registerColumnMapper(TemplateId::class.java, TemplateIdColumnMapper())
+
+            // Register VariantId column mapper for reading from result sets
+            registerColumnMapper(VariantId::class.java, VariantIdColumnMapper())
         }
 }

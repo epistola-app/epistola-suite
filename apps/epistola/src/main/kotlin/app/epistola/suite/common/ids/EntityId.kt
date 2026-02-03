@@ -133,13 +133,32 @@ value class TemplateId(override val value: String) : SlugId<TemplateId> {
  * Typed ID for TemplateVariant entities.
  */
 @JvmInline
-value class VariantId(override val value: UUID) : UuidId<VariantId> {
-    companion object {
-        fun generate(): VariantId = VariantId(UUIDv7.generate())
-        fun of(value: UUID): VariantId = VariantId(value)
+value class VariantId(override val value: String) : SlugId<VariantId> {
+    init {
+        require(value.length in 3..50) {
+            "Variant ID must be 3-50 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Variant ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+        require(value !in RESERVED_WORDS) {
+            "Variant ID '$value' is reserved and cannot be used"
+        }
     }
 
-    override fun toString(): String = value.toString()
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+        private val RESERVED_WORDS = setOf(
+            "admin", "api", "www", "system", "internal", "null", "undefined",
+            "default", "new", "create", "edit", "delete",
+        )
+
+        fun of(value: String): VariantId = VariantId(value)
+
+        fun validateOrNull(value: String): VariantId? = runCatching { VariantId(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
 }
 
 /**

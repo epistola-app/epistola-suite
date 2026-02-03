@@ -16,8 +16,10 @@ GenerateDocumentRequest:
       description: Slug identifier of template to use for generation
     variantId:
       type: string
-      format: uuid
-      description: Variant of the template to use
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant to use
     versionId:
       type: [string, "null"]
       format: uuid
@@ -55,8 +57,10 @@ BatchGenerationItem:
       description: Slug identifier of template to use for generation
     variantId:
       type: string
-      format: uuid
-      description: Variant of the template to use
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant to use
     versionId:
       type: [string, "null"]
       format: uuid
@@ -144,8 +148,10 @@ DocumentGenerationItemDto:
       description: Slug identifier of template used for generation
     variantId:
       type: string
-      format: uuid
-      description: Variant used for generation
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant used for generation
     versionId:
       type: [string, "null"]
       format: uuid
@@ -316,8 +322,10 @@ DocumentDto:
       description: Slug identifier of template used to generate this document
     variantId:
       type: string
-      format: uuid
-      description: Variant used to generate this document
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant used to generate this document
     versionId:
       type: string
       format: uuid

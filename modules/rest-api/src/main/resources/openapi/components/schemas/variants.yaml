@@ -12,8 +12,10 @@ VariantDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the variant
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant
     templateId:
       type: string
       pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
@@ -63,8 +65,10 @@ VariantSummaryDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the variant
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant
     title:
       type:
         - string
@@ -92,8 +96,10 @@ CreateVariantRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the variant (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Client-provided slug identifier for the variant
     title:
       type:
         - string

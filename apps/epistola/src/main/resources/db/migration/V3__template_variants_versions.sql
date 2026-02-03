@@ -15,7 +15,7 @@ CREATE INDEX idx_environments_tenant_id ON environments(tenant_id);
 
 -- Template variants (language, brand, audience variations)
 CREATE TABLE template_variants (
-    id UUID PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY CHECK (id ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'),
     template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
     title VARCHAR(255),
     description TEXT,
@@ -29,7 +29,7 @@ CREATE INDEX idx_template_variants_template_id ON template_variants(template_id)
 -- Version history with lifecycle states
 CREATE TABLE template_versions (
     id UUID PRIMARY KEY,
-    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_number INTEGER,  -- NULL for draft, assigned on publish
     template_model JSONB NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'draft',
@@ -52,7 +52,7 @@ CREATE UNIQUE INDEX idx_one_draft_per_variant
 -- Environment activations (which version is active per environment)
 CREATE TABLE environment_activations (
     environment_id UUID NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
-    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
     activated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     PRIMARY KEY (environment_id, variant_id)

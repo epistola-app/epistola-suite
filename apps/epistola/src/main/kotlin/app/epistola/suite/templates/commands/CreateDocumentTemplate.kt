@@ -63,8 +63,8 @@ class CreateDocumentTemplateHandler(
                 .mapTo<DocumentTemplate>()
                 .one()
 
-            // 2. Create default variant
-            val variantId = VariantId.generate()
+            // 2. Create default variant with template-specific ID to avoid conflicts
+            val variantId = VariantId.of("${command.id}-default")
             handle.createUpdate(
                 """
                 INSERT INTO template_variants (id, template_id, tags, created_at, last_modified)

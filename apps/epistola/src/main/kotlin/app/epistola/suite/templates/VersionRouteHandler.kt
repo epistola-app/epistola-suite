@@ -32,14 +32,15 @@ class VersionRouteHandler {
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathUuid("variantId")
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
 
         CreateVersion(
             id = VersionId.generate(),
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
         ).execute()
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
@@ -50,7 +51,8 @@ class VersionRouteHandler {
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathUuid("variantId")
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
         val versionId = request.pathUuid("versionId")
             ?: return ServerResponse.badRequest().build()
@@ -58,7 +60,7 @@ class VersionRouteHandler {
         PublishVersion(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
             versionId = VersionId.of(versionId),
         ).execute()
 
@@ -70,7 +72,8 @@ class VersionRouteHandler {
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathUuid("variantId")
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
         val versionId = request.pathUuid("versionId")
             ?: return ServerResponse.badRequest().build()
@@ -78,7 +81,7 @@ class VersionRouteHandler {
         ArchiveVersion(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
             versionId = VersionId.of(versionId),
         ).execute()
 
@@ -89,7 +92,7 @@ class VersionRouteHandler {
         request: ServerRequest,
         tenantId: String,
         templateId: TemplateId,
-        variantId: java.util.UUID,
+        variantId: VariantId,
     ): ServerResponse {
         val template = GetDocumentTemplate(
             tenantId = TenantId.of(tenantId),
@@ -99,13 +102,13 @@ class VersionRouteHandler {
         val variant = GetVariant(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
         ).query() ?: return ServerResponse.notFound().build()
 
         val versions = ListVersions(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
-            variantId = VariantId.of(variantId),
+            variantId = variantId,
         ).query()
 
         val selectedVariantSummary = VariantSummary(

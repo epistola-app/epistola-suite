@@ -179,7 +179,7 @@ class ScenarioBuilder {
             tags: Map<String, String> = emptyMap(),
         ): TemplateVariant = capturedMediator.send(
             CreateVariant(
-                id = VariantId.generate(),
+                id = TestIdHelpers.nextVariantId(),
                 tenantId = tenantId,
                 templateId = templateId,
                 title = title,

@@ -18,7 +18,7 @@ CREATE TABLE documents (
     id UUID PRIMARY KEY,
     tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
     filename VARCHAR(255) NOT NULL,
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
@@ -85,7 +85,7 @@ CREATE TABLE document_generation_items (
     id UUID PRIMARY KEY,
     request_id UUID NOT NULL REFERENCES document_generation_requests(id) ON DELETE CASCADE,
     template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
     version_id UUID REFERENCES template_versions(id) ON DELETE CASCADE,  -- NULL = use environment to determine version
     environment_id UUID REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
     data JSONB NOT NULL,
