@@ -26,11 +26,9 @@ TemplateDto:
       description: Name of the template
     schema:
       type: object
-      additionalProperties: true
       description: JSON Schema defining the input parameters for this template
     dataModel:
       type: object
-      additionalProperties: true
       description: JSON Schema defining the expected data structure for template rendering
     dataExamples:
       type: array
@@ -101,7 +99,6 @@ DataExampleDto:
       description: Display name of the data example
     data:
       type: object
-      additionalProperties: true
       description: The example data matching the template's data model
 
 CreateTemplateRequest:
@@ -124,7 +121,6 @@ CreateTemplateRequest:
       description: Name of the template to create
     schema:
       type: object
-      additionalProperties: true
       description: JSON Schema defining the input parameters for this template
 
 UpdateTemplateRequest:
@@ -142,7 +138,6 @@ UpdateTemplateRequest:
       description: Updated JSON Schema for input parameters
     dataModel:
       type: object
-      additionalProperties: true
       description: Updated data model schema
     dataExamples:
       type: array

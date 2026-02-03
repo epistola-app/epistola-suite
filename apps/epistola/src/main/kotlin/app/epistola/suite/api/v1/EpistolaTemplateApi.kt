@@ -56,7 +56,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 
 @RestController
 class EpistolaTemplateApi(
@@ -110,11 +109,9 @@ class EpistolaTemplateApi(
         updateTemplateRequest: UpdateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val dataExamples = updateTemplateRequest.dataExamples?.map {
-            DataExample(id = it.id, name = it.name, data = objectMapper.valueToTree(it.data))
+            DataExample(id = it.id, name = it.name, data = it.data)
         }
-        val dataModel = updateTemplateRequest.dataModel?.let {
-            objectMapper.valueToTree<ObjectNode>(it)
-        }
+        val dataModel = updateTemplateRequest.dataModel
         val result = UpdateDocumentTemplate(
             tenantId = TenantId.of(tenantId),
             id = TemplateId.of(templateId),

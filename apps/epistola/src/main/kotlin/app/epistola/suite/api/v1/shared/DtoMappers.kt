@@ -45,13 +45,13 @@ internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries
     id = id.value,
     tenantId = tenantId.value,
     name = name,
-    schema = schema?.let { objectMapper.convertValue(it, Map::class.java) as Map<String, Any> },
-    dataModel = dataModel?.let { objectMapper.convertValue(it, Map::class.java) as Map<String, Any> },
+    schema = schema?.let { objectMapper.valueToTree(it) },
+    dataModel = dataModel?.let { objectMapper.valueToTree(it) },
     dataExamples = dataExamples.map { example ->
         DataExampleDto(
             id = example.id,
             name = example.name,
-            data = objectMapper.convertValue(example.data, Map::class.java) as Map<String, Any>,
+            data = objectMapper.valueToTree(example.data),
         )
     },
     variants = variantSummaries.map { it.toDto() },

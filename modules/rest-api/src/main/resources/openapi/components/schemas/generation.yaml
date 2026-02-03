@@ -34,7 +34,6 @@ GenerateDocumentRequest:
     data:
       type: object
       description: JSON data to populate the template
-      additionalProperties: true
     filename:
       type: [string, "null"]
       description: Optional filename for the generated document
@@ -78,7 +77,6 @@ BatchGenerationItem:
     data:
       type: object
       description: JSON data to populate the template
-      additionalProperties: true
     filename:
       type: [string, "null"]
       description: Optional filename for the generated document. Must be unique within a batch.
@@ -172,7 +170,6 @@ DocumentGenerationItemDto:
     data:
       type: object
       description: JSON data used for generation
-      additionalProperties: true
     filename:
       type: [string, "null"]
       description: Requested filename

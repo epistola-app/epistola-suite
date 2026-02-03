@@ -35,7 +35,6 @@ ThemeDto:
       type: object
       additionalProperties:
         type: object
-        additionalProperties: true
       description: Named block style presets (like CSS classes)
     createdAt:
       type: string
@@ -137,7 +136,6 @@ CreateThemeRequest:
       type: object
       additionalProperties:
         type: object
-        additionalProperties: true
       description: Named block style presets
 
 UpdateThemeRequest:
@@ -164,7 +162,6 @@ UpdateThemeRequest:
         - 'null'
       additionalProperties:
         type: object
-        additionalProperties: true
       description: Named block style presets (null to clear)
 
 ThemeListResponse:

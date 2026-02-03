@@ -11,15 +11,20 @@ import app.epistola.suite.templates.model.PageFormat
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.templates.model.TextAlign
 import app.epistola.suite.themes.Theme
+import tools.jackson.core.type.TypeReference
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
-internal fun Theme.toDto() = ThemeDto(
+internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
     id = id.value,
     tenantId = tenantId.value,
     name = name,
     description = description,
     documentStyles = documentStyles.toDto(),
     pageSettings = pageSettings?.toDto(),
-    blockStylePresets = blockStylePresets,
+    blockStylePresets = blockStylePresets?.mapValues { (_, value) ->
+        objectMapper.valueToTree(value)
+    },
     createdAt = createdAt,
     lastModified = lastModified,
 )
@@ -109,3 +114,8 @@ internal fun MarginsDto.toDomain() = Margins(
     bottom = bottom ?: 20,
     left = left ?: 20,
 )
+
+// Helper to convert ObjectNode map to Map<String, Any> map
+internal fun Map<String, ObjectNode>?.toDomainPresets(objectMapper: ObjectMapper): Map<String, Map<String, Any>>? = this?.mapValues { (_, value) ->
+    objectMapper.convertValue(value, object : TypeReference<Map<String, Any>>() {})
+}
