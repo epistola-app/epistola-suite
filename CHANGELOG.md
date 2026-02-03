@@ -8,6 +8,41 @@
  ### Added
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
+### Added
+- **Framework-Agnostic Headless Editor**: New `@epistola/headless-editor` module provides pure TypeScript editor core
+  - TemplateEditor orchestrator with block CRUD, selection management, and undo/redo
+  - BlockTree utilities for nested block manipulation (children, columns, table cells)
+  - UndoManager with configurable history depth and deep-clone snapshots
+  - 9 block types with constraint-based validation: text, container, conditional, loop, columns, table, pagebreak, pageheader, pagefooter
+  - DragDropPort interface for framework-agnostic drag-and-drop adapters
+  - Data examples management with auto-selection and validation
+  - JSON schema support for data model validation
+  - Preview overrides for conditionals and loops during template preview
+  - Dirty state tracking with lastSavedTemplate for unsaved changes detection
+  - Theme management: themes list, default theme, theme ID assignment
+  - Document styles and page settings (A4/Letter, margins, orientation)
+  - Full unit test coverage: 10 test files, 70+ tests, 100% core coverage
+  - Single dependency: nanostores (~1KB) for reactive state
+
+- **Vanilla JS Editor UI**: New lightweight UI layer using Bootstrap 5 + SortableJS
+  - BlockRenderer: DOM rendering for all 9 block types
+  - SortableAdapter: SortableJS drag-drop integration with drop zone validation
+  - UIController: toolbar, keyboard shortcuts (Ctrl+S, Ctrl+Z), file import/export
+  - Plain JavaScript static resources served by Spring Boot via import maps
+
+### Changed
+- **BREAKING: Migrated from React Editor to Headless Editor Architecture**
+  - Removed React 19, Zustand, Zundo, Immer, TipTap, dnd-kit dependencies from editor
+  - New stack: Vanilla JS, Bootstrap 5, SortableJS, nanostores
+  - Build tool: esbuild instead of Vite
+  - React editor module excluded from build pipeline (retained for reference)
+  - Editor page uses vanilla editor with headless core via import maps
+  - All state management moved to framework-agnostic nanostores
+
+### Fixed
+- **Headless editor drop operation handling**: Fixed drop() method to correctly handle before/after sibling positions (was ignoring position parameter)
+- **Headless editor undo for block updates**: Added undo support for updateBlock operation which was missing from history tracking
+- **Headless editor file import error handling**: Added proper error handling for FileReader failures and null results during JSON import
 
 ### Changed
 - **BREAKING: Simplified load test data model - eliminated redundant table**: Removed `load_test_requests` table which duplicated data already present in `document_generation_requests`

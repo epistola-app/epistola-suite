@@ -153,11 +153,16 @@ export interface BaseBlock {
 }
 
 /**
- * Text block - simple string content (no rich text for vanilla implementation)
+ * TipTap JSONContent structure for rich text
+ */
+export type TipTapContent = Record<string, unknown> | null;
+
+/**
+ * Text block - TipTap JSONContent for rich text (matches backend Map<String, Any>?)
  */
 export interface TextBlock extends BaseBlock {
   type: "text";
-  content: string;
+  content: TipTapContent;
 }
 
 /**

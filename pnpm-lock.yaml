@@ -234,6 +234,9 @@ importers:
 
   modules/headless-editor:
     dependencies:
+      jsonata:
+        specifier: ^2.0.5
+        version: 2.1.0
       nanostores:
         specifier: ^0.11.4
         version: 0.11.4
