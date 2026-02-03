@@ -61,8 +61,9 @@
                             <td th:text="${tenant.id}"></td>
                             <td th:text="${tenant.name}"></td>
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td>
+                            <td class="actions">
                                 <a th:href="@{/tenants/{id}/templates(id=${tenant.id})}" class="btn btn-small">Templates</a>
+                                <a th:href="@{/tenants/{id}/environments(id=${tenant.id})}" class="btn btn-small btn-secondary">Environments</a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(tenants)}">

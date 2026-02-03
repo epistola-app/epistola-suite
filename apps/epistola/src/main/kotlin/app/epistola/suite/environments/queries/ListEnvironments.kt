@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component
 
 data class ListEnvironments(
     val tenantId: TenantId,
+    val searchTerm: String? = null,
 ) : Query<List<Environment>>
 
 @Component
@@ -17,16 +18,29 @@ class ListEnvironmentsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListEnvironments, List<Environment>> {
     override fun handle(query: ListEnvironments): List<Environment> = jdbi.withHandle<List<Environment>, Exception> { handle ->
-        handle.createQuery(
+        val sql = if (query.searchTerm != null) {
+            """
+                SELECT id, tenant_id, name, created_at
+                FROM environments
+                WHERE tenant_id = :tenantId
+                  AND (LOWER(name) LIKE LOWER(:searchTerm) OR LOWER(id) LIKE LOWER(:searchTerm))
+                ORDER BY name ASC
+                """
+        } else {
             """
                 SELECT id, tenant_id, name, created_at
                 FROM environments
                 WHERE tenant_id = :tenantId
                 ORDER BY name ASC
-                """,
-        )
-            .bind("tenantId", query.tenantId)
-            .mapTo<Environment>()
-            .list()
+                """
+        }
+
+        val q = handle.createQuery(sql).bind("tenantId", query.tenantId)
+
+        if (query.searchTerm != null) {
+            q.bind("searchTerm", "%${query.searchTerm}%")
+        }
+
+        q.mapTo<Environment>().list()
     }
 }
