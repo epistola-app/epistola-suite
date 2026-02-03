@@ -96,7 +96,7 @@ class GetEditorContextHandler(
             .bind("tenantId", query.tenantId)
             .map { rs, _ ->
                 ThemeSummary(
-                    id = rs.getObject("id", java.util.UUID::class.java).toString(),
+                    id = rs.getString("id"),
                     name = rs.getString("name"),
                     description = rs.getString("description"),
                 )
@@ -123,18 +123,18 @@ class GetEditorContextHandler(
         val variantTags: Map<String, String> = (row["variant_tags"] as? Map<String, String>) ?: emptyMap()
 
         // Build template theme summary if template has one
-        val templateTheme = (row["default_theme_id"] as? java.util.UUID)?.let { themeId ->
+        val templateTheme = (row["default_theme_id"] as? String)?.let { themeId ->
             ThemeSummary(
-                id = themeId.toString(),
+                id = themeId,
                 name = row["default_theme_name"] as String,
                 description = row["default_theme_description"] as? String,
             )
         }
 
         // Build tenant default theme summary if tenant has one
-        val tenantDefaultTheme = (row["tenant_default_theme_id"] as? java.util.UUID)?.let { themeId ->
+        val tenantDefaultTheme = (row["tenant_default_theme_id"] as? String)?.let { themeId ->
             ThemeSummary(
-                id = themeId.toString(),
+                id = themeId,
                 name = row["tenant_default_theme_name"] as String,
                 description = row["tenant_default_theme_description"] as? String,
             )
