@@ -189,14 +189,14 @@ describe("TemplateEditor", () => {
       const editor = new TemplateEditor();
       const block = editor.addBlock("text")!;
 
-      editor.updateBlock(block.id, { content: "Updated content" });
+      editor.updateBlock(block.id, { content: { type: "doc", content: [] } });
 
       expect(editor.canUndo()).toBe(true);
 
       editor.undo();
 
-      const reverted = editor.findBlock(block.id) as { content: string };
-      expect(reverted.content).toBe(""); // Default text block content
+      const reverted = editor.findBlock(block.id) as { content: unknown };
+      expect(reverted.content).toBe(null); // Default text block content
     });
   });
 

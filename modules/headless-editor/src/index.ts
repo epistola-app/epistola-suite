@@ -39,6 +39,7 @@ export type {
   ExpressionLanguage,
   Expression,
   // Block types
+  TipTapContent,
   BaseBlock,
   TextBlock,
   ContainerBlock,
@@ -88,3 +89,12 @@ export type {
 
 // Constants
 export { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from "./types.js";
+
+// Expression evaluator
+export type { EvaluationResult, EvaluationContext, ScopeVariable } from "./evaluator/index.js";
+export {
+  evaluateJsonata,
+  evaluateJsonataBoolean,
+  evaluateJsonataArray,
+  evaluateJsonataString,
+} from "./evaluator/index.js";
