@@ -98,3 +98,15 @@ export {
   evaluateJsonataArray,
   evaluateJsonataString,
 } from "./evaluator/index.js";
+
+// Expression utilities (for UI autocomplete)
+export type { ScopeVariable as ExpressionScopeVariable, InferredType, PathInfo, MethodSuggestion } from "./expression/index.js";
+export {
+  extractPaths,
+  inferType,
+  parsePath,
+  resolvePathType,
+  resolvePathValue,
+  getMethodsForType,
+  formatTypeForDisplay,
+} from "./expression/index.js";
