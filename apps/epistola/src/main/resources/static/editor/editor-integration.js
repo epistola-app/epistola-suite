@@ -86,5 +86,48 @@ export function mountVanillaEditor(options) {
       sortableAdapter.destroy();
       uiController.destroy();
     },
+
+    // =========================================================================
+    // INITIALIZATION (one-time from server)
+    // =========================================================================
+    setThemes: (themes) => editor.setThemes(themes),
+    setDefaultTheme: (theme) => editor.setDefaultTheme(theme),
+    setDataExamples: (examples) => editor.setDataExamples(examples),
+    setSchema: (schema) => editor.setSchema(schema),
+
+    // =========================================================================
+    // DIRTY TRACKING
+    // =========================================================================
+    markAsSaved: () => editor.markAsSaved(),
+    isDirty: () => editor.isDirty(),
+
+    // =========================================================================
+    // THEME SELECTION
+    // =========================================================================
+    updateThemeId: (themeId) => {
+      editor.updateThemeId(themeId);
+      render();
+    },
+    getThemes: () => editor.getThemes(),
+    getDefaultTheme: () => editor.getDefaultTheme(),
+
+    // =========================================================================
+    // DATA EXAMPLES
+    // =========================================================================
+    selectDataExample: (id) => editor.selectDataExample(id),
+    getDataExamples: () => editor.getDataExamples(),
+    getSelectedDataExampleId: () => editor.getSelectedDataExampleId(),
+
+    // =========================================================================
+    // PAGE SETTINGS & DOCUMENT STYLES
+    // =========================================================================
+    updatePageSettings: (settings) => {
+      editor.updatePageSettings(settings);
+      render();
+    },
+    updateDocumentStyles: (styles) => {
+      editor.updateDocumentStyles(styles);
+      render();
+    },
   };
 }

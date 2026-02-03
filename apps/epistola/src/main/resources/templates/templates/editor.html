@@ -311,6 +311,31 @@
                     <i class="bi bi-upload"></i> Import
                 </button>
             </div>
+
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-group">
+                <select id="theme-selector" class="form-select form-select-sm" style="width: auto;" title="Select theme">
+                    <option value="">Default theme</option>
+                </select>
+            </div>
+
+            <div class="toolbar-group">
+                <select id="data-example-selector" class="form-select form-select-sm" style="width: auto;" title="Select test data">
+                    <option value="">No test data</option>
+                </select>
+            </div>
+
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-group">
+                <button id="btn-page-settings" class="btn btn-sm btn-outline-secondary" title="Page settings">
+                    <i class="bi bi-file-earmark"></i> Page
+                </button>
+                <button id="btn-document-styles" class="btn btn-sm btn-outline-secondary" title="Document styles">
+                    <i class="bi bi-palette"></i> Styles
+                </button>
+            </div>
         </div>
 
         <!-- Editor canvas -->
@@ -319,8 +344,104 @@
         </div>
     </div>
 
+    <!-- Page Settings Modal -->
+    <div class="modal fade" id="page-settings-modal" tabindex="-1" aria-labelledby="page-settings-title" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="page-settings-title">Page Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="page-format" class="form-label">Page Format</label>
+                        <select id="page-format" class="form-select">
+                            <option value="A4">A4</option>
+                            <option value="Letter">Letter</option>
+                            <option value="Legal">Legal</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Orientation</label>
+                        <div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="page-orientation" id="orientation-portrait" value="portrait" checked>
+                                <label class="form-check-label" for="orientation-portrait">Portrait</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="page-orientation" id="orientation-landscape" value="landscape">
+                                <label class="form-check-label" for="orientation-landscape">Landscape</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Margins (mm)</label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label for="margin-top" class="form-label small text-muted">Top</label>
+                                <input type="number" class="form-control form-control-sm" id="margin-top" value="20" min="0" max="100">
+                            </div>
+                            <div class="col-6">
+                                <label for="margin-right" class="form-label small text-muted">Right</label>
+                                <input type="number" class="form-control form-control-sm" id="margin-right" value="20" min="0" max="100">
+                            </div>
+                            <div class="col-6">
+                                <label for="margin-bottom" class="form-label small text-muted">Bottom</label>
+                                <input type="number" class="form-control form-control-sm" id="margin-bottom" value="20" min="0" max="100">
+                            </div>
+                            <div class="col-6">
+                                <label for="margin-left" class="form-label small text-muted">Left</label>
+                                <input type="number" class="form-control form-control-sm" id="margin-left" value="20" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-page-settings">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Styles Modal -->
+    <div class="modal fade" id="document-styles-modal" tabindex="-1" aria-labelledby="document-styles-title" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="document-styles-title">Document Styles</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="doc-font-family" class="form-label">Font Family</label>
+                        <input type="text" class="form-control" id="doc-font-family" placeholder="e.g., Arial, sans-serif">
+                    </div>
+                    <div class="mb-3">
+                        <label for="doc-font-size" class="form-label">Font Size (pt)</label>
+                        <input type="number" class="form-control" id="doc-font-size" value="12" min="6" max="72">
+                    </div>
+                    <div class="mb-3">
+                        <label for="doc-color" class="form-label">Text Color</label>
+                        <input type="color" class="form-control form-control-color" id="doc-color" value="#000000">
+                    </div>
+                    <div class="mb-3">
+                        <label for="doc-line-height" class="form-label">Line Height</label>
+                        <input type="number" class="form-control" id="doc-line-height" value="1.5" min="1" max="3" step="0.1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-document-styles">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SortableJS must load before module scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <!-- Bootstrap JS for modals -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Server-provided data -->
     <script th:inline="javascript">
@@ -350,7 +471,8 @@
 
         const saveStatus = document.getElementById('save-status');
         const saveBtn = document.getElementById('btn-save');
-        let isDirty = false;
+
+        let editorReady = false;
 
         mountEditor({
             container: container,
@@ -393,7 +515,7 @@
                     });
 
                 if (response.ok) {
-                    isDirty = false;
+                    editor.markAsSaved();
                     saveStatus.textContent = 'Saved';
                     saveStatus.className = 'save-status saved';
                 } else {
@@ -498,6 +620,128 @@
                     return { compatible: false, errors: [{ path: '', message: 'Validation request error' }], migrations: [] };
                 }
             }
+        });
+
+        // =========================================================================
+        // Theme selector
+        // =========================================================================
+        const themeSelector = document.getElementById('theme-selector');
+        const themes = editor.getThemes();
+        const currentThemeId = editor.getTemplate().themeId;
+
+        themes.forEach(theme => {
+            const option = document.createElement('option');
+            option.value = theme.id;
+            option.textContent = theme.name;
+            if (theme.id === currentThemeId) option.selected = true;
+            themeSelector.appendChild(option);
+        });
+
+        themeSelector.addEventListener('change', (e) => {
+            editor.updateThemeId(e.target.value || null);
+        });
+
+        // =========================================================================
+        // Data examples selector
+        // =========================================================================
+        const dataSelector = document.getElementById('data-example-selector');
+        const examples = editor.getDataExamples();
+        const selectedId = editor.getSelectedDataExampleId();
+
+        examples.forEach(ex => {
+            const option = document.createElement('option');
+            option.value = ex.id;
+            option.textContent = ex.name;
+            if (ex.id === selectedId) option.selected = true;
+            dataSelector.appendChild(option);
+        });
+
+        dataSelector.addEventListener('change', (e) => {
+            editor.selectDataExample(e.target.value || null);
+        });
+
+        // =========================================================================
+        // Page Settings Modal
+        // =========================================================================
+        const pageSettingsModal = new bootstrap.Modal(document.getElementById('page-settings-modal'));
+        const btnPageSettings = document.getElementById('btn-page-settings');
+        const btnSavePageSettings = document.getElementById('btn-save-page-settings');
+
+        btnPageSettings.addEventListener('click', () => {
+            // Populate modal with current settings
+            const template = editor.getTemplate();
+            const pageSettings = template.pageSettings || {
+                format: 'A4',
+                orientation: 'portrait',
+                margins: { top: 20, right: 20, bottom: 20, left: 20 }
+            };
+
+            document.getElementById('page-format').value = pageSettings.format || 'A4';
+
+            const orientation = pageSettings.orientation || 'portrait';
+            document.getElementById('orientation-portrait').checked = orientation === 'portrait';
+            document.getElementById('orientation-landscape').checked = orientation === 'landscape';
+
+            const margins = pageSettings.margins || { top: 20, right: 20, bottom: 20, left: 20 };
+            document.getElementById('margin-top').value = margins.top ?? 20;
+            document.getElementById('margin-right').value = margins.right ?? 20;
+            document.getElementById('margin-bottom').value = margins.bottom ?? 20;
+            document.getElementById('margin-left').value = margins.left ?? 20;
+
+            pageSettingsModal.show();
+        });
+
+        btnSavePageSettings.addEventListener('click', () => {
+            const format = document.getElementById('page-format').value;
+            const orientation = document.querySelector('input[name="page-orientation"]:checked').value;
+            const margins = {
+                top: parseInt(document.getElementById('margin-top').value, 10) || 20,
+                right: parseInt(document.getElementById('margin-right').value, 10) || 20,
+                bottom: parseInt(document.getElementById('margin-bottom').value, 10) || 20,
+                left: parseInt(document.getElementById('margin-left').value, 10) || 20,
+            };
+
+            editor.updatePageSettings({ format, orientation, margins });
+            pageSettingsModal.hide();
+        });
+
+        // =========================================================================
+        // Document Styles Modal
+        // =========================================================================
+        const documentStylesModal = new bootstrap.Modal(document.getElementById('document-styles-modal'));
+        const btnDocumentStyles = document.getElementById('btn-document-styles');
+        const btnSaveDocumentStyles = document.getElementById('btn-save-document-styles');
+
+        btnDocumentStyles.addEventListener('click', () => {
+            // Populate modal with current styles
+            const template = editor.getTemplate();
+            const docStyles = template.documentStyles || {};
+
+            document.getElementById('doc-font-family').value = docStyles.fontFamily || '';
+            document.getElementById('doc-font-size').value = docStyles.fontSize || 12;
+            document.getElementById('doc-color').value = docStyles.color || '#000000';
+            document.getElementById('doc-line-height').value = docStyles.lineHeight || 1.5;
+
+            documentStylesModal.show();
+        });
+
+        btnSaveDocumentStyles.addEventListener('click', () => {
+            const styles = {};
+
+            const fontFamily = document.getElementById('doc-font-family').value.trim();
+            if (fontFamily) styles.fontFamily = fontFamily;
+
+            const fontSize = parseFloat(document.getElementById('doc-font-size').value);
+            if (!isNaN(fontSize) && fontSize > 0) styles.fontSize = fontSize;
+
+            const color = document.getElementById('doc-color').value;
+            if (color && color !== '#000000') styles.color = color;
+
+            const lineHeight = parseFloat(document.getElementById('doc-line-height').value);
+            if (!isNaN(lineHeight) && lineHeight > 0) styles.lineHeight = lineHeight;
+
+            editor.updateDocumentStyles(styles);
+            documentStylesModal.hide();
         });
     </script>
 </body>
