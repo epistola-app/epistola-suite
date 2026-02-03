@@ -5,6 +5,7 @@
  */
 
 import { createElement, clearElement, getBadgeClass, getBadgeStyle, getBlockIcon, logCallback } from './dom-helpers.js';
+import { ExpressionEditor } from '../components/ExpressionEditor.js';
 
 export class BlockRenderer {
   /**
@@ -20,25 +21,47 @@ export class BlockRenderer {
       throw new Error(`Container element not found: ${containerId}`);
     }
     this.container = container;
+    this.expressionEditors = new Map();
+  }
+
+  destroy() {
+    for (const editor of this.expressionEditors.values()) {
+      editor.destroy();
+    }
+    this.expressionEditors.clear();
   }
 
   render() {
-    clearElement(this.container);
-
     const state = this.editor.getState();
+    const currentBlockIds = new Set();
 
     if (state.template.blocks.length === 0) {
+      clearElement(this.container);
       this.container.appendChild(
         createElement('div', {
           className: 'empty-state text-center text-muted p-4',
           textContent: 'No blocks yet. Add one using the toolbar above.',
         })
       );
+      this._cleanupDeletedEditors([]);
       return;
     }
 
     for (const block of state.template.blocks) {
-      this.container.appendChild(this._renderBlock(block));
+      currentBlockIds.add(block.id);
+      const blockEl = this._renderBlock(block);
+      this.container.appendChild(blockEl);
+    }
+
+    this._cleanupDeletedEditors(Array.from(currentBlockIds));
+  }
+
+  _cleanupDeletedEditors(currentBlockIds) {
+    for (const [blockId, editor] of this.expressionEditors) {
+      if (!currentBlockIds.includes(blockId)) {
+        editor.destroy();
+        this.expressionEditors.delete(blockId);
+      }
     }
   }
 
@@ -166,6 +189,68 @@ export class BlockRenderer {
     return extractFromNode(content);
   }
 
+  /**
+   * Get scope variables for a block's children context
+   * This tracks loop variables from parent loops
+   * @param {string} blockId - The parent block ID
+   * @returns {Array<{name: string, type: string, arrayPath: string}>}
+   */
+  _getScopeVariables(blockId) {
+    const scopes = [];
+    const testData = this.editor.store.getTestData();
+
+    const findParentLoops = (blocks, depth = 0) => {
+      if (depth > 10) return; // Prevent infinite recursion
+
+      for (const block of blocks) {
+        if (block.type === 'loop') {
+          scopes.push({
+            name: block.itemAlias || 'item',
+            type: 'loop-item',
+            arrayPath: block.expression?.raw || '',
+          });
+          if (block.indexAlias) {
+            scopes.push({
+              name: block.indexAlias,
+              type: 'loop-index',
+              arrayPath: block.expression?.raw || '',
+            });
+          }
+        }
+
+        // Check children
+        if (block.children && block.children.length > 0) {
+          findParentLoops(block.children, depth + 1);
+        }
+
+        // Check columns
+        if (block.columns) {
+          for (const col of block.columns) {
+            if (col.children && col.children.length > 0) {
+              findParentLoops(col.children, depth + 1);
+            }
+          }
+        }
+
+        // Check table cells
+        if (block.rows) {
+          for (const row of block.rows) {
+            for (const cell of row.cells) {
+              if (cell.children && cell.children.length > 0) {
+                findParentLoops(cell.children, depth + 1);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    const state = this.editor.getState();
+    findParentLoops(state.template.blocks);
+
+    return scopes;
+  }
+
   _renderContainerContent(blockEl, block) {
     const childrenEl = createElement('div', {
       className: 'block-children sortable-container',
@@ -189,23 +274,39 @@ export class BlockRenderer {
   }
 
   _renderConditionalContent(blockEl, block) {
-    const conditionInput = createElement('input', {
-      type: 'text',
-      className: 'form-control',
-      placeholder: 'e.g., customer.active',
-      onClick: (e) => e.stopPropagation(),
-      onInput: (e) => {
-        this.editor.updateBlock(block.id, {
-          condition: { ...block.condition, raw: e.target.value },
-        });
-      },
-    });
-    conditionInput.value = block.condition?.raw || '';
+    const editorContainerId = `expr-editor-${block.id}`;
+    let editorContainer = blockEl.querySelector(`#${editorContainerId}`);
 
-    blockEl.appendChild(createElement('div', { className: 'input-group input-group-sm mt-2' }, [
-      createElement('span', { className: 'input-group-text' }, ['Condition']),
-      conditionInput,
-    ]));
+    if (!editorContainer) {
+      editorContainer = createElement('div', { id: editorContainerId, className: 'mb-2' });
+      blockEl.appendChild(editorContainer);
+    }
+
+    let editor = this.expressionEditors.get(block.id);
+    if (!editor) {
+      editor = new ExpressionEditor({
+        testData: this.editor.store.getTestData() || {},
+        scopeVariables: this._getScopeVariables(block.id),
+        onChange: (value) => {
+          this.editor.updateBlock(block.id, {
+            condition: { ...block.condition, raw: value },
+          });
+        },
+        onSave: (value) => {
+          this.editor.updateBlock(block.id, {
+            condition: { ...block.condition, raw: value },
+          });
+        },
+        onCancel: () => {},
+      });
+      editor.mount(editorContainer);
+      this.expressionEditors.set(block.id, editor);
+    }
+
+    editor.setTestData(this.editor.store.getTestData() || {});
+    editor.setScopeVariables(this._getScopeVariables(block.id));
+    editor.setValue(block.condition?.raw || '');
+    editor.focus();
 
     const checkbox = createElement('input', {
       type: 'checkbox',
@@ -249,23 +350,39 @@ export class BlockRenderer {
   }
 
   _renderLoopContent(blockEl, block) {
-    const exprInput = createElement('input', {
-      type: 'text',
-      className: 'form-control',
-      placeholder: 'e.g., items',
-      onClick: (e) => e.stopPropagation(),
-      onInput: (e) => {
-        this.editor.updateBlock(block.id, {
-          expression: { ...block.expression, raw: e.target.value },
-        });
-      },
-    });
-    exprInput.value = block.expression?.raw || '';
+    const exprContainerId = `loop-expr-${block.id}`;
+    let exprContainer = blockEl.querySelector(`#${exprContainerId}`);
 
-    blockEl.appendChild(createElement('div', { className: 'input-group input-group-sm mt-2' }, [
-      createElement('span', { className: 'input-group-text' }, ['Array']),
-      exprInput,
-    ]));
+    if (!exprContainer) {
+      exprContainer = createElement('div', { id: exprContainerId, className: 'mb-2' });
+      blockEl.insertBefore(exprContainer, blockEl.querySelector('.row'));
+    }
+
+    let exprEditor = this.expressionEditors.get(block.id);
+    if (!exprEditor) {
+      exprEditor = new ExpressionEditor({
+        testData: this.editor.store.getTestData() || {},
+        scopeVariables: this._getScopeVariables(block.id),
+        onChange: (value) => {
+          this.editor.updateBlock(block.id, {
+            expression: { ...block.expression, raw: value },
+          });
+        },
+        onSave: (value) => {
+          this.editor.updateBlock(block.id, {
+            expression: { ...block.expression, raw: value },
+          });
+        },
+        onCancel: () => {},
+      });
+      exprEditor.mount(exprContainer);
+      this.expressionEditors.set(block.id, exprEditor);
+    }
+
+    exprEditor.setTestData(this.editor.store.getTestData() || {});
+    exprEditor.setScopeVariables(this._getScopeVariables(block.id));
+    exprEditor.setValue(block.expression?.raw || '');
+    exprEditor.focus();
 
     const itemAliasInput = createElement('input', {
       type: 'text',
