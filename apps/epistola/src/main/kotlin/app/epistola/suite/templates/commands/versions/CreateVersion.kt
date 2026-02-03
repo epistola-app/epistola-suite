@@ -18,7 +18,7 @@ import tools.jackson.databind.ObjectMapper
  * Version ID is calculated automatically as MAX(id) + 1 for the variant.
  * If no templateModel is provided, creates a default empty template structure.
  * Returns null if variant doesn't exist or tenant doesn't own the template.
- * Throws exception if a draft already exists for this variant.
+ * If a draft already exists for this variant, returns the existing draft (idempotent).
  * Throws exception if maximum version limit (200) is reached.
  */
 data class CreateVersion(
@@ -53,6 +53,25 @@ class CreateVersionHandler(
             .orElse(null) ?: return@inTransaction null
 
         val templateName = templateInfo["template_name"] as String
+
+        // Check if a draft already exists for this variant (idempotent behavior)
+        val existingDraft = handle.createQuery(
+            """
+                SELECT *
+                FROM template_versions
+                WHERE variant_id = :variantId
+                  AND status = 'draft'
+                """,
+        )
+            .bind("variantId", command.variantId)
+            .mapTo<TemplateVersion>()
+            .findOne()
+            .orElse(null)
+
+        // If draft exists, return it (idempotent - safe to call multiple times)
+        if (existingDraft != null) {
+            return@inTransaction existingDraft
+        }
 
         // Calculate next version ID for this variant
         val nextVersionId = handle.createQuery(
