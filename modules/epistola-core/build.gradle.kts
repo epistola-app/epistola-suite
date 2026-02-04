@@ -17,13 +17,9 @@ dependencies {
     // Existing modules
     api(project(":modules:template-model"))
     api(project(":modules:generation"))
-    api(project(":modules:rest-api")) // OpenAPI specs
 
     // Spring Boot - core dependencies for business logic
-    implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     // Database - JDBI

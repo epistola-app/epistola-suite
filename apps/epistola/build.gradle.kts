@@ -17,8 +17,11 @@ if (buildNativeImage) {
 }
 
 dependencies {
-    // Core business logic module (includes template-model, generation, rest-api transitively)
+    // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
+
+    // REST API module (controllers for external systems)
+    implementation(project(":modules:rest-api"))
 
     // UI/Frontend modules
     implementation(project(":modules:vendor"))
