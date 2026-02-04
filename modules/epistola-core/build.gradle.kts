@@ -19,8 +19,12 @@ dependencies {
     api(project(":modules:generation"))
 
     // Spring Boot - core dependencies for business logic
+    implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Jackson for JSON handling (required by JDBI Jackson3 plugin)
+    implementation("tools.jackson.module:jackson-module-kotlin")
 
     // Database - JDBI
     implementation(libs.jdbi.core)
@@ -29,6 +33,10 @@ dependencies {
     implementation(libs.jdbi.jackson3)
     implementation(libs.jdbi.spring)
     runtimeOnly("org.postgresql:postgresql")
+
+    // Flyway for migrations (migrations are in this module's resources)
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
+    implementation("org.flywaydb:flyway-database-postgresql")
 
     // Validation
     implementation(libs.json.schema.validator)
