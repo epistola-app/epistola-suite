@@ -133,5 +133,14 @@ export function mountVanillaEditor(options) {
       editor.updateDocumentStyles(styles);
       render();
     },
+
+    // =========================================================================
+    // BLOCK OPERATIONS
+    // =========================================================================
+    findBlock: (blockId) => editor.findBlock(blockId),
+    updateBlock: (blockId, updates) => {
+      editor.updateBlock(blockId, updates);
+      render();
+    },
   };
 }

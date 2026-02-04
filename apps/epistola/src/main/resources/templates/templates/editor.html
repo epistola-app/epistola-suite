@@ -416,6 +416,9 @@
                 <button id="btn-document-styles" class="btn btn-sm btn-outline-secondary" title="Document styles">
                     <i class="bi bi-palette"></i> Styles
                 </button>
+                <button id="btn-block-styles" class="btn btn-sm btn-outline-secondary" title="Style selected block" disabled>
+                    <i class="bi bi-brush"></i> Block
+                </button>
             </div>
 
             <div class="toolbar-divider"></div>
@@ -546,6 +549,106 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="btn-save-document-styles">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Block Styles Modal -->
+    <div class="modal fade" id="block-styles-modal" tabindex="-1" aria-labelledby="block-styles-title" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="block-styles-title">Block Styles</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Styling for selected <span id="block-type-label" class="badge bg-secondary">block</span></p>
+
+                    <!-- Typography -->
+                    <h6 class="text-muted border-bottom pb-1 mb-3">Typography</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="block-font-size" class="form-label small">Font Size</label>
+                            <input type="text" class="form-control form-control-sm" id="block-font-size" placeholder="e.g., 14px, 1.2em">
+                        </div>
+                        <div class="col-6">
+                            <label for="block-font-weight" class="form-label small">Font Weight</label>
+                            <select class="form-select form-select-sm" id="block-font-weight">
+                                <option value="">Default</option>
+                                <option value="normal">Normal</option>
+                                <option value="bold">Bold</option>
+                                <option value="lighter">Lighter</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="300">300</option>
+                                <option value="400">400</option>
+                                <option value="500">500</option>
+                                <option value="600">600</option>
+                                <option value="700">700</option>
+                                <option value="800">800</option>
+                                <option value="900">900</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="block-color" class="form-label small">Text Color</label>
+                            <div class="input-group input-group-sm">
+                                <input type="color" class="form-control form-control-color" id="block-color-picker" value="#000000">
+                                <input type="text" class="form-control" id="block-color" placeholder="#000000">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label for="block-text-align" class="form-label small">Text Align</label>
+                            <select class="form-select form-select-sm" id="block-text-align">
+                                <option value="">Default</option>
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                                <option value="justify">Justify</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Spacing -->
+                    <h6 class="text-muted border-bottom pb-1 mb-3">Spacing</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="block-padding" class="form-label small">Padding</label>
+                            <input type="text" class="form-control form-control-sm" id="block-padding" placeholder="e.g., 8px, 1em">
+                        </div>
+                        <div class="col-6">
+                            <label for="block-margin" class="form-label small">Margin</label>
+                            <input type="text" class="form-control form-control-sm" id="block-margin" placeholder="e.g., 8px, 1em">
+                        </div>
+                    </div>
+
+                    <!-- Background & Border -->
+                    <h6 class="text-muted border-bottom pb-1 mb-3">Background & Border</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label for="block-bg-color" class="form-label small">Background</label>
+                            <div class="input-group input-group-sm">
+                                <input type="color" class="form-control form-control-color" id="block-bg-color-picker" value="#ffffff">
+                                <input type="text" class="form-control" id="block-bg-color" placeholder="transparent">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label for="block-border-radius" class="form-label small">Border Radius</label>
+                            <input type="text" class="form-control form-control-sm" id="block-border-radius" placeholder="e.g., 4px, 0.5em">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-clear-block-styles">
+                            <i class="bi bi-x-circle"></i> Clear All Styles
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-block-styles">Apply</button>
                 </div>
             </div>
         </div>
@@ -889,6 +992,121 @@
 
             editor.updateDocumentStyles(styles);
             documentStylesModal.hide();
+        });
+
+        // =========================================================================
+        // Block Styles Modal
+        // =========================================================================
+        const blockStylesModal = new bootstrap.Modal(document.getElementById('block-styles-modal'));
+        const btnBlockStyles = document.getElementById('btn-block-styles');
+        const btnSaveBlockStyles = document.getElementById('btn-save-block-styles');
+        const btnClearBlockStyles = document.getElementById('btn-clear-block-styles');
+        const blockTypeLabel = document.getElementById('block-type-label');
+
+        // Form elements
+        const blockFontSize = document.getElementById('block-font-size');
+        const blockFontWeight = document.getElementById('block-font-weight');
+        const blockColor = document.getElementById('block-color');
+        const blockColorPicker = document.getElementById('block-color-picker');
+        const blockTextAlign = document.getElementById('block-text-align');
+        const blockPadding = document.getElementById('block-padding');
+        const blockMargin = document.getElementById('block-margin');
+        const blockBgColor = document.getElementById('block-bg-color');
+        const blockBgColorPicker = document.getElementById('block-bg-color-picker');
+        const blockBorderRadius = document.getElementById('block-border-radius');
+
+        // Sync color pickers with text inputs
+        blockColorPicker.addEventListener('input', () => {
+            blockColor.value = blockColorPicker.value;
+        });
+        blockColor.addEventListener('input', () => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(blockColor.value)) {
+                blockColorPicker.value = blockColor.value;
+            }
+        });
+        blockBgColorPicker.addEventListener('input', () => {
+            blockBgColor.value = blockBgColorPicker.value;
+        });
+        blockBgColor.addEventListener('input', () => {
+            if (/^#[0-9A-Fa-f]{6}$/.test(blockBgColor.value)) {
+                blockBgColorPicker.value = blockBgColor.value;
+            }
+        });
+
+        // Enable/disable button based on selection
+        function updateBlockStylesButton() {
+            const state = editor.getState();
+            btnBlockStyles.disabled = !state.selectedBlockId;
+        }
+
+        // Subscribe to selection changes
+        editor.subscribe(updateBlockStylesButton);
+        updateBlockStylesButton();
+
+        // Open modal
+        btnBlockStyles.addEventListener('click', () => {
+            const state = editor.getState();
+            if (!state.selectedBlockId) return;
+
+            const block = editor.findBlock(state.selectedBlockId);
+            if (!block) return;
+
+            const styles = block.styles || {};
+
+            // Update label
+            blockTypeLabel.textContent = block.type;
+
+            // Populate form
+            blockFontSize.value = styles.fontSize || '';
+            blockFontWeight.value = styles.fontWeight || '';
+            blockColor.value = styles.color || '';
+            blockColorPicker.value = styles.color || '#000000';
+            blockTextAlign.value = styles.textAlign || '';
+            blockPadding.value = styles.padding || '';
+            blockMargin.value = styles.margin || '';
+            blockBgColor.value = styles.backgroundColor || '';
+            blockBgColorPicker.value = styles.backgroundColor || '#ffffff';
+            blockBorderRadius.value = styles.borderRadius || '';
+
+            blockStylesModal.show();
+        });
+
+        // Save styles
+        btnSaveBlockStyles.addEventListener('click', () => {
+            const state = editor.getState();
+            if (!state.selectedBlockId) return;
+
+            const styles = {};
+
+            if (blockFontSize.value.trim()) styles.fontSize = blockFontSize.value.trim();
+            if (blockFontWeight.value) styles.fontWeight = blockFontWeight.value;
+            if (blockColor.value.trim()) styles.color = blockColor.value.trim();
+            if (blockTextAlign.value) styles.textAlign = blockTextAlign.value;
+            if (blockPadding.value.trim()) styles.padding = blockPadding.value.trim();
+            if (blockMargin.value.trim()) styles.margin = blockMargin.value.trim();
+            if (blockBgColor.value.trim()) styles.backgroundColor = blockBgColor.value.trim();
+            if (blockBorderRadius.value.trim()) styles.borderRadius = blockBorderRadius.value.trim();
+
+            // Update block with new styles (empty object clears styles)
+            editor.updateBlock(state.selectedBlockId, {
+                styles: Object.keys(styles).length > 0 ? styles : undefined
+            });
+
+            blockStylesModal.hide();
+        });
+
+        // Clear all styles
+        btnClearBlockStyles.addEventListener('click', () => {
+            blockFontSize.value = '';
+            blockFontWeight.value = '';
+            blockColor.value = '';
+            blockColorPicker.value = '#000000';
+            blockTextAlign.value = '';
+            blockPadding.value = '';
+            blockMargin.value = '';
+            blockBgColor.value = '';
+            blockBgColorPicker.value = '#ffffff';
+            blockBorderRadius.value = '';
         });
 
         // =========================================================================
