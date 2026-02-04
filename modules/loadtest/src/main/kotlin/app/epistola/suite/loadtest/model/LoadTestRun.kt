@@ -5,6 +5,7 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
 
@@ -13,6 +14,8 @@ import java.time.OffsetDateTime
  *
  * The test generates documents using the same template/variant/version and test data
  * for all requests, measuring response times, throughput, and success rates.
+ *
+ * Metric fields are nullable and populated after the test completes.
  *
  * @property id Unique load test run identifier
  * @property tenantId Tenant that owns this load test
@@ -28,7 +31,16 @@ import java.time.OffsetDateTime
  * @property claimedAt When the run was claimed for processing
  * @property completedCount Number of requests that completed successfully
  * @property failedCount Number of requests that failed
- * @property metrics Aggregated performance metrics (populated after completion)
+ * @property totalDurationMs Total test duration in milliseconds
+ * @property avgResponseTimeMs Average response time across successful requests
+ * @property minResponseTimeMs Minimum response time observed
+ * @property maxResponseTimeMs Maximum response time observed
+ * @property p50ResponseTimeMs 50th percentile (median) response time
+ * @property p95ResponseTimeMs 95th percentile response time
+ * @property p99ResponseTimeMs 99th percentile response time
+ * @property requestsPerSecond Throughput (requests per second)
+ * @property successRatePercent Success rate (0-100)
+ * @property errorSummary Map of error types to counts
  * @property createdAt When the load test was created
  * @property startedAt When the load test execution started
  * @property completedAt When the load test execution finished
@@ -42,13 +54,22 @@ data class LoadTestRun(
     val environmentId: EnvironmentId?,
     val targetCount: Int,
     val concurrencyLevel: Int,
-    val testData: ObjectNode,
+    @Json val testData: ObjectNode,
     val status: LoadTestStatus,
     val claimedBy: String?,
     val claimedAt: OffsetDateTime?,
     val completedCount: Int,
     val failedCount: Int,
-    val metrics: LoadTestMetrics?,
+    val totalDurationMs: Long?,
+    val avgResponseTimeMs: Double?,
+    val minResponseTimeMs: Long?,
+    val maxResponseTimeMs: Long?,
+    val p50ResponseTimeMs: Long?,
+    val p95ResponseTimeMs: Long?,
+    val p99ResponseTimeMs: Long?,
+    val requestsPerSecond: Double?,
+    val successRatePercent: Double?,
+    @Json val errorSummary: Map<String, Int>?,
     val createdAt: OffsetDateTime,
     val startedAt: OffsetDateTime?,
     val completedAt: OffsetDateTime?,

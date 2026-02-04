@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start Load Test - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <main class="regular">
+        <h1>Start New Load Test</h1>
+        <p class="subtitle">Configure and run a load test for tenant <strong th:text="${tenantId}"></strong></p>
+
+        <div th:if="${error}" class="alert alert-error">
+            <strong>Error:</strong> <span th:text="${error}"></span>
+        </div>
+
+        <section class="form-section">
+            <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post">
+                <h2>Template Configuration</h2>
+
+                <div class="form-group">
+                    <label for="templateId">Template</label>
+                    <select id="templateId" name="templateId" required>
+                        <option value="">Select a template...</option>
+                        <option th:each="template : ${templates}"
+                                th:value="${template.id}"
+                                th:text="${template.name} + ' (' + ${template.id} + ')'">
+                        </option>
+                    </select>
+                    <span class="form-hint">Select the template to test</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="variantId">Variant</label>
+                    <input type="text" id="variantId" name="variantId" required
+                           placeholder="default" value="default">
+                    <span class="form-hint">Template variant to use (usually "default")</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="versionId">Version ID</label>
+                    <input type="number" id="versionId" name="versionId"
+                           placeholder="1" min="1" max="200">
+                    <span class="form-hint">Explicit version number (leave blank to use environment)</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="environmentId">Environment</label>
+                    <input type="text" id="environmentId" name="environmentId"
+                           placeholder="production">
+                    <span class="form-hint">Environment to determine version from (leave blank if using version ID)</span>
+                </div>
+
+                <h2>Load Test Parameters</h2>
+
+                <div class="form-group">
+                    <label for="targetCount">Target Count</label>
+                    <input type="number" id="targetCount" name="targetCount" required
+                           value="100" min="1" max="10000">
+                    <span class="form-hint">Number of documents to generate (1-10,000)</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="concurrencyLevel">Concurrency Level</label>
+                    <input type="number" id="concurrencyLevel" name="concurrencyLevel" required
+                           value="10" min="1" max="500">
+                    <span class="form-hint">Number of concurrent requests (1-500). Higher values stress the system more.</span>
+                </div>
+
+                <h2>Test Data</h2>
+
+                <div class="form-group">
+                    <label for="testData">JSON Data</label>
+                    <textarea id="testData" name="testData" required
+                              rows="10" style="font-family: monospace;">{
+  "title": "Load Test Document",
+  "items": [
+    {"name": "Item 1", "price": 10.00},
+    {"name": "Item 2", "price": 20.00}
+  ]
+}</textarea>
+                    <span class="form-hint">JSON data to use for all document generation requests. Use data from your template's examples.</span>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Start Load Test</button>
+                    <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </section>
+
+        <section class="info-box">
+            <h3>Load Test Information</h3>
+            <ul>
+                <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
+                <li><strong>Concurrency Level:</strong> How many documents to generate simultaneously</li>
+                <li><strong>Metrics Collected:</strong> Response times (avg, min, max, p50, p95, p99), requests/sec, success rate</li>
+                <li><strong>Document Cleanup:</strong> All generated documents are automatically deleted after the test completes</li>
+                <li><strong>Version vs Environment:</strong> Specify either a version ID or an environment, not both</li>
+            </ul>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>
