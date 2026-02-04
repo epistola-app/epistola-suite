@@ -1,6 +1,7 @@
 package app.epistola.suite.loadtest.batch
 
 import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.GenerationRequestId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.loadtest.model.LoadTestMetrics
 import app.epistola.suite.loadtest.model.LoadTestRequestId
@@ -13,11 +14,11 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Executes load test runs by generating documents concurrently using virtual threads.
@@ -33,6 +34,15 @@ class LoadTestExecutor(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val executor = Executors.newVirtualThreadPerTaskExecutor()
+
+    /**
+     * Track job submissions.
+     */
+    private data class SubmittedJob(
+        val sequenceNumber: Int,
+        val generationRequestId: GenerationRequestId,
+        val correlationId: String,
+    )
 
     /**
      * Execute a load test run.
@@ -56,34 +66,22 @@ class LoadTestExecutor(
             run.concurrencyLevel,
         )
 
-        // Track cancellation state and progress
+        val submittedJobs = mutableListOf<SubmittedJob>()
+        val submissionsLock = Any()
         val cancelled = AtomicBoolean(false)
-        val completedCount = AtomicInteger(0)
-        val failedCount = AtomicInteger(0)
 
-        // Store per-request results for metrics calculation
-        val requestResults = mutableListOf<RequestResult>()
-        val resultsLock = Any()
+        logger.info("Submitting {} generation jobs...", run.targetCount)
 
-        // Generate N documents concurrently
-        val futures = (1..run.targetCount).map { sequenceNumber ->
+        // Submit all generation jobs concurrently (fast, just creates PENDING requests)
+        val submissionFutures = (1..run.targetCount).map { sequenceNumber ->
             CompletableFuture.supplyAsync({
-                if (cancelled.get()) {
-                    return@supplyAsync null
-                }
-
-                // Check for cancellation before processing each request
-                if (isRunCancelled(run.id)) {
+                if (cancelled.get() || isRunCancelled(run.id)) {
                     cancelled.set(true)
                     return@supplyAsync null
                 }
 
-                val requestId = LoadTestRequestId.generate()
-                val requestStartTime = OffsetDateTime.now()
-                val startMillis = System.currentTimeMillis()
-
                 try {
-                    // Generate document using existing command
+                    val correlationId = "loadtest-${run.id}-$sequenceNumber"
                     val generationRequest = mediator.send(
                         GenerateDocument(
                             tenantId = run.tenantId,
@@ -93,72 +91,60 @@ class LoadTestExecutor(
                             environmentId = run.environmentId,
                             data = run.testData,
                             filename = "loadtest-${run.id}-$sequenceNumber.pdf",
-                            correlationId = "loadtest-${run.id}-$sequenceNumber",
+                            correlationId = correlationId,
                         ),
                     )
 
-                    val endMillis = System.currentTimeMillis()
-                    val durationMs = endMillis - startMillis
-
-                    // Wait for document to be generated and get document ID
-                    // In async mode, this returns immediately with PENDING status
-                    // We'll need to poll or use a different approach
-                    val documentId = waitForDocumentGeneration(generationRequest.id)
-
-                    val result = RequestResult(
-                        id = requestId,
-                        sequenceNumber = sequenceNumber,
-                        startedAt = requestStartTime,
-                        durationMs = durationMs,
-                        success = true,
-                        errorMessage = null,
-                        errorType = null,
-                        documentId = documentId,
-                    )
-
-                    synchronized(resultsLock) {
-                        requestResults.add(result)
+                    synchronized(submissionsLock) {
+                        submittedJobs.add(
+                            SubmittedJob(
+                                sequenceNumber = sequenceNumber,
+                                generationRequestId = generationRequest.id,
+                                correlationId = correlationId,
+                            ),
+                        )
                     }
-                    completedCount.incrementAndGet()
-                    result
                 } catch (e: Exception) {
-                    val endMillis = System.currentTimeMillis()
-                    val durationMs = endMillis - startMillis
-
-                    logger.error("Load test request {} failed: {}", requestId, e.message)
-
-                    val result = RequestResult(
-                        id = requestId,
-                        sequenceNumber = sequenceNumber,
-                        startedAt = requestStartTime,
-                        durationMs = durationMs,
-                        success = false,
-                        errorMessage = e.message ?: "Unknown error",
-                        errorType = classifyError(e),
-                        documentId = null,
-                    )
-
-                    synchronized(resultsLock) {
-                        requestResults.add(result)
-                    }
-                    failedCount.incrementAndGet()
-                    result
+                    logger.error("Failed to submit generation request {}: {}", sequenceNumber, e.message)
+                    null
                 }
             }, executor)
         }
 
-        // Wait for all requests to complete
-        CompletableFuture.allOf(*futures.toTypedArray()).join()
+        // Wait for all job submissions to complete
+        CompletableFuture.allOf(*submissionFutures.toTypedArray()).join()
+
+        logger.info("Submitted {} jobs, waiting for async processing to complete...", submittedJobs.size)
+
+        // Poll database to wait for all jobs to reach terminal state
+        val jobResults = pollForJobCompletion(run.id, submittedJobs, cancelled)
 
         val endTime = System.currentTimeMillis()
         val totalDurationMs = endTime - startTime
 
+        // Convert job results to RequestResult format
+        val requestResults = jobResults.map { job ->
+            RequestResult(
+                id = LoadTestRequestId.generate(),
+                sequenceNumber = job.sequenceNumber,
+                startedAt = job.createdAt,
+                durationMs = job.durationMs,
+                success = job.success,
+                errorMessage = job.errorMessage,
+                errorType = job.errorType,
+                documentId = job.documentId,
+            )
+        }
+
+        val completedCount = requestResults.count { it.success }
+        val failedCount = requestResults.count { !it.success }
+
         logger.info(
             "Load test run {} completed: {}/{} succeeded, {} failed in {}ms",
             run.id,
-            completedCount.get(),
+            completedCount,
             run.targetCount,
-            failedCount.get(),
+            failedCount,
             totalDurationMs,
         )
 
@@ -167,20 +153,189 @@ class LoadTestExecutor(
 
         // Calculate and save metrics
         val metrics = calculateMetrics(requestResults, totalDurationMs)
-        finalizeRun(run.id, metrics, completedCount.get(), failedCount.get(), cancelled.get())
+        finalizeRun(run.id, metrics, completedCount, failedCount, cancelled.get())
 
         // Delete load test documents
         deleteLoadTestDocuments(run.id)
     }
 
     /**
-     * Wait for document generation to complete and return document ID.
-     * This is a simplified implementation for MVP.
+     * Result of an async job (from database).
      */
-    private fun waitForDocumentGeneration(requestId: app.epistola.suite.common.ids.GenerationRequestId): DocumentId? {
-        // TODO: Implement proper waiting/polling mechanism
-        // For now, we'll just return null - the document generation happens asynchronously
-        return null
+    private data class JobResult(
+        val sequenceNumber: Int,
+        val generationRequestId: GenerationRequestId,
+        val createdAt: OffsetDateTime,
+        val startedAt: OffsetDateTime?,
+        val completedAt: OffsetDateTime?,
+        val status: String,
+        val errorMessage: String?,
+        val documentId: DocumentId?,
+    ) {
+        val success: Boolean get() = status == "COMPLETED"
+        val durationMs: Long get() {
+            return if (startedAt != null && completedAt != null) {
+                Duration.between(startedAt, completedAt).toMillis()
+            } else {
+                0
+            }
+        }
+        val errorType: String? get() = if (!success && errorMessage != null) {
+            when {
+                errorMessage.contains("validation", ignoreCase = true) -> "VALIDATION"
+                errorMessage.contains("timeout", ignoreCase = true) -> "TIMEOUT"
+                errorMessage.contains("not found", ignoreCase = true) -> "CONFIGURATION"
+                else -> "GENERATION"
+            }
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Poll database waiting for all async jobs to complete.
+     * Returns results with actual timing data from the database.
+     */
+    private fun pollForJobCompletion(
+        runId: LoadTestRunId,
+        jobs: List<SubmittedJob>,
+        cancelled: AtomicBoolean,
+    ): List<JobResult> {
+        val jobIds = jobs.map { it.generationRequestId }.toSet()
+        val pollIntervalMs = 500L // Poll every 500ms
+        val maxWaitTimeMs = 600_000L // 10 minute timeout
+        val startTime = System.currentTimeMillis()
+
+        while (true) {
+            // Check for cancellation
+            if (cancelled.get() || isRunCancelled(runId)) {
+                logger.warn("Load test run {} cancelled while waiting for jobs", runId)
+                break
+            }
+
+            // Check timeout
+            if (System.currentTimeMillis() - startTime > maxWaitTimeMs) {
+                logger.error("Load test run {} timed out waiting for jobs after {}ms", runId, maxWaitTimeMs)
+                break
+            }
+
+            // Query database for job statuses
+            val results = jdbi.withHandle<List<JobResult>, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT
+                        dgr.id,
+                        dgr.created_at,
+                        dgr.started_at,
+                        dgr.completed_at,
+                        dgr.status,
+                        dgr.error_message,
+                        dgi.document_id
+                    FROM document_generation_requests dgr
+                    LEFT JOIN document_generation_items dgi ON dgi.request_id = dgr.id
+                    WHERE dgr.id IN (<jobIds>)
+                    """,
+                )
+                    .bindList("jobIds", jobIds.map { it.value })
+                    .map { rs, _ ->
+                        val requestId = GenerationRequestId.of(rs.getObject("id") as java.util.UUID)
+                        val job = jobs.first { it.generationRequestId == requestId }
+
+                        JobResult(
+                            sequenceNumber = job.sequenceNumber,
+                            generationRequestId = requestId,
+                            createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                            startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
+                            completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
+                            status = rs.getString("status"),
+                            errorMessage = rs.getString("error_message"),
+                            documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentId.of(it) },
+                        )
+                    }
+                    .list()
+            }
+
+            // Check if all jobs reached terminal state
+            val allDone = results.all { it.status in setOf("COMPLETED", "FAILED", "CANCELLED") }
+            val completed = results.count { it.status == "COMPLETED" }
+            val failed = results.count { it.status == "FAILED" }
+            val inProgress = results.count { it.status in setOf("PENDING", "IN_PROGRESS") }
+
+            logger.debug(
+                "Load test progress: {} completed, {} failed, {} in progress (out of {})",
+                completed,
+                failed,
+                inProgress,
+                jobIds.size,
+            )
+
+            // Update progress in database
+            updateProgress(runId, completed, failed)
+
+            if (allDone) {
+                logger.info("All {} jobs completed for load test run {}", results.size, runId)
+                return results
+            }
+
+            // Wait before next poll
+            Thread.sleep(pollIntervalMs)
+        }
+
+        // Return partial results if cancelled or timed out
+        return jdbi.withHandle<List<JobResult>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT
+                    dgr.id,
+                    dgr.created_at,
+                    dgr.started_at,
+                    dgr.completed_at,
+                    dgr.status,
+                    dgr.error_message,
+                    dgi.document_id
+                FROM document_generation_requests dgr
+                LEFT JOIN document_generation_items dgi ON dgi.request_id = dgr.id
+                WHERE dgr.id IN (<jobIds>)
+                """,
+            )
+                .bindList("jobIds", jobIds.map { it.value })
+                .map { rs, _ ->
+                    val requestId = GenerationRequestId.of(rs.getObject("id") as java.util.UUID)
+                    val job = jobs.first { it.generationRequestId == requestId }
+
+                    JobResult(
+                        sequenceNumber = job.sequenceNumber,
+                        generationRequestId = requestId,
+                        createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                        startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
+                        completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
+                        status = rs.getString("status"),
+                        errorMessage = rs.getString("error_message"),
+                        documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentId.of(it) },
+                    )
+                }
+                .list()
+        }
+    }
+
+    /**
+     * Update progress counts in the database.
+     */
+    private fun updateProgress(runId: LoadTestRunId, completedCount: Int, failedCount: Int) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE load_test_runs
+                SET completed_count = :completedCount,
+                    failed_count = :failedCount
+                WHERE id = :runId
+                """,
+            )
+                .bind("runId", runId)
+                .bind("completedCount", completedCount)
+                .bind("failedCount", failedCount)
+                .execute()
+        }
     }
 
     /**
