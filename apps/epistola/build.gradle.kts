@@ -17,16 +17,17 @@ if (buildNativeImage) {
 }
 
 dependencies {
+    // Core business logic module (includes template-model, generation, rest-api transitively)
+    implementation(project(":modules:epistola-core"))
+
+    // UI/Frontend modules
     implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
     implementation(project(":modules:schema-manager"))
-    implementation(project(":modules:template-model"))
-    implementation(project(":modules:generation"))
-    implementation(project(":modules:rest-api")) // OpenAPI spec and generated server interfaces
 
+    // Spring Boot - UI layer concerns
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
-    implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
     implementation("org.springframework.boot:spring-boot-starter-restclient")
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -34,27 +35,37 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-client")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+
+    // HTMX for dynamic UI
     implementation(libs.htmx.spring.boot.thymeleaf)
-    implementation(libs.jdbi.core)
-    implementation(libs.jdbi.kotlin)
-    implementation(libs.jdbi.postgres)
-    implementation(libs.jdbi.jackson3)
-    implementation(libs.jdbi.spring)
-    implementation(libs.json.schema.validator)
-    implementation(libs.uuid.creator)
+
+    // Flyway for migrations (app deployment concern)
     implementation("org.flywaydb:flyway-database-postgresql")
+
+    // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Thymeleaf extras
     implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")
+
+    // Jackson for Thymeleaf
     implementation("tools.jackson.module:jackson-module-kotlin")
+
+    // Development
     developmentOnly("org.springframework.boot:spring-boot-devtools")
+
+    // Runtime dependencies
     runtimeOnly("io.micrometer:micrometer-registry-otlp")
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
     runtimeOnly("org.postgresql:postgresql")
+
+    // Annotation processors
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+
+    // Testing
     testImplementation("org.springframework.boot:spring-boot-micrometer-tracing-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-jdbc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-opentelemetry-test")
     testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-authorization-server-test")

@@ -3,14 +3,25 @@
 ## [Unreleased]
 
 ### Changed
+- **BREAKING: Modularized business logic into epistola-core module**
+  - Created new `modules/epistola-core` module containing all business logic
+  - Moved all domain packages (tenants, themes, templates, documents, environments) to core
+  - Moved infrastructure packages (mediator, common, validation, generation service, metadata, config) to core
+  - Moved REST API controllers to core
+  - App module (`apps/epistola`) now contains only UI layer (handlers, routes, HTMX, Thymeleaf)
+  - Benefits: Clear separation of concerns, improved testability, reusable business logic
+  - UI handlers moved to `apps/epistola/handlers/` directory
+  - JDBI configuration moved to `modules/epistola-core/config/`
+  - Database migrations remain in app (deployment concern)
 - Enforce strict separation between UI handlers and REST API endpoints
 - Editor now saves drafts via UI handler (`PUT /tenants/.../draft`) instead of REST API endpoint (`PUT /v1/tenants/.../draft`)
 - All UI code now uses `application/json` content-type instead of REST API content-type (`application/vnd.epistola.v1+json`)
 
 ### Added
+- New `modules/epistola-core` module for business logic
 - UI handler for updating drafts: `PUT /tenants/{tenantId}/templates/{id}/variants/{variantId}/draft`
 - Automated test to detect UI → REST API violations (`UiRestApiSeparationTest`)
-- Documentation in CLAUDE.md explaining UI/REST separation
+- Documentation in CLAUDE.md explaining UI/REST separation and module structure
 
 ### Changed
 - **BREAKING: TenantId changed from UUID to slug format**: Tenant IDs are now human-readable, URL-safe slugs instead of UUIDs

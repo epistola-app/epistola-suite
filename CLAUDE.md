@@ -18,15 +18,50 @@ YOU DO NOT HAVE TO BUILD ANYTHING BACKWARDS COMPATIBLE AT THIS TIME.
 ## Project Structure
 
 ```
-epistola-suite/
+epistola-suite-modules/
 ├── apps/
-│   └── epistola/          # Main Spring Boot application (Thymeleaf + HTMX views)
+│   └── epistola/          # Spring Boot app (UI layer: Thymeleaf + HTMX)
+│       ├── handlers/      # UI request handlers
+│       ├── config/        # Thymeleaf, Security, UI config
+│       ├── htmx/          # HTMX utilities
+│       ├── demo/          # DemoLoader
+│       └── resources/
+│           ├── db/migration/        # Flyway migrations
+│           ├── templates/           # Thymeleaf templates
+│           └── application.yml
 ├── modules/
-│   └── editor/            # Rich text editor component (Vite + TypeScript)
+│   ├── epistola-core/     # Business logic (NEW)
+│   │   ├── tenants/       # Tenant domain
+│   │   ├── themes/        # Theme domain
+│   │   ├── templates/     # Template domain
+│   │   ├── documents/     # Document generation domain
+│   │   ├── environments/  # Environment domain
+│   │   ├── mediator/      # CQRS mediator pattern
+│   │   ├── common/        # Shared utilities (IDs, UUIDv7)
+│   │   ├── validation/    # JSON schema validation
+│   │   ├── generation/    # GenerationService (orchestration)
+│   │   ├── metadata/      # App metadata service
+│   │   ├── config/        # JDBI, Jackson config
+│   │   └── api/           # REST API controllers
+│   ├── generation/        # Pure PDF rendering
+│   ├── template-model/    # Template data structures
+│   ├── rest-api/          # OpenAPI specs
+│   ├── editor/            # Vite + TypeScript editor
+│   ├── schema-manager/    # Schema tools
+│   └── vendor/            # Frontend dependencies
 ├── docs/                  # Documentation
 ├── scripts/               # Setup scripts
 └── build.gradle.kts       # Root build configuration
 ```
+
+### Module Responsibilities
+
+- **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
+- **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config)
+- **modules/generation**: Pure PDF rendering (no business logic)
+- **modules/template-model**: Data structures for templates
+- **modules/rest-api**: OpenAPI specifications
+- **modules/editor**: Rich text editor frontend component
 
 ## Frontend Architecture
 
