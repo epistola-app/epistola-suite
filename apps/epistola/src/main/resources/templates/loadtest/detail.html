@@ -21,7 +21,7 @@
                     <th>Template:</th>
                     <td>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <span class="text-muted" th:text="'(' + ${run.templateId} + ')'"></span>
+                        <span class="text-muted" th:text="${'(' + run.templateId + ')'}"></span>
                     </td>
                 </tr>
                 <tr>
@@ -32,7 +32,7 @@
                     <th>Version:</th>
                     <td>
                         <span th:if="${run.versionId != null}" th:text="${run.versionId}"></span>
-                        <span th:if="${run.environmentId != null}" th:text="'Environment: ' + ${run.environmentId}"></span>
+                        <span th:if="${run.environmentId != null}" th:text="${'Environment: ' + run.environmentId}"></span>
                     </td>
                 </tr>
                 <tr>
@@ -47,10 +47,10 @@
                     <th>Status:</th>
                     <td>
                         <span class="badge"
-                              th:classappend="${run.status.name() == 'COMPLETED'} ? 'badge-success' :
-                                              ${run.status.name() == 'RUNNING'} ? 'badge-info' :
-                                              ${run.status.name() == 'FAILED'} ? 'badge-error' :
-                                              ${run.status.name() == 'CANCELLED'} ? 'badge-warning' : 'badge-default'"
+                              th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
+                                                run.status.name() == 'RUNNING' ? 'badge-info' :
+                                                run.status.name() == 'FAILED' ? 'badge-error' :
+                                                run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-default'}"
                               th:text="${run.status}">
                         </span>
                     </td>
@@ -99,7 +99,7 @@
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-label">Requests</div>
-                        <div class="metric-value" th:text="${run.completedCount + run.failedCount} + ' / ' + ${run.targetCount}"></div>
+                        <div class="metric-value" th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></div>
                     </div>
 
                     <div class="metric-card">
@@ -160,7 +160,7 @@
                         <div class="metric-label">Min / Max</div>
                         <div class="metric-value">
                             <span th:if="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}"
-                                  th:text="${run.minResponseTimeMs} + ' / ' + ${run.maxResponseTimeMs} + ' ms'"></span>
+                                  th:text="${run.minResponseTimeMs + ' / ' + run.maxResponseTimeMs + ' ms'}"></span>
                             <span th:unless="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}">-</span>
                         </div>
                     </div>

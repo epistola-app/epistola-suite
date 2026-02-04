@@ -45,22 +45,22 @@
                         </td>
                         <td>
                             <span class="badge"
-                                  th:classappend="${run.status.name() == 'COMPLETED'} ? 'badge-success' :
-                                                  ${run.status.name() == 'RUNNING'} ? 'badge-info' :
-                                                  ${run.status.name() == 'FAILED'} ? 'badge-error' :
-                                                  ${run.status.name() == 'CANCELLED'} ? 'badge-warning' : 'badge-default'"
+                                  th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
+                                                    run.status.name() == 'RUNNING' ? 'badge-info' :
+                                                    run.status.name() == 'FAILED' ? 'badge-error' :
+                                                    run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-default'}"
                                   th:text="${run.status}">
                             </span>
                         </td>
                         <td>
-                            <span th:text="${run.completedCount + run.failedCount} + ' / ' + ${run.targetCount}"></span>
+                            <span th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></span>
                             <span th:if="${run.status.name() == 'RUNNING'}" class="text-muted">
                                 (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
                             </span>
                         </td>
                         <td>
                             <span th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}"
-                                  th:text="${run.successRatePercent != null} ? ${#numbers.formatDecimal(run.successRatePercent, 1, 1)} + '%' : '-'">
+                                  th:text="${run.successRatePercent != null ? #numbers.formatDecimal(run.successRatePercent, 1, 1) + '%' : '-'}">
                             </span>
                             <span th:unless="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">-</span>
                         </td>
