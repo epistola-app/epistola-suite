@@ -23,6 +23,11 @@ dependencies {
     // Jackson for JSON handling (required by LoadTestRun.testData: ObjectNode)
     implementation("tools.jackson.module:jackson-module-kotlin")
 
+    // Database - JDBI (for command/query handlers)
+    implementation(libs.jdbi.core)
+    implementation(libs.jdbi.kotlin)
+    implementation(libs.jdbi.jackson3)
+
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
