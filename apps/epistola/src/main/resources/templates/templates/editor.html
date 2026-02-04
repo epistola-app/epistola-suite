@@ -113,11 +113,91 @@
             color: #dc3545;
         }
 
-        /* Editor scrollable area */
-        .editor-body {
+        /* Editor main area - split layout */
+        .editor-main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-pane {
             flex: 1;
             overflow-y: auto;
             padding: 1.5rem;
+            min-width: 400px;
+        }
+
+        .preview-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid #e2e8f0;
+            background: #f1f5f9;
+            min-width: 400px;
+        }
+
+        .preview-pane.hidden {
+            display: none;
+        }
+
+        .preview-header {
+            padding: 0.5rem 1rem;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .preview-header-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .preview-status {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .preview-status.loading {
+            color: #4a90d9;
+        }
+
+        .preview-status.error {
+            color: #dc3545;
+        }
+
+        .preview-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-empty {
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        .preview-empty i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
         }
 
         #editor-root {
@@ -337,11 +417,43 @@
                     <i class="bi bi-palette"></i> Styles
                 </button>
             </div>
+
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-group">
+                <button id="btn-toggle-preview" class="btn btn-sm btn-outline-primary active" title="Toggle preview">
+                    <i class="bi bi-eye-slash"></i> Hide
+                </button>
+                <button id="btn-refresh-preview" class="btn btn-sm btn-outline-secondary" title="Refresh preview">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
         </div>
 
-        <!-- Editor canvas -->
-        <div class="editor-body">
-            <div id="editor-root"></div>
+        <!-- Editor main area (split layout) -->
+        <div class="editor-main">
+            <!-- Editor pane (left) -->
+            <div class="editor-pane">
+                <div id="editor-root"></div>
+            </div>
+
+            <!-- Preview pane (right) -->
+            <div id="preview-pane" class="preview-pane">
+                <div class="preview-header">
+                    <div class="preview-header-title">
+                        <i class="bi bi-file-pdf"></i>
+                        <span>Live Preview</span>
+                    </div>
+                    <span id="preview-status" class="preview-status"></span>
+                </div>
+                <div class="preview-content">
+                    <div id="preview-empty" class="preview-empty">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <p>Select test data to see preview</p>
+                    </div>
+                    <iframe id="preview-iframe" class="preview-iframe" style="display: none;"></iframe>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -435,6 +547,40 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" class="btn btn-primary" id="btn-save-document-styles">Save</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Panel (local profile only) -->
+    <div th:if="${@environment.matchesProfiles('local')}"
+         id="debug-panel"
+         style="position: fixed; top: 60px; right: 16px; width: 360px; max-height: calc(100vh - 80px);
+                background: #1e1e2e; color: #cdd6f4; border-radius: 8px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.3); z-index: 9999;
+                font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px;
+                display: flex; flex-direction: column; overflow: hidden;">
+        <div style="padding: 8px 12px; background: #313244; border-radius: 8px 8px 0 0;
+                    display: flex; justify-content: space-between; align-items: center;
+                    border-bottom: 1px solid #45475a;">
+            <span style="font-weight: 600; color: #f5c2e7;">Debug Panel</span>
+            <button id="debug-panel-toggle"
+                    style="background: none; border: none; color: #6c7086; cursor: pointer;
+                           font-size: 14px; padding: 2px 6px;">−</button>
+        </div>
+        <div id="debug-panel-content" style="flex: 1; overflow-y: auto; padding: 8px;">
+            <div style="margin-bottom: 8px;">
+                <div style="color: #89b4fa; font-weight: 500; margin-bottom: 4px;">State</div>
+                <pre id="debug-state" style="margin: 0; white-space: pre-wrap; word-break: break-all;
+                     background: #11111b; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;"></pre>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <div style="color: #a6e3a1; font-weight: 500; margin-bottom: 4px;">History</div>
+                <div id="debug-history" style="background: #11111b; padding: 8px; border-radius: 4px;"></div>
+            </div>
+            <div>
+                <div style="color: #fab387; font-weight: 500; margin-bottom: 4px;">Store</div>
+                <pre id="debug-store" style="margin: 0; white-space: pre-wrap; word-break: break-all;
+                     background: #11111b; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto;"></pre>
             </div>
         </div>
     </div>
@@ -744,6 +890,204 @@
             editor.updateDocumentStyles(styles);
             documentStylesModal.hide();
         });
+
+        // =========================================================================
+        // Live Preview
+        // =========================================================================
+        const previewPane = document.getElementById('preview-pane');
+        const previewIframe = document.getElementById('preview-iframe');
+        const previewEmpty = document.getElementById('preview-empty');
+        const previewStatus = document.getElementById('preview-status');
+        const btnTogglePreview = document.getElementById('btn-toggle-preview');
+        const btnRefreshPreview = document.getElementById('btn-refresh-preview');
+
+        let previewVisible = true;
+        let previewDebounceTimer = null;
+        const PREVIEW_DEBOUNCE_MS = 800;
+
+        // Debounce utility
+        function debounce(fn, delay) {
+            return (...args) => {
+                clearTimeout(previewDebounceTimer);
+                previewDebounceTimer = setTimeout(() => fn(...args), delay);
+            };
+        }
+
+        // Get selected data example's data
+        function getSelectedTestData() {
+            const selectedId = editor.getSelectedDataExampleId();
+            if (!selectedId) return null;
+            const examples = editor.getDataExamples();
+            const selected = examples.find(ex => ex.id === selectedId);
+            return selected?.data || null;
+        }
+
+        // Toggle preview visibility
+        btnTogglePreview.addEventListener('click', () => {
+            previewVisible = !previewVisible;
+            previewPane.classList.toggle('hidden', !previewVisible);
+            btnTogglePreview.classList.toggle('active', previewVisible);
+            const icon = btnTogglePreview.querySelector('i');
+            icon.className = previewVisible ? 'bi bi-eye-slash' : 'bi bi-eye';
+            btnTogglePreview.innerHTML = '';
+            btnTogglePreview.appendChild(icon);
+            btnTogglePreview.appendChild(document.createTextNode(previewVisible ? ' Hide' : ' Preview'));
+        });
+
+        // Refresh preview
+        async function refreshPreview() {
+            const testData = getSelectedTestData();
+
+            if (!testData) {
+                previewIframe.style.display = 'none';
+                previewEmpty.style.display = 'block';
+                previewStatus.textContent = '';
+                return;
+            }
+
+            previewStatus.textContent = 'Loading...';
+            previewStatus.className = 'preview-status loading';
+
+            try {
+                const response = await fetch(
+                    `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/preview`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            data: testData,
+                            templateModel: editor.getTemplate(),
+                        }),
+                    }
+                );
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `HTTP ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+
+                // Revoke old URL if exists
+                if (previewIframe.dataset.blobUrl) {
+                    URL.revokeObjectURL(previewIframe.dataset.blobUrl);
+                }
+                previewIframe.dataset.blobUrl = url;
+
+                previewIframe.src = url;
+                previewIframe.style.display = 'block';
+                previewEmpty.style.display = 'none';
+                previewStatus.textContent = 'Updated';
+                previewStatus.className = 'preview-status';
+
+                // Clear "Updated" after 2 seconds
+                setTimeout(() => {
+                    if (previewStatus.textContent === 'Updated') {
+                        previewStatus.textContent = '';
+                    }
+                }, 2000);
+            } catch (err) {
+                console.error('Preview error:', err);
+                previewStatus.textContent = 'Error: ' + (err.message || 'Failed to generate preview');
+                previewStatus.className = 'preview-status error';
+            }
+        }
+
+        // Debounced preview refresh
+        const debouncedRefreshPreview = debounce(refreshPreview, PREVIEW_DEBOUNCE_MS);
+
+        // Manual refresh button
+        btnRefreshPreview.addEventListener('click', refreshPreview);
+
+        // Refresh when data example changes
+        dataSelector.addEventListener('change', () => {
+            refreshPreview();
+        });
+
+        // Auto-refresh on editor changes (debounced)
+        editor.subscribe(() => {
+            if (previewVisible && getSelectedTestData()) {
+                debouncedRefreshPreview();
+            }
+        });
+
+        // Initial preview if data is selected
+        if (getSelectedTestData()) {
+            refreshPreview();
+        }
+
+        // =========================================================================
+        // Debug Panel (only exists in local profile)
+        // =========================================================================
+        const debugPanel = document.getElementById('debug-panel');
+        if (debugPanel) {
+            const debugState = document.getElementById('debug-state');
+            const debugHistory = document.getElementById('debug-history');
+            const debugStore = document.getElementById('debug-store');
+            const debugContent = document.getElementById('debug-panel-content');
+            const debugToggle = document.getElementById('debug-panel-toggle');
+
+            let collapsed = false;
+            debugToggle.addEventListener('click', () => {
+                collapsed = !collapsed;
+                debugContent.style.display = collapsed ? 'none' : 'block';
+                debugToggle.textContent = collapsed ? '+' : '−';
+            });
+
+            function updateDebugPanel() {
+                const state = editor.getState();
+
+                // State overview
+                debugState.textContent = JSON.stringify({
+                    selectedBlockId: state.selectedBlockId,
+                    blockCount: state.template.blocks.length,
+                    isDirty: editor.isDirty(),
+                    canUndo: editor.canUndo(),
+                    canRedo: editor.canRedo(),
+                }, null, 2);
+
+                // History info - using DOM manipulation
+                debugHistory.textContent = '';
+                const historyDiv = document.createElement('div');
+                historyDiv.style.cssText = 'display: flex; gap: 12px; color: #bac2de;';
+
+                const undoSpan = document.createElement('span');
+                undoSpan.textContent = 'Undo: ';
+                const undoVal = document.createElement('b');
+                undoVal.style.color = '#89b4fa';
+                undoVal.textContent = editor.canUndo() ? '✓' : '✗';
+                undoSpan.appendChild(undoVal);
+
+                const redoSpan = document.createElement('span');
+                redoSpan.textContent = 'Redo: ';
+                const redoVal = document.createElement('b');
+                redoVal.style.color = '#89b4fa';
+                redoVal.textContent = editor.canRedo() ? '✓' : '✗';
+                redoSpan.appendChild(redoVal);
+
+                const dirtySpan = document.createElement('span');
+                dirtySpan.textContent = 'Dirty: ';
+                const dirtyVal = document.createElement('b');
+                dirtyVal.style.color = editor.isDirty() ? '#f38ba8' : '#a6e3a1';
+                dirtyVal.textContent = editor.isDirty() ? 'Yes' : 'No';
+                dirtySpan.appendChild(dirtyVal);
+
+                historyDiv.appendChild(undoSpan);
+                historyDiv.appendChild(redoSpan);
+                historyDiv.appendChild(dirtySpan);
+                debugHistory.appendChild(historyDiv);
+
+                // Full store (template)
+                debugStore.textContent = JSON.stringify(state.template, null, 2);
+            }
+
+            // Initial update
+            updateDebugPanel();
+
+            // Subscribe to changes
+            editor.subscribe(updateDebugPanel);
+        }
     </script>
 </body>
 </html>
