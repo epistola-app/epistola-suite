@@ -20,6 +20,9 @@ dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
 
+    // Load test module (load testing functionality)
+    implementation(project(":modules:loadtest"))
+
     // REST API module (controllers for external systems)
     implementation(project(":modules:rest-api"))
 

@@ -10,7 +10,7 @@ import java.util.UUID
  *
  * Generic over both the concrete ID type (T) and the value type (V).
  */
-sealed interface EntityId<T : EntityId<T, V>, V : Any> {
+interface EntityId<T : EntityId<T, V>, V : Any> {
     val value: V
 }
 
@@ -18,13 +18,13 @@ sealed interface EntityId<T : EntityId<T, V>, V : Any> {
  * Marker interface for slug-based IDs (String value).
  * Used for human-readable, URL-safe identifiers.
  */
-sealed interface SlugId<T : SlugId<T>> : EntityId<T, String>
+interface SlugId<T : SlugId<T>> : EntityId<T, String>
 
 /**
  * Marker interface for UUID-based IDs.
  * Used for machine-generated unique identifiers.
  */
-sealed interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
+interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
 
 /**
  * Typed ID for Tenant entities.
