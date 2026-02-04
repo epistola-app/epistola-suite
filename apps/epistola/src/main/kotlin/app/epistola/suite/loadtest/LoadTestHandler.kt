@@ -97,10 +97,8 @@ class LoadTestHandler(
                 testData = testData,
             ).execute()
 
-            // Redirect to detail page
-            return request.htmx {
-                redirect("/tenants/$tenantId/load-tests/${run.id}")
-            }
+            // Redirect to detail page (both HTMX and non-HTMX)
+            return redirect("/tenants/$tenantId/load-tests/${run.id}")
         } catch (e: Exception) {
             // Show error and reload form
             return ServerResponse.badRequest().render(
@@ -200,9 +198,7 @@ class LoadTestHandler(
             // Ignore errors (e.g., test already completed)
         }
 
-        // Redirect back to detail page
-        return request.htmx {
-            redirect("/tenants/$tenantId/load-tests/$runId")
-        }
+        // Redirect back to detail page (both HTMX and non-HTMX)
+        return redirect("/tenants/$tenantId/load-tests/$runId")
     }
 }
