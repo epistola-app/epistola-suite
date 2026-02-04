@@ -55,7 +55,6 @@ export function mountVanillaEditor(options) {
 
   const uiController = new UIController(editor, {
     onUndoRedo: render,
-    onBlockAdded: render,
   });
 
   sortableAdapter.setInvalidDropCallback(render);
@@ -67,6 +66,10 @@ export function mountVanillaEditor(options) {
   render();
 
   return {
+    // Debug access to internal state
+    getState: () => editor.getState(),
+    subscribe: (callback) => editor.subscribe(callback),
+
     getTemplate: () => editor.getTemplate(),
     setTemplate: (template) => {
       editor.setTemplate(template);

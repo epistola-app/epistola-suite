@@ -6,6 +6,23 @@
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
 ### Added
+- **Live PDF Preview**: Split-pane editor with real-time PDF preview
+  - Side-by-side layout: editor (left) and PDF preview (right)
+  - Debounced auto-refresh (800ms) on template changes
+  - Manual refresh and toggle visibility buttons
+  - Uses existing preview endpoint with live templateModel
+
+- **DOM Diffing with morphdom**: Replaced full DOM rebuilds with efficient patching
+  - Imported morphdom via ESM CDN for minimal DOM updates
+  - Preserves focus and cursor position during re-renders
+  - Fixes duplicate block and keystroke re-render issues
+
+- **Debug Panel** (local profile only): Developer tooling for editor state inspection
+  - Shows selected block, block count, dirty state, undo/redo status
+  - Displays full template store as JSON
+  - Collapsible panel, Catppuccin Mocha theme
+  - Only rendered when running with `--spring.profiles.active=local`
+
 - **Framework-Agnostic Headless Editor**: New `@epistola/headless-editor` module provides pure TypeScript editor core
   - TemplateEditor orchestrator with block CRUD, selection management, and undo/redo
   - BlockTree utilities for nested block manipulation (children, columns, table cells)
