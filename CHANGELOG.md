@@ -23,6 +23,13 @@
   - Collapsible panel, Catppuccin Mocha theme
   - Only rendered when running with `--spring.profiles.active=local`
 
+- **Block-Level Styling**: Per-block CSS styling via modal
+  - Typography: fontSize, fontWeight, color, textAlign
+  - Spacing: padding, margin
+  - Background & Border: backgroundColor, borderRadius
+  - Color pickers synced with text inputs
+  - Block button enabled only when a block is selected
+
 - **Framework-Agnostic Headless Editor**: New `@epistola/headless-editor` module provides pure TypeScript editor core
   - TemplateEditor orchestrator with block CRUD, selection management, and undo/redo
   - BlockTree utilities for nested block manipulation (children, columns, table cells)
