@@ -1,11 +1,22 @@
 /**
  * BlockRenderer - Renders blocks to the DOM using Bootstrap 5
  *
- * Handles rendering all 9 block types with their specific UI structures.
+ * Uses morphdom for efficient DOM diffing - only updates what changed,
+ * preserving focus, cursor position, and input values automatically.
  */
 
-import { createElement, clearElement, getBadgeClass, getBadgeStyle, getBlockIcon, logCallback } from './dom-helpers.js';
-import { ExpressionEditor } from '../components/ExpressionEditor.js';
+import morphdom from "https://cdn.jsdelivr.net/npm/morphdom@2.7/+esm";
+import {
+  createElement,
+  getBadgeClass,
+  getBadgeStyle,
+  getBlockIcon,
+  logCallback,
+} from "./dom-helpers.js";
+
+// morphdom is loaded globally via CDN in editor.html
+/* global morphdom */
+import { ExpressionEditor } from "../components/ExpressionEditor.js";
 
 export class BlockRenderer {
   /**
@@ -35,23 +46,36 @@ export class BlockRenderer {
     const state = this.editor.getState();
     const currentBlockIds = new Set();
 
+    // Build the new DOM tree
+    const newContainer = document.createElement("div");
+
     if (state.template.blocks.length === 0) {
-      clearElement(this.container);
-      this.container.appendChild(
-        createElement('div', {
-          className: 'empty-state text-center text-muted p-4',
-          textContent: 'No blocks yet. Add one using the toolbar above.',
-        })
+      newContainer.appendChild(
+        createElement("div", {
+          className: "empty-state text-center text-muted p-4",
+          textContent: "No blocks yet. Add one using the toolbar above.",
+        }),
       );
-      this._cleanupDeletedEditors([]);
-      return;
+    } else {
+      for (const block of state.template.blocks) {
+        currentBlockIds.add(block.id);
+        newContainer.appendChild(this._renderBlock(block));
+      }
     }
 
-    for (const block of state.template.blocks) {
-      currentBlockIds.add(block.id);
-      const blockEl = this._renderBlock(block);
-      this.container.appendChild(blockEl);
-    }
+    // Use morphdom to efficiently patch the DOM
+    morphdom(this.container, newContainer, {
+      childrenOnly: true,
+      onBeforeElUpdated: (fromEl, toEl) => {
+        // Don't update focused inputs/textareas - let user keep typing
+        if (fromEl === document.activeElement) {
+          if (fromEl.tagName === "INPUT" || fromEl.tagName === "TEXTAREA") {
+            return false;
+          }
+        }
+        return true;
+      },
+    });
 
     this._cleanupDeletedEditors(Array.from(currentBlockIds));
   }
@@ -68,7 +92,7 @@ export class BlockRenderer {
   renderState() {
     if (!this.debugMode) return;
 
-    const display = document.getElementById('state-display');
+    const display = document.getElementById("state-display");
     if (!display) return;
 
     const state = this.editor.getState();
@@ -81,7 +105,7 @@ export class BlockRenderer {
         template: state.template,
       },
       null,
-      2
+      2,
     );
   }
 
@@ -90,10 +114,10 @@ export class BlockRenderer {
     const state = this.editor.getState();
     const isSelected = state.selectedBlockId === block.id;
 
-    const blockEl = createElement('div', {
-      className: `block ${isSelected ? 'selected' : ''}`,
-      'data-block-id': block.id,
-      'data-block-type': block.type,
+    const blockEl = createElement("div", {
+      className: `block ${isSelected ? "selected" : ""}`,
+      "data-block-id": block.id,
+      "data-block-type": block.type,
       onClick: (e) => {
         this.editor.selectBlock(block.id);
         e.stopPropagation();
@@ -108,63 +132,99 @@ export class BlockRenderer {
 
   /** @param {import('@epistola/headless-editor').Block} block */
   _renderBlockHeader(block) {
-    return createElement('div', { className: 'block-header d-flex justify-content-between align-items-center' }, [
-      createElement('div', { className: 'd-flex align-items-center gap-2' }, [
-        createElement('i', { className: 'bi bi-grip-vertical drag-handle text-muted' }),
-        createElement('i', { className: `bi ${getBlockIcon(block.type)} text-muted` }),
+    return createElement(
+      "div",
+      {
+        className:
+          "block-header d-flex justify-content-between align-items-center",
+      },
+      [
+        createElement("div", { className: "d-flex align-items-center gap-2" }, [
+          createElement("i", {
+            className: "bi bi-grip-vertical drag-handle text-muted",
+          }),
+          createElement("i", {
+            className: `bi ${getBlockIcon(block.type)} text-muted`,
+          }),
+          createElement(
+            "span",
+            {
+              className: `badge ${getBadgeClass(block.type)}`,
+              style: getBadgeStyle(block.type),
+            },
+            [block.type],
+          ),
+        ]),
         createElement(
-          'span',
+          "button",
           {
-            className: `badge ${getBadgeClass(block.type)}`,
-            style: getBadgeStyle(block.type),
+            className: "btn btn-outline-danger btn-sm",
+            title: "Delete block",
+            onClick: (e) => {
+              this.editor.deleteBlock(block.id);
+              e.stopPropagation();
+            },
           },
-          [block.type]
+          [createElement("i", { className: "bi bi-trash" })],
         ),
-      ]),
-      createElement('button', {
-        className: 'btn btn-outline-danger btn-sm',
-        title: 'Delete block',
-        onClick: (e) => {
-          this.editor.deleteBlock(block.id);
-          e.stopPropagation();
-        },
-      }, [createElement('i', { className: 'bi bi-trash' })]),
-    ]);
+      ],
+    );
   }
 
   /** @param {HTMLElement} blockEl */
   /** @param {import('@epistola/headless-editor').Block} block */
   _renderBlockContent(blockEl, block) {
     switch (block.type) {
-      case 'text':        this._renderTextContent(blockEl, block); break;
-      case 'container':   this._renderContainerContent(blockEl, block); break;
-      case 'conditional': this._renderConditionalContent(blockEl, block); break;
-      case 'loop':        this._renderLoopContent(blockEl, block); break;
-      case 'columns':     this._renderColumnsContent(blockEl, block); break;
-      case 'table':       this._renderTableContent(blockEl, block); break;
-      case 'pagebreak':   this._renderPageBreakContent(blockEl); break;
-      case 'pageheader':  this._renderPageHeaderContent(blockEl, block); break;
-      case 'pagefooter':  this._renderPageFooterContent(blockEl, block); break;
+      case "text":
+        this._renderTextContent(blockEl, block);
+        break;
+      case "container":
+        this._renderContainerContent(blockEl, block);
+        break;
+      case "conditional":
+        this._renderConditionalContent(blockEl, block);
+        break;
+      case "loop":
+        this._renderLoopContent(blockEl, block);
+        break;
+      case "columns":
+        this._renderColumnsContent(blockEl, block);
+        break;
+      case "table":
+        this._renderTableContent(blockEl, block);
+        break;
+      case "pagebreak":
+        this._renderPageBreakContent(blockEl);
+        break;
+      case "pageheader":
+        this._renderPageHeaderContent(blockEl, block);
+        break;
+      case "pagefooter":
+        this._renderPageFooterContent(blockEl, block);
+        break;
     }
   }
 
   _renderTextContent(blockEl, block) {
-    const textarea = createElement('textarea', {
-      className: 'form-control form-control-sm mt-2',
-      placeholder: 'Enter text content...',
-      rows: '3',
+    const textarea = createElement("textarea", {
+      className: "form-control form-control-sm mt-2",
+      placeholder: "Enter text content...",
+      rows: "3",
+      "data-block-id": block.id,
       onClick: (e) => e.stopPropagation(),
       onInput: (e) => {
-        // Convert plaintext to TipTap JSONContent format
         const text = e.target.value;
-        const tipTapContent = text ? {
-          type: 'doc',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text }] }]
-        } : null;
+        const tipTapContent = text
+          ? {
+              type: "doc",
+              content: [
+                { type: "paragraph", content: [{ type: "text", text }] },
+              ],
+            }
+          : null;
         this.editor.updateBlock(block.id, { content: tipTapContent });
       },
     });
-    // Extract plaintext from TipTap JSONContent format
     textarea.value = this._extractTextFromTipTap(block.content);
     blockEl.appendChild(textarea);
   }
@@ -175,15 +235,15 @@ export class BlockRenderer {
    * @returns {string}
    */
   _extractTextFromTipTap(content) {
-    if (!content || typeof content !== 'object') return '';
+    if (!content || typeof content !== "object") return "";
 
     const extractFromNode = (node) => {
-      if (!node) return '';
-      if (node.type === 'text' && node.text) return node.text;
+      if (!node) return "";
+      if (node.type === "text" && node.text) return node.text;
       if (Array.isArray(node.content)) {
-        return node.content.map(extractFromNode).join('');
+        return node.content.map(extractFromNode).join("");
       }
-      return '';
+      return "";
     };
 
     return extractFromNode(content);
@@ -191,39 +251,35 @@ export class BlockRenderer {
 
   /**
    * Get scope variables for a block's children context
-   * This tracks loop variables from parent loops
    * @param {string} blockId - The parent block ID
    * @returns {Array<{name: string, type: string, arrayPath: string}>}
    */
   _getScopeVariables(blockId) {
     const scopes = [];
-    const testData = this.editor.store.getTestData();
 
     const findParentLoops = (blocks, depth = 0) => {
-      if (depth > 10) return; // Prevent infinite recursion
+      if (depth > 10) return;
 
       for (const block of blocks) {
-        if (block.type === 'loop') {
+        if (block.type === "loop") {
           scopes.push({
-            name: block.itemAlias || 'item',
-            type: 'loop-item',
-            arrayPath: block.expression?.raw || '',
+            name: block.itemAlias || "item",
+            type: "loop-item",
+            arrayPath: block.expression?.raw || "",
           });
           if (block.indexAlias) {
             scopes.push({
               name: block.indexAlias,
-              type: 'loop-index',
-              arrayPath: block.expression?.raw || '',
+              type: "loop-index",
+              arrayPath: block.expression?.raw || "",
             });
           }
         }
 
-        // Check children
         if (block.children && block.children.length > 0) {
           findParentLoops(block.children, depth + 1);
         }
 
-        // Check columns
         if (block.columns) {
           for (const col of block.columns) {
             if (col.children && col.children.length > 0) {
@@ -232,7 +288,6 @@ export class BlockRenderer {
           }
         }
 
-        // Check table cells
         if (block.rows) {
           for (const row of block.rows) {
             for (const cell of row.cells) {
@@ -252,18 +307,18 @@ export class BlockRenderer {
   }
 
   _renderContainerContent(blockEl, block) {
-    const childrenEl = createElement('div', {
-      className: 'block-children sortable-container',
-      'data-parent-id': block.id,
+    const childrenEl = createElement("div", {
+      className: "block-children sortable-container",
+      "data-parent-id": block.id,
     });
 
     if (block.children.length === 0) {
       childrenEl.appendChild(
-        createElement('div', {
-          className: 'empty-state text-muted small',
-          style: 'padding: 0.5rem;',
-          textContent: 'Drop blocks here',
-        })
+        createElement("div", {
+          className: "empty-state text-muted small",
+          style: "padding: 0.5rem;",
+          textContent: "Drop blocks here",
+        }),
       );
     } else {
       for (const child of block.children) {
@@ -278,7 +333,10 @@ export class BlockRenderer {
     let editorContainer = blockEl.querySelector(`#${editorContainerId}`);
 
     if (!editorContainer) {
-      editorContainer = createElement('div', { id: editorContainerId, className: 'mb-2' });
+      editorContainer = createElement("div", {
+        id: editorContainerId,
+        className: "mb-2",
+      });
       blockEl.appendChild(editorContainer);
     }
 
@@ -305,12 +363,12 @@ export class BlockRenderer {
 
     editor.setTestData(this.editor.store.getTestData() || {});
     editor.setScopeVariables(this._getScopeVariables(block.id));
-    editor.setValue(block.condition?.raw || '');
+    editor.setValue(block.condition?.raw || "");
     editor.focus();
 
-    const checkbox = createElement('input', {
-      type: 'checkbox',
-      className: 'form-check-input',
+    const checkbox = createElement("input", {
+      type: "checkbox",
+      className: "form-check-input",
       id: `inverse-${block.id}`,
       onClick: (e) => e.stopPropagation(),
       onChange: (e) => {
@@ -319,27 +377,29 @@ export class BlockRenderer {
     });
     checkbox.checked = block.inverse || false;
 
-    blockEl.appendChild(createElement('div', { className: 'form-check mt-1' }, [
-      checkbox,
-      createElement('label', {
-        className: 'form-check-label small',
-        htmlFor: `inverse-${block.id}`,
-        textContent: 'Inverse (show when false)',
-      }),
-    ]));
+    blockEl.appendChild(
+      createElement("div", { className: "form-check mt-1" }, [
+        checkbox,
+        createElement("label", {
+          className: "form-check-label small",
+          htmlFor: `inverse-${block.id}`,
+          textContent: "Inverse (show when false)",
+        }),
+      ]),
+    );
 
-    const childrenEl = createElement('div', {
-      className: 'block-children sortable-container',
-      'data-parent-id': block.id,
+    const childrenEl = createElement("div", {
+      className: "block-children sortable-container",
+      "data-parent-id": block.id,
     });
 
     if (block.children.length === 0) {
       childrenEl.appendChild(
-        createElement('div', {
-          className: 'empty-state text-muted small',
-          style: 'padding: 0.5rem;',
-          textContent: 'Content when condition is true',
-        })
+        createElement("div", {
+          className: "empty-state text-muted small",
+          style: "padding: 0.5rem;",
+          textContent: "Content when condition is true",
+        }),
       );
     } else {
       for (const child of block.children) {
@@ -354,8 +414,11 @@ export class BlockRenderer {
     let exprContainer = blockEl.querySelector(`#${exprContainerId}`);
 
     if (!exprContainer) {
-      exprContainer = createElement('div', { id: exprContainerId, className: 'mb-2' });
-      blockEl.insertBefore(exprContainer, blockEl.querySelector('.row'));
+      exprContainer = createElement("div", {
+        id: exprContainerId,
+        className: "mb-2",
+      });
+      blockEl.insertBefore(exprContainer, blockEl.querySelector(".row"));
     }
 
     let exprEditor = this.expressionEditors.get(block.id);
@@ -381,58 +444,64 @@ export class BlockRenderer {
 
     exprEditor.setTestData(this.editor.store.getTestData() || {});
     exprEditor.setScopeVariables(this._getScopeVariables(block.id));
-    exprEditor.setValue(block.expression?.raw || '');
+    exprEditor.setValue(block.expression?.raw || "");
     exprEditor.focus();
 
-    const itemAliasInput = createElement('input', {
-      type: 'text',
-      className: 'form-control',
-      placeholder: 'item',
+    const itemAliasInput = createElement("input", {
+      type: "text",
+      className: "form-control",
+      placeholder: "item",
+      "data-block-id": `${block.id}-item`,
       onClick: (e) => e.stopPropagation(),
       onInput: (e) => {
         this.editor.updateBlock(block.id, { itemAlias: e.target.value });
       },
     });
-    itemAliasInput.value = block.itemAlias || 'item';
+    itemAliasInput.value = block.itemAlias || "item";
 
-    const indexAliasInput = createElement('input', {
-      type: 'text',
-      className: 'form-control',
-      placeholder: 'index (optional)',
+    const indexAliasInput = createElement("input", {
+      type: "text",
+      className: "form-control",
+      placeholder: "index (optional)",
+      "data-block-id": `${block.id}-index`,
       onClick: (e) => e.stopPropagation(),
       onInput: (e) => {
-        this.editor.updateBlock(block.id, { indexAlias: e.target.value || undefined });
+        this.editor.updateBlock(block.id, {
+          indexAlias: e.target.value || undefined,
+        });
       },
     });
-    indexAliasInput.value = block.indexAlias || '';
+    indexAliasInput.value = block.indexAlias || "";
 
-    blockEl.appendChild(createElement('div', { className: 'row g-2 mt-1' }, [
-      createElement('div', { className: 'col-6' }, [
-        createElement('div', { className: 'input-group input-group-sm' }, [
-          createElement('span', { className: 'input-group-text' }, ['as']),
-          itemAliasInput,
+    blockEl.appendChild(
+      createElement("div", { className: "row g-2 mt-1" }, [
+        createElement("div", { className: "col-6" }, [
+          createElement("div", { className: "input-group input-group-sm" }, [
+            createElement("span", { className: "input-group-text" }, ["as"]),
+            itemAliasInput,
+          ]),
+        ]),
+        createElement("div", { className: "col-6" }, [
+          createElement("div", { className: "input-group input-group-sm" }, [
+            createElement("span", { className: "input-group-text" }, ["index"]),
+            indexAliasInput,
+          ]),
         ]),
       ]),
-      createElement('div', { className: 'col-6' }, [
-        createElement('div', { className: 'input-group input-group-sm' }, [
-          createElement('span', { className: 'input-group-text' }, ['index']),
-          indexAliasInput,
-        ]),
-      ]),
-    ]));
+    );
 
-    const childrenEl = createElement('div', {
-      className: 'block-children sortable-container',
-      'data-parent-id': block.id,
+    const childrenEl = createElement("div", {
+      className: "block-children sortable-container",
+      "data-parent-id": block.id,
     });
 
     if (block.children.length === 0) {
       childrenEl.appendChild(
-        createElement('div', {
-          className: 'empty-state text-muted small',
-          style: 'padding: 0.5rem;',
-          textContent: 'Loop body (repeated for each item)',
-        })
+        createElement("div", {
+          className: "empty-state text-muted small",
+          style: "padding: 0.5rem;",
+          textContent: "Loop body (repeated for each item)",
+        }),
       );
     } else {
       for (const child of block.children) {
@@ -443,61 +512,77 @@ export class BlockRenderer {
   }
 
   _renderColumnsContent(blockEl, block) {
-    blockEl.appendChild(createElement('div', { className: 'd-flex gap-2 mt-2 mb-2' }, [
-      createElement('button', {
-        className: 'btn btn-outline-secondary btn-sm',
-        title: 'Add column',
-        onClick: (e) => {
-          e.stopPropagation();
-          this.editor.addColumn(block.id);
-          logCallback(`Added column to ${block.id}`);
-        },
-      }, [
-        createElement('i', { className: 'bi bi-plus' }),
-        ' Add Column',
+    blockEl.appendChild(
+      createElement("div", { className: "d-flex gap-2 mt-2 mb-2" }, [
+        createElement(
+          "button",
+          {
+            className: "btn btn-outline-secondary btn-sm",
+            title: "Add column",
+            onClick: (e) => {
+              e.stopPropagation();
+              this.editor.addColumn(block.id);
+              logCallback(`Added column to ${block.id}`);
+            },
+          },
+          [createElement("i", { className: "bi bi-plus" }), " Add Column"],
+        ),
+        createElement("span", {
+          className: "text-muted small align-self-center",
+          textContent: `${block.columns.length}/6 columns`,
+        }),
       ]),
-      createElement('span', {
-        className: 'text-muted small align-self-center',
-        textContent: `${block.columns.length}/6 columns`,
-      }),
-    ]));
+    );
 
-    const columnsEl = createElement('div', {
-      className: 'columns-layout d-flex gap-2',
-      'data-parent-id': block.id,
+    const columnsEl = createElement("div", {
+      className: "columns-layout d-flex gap-2",
+      "data-parent-id": block.id,
       style: `gap: ${block.gap || 16}px;`,
     });
 
     for (const column of block.columns) {
-      const columnEl = createElement('div', {
-        className: 'column-wrapper flex-fill sortable-container',
-        'data-parent-id': column.id,
-        'data-column-id': column.id,
+      const columnEl = createElement("div", {
+        className: "column-wrapper flex-fill sortable-container",
+        "data-parent-id": column.id,
+        "data-column-id": column.id,
         style: `flex: ${column.size};`,
       });
 
-      columnEl.appendChild(createElement('div', {
-        className: 'd-flex justify-content-between align-items-center mb-1',
-      }, [
-        createElement('small', { className: 'text-muted' }, [`Size: ${column.size}`]),
-        createElement('button', {
-          className: 'btn btn-outline-danger btn-sm py-0',
-          title: 'Remove column',
-          onClick: (e) => {
-            e.stopPropagation();
-            this.editor.removeColumn(block.id, column.id);
-            logCallback(`Removed column ${column.id}`);
+      columnEl.appendChild(
+        createElement(
+          "div",
+          {
+            className: "d-flex justify-content-between align-items-center mb-1",
           },
-        }, [createElement('i', { className: 'bi bi-x' })]),
-      ]));
+          [
+            createElement("small", { className: "text-muted" }, [
+              `Size: ${column.size}`,
+            ]),
+            createElement(
+              "button",
+              {
+                className: "btn btn-outline-danger btn-sm py-0",
+                title: "Remove column",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  this.editor.removeColumn(block.id, column.id);
+                  logCallback(`Removed column ${column.id}`);
+                },
+              },
+              [createElement("i", { className: "bi bi-x" })],
+            ),
+          ],
+        ),
+      );
 
       if (column.children.length === 0) {
         columnEl.appendChild(
-          createElement('div', {
-            className: 'empty-state text-muted small text-center',
-            style: 'padding: 1rem; border: 1px dashed #dee2e6; border-radius: 4px;',
-            textContent: 'Drop content here',
-          })
+          createElement("div", {
+            className: "empty-state text-muted small text-center",
+            style:
+              "padding: 1rem; border: 1px dashed #dee2e6; border-radius: 4px;",
+            textContent: "Drop content here",
+          }),
         );
       } else {
         for (const child of column.children) {
@@ -512,49 +597,54 @@ export class BlockRenderer {
   }
 
   _renderTableContent(blockEl, block) {
-    blockEl.appendChild(createElement('div', { className: 'd-flex gap-2 mt-2 mb-2' }, [
-      createElement('button', {
-        className: 'btn btn-outline-secondary btn-sm',
-        title: 'Add row',
-        onClick: (e) => {
-          e.stopPropagation();
-          this.editor.addRow(block.id);
-          logCallback(`Added row to ${block.id}`);
-        },
-      }, [
-        createElement('i', { className: 'bi bi-plus' }),
-        ' Add Row',
+    blockEl.appendChild(
+      createElement("div", { className: "d-flex gap-2 mt-2 mb-2" }, [
+        createElement(
+          "button",
+          {
+            className: "btn btn-outline-secondary btn-sm",
+            title: "Add row",
+            onClick: (e) => {
+              e.stopPropagation();
+              this.editor.addRow(block.id);
+              logCallback(`Added row to ${block.id}`);
+            },
+          },
+          [createElement("i", { className: "bi bi-plus" }), " Add Row"],
+        ),
+        createElement("span", {
+          className: "text-muted small align-self-center",
+          textContent: `${block.rows.length} rows`,
+        }),
       ]),
-      createElement('span', {
-        className: 'text-muted small align-self-center',
-        textContent: `${block.rows.length} rows`,
-      }),
-    ]));
+    );
 
-    const tableEl = createElement('table', { className: 'table table-bordered table-sm mb-0' });
+    const tableEl = createElement("table", {
+      className: "table table-bordered table-sm mb-0",
+    });
 
     for (const row of block.rows) {
-      const rowEl = createElement('tr', {
-        'data-row-id': row.id,
-        className: row.isHeader ? 'table-light' : '',
+      const rowEl = createElement("tr", {
+        "data-row-id": row.id,
+        className: row.isHeader ? "table-light" : "",
       });
 
       for (const cell of row.cells) {
-        const cellTag = row.isHeader ? 'th' : 'td';
+        const cellTag = row.isHeader ? "th" : "td";
         const cellEl = createElement(cellTag, {
-          'data-cell-id': cell.id,
-          'data-parent-id': cell.id,
-          className: 'sortable-container p-1',
-          style: 'vertical-align: top; min-width: 100px;',
+          "data-cell-id": cell.id,
+          "data-parent-id": cell.id,
+          className: "sortable-container p-1",
+          style: "vertical-align: top; min-width: 100px;",
         });
 
         if (cell.children.length === 0) {
           cellEl.appendChild(
-            createElement('div', {
-              className: 'text-muted small text-center',
-              style: 'padding: 0.25rem;',
-              textContent: 'Drop content',
-            })
+            createElement("div", {
+              className: "text-muted small text-center",
+              style: "padding: 0.25rem;",
+              textContent: "Drop content",
+            }),
           );
         } else {
           for (const child of cell.children) {
@@ -565,19 +655,29 @@ export class BlockRenderer {
         rowEl.appendChild(cellEl);
       }
 
-      rowEl.appendChild(createElement(row.isHeader ? 'th' : 'td', {
-        style: 'width: 40px; vertical-align: middle;',
-      }, [
-        createElement('button', {
-          className: 'btn btn-outline-danger btn-sm py-0',
-          title: 'Remove row',
-          onClick: (e) => {
-            e.stopPropagation();
-            this.editor.removeRow(block.id, row.id);
-            logCallback(`Removed row ${row.id}`);
+      rowEl.appendChild(
+        createElement(
+          row.isHeader ? "th" : "td",
+          {
+            style: "width: 40px; vertical-align: middle;",
           },
-        }, [createElement('i', { className: 'bi bi-x' })]),
-      ]));
+          [
+            createElement(
+              "button",
+              {
+                className: "btn btn-outline-danger btn-sm py-0",
+                title: "Remove row",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  this.editor.removeRow(block.id, row.id);
+                  logCallback(`Removed row ${row.id}`);
+                },
+              },
+              [createElement("i", { className: "bi bi-x" })],
+            ),
+          ],
+        ),
+      );
 
       tableEl.appendChild(rowEl);
     }
@@ -586,36 +686,45 @@ export class BlockRenderer {
   }
 
   _renderPageBreakContent(blockEl) {
-    blockEl.appendChild(createElement('div', {
-      className: 'page-break-line text-center my-2',
-      style: 'border-top: 2px dashed #6c757d; position: relative;',
-    }, [
-      createElement('span', {
-        className: 'bg-white px-2 text-muted small',
-        style: 'position: absolute; top: -0.7em; left: 50%; transform: translateX(-50%);',
-        textContent: 'Page Break',
-      }),
-    ]));
+    blockEl.appendChild(
+      createElement(
+        "div",
+        {
+          className: "page-break-line text-center my-2",
+          style: "border-top: 2px dashed #6c757d; position: relative;",
+        },
+        [
+          createElement("span", {
+            className: "bg-white px-2 text-muted small",
+            style:
+              "position: absolute; top: -0.7em; left: 50%; transform: translateX(-50%);",
+            textContent: "Page Break",
+          }),
+        ],
+      ),
+    );
   }
 
   _renderPageHeaderContent(blockEl, block) {
-    blockEl.appendChild(createElement('div', {
-      className: 'alert alert-info py-1 px-2 mb-2 small',
-      textContent: 'Content appears at the top of every page',
-    }));
+    blockEl.appendChild(
+      createElement("div", {
+        className: "alert alert-info py-1 px-2 mb-2 small",
+        textContent: "Content appears at the top of every page",
+      }),
+    );
 
-    const childrenEl = createElement('div', {
-      className: 'block-children sortable-container',
-      'data-parent-id': block.id,
+    const childrenEl = createElement("div", {
+      className: "block-children sortable-container",
+      "data-parent-id": block.id,
     });
 
     if (block.children.length === 0) {
       childrenEl.appendChild(
-        createElement('div', {
-          className: 'empty-state text-muted small',
-          style: 'padding: 0.5rem;',
-          textContent: 'Add header content',
-        })
+        createElement("div", {
+          className: "empty-state text-muted small",
+          style: "padding: 0.5rem;",
+          textContent: "Add header content",
+        }),
       );
     } else {
       for (const child of block.children) {
@@ -626,23 +735,25 @@ export class BlockRenderer {
   }
 
   _renderPageFooterContent(blockEl, block) {
-    blockEl.appendChild(createElement('div', {
-      className: 'alert alert-info py-1 px-2 mb-2 small',
-      textContent: 'Content appears at the bottom of every page',
-    }));
+    blockEl.appendChild(
+      createElement("div", {
+        className: "alert alert-info py-1 px-2 mb-2 small",
+        textContent: "Content appears at the bottom of every page",
+      }),
+    );
 
-    const childrenEl = createElement('div', {
-      className: 'block-children sortable-container',
-      'data-parent-id': block.id,
+    const childrenEl = createElement("div", {
+      className: "block-children sortable-container",
+      "data-parent-id": block.id,
     });
 
     if (block.children.length === 0) {
       childrenEl.appendChild(
-        createElement('div', {
-          className: 'empty-state text-muted small',
-          style: 'padding: 0.5rem;',
-          textContent: 'Add footer content',
-        })
+        createElement("div", {
+          className: "empty-state text-muted small",
+          style: "padding: 0.5rem;",
+          textContent: "Add footer content",
+        }),
       );
     } else {
       for (const child of block.children) {
