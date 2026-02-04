@@ -1,5 +1,6 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.EntityId
 import app.epistola.suite.common.ids.VersionId
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
@@ -18,12 +19,17 @@ class VersionIdArgumentFactory : AbstractArgumentFactory<VersionId>(Types.INTEGE
 }
 
 /**
- * JDBI ColumnMapper for VersionId.
- * Maps INTEGER database columns to VersionId value class.
+ * Generic JDBI ColumnMapper for integer-based ID types.
+ * Maps INTEGER database columns to any EntityId<T, Int> value class using a factory function.
+ *
+ * @param T The concrete ID type (e.g., VersionId)
+ * @param factory Function that constructs T from an Int value
  */
-class VersionIdColumnMapper : ColumnMapper<VersionId> {
-    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): VersionId? {
+class IntIdColumnMapper<T : EntityId<T, Int>>(
+    private val factory: (Int) -> T,
+) : ColumnMapper<T> {
+    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): T? {
         val value = r.getInt(columnNumber)
-        return if (r.wasNull()) null else VersionId.of(value)
+        return if (r.wasNull()) null else factory(value)
     }
 }

@@ -34,23 +34,15 @@ class JdbiConfig {
             // Register SlugId argument factory for binding slug-based IDs to SQL statements
             registerArgument(SlugIdArgumentFactory())
 
-            // Register TenantId column mapper for reading from result sets
-            registerColumnMapper(TenantId::class.java, TenantIdColumnMapper())
-
-            // Register ThemeId column mapper for reading from result sets
-            registerColumnMapper(ThemeId::class.java, ThemeIdColumnMapper())
-
-            // Register TemplateId column mapper for reading from result sets
-            registerColumnMapper(TemplateId::class.java, TemplateIdColumnMapper())
-
-            // Register VariantId column mapper for reading from result sets
-            registerColumnMapper(VariantId::class.java, VariantIdColumnMapper())
-
-            // Register EnvironmentId column mapper for reading from result sets
-            registerColumnMapper(EnvironmentId::class.java, EnvironmentIdColumnMapper())
+            // Register column mappers for all slug-based ID types
+            registerColumnMapper(TenantId::class.java, SlugIdColumnMapper(TenantId::of))
+            registerColumnMapper(ThemeId::class.java, SlugIdColumnMapper(ThemeId::of))
+            registerColumnMapper(TemplateId::class.java, SlugIdColumnMapper(TemplateId::of))
+            registerColumnMapper(VariantId::class.java, SlugIdColumnMapper(VariantId::of))
+            registerColumnMapper(EnvironmentId::class.java, SlugIdColumnMapper(EnvironmentId::of))
 
             // Register VersionId argument factory and column mapper for integer-based version IDs
             registerArgument(VersionIdArgumentFactory())
-            registerColumnMapper(VersionId::class.java, VersionIdColumnMapper())
+            registerColumnMapper(VersionId::class.java, IntIdColumnMapper(VersionId::of))
         }
 }

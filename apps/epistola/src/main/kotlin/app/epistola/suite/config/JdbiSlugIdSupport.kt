@@ -1,11 +1,6 @@
 package app.epistola.suite.config
 
-import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.SlugId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.common.ids.VariantId
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
@@ -23,56 +18,17 @@ class SlugIdArgumentFactory : AbstractArgumentFactory<SlugId<*>>(Types.VARCHAR) 
 }
 
 /**
- * JDBI ColumnMapper for TenantId.
- * Maps VARCHAR database columns to TenantId value class.
+ * Generic JDBI ColumnMapper for SlugId types.
+ * Maps VARCHAR database columns to any SlugId value class using a factory function.
+ *
+ * @param T The concrete SlugId type (e.g., TenantId, ThemeId)
+ * @param factory Function that constructs T from a String value
  */
-class TenantIdColumnMapper : ColumnMapper<TenantId> {
-    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): TenantId? {
+class SlugIdColumnMapper<T : SlugId<T>>(
+    private val factory: (String) -> T,
+) : ColumnMapper<T> {
+    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): T? {
         val value = r.getString(columnNumber)
-        return if (r.wasNull()) null else TenantId.of(value)
-    }
-}
-
-/**
- * JDBI ColumnMapper for ThemeId.
- * Maps VARCHAR database columns to ThemeId value class.
- */
-class ThemeIdColumnMapper : ColumnMapper<ThemeId> {
-    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): ThemeId? {
-        val value = r.getString(columnNumber)
-        return if (r.wasNull()) null else ThemeId.of(value)
-    }
-}
-
-/**
- * JDBI ColumnMapper for TemplateId.
- * Maps VARCHAR database columns to TemplateId value class.
- */
-class TemplateIdColumnMapper : ColumnMapper<TemplateId> {
-    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): TemplateId? {
-        val value = r.getString(columnNumber)
-        return if (r.wasNull()) null else TemplateId.of(value)
-    }
-}
-
-/**
- * JDBI ColumnMapper for VariantId.
- * Maps VARCHAR database columns to VariantId value class.
- */
-class VariantIdColumnMapper : ColumnMapper<VariantId> {
-    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): VariantId? {
-        val value = r.getString(columnNumber)
-        return if (r.wasNull()) null else VariantId.of(value)
-    }
-}
-
-/**
- * JDBI ColumnMapper for EnvironmentId.
- * Maps VARCHAR database columns to EnvironmentId value class.
- */
-class EnvironmentIdColumnMapper : ColumnMapper<EnvironmentId> {
-    override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): EnvironmentId? {
-        val value = r.getString(columnNumber)
-        return if (r.wasNull()) null else EnvironmentId.of(value)
+        return if (r.wasNull()) null else factory(value)
     }
 }
