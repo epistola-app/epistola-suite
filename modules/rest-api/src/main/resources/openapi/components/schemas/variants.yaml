@@ -12,12 +12,16 @@ VariantDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the variant
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant
     templateId:
       type: string
-      format: uuid
-      description: ID of the template this variant belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the template this variant belongs to
     title:
       type:
         - string
@@ -61,8 +65,10 @@ VariantSummaryDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the variant
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the variant
     title:
       type:
         - string
@@ -90,8 +96,10 @@ CreateVariantRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the variant (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Client-provided slug identifier for the variant
     title:
       type:
         - string
@@ -142,28 +150,27 @@ VariantListResponse:
 
 ActivationDto:
   type: object
-  description: Environment activation for a variant
+  description: Environment activation for a variant. versionId IS the version number (1-200).
   required:
     - environmentId
     - environmentName
     - versionId
-    - versionNumber
     - activatedAt
   properties:
     environmentId:
       type: string
-      format: uuid
-      description: ID of the environment
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 30
+      description: Slug identifier of the environment
     environmentName:
       type: string
       description: Name of the environment
     versionId:
-      type: string
-      format: uuid
-      description: ID of the active version
-    versionNumber:
       type: integer
-      description: Version number of the active version
+      minimum: 1
+      maximum: 200
+      description: ID of the active version (also the version number, 1-200)
     activatedAt:
       type: string
       format: date-time
@@ -176,9 +183,10 @@ SetActivationRequest:
     - versionId
   properties:
     versionId:
-      type: string
-      format: uuid
-      description: ID of the version to activate
+      type: integer
+      minimum: 1
+      maximum: 200
+      description: ID of the version to activate (version number, 1-200)
 
 ActivationListResponse:
   type: object

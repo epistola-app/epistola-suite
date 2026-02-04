@@ -11,7 +11,6 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.json.Json
 import org.springframework.stereotype.Component
-import java.util.UUID
 
 /**
  * Context for PDF preview, including the template's default theme, tenant's default theme, and optional draft.
@@ -31,8 +30,8 @@ data class PreviewContext(
  */
 private data class PreviewContextRow(
     @Json val draftTemplateModel: TemplateModel?,
-    val templateThemeId: UUID?,
-    val tenantDefaultThemeId: UUID?,
+    val templateThemeId: String?,
+    val tenantDefaultThemeId: String?,
 )
 
 /**

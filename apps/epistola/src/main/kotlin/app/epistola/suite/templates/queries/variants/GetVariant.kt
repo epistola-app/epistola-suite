@@ -58,7 +58,7 @@ class GetVariantSummariesHandler(
                     tv.tags,
                     EXISTS(SELECT 1 FROM template_versions ver WHERE ver.variant_id = tv.id AND ver.status = 'draft') as has_draft,
                     COALESCE(
-                        (SELECT jsonb_agg(ver.version_number ORDER BY ver.version_number)
+                        (SELECT jsonb_agg(ver.id ORDER BY ver.id)
                          FROM template_versions ver
                          WHERE ver.variant_id = tv.id AND ver.status = 'published'),
                         '[]'::jsonb

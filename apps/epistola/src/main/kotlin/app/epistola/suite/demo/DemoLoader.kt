@@ -69,7 +69,7 @@ class DemoLoader(
             }
 
             // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
-            val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = DEMO_TENANT_NAME))
+            val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
             log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
             log.info("Tenant has default theme: {}", tenant.defaultThemeId)
 
@@ -101,7 +101,7 @@ class DemoLoader(
         // Corporate Theme - professional styling
         val corporateTheme = mediator.send(
             CreateTheme(
-                id = ThemeId.generate(),
+                id = ThemeId.of("demo-corp"),
                 tenantId = tenantId,
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
@@ -139,7 +139,7 @@ class DemoLoader(
         // Modern Theme - contemporary design
         mediator.send(
             CreateTheme(
-                id = ThemeId.generate(),
+                id = ThemeId.of("demo-modern"),
                 tenantId = tenantId,
                 name = "Modern",
                 description = "Contemporary design with bold accents",
@@ -179,7 +179,7 @@ class DemoLoader(
         // 1. Create template with basic metadata
         val template = mediator.send(
             CreateDocumentTemplate(
-                id = TemplateId.generate(),
+                id = TemplateId.of(definition.slug),
                 tenantId = tenantId,
                 name = definition.name,
             ),
@@ -237,8 +237,9 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "2.1.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "3.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
+        private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
     }
 }

@@ -1,8 +1,8 @@
 -- Document templates table with tenant isolation
--- IDs are client-provided UUIDv7 for better testability and distributed system properties
+-- IDs are client-provided slugs for human-readable, URL-safe identifiers
 CREATE TABLE document_templates (
-    id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    id VARCHAR(50) PRIMARY KEY CHECK (id ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'),
+    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     schema JSONB,
     data_model JSONB,

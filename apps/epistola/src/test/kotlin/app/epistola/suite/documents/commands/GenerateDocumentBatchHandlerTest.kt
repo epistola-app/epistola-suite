@@ -1,10 +1,8 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.JobType
@@ -12,7 +10,6 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.tenants.commands.CreateTenant
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -23,9 +20,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `creates batch generation request`() {
-        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
-        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val tenant = createTenant("Test Tenant")
+        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -62,9 +59,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
 
     @Test
     fun `validates all items before creating request`() {
-        val tenant = mediator.send(CreateTenant(id = TenantId.generate(), name = "Test Tenant"))
-        val template = mediator.send(CreateDocumentTemplate(id = TemplateId.generate(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = VariantId.generate(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val tenant = createTenant("Test Tenant")
+        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -87,9 +84,9 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
                 filename = "doc-1.pdf",
             ),
             BatchGenerationItem(
-                templateId = TemplateId.generate(), // Non-existent template
-                variantId = VariantId.generate(),
-                versionId = VersionId.generate(),
+                templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
+                variantId = TestIdHelpers.nextVariantId(),
+                versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
@@ -107,7 +104,7 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `requires at least one item`() {
         assertThatThrownBy {
             GenerateDocumentBatch(
-                tenantId = TenantId.generate(),
+                tenantId = TenantId.of("dummy-tenant"),
                 items = emptyList(),
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
@@ -118,10 +115,10 @@ class GenerateDocumentBatchHandlerTest : BaseIntegrationTest() {
     fun `validates item versionId and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             BatchGenerationItem(
-                templateId = TemplateId.generate(),
-                variantId = VariantId.generate(),
-                versionId = VersionId.generate(),
-                environmentId = EnvironmentId.generate(), // Both set
+                templateId = TestIdHelpers.nextTemplateId(),
+                variantId = TestIdHelpers.nextVariantId(),
+                versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                environmentId = TestIdHelpers.nextEnvironmentId(), // Both set
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
             )

@@ -1,8 +1,7 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -54,6 +53,9 @@ class TestFixture {
     private val createdTenants = mutableListOf<TenantId>()
     private var givenContext: GivenContext? = null
     private var result: Any? = null
+    private var tenantCounter = 0
+
+    private fun nextTenantSlug(): String = "test-tenant-${++tenantCounter}"
 
     fun given(block: GivenContext.() -> Unit): TestFixture {
         givenContext = GivenContext().apply(block)
@@ -87,7 +89,7 @@ class TestFixture {
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
+            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
@@ -96,7 +98,7 @@ class TestFixture {
             tenant: Tenant,
             name: String,
         ): DocumentTemplate = CreateDocumentTemplate(
-            id = TemplateId.generate(),
+            id = TestIdHelpers.nextTemplateId(),
             tenantId = tenant.id,
             name = name,
         ).execute()
@@ -107,7 +109,7 @@ class TestFixture {
             title: String? = null,
             tags: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
-            id = VariantId.generate(),
+            id = TestIdHelpers.nextVariantId(),
             tenantId = tenant.id,
             templateId = template.id,
             title = title,
@@ -123,7 +125,7 @@ class TestFixture {
     @TestFixtureDsl
     inner class WhenContext {
         fun createTenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
+            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }

@@ -11,22 +11,24 @@ TemplateDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the template
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the template (e.g., "monthly-invoice")
     tenantId:
       type: string
-      format: uuid
-      description: ID of the tenant this template belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 63
+      description: Slug identifier of the tenant this template belongs to
     name:
       type: string
       description: Name of the template
     schema:
       type: object
-      additionalProperties: true
       description: JSON Schema defining the input parameters for this template
     dataModel:
       type: object
-      additionalProperties: true
       description: JSON Schema defining the expected data structure for template rendering
     dataExamples:
       type: array
@@ -59,12 +61,16 @@ TemplateSummaryDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the template
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Slug identifier of the template (e.g., "monthly-invoice")
     tenantId:
       type: string
-      format: uuid
-      description: ID of the tenant this template belongs to
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 63
+      description: Slug identifier of the tenant this template belongs to
     name:
       type: string
       description: Name of the template
@@ -93,7 +99,6 @@ DataExampleDto:
       description: Display name of the data example
     data:
       type: object
-      additionalProperties: true
       description: The example data matching the template's data model
 
 CreateTemplateRequest:
@@ -105,8 +110,10 @@ CreateTemplateRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the template (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 50
+      description: Client-provided slug identifier for the template
     name:
       type: string
       minLength: 1
@@ -114,7 +121,6 @@ CreateTemplateRequest:
       description: Name of the template to create
     schema:
       type: object
-      additionalProperties: true
       description: JSON Schema defining the input parameters for this template
 
 UpdateTemplateRequest:
@@ -132,7 +138,6 @@ UpdateTemplateRequest:
       description: Updated JSON Schema for input parameters
     dataModel:
       type: object
-      additionalProperties: true
       description: Updated data model schema
     dataExamples:
       type: array

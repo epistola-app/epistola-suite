@@ -44,8 +44,9 @@ class DocumentTemplateRoutes(
             // PDF preview (delegated to TemplatePreviewHandler)
             POST("/{id}/variants/{variantId}/preview", previewHandler::preview)
 
-            // Draft creation (delegated to VersionRouteHandler)
+            // Draft creation and updates (delegated to VersionRouteHandler)
             POST("/{id}/variants/{variantId}/draft", versionHandler::createDraft)
+            PUT("/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
 
             // Version lifecycle (delegated to VersionRouteHandler)
             POST("/{id}/variants/{variantId}/versions/{versionId}/publish", versionHandler::publishVersion)

@@ -35,6 +35,33 @@ The frontend uses a **server-side rendering** approach:
 - **HTMX**: For dynamic interactions without full page reloads
 - **Client components**: Embedded modules (like the editor) for features requiring rich client-side interactivity
 
+## Backend Architecture: UI Handlers vs REST API
+
+The backend has **two distinct endpoint layers** that must NEVER be mixed:
+
+### 1. REST API (External Systems Only)
+- **Path pattern**: `/api/v1/*` or `/v1/*`
+- **Implementation**: `@RestController` in `app.epistola.suite.api.v1` package
+- **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`)
+- **OpenAPI spec**: `/modules/rest-api/src/main/resources/openapi/`
+- **Purpose**: External system integration (stable, versioned API)
+
+### 2. UI Handlers (Internal Use Only)
+- **Path pattern**: `/tenants/*`, `/themes/*`, etc. (NO `/api` or `/v1` prefix)
+- **Implementation**: `@Component` with functional routing
+- **Returns**: Thymeleaf templates, HTMX fragments, or minimal JSON (`application/json`)
+- **Purpose**: Server-side rendered UI needs (can change freely)
+
+### CRITICAL RULE
+**UI code (Thymeleaf/JavaScript/TypeScript) MUST NEVER call REST API endpoints.**
+
+Always create a UI handler endpoint for UI needs. The REST API is only for external systems.
+
+### Verification
+```bash
+./gradlew test --tests UiRestApiSeparationTest
+```
+
 ## Build Commands
 
 **Prerequisite**: [mise](https://mise.jdx.dev/) must be installed. All tool versions (Java, Gradle, Node, pnpm) are managed via `.mise.toml`.

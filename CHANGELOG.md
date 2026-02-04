@@ -3,6 +3,89 @@
 ## [Unreleased]
 
 ### Changed
+- Enforce strict separation between UI handlers and REST API endpoints
+- Editor now saves drafts via UI handler (`PUT /tenants/.../draft`) instead of REST API endpoint (`PUT /v1/tenants/.../draft`)
+- All UI code now uses `application/json` content-type instead of REST API content-type (`application/vnd.epistola.v1+json`)
+
+### Added
+- UI handler for updating drafts: `PUT /tenants/{tenantId}/templates/{id}/variants/{variantId}/draft`
+- Automated test to detect UI → REST API violations (`UiRestApiSeparationTest`)
+- Documentation in CLAUDE.md explaining UI/REST separation
+
+### Changed
+- **BREAKING: TenantId changed from UUID to slug format**: Tenant IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-63 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (DNS subdomain compatible)
+  - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
+  - Tenant IDs must now be client-provided (no auto-generation via `TenantId.generate()`)
+  - Examples: `acme-corp`, `demo-tenant`, `my-company-2024`
+  - Database: `tenant_id` columns changed from `UUID` to `VARCHAR(63)` with CHECK constraint
+  - API: `tenantId` path parameters changed from UUID to string with pattern validation
+  - Generic `EntityId<T, V>` architecture: `SlugId<T>` for string IDs, `UuidId<T>` for UUID IDs
+- **BREAKING: ThemeId changed from UUID to slug format**: Theme IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-20 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+  - Theme IDs must now be client-provided (no auto-generation via `ThemeId.generate()`)
+  - Examples: `corporate`, `modern`, `my-theme-2024`
+  - Database: `theme_id` columns changed from `UUID` to `VARCHAR(20)` with CHECK constraint
+  - API: `themeId` parameters changed from UUID to string with pattern validation
+  - Web UI: Added slug input field to theme creation form
+  - Auto-created default theme uses slug `default`
+- **BREAKING: TemplateId changed from UUID to slug format**: Template IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-50 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+  - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `default`, `new`, `create`, `edit`, `delete`
+  - Template IDs must now be client-provided (no auto-generation)
+  - Examples: `monthly-invoice`, `welcome-email`, `quarterly-report`
+  - Database: `template_id` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
+  - API: `templateId` parameters changed from UUID to string with pattern validation
+  - Web UI: Added slug input field to template creation form
+  - Demo data: Updated to use explicit template slugs (e.g., `demo-invoice`)
+- **BREAKING: VariantId changed from UUID to slug format**: Variant IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-50 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+  - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `default`, `new`, `create`, `edit`, `delete`
+  - Variant IDs must now be client-provided (no auto-generation)
+  - Examples: `default`, `corporate`, `simple-v2`
+  - Database: `variant_id` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
+  - API: `variantId` parameters changed from UUID to string with pattern validation
+  - Web UI: Added slug input field to variant creation forms
+  - Auto-created default variant uses slug `{templateId}-default` to ensure uniqueness across templates
+- **BREAKING: EnvironmentId changed from UUID to slug format**: Environment IDs are now human-readable, URL-safe slugs instead of UUIDs
+  - Format: 3-30 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
+  - Must start with a letter, cannot end with hyphen, no consecutive hyphens
+- **BREAKING: VersionId changed from UUID to auto-incrementing integer (1-200)**: Version IDs are now sequential integers per variant instead of UUIDs
+  - Version IDs are now sequential integers (1-200) calculated automatically per variant
+  - First version is always 1, maximum 200 versions per variant
+  - The `id` field IS the version number - no separate `versionNumber` field
+  - **MAJOR BEHAVIOR CHANGE**: Publishing now updates the draft status instead of creating a new version record
+    - Publishing converts the draft to published (draft is NOT preserved)
+    - After publishing v1, must explicitly create a new draft for v2
+    - Sequential versioning enforced (cannot skip version numbers)
+  - Database changes:
+    - `template_versions.id` changed from `UUID` to `INTEGER` with CHECK constraint (1-200)
+    - Removed `version_number` column (merged into `id`)
+    - Changed primary key from `id` to composite `(variant_id, id)`
+    - Foreign keys now use composite references: `(variant_id, version_id)`
+  - API changes:
+    - `versionId` path parameters changed from UUID to integer (1-200)
+    - Removed `versionNumber` field from VersionDto and VersionSummaryDto
+    - Removed `versionNumber` field from ActivationDto
+  - Code changes:
+    - Removed `VersionId.generate()` method - IDs are calculated based on existing versions
+    - `CreateVersion` command no longer accepts `id` parameter
+    - `PublishVersion` command now updates status instead of creating new record
+    - `UpdateDraft` command creates new draft with next version ID if none exists
+  - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+  - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
+  - Environment IDs must now be client-provided (no auto-generation via `EnvironmentId.generate()`)
+  - Examples: `production`, `staging`, `development`, `test`, `preview`
+  - Database: `environment_id` columns changed from `UUID` to `VARCHAR(30)` with CHECK constraint
+  - API: `environmentId` parameters changed from UUID to string with pattern validation
 - **Code organization improvements**: Refactored large handlers and improved code maintainability
   - Split `DocumentTemplateHandler` (753 lines) into smaller focused handlers:
     - `VariantRouteHandler` for variant create/delete operations
@@ -35,8 +118,15 @@
   - Demo tenant now uses "Corporate" as default theme instead of auto-created "Tenant Default"
 
 ### Fixed
+- **Comprehensive null value handling across all API DTOs**: Fixed `InvalidNullException` when working with nullable fields in JSON payloads across the entire API surface. All OpenAPI DTOs now use Jackson `ObjectNode` instead of `Map<String, Any>` for proper null value handling.
+  - Removed all `additionalProperties: true` from OpenAPI schemas (templates.yaml, generation.yaml, themes.yaml, versions.yaml)
+  - Configured global type mapping: `object` → `ObjectNode` in OpenAPI generator
+  - Updated all DTO mappers to use `valueToTree()` and `treeToValue()` for ObjectNode conversion
+  - Affected DTOs: TemplateDto (schema, dataModel), DataExampleDto (data), GenerateDocumentRequest (data), DocumentGenerationItemDto (data), ThemeDto (blockStylePresets), VersionDto (templateModel), UpdateDraftRequest (templateModel)
+  - ObjectNode correctly preserves null values during JSON deserialization and serialization, preventing type mismatch errors
 - **PDF preview not applying template's default theme**: Preview endpoint was not passing the template's default theme to the PDF renderer, causing previews to miss the template-level theme cascade. Now correctly fetches the template and passes its `themeId` to `renderPdf()`.
 - **Thymeleaf JavaScript serialization using wrong ObjectMapper**: Fixed data contract fields (schema, test data) showing Jackson `JsonNode` internal properties instead of actual values in template detail and editor pages. Created custom `IStandardJavaScriptSerializer` that uses Spring's auto-configured ObjectMapper for proper Jackson 3 serialization. Simplified `DocumentTemplateHandler.editor()` by removing manual Map conversions.
+- **CreateVersion command now idempotent**: Fixed unique constraint violation when clicking "Create Draft" multiple times. The command now checks for an existing draft first and returns it if found, making the operation safe to call repeatedly without errors.
 
 ### Changed
 - **EditorContext theme resolution simplified**: Removed `tenantDefaultTheme` field from `EditorContext` data class. The theme cascade (template → tenant) is now resolved server-side, returning a single `defaultTheme` field containing the effective theme for the editor.

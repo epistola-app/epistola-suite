@@ -1,5 +1,6 @@
 package app.epistola.suite.testing
 
+import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -72,6 +73,9 @@ class ScenarioFactory(
 @ScenarioDsl
 class ScenarioBuilder {
     private val cleanupActions = mutableListOf<() -> Unit>()
+    private var tenantCounter = 0
+
+    private fun nextTenantSlug(): String = "scenario-tenant-${++tenantCounter}"
 
     /**
      * Define the test setup in the given block.
@@ -132,7 +136,7 @@ class ScenarioBuilder {
          * @return the created [Tenant]
          */
         fun tenant(name: String): Tenant {
-            val tenant = capturedMediator.send(CreateTenant(id = TenantId.generate(), name = name))
+            val tenant = capturedMediator.send(CreateTenant(id = TenantId.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
             this@ScenarioBuilder.registerCleanup {
                 capturedMediator.send(DeleteTenant(tenant.id))
             }
@@ -151,7 +155,7 @@ class ScenarioBuilder {
             name: String,
         ): DocumentTemplate = capturedMediator.send(
             CreateDocumentTemplate(
-                id = TemplateId.generate(),
+                id = TestIdHelpers.nextTemplateId(),
                 tenantId = tenantId,
                 name = name,
             ),
@@ -175,7 +179,7 @@ class ScenarioBuilder {
             tags: Map<String, String> = emptyMap(),
         ): TemplateVariant = capturedMediator.send(
             CreateVariant(
-                id = VariantId.generate(),
+                id = TestIdHelpers.nextVariantId(),
                 tenantId = tenantId,
                 templateId = templateId,
                 title = title,

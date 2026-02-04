@@ -53,18 +53,62 @@ class UpdateDraftHandler(
 
         val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 
-        // Use upsert to create or update draft
-        val newId = VersionId.generate()
+        // Try to update existing draft first
+        val updated = handle.createUpdate(
+            """
+                UPDATE template_versions
+                SET template_model = :templateModel::jsonb
+                WHERE variant_id = :variantId
+                  AND status = 'draft'
+                """,
+        )
+            .bind("variantId", command.variantId)
+            .bind("templateModel", templateModelJson)
+            .execute()
+
+        if (updated > 0) {
+            // Draft existed and was updated - return it
+            return@inTransaction handle.createQuery(
+                """
+                    SELECT *
+                    FROM template_versions
+                    WHERE variant_id = :variantId
+                      AND status = 'draft'
+                    """,
+            )
+                .bind("variantId", command.variantId)
+                .mapTo<TemplateVersion>()
+                .one()
+        }
+
+        // No draft exists - create new one
+        // Calculate next version ID for this variant
+        val nextVersionId = handle.createQuery(
+            """
+                SELECT COALESCE(MAX(id), 0) + 1 as next_id
+                FROM template_versions
+                WHERE variant_id = :variantId
+                """,
+        )
+            .bind("variantId", command.variantId)
+            .mapTo(Int::class.java)
+            .one()
+
+        // Enforce max version limit
+        require(nextVersionId <= VersionId.MAX_VERSION) {
+            "Maximum version limit (${VersionId.MAX_VERSION}) reached for variant ${command.variantId}"
+        }
+
+        val versionId = VersionId.of(nextVersionId)
+
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
-                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
-                ON CONFLICT (variant_id) WHERE status = 'draft'
-                DO UPDATE SET template_model = :templateModel::jsonb
+                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
+                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
-            .bind("id", newId)
+            .bind("id", versionId)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

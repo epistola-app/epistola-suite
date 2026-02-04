@@ -2,9 +2,6 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.common.pathUuid
-import app.epistola.suite.common.requirePathUuid
-import app.epistola.suite.common.toUuidOrNull
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
@@ -42,7 +39,7 @@ class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
@@ -56,7 +53,7 @@ class ThemeHandler(
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val searchTerm = request.param("q").orElse(null)
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId), searchTerm = searchTerm).query()
@@ -71,19 +68,37 @@ class ThemeHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
+        val slug = request.params().getFirst("slug")?.trim().orEmpty()
         val name = request.params().getFirst("name")?.trim().orEmpty()
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
 
+        // Validate slug
+        val themeId = ThemeId.validateOrNull(slug)
+        if (themeId == null) {
+            val formData = mapOf("slug" to slug, "name" to name, "description" to (description ?: ""))
+            val errors = mapOf("slug" to "Invalid theme ID format. Must be 3-20 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens.")
+            return request.htmx {
+                fragment("themes/list", "create-form") {
+                    "tenantId" to tenantId
+                    "formData" to formData
+                    "errors" to errors
+                }
+                retarget("#create-form")
+                reswap(HxSwap.OUTER_HTML)
+                onNonHtmx { redirect("/tenants/$tenantId/themes") }
+            }
+        }
+
         val command = try {
             CreateTheme(
-                id = ThemeId.generate(),
+                id = themeId,
                 tenantId = TenantId.of(tenantId),
                 name = name,
                 description = description,
             )
         } catch (e: ValidationException) {
-            val formData = mapOf("name" to name, "description" to (description ?: ""))
+            val formData = mapOf("slug" to slug, "name" to name, "description" to (description ?: ""))
             val errors = mapOf(e.field to e.message)
             return request.htmx {
                 fragment("themes/list", "create-form") {
@@ -113,11 +128,12 @@ class ThemeHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
-        val themeId = request.pathUuid("themeId")
+        val tenantId = request.pathVariable("tenantId")
+        val themeIdStr = request.pathVariable("themeId")
+        val themeId = ThemeId.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
-        val theme = GetTheme(tenantId = TenantId.of(tenantId), id = ThemeId.of(themeId)).query()
+        val theme = GetTheme(tenantId = TenantId.of(tenantId), id = themeId).query()
             ?: return ServerResponse.notFound().build()
 
         return ServerResponse.ok().render(
@@ -130,8 +146,9 @@ class ThemeHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
-        val themeId = request.pathUuid("themeId")
+        val tenantId = request.pathVariable("tenantId")
+        val themeIdStr = request.pathVariable("themeId")
+        val themeId = ThemeId.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -139,7 +156,7 @@ class ThemeHandler(
 
         val theme = UpdateTheme(
             tenantId = TenantId.of(tenantId),
-            id = ThemeId.of(themeId),
+            id = themeId,
             name = updateRequest.name,
             description = updateRequest.description,
             clearDescription = updateRequest.clearDescription,
@@ -164,12 +181,13 @@ class ThemeHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
-        val themeId = request.pathUuid("themeId")
+        val tenantId = request.pathVariable("tenantId")
+        val themeIdStr = request.pathVariable("themeId")
+        val themeId = ThemeId.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
         try {
-            DeleteTheme(tenantId = TenantId.of(tenantId), id = ThemeId.of(themeId)).execute()
+            DeleteTheme(tenantId = TenantId.of(tenantId), id = themeId).execute()
         } catch (e: ThemeInUseException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -197,16 +215,16 @@ class ThemeHandler(
      * Sets the default theme for a tenant.
      */
     fun setDefault(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
+        val tenantId = request.pathVariable("tenantId")
         val themeIdStr = request.params().getFirst("themeId")
             ?: return ServerResponse.badRequest().build()
-        val themeId = themeIdStr.toUuidOrNull()
+        val themeId = ThemeId.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
         try {
             SetTenantDefaultTheme(
                 tenantId = TenantId.of(tenantId),
-                themeId = ThemeId.of(themeId),
+                themeId = themeId,
             ).execute()
         } catch (e: ThemeNotFoundException) {
             return ServerResponse.notFound().build()

@@ -1,5 +1,11 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.jackson3.Jackson3Config
@@ -24,5 +30,19 @@ class JdbiConfig {
         .apply {
             // fix: use the spring boot mapper as this is preconfigured with kotlin support
             getConfig(Jackson3Config::class.java).mapper = mapper
+
+            // Register SlugId argument factory for binding slug-based IDs to SQL statements
+            registerArgument(SlugIdArgumentFactory())
+
+            // Register column mappers for all slug-based ID types
+            registerColumnMapper(TenantId::class.java, SlugIdColumnMapper(TenantId::of))
+            registerColumnMapper(ThemeId::class.java, SlugIdColumnMapper(ThemeId::of))
+            registerColumnMapper(TemplateId::class.java, SlugIdColumnMapper(TemplateId::of))
+            registerColumnMapper(VariantId::class.java, SlugIdColumnMapper(VariantId::of))
+            registerColumnMapper(EnvironmentId::class.java, SlugIdColumnMapper(EnvironmentId::of))
+
+            // Register VersionId argument factory and column mapper for integer-based version IDs
+            registerArgument(VersionIdArgumentFactory())
+            registerColumnMapper(VersionId::class.java, IntIdColumnMapper(VersionId::of))
         }
 }

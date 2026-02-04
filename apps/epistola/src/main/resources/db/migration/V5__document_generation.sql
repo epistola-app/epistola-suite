@@ -16,10 +16,10 @@
 -- Generated documents stored in PostgreSQL BYTEA
 CREATE TABLE documents (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    template_id UUID NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
-    version_id UUID NOT NULL REFERENCES template_versions(id) ON DELETE CASCADE,
+    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    version_id INTEGER NOT NULL,
     filename VARCHAR(255) NOT NULL,
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
     content_type VARCHAR(100) NOT NULL DEFAULT 'application/pdf',
@@ -29,7 +29,8 @@ CREATE TABLE documents (
     created_by VARCHAR(255),  -- Future: user ID from Keycloak
 
     CONSTRAINT chk_documents_filename_not_empty CHECK (LENGTH(filename) > 0),
-    CONSTRAINT chk_documents_size_positive CHECK (size_bytes > 0)
+    CONSTRAINT chk_documents_size_positive CHECK (size_bytes > 0),
+    FOREIGN KEY (variant_id, version_id) REFERENCES template_versions(variant_id, id) ON DELETE CASCADE
 );
 
 -- Indexes for document queries
@@ -46,7 +47,7 @@ CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id
 -- Track document generation jobs (single or batch)
 CREATE TABLE document_generation_requests (
     id UUID PRIMARY KEY,
-    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     job_type VARCHAR(20) NOT NULL CHECK (job_type IN ('SINGLE', 'BATCH')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),                    -- Instance identifier that claimed this job
@@ -84,10 +85,10 @@ CREATE INDEX idx_dgr_pending_poll ON document_generation_requests(status, create
 CREATE TABLE document_generation_items (
     id UUID PRIMARY KEY,
     request_id UUID NOT NULL REFERENCES document_generation_requests(id) ON DELETE CASCADE,
-    template_id UUID NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id UUID NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
-    version_id UUID REFERENCES template_versions(id) ON DELETE CASCADE,  -- NULL = use environment to determine version
-    environment_id UUID REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
+    template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
+    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    version_id INTEGER,  -- NULL = use environment to determine version
+    environment_id VARCHAR(30) REFERENCES environments(id) ON DELETE CASCADE,    -- NULL = use version_id directly
     data JSONB NOT NULL,
     filename VARCHAR(255),
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
@@ -102,7 +103,9 @@ CREATE TABLE document_generation_items (
     CONSTRAINT chk_items_version_or_environment CHECK (
         (version_id IS NOT NULL AND environment_id IS NULL)
         OR (version_id IS NULL AND environment_id IS NOT NULL)
-    )
+    ),
+    -- Foreign key to template_versions when version_id is specified
+    FOREIGN KEY (variant_id, version_id) REFERENCES template_versions(variant_id, id) ON DELETE CASCADE
 );
 
 -- Indexes for item queries

@@ -17,7 +17,6 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 
 /**
  * Extension functions for mapping between domain models and API DTOs.
@@ -71,7 +70,7 @@ internal fun DocumentGenerationItem.toDto(objectMapper: ObjectMapper) = Document
     variantId = variantId.value,
     versionId = versionId?.value,
     environmentId = environmentId?.value,
-    data = objectMapper.convertValue(data, Map::class.java) as Map<String, Any>,
+    data = objectMapper.valueToTree(data),
     filename = filename,
     correlationId = correlationId,
     status = DocumentGenerationItemDto.Status.valueOf(status.name),
@@ -92,7 +91,7 @@ internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJ
 // ==================== Request DTOs to Commands ====================
 
 internal fun GenerateDocumentRequest.toCommand(
-    tenantId: java.util.UUID,
+    tenantId: String,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocument(
     tenantId = TenantId.of(tenantId),
@@ -100,7 +99,7 @@ internal fun GenerateDocumentRequest.toCommand(
     variantId = VariantId.of(requireNotNull(variantId) { "variantId is required" }),
     versionId = versionId?.let { VersionId.of(it) },
     environmentId = environmentId?.let { EnvironmentId.of(it) },
-    data = objectMapper.valueToTree(data),
+    data = data,
     filename = filename,
     correlationId = correlationId,
 )
@@ -112,13 +111,13 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     variantId = VariantId.of(requireNotNull(variantId) { "variantId is required" }),
     versionId = versionId?.let { VersionId.of(it) },
     environmentId = environmentId?.let { EnvironmentId.of(it) },
-    data = objectMapper.valueToTree<ObjectNode>(data),
+    data = data,
     filename = filename,
     correlationId = correlationId,
 )
 
 internal fun GenerateBatchRequest.toCommand(
-    tenantId: java.util.UUID,
+    tenantId: String,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantId.of(tenantId),

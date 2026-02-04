@@ -8,8 +8,11 @@ TenantDto:
   properties:
     id:
       type: string
-      format: uuid
-      description: Unique identifier of the tenant
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 63
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
+      example: acme-corp
     name:
       type: string
       description: Name of the tenant
@@ -27,8 +30,15 @@ CreateTenantRequest:
   properties:
     id:
       type: string
-      format: uuid
-      description: Client-provided unique identifier for the tenant (UUIDv7 recommended)
+      pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+      minLength: 3
+      maxLength: 63
+      description: |
+        Client-provided unique slug identifier for the tenant.
+        Must be 3-63 characters, start with a letter, contain only lowercase letters,
+        numbers, and non-consecutive hyphens, and not end with a hyphen.
+        Reserved words (admin, api, www, system, internal, null, undefined) are not allowed.
+      example: acme-corp
     name:
       type: string
       minLength: 1

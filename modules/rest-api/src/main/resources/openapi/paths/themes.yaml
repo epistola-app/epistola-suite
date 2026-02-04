@@ -3,10 +3,12 @@ themes:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
 
   get:
     operationId: listThemes
@@ -77,17 +79,21 @@ themes-id:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: themeId
       in: path
       required: true
-      description: Unique identifier of the theme
+      description: Slug identifier of the theme
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 20
 
   get:
     operationId: getTheme

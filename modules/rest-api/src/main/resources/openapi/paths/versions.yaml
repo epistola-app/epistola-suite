@@ -3,24 +3,30 @@ versions:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: listVersions
@@ -57,31 +63,38 @@ versions-id:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: versionId
       in: path
       required: true
-      description: Unique identifier of the version
+      description: Version identifier (version number, 1-200)
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
+        maximum: 200
 
   get:
     operationId: getVersion
@@ -140,38 +153,45 @@ version-publish:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: versionId
       in: path
       required: true
-      description: Unique identifier of the version
+      description: Version identifier (version number, 1-200)
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
+        maximum: 200
 
   post:
     operationId: publishVersion
     summary: Publish a draft version
     description: |
-      Publish a draft version. This copies the draft content to a new published version
-      with the next sequential version number. The draft is preserved for continued editing.
+      Publish a draft version. BREAKING CHANGE: Publishing now updates the draft status to 'published'
+      instead of creating a new version. The draft is NOT preserved - it becomes the published version.
     tags:
       - Versions
     responses:
@@ -199,31 +219,38 @@ version-archive:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: versionId
       in: path
       required: true
-      description: Unique identifier of the version
+      description: Version identifier (version number, 1-200)
       schema:
-        type: string
-        format: uuid
+        type: integer
+        minimum: 1
+        maximum: 200
 
   post:
     operationId: archiveVersion

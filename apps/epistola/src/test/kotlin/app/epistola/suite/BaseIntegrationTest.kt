@@ -38,6 +38,9 @@ abstract class BaseIntegrationTest {
     protected lateinit var scenarioFactory: ScenarioFactory
 
     private val createdTenants = mutableListOf<TenantId>()
+    private var tenantCounter = 0
+
+    private fun nextTenantSlug(): String = "test-tenant-${++tenantCounter}"
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(block)
 
@@ -79,7 +82,7 @@ abstract class BaseIntegrationTest {
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(block)
 
     protected fun createTenant(name: String): Tenant = withMediator {
-        val tenant = CreateTenant(id = TenantId.generate(), name = name).execute()
+        val tenant = CreateTenant(id = TenantId.of(nextTenantSlug()), name = name).execute()
         createdTenants.add(tenant.id)
         tenant
     }

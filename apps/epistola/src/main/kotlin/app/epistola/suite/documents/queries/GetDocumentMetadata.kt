@@ -61,10 +61,10 @@ class GetDocumentMetadataHandler(
             .map { rs, _ ->
                 DocumentMetadata(
                     id = DocumentId(rs.getObject("id", UUID::class.java)),
-                    tenantId = TenantId(rs.getObject("tenant_id", UUID::class.java)),
-                    templateId = TemplateId(rs.getObject("template_id", UUID::class.java)),
-                    variantId = VariantId(rs.getObject("variant_id", UUID::class.java)),
-                    versionId = VersionId(rs.getObject("version_id", UUID::class.java)),
+                    tenantId = TenantId(rs.getString("tenant_id")),
+                    templateId = TemplateId(rs.getString("template_id")),
+                    variantId = VariantId(rs.getString("variant_id")),
+                    versionId = VersionId(rs.getInt("version_id")),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

@@ -58,15 +58,15 @@ class CreateVariantHandler(
             .mapTo<TemplateVariant>()
             .one()
 
-        // Create an initial draft version for the new variant with default template model
-        val versionId = VersionId.generate()
+        // Create an initial draft version for the new variant with default template model (version ID = 1)
+        val versionId = VersionId.of(1) // First version is always 1
         val defaultModel = createDefaultTemplateModel(templateName, variant.id)
         val templateModelJson = objectMapper.writeValueAsString(defaultModel)
 
         handle.createUpdate(
             """
-                INSERT INTO template_versions (id, variant_id, version_number, template_model, status, created_at)
-                VALUES (:id, :variantId, NULL, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
+                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
         )
             .bind("id", versionId)

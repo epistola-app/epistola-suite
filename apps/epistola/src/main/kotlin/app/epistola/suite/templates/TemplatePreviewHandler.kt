@@ -3,8 +3,6 @@ package app.epistola.suite.templates
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.pathUuid
-import app.epistola.suite.common.requirePathUuid
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.versions.GetPreviewContext
@@ -44,10 +42,12 @@ class TemplatePreviewHandler(
      * instead of fetching from the database. This enables live preview of unsaved changes.
      */
     fun preview(request: ServerRequest): ServerResponse {
-        val tenantId = request.requirePathUuid("tenantId")
-        val templateId = request.pathUuid("id")
+        val tenantId = request.pathVariable("tenantId")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathUuid("variantId")
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
 
         // Parse the request body
@@ -65,7 +65,11 @@ class TemplatePreviewHandler(
         val data = previewRequest.data ?: emptyMap()
 
         // Validate data against schema BEFORE starting the streaming response
-        val validationResult = generationService.validatePreviewData(tenantId, templateId, data)
+        val validationResult = generationService.validatePreviewData(
+            TenantId.of(tenantId),
+            templateId,
+            data,
+        )
         if (!validationResult.valid) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -84,8 +88,8 @@ class TemplatePreviewHandler(
         // Get preview context: draft template model and template's default theme
         val previewContext = GetPreviewContext(
             tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
-            variantId = VariantId.of(variantId),
+            templateId = templateId,
+            variantId = variantId,
         ).query() ?: return ServerResponse.notFound().build()
 
         // Resolve the template model - either from request (live preview) or from draft

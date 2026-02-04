@@ -6,6 +6,7 @@ import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
 import app.epistola.suite.api.v1.shared.toDomain
+import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -19,13 +20,15 @@ import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
+import tools.jackson.databind.ObjectMapper
 
 @RestController
-class EpistolaThemeApi : ThemesApi {
+class EpistolaThemeApi(
+    private val objectMapper: ObjectMapper,
+) : ThemesApi {
 
     override fun listThemes(
-        tenantId: UUID,
+        tenantId: String,
         q: String?,
     ): ResponseEntity<ThemeListResponse> {
         val themes = ListThemes(
@@ -35,13 +38,13 @@ class EpistolaThemeApi : ThemesApi {
 
         return ResponseEntity.ok(
             ThemeListResponse(
-                items = themes.map { it.toDto() },
+                items = themes.map { it.toDto(objectMapper) },
             ),
         )
     }
 
     override fun createTheme(
-        tenantId: UUID,
+        tenantId: String,
         createThemeRequest: CreateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val theme = CreateTheme(
@@ -51,29 +54,29 @@ class EpistolaThemeApi : ThemesApi {
             description = createThemeRequest.description,
             documentStyles = createThemeRequest.documentStyles.toDomain(),
             pageSettings = createThemeRequest.pageSettings?.toDomain(),
-            blockStylePresets = createThemeRequest.blockStylePresets,
+            blockStylePresets = createThemeRequest.blockStylePresets.toDomainPresets(objectMapper),
         ).execute()
 
         return ResponseEntity
             .status(HttpStatus.CREATED)
-            .body(theme.toDto())
+            .body(theme.toDto(objectMapper))
     }
 
     override fun getTheme(
-        tenantId: UUID,
-        themeId: UUID,
+        tenantId: String,
+        themeId: String,
     ): ResponseEntity<ThemeDto> {
         val theme = GetTheme(
             tenantId = TenantId.of(tenantId),
             id = ThemeId.of(themeId),
         ).query() ?: return ResponseEntity.notFound().build()
 
-        return ResponseEntity.ok(theme.toDto())
+        return ResponseEntity.ok(theme.toDto(objectMapper))
     }
 
     override fun updateTheme(
-        tenantId: UUID,
-        themeId: UUID,
+        tenantId: String,
+        themeId: String,
         updateThemeRequest: UpdateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val theme = UpdateTheme(
@@ -83,15 +86,15 @@ class EpistolaThemeApi : ThemesApi {
             description = updateThemeRequest.description,
             documentStyles = updateThemeRequest.documentStyles?.toDomain(),
             pageSettings = updateThemeRequest.pageSettings?.toDomain(),
-            blockStylePresets = updateThemeRequest.blockStylePresets,
+            blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(objectMapper),
         ).execute() ?: return ResponseEntity.notFound().build()
 
-        return ResponseEntity.ok(theme.toDto())
+        return ResponseEntity.ok(theme.toDto(objectMapper))
     }
 
     override fun deleteTheme(
-        tenantId: UUID,
-        themeId: UUID,
+        tenantId: String,
+        themeId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteTheme(
             tenantId = TenantId.of(tenantId),

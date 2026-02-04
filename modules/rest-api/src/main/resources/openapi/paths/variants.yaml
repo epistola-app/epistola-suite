@@ -3,17 +3,21 @@ variants:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: listVariants
@@ -72,24 +76,30 @@ variants-id:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: getVariant
@@ -164,24 +174,30 @@ variant-draft:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: getVariantDraft
@@ -246,24 +262,30 @@ variant-activations:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: listVariantActivations
@@ -290,31 +312,39 @@ variant-activation-env:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: environmentId
       in: path
       required: true
-      description: Unique identifier of the environment
+      description: Slug identifier of the environment (e.g., "production", "staging")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 30
 
   put:
     operationId: setVariantActivation
@@ -369,24 +399,30 @@ variant-active:
     - name: tenantId
       in: path
       required: true
-      description: Unique identifier of the tenant
+      description: Unique slug identifier of the tenant (e.g., "acme-corp")
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 63
     - name: templateId
       in: path
       required: true
-      description: Unique identifier of the template
+      description: Slug identifier of the template
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
     - name: variantId
       in: path
       required: true
-      description: Unique identifier of the variant
+      description: Slug identifier of the variant
       schema:
         type: string
-        format: uuid
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+        minLength: 3
+        maxLength: 50
 
   get:
     operationId: getActiveVersion
@@ -398,10 +434,12 @@ variant-active:
       - name: environment
         in: query
         required: true
-        description: Environment ID to get active version for
+        description: Slug identifier of environment to get active version for (e.g., "production")
         schema:
           type: string
-          format: uuid
+          pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+          minLength: 3
+          maxLength: 30
     responses:
       '200':
         description: Active version

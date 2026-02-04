@@ -45,7 +45,19 @@ class CreateTenantHandler(
             .execute()
 
         // 2. Create default "Tenant Default" theme with sensible defaults
-        val themeId = ThemeId.generate()
+        // Theme IDs are globally unique, so scope to tenant using tenant ID as base
+        // Use "-d" suffix instead of "-default" to maximize space for tenant ID uniqueness
+        // Max length: 20 chars, "-d" = 2 chars, so max tenant ID = 18 chars
+        val suffix = "-d"
+        val maxTenantIdLength = 18
+        val prefix = if (command.id.value.length <= maxTenantIdLength) {
+            command.id.value
+        } else {
+            // Truncate and remove trailing hyphen to avoid consecutive hyphens
+            command.id.value.take(maxTenantIdLength).trimEnd('-')
+        }
+        val themeSlug = "$prefix$suffix"
+        val themeId = ThemeId.of(themeSlug)
         val documentStyles = DocumentStyles(
             fontFamily = "Helvetica, Arial, sans-serif",
             fontSize = "11pt",

@@ -33,11 +33,24 @@ class TenantHandler {
 
     fun create(request: ServerRequest): ServerResponse {
         val name = request.params().getFirst("name")?.trim().orEmpty()
+        val slug = request.params().getFirst("slug")?.trim().orEmpty()
 
         val command = try {
-            CreateTenant(id = TenantId.generate(), name = name)
+            CreateTenant(id = TenantId.of(slug), name = name)
+        } catch (e: IllegalArgumentException) {
+            val formData = mapOf("name" to name, "slug" to slug)
+            val errors = mapOf("slug" to (e.message ?: "Invalid slug"))
+            return request.htmx {
+                fragment("tenants/list", "create-form") {
+                    "formData" to formData
+                    "errors" to errors
+                }
+                retarget("#create-form")
+                reswap(HxSwap.OUTER_HTML)
+                onNonHtmx { redirect("/") }
+            }
         } catch (e: ValidationException) {
-            val formData = mapOf("name" to name)
+            val formData = mapOf("name" to name, "slug" to slug)
             val errors = mapOf(e.field to e.message)
             return request.htmx {
                 fragment("tenants/list", "create-form") {

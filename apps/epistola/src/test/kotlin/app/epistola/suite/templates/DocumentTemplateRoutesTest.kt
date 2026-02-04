@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -156,6 +155,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             val headers = HttpHeaders()
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "new-template")
             formData.add("name", "New Template")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
@@ -186,6 +186,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "htmx-template")
             formData.add("name", "HTMX Template")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
@@ -218,6 +219,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "valid-slug")
             formData.add("name", "")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
@@ -247,6 +249,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "valid-slug")
             formData.add("name", "   ")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
@@ -275,6 +278,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
+            formData.add("slug", "valid-slug")
             formData.add("name", "a".repeat(256))
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants/${testTenant.id}/templates", request, String::class.java)
@@ -454,7 +458,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `POST validate-schema returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
-            val nonExistentTemplateId = UUID.randomUUID()
+            val nonExistentTemplateId = "non-existent-template"
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -668,7 +672,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `PATCH data-example returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
-            val nonExistentTemplateId = UUID.randomUUID()
+            val nonExistentTemplateId = "non-existent-template"
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -884,7 +888,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `DELETE data-example returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
-            val nonExistentTemplateId = UUID.randomUUID()
+            val nonExistentTemplateId = "non-existent-template"
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1005,7 +1009,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 404 for non-existent variant`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            val nonExistentVariantId = UUID.randomUUID()
+            val nonExistentVariantId = "non-existent-variant"
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1033,8 +1037,8 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         @Test
         fun `POST preview returns 404 for non-existent template`() = fixture {
             lateinit var testTenant: Tenant
-            val nonExistentTemplateId = UUID.randomUUID()
-            val nonExistentVariantId = UUID.randomUUID()
+            val nonExistentTemplateId = "non-existent-template"
+            val nonExistentVariantId = "non-existent-variant"
 
             given {
                 testTenant = tenant("Test Tenant")

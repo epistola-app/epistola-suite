@@ -316,8 +316,7 @@
                     <tbody>
                         <tr th:each="version : ${versions}">
                             <td>
-                                <span th:if="${version.versionNumber == null}">Draft</span>
-                                <span th:unless="${version.versionNumber == null}" th:text="'v' + ${version.versionNumber}"></span>
+                                <span th:text="'v' + ${version.id}"></span>
                             </td>
                             <td>
                                 <span th:if="${version.status.name() == 'DRAFT'}" class="badge badge-draft">Draft</span>

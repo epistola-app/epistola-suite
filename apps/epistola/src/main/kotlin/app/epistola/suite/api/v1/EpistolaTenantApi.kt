@@ -27,7 +27,6 @@ import app.epistola.suite.tenants.queries.ListTenants
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
-import java.util.UUID
 
 @RestController
 class EpistolaTenantApi :
@@ -68,7 +67,7 @@ class EpistolaTenantApi :
     }
 
     override fun getTenant(
-        tenantId: UUID,
+        tenantId: String,
     ): ResponseEntity<TenantDto> {
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
             ?: return ResponseEntity.notFound().build()
@@ -76,7 +75,7 @@ class EpistolaTenantApi :
     }
 
     override fun updateTenant(
-        tenantId: UUID,
+        tenantId: String,
         updateTenantRequest: UpdateTenantRequest,
     ): ResponseEntity<TenantDto> {
         // TODO: Implement UpdateTenant command
@@ -84,7 +83,7 @@ class EpistolaTenantApi :
     }
 
     override fun deleteTenant(
-        tenantId: UUID,
+        tenantId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteTenant(id = TenantId.of(tenantId)).execute()
         return if (deleted) {
@@ -97,14 +96,14 @@ class EpistolaTenantApi :
     // ================== Environment operations ==================
 
     override fun listEnvironments(
-        tenantId: UUID,
+        tenantId: String,
     ): ResponseEntity<EnvironmentListResponse> {
         val environments = ListEnvironments(tenantId = TenantId.of(tenantId)).query()
         return ResponseEntity.ok(EnvironmentListResponse(items = environments.map { it.toDto() }))
     }
 
     override fun createEnvironment(
-        tenantId: UUID,
+        tenantId: String,
         createEnvironmentRequest: CreateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val environment = CreateEnvironment(
@@ -116,8 +115,8 @@ class EpistolaTenantApi :
     }
 
     override fun getEnvironment(
-        tenantId: UUID,
-        environmentId: UUID,
+        tenantId: String,
+        environmentId: String,
     ): ResponseEntity<EnvironmentDto> {
         val environment = GetEnvironment(tenantId = TenantId.of(tenantId), id = EnvironmentId.of(environmentId)).query()
             ?: return ResponseEntity.notFound().build()
@@ -125,8 +124,8 @@ class EpistolaTenantApi :
     }
 
     override fun updateEnvironment(
-        tenantId: UUID,
-        environmentId: UUID,
+        tenantId: String,
+        environmentId: String,
         updateEnvironmentRequest: UpdateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val name = updateEnvironmentRequest.name
@@ -140,8 +139,8 @@ class EpistolaTenantApi :
     }
 
     override fun deleteEnvironment(
-        tenantId: UUID,
-        environmentId: UUID,
+        tenantId: String,
+        environmentId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteEnvironment(tenantId = TenantId.of(tenantId), id = EnvironmentId.of(environmentId)).execute()
         return if (deleted) {
