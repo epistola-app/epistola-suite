@@ -1,6 +1,7 @@
 rootProject.name = "epistola-suite"
 
 include(":apps:epistola")
+include(":modules:epistola-core")
 include(":modules:vendor")
 include(":modules:editor")
 include(":modules:schema-manager")

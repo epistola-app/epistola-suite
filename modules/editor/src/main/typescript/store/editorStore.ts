@@ -3,7 +3,15 @@ import {immer} from "zustand/middleware/immer";
 import type {TemporalState} from "zundo";
 import {temporal} from "zundo";
 import {useStoreWithEqualityFn} from "zustand/traditional";
-import type {Block, DataExample, DocumentStyles, PageSettings, PreviewOverrides, Template, ThemeSummary,} from "../types/template";
+import type {
+    Block,
+    DataExample,
+    DocumentStyles,
+    PageSettings,
+    PreviewOverrides,
+    Template,
+    ThemeSummary,
+} from "../types/template";
 import {DataExampleSchema} from "../types/template";
 import type {JsonSchema} from "../types/schema";
 import {JsonSchemaSchema} from "../types/schema";

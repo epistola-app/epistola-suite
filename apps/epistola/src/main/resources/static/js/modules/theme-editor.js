@@ -2,7 +2,7 @@
  * Theme editor module for managing theme styles and presets.
  * Used by themes/detail.html template.
  */
-import { patch, showError, showSuccess } from './api-client.js';
+import {patch, showError, showSuccess} from './api-client.js';
 
 let tenantId = null;
 let themeId = null;

@@ -1,6 +1,6 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.GenerationRequestId
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
-class DocumentQueriesTest : BaseIntegrationTest() {
+class DocumentQueriesTest : CoreIntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test

@@ -1,6 +1,6 @@
 package app.epistola.suite.documents
 
-import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.BatchValidationException
@@ -27,7 +27,7 @@ import tools.jackson.databind.node.ObjectNode
 import java.util.concurrent.TimeUnit
 
 @Timeout(30) // All tests must complete within 30 seconds
-class DocumentGenerationIntegrationTest : BaseIntegrationTest() {
+class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test

@@ -16,10 +16,20 @@ dependencyManagement {
 }
 
 dependencies {
+    // Business logic - provides commands, queries, and domain services
+    implementation(project(":modules:epistola-core"))
+
+    // Spring Web for REST controllers
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    // JSON serialization
     implementation("tools.jackson.module:jackson-module-kotlin")
+
+    // Kotlin reflection (required by Jackson)
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Template model (transitively from epistola-core, but explicit for generated code)
     implementation(project(":modules:template-model"))
 }
 

@@ -3,14 +3,57 @@
 ## [Unreleased]
 
 ### Changed
+- **BREAKING: Refined module architecture for clearer separation of concerns**
+  - **Business logic** (`modules/epistola-core`): Domain logic, commands, queries, mediator, JDBI config
+  - **REST API** (`modules/rest-api`): OpenAPI specs + REST controllers for external systems
+  - **UI layer** (`apps/epistola`): Thymeleaf, HTMX, UI handlers (internal only)
+  - REST API controllers moved from epistola-core to rest-api module (prevents circular deps)
+  - Database migrations moved from app to epistola-core (schema belongs with domain)
+  - Domain integration tests moved from app to epistola-core (tests with tested code)
+  - Benefits:
+    * Clear layering: Core → REST API → App
+    * epistola-core is pure business logic (no HTTP dependencies)
+    * REST API can be deployed independently
+    * Tests live with the code they test
 - Enforce strict separation between UI handlers and REST API endpoints
 - Editor now saves drafts via UI handler (`PUT /tenants/.../draft`) instead of REST API endpoint (`PUT /v1/tenants/.../draft`)
 - All UI code now uses `application/json` content-type instead of REST API content-type (`application/vnd.epistola.v1+json`)
 
 ### Added
+- New `modules/epistola-core` module for business logic
+- Core module test infrastructure: `CoreIntegrationTestBase`, `CoreTestApplication`, `CoreTestcontainersConfiguration`
+- Jackson and Flyway dependencies in epistola-core for independent testing
 - UI handler for updating drafts: `PUT /tenants/{tenantId}/templates/{id}/variants/{variantId}/draft`
 - Automated test to detect UI → REST API violations (`UiRestApiSeparationTest`)
-- Documentation in CLAUDE.md explaining UI/REST separation
+- Documentation in CLAUDE.md explaining UI/REST separation and module structure
+
+### Module Architecture
+- **Dependencies flow**:
+  ```
+  template-model → generation → epistola-core → rest-api → apps/epistola
+  ```
+- **epistola-core** contains:
+  * Domain logic (tenants, templates, documents, themes, environments)
+  * CQRS mediator pattern (commands, queries, handlers)
+  * JDBI configuration and database access
+  * Database migrations (`db/migration/*.sql`)
+  * Domain integration tests (42 tests)
+- **rest-api** contains:
+  * OpenAPI specification files
+  * REST API controllers (@RestController)
+  * DTO mappers
+  * External system integration layer
+- **apps/epistola** contains:
+  * Thymeleaf templates and HTMX
+  * UI handlers (functional routing)
+  * HTTP/UI integration tests (36 tests)
+
+### Testing
+- **Total: 153 tests** (111 unit + 42 integration)
+- **epistola-core**: 153 tests (domain logic + integration)
+- **apps/epistola**: HTTP/UI tests only
+- Flyway migrations run automatically in epistola-core tests
+- Tests live with the code they test
 
 ### Changed
 - **BREAKING: TenantId changed from UUID to slug format**: Tenant IDs are now human-readable, URL-safe slugs instead of UUIDs
