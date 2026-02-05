@@ -29,6 +29,11 @@ epistola:
       interval-ms: 5000          # Poll every 5 seconds
       max-concurrent-jobs: 2     # Max jobs per instance
       stale-timeout-minutes: 10  # Reclaim jobs after 10 min of no progress
+      adaptive-batch:
+        min-batch-size: 1           # Never go below 1 (backward compatible)
+        max-batch-size: 10          # 5 * max-concurrent-jobs (provides backlog buffer)
+        fast-threshold-ms: 2000     # < 2s avg = increase batch size
+        slow-threshold-ms: 5000     # > 5s avg = decrease batch size
     async:
       concurrency: 10            # Items processed concurrently per job
     jobs:

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Adaptive batch job polling**: Job poller now dynamically adjusts batch size based on system performance
+  - Uses Exponential Moving Average (EMA) to track job processing times
+  - Increases batch size when jobs complete quickly (< 2s default)
+  - Decreases batch size when system is under load (> 5s default)
+  - Configurable via `epistola.generation.polling.adaptive-batch` properties
+  - Exposes Micrometer metrics for monitoring: `epistola.jobs.processing_time_ema_ms`, `epistola.jobs.batch_size`, `epistola.jobs.claimed.total`, `epistola.jobs.completed.total`, `epistola.jobs.failed.total`
+  - Default configuration maintains backward compatibility (min-batch-size: 1, max-batch-size: 10)
+  - Respects `max-concurrent-jobs` limit when claiming batches
+
 ### Changed
 - **BREAKING: Refined module architecture for clearer separation of concerns**
   - **Business logic** (`modules/epistola-core`): Domain logic, commands, queries, mediator, JDBI config
