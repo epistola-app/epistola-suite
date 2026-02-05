@@ -2,6 +2,7 @@ package app.epistola.suite.security
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserId
+import java.io.Serializable
 
 /**
  * Represents an authenticated user in the Epistola Suite.
@@ -20,7 +21,11 @@ data class EpistolaPrincipal(
     val displayName: String,
     val tenantMemberships: Set<TenantId>,
     val currentTenantId: TenantId?, // Can be set per-request via tenant selector
-) {
+) : Serializable {
+
+    companion object {
+        private const val serialVersionUID: Long = 1L
+    }
     /**
      * Check if the user has access to the specified tenant.
      */

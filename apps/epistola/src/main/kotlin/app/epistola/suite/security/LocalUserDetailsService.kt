@@ -80,12 +80,13 @@ class LocalUserDetailsService : UserDetailsService {
 
     /**
      * UserDetails implementation that holds EpistolaPrincipal.
+     * Implements Serializable for Spring Session JDBC support.
      */
     private class LocalUserDetails(
         private val username: String,
         private val password: String,
         val principal: app.epistola.suite.security.EpistolaPrincipal,
-    ) : UserDetails {
+    ) : UserDetails, java.io.Serializable {
         override fun getUsername() = username
         override fun getPassword() = password
         override fun getAuthorities() = emptyList<org.springframework.security.core.GrantedAuthority>()
@@ -93,5 +94,9 @@ class LocalUserDetailsService : UserDetailsService {
         override fun isCredentialsNonExpired() = true
         override fun isAccountNonExpired() = true
         override fun isAccountNonLocked() = true
+
+        companion object {
+            private const val serialVersionUID: Long = 1L
+        }
     }
 }
