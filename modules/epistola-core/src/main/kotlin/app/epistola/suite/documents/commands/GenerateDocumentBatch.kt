@@ -1,15 +1,12 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.GenerationItemId
 import app.epistola.suite.common.ids.GenerationRequestId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.documents.batch.GenerationRequestCreatedEvent
-import app.epistola.suite.documents.model.DocumentGenerationRequest
-import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -63,13 +60,15 @@ class BatchValidationException(
 /**
  * Command to generate multiple documents asynchronously in a batch.
  *
+ * Creates N requests (one per item) grouped by a batch_id.
+ *
  * @property tenantId Tenant that owns the templates
  * @property items List of items to generate
  */
 data class GenerateDocumentBatch(
     val tenantId: TenantId,
     val items: List<BatchGenerationItem>,
-) : Command<DocumentGenerationRequest> {
+) : Command<BatchId> {
     init {
         require(items.isNotEmpty()) { "At least one item is required" }
         validateUniqueness()
@@ -91,14 +90,14 @@ data class GenerateDocumentBatch(
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
     private val eventPublisher: ApplicationEventPublisher,
-) : CommandHandler<GenerateDocumentBatch, DocumentGenerationRequest> {
+) : CommandHandler<GenerateDocumentBatch, BatchId> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun handle(command: GenerateDocumentBatch): DocumentGenerationRequest {
+    override fun handle(command: GenerateDocumentBatch): BatchId {
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
 
-        val request = jdbi.inTransaction<DocumentGenerationRequest, Exception> { handle ->
+        val batchId = jdbi.inTransaction<BatchId, Exception> { handle ->
             // 1. Validate all templates/variants/versions/environments exist
             for ((index, item) in command.items.withIndex()) {
                 val templateExists = handle.createQuery(
@@ -170,43 +169,38 @@ class GenerateDocumentBatchHandler(
                 }
             }
 
-            // 2. Create generation request (stays in PENDING status for poller to pick up)
-            val requestId = GenerationRequestId.generate()
-            val request = handle.createQuery(
+            // 2. Create batch metadata
+            val batchId = BatchId.generate()
+            handle.createUpdate(
                 """
-                INSERT INTO document_generation_requests (
-                    id, tenant_id, job_type, status, total_count
+                INSERT INTO document_generation_batches (
+                    id, tenant_id, total_count, completed_count, failed_count
                 )
-                VALUES (:id, :tenantId, :jobType, :status, :totalCount)
-                RETURNING id, tenant_id, job_type, status, claimed_by, claimed_at,
-                          total_count, completed_count, failed_count, error_message,
-                          created_at, started_at, completed_at, expires_at
+                VALUES (:batchId, :tenantId, :totalCount, 0, 0)
                 """,
             )
-                .bind("id", requestId)
+                .bind("batchId", batchId)
                 .bind("tenantId", command.tenantId)
-                .bind("jobType", JobType.BATCH.name)
-                .bind("status", RequestStatus.PENDING.name)
                 .bind("totalCount", command.items.size)
-                .mapTo<DocumentGenerationRequest>()
-                .one()
+                .execute()
 
-            // 3. Create generation items
+            // 3. Create N requests (one per item) with batch_id
             val batch = handle.prepareBatch(
                 """
-                INSERT INTO document_generation_items (
-                    id, request_id, template_id, variant_id, version_id, environment_id,
-                    data, filename, correlation_id, status
+                INSERT INTO document_generation_requests (
+                    id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                    data, filename, correlation_id, document_id, status
                 )
-                VALUES (:id, :requestId, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :correlationId, :status)
+                VALUES (:id, :batchId, :tenantId, :templateId, :variantId, :versionId, :environmentId,
+                        :data::jsonb, :filename, :correlationId, NULL, :status)
                 """,
             )
 
             for (item in command.items) {
-                val itemId = GenerationItemId.generate()
-                batch.bind("id", itemId)
-                    .bind("requestId", request.id)
+                val requestId = GenerationRequestId.generate()
+                batch.bind("id", requestId)
+                    .bind("batchId", batchId)
+                    .bind("tenantId", command.tenantId)
                     .bind("templateId", item.templateId)
                     .bind("variantId", item.variantId)
                     .bind("versionId", item.versionId)
@@ -214,20 +208,21 @@ class GenerateDocumentBatchHandler(
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)
-                    .bind("status", "PENDING")
+                    .bind("status", RequestStatus.PENDING.name)
                     .add()
             }
 
             val inserted = batch.execute().sum()
-            logger.info("Created generation request {} with {} items for tenant {}", request.id, inserted, command.tenantId)
+            logger.info("Created batch {} with {} requests for tenant {}", batchId.value, inserted, command.tenantId)
 
-            // Request stays in PENDING status - the JobPoller will pick it up (in async mode)
-            request
+            batchId
         }
 
         // Publish event AFTER transaction commits for synchronous execution in tests
-        eventPublisher.publishEvent(GenerationRequestCreatedEvent(request))
+        // Note: Events expect a DocumentGenerationRequest, but we return BatchId now
+        // For now, we don't publish events for batches - poller will pick up pending requests
+        // TODO: Consider creating a BatchCreatedEvent if needed
 
-        return request
+        return batchId
     }
 }

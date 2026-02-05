@@ -11,10 +11,15 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 
 class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
+    @Autowired
+    private lateinit var jdbi: Jdbi
+
     private val objectMapper = ObjectMapper()
 
     @Test
@@ -45,11 +50,29 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
             )
         }
 
-        val request = mediator.send(GenerateDocumentBatch(tenant.id, items))
+        val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
-        assertThat(request.id).isNotNull()
-        assertThat(request.tenantId).isEqualTo(tenant.id)
-        assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
+        assertThat(batchId.value).isNotNull()
+
+        // Verify requests were created for the batch
+        val requests = jdbi.withHandle<List<app.epistola.suite.documents.model.DocumentGenerationRequest>, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                       data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+                       error_message, created_at, started_at, completed_at, expires_at
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
+                """,
+            )
+                .bind("batchId", batchId)
+                .mapTo(app.epistola.suite.documents.model.DocumentGenerationRequest::class.java)
+                .list()
+        }
+
+        assertThat(requests).hasSize(3)
+        assertThat(requests).allMatch { it.tenantId == tenant.id }
+        assertThat(requests).allMatch { it.status in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS) }
     }
 
     @Test

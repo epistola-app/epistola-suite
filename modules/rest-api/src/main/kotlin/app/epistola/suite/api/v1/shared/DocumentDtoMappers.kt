@@ -7,6 +7,7 @@ import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -59,6 +60,14 @@ internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     jobType = GenerationJobResponse.JobType.SINGLE, // Always SINGLE in flattened structure
     totalCount = 1, // Always 1 in flattened structure
     createdAt = createdAt,
+)
+
+internal fun BatchId.toJobResponse() = GenerationJobResponse(
+    requestId = value, // Use batch ID as request ID for API compatibility
+    status = GenerationJobResponse.Status.PENDING,
+    jobType = GenerationJobResponse.JobType.BATCH,
+    totalCount = 0, // Count not available without querying - caller should use batch endpoints
+    createdAt = java.time.OffsetDateTime.now(),
 )
 
 // ==================== Document Generation Item ====================
