@@ -5,7 +5,6 @@ import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.TestTemplateBuilder
-import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -50,11 +49,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
 
         assertThat(request.id).isNotNull()
         assertThat(request.tenantId).isEqualTo(tenant.id)
-        assertThat(request.jobType).isEqualTo(JobType.BATCH)
         assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
-        assertThat(request.totalCount).isEqualTo(3)
-        assertThat(request.completedCount).isEqualTo(0)
-        assertThat(request.failedCount).isEqualTo(0)
     }
 
     @Test

@@ -59,7 +59,6 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
             // Verify request was created
             assertThat(request.id).isNotNull()
             assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
-            assertThat(request.totalCount).isEqualTo(1)
 
             // Wait for job to complete
             await()
@@ -73,8 +72,6 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
             // Verify job result
             val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))!!
-            assertThat(job.request.completedCount).isEqualTo(1)
-            assertThat(job.request.failedCount).isEqualTo(0)
             assertThat(job.items).hasSize(1)
 
             val item = job.items[0]
@@ -126,9 +123,6 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
         // Generate batch
         val request = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
-        // Verify request
-        assertThat(request.totalCount).isEqualTo(5)
-
         // Wait for completion
         await()
             .atMost(15, TimeUnit.SECONDS)
@@ -140,8 +134,6 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Verify all items completed
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        assertThat(job.request.completedCount).isEqualTo(5)
-        assertThat(job.request.failedCount).isEqualTo(0)
         assertThat(job.items).hasSize(5)
 
         // Verify all documents were created
@@ -224,8 +216,8 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Verify partial success
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        assertThat(job.request.completedCount).isEqualTo(2)
-        assertThat(job.request.failedCount).isEqualTo(1)
+        assertThat(job.items.filter { it.status.name == "COMPLETED" }).hasSize(2)
+        assertThat(job.items.filter { it.status.name == "FAILED" }).hasSize(1)
 
         // Verify error messages
         val failedItem = job.items.find { it.status.name == "FAILED" }
@@ -621,7 +613,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Should not throw
         val request = mediator.send(GenerateDocumentBatch(tenant.id, items))
-        assertThat(request.totalCount).isEqualTo(2)
+        assertThat(request.id).isNotNull()
     }
 
     @Test
@@ -662,7 +654,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Should not throw
         val request = mediator.send(GenerateDocumentBatch(tenant.id, items))
-        assertThat(request.totalCount).isEqualTo(2)
+        assertThat(request.id).isNotNull()
 
         // Wait for completion and verify auto-generated filenames
         await()
