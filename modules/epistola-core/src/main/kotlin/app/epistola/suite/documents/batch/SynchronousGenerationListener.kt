@@ -74,9 +74,9 @@ class SynchronousGenerationListener(
                     started_at = NOW()
                 WHERE id = :requestId
                   AND status = 'PENDING'
-                RETURNING id, tenant_id, job_type, status, claimed_by, claimed_at,
-                          total_count, completed_count, failed_count, error_message,
-                          created_at, started_at, completed_at, expires_at
+                RETURNING id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                          data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+                          error_message, created_at, started_at, completed_at, expires_at
                 """,
         )
             .bind("requestId", requestId)

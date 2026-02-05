@@ -7,6 +7,8 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.documents.batch.GenerationRequestCreatedEvent
+import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -96,6 +98,9 @@ class GenerateDocumentBatchHandler(
 
     override fun handle(command: GenerateDocumentBatch): BatchId {
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
+
+        // Store requests to publish events after transaction
+        val createdRequests = mutableListOf<GenerationRequestId>()
 
         val batchId = jdbi.inTransaction<BatchId, Exception> { handle ->
             // 1. Validate all templates/variants/versions/environments exist
@@ -198,6 +203,7 @@ class GenerateDocumentBatchHandler(
 
             for (item in command.items) {
                 val requestId = GenerationRequestId.generate()
+                createdRequests.add(requestId)
                 batch.bind("id", requestId)
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
@@ -218,10 +224,28 @@ class GenerateDocumentBatchHandler(
             batchId
         }
 
-        // Publish event AFTER transaction commits for synchronous execution in tests
-        // Note: Events expect a DocumentGenerationRequest, but we return BatchId now
-        // For now, we don't publish events for batches - poller will pick up pending requests
-        // TODO: Consider creating a BatchCreatedEvent if needed
+        // Publish events AFTER transaction commits for synchronous execution in tests
+        // In the flattened structure, we need to query each request and publish events for synchronous execution
+        if (createdRequests.isNotEmpty()) {
+            jdbi.withHandle<Unit, Exception> { handle ->
+                for (requestId in createdRequests) {
+                    val request = handle.createQuery(
+                        """
+                        SELECT id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                               data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+                               error_message, created_at, started_at, completed_at, expires_at
+                        FROM document_generation_requests
+                        WHERE id = :requestId
+                        """,
+                    )
+                        .bind("requestId", requestId)
+                        .mapTo<app.epistola.suite.documents.model.DocumentGenerationRequest>()
+                        .one()
+
+                    eventPublisher.publishEvent(GenerationRequestCreatedEvent(request))
+                }
+            }
+        }
 
         return batchId
     }
