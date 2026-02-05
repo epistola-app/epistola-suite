@@ -178,6 +178,21 @@ main.regular .empty-message {
     text-decoration: underline;
 }
 
+.app-footer .link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: #6c757d;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.app-footer .link-button:hover {
+    color: #495057;
+    text-decoration: underline;
+}
+
 /* Add bottom padding to body to prevent footer from covering content */
 body {
     padding-bottom: 2.5rem;
@@ -341,4 +356,49 @@ body {
 /* Center text alignment */
 .text-center {
     text-align: center;
+}
+
+/* Session expiry dialogs */
+.session-dialog {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 0;
+    max-width: 400px;
+    width: 90%;
+}
+
+.session-dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.session-dialog-content {
+    padding: 1.5rem;
+}
+
+.session-dialog h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.25rem;
+    color: #1a1a1a;
+}
+
+.session-dialog p {
+    margin: 0.75rem 0;
+    color: #495057;
+    line-height: 1.5;
+}
+
+.session-dialog-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.session-dialog-expired h2 {
+    color: #dc3545;
+}
+
+.btn-primary {
+    background-color: #4a90d9;
 }

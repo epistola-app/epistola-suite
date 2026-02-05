@@ -1,10 +1,13 @@
 package app.epistola.suite
 
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.UserId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
@@ -42,11 +45,44 @@ abstract class CoreIntegrationTestBase {
 
     private fun nextTenantSlug(): String = "test-tenant-${++tenantCounter}"
 
+    /**
+     * Test user for authenticated operations.
+     * Has access to all test tenants created during tests.
+     */
+    protected val testUser = EpistolaPrincipal(
+        userId = UserId.of("00000000-0000-0000-0000-000000000099"),
+        externalId = "test-user",
+        email = "test@example.com",
+        displayName = "Test User",
+        tenantMemberships = emptySet(), // Will be updated as tenants are created
+        currentTenantId = null,
+    )
+
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(block)
+
+    /**
+     * Runs the given block with both mediator and authenticated user context.
+     *
+     * This is the primary method for tests that need to perform authenticated operations.
+     *
+     * Usage:
+     * ```kotlin
+     * withAuthentication {
+     *     val tenant = CreateTenant("name").execute()
+     * }
+     * ```
+     */
+    protected fun <T> withAuthentication(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
 
     /**
      * Runs the given block with the mediator bound to the current scope.
      * This enables use of Command.execute() and Query.query() extension functions.
+     *
+     * Note: For most tests, use `withAuthentication` instead to also bind the security context.
      *
      * Usage:
      * ```kotlin

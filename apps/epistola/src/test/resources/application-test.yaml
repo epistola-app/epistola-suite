@@ -2,7 +2,13 @@ logging:
   level:
     app.epistola.suite.documents.batch: INFO
 
+# Tests use permit-all security (see SecurityConfig.testSecurityFilterChain)
+# No OAuth2 configuration needed
+
 epistola:
+  auth:
+    provider: local
+    auto-provision: false  # Not needed for in-memory test users
   demo:
     enabled: false  # Disable demo loading in tests
   generation:

@@ -3,6 +3,7 @@ package app.epistola.suite.documents.queries
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.UserId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Query
@@ -26,7 +27,7 @@ data class DocumentMetadata(
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: OffsetDateTime,
-    val createdBy: String?,
+    val createdBy: UserId?,
 )
 
 /**
@@ -70,7 +71,7 @@ class GetDocumentMetadataHandler(
                     contentType = rs.getString("content_type"),
                     sizeBytes = rs.getLong("size_bytes"),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                    createdBy = rs.getString("created_by"),
+                    createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserId(it) },
                 )
             }
             .findOne()
