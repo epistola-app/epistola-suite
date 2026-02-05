@@ -11,7 +11,7 @@
     <main class="regular">
         <nav class="breadcrumb">
             <a th:href="@{/}">Tenants</a> &raquo;
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
+            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
             <span>Themes</span>
         </nav>
 

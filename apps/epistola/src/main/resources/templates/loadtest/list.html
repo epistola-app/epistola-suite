@@ -9,8 +9,13 @@
 </head>
 <body>
     <main class="regular">
+        <nav class="breadcrumb">
+            <a th:href="@{/}">Tenants</a> &raquo;
+            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
+            <span>Load Tests</span>
+        </nav>
+
         <h1>Load Tests</h1>
-        <p class="subtitle">Test document generation performance for tenant <strong th:text="${tenantId}"></strong></p>
 
         <div class="actions-bar">
             <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="btn btn-primary">

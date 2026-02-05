@@ -17,6 +17,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -32,12 +33,14 @@ class LoadTestHandler(
      */
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val runs = ListLoadTestRuns(tenantId = tenantId, limit = 50).query()
 
         return ServerResponse.ok().render(
             "loadtest/list",
             mapOf(
-                "tenantId" to tenantId,
+                "tenant" to tenant,
+                "tenantId" to tenantId.value,
                 "runs" to runs,
             ),
         )
