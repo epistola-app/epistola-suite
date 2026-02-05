@@ -1,10 +1,18 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
     <footer th:fragment="footer" class="app-footer">
         <span th:text="${appName} ?: 'Epistola'">Epistola</span> <span class="version" th:text="'v' + (${appVersion} ?: 'dev')">v0.0.0</span>
         <span class="separator">|</span>
         <a th:href="@{/api-docs/index.html}">API Docs</a>
+        <span sec:authorize="isAuthenticated()" class="user-info">
+            <span class="separator">|</span>
+            <span sec:authentication="name">username</span>
+            <span class="separator">|</span>
+            <form th:action="@{/logout}" method="post" style="display: inline;">
+                <button type="submit" class="link-button">Logout</button>
+            </form>
+        </span>
     </footer>
 </body>
 </html>

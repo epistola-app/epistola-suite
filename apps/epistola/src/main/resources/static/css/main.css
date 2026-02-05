@@ -178,6 +178,21 @@ main.regular .empty-message {
     text-decoration: underline;
 }
 
+.app-footer .link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: #6c757d;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.app-footer .link-button:hover {
+    color: #495057;
+    text-decoration: underline;
+}
+
 /* Add bottom padding to body to prevent footer from covering content */
 body {
     padding-bottom: 2.5rem;
