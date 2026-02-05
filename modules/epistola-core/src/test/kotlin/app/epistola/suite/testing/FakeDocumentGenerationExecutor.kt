@@ -1,0 +1,175 @@
+package app.epistola.suite.testing
+
+import app.epistola.suite.common.ids.BatchId
+import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.documents.batch.DocumentGenerationExecutor
+import app.epistola.suite.documents.model.DocumentGenerationRequest
+import org.jdbi.v3.core.Jdbi
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
+
+/**
+ * Fake document generation executor for tests.
+ *
+ * Extends DocumentGenerationExecutor but overrides execute() to skip real PDF generation.
+ * Creates minimal fake PDFs instantly for fast tests.
+ *
+ * Spring injects real dependencies (for parent constructor), but execute() doesn't use them.
+ */
+class FakeDocumentGenerationExecutor(
+    jdbi: Jdbi,
+    generationService: app.epistola.suite.generation.GenerationService,
+    mediator: app.epistola.suite.mediator.Mediator,
+    objectMapper: tools.jackson.databind.ObjectMapper,
+    @Value("\${epistola.generation.jobs.retention-days:7}")
+    retentionDays: Int = 7,
+    @Value("\${epistola.generation.documents.max-size-mb:50}")
+    maxDocumentSizeMb: Long = 50,
+) : DocumentGenerationExecutor(
+    jdbi = jdbi,
+    generationService = generationService, // Injected by Spring but not used in fake execute()
+    mediator = mediator, // Injected by Spring but not used in fake execute()
+    objectMapper = objectMapper, // Injected by Spring but not used in fake execute()
+    retentionDays = retentionDays,
+    maxDocumentSizeMb = maxDocumentSizeMb,
+) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+    private val localJdbi = jdbi
+    private val localRetentionDays = retentionDays
+
+    /**
+     * Minimal valid PDF file (just magic bytes + basic structure).
+     * This is a valid PDF that can be opened but contains no content.
+     */
+    private val fakePdfBytes = byteArrayOf(
+        0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, // %PDF-1.4\n
+        0x25, 0xE2.toByte(), 0xE3.toByte(), 0xCF.toByte(), 0xD3.toByte(), 0x0A, // Binary marker
+        0x0A, // \n
+        // Minimal xref table and trailer
+        0x78, 0x72, 0x65, 0x66, 0x0A, // xref\n
+        0x30, 0x20, 0x30, 0x0A, // 0 0\n
+        0x74, 0x72, 0x61, 0x69, 0x6C, 0x65, 0x72, 0x0A, // trailer\n
+        0x3C, 0x3C, 0x3E, 0x3E, 0x0A, // <<>>\n
+        0x25, 0x25, 0x45, 0x4F, 0x46, 0x0A, // %%EOF\n
+    )
+
+    override fun execute(request: DocumentGenerationRequest) {
+        logger.debug("FAKE execution for request {} (no real PDF generation)", request.id.value)
+
+        try {
+            // Generate fake document
+            val documentId = DocumentId.generate()
+            val filename = request.filename ?: "document-${request.id.value}.pdf"
+
+            localJdbi.useTransaction<Exception> { handle ->
+                // Insert fake document
+                handle.createUpdate(
+                    """
+                    INSERT INTO documents (
+                        id, tenant_id, template_id, variant_id, version_id,
+                        filename, correlation_id, content_type, size_bytes, content,
+                        created_at, created_by
+                    )
+                    VALUES (
+                        :id, :tenantId, :templateId, :variantId, :versionId,
+                        :filename, :correlationId, 'application/pdf', :sizeBytes, :content,
+                        NOW(), NULL
+                    )
+                    """,
+                )
+                    .bind("id", documentId)
+                    .bind("tenantId", request.tenantId)
+                    .bind("templateId", request.templateId)
+                    .bind("variantId", request.variantId)
+                    .bind("versionId", request.versionId ?: request.environmentId) // Use either
+                    .bind("filename", filename)
+                    .bind("correlationId", request.correlationId)
+                    .bind("sizeBytes", fakePdfBytes.size.toLong())
+                    .bind("content", fakePdfBytes)
+                    .execute()
+
+                // Mark request as completed
+                val expiresAtInterval = "$localRetentionDays days"
+                handle.createUpdate(
+                    """
+                    UPDATE document_generation_requests
+                    SET status = 'COMPLETED',
+                        document_id = :documentId,
+                        completed_at = NOW(),
+                        expires_at = NOW() + :expiresAt::interval
+                    WHERE id = :requestId
+                    """,
+                )
+                    .bind("requestId", request.id)
+                    .bind("documentId", documentId)
+                    .bind("expiresAt", expiresAtInterval)
+                    .execute()
+            }
+
+            // Update batch progress if part of a batch
+            request.batchId?.let { batchId ->
+                updateBatchProgress(batchId)
+            }
+
+            logger.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
+        } catch (e: Exception) {
+            logger.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
+            markRequestFailed(request.id, e.message)
+            request.batchId?.let { updateBatchProgress(it) }
+        }
+    }
+
+    private fun markRequestFailed(requestId: app.epistola.suite.common.ids.GenerationRequestId, errorMessage: String?) {
+        val expiresAtInterval = "$localRetentionDays days"
+        localJdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE document_generation_requests
+                SET status = 'FAILED',
+                    error_message = :errorMessage,
+                    completed_at = NOW(),
+                    expires_at = NOW() + :expiresAt::interval
+                WHERE id = :requestId
+                """,
+            )
+                .bind("requestId", requestId)
+                .bind("errorMessage", errorMessage?.take(1000))
+                .bind("expiresAt", expiresAtInterval)
+                .execute()
+        }
+    }
+
+    private fun updateBatchProgress(batchId: BatchId) {
+        localJdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE document_generation_batches b
+                SET
+                    completed_count = (
+                        SELECT COUNT(*)
+                        FROM document_generation_requests
+                        WHERE batch_id = :batchId AND status = 'COMPLETED'
+                    ),
+                    failed_count = (
+                        SELECT COUNT(*)
+                        FROM document_generation_requests
+                        WHERE batch_id = :batchId AND status = 'FAILED'
+                    ),
+                    completed_at = CASE
+                        WHEN (
+                            SELECT COUNT(*)
+                            FROM document_generation_requests
+                            WHERE batch_id = :batchId
+                              AND status IN ('COMPLETED', 'FAILED')
+                        ) = b.total_count
+                        THEN NOW()
+                        ELSE b.completed_at
+                    END
+                WHERE b.id = :batchId
+                """,
+            )
+                .bind("batchId", batchId)
+                .execute()
+        }
+    }
+}

@@ -132,10 +132,11 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Get one of the request IDs from the batch to check status
         val requestId = jdbi.withHandle<GenerationRequestId, Exception> { handle ->
-            handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
+            val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
                 .bind("batchId", batchId)
-                .mapTo(GenerationRequestId::class.java)
+                .mapTo(java.util.UUID::class.java)
                 .one()
+            GenerationRequestId(uuid)
         }
 
         // Wait for completion
@@ -224,10 +225,11 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Get one of the request IDs from the batch to check status
         val requestId = jdbi.withHandle<GenerationRequestId, Exception> { handle ->
-            handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
+            val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
                 .bind("batchId", batchId)
-                .mapTo(GenerationRequestId::class.java)
+                .mapTo(java.util.UUID::class.java)
                 .one()
+            GenerationRequestId(uuid)
         }
 
         // Wait for completion
@@ -298,10 +300,11 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
 
         // Get one of the request IDs from the batch to cancel
         val requestId = jdbi.withHandle<GenerationRequestId, Exception> { handle ->
-            handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
+            val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
                 .bind("batchId", batchId)
-                .mapTo(GenerationRequestId::class.java)
+                .mapTo(java.util.UUID::class.java)
                 .one()
+            GenerationRequestId(uuid)
         }
 
         // Try to cancel immediately
