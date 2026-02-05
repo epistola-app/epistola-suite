@@ -17,17 +17,15 @@ import org.springframework.session.web.http.DefaultCookieSerializer
  */
 @Configuration
 @EnableJdbcHttpSession(
-    tableName = "web_session"
+    tableName = "web_session",
 )
 class SessionConfig {
 
     @Bean
-    fun cookieSerializer(): DefaultCookieSerializer {
-        return DefaultCookieSerializer().apply {
-            setCookieName("sid")
-            setCookiePath("/")
-            setUseHttpOnlyCookie(true)
-            setSameSite("Lax")
-        }
+    fun cookieSerializer(): DefaultCookieSerializer = DefaultCookieSerializer().apply {
+        setCookieName("sid")
+        setCookiePath("/")
+        setUseHttpOnlyCookie(true)
+        setSameSite("Lax")
     }
 }

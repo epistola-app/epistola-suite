@@ -1,0 +1,37 @@
+# Keycloak profile for OAuth2/OIDC testing
+#
+# This profile is ADDITIVE - use it together with other profiles:
+#   - local,keycloak  -> Form login + OAuth2 (both options on login page)
+#   - keycloak        -> OAuth2 only
+#
+# Start Keycloak:
+#   docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
+#
+# Run app:
+#   ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
+#
+# Keycloak test users:
+#   - admin@test / admin
+#   - user@test / user
+
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: epistola-suite
+            client-secret: epistola-dev-secret
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            authorization-grant-type: authorization_code
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8080/realms/epistola
+            user-name-attribute: preferred_username
+
+epistola:
+  auth:
+    provider: keycloak
+    registration-id: keycloak
+    auto-provision: true

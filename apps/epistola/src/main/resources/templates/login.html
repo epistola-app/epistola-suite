@@ -78,12 +78,28 @@
         .btn-login:hover {
             background-color: #357abd;
         }
+        .login-divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            color: #666;
+            font-size: 0.875rem;
+        }
+        .login-divider::before,
+        .login-divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #ddd;
+        }
+        .login-divider span {
+            padding: 0 1rem;
+        }
         .oauth-login {
-            margin-top: 1.5rem;
             text-align: center;
         }
         .btn-oauth {
             display: inline-block;
+            width: 100%;
             padding: 0.75rem 1.5rem;
             background-color: #fff;
             color: #333;
@@ -91,6 +107,7 @@
             border-radius: 4px;
             text-decoration: none;
             font-weight: 500;
+            text-align: center;
         }
         .btn-oauth:hover {
             background-color: #f5f5f5;
@@ -139,8 +156,8 @@
             <p>You have been logged out successfully.</p>
         </div>
 
-        <!-- Local development form (shown when local profile) -->
-        <div th:if="${@environment.acceptsProfiles('local')}">
+        <!-- Form login (shown when local profile is active) -->
+        <div th:if="${hasFormLogin}">
             <form th:action="@{/login}" method="post">
                 <!-- Hidden field to preserve popup mode through form POST -->
                 <input th:if="${param.popup != null}" type="hidden" name="popup" value="true">
@@ -158,15 +175,20 @@
             <div th:unless="${param.popup != null}" class="dev-notice">
                 <strong>Local Development Mode</strong><br>
                 Test accounts:<br>
-                • admin@local / admin<br>
-                • user@local / user
+                &bull; admin@local / admin<br>
+                &bull; user@local / user
             </div>
         </div>
 
-        <!-- OAuth2 login (shown for non-local profiles) -->
-        <div th:unless="${@environment.acceptsProfiles('local')}" class="oauth-login">
-            <a th:href="${param.popup != null} ? @{/oauth2/authorization/keycloak(popup=true)} : @{/oauth2/authorization/keycloak}" class="btn-oauth">
-                Sign in with Keycloak
+        <!-- Divider when both login methods are available -->
+        <div th:if="${hasFormLogin and hasOAuth2}" class="login-divider">
+            <span>or</span>
+        </div>
+
+        <!-- OAuth2 login (shown when OAuth2 is configured) -->
+        <div th:if="${hasOAuth2}" class="oauth-login">
+            <a th:href="@{/oauth2/authorization/{id}(id=${oauth2RegistrationId}, popup=${param.popup != null ? 'true' : null})}" class="btn-oauth">
+                Sign in with SSO
             </a>
         </div>
     </div>
