@@ -35,7 +35,7 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
     contentType = contentType,
     sizeBytes = sizeBytes,
     createdAt = createdAt,
-    createdBy = createdBy,
+    createdBy = createdBy?.value?.toString(),
 )
 
 // ==================== Document Generation Request ====================

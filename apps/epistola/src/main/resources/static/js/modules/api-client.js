@@ -4,12 +4,12 @@
  */
 
 /**
- * Gets the CSRF token from the meta tag if present.
+ * Gets the CSRF token from the XSRF-TOKEN cookie (set by Spring Security).
  * @returns {string} The CSRF token or empty string if not found
  */
 export function getCsrfToken() {
-    const meta = document.querySelector('meta[name="_csrf"]');
-    return meta?.content || '';
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
 }
 
 /**
@@ -28,7 +28,7 @@ export async function apiRequest(url, { method = 'GET', body } = {}) {
 
         const csrfToken = getCsrfToken();
         if (csrfToken) {
-            headers['X-CSRF-TOKEN'] = csrfToken;
+            headers['X-XSRF-TOKEN'] = csrfToken;
         }
 
         const fetchOptions = {

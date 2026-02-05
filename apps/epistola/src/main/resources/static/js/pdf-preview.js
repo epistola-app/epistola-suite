@@ -21,9 +21,15 @@ async function previewPdf(button) {
         const testData = JSON.parse(testDataJson);
         const requestBody = JSON.stringify({ data: testData });
 
+        // Get CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
+        const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': csrfToken
+            },
             body: requestBody
         });
 

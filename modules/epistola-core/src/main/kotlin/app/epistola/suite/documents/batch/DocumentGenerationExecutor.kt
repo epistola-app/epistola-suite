@@ -268,7 +268,7 @@ class DocumentGenerationExecutor(
                 .bind("sizeBytes", document.sizeBytes)
                 .bind("content", document.content)
                 .bind("createdAt", document.createdAt)
-                .bind("createdBy", document.createdBy)
+                .bind("createdBy", document.createdBy?.value)
                 .execute()
 
             logger.debug("Created document {} for tenant {}", document.id.value, document.tenantId.value)

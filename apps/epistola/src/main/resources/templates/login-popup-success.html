@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Successful - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        .success-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 3rem;
+            color: #28a745;
+            margin-bottom: 1rem;
+        }
+        .success-message {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .close-notice {
+            color: #666;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">&#10003;</div>
+        <p class="success-message">Login successful!</p>
+        <p class="close-notice">This window will close automatically...</p>
+    </div>
+
+    <script>
+        // Notify the opener window that session has been renewed
+        if (window.opener) {
+            try {
+                window.opener.postMessage({ type: 'session-renewed' }, window.location.origin);
+            } catch (e) {
+                // Ignore cross-origin errors
+            }
+        }
+
+        // Close the popup window
+        // Use a small delay to ensure the message is sent
+        setTimeout(function() {
+            window.close();
+
+            // If window.close() didn't work (some browsers restrict it),
+            // show a message to the user
+            document.querySelector('.close-notice').textContent =
+                'You can close this window and return to your work.';
+        }, 500);
+    </script>
+</body>
+</html>

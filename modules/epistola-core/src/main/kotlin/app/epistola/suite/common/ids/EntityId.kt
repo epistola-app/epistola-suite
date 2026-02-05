@@ -310,3 +310,17 @@ value class ThemeId(override val value: String) : SlugId<ThemeId> {
 
     override fun toString(): String = value
 }
+
+/**
+ * Typed ID for User entities.
+ */
+@JvmInline
+value class UserId(override val value: UUID) : UuidId<UserId> {
+    companion object {
+        fun generate(): UserId = UserId(UUIDv7.generate())
+        fun of(value: UUID): UserId = UserId(value)
+        fun of(value: String): UserId = UserId(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
