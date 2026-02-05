@@ -7,8 +7,20 @@ spring:
   threads:
     virtual:
       enabled: true
+  session:
+    timeout: 4h  # Session timeout (frontend warns 5 min before expiry)
+    jdbc:
+      initialize-schema: never  # Managed by Flyway
+
+# Note: OAuth2 configuration is in application-prod.yaml
+# Local development uses form login (see application-local.yaml)
+# Tests use permit-all (see application-test.yaml)
 
 epistola:
+  auth:
+    provider: local  # Default to local, override in prod profile
+    registration-id: keycloak
+    auto-provision: false
   demo:
     enabled: true  # Set to false to disable demo loading
   generation:

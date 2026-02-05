@@ -12,6 +12,12 @@ spring:
       enabled: true
       poll-interval: 2000ms
       quiet-period: 1000ms
+  security:
+    oauth2:
+      client:
+        registration: {}  # Disable OAuth2 for local profile
+  session:
+    timeout: 1m  # Longer session timeout for local development
 
 management:
   otlp:
@@ -27,6 +33,9 @@ management:
       enabled: false
 
 epistola:
+  auth:
+    provider: local
+    auto-provision: false  # Not needed for in-memory users
   editor:
     dev-server:
       auto-start: true
