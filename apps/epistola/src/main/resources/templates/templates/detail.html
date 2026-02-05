@@ -51,10 +51,14 @@
                         const themeId = select.value || null;
                         const clearThemeId = !select.value;
                         const url = [[${'/tenants/' + tenantId + '/templates/' + template.id + '/theme'}]];
+                        const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
 
                         fetch(url, {
                             method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-XSRF-TOKEN': csrfToken
+                            },
                             body: JSON.stringify({ themeId: themeId, clearThemeId: clearThemeId })
                         })
                         .then(response => response.text())
@@ -205,7 +209,7 @@
                                 method: 'PATCH',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                    'X-XSRF-TOKEN': window.getCsrfToken()
                                 },
                                 body: JSON.stringify({ dataModel: schema, forceUpdate })
                             });
@@ -229,7 +233,7 @@
                                 method: 'PATCH',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                    'X-XSRF-TOKEN': window.getCsrfToken()
                                 },
                                 body: JSON.stringify({ dataExamples: examples })
                             });
@@ -253,7 +257,7 @@
                                 method: 'PATCH',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                    'X-XSRF-TOKEN': window.getCsrfToken()
                                 },
                                 body: JSON.stringify({ ...updates, forceUpdate })
                             });
@@ -276,7 +280,7 @@
                             const response = await fetch(`/tenants/${tenantId}/templates/${templateId}/data-examples/${exampleId}`, {
                                 method: 'DELETE',
                                 headers: {
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.content || ''
+                                    'X-XSRF-TOKEN': window.getCsrfToken()
                                 }
                             });
 

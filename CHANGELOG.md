@@ -181,6 +181,13 @@
   - Demo tenant now uses "Corporate" as default theme instead of auto-created "Tenant Default"
 
 ### Fixed
+- **CSRF 403 errors for AJAX requests**: Fixed Spring Security CSRF validation failing for AJAX requests (saving examples, schema, themes, PDF preview).
+  - Replaced manual `CookieCsrfTokenRepository` + `CsrfTokenRequestAttributeHandler` configuration with Spring Security 7's `csrf.spa()` method which automatically handles SPA/AJAX patterns including BREACH protection
+  - Added global `window.getCsrfToken()` helper function in htmx.html fragment that reads from the XSRF-TOKEN cookie
+  - Updated all JavaScript fetch calls to include the CSRF token header (`X-XSRF-TOKEN`):
+    - `pdf-preview.js` for PDF preview generation
+    - `api-client.js` for theme editing (now reads from cookie instead of non-existent meta tag)
+    - `templates/detail.html` for theme selection and data contract saves
 - **Comprehensive null value handling across all API DTOs**: Fixed `InvalidNullException` when working with nullable fields in JSON payloads across the entire API surface. All OpenAPI DTOs now use Jackson `ObjectNode` instead of `Map<String, Any>` for proper null value handling.
   - Removed all `additionalProperties: true` from OpenAPI schemas (templates.yaml, generation.yaml, themes.yaml, versions.yaml)
   - Configured global type mapping: `object` → `ObjectNode` in OpenAPI generator
