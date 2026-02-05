@@ -24,8 +24,8 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 @EnableWebSecurity
 class SecurityConfig(
     private val oauth2UserProvisioningService: app.epistola.suite.security.OAuth2UserProvisioningService? = null,
-    private val popupAwareAuthenticationSuccessHandler: PopupAwareAuthenticationSuccessHandler? = null,
 ) {
+    private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler()
 
     /**
      * Security filter chain for local development profile.
@@ -49,12 +49,8 @@ class SecurityConfig(
                     .loginPage("/login")
                     .loginProcessingUrl("/login")
                     .failureUrl("/login?error")
+                    .successHandler(popupAwareAuthenticationSuccessHandler)
                     .permitAll()
-                if (popupAwareAuthenticationSuccessHandler != null) {
-                    form.successHandler(popupAwareAuthenticationSuccessHandler)
-                } else {
-                    form.defaultSuccessUrl("/")
-                }
             }
             .logout { logout ->
                 logout
@@ -113,11 +109,7 @@ class SecurityConfig(
                             userInfo.userService(oauth2UserProvisioningService)
                         }
                     }
-                if (popupAwareAuthenticationSuccessHandler != null) {
-                    oauth2.successHandler(popupAwareAuthenticationSuccessHandler)
-                } else {
-                    oauth2.defaultSuccessUrl("/")
-                }
+                    .successHandler(popupAwareAuthenticationSuccessHandler)
             }
             .logout { logout ->
                 logout

@@ -109,6 +109,19 @@ function dismissWarning() {
 }
 
 /**
+ * Dismisses the expired dialog (user claims they've logged in elsewhere).
+ */
+function dismissExpired() {
+    const dialog = document.getElementById('session-expired-dialog');
+    if (dialog && dialog.open) {
+        dialog.close();
+    }
+    // Reset state so dialogs can show again if needed
+    warningShown = false;
+    expiredShown = false;
+}
+
+/**
  * Checks session status and shows appropriate dialogs.
  */
 function checkSession() {
@@ -141,6 +154,7 @@ export function initSessionMonitor() {
     window.epistola = window.epistola || {};
     window.epistola.openLoginPopup = openLoginPopup;
     window.epistola.dismissWarning = dismissWarning;
+    window.epistola.dismissExpired = dismissExpired;
 
     // Start periodic checks
     checkIntervalId = setInterval(checkSession, CHECK_INTERVAL_MS);

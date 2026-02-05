@@ -141,7 +141,9 @@
 
         <!-- Local development form (shown when local profile) -->
         <div th:if="${@environment.acceptsProfiles('local')}">
-            <form th:action="${param.popup != null} ? @{/login(popup=true)} : @{/login}" method="post">
+            <form th:action="@{/login}" method="post">
+                <!-- Hidden field to preserve popup mode through form POST -->
+                <input th:if="${param.popup != null}" type="hidden" name="popup" value="true">
                 <div class="form-group">
                     <label for="username">Email</label>
                     <input type="text" id="username" name="username" required autofocus placeholder="admin@local">

@@ -4,7 +4,6 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.security.core.Authentication
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler
-import org.springframework.stereotype.Component
 
 /**
  * Authentication success handler that redirects to a popup success page when login
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component
  * For normal logins, delegates to the default SavedRequestAwareAuthenticationSuccessHandler
  * which redirects to the originally requested URL or the default success URL.
  */
-@Component
 class PopupAwareAuthenticationSuccessHandler : SavedRequestAwareAuthenticationSuccessHandler() {
 
     companion object {
