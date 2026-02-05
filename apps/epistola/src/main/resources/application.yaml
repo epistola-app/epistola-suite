@@ -8,11 +8,9 @@ spring:
     virtual:
       enabled: true
   session:
-    timeout: 30m  # Session timeout (frontend warns 5 min before expiry)
-    store-type: jdbc
+    timeout: 4h  # Session timeout (frontend warns 5 min before expiry)
     jdbc:
       initialize-schema: never  # Managed by Flyway
-      table-name: spring_session
 
 # Note: OAuth2 configuration is in application-prod.yaml
 # Local development uses form login (see application-local.yaml)

@@ -4,7 +4,6 @@ import jakarta.servlet.FilterChain
 import jakarta.servlet.http.Cookie
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
@@ -17,12 +16,13 @@ import org.springframework.web.filter.OncePerRequestFilter
  * (in milliseconds) when the session will expire. The frontend session-monitor.js uses
  * this to warn users before session expiry and show a re-login popup when expired.
  *
- * The cookie value is calculated as: session.lastAccessedTime + (session.maxInactiveInterval * 1000)
+ * The cookie value is calculated as: current time + session timeout.
  *
- * Runs after SecurityFilter to ensure authentication is resolved.
+ * Runs AFTER Spring Security filter chain to ensure authentication is resolved.
+ * Spring Security runs at order -100, so -99 ensures this filter runs immediately after.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 2) // Run after SecurityFilter
+@Order(-99) // Run after Spring Security (which runs at -100)
 class SessionExpiryCookieFilter : OncePerRequestFilter() {
 
     companion object {
@@ -34,14 +34,15 @@ class SessionExpiryCookieFilter : OncePerRequestFilter() {
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        filterChain.doFilter(request, response)
-
-        // Set cookie after request completes (session lastAccessedTime is updated)
+        // Set cookie BEFORE filter chain runs (response headers not yet committed)
+        // This runs after Spring Security has authenticated the user
         val session = request.getSession(false)
         val authentication = SecurityContextHolder.getContext().authentication
 
         if (session != null && authentication?.isAuthenticated == true && authentication.principal != "anonymousUser") {
-            val expiresAt = session.lastAccessedTime + (session.maxInactiveInterval * 1000L)
+            // Calculate expiry: current time + session timeout
+            // Using current time instead of lastAccessedTime since this request will update it
+            val expiresAt = System.currentTimeMillis() + (session.maxInactiveInterval * 1000L)
 
             val cookie = Cookie(COOKIE_NAME, expiresAt.toString())
             cookie.path = "/"
@@ -50,5 +51,7 @@ class SessionExpiryCookieFilter : OncePerRequestFilter() {
             cookie.secure = request.isSecure
             response.addCookie(cookie)
         }
+
+        filterChain.doFilter(request, response)
     }
 }

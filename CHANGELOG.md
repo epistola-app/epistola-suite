@@ -35,7 +35,12 @@
   - `PopupAwareAuthenticationSuccessHandler` redirects popup logins to success page
   - `PopupLoginFilter` preserves popup state across OAuth2 redirect chain
   - Native HTML `<dialog>` elements for accessible, modal dialogs
-  - Session timeout configurable: 30 min default, 8 hours for local development
+  - Session timeout configurable: 4 hours default, 1 minute for local dev testing
+- **Spring Session JDBC**: Database-backed sessions for distributed deployments
+  - Uses `spring-boot-session-jdbc` starter (Spring Boot 4.0)
+  - Session data stored in `web_session` / `web_session_attributes` tables
+  - Session cookie renamed to `sid`
+  - `SessionConfig` explicitly enables JDBC sessions with configured timeout
 - **CSRF Token Support**: All AJAX requests now include CSRF tokens for Spring Security compatibility
   - Created `fragments/htmx.html` fragment with HTMX and CSRF configuration
   - HTMX requests automatically include `X-XSRF-TOKEN` header via `htmx:configRequest` event
