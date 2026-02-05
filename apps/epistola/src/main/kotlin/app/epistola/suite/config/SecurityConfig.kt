@@ -46,7 +46,7 @@ class SecurityConfig(
                 form
                     .loginPage("/login")
                     .loginProcessingUrl("/login")
-                    .defaultSuccessUrl("/", true)
+                    .defaultSuccessUrl("/")  // Redirect to saved request, fallback to /
                     .failureUrl("/login?error")
                     .permitAll()
             }
@@ -102,7 +102,7 @@ class SecurityConfig(
             .oauth2Login { oauth2 ->
                 oauth2
                     .loginPage("/login")
-                    .defaultSuccessUrl("/", true)
+                    .defaultSuccessUrl("/")  // Redirect to saved request, fallback to /
                     .userInfoEndpoint { userInfo ->
                         if (oauth2UserProvisioningService != null) {
                             userInfo.userService(oauth2UserProvisioningService)
