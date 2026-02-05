@@ -437,4 +437,4 @@ Potential improvements (not in MVP):
 
 - [Generation](./generation.md) - Document generation architecture
 - [Testing](./testing.md) - General testing approach
-- [Database Schema](../modules/loadtest/src/main/resources/db/migration/V8__load_test_infrastructure.sql) - Load test tables
+- [Database Schema](../modules/loadtest/src/main/resources/db/migration/V11__load_test_infrastructure.sql) - Load test tables

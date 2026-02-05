@@ -90,30 +90,53 @@ class DocumentCleanupScheduler(
     }
 
     /**
-     * Update failed_count for requests where items have failed since job completion.
+     * Update batch counters periodically to match actual request counts.
      *
-     * This is a safety mechanism to ensure request counters are accurate.
+     * This is a safety mechanism to ensure batch counters are accurate.
+     * In the flattened schema, each request represents one document.
+     * Batches aggregate multiple requests via batch_id.
      */
     @Scheduled(fixedDelay = 300000) // Run every 5 minutes
-    fun updateRequestCounters() {
+    fun updateBatchCounters() {
         try {
             jdbi.useHandle<Exception> { handle ->
                 handle.createUpdate(
                     """
-                    UPDATE document_generation_requests r
-                    SET failed_count = (
-                        SELECT COUNT(*)
-                        FROM document_generation_items i
-                        WHERE i.request_id = r.id
-                          AND i.status = 'FAILED'
-                    )
-                    WHERE r.status = 'IN_PROGRESS'
+                    UPDATE document_generation_batches b
+                    SET
+                        completed_count = (
+                            SELECT COUNT(*)
+                            FROM document_generation_requests r
+                            WHERE r.batch_id = b.id AND r.status = 'COMPLETED'
+                        ),
+                        failed_count = (
+                            SELECT COUNT(*)
+                            FROM document_generation_requests r
+                            WHERE r.batch_id = b.id AND r.status = 'FAILED'
+                        ),
+                        completed_at = CASE
+                            WHEN (
+                                SELECT COUNT(*)
+                                FROM document_generation_requests r
+                                WHERE r.batch_id = b.id
+                                  AND r.status IN ('COMPLETED', 'FAILED')
+                            ) = b.total_count
+                            THEN COALESCE(b.completed_at, NOW())
+                            ELSE b.completed_at
+                        END
+                    WHERE b.completed_at IS NULL
+                       OR (
+                           SELECT COUNT(*)
+                           FROM document_generation_requests r
+                           WHERE r.batch_id = b.id
+                             AND r.status IN ('COMPLETED', 'FAILED')
+                       ) < b.total_count
                     """,
                 )
                     .execute()
             }
         } catch (e: Exception) {
-            logger.error("Failed to update request counters: {}", e.message, e)
+            logger.error("Failed to update batch counters: {}", e.message, e)
         }
     }
 }

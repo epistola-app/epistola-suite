@@ -230,9 +230,8 @@ class LoadTestExecutor(
                         dgr.completed_at,
                         dgr.status,
                         dgr.error_message,
-                        dgi.document_id
+                        dgr.document_id
                     FROM document_generation_requests dgr
-                    LEFT JOIN document_generation_items dgi ON dgi.request_id = dgr.id
                     WHERE dgr.id IN (<jobIds>)
                     """,
                 )
@@ -292,9 +291,8 @@ class LoadTestExecutor(
                     dgr.completed_at,
                     dgr.status,
                     dgr.error_message,
-                    dgi.document_id
+                    dgr.document_id
                 FROM document_generation_requests dgr
-                LEFT JOIN document_generation_items dgi ON dgi.request_id = dgr.id
                 WHERE dgr.id IN (<jobIds>)
                 """,
             )
