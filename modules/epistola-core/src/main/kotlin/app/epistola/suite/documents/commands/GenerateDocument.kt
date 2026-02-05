@@ -1,7 +1,6 @@
 package app.epistola.suite.documents.commands
 
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.GenerationItemId
 import app.epistola.suite.common.ids.GenerationRequestId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -9,7 +8,6 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.batch.GenerationRequestCreatedEvent
 import app.epistola.suite.documents.model.DocumentGenerationRequest
-import app.epistola.suite.documents.model.JobType
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -132,40 +130,23 @@ class GenerateDocumentHandler(
                 }
             }
 
-            // 3. Create generation request (stays in PENDING status for poller to pick up)
+            // 3. Create generation request with all data (stays in PENDING status for poller to pick up)
             val requestId = GenerationRequestId.generate()
             val request = handle.createQuery(
                 """
                 INSERT INTO document_generation_requests (
-                    id, tenant_id, job_type, status, total_count
+                    id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                    data, filename, correlation_id, document_id, status
                 )
-                VALUES (:id, :tenantId, :jobType, :status, 1)
-                RETURNING id, tenant_id, job_type, status, claimed_by, claimed_at,
-                          total_count, completed_count, failed_count, error_message,
-                          created_at, started_at, completed_at, expires_at
+                VALUES (:id, NULL, :tenantId, :templateId, :variantId, :versionId, :environmentId,
+                        :data::jsonb, :filename, :correlationId, NULL, :status)
+                RETURNING id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                          data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+                          error_message, created_at, started_at, completed_at, expires_at
                 """,
             )
                 .bind("id", requestId)
                 .bind("tenantId", command.tenantId)
-                .bind("jobType", JobType.SINGLE.name)
-                .bind("status", RequestStatus.PENDING.name)
-                .mapTo<DocumentGenerationRequest>()
-                .one()
-
-            // 4. Create generation item
-            val itemId = GenerationItemId.generate()
-            handle.createUpdate(
-                """
-                INSERT INTO document_generation_items (
-                    id, request_id, template_id, variant_id, version_id, environment_id,
-                    data, filename, correlation_id, status
-                )
-                VALUES (:id, :requestId, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :correlationId, :status)
-                """,
-            )
-                .bind("id", itemId)
-                .bind("requestId", request.id)
                 .bind("templateId", command.templateId)
                 .bind("variantId", command.variantId)
                 .bind("versionId", command.versionId)
@@ -173,8 +154,9 @@ class GenerateDocumentHandler(
                 .bind("data", command.data.toString())
                 .bind("filename", command.filename)
                 .bind("correlationId", command.correlationId)
-                .bind("status", "PENDING")
-                .execute()
+                .bind("status", RequestStatus.PENDING.name)
+                .mapTo<DocumentGenerationRequest>()
+                .one()
 
             logger.info("Created generation request {} for tenant {}", request.id, command.tenantId)
 

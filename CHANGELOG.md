@@ -13,6 +13,26 @@
   - Respects `max-concurrent-jobs` limit when claiming batches
 
 ### Changed
+- **BREAKING: Flattened document generation architecture for horizontal scaling**
+  - Database schema (V5): Updated in place to eliminate two-table structure
+    - Removed `document_generation_items` table entirely
+    - Each request now represents ONE document (was: container for N items)
+    - Added batch_id column to group related requests
+    - Removed legacy fields: job_type, total_count, completed_count, failed_count (not needed in flattened structure)
+    - Created `document_generation_batches` table for aggregated tracking
+  - Simplified DocumentGenerationExecutor and command handlers:
+    - Removed item-level concurrency control (Semaphore, CompletableFuture)
+    - Concurrency now managed at JobPoller level
+    - Removed `fetchPendingItems()`, `processItem()`, `finalizeRequest()` methods
+    - Updated `generateDocument()` to accept `DocumentGenerationRequest` directly
+    - Added `updateBatchProgress()` to atomically update batch counts
+    - Simplified execution flow: generate → save → update batch (if applicable)
+    - Updated GenerateDocumentHandler to create request with all data (no separate items)
+  - Benefits:
+    - True horizontal scaling: each request can be claimed independently by any instance
+    - Simpler execution model: no item-level concurrency complexity
+    - Better failure isolation: one failed document doesn't affect others
+    - Performance: 10,000-doc batch distributed across all instances instead of single instance bottleneck
 - **BREAKING: Refined module architecture for clearer separation of concerns**
   - **Business logic** (`modules/epistola-core`): Domain logic, commands, queries, mediator, JDBI config
   - **REST API** (`modules/rest-api`): OpenAPI specs + REST controllers for external systems
