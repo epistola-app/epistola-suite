@@ -7,6 +7,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never  # Managed by Flyway
+      table-name: spring_session
 
 # Note: OAuth2 configuration is in application-prod.yaml
 # Local development uses form login (see application-local.yaml)
