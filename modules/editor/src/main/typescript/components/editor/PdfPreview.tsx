@@ -50,12 +50,16 @@ export function PdfPreview() {
         data: testData,
       };
 
+      // Get CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
+      const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+
       const response = await fetch(
         `/tenants/${tenantId}/templates/${templateId}/variants/${variantId}/preview`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-XSRF-TOKEN": csrfToken,
           },
           body: JSON.stringify(requestBody),
           signal: abortControllerRef.current.signal,

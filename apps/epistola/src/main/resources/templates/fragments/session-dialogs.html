@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+        Session expiry dialogs using native <dialog> element for accessibility.
+        Include this fragment in the footer for authenticated users.
+    -->
+
+    <!-- Warning Dialog (dismissible) - shown 5 minutes before expiry -->
+    <dialog th:fragment="session-warning-dialog" id="session-warning-dialog" class="session-dialog">
+        <div class="session-dialog-content">
+            <h2>Session Expiring Soon</h2>
+            <p>Your session will expire in a few minutes due to inactivity.</p>
+            <p>Save your work or continue working to extend your session.</p>
+            <div class="session-dialog-actions">
+                <button type="button" class="btn" onclick="epistola.dismissWarning()">OK, Got It</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Expired Dialog (requires re-login) - shown when session has expired -->
+    <dialog th:fragment="session-expired-dialog" id="session-expired-dialog" class="session-dialog session-dialog-expired">
+        <div class="session-dialog-content">
+            <h2>You've Been Logged Out</h2>
+            <p>Your session has expired due to inactivity.</p>
+            <p><strong>Don't worry</strong> &mdash; your unsaved work is still here. Log in again to continue.</p>
+            <div class="session-dialog-actions">
+                <button type="button" class="btn btn-primary" onclick="epistola.openLoginPopup()">Log In Again</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Combined fragment for convenience -->
+    <th:block th:fragment="session-dialogs">
+        <dialog id="session-warning-dialog" class="session-dialog">
+            <div class="session-dialog-content">
+                <h2>Session Expiring Soon</h2>
+                <p>Your session will expire in a few minutes due to inactivity.</p>
+                <p>Save your work or continue working to extend your session.</p>
+                <div class="session-dialog-actions">
+                    <button type="button" class="btn" onclick="epistola.dismissWarning()">OK, Got It</button>
+                </div>
+            </div>
+        </dialog>
+
+        <dialog id="session-expired-dialog" class="session-dialog session-dialog-expired">
+            <div class="session-dialog-content">
+                <h2>You've Been Logged Out</h2>
+                <p>Your session has expired due to inactivity.</p>
+                <p><strong>Don't worry</strong> &mdash; your unsaved work is still here. Log in again to continue.</p>
+                <div class="session-dialog-actions">
+                    <button type="button" class="btn btn-primary" onclick="epistola.openLoginPopup()">Log In Again</button>
+                </div>
+            </div>
+        </dialog>
+    </th:block>
+</body>
+</html>

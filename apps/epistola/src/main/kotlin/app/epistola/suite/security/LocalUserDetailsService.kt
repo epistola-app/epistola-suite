@@ -86,7 +86,8 @@ class LocalUserDetailsService : UserDetailsService {
         private val username: String,
         private val password: String,
         val principal: app.epistola.suite.security.EpistolaPrincipal,
-    ) : UserDetails, java.io.Serializable {
+    ) : UserDetails,
+        java.io.Serializable {
         override fun getUsername() = username
         override fun getPassword() = password
         override fun getAuthorities() = emptyList<org.springframework.security.core.GrantedAuthority>()

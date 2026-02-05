@@ -13,5 +13,6 @@ class AuthRoutes(
     @Bean
     fun loginRoutes(): RouterFunction<ServerResponse> = router {
         GET("/login", loginHandler::loginPage)
+        GET("/login-popup-success", loginHandler::loginPopupSuccess)
     }
 }

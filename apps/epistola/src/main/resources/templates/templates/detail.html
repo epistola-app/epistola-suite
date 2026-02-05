@@ -6,7 +6,7 @@
     <title th:text="${template.name + ' - Epistola'}">Template - Epistola</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
     <script th:src="@{/js/pdf-preview.js}"></script>
     <th:block th:replace="~{fragments/importmap :: importmap}" />
 </head>
@@ -141,7 +141,15 @@
                       hx-swap="outerHTML"
                       hx-on::after-request="if(event.detail.successful) this.reset()">
                     <div class="form-group">
-                        <label for="title">Title</label>
+                        <label for="slug">Slug (ID)</label>
+                        <input type="text" id="slug" name="slug" required
+                               pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
+                               placeholder="e.g., english-newsletter"
+                               title="Lowercase letters, numbers, and hyphens. Must start with a letter.">
+                        <small class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="title">Title (optional)</label>
                         <input type="text" id="title" name="title" placeholder="e.g., English Newsletter">
                     </div>
                     <div class="form-group">

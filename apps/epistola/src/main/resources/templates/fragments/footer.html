@@ -14,5 +14,14 @@
             </form>
         </span>
     </footer>
+
+    <!-- Session expiry dialogs (only for authenticated users) -->
+    <th:block sec:authorize="isAuthenticated()">
+        <th:block th:replace="~{fragments/session-dialogs :: session-dialogs}" />
+        <script type="module">
+            import { initSessionMonitor } from '/js/modules/session-monitor.js';
+            initSessionMonitor();
+        </script>
+    </th:block>
 </body>
 </html>

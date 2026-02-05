@@ -26,6 +26,7 @@ data class EpistolaPrincipal(
     companion object {
         private const val serialVersionUID: Long = 1L
     }
+
     /**
      * Check if the user has access to the specified tenant.
      */

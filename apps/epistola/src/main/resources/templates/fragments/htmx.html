@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!--
+        HTMX with CSRF token configuration.
+        Include this fragment in templates that use HTMX.
+    -->
+    <th:block th:fragment="htmx">
+        <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+        <script>
+            // Configure HTMX to include CSRF token in all requests
+            // Spring Security uses CookieCsrfTokenRepository with XSRF-TOKEN cookie
+            document.addEventListener('htmx:configRequest', function(event) {
+                // Read CSRF token from cookie
+                var match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+                if (match) {
+                    event.detail.headers['X-XSRF-TOKEN'] = decodeURIComponent(match[1]);
+                }
+            });
+        </script>
+    </th:block>
+</head>
+</html>

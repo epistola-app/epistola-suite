@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Epistola Suite</title>
+    <title th:text="${param.popup != null} ? 'Log In - Epistola' : 'Login - Epistola Suite'">Login - Epistola Suite</title>
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <style>
         .login-container {
@@ -13,6 +13,10 @@
             background: white;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        /* Smaller margin for popup mode */
+        .login-container.popup-mode {
+            margin: 40px auto;
         }
         .login-header {
             text-align: center;
@@ -100,13 +104,29 @@
             font-size: 0.875rem;
             color: #666;
         }
+        .popup-notice {
+            margin-bottom: 1.5rem;
+            padding: 0.75rem 1rem;
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #0056b3;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <div class="login-container">
+    <div class="login-container" th:classappend="${param.popup != null} ? 'popup-mode' : ''">
         <div class="login-header">
             <h1>Epistola Suite</h1>
-            <p>Document Management System</p>
+            <p th:unless="${param.popup != null}">Document Management System</p>
+            <p th:if="${param.popup != null}">Session Expired</p>
+        </div>
+
+        <!-- Popup mode notice -->
+        <div th:if="${param.popup != null}" class="popup-notice">
+            Your session has expired. Please log in again to continue.
         </div>
 
         <!-- Error message -->
@@ -114,14 +134,14 @@
             <p>Invalid username or password. Please try again.</p>
         </div>
 
-        <!-- Logout success message -->
-        <div th:if="${param.logout}" class="alert alert-success">
+        <!-- Logout success message (don't show in popup mode) -->
+        <div th:if="${param.logout != null and param.popup == null}" class="alert alert-success">
             <p>You have been logged out successfully.</p>
         </div>
 
         <!-- Local development form (shown when local profile) -->
         <div th:if="${@environment.acceptsProfiles('local')}">
-            <form th:action="@{/login}" method="post">
+            <form th:action="${param.popup != null} ? @{/login(popup=true)} : @{/login}" method="post">
                 <div class="form-group">
                     <label for="username">Email</label>
                     <input type="text" id="username" name="username" required autofocus placeholder="admin@local">
@@ -133,7 +153,7 @@
                 <button type="submit" class="btn-login">Sign In</button>
             </form>
 
-            <div class="dev-notice">
+            <div th:unless="${param.popup != null}" class="dev-notice">
                 <strong>Local Development Mode</strong><br>
                 Test accounts:<br>
                 • admin@local / admin<br>
@@ -143,7 +163,7 @@
 
         <!-- OAuth2 login (shown for non-local profiles) -->
         <div th:unless="${@environment.acceptsProfiles('local')}" class="oauth-login">
-            <a th:href="@{/oauth2/authorization/keycloak}" class="btn-oauth">
+            <a th:href="${param.popup != null} ? @{/oauth2/authorization/keycloak(popup=true)} : @{/oauth2/authorization/keycloak}" class="btn-oauth">
                 Sign in with Keycloak
             </a>
         </div>

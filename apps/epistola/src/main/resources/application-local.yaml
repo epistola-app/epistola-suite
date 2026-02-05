@@ -16,6 +16,8 @@ spring:
     oauth2:
       client:
         registration: {}  # Disable OAuth2 for local profile
+  session:
+    timeout: 5m  # Longer session timeout for local development
 
 management:
   otlp:

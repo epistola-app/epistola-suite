@@ -1,5 +1,6 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
@@ -23,6 +24,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 @EnableWebSecurity
 class SecurityConfig(
     private val oauth2UserProvisioningService: app.epistola.suite.security.OAuth2UserProvisioningService? = null,
+    private val popupAwareAuthenticationSuccessHandler: PopupAwareAuthenticationSuccessHandler? = null,
 ) {
 
     /**
@@ -37,7 +39,7 @@ class SecurityConfig(
                 authorize
                     // Public endpoints
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                    .requestMatchers("/error").permitAll()
+                    .requestMatchers("/login-popup-success", "/error").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                     // All other requests require authentication
                     .anyRequest().authenticated()
@@ -46,9 +48,13 @@ class SecurityConfig(
                 form
                     .loginPage("/login")
                     .loginProcessingUrl("/login")
-                    .defaultSuccessUrl("/")  // Redirect to saved request, fallback to /
                     .failureUrl("/login?error")
                     .permitAll()
+                if (popupAwareAuthenticationSuccessHandler != null) {
+                    form.successHandler(popupAwareAuthenticationSuccessHandler)
+                } else {
+                    form.defaultSuccessUrl("/")
+                }
             }
             .logout { logout ->
                 logout
@@ -94,7 +100,7 @@ class SecurityConfig(
                 authorize
                     // Public endpoints
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-                    .requestMatchers("/login/**", "/oauth2/**", "/error").permitAll()
+                    .requestMatchers("/login/**", "/login-popup-success", "/oauth2/**", "/error").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
                     // All other requests require authentication
                     .anyRequest().authenticated()
@@ -102,12 +108,16 @@ class SecurityConfig(
             .oauth2Login { oauth2 ->
                 oauth2
                     .loginPage("/login")
-                    .defaultSuccessUrl("/")  // Redirect to saved request, fallback to /
                     .userInfoEndpoint { userInfo ->
                         if (oauth2UserProvisioningService != null) {
                             userInfo.userService(oauth2UserProvisioningService)
                         }
                     }
+                if (popupAwareAuthenticationSuccessHandler != null) {
+                    oauth2.successHandler(popupAwareAuthenticationSuccessHandler)
+                } else {
+                    oauth2.defaultSuccessUrl("/")
+                }
             }
             .logout { logout ->
                 logout

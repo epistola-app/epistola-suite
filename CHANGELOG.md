@@ -26,6 +26,21 @@
 - UI handler for updating drafts: `PUT /tenants/{tenantId}/templates/{id}/variants/{variantId}/draft`
 - Automated test to detect UI → REST API violations (`UiRestApiSeparationTest`)
 - Documentation in CLAUDE.md explaining UI/REST separation and module structure
+- **Session Expiry Handling with Login Popup**: Graceful session timeout UX that preserves unsaved work
+  - Warning dialog shown 5 minutes before session expires
+  - Expired dialog with "Log In Again" button when session times out
+  - Re-authentication via popup window preserves form data on main page
+  - Works with both form-based login (local dev) and OAuth2 (production)
+  - `SessionExpiryCookieFilter` sets readable session expiry timestamp cookie
+  - `PopupAwareAuthenticationSuccessHandler` redirects popup logins to success page
+  - `PopupLoginFilter` preserves popup state across OAuth2 redirect chain
+  - Native HTML `<dialog>` elements for accessible, modal dialogs
+  - Session timeout configurable: 30 min default, 8 hours for local development
+- **CSRF Token Support**: All AJAX requests now include CSRF tokens for Spring Security compatibility
+  - Created `fragments/htmx.html` fragment with HTMX and CSRF configuration
+  - HTMX requests automatically include `X-XSRF-TOKEN` header via `htmx:configRequest` event
+  - Editor fetch requests include CSRF token from `XSRF-TOKEN` cookie
+  - All templates updated to use the shared HTMX fragment
 
 ### Module Architecture
 - **Dependencies flow**:

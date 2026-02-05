@@ -8,6 +8,7 @@ spring:
     virtual:
       enabled: true
   session:
+    timeout: 30m  # Session timeout (frontend warns 5 min before expiry)
     store-type: jdbc
     jdbc:
       initialize-schema: never  # Managed by Flyway
