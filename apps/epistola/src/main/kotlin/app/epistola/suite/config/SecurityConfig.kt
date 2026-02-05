@@ -34,16 +34,12 @@ class SecurityConfig(
     /**
      * Check if OAuth2 is configured (has client registrations).
      */
-    private fun isOAuth2Configured(): Boolean {
-        return clientRegistrationRepository != null
-    }
+    private fun isOAuth2Configured(): Boolean = clientRegistrationRepository != null
 
     /**
      * Check if local profile is active (form login with in-memory users).
      */
-    private fun isLocalProfileActive(): Boolean {
-        return environment.acceptsProfiles(Profiles.of("local"))
-    }
+    private fun isLocalProfileActive(): Boolean = environment.acceptsProfiles(Profiles.of("local"))
 
     /**
      * Main security filter chain.
