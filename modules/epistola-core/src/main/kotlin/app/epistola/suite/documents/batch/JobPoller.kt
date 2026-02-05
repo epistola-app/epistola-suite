@@ -50,6 +50,15 @@ class JobPoller(
     private val jobsCompletedCounter = meterRegistry.counter("epistola.jobs.completed.total")
     private val jobsFailedCounter = meterRegistry.counter("epistola.jobs.failed.total")
 
+    init {
+        logger.info(
+            "Job poller started: instanceId={}, maxConcurrentJobs={}, pollInterval={}ms",
+            instanceId,
+            properties.maxConcurrentJobs,
+            properties.intervalMs,
+        )
+    }
+
     /**
      * Poll for pending jobs and claim a batch if capacity allows.
      * Runs on a fixed delay to ensure continuous polling without overlapping.
@@ -79,14 +88,22 @@ class JobPoller(
         val requests = claimPendingRequests(actualBatchSize)
 
         if (requests.isEmpty()) {
+            logger.debug(
+                "No pending jobs available | Batch size: {}, Active: {}/{}",
+                requestedBatchSize,
+                currentActive,
+                properties.maxConcurrentJobs,
+            )
             return
         }
 
-        logger.debug(
-            "Claimed {} jobs (requested batch: {}, available slots: {})",
+        logger.info(
+            "Claimed {} job(s) | Requested batch: {}, Available slots: {}, Active: {}/{}",
             requests.size,
             requestedBatchSize,
             availableSlots,
+            currentActive,
+            properties.maxConcurrentJobs,
         )
 
         // Increment counter for all claimed jobs
@@ -99,7 +116,7 @@ class JobPoller(
             // Track start time for duration calculation
             jobStartTimes[request.id] = System.currentTimeMillis()
 
-            logger.info("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
+            logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
             // Execute on virtual thread, don't block the scheduler
             executor.submit {
@@ -113,11 +130,18 @@ class JobPoller(
                 } finally {
                     // Calculate duration and report to adaptive batch sizer
                     val startTime = jobStartTimes.remove(request.id)
+                    val newActiveCount = activeJobs.decrementAndGet()
                     if (startTime != null) {
                         val duration = System.currentTimeMillis() - startTime
                         batchSizer.recordJobCompletion(duration)
+                        logger.info(
+                            "Job completed: {} in {}ms | Active: {}/{}",
+                            request.id.value,
+                            duration,
+                            newActiveCount,
+                            properties.maxConcurrentJobs,
+                        )
                     }
-                    activeJobs.decrementAndGet()
                 }
             }
         }
