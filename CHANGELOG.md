@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+ ### Added
+- **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
+- **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
+
 ### Changed
 - **BREAKING: Refined module architecture for clearer separation of concerns**
   - **Business logic** (`modules/epistola-core`): Domain logic, commands, queries, mediator, JDBI config
