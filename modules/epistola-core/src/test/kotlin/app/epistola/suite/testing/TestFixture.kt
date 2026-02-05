@@ -2,10 +2,13 @@ package app.epistola.suite.testing
 
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.UserId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -24,17 +27,31 @@ annotation class TestFixtureDsl
 class TestFixtureFactory(
     private val mediator: Mediator,
 ) {
+    /**
+     * Test user for authenticated operations.
+     */
+    private val testUser = EpistolaPrincipal(
+        userId = UserId.of("00000000-0000-0000-0000-000000000099"),
+        externalId = "test-user",
+        email = "test@example.com",
+        displayName = "Test User",
+        tenantMemberships = emptySet(),
+        currentTenantId = null,
+    )
+
     fun <T> fixture(block: TestFixture.() -> T): T = MediatorContext.runWithMediator(mediator) {
-        val fixture = TestFixture()
-        try {
-            fixture.block()
-        } finally {
-            fixture.cleanup()
+        SecurityContext.runWithPrincipal(testUser) {
+            val fixture = TestFixture()
+            try {
+                fixture.block()
+            } finally {
+                fixture.cleanup()
+            }
         }
     }
 
     /**
-     * Runs the given block with the mediator bound to the current scope.
+     * Runs the given block with the mediator and security context bound.
      * This enables use of Command.execute() and Query.query() extension functions in tests.
      *
      * Usage:
@@ -45,7 +62,11 @@ class TestFixtureFactory(
      * }
      * ```
      */
-    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
+    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
 }
 
 @TestFixtureDsl

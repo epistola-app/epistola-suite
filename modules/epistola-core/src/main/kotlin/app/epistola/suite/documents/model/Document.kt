@@ -3,6 +3,7 @@ package app.epistola.suite.documents.model
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.UserId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import java.time.OffsetDateTime
@@ -24,7 +25,7 @@ import java.time.OffsetDateTime
  * @property sizeBytes Size of the document in bytes
  * @property content Binary content of the document (PDF data)
  * @property createdAt When the document was generated
- * @property createdBy User ID from Keycloak (future feature)
+ * @property createdBy User who created this document
  */
 data class Document(
     val id: DocumentId,
@@ -38,7 +39,7 @@ data class Document(
     val sizeBytes: Long,
     val content: ByteArray,
     val createdAt: OffsetDateTime,
-    val createdBy: String?,
+    val createdBy: UserId?,
 ) {
     // Override equals/hashCode since ByteArray uses reference equality by default
     override fun equals(other: Any?): Boolean {
