@@ -328,7 +328,6 @@ jobs:
           mkdir -p release-artifacts
           cp apps/epistola/build/sbom/bom.json release-artifacts/epistola-backend-sbom.json
           cp modules/editor/build/sbom.json release-artifacts/epistola-editor-sbom.json
-          cp modules/rest-api/build/bundled-api.yaml release-artifacts/epistola-openapi.yaml
 
       - name: Create GitHub Release
         if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
