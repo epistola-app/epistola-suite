@@ -1,8 +1,10 @@
 package app.epistola.suite.loadtest.batch
 
+import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.documents.commands.GenerateDocument
+import app.epistola.suite.documents.commands.BatchGenerationItem
+import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.loadtest.model.LoadTestMetrics
 import app.epistola.suite.loadtest.model.LoadTestRequestId
 import app.epistola.suite.loadtest.model.LoadTestRun
@@ -16,15 +18,12 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 import java.time.OffsetDateTime
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Executes load test runs by generating documents concurrently using virtual threads.
+ * Executes load test runs by generating documents using batch submission.
  *
- * Unlike DocumentGenerationExecutor, this does NOT use a semaphore to limit concurrency.
- * Load tests intentionally stress the system with high concurrency (up to 500 concurrent requests).
+ * Uses GenerateDocumentBatch to submit all requests in a single database operation,
+ * then polls for completion. Much faster than individual submissions for large batches.
  */
 @Component
 class LoadTestExecutor(
@@ -33,7 +32,6 @@ class LoadTestExecutor(
     private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
-    private val executor = Executors.newVirtualThreadPerTaskExecutor()
 
     /**
      * Track job submissions.
@@ -47,7 +45,7 @@ class LoadTestExecutor(
     /**
      * Execute a load test run.
      *
-     * Generates [targetCount] documents with [concurrencyLevel] concurrent requests.
+     * Generates [targetCount] documents using batch submission for efficiency.
      * Tracks timing for each request and calculates aggregated metrics.
      */
     fun execute(run: LoadTestRun) {
@@ -66,58 +64,44 @@ class LoadTestExecutor(
             run.concurrencyLevel,
         )
 
-        val submittedJobs = mutableListOf<SubmittedJob>()
-        val submissionsLock = Any()
-        val cancelled = AtomicBoolean(false)
+        logger.info("Submitting {} generation jobs in a single batch...", run.targetCount)
 
-        logger.info("Submitting {} generation jobs...", run.targetCount)
-
-        // Submit all generation jobs concurrently (fast, just creates PENDING requests)
-        val submissionFutures = (1..run.targetCount).map { sequenceNumber ->
-            CompletableFuture.supplyAsync({
-                if (cancelled.get() || isRunCancelled(run.id)) {
-                    cancelled.set(true)
-                    return@supplyAsync null
-                }
-
-                try {
-                    val correlationId = "loadtest-${run.id}-$sequenceNumber"
-                    val generationRequest = mediator.send(
-                        GenerateDocument(
-                            tenantId = run.tenantId,
-                            templateId = run.templateId,
-                            variantId = run.variantId,
-                            versionId = run.versionId,
-                            environmentId = run.environmentId,
-                            data = run.testData,
-                            filename = "loadtest-${run.id}-$sequenceNumber.pdf",
-                            correlationId = correlationId,
-                        ),
-                    )
-
-                    synchronized(submissionsLock) {
-                        submittedJobs.add(
-                            SubmittedJob(
-                                sequenceNumber = sequenceNumber,
-                                generationRequestId = generationRequest.id,
-                                correlationId = correlationId,
-                            ),
-                        )
-                    }
-                } catch (e: Exception) {
-                    logger.error("Failed to submit generation request {}: {}", sequenceNumber, e.message)
-                    null
-                }
-            }, executor)
+        // Build batch items
+        val batchItems = (1..run.targetCount).map { sequenceNumber ->
+            BatchGenerationItem(
+                templateId = run.templateId,
+                variantId = run.variantId,
+                versionId = run.versionId,
+                environmentId = run.environmentId,
+                data = run.testData,
+                filename = "loadtest-${run.id}-$sequenceNumber.pdf",
+                correlationId = "loadtest-${run.id}-$sequenceNumber",
+            )
         }
 
-        // Wait for all job submissions to complete
-        CompletableFuture.allOf(*submissionFutures.toTypedArray()).join()
+        // Submit entire batch at once
+        val batchId = try {
+            mediator.send(
+                GenerateDocumentBatch(
+                    tenantId = run.tenantId,
+                    items = batchItems,
+                ),
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to submit batch for load test run {}: {}", run.id, e.message)
+            finalizeRun(run.id, createEmptyMetrics(), 0, run.targetCount, wasCancelled = true)
+            return
+        }
 
-        logger.info("Submitted {} jobs, waiting for async processing to complete...", submittedJobs.size)
+        logger.info("Submitted batch {} with {} requests for load test run {}", batchId.value, run.targetCount, run.id)
+
+        // Query back the created request IDs
+        val submittedJobs = queryBatchRequests(batchId, run.id)
+
+        logger.info("Retrieved {} job IDs, waiting for async processing to complete...", submittedJobs.size)
 
         // Poll database to wait for all jobs to reach terminal state
-        val jobResults = pollForJobCompletion(run.id, submittedJobs, cancelled)
+        val (jobResults, wasCancelled) = pollForJobCompletion(run.id, submittedJobs)
 
         val endTime = System.currentTimeMillis()
         val totalDurationMs = endTime - startTime
@@ -153,7 +137,7 @@ class LoadTestExecutor(
 
         // Calculate and save metrics
         val metrics = calculateMetrics(requestResults, totalDurationMs)
-        finalizeRun(run.id, metrics, completedCount, failedCount, cancelled.get())
+        finalizeRun(run.id, metrics, completedCount, failedCount, wasCancelled)
 
         // Delete load test documents
         deleteLoadTestDocuments(run.id)
@@ -194,22 +178,23 @@ class LoadTestExecutor(
 
     /**
      * Poll database waiting for all async jobs to complete.
-     * Returns results with actual timing data from the database.
+     * Returns results with actual timing data from the database and a cancellation flag.
      */
     private fun pollForJobCompletion(
         runId: LoadTestRunId,
         jobs: List<SubmittedJob>,
-        cancelled: AtomicBoolean,
-    ): List<JobResult> {
+    ): Pair<List<JobResult>, Boolean> {
         val jobIds = jobs.map { it.generationRequestId }.toSet()
         val pollIntervalMs = 500L // Poll every 500ms
         val maxWaitTimeMs = 600_000L // 10 minute timeout
         val startTime = System.currentTimeMillis()
+        var wasCancelled = false
 
         while (true) {
             // Check for cancellation
-            if (cancelled.get() || isRunCancelled(runId)) {
+            if (isRunCancelled(runId)) {
                 logger.warn("Load test run {} cancelled while waiting for jobs", runId)
+                wasCancelled = true
                 break
             }
 
@@ -273,7 +258,7 @@ class LoadTestExecutor(
 
             if (allDone) {
                 logger.info("All {} jobs completed for load test run {}", results.size, runId)
-                return results
+                return Pair(results, wasCancelled)
             }
 
             // Wait before next poll
@@ -281,7 +266,7 @@ class LoadTestExecutor(
         }
 
         // Return partial results if cancelled or timed out
-        return jdbi.withHandle<List<JobResult>, Exception> { handle ->
+        val finalResults = jdbi.withHandle<List<JobResult>, Exception> { handle ->
             handle.createQuery(
                 """
                 SELECT
@@ -314,6 +299,8 @@ class LoadTestExecutor(
                 }
                 .list()
         }
+
+        return Pair(finalResults, wasCancelled)
     }
 
     /**
@@ -349,6 +336,47 @@ class LoadTestExecutor(
             .mapTo<Boolean>()
             .one()
     }
+
+    /**
+     * Query all requests created for a batch, ordered by correlation_id sequence.
+     */
+    private fun queryBatchRequests(batchId: BatchId, runId: LoadTestRunId): List<SubmittedJob> = jdbi.withHandle<List<SubmittedJob>, Exception> { handle ->
+        handle.createQuery(
+            """
+                SELECT id, correlation_id
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
+                ORDER BY correlation_id
+                """,
+        )
+            .bind("batchId", batchId)
+            .map { rs, _ ->
+                val correlationId = rs.getString("correlation_id")
+                val sequenceNumber = correlationId.substringAfterLast("-").toInt()
+                SubmittedJob(
+                    sequenceNumber = sequenceNumber,
+                    generationRequestId = GenerationRequestId(rs.getObject("id", java.util.UUID::class.java)),
+                    correlationId = correlationId,
+                )
+            }
+            .list()
+    }
+
+    /**
+     * Create empty metrics for failed batch submission.
+     */
+    private fun createEmptyMetrics(): LoadTestMetrics = LoadTestMetrics(
+        totalDurationMs = 0,
+        avgResponseTimeMs = 0.0,
+        minResponseTimeMs = 0,
+        maxResponseTimeMs = 0,
+        p50ResponseTimeMs = 0,
+        p95ResponseTimeMs = 0,
+        p99ResponseTimeMs = 0,
+        requestsPerSecond = 0.0,
+        successRatePercent = 0.0,
+        errorSummary = emptyMap(),
+    )
 
     /**
      * Save detailed request results to database.
