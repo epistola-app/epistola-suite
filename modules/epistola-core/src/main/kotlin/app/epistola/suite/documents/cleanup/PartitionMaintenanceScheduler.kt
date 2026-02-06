@@ -1,10 +1,11 @@
 package app.epistola.suite.documents.cleanup
 
-import jakarta.annotation.PostConstruct
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -15,7 +16,7 @@ import java.time.format.DateTimeFormatter
  * Scheduled maintenance for partitioned tables.
  *
  * This component runs periodic maintenance tasks to:
- * - Create current month and next month partitions at startup (bootstrap)
+ * - Create current month and next month partitions after Flyway migrations complete (bootstrap)
  * - Create next month's partition daily (1 month ahead)
  * - Drop old partitions (older than retention period)
  *
@@ -49,12 +50,12 @@ class PartitionMaintenanceScheduler(
     )
 
     /**
-     * Initialize partitions at startup.
+     * Initialize partitions after application is ready and Flyway migrations have completed.
      * Creates current month and next month partitions to bootstrap the system.
      */
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent::class)
     fun initializePartitions() {
-        logger.info("Initializing partitions at startup")
+        logger.info("Initializing partitions after application ready (Flyway migrations completed)")
         maintainPartitions()
     }
 
@@ -124,16 +125,13 @@ class PartitionMaintenanceScheduler(
 
             if (!exists) {
                 jdbi.useHandle<Exception> { handle ->
-                    handle.createUpdate(
+                    handle.execute(
                         """
                         CREATE TABLE $partitionName
                         PARTITION OF ${config.tableName}
-                        FOR VALUES FROM (:startDate) TO (:endDate)
+                        FOR VALUES FROM ('$startDate') TO ('$endDate')
                         """,
                     )
-                        .bind("startDate", startDate)
-                        .bind("endDate", endDate)
-                        .execute()
                 }
                 logger.info("Created partition: {}", partitionName)
             } else {
