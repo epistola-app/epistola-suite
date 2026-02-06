@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Tests - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <main class="regular">
+        <nav class="breadcrumb">
+            <a th:href="@{/}">Tenants</a> &raquo;
+            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
+            <span>Load Tests</span>
+        </nav>
+
+        <h1>Load Tests</h1>
+
+        <div class="actions-bar">
+            <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="btn btn-primary">
+                Start New Load Test
+            </a>
+            <a th:href="@{/tenants/{id}(id=${tenantId})}" class="btn btn-secondary">
+                Back to Tenant
+            </a>
+        </div>
+
+        <section>
+            <h2>Recent Load Tests</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Started</th>
+                        <th>Template</th>
+                        <th>Status</th>
+                        <th>Requests</th>
+                        <th>Success Rate</th>
+                        <th>Avg Response</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="run : ${runs}">
+                        <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td>
+                            <strong th:text="${run.templateId}"></strong>
+                            <span class="text-muted">/</span>
+                            <span th:text="${run.variantId}"></span>
+                        </td>
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
+                                                    run.status.name() == 'RUNNING' ? 'badge-info' :
+                                                    run.status.name() == 'FAILED' ? 'badge-error' :
+                                                    run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-default'}"
+                                  th:text="${run.status}">
+                            </span>
+                        </td>
+                        <td>
+                            <span th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></span>
+                            <span th:if="${run.status.name() == 'RUNNING'}" class="text-muted">
+                                (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
+                            </span>
+                        </td>
+                        <td>
+                            <span th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}"
+                                  th:text="${run.successRatePercent != null ? #numbers.formatDecimal(run.successRatePercent, 1, 1) + '%' : '-'}">
+                            </span>
+                            <span th:unless="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">-</span>
+                        </td>
+                        <td>
+                            <span th:if="${run.avgResponseTimeMs != null}"
+                                  th:text="${#numbers.formatDecimal(run.avgResponseTimeMs, 1, 0)} + ' ms'">
+                            </span>
+                            <span th:unless="${run.avgResponseTimeMs != null}">-</span>
+                        </td>
+                        <td class="actions">
+                            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+                               class="btn btn-small">View Details</a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(runs)}">
+                        <td colspan="7" class="empty-message">
+                            No load tests yet. <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}">Start your first test</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>

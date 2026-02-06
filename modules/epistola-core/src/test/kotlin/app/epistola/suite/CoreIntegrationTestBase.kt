@@ -12,6 +12,7 @@ import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.testing.FakeExecutorTestConfiguration
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
@@ -23,7 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 
-@Import(CoreTestcontainersConfiguration::class)
+@Import(CoreTestcontainersConfiguration::class, FakeExecutorTestConfiguration::class)
 @SpringBootTest(
     properties = [
         "epistola.demo.enabled=false",

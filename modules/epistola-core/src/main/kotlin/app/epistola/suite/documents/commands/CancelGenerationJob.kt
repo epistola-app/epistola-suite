@@ -75,21 +75,7 @@ class CancelGenerationJobHandler(
                 .execute()
 
             if (updated > 0) {
-                // 4. Mark all pending/in-progress items as failed
-                val failedItems = handle.createUpdate(
-                    """
-                    UPDATE document_generation_items
-                    SET status = 'FAILED',
-                        error_message = 'Job cancelled by user',
-                        completed_at = NOW()
-                    WHERE request_id = :requestId
-                      AND status IN ('PENDING', 'IN_PROGRESS')
-                    """,
-                )
-                    .bind("requestId", command.requestId)
-                    .execute()
-
-                logger.info("Cancelled generation job {} ({} items marked as failed)", command.requestId, failedItems)
+                logger.info("Cancelled generation job {}", command.requestId)
                 true
             } else {
                 logger.warn("Request {} was already completed or cancelled", command.requestId)

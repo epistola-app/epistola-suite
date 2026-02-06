@@ -26,9 +26,14 @@ epistola:
   generation:
     polling:
       enabled: true              # Enable polling-based job execution
-      interval-ms: 5000          # Poll every 5 seconds
-      max-concurrent-jobs: 2     # Max jobs per instance
+      interval-ms: 5000          # Fallback poll interval (drain loop handles active work)
+      max-concurrent-jobs: 20    # Max jobs per instance (10x parallelism)
       stale-timeout-minutes: 10  # Reclaim jobs after 10 min of no progress
+      adaptive-batch:
+        min-batch-size: 1           # Never go below 1 (backward compatible)
+        max-batch-size: 50          # Claim more per poll for efficient draining
+        fast-threshold-ms: 2000     # < 2s avg = increase batch size
+        slow-threshold-ms: 5000     # > 5s avg = decrease batch size
     async:
       concurrency: 10            # Items processed concurrently per job
     jobs:
