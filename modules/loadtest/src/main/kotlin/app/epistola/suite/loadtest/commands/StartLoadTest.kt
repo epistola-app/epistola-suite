@@ -27,7 +27,7 @@ import tools.jackson.databind.node.ObjectNode
  * @property versionId Explicit version ID (mutually exclusive with environmentId)
  * @property environmentId Environment to determine version from (mutually exclusive with versionId)
  * @property targetCount Number of documents to generate (1-10000)
- * @property concurrencyLevel Number of concurrent requests (1-500)
+ * @property concurrencyLevel Legacy field (not used, kept for database compatibility)
  * @property testData JSON data to use for all document generation requests
  */
 data class StartLoadTest(
@@ -48,9 +48,6 @@ data class StartLoadTest(
         require(targetCount in 1..10000) {
             "Target count must be between 1 and 10000, got $targetCount"
         }
-        require(concurrencyLevel in 1..500) {
-            "Concurrency level must be between 1 and 500, got $concurrencyLevel"
-        }
     }
 }
 
@@ -64,11 +61,10 @@ class StartLoadTestHandler(
 
     override fun handle(command: StartLoadTest): LoadTestRun {
         logger.info(
-            "Starting load test for tenant {} template {} - {} docs at {} concurrency",
+            "Starting load test for tenant {} template {} - {} docs",
             command.tenantId,
             command.templateId,
             command.targetCount,
-            command.concurrencyLevel,
         )
 
         val loadTestRun = jdbi.inTransaction<LoadTestRun, Exception> { handle ->

@@ -58,10 +58,9 @@ class LoadTestExecutor(
         }
 
         logger.info(
-            "Executing load test run {} - {} documents at {} concurrency",
+            "Executing load test run {} - {} documents",
             run.id,
             run.targetCount,
-            run.concurrencyLevel,
         )
 
         logger.info("Submitting {} generation jobs in a single batch...", run.targetCount)

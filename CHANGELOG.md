@@ -9,6 +9,7 @@
   - Single validation query instead of N queries
   - Simpler code: removed CompletableFuture, synchronized blocks, and executor management
   - Batch submission typically completes in <1 second for 1000 documents (was ~20-50 seconds)
+  - **UI Change**: Removed "Concurrency Level" field from load test form (no longer applicable with batch submission)
 
 ### Changed
 - **Improved document generation performance**: Refactored JobPoller with drain loop pattern for faster throughput

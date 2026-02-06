@@ -82,7 +82,6 @@ class LoadTestHandler(
         val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentId.of(environmentIdStr) else null
 
         val targetCount = params.getFirst("targetCount")?.toIntOrNull() ?: 100
-        val concurrencyLevel = params.getFirst("concurrencyLevel")?.toIntOrNull() ?: 10
 
         // Parse test data JSON
         val testDataStr = params.getFirst("testData") ?: "{}"
@@ -96,7 +95,7 @@ class LoadTestHandler(
                 versionId = versionId,
                 environmentId = environmentId,
                 targetCount = targetCount,
-                concurrencyLevel = concurrencyLevel,
+                concurrencyLevel = 1, // Legacy field, not used with batch submission
                 testData = testData,
             ).execute()
 

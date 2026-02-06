@@ -10,10 +10,13 @@ import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
 
 /**
- * A load test run that generates N documents concurrently to measure performance.
+ * A load test run that generates N documents to measure performance.
  *
  * The test generates documents using the same template/variant/version and test data
  * for all requests, measuring response times, throughput, and success rates.
+ *
+ * All documents are submitted as a single batch for efficient processing. Actual execution
+ * concurrency is controlled by the JobPoller's max-concurrent-jobs setting.
  *
  * Metric fields are nullable and populated after the test completes.
  *
@@ -24,7 +27,7 @@ import java.time.OffsetDateTime
  * @property versionId Explicit version to use (mutually exclusive with environmentId)
  * @property environmentId Environment to determine version from (mutually exclusive with versionId)
  * @property targetCount Number of documents to generate (1-10000)
- * @property concurrencyLevel Number of concurrent document generation requests (1-500)
+ * @property concurrencyLevel Legacy field (not used with batch submission, always set to 1)
  * @property testData JSON data to use for all document generation requests
  * @property status Current status of the load test
  * @property claimedBy Instance identifier (hostname-pid) that claimed this run
@@ -80,9 +83,6 @@ data class LoadTestRun(
         }
         require(targetCount in 1..10000) {
             "Target count must be between 1 and 10000, got $targetCount"
-        }
-        require(concurrencyLevel in 1..500) {
-            "Concurrency level must be between 1 and 500, got $concurrencyLevel"
         }
     }
 }
