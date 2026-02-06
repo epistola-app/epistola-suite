@@ -53,19 +53,7 @@ class StaleJobRecovery(
 
             logger.warn("Found {} stale jobs to recover: {}", staleRequestIds.size, staleRequestIds)
 
-            // Reset incomplete items to PENDING (will be retried)
-            val itemsReset = handle.createUpdate(
-                """
-                UPDATE document_generation_items
-                SET status = 'PENDING', started_at = NULL
-                WHERE request_id IN (<requestIds>)
-                  AND status = 'IN_PROGRESS'
-                """,
-            )
-                .bindList("requestIds", staleRequestIds)
-                .execute()
-
-            // Reset requests to PENDING
+            // Reset requests to PENDING (in flattened schema, each request = 1 document)
             val requestsReset = handle.createUpdate(
                 """
                 UPDATE document_generation_requests
@@ -79,11 +67,7 @@ class StaleJobRecovery(
                 .bindList("requestIds", staleRequestIds)
                 .execute()
 
-            logger.warn(
-                "Recovered {} stale jobs ({} items reset to PENDING)",
-                requestsReset,
-                itemsReset,
-            )
+            logger.warn("Recovered {} stale jobs (reset to PENDING)", requestsReset)
         }
     }
 }

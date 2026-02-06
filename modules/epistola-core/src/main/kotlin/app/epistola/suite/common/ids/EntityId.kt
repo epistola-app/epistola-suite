@@ -10,7 +10,7 @@ import java.util.UUID
  *
  * Generic over both the concrete ID type (T) and the value type (V).
  */
-sealed interface EntityId<T : EntityId<T, V>, V : Any> {
+interface EntityId<T : EntityId<T, V>, V : Any> {
     val value: V
 }
 
@@ -18,13 +18,13 @@ sealed interface EntityId<T : EntityId<T, V>, V : Any> {
  * Marker interface for slug-based IDs (String value).
  * Used for human-readable, URL-safe identifiers.
  */
-sealed interface SlugId<T : SlugId<T>> : EntityId<T, String>
+interface SlugId<T : SlugId<T>> : EntityId<T, String>
 
 /**
  * Marker interface for UUID-based IDs.
  * Used for machine-generated unique identifiers.
  */
-sealed interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
+interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
 
 /**
  * Typed ID for Tenant entities.
@@ -263,12 +263,28 @@ value class GenerationRequestId(override val value: UUID) : UuidId<GenerationReq
 
 /**
  * Typed ID for DocumentGenerationItem entities.
+ * @deprecated Items table has been removed. Use GenerationRequestId instead.
  */
+@Deprecated("Items table removed in V9 migration. Each request now represents a single document.")
 @JvmInline
 value class GenerationItemId(override val value: UUID) : UuidId<GenerationItemId> {
     companion object {
         fun generate(): GenerationItemId = GenerationItemId(UUIDv7.generate())
         fun of(value: UUID): GenerationItemId = GenerationItemId(value)
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
+ * Typed ID for DocumentGenerationBatch entities.
+ * Groups related generation requests together for batch tracking.
+ */
+@JvmInline
+value class BatchId(override val value: UUID) : UuidId<BatchId> {
+    companion object {
+        fun generate(): BatchId = BatchId(UUIDv7.generate())
+        fun of(value: UUID): BatchId = BatchId(value)
     }
 
     override fun toString(): String = value.toString()

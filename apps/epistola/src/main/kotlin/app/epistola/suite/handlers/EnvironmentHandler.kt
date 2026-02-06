@@ -10,6 +10,7 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -19,12 +20,14 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class EnvironmentHandler {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val environments = ListEnvironments(tenantId = TenantId.of(tenantId)).query()
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
+        val environments = ListEnvironments(tenantId = tenantId).query()
         return ServerResponse.ok().render(
             "environments/list",
             mapOf(
-                "tenantId" to tenantId,
+                "tenant" to tenant,
+                "tenantId" to tenantId.value,
                 "environments" to environments,
             ),
         )

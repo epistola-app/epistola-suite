@@ -11,6 +11,7 @@
     <main class="regular">
         <nav class="breadcrumb">
             <a th:href="@{/}">Tenants</a> &raquo;
+            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
             <span>Environments</span>
         </nav>
 

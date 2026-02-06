@@ -1,7 +1,7 @@
 packages:
   - modules/*
   - scripts/gh-mcp
-
+  - .husky
 onlyBuiltDependencies:
   - core-js
   - esbuild

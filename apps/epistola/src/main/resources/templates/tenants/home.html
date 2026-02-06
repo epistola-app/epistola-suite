@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${tenant.name} + ' - Epistola'">Tenant - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
+    <style>
+        .tenant-home-header {
+            margin-bottom: 2rem;
+        }
+
+        .tenant-home-header h1 {
+            margin-bottom: 0.5rem;
+        }
+
+        .tenant-home-header .tenant-id {
+            color: #666;
+            font-size: 0.875rem;
+            font-family: monospace;
+        }
+
+        .navigation-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .nav-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.2s ease;
+            display: block;
+        }
+
+        .nav-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transform: translateY(-2px);
+        }
+
+        .nav-card-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .nav-card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-card-description {
+            color: #6b7280;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .nav-card-count {
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            color: #3b82f6;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <main class="regular">
+        <nav class="breadcrumb">
+            <a th:href="@{/}">Tenants</a> &raquo; <span th:text="${tenant.name}">Tenant</span>
+        </nav>
+
+        <div class="tenant-home-header">
+            <h1 th:text="${tenant.name}">Tenant Name</h1>
+            <div class="tenant-id" th:text="'ID: ' + ${tenant.id}">ID: tenant-id</div>
+        </div>
+
+        <div class="navigation-cards">
+            <!-- Templates Card -->
+            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenant.id})}" class="nav-card">
+                <div class="nav-card-icon">📄</div>
+                <div class="nav-card-title">Document Templates</div>
+                <div class="nav-card-description">
+                    Create and manage document templates with variants and versions.
+                    Design templates with the visual editor and publish them to environments.
+                </div>
+                <div class="nav-card-count" th:if="${templateCount != null}">
+                    <span th:text="${templateCount}">0</span>
+                    <span th:text="${templateCount == 1 ? 'template' : 'templates'}">templates</span>
+                </div>
+            </a>
+
+            <!-- Themes Card -->
+            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenant.id})}" class="nav-card">
+                <div class="nav-card-icon">🎨</div>
+                <div class="nav-card-title">Themes</div>
+                <div class="nav-card-description">
+                    Manage visual themes for your documents.
+                    Define colors, fonts, and styling that can be applied to templates.
+                </div>
+                <div class="nav-card-count" th:if="${themeCount != null}">
+                    <span th:text="${themeCount}">0</span>
+                    <span th:text="${themeCount == 1 ? 'theme' : 'themes'}">themes</span>
+                </div>
+            </a>
+
+            <!-- Load Tests Card -->
+            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenant.id})}" class="nav-card">
+                <div class="nav-card-icon">⚡</div>
+                <div class="nav-card-title">Load Tests</div>
+                <div class="nav-card-description">
+                    Run load tests to measure document generation performance.
+                    Test batch generation with configurable document counts and sizes.
+                </div>
+                <div class="nav-card-count" th:if="${loadTestCount != null}">
+                    <span th:text="${loadTestCount}">0</span>
+                    <span th:text="${loadTestCount == 1 ? 'test run' : 'test runs'}">test runs</span>
+                </div>
+            </a>
+
+            <!-- Environments Card -->
+            <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenant.id})}" class="nav-card">
+                <div class="nav-card-icon">🌍</div>
+                <div class="nav-card-title">Environments</div>
+                <div class="nav-card-description">
+                    Manage deployment environments (development, staging, production).
+                    Control which template versions are active in each environment.
+                </div>
+                <div class="nav-card-count" th:if="${environmentCount != null}">
+                    <span th:text="${environmentCount}">0</span>
+                    <span th:text="${environmentCount == 1 ? 'environment' : 'environments'}">environments</span>
+                </div>
+            </a>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>

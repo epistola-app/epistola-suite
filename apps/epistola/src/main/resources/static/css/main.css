@@ -402,3 +402,164 @@ body {
 .btn-primary {
     background-color: #4a90d9;
 }
+
+/* Load test metrics grid */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.metric-card {
+    background-color: #fff;
+    padding: 1.25rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metric-value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    line-height: 1.2;
+}
+
+/* Progress bar */
+.progress-container {
+    width: 100%;
+    height: 24px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 1rem 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #4a90d9;
+    transition: width 0.3s ease;
+}
+
+/* Error summary table */
+.error-summary {
+    margin-top: 2rem;
+}
+
+.error-summary h3 {
+    margin-bottom: 1rem;
+    color: #dc3545;
+}
+
+.error-summary table {
+    background-color: #fff;
+}
+
+/* Action bar */
+.actions-bar {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+}
+
+/* Key-value table (for configuration) */
+.key-value-table {
+    width: 100%;
+}
+
+.key-value-table th {
+    text-align: right;
+    width: 200px;
+    padding-right: 1rem;
+    font-weight: 600;
+    color: #495057;
+    vertical-align: top;
+}
+
+.key-value-table td {
+    color: #1a1a1a;
+}
+
+/* Info box */
+.info-box {
+    background-color: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 4px;
+    padding: 1rem 1.5rem;
+}
+
+.info-box h3 {
+    margin-top: 0;
+    color: #0056b3;
+}
+
+.info-box ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.info-box li {
+    margin-bottom: 0.5rem;
+}
+
+/* Alert messages */
+.alert {
+    padding: 1rem 1.5rem;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+/* Subtitle */
+.subtitle {
+    color: #6c757d;
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Form hint */
+.form-hint {
+    display: block;
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Form actions */
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+/* Select styling */
+.form-group select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: inherit;
+    background-color: #fff;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #4a90d9;
+    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}

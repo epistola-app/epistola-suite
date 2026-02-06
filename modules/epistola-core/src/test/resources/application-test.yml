@@ -4,3 +4,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+
+epistola:
+  generation:
+    polling:
+      enabled: true
+      interval-ms: 100  # Very fast polling for tests (100ms vs 5000ms in production)
+      max-concurrent-jobs: 10  # Higher concurrency for tests

@@ -7,12 +7,12 @@ import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.documents.model.DocumentGenerationItem
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
@@ -42,29 +42,38 @@ internal fun DocumentMetadata.toDto() = DocumentDto(
 
 internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     id = id.value,
-    jobType = DocumentGenerationJobDto.JobType.valueOf(jobType.name),
+    jobType = DocumentGenerationJobDto.JobType.SINGLE, // Always SINGLE in flattened structure
     status = DocumentGenerationJobDto.Status.valueOf(status.name),
-    totalCount = totalCount,
-    completedCount = completedCount,
-    failedCount = failedCount,
+    totalCount = 1, // Always 1 in flattened structure
+    completedCount = if (status == app.epistola.suite.documents.model.RequestStatus.COMPLETED) 1 else 0,
+    failedCount = if (status == app.epistola.suite.documents.model.RequestStatus.FAILED) 1 else 0,
     errorMessage = errorMessage,
     createdAt = createdAt,
     startedAt = startedAt,
     completedAt = completedAt,
-    progressPercentage = progressPercentage,
+    progressPercentage = if (isTerminal) 100.0 else 0.0,
 )
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     requestId = id.value,
     status = GenerationJobResponse.Status.valueOf(status.name),
-    jobType = GenerationJobResponse.JobType.valueOf(jobType.name),
-    totalCount = totalCount,
+    jobType = GenerationJobResponse.JobType.SINGLE, // Always SINGLE in flattened structure
+    totalCount = 1, // Always 1 in flattened structure
     createdAt = createdAt,
 )
 
-// ==================== Document Generation Item ====================
+internal fun BatchId.toJobResponse() = GenerationJobResponse(
+    requestId = value, // Use batch ID as request ID for API compatibility
+    status = GenerationJobResponse.Status.PENDING,
+    jobType = GenerationJobResponse.JobType.BATCH,
+    totalCount = 0, // Count not available without querying - caller should use batch endpoints
+    createdAt = java.time.OffsetDateTime.now(),
+)
 
-internal fun DocumentGenerationItem.toDto(objectMapper: ObjectMapper) = DocumentGenerationItemDto(
+// ==================== Document Generation Item ====================
+// NOTE: In the flattened structure, each request IS an item. Mapping a request to an ItemDto for API compatibility.
+
+internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper) = DocumentGenerationItemDto(
     id = id.value,
     templateId = templateId.value,
     variantId = variantId.value,
@@ -85,7 +94,7 @@ internal fun DocumentGenerationItem.toDto(objectMapper: ObjectMapper) = Document
 
 internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJobDetail(
     request = request.toJobDto(),
-    items = items.map { it.toDto(objectMapper) },
+    items = items.map { it.toItemDto(objectMapper) },
 )
 
 // ==================== Request DTOs to Commands ====================

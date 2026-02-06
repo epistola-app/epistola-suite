@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Test Request Log - Epistola</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <main class="regular">
+        <h1>Load Test Request Log</h1>
+        <p class="subtitle">
+            Detailed request log for test <strong th:text="${run.id}"></strong>
+        </p>
+
+        <section>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Started</th>
+                        <th>Duration (ms)</th>
+                        <th>Status</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="request : ${requests}"
+                        th:classappend="${request.success} ? '' : 'row-error'">
+                        <td th:text="${request.sequenceNumber}"></td>
+                        <td th:text="${#temporals.format(request.startedAt, 'HH:mm:ss.SSS')}"></td>
+                        <td>
+                            <span th:if="${request.durationMs != null}" th:text="${request.durationMs}"></span>
+                            <span th:unless="${request.durationMs != null}">-</span>
+                        </td>
+                        <td>
+                            <span class="badge"
+                                  th:classappend="${request.success} ? 'badge-success' : 'badge-error'"
+                                  th:text="${request.success} ? 'SUCCESS' : 'FAILED'">
+                            </span>
+                        </td>
+                        <td>
+                            <span th:if="${!request.success and request.errorType != null}" class="error-type" th:text="${request.errorType}"></span>
+                            <span th:if="${!request.success and request.errorMessage != null}" class="error-message" th:text="${request.errorMessage}"></span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(requests)}">
+                        <td colspan="5" class="empty-message">No request data available.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            <div class="pagination" th:if="${!#lists.isEmpty(requests)}">
+                <a th:if="${offset > 0}"
+                   th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset - limit},limit=${limit})}"
+                   class="btn btn-small">
+                    Previous
+                </a>
+                <span class="pagination-info">
+                    Showing <strong th:text="${offset + 1}"></strong> -
+                    <strong th:text="${offset + #lists.size(requests)}"></strong>
+                </span>
+                <a th:if="${#lists.size(requests) == limit}"
+                   th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset + limit},limit=${limit})}"
+                   class="btn btn-small">
+                    Next
+                </a>
+            </div>
+        </section>
+
+        <div class="actions-bar">
+            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+               class="btn btn-secondary">Back to Test Details</a>
+        </div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>
