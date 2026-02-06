@@ -88,11 +88,14 @@ class LoadTestExecutor(
             )
         } catch (e: Exception) {
             logger.error("Failed to submit batch for load test run {}: {}", run.id, e.message)
-            finalizeRun(run.id, createEmptyMetrics(), 0, run.targetCount, wasCancelled = true)
+            finalizeRun(run.id, null, createEmptyMetrics(), 0, run.targetCount, wasCancelled = true)
             return
         }
 
         logger.info("Submitted batch {} with {} requests for load test run {}", batchId.value, run.targetCount, run.id)
+
+        // Store batch_id in load test run for linking to document_generation_requests
+        storeBatchId(run.id, batchId)
 
         // Query back the created request IDs
         val submittedJobs = queryBatchRequests(batchId, run.id)
@@ -105,7 +108,7 @@ class LoadTestExecutor(
         val endTime = System.currentTimeMillis()
         val totalDurationMs = endTime - startTime
 
-        // Convert job results to RequestResult format
+        // Convert job results to RequestResult format for metrics calculation
         val requestResults = jobResults.map { job ->
             RequestResult(
                 id = LoadTestRequestId.generate(),
@@ -131,12 +134,9 @@ class LoadTestExecutor(
             totalDurationMs,
         )
 
-        // Save detailed request data
-        saveRequestResults(run.id, requestResults)
-
-        // Calculate and save metrics
+        // Calculate and save metrics (no longer save to load_test_requests - query from source instead)
         val metrics = calculateMetrics(requestResults, totalDurationMs)
-        finalizeRun(run.id, metrics, completedCount, failedCount, wasCancelled)
+        finalizeRun(run.id, batchId, metrics, completedCount, failedCount, wasCancelled)
     }
 
     /**
@@ -300,6 +300,24 @@ class LoadTestExecutor(
     }
 
     /**
+     * Store batch_id in load test run for linking to document_generation_requests.
+     */
+    private fun storeBatchId(runId: LoadTestRunId, batchId: BatchId) {
+        jdbi.useHandle<Exception> { handle ->
+            handle.createUpdate(
+                """
+                UPDATE load_test_runs
+                SET batch_id = :batchId
+                WHERE id = :runId
+                """,
+            )
+                .bind("runId", runId)
+                .bind("batchId", batchId)
+                .execute()
+        }
+    }
+
+    /**
      * Update progress counts in the database.
      */
     private fun updateProgress(runId: LoadTestRunId, completedCount: Int, failedCount: Int) {
@@ -375,43 +393,6 @@ class LoadTestExecutor(
     )
 
     /**
-     * Save detailed request results to database.
-     */
-    private fun saveRequestResults(runId: LoadTestRunId, results: List<RequestResult>) {
-        jdbi.useTransaction<Exception> { handle ->
-            val batch = handle.prepareBatch(
-                """
-                INSERT INTO load_test_requests (
-                    id, run_id, sequence_number, started_at, completed_at, duration_ms,
-                    success, error_message, error_type, document_id
-                )
-                VALUES (:id, :runId, :sequenceNumber, :startedAt, :completedAt, :durationMs,
-                        :success, :errorMessage, :errorType, :documentId)
-                """,
-            )
-
-            results.forEach { result ->
-                batch
-                    .bind("id", result.id)
-                    .bind("runId", runId)
-                    .bind("sequenceNumber", result.sequenceNumber)
-                    .bind("startedAt", result.startedAt)
-                    .bind("completedAt", result.startedAt.plusNanos(result.durationMs * 1_000_000))
-                    .bind("durationMs", result.durationMs)
-                    .bind("success", result.success)
-                    .bind("errorMessage", result.errorMessage)
-                    .bind("errorType", result.errorType)
-                    .bind("documentId", result.documentId)
-                    .add()
-            }
-
-            batch.execute()
-        }
-
-        logger.info("Saved {} request results for load test run {}", results.size, runId)
-    }
-
-    /**
      * Calculate aggregated metrics from request results.
      */
     private fun calculateMetrics(results: List<RequestResult>, totalDurationMs: Long): LoadTestMetrics {
@@ -485,6 +466,7 @@ class LoadTestExecutor(
      */
     private fun finalizeRun(
         runId: LoadTestRunId,
+        batchId: BatchId?,
         metrics: LoadTestMetrics,
         completedCount: Int,
         failedCount: Int,
@@ -499,10 +481,24 @@ class LoadTestExecutor(
                 LoadTestStatus.COMPLETED
             }
 
+            // Build detailed metrics map for JSONB column
+            val metricsMap = mapOf(
+                "total_duration_ms" to metrics.totalDurationMs,
+                "avg_ms" to metrics.avgResponseTimeMs,
+                "min_ms" to metrics.minResponseTimeMs,
+                "max_ms" to metrics.maxResponseTimeMs,
+                "p50_ms" to metrics.p50ResponseTimeMs,
+                "p95_ms" to metrics.p95ResponseTimeMs,
+                "p99_ms" to metrics.p99ResponseTimeMs,
+                "rps" to metrics.requestsPerSecond,
+                "success_rate_percent" to metrics.successRatePercent,
+            )
+
             handle.createUpdate(
                 """
                 UPDATE load_test_runs
                 SET status = :status,
+                    batch_id = :batchId,
                     completed_at = NOW(),
                     completed_count = :completedCount,
                     failed_count = :failedCount,
@@ -515,11 +511,13 @@ class LoadTestExecutor(
                     p99_response_time_ms = :p99ResponseTimeMs,
                     requests_per_second = :requestsPerSecond,
                     success_rate_percent = :successRatePercent,
-                    error_summary = :errorSummary::jsonb
+                    error_summary = :errorSummary::jsonb,
+                    metrics = :metrics::jsonb
                 WHERE id = :runId
                 """,
             )
                 .bind("runId", runId)
+                .bind("batchId", batchId)
                 .bind("status", status.name)
                 .bind("completedCount", completedCount)
                 .bind("failedCount", failedCount)
@@ -533,10 +531,19 @@ class LoadTestExecutor(
                 .bind("requestsPerSecond", metrics.requestsPerSecond)
                 .bind("successRatePercent", metrics.successRatePercent)
                 .bind("errorSummary", objectMapper.writeValueAsString(metrics.errorSummary))
+                .bind("metrics", objectMapper.writeValueAsString(metricsMap))
                 .execute()
         }
 
-        logger.info("Finalized load test run {} with status {}", runId, wasCancelled)
+        val finalStatus = if (wasCancelled) {
+            LoadTestStatus.CANCELLED
+        } else if (failedCount == completedCount + failedCount) {
+            LoadTestStatus.FAILED
+        } else {
+            LoadTestStatus.COMPLETED
+        }
+
+        logger.info("Finalized load test run {} with status {}", runId, finalStatus)
     }
 
     /**

@@ -2,9 +2,19 @@
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING: Simplified load test data model - eliminated redundant table**: Removed `load_test_requests` table which duplicated data already present in `document_generation_requests`
+  - Load test configuration and metrics remain in `load_test_runs` table with new `batch_id` link
+  - Request details queried directly from `document_generation_requests` via `batch_id` (single source of truth)
+  - Eliminated 100% request data duplication (saves 6MB per 10K-request load test)
+  - Detailed metrics (p50, p95, p99, avg, RPS, success rate) stored in `load_test_runs.metrics` JSONB column
+  - Simpler schema: 1 fewer table, 1 fewer partitioned table to manage
+  - Benefits: No data duplication, always accurate request data (never stale), simpler executor code, less partition management overhead
+  - Breaking change acceptable since project is not yet in production
+
 ### Performance
 - **Table partitioning for efficient TTL enforcement**: Implemented PostgreSQL table partitioning with automatic partition dropping for instant cleanup
-  - Partitioned tables: `documents`, `document_generation_requests`, `load_test_requests` (monthly RANGE partitions by created_at/started_at)
+  - Partitioned tables: `documents`, `document_generation_requests` (monthly RANGE partitions by created_at)
   - `PartitionMaintenanceScheduler` creates next month's partition at start of current month (daily execution at 2 AM)
   - Daily execution provides early failure detection (30-day buffer to catch and fix partition creation failures)
   - Minimal bootstrap: migrations create only current + next month partitions (sustainable long-term)

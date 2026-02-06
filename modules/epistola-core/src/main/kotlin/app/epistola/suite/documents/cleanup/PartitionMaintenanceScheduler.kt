@@ -27,7 +27,6 @@ import java.time.format.DateTimeFormatter
  * Applies to:
  * - documents (partitioned by created_at)
  * - document_generation_requests (partitioned by created_at)
- * - load_test_requests (partitioned by started_at)
  */
 @Component
 @EnableScheduling
@@ -46,7 +45,6 @@ class PartitionMaintenanceScheduler(
     private val partitionConfigs = listOf(
         PartitionConfig("documents", "created_at"),
         PartitionConfig("document_generation_requests", "created_at"),
-        PartitionConfig("load_test_requests", "started_at"),
     )
 
     /**

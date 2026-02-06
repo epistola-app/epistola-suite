@@ -14,7 +14,8 @@ import java.time.OffsetDateTime
  * This component runs periodic cleanup tasks to remove:
  * - Old load test runs (aggregated metrics older than retention period)
  *
- * Note: load_test_requests are cleaned up automatically via partition dropping.
+ * Note: Request details are stored in document_generation_requests and cleaned up
+ * automatically via partition dropping (managed by PartitionMaintenanceScheduler).
  * Cleanup is scheduled via cron expression (default: 3 AM daily).
  */
 @Component

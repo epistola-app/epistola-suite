@@ -21,8 +21,8 @@ modules/loadtest/               # Business logic module
 ├── commands/                   # Commands (StartLoadTest, CancelLoadTest)
 ├── queries/                    # Queries (GetLoadTestRun, ListLoadTestRuns, etc.)
 ├── batch/                      # Execution engine (LoadTestExecutor, LoadTestPoller)
-├── cleanup/                    # LoadTestCleanupScheduler (7-day retention)
-└── resources/db/migration/     # V8 migration
+├── cleanup/                    # LoadTestCleanupScheduler (90-day retention for runs)
+└── resources/db/migration/     # V11-V13 migrations
 
 apps/epistola/                  # UI layer
 └── loadtest/                   # LoadTestHandler, LoadTestRoutes
@@ -156,23 +156,29 @@ CREATE TABLE load_test_runs (
 );
 ```
 
-### load_test_requests
+### Request Details (via document_generation_requests)
 
-Stores detailed timing data for each request. Auto-deleted after 7 days.
+Load test request details are **not** duplicated in a separate table. Instead, they are queried directly from `document_generation_requests` using the `batch_id` link.
 
+**Benefits:**
+- Single source of truth (no data duplication)
+- Always accurate timing data (never stale)
+- Automatic cleanup via partition dropping (3 months retention)
+- 6MB saved per 10K-request load test
+
+Request details queried via:
 ```sql
-CREATE TABLE load_test_requests (
-    id UUID PRIMARY KEY,
-    run_id UUID NOT NULL REFERENCES load_test_runs(id) ON DELETE CASCADE,
-    sequence_number INTEGER NOT NULL,           -- 1 to target_count
-    started_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    duration_ms BIGINT,
-    success BOOLEAN NOT NULL,
-    error_message TEXT,
-    error_type VARCHAR(100),                    -- VALIDATION, TIMEOUT, CONFIGURATION, GENERATION
-    document_id UUID                            -- Reference (document is deleted after test)
-);
+SELECT
+    id,
+    created_at as started_at,
+    completed_at,
+    EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 as duration_ms,
+    CASE WHEN status = 'COMPLETED' THEN true ELSE false END as success,
+    error_message,
+    document_id,
+    ROW_NUMBER() OVER (ORDER BY created_at) as sequence_number
+FROM document_generation_requests
+WHERE batch_id = :batchId
 ```
 
 ## Configuration
@@ -189,8 +195,12 @@ epistola:
       interval-ms: 5000                         # Load test poller interval
       stale-timeout-minutes: 10                 # Recover stale RUNNING tests
     cleanup:
-      delete-documents-immediately: true        # Delete PDFs after metrics collected
-      requests-retention-days: 7                # Keep detailed request data for 7 days
+      runs-retention-days: 90                   # Keep load test run data for 90 days
+
+  # Request details are stored in document_generation_requests and cleaned
+  # automatically via partition dropping (3 months retention)
+  partitions:
+    retention-months: 3                         # Partition retention (affects request data)
 ```
 
 ### Production Recommendations
@@ -382,8 +392,8 @@ Start small and increase gradually:
 ### Cleanup
 
 - Load test documents are auto-deleted after metrics collection
-- Detailed request data is auto-deleted after 7 days
-- Aggregated metrics in `load_test_runs` are retained indefinitely
+- Request details (in `document_generation_requests`) are auto-deleted after 3 months via partition dropping
+- Aggregated metrics in `load_test_runs` are retained for 90 days (configurable)
 
 ## Performance Tuning
 

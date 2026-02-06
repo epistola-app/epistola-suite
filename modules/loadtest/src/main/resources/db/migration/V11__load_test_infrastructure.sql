@@ -16,6 +16,7 @@
 -- Track load test runs with aggregated results
 CREATE TABLE load_test_runs (
     id UUID PRIMARY KEY,
+    batch_id UUID UNIQUE,                       -- Links to document_generation_batches and document_generation_requests
     tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
     variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
@@ -45,6 +46,7 @@ CREATE TABLE load_test_runs (
     requests_per_second DOUBLE PRECISION,
     success_rate_percent DOUBLE PRECISION,
     error_summary JSONB,  -- {"ErrorType": count}
+    metrics JSONB,        -- Detailed metrics: {"avg_ms": 1234, "min_ms": 500, "max_ms": 5000, "p50_ms": 1100, "p95_ms": 2500, "p99_ms": 3200, "rps": 245.5}
 
     -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -66,61 +68,21 @@ CREATE TABLE load_test_runs (
 CREATE INDEX idx_load_test_runs_tenant_id ON load_test_runs(tenant_id);
 CREATE INDEX idx_load_test_runs_status ON load_test_runs(status);
 CREATE INDEX idx_load_test_runs_created_at ON load_test_runs(created_at DESC);
+CREATE INDEX idx_load_test_runs_batch_id ON load_test_runs(batch_id) WHERE batch_id IS NOT NULL;
 
 -- Index for efficient polling: find PENDING runs ordered by creation time
 CREATE INDEX idx_ltr_pending_poll ON load_test_runs(status, created_at)
     WHERE status = 'PENDING';
 
 -- ============================================================================
--- APPLICATION TABLES: LOAD TEST REQUESTS
--- ============================================================================
-
--- Track individual requests within a load test run (for debugging and detailed analysis)
--- Partitioned by started_at for efficient TTL enforcement via partition dropping
-CREATE TABLE load_test_requests (
-    id UUID NOT NULL,
-    run_id UUID NOT NULL,
-    sequence_number INTEGER NOT NULL,
-
-    -- Timing
-    started_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    completed_at TIMESTAMP WITH TIME ZONE,
-    duration_ms BIGINT,
-
-    -- Result
-    success BOOLEAN NOT NULL,
-    error_message TEXT,
-    error_type VARCHAR(100),
-    document_id UUID,  -- Reference to generated document (will be deleted after test)
-    PRIMARY KEY (id, started_at),
-
-    CONSTRAINT chk_ltr_duration CHECK (
-        (completed_at IS NOT NULL AND duration_ms IS NOT NULL)
-        OR (completed_at IS NULL AND duration_ms IS NULL)
-    ),
-    CONSTRAINT chk_ltr_sequence_positive CHECK (sequence_number > 0),
-    FOREIGN KEY (run_id) REFERENCES load_test_runs(id) ON DELETE CASCADE
-) PARTITION BY RANGE (started_at);
-
--- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
--- This avoids hardcoded dates and makes migrations truly date-agnostic
-
--- Indexes for load test request queries
-CREATE INDEX idx_load_test_requests_run_id ON load_test_requests(run_id);
-CREATE INDEX idx_ltr_duration ON load_test_requests(run_id, duration_ms) WHERE duration_ms IS NOT NULL;
-CREATE INDEX idx_ltr_sequence ON load_test_requests(run_id, sequence_number);
-
--- ============================================================================
 -- COMMENTS
 -- ============================================================================
 
-COMMENT ON TABLE load_test_runs IS 'Load test runs with aggregated performance metrics. IDs are client-provided UUIDv7.';
-COMMENT ON TABLE load_test_requests IS 'Individual requests within a load test run. Partitioned by started_at for efficient TTL enforcement via partition dropping.';
+COMMENT ON TABLE load_test_runs IS 'Load test runs with aggregated performance metrics. IDs are client-provided UUIDv7. Request details queried from document_generation_requests via batch_id (no duplication).';
 
+COMMENT ON COLUMN load_test_runs.batch_id IS 'Links to document_generation_batches.id and document_generation_requests.batch_id. Used to query request details directly from source (single source of truth).';
 COMMENT ON COLUMN load_test_runs.claimed_by IS 'Instance identifier (hostname-pid) that claimed this run for processing.';
 COMMENT ON COLUMN load_test_runs.claimed_at IS 'Timestamp when the run was claimed. Used for stale job recovery.';
 COMMENT ON COLUMN load_test_runs.test_data IS 'JSON data used for all document generation requests in this test.';
 COMMENT ON COLUMN load_test_runs.error_summary IS 'Map of error types to occurrence counts. Example: {"VALIDATION": 5, "TIMEOUT": 2}';
-
-COMMENT ON COLUMN load_test_requests.sequence_number IS '1-based sequence number within the test run (1 to target_count).';
-COMMENT ON COLUMN load_test_requests.document_id IS 'NULL for load tests (PDFs rendered to memory only, not saved to database).';
+COMMENT ON COLUMN load_test_runs.metrics IS 'Detailed performance metrics stored as JSONB. Example: {"avg_ms": 1234, "min_ms": 500, "max_ms": 5000, "p50_ms": 1100, "p95_ms": 2500, "p99_ms": 3200, "rps": 245.5, "success_rate_percent": 98.5}';

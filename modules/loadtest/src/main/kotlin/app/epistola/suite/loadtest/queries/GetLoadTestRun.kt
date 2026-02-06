@@ -28,15 +28,54 @@ class GetLoadTestRunHandler(
     override fun handle(query: GetLoadTestRun): LoadTestRun? = jdbi.withHandle<LoadTestRun?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, template_id, variant_id, version_id, environment_id,
-                   target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
-                   completed_count, failed_count, total_duration_ms, avg_response_time_ms,
-                   min_response_time_ms, max_response_time_ms, p50_response_time_ms,
-                   p95_response_time_ms, p99_response_time_ms, requests_per_second,
-                   success_rate_percent, error_summary, created_at, started_at, completed_at
-            FROM load_test_runs
-            WHERE id = :runId
-              AND tenant_id = :tenantId
+            SELECT
+                r.id,
+                r.batch_id,
+                r.tenant_id,
+                r.template_id,
+                r.variant_id,
+                r.version_id,
+                r.environment_id,
+                r.target_count,
+                r.concurrency_level,
+                r.test_data,
+                r.status,
+                r.claimed_by,
+                r.claimed_at,
+                r.total_duration_ms,
+                r.avg_response_time_ms,
+                r.min_response_time_ms,
+                r.max_response_time_ms,
+                r.p50_response_time_ms,
+                r.p95_response_time_ms,
+                r.p99_response_time_ms,
+                r.requests_per_second,
+                r.success_rate_percent,
+                r.error_summary,
+                r.metrics,
+                r.created_at,
+                r.started_at,
+                r.completed_at,
+                -- Calculate counts: use final counts if completed, else calculate from source
+                CASE
+                    WHEN r.status IN ('COMPLETED', 'FAILED', 'CANCELLED') THEN r.completed_count
+                    ELSE COALESCE((
+                        SELECT COUNT(*)
+                        FROM document_generation_requests
+                        WHERE batch_id = r.batch_id AND status = 'COMPLETED'
+                    ), 0)
+                END as completed_count,
+                CASE
+                    WHEN r.status IN ('COMPLETED', 'FAILED', 'CANCELLED') THEN r.failed_count
+                    ELSE COALESCE((
+                        SELECT COUNT(*)
+                        FROM document_generation_requests
+                        WHERE batch_id = r.batch_id AND status = 'FAILED'
+                    ), 0)
+                END as failed_count
+            FROM load_test_runs r
+            WHERE r.id = :runId
+              AND r.tenant_id = :tenantId
             """,
         )
             .bind("runId", query.runId)

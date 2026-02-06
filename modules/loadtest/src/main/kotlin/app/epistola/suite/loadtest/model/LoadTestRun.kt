@@ -1,5 +1,6 @@
 package app.epistola.suite.loadtest.model
 
+import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -21,6 +22,7 @@ import java.time.OffsetDateTime
  * Metric fields are nullable and populated after the test completes.
  *
  * @property id Unique load test run identifier
+ * @property batchId Links to document_generation_batches and document_generation_requests for request details
  * @property tenantId Tenant that owns this load test
  * @property templateId Template to use for document generation
  * @property variantId Variant of the template to use
@@ -44,12 +46,14 @@ import java.time.OffsetDateTime
  * @property requestsPerSecond Throughput (requests per second)
  * @property successRatePercent Success rate (0-100)
  * @property errorSummary Map of error types to counts
+ * @property metrics Detailed performance metrics (stored as JSONB in database)
  * @property createdAt When the load test was created
  * @property startedAt When the load test execution started
  * @property completedAt When the load test execution finished
  */
 data class LoadTestRun(
     val id: LoadTestRunId,
+    val batchId: BatchId?,
     val tenantId: TenantId,
     val templateId: TemplateId,
     val variantId: VariantId,
@@ -73,6 +77,7 @@ data class LoadTestRun(
     val requestsPerSecond: Double?,
     val successRatePercent: Double?,
     @Json val errorSummary: Map<String, Int>?,
+    @Json val metrics: Map<String, Any>?,
     val createdAt: OffsetDateTime,
     val startedAt: OffsetDateTime?,
     val completedAt: OffsetDateTime?,
