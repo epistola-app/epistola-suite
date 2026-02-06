@@ -3,6 +3,8 @@
  *
  * Uses morphdom for efficient DOM diffing - only updates what changed,
  * preserving focus, cursor position, and input values automatically.
+ *
+ * Expression editors use Stimulus.js controllers for lifecycle management.
  */
 
 import morphdom from "https://cdn.jsdelivr.net/npm/morphdom@2.7/+esm";
@@ -13,10 +15,7 @@ import {
   getBlockIcon,
   logCallback,
 } from "./dom-helpers.js";
-
-// morphdom is loaded globally via CDN in editor.html
-/* global morphdom */
-import { ExpressionEditor } from "../components/ExpressionEditor.js";
+import { log } from "../utils/editor-logger.js";
 
 export class BlockRenderer {
   /**
@@ -32,19 +31,14 @@ export class BlockRenderer {
       throw new Error(`Container element not found: ${containerId}`);
     }
     this.container = container;
-    this.expressionEditors = new Map();
   }
 
   destroy() {
-    for (const editor of this.expressionEditors.values()) {
-      editor.destroy();
-    }
-    this.expressionEditors.clear();
+    // Stimulus controllers handle their own cleanup via disconnect()
   }
 
   render() {
     const state = this.editor.getState();
-    const currentBlockIds = new Set();
 
     // Build the new DOM tree
     const newContainer = document.createElement("div");
@@ -58,14 +52,24 @@ export class BlockRenderer {
       );
     } else {
       for (const block of state.template.blocks) {
-        currentBlockIds.add(block.id);
         newContainer.appendChild(this._renderBlock(block));
       }
     }
 
     // Use morphdom to efficiently patch the DOM
+    // Stimulus controllers handle their own lifecycle via connect/disconnect
     morphdom(this.container, newContainer, {
       childrenOnly: true,
+      getNodeKey: (node) => {
+        // Match block elements by their block ID to preserve click handlers
+        if (node.nodeType === 1) {
+          const blockId = node.getAttribute("data-block-id");
+          if (blockId) return `block-${blockId}`;
+          const columnId = node.getAttribute("data-column-id");
+          if (columnId) return `col-${columnId}`;
+        }
+        return undefined;
+      },
       onBeforeElUpdated: (fromEl, toEl) => {
         // Don't update focused inputs/textareas - let user keep typing
         if (fromEl === document.activeElement) {
@@ -73,20 +77,23 @@ export class BlockRenderer {
             return false;
           }
         }
+        // Don't update Stimulus controller elements - they manage themselves
+        if (fromEl.dataset?.controller) {
+          const fromController = fromEl.dataset.controller;
+          const toController = toEl.dataset?.controller;
+          if (fromController === toController) {
+            // Sync Stimulus values without destroying the controller
+            for (const key in toEl.dataset) {
+              if (key.endsWith("Value") || key.startsWith("expressionEditor") || key.startsWith("textBlock")) {
+                fromEl.dataset[key] = toEl.dataset[key];
+              }
+            }
+            return false;
+          }
+        }
         return true;
       },
     });
-
-    this._cleanupDeletedEditors(Array.from(currentBlockIds));
-  }
-
-  _cleanupDeletedEditors(currentBlockIds) {
-    for (const [blockId, editor] of this.expressionEditors) {
-      if (!currentBlockIds.includes(blockId)) {
-        editor.destroy();
-        this.expressionEditors.delete(blockId);
-      }
-    }
   }
 
   renderState() {
@@ -206,27 +213,83 @@ export class BlockRenderer {
   }
 
   _renderTextContent(blockEl, block) {
-    const textarea = createElement("textarea", {
-      className: "form-control form-control-sm mt-2",
-      placeholder: "Enter text content...",
-      rows: "3",
-      "data-block-id": block.id,
-      onClick: (e) => e.stopPropagation(),
-      onInput: (e) => {
-        const text = e.target.value;
-        const tipTapContent = text
-          ? {
-              type: "doc",
-              content: [
-                { type: "paragraph", content: [{ type: "text", text }] },
-              ],
-            }
-          : null;
-        this.editor.updateBlock(block.id, { content: tipTapContent });
-      },
+    // Create Stimulus-controlled text block with expression chip support
+    const wrapper = createElement("div", {
+      className: "text-block-wrapper mt-2",
+      "data-controller": "text-block",
+      "data-text-block-block-id-value": block.id,
+      "data-text-block-content-value": block.content ? JSON.stringify(block.content) : "",
     });
-    textarea.value = this._extractTextFromTipTap(block.content);
-    blockEl.appendChild(textarea);
+
+    // Contenteditable editor
+    const editor = createElement("div", {
+      className: "form-control text-block-editor",
+      contentEditable: "true",
+      "data-text-block-target": "editor",
+      "data-action": "input->text-block#handleInput keydown->text-block#handleKeydown",
+      style: "min-height: 4rem;",
+      onClick: (e) => e.stopPropagation(),
+    });
+
+    // If no expression chips, show plain text as fallback
+    if (!block.content || !this._hasExpressionChips(block.content)) {
+      editor.textContent = this._extractTextFromTipTap(block.content);
+    }
+
+    wrapper.appendChild(editor);
+
+    // Expression chip edit popover
+    const popover = createElement("div", {
+      className: "expression-chip-popover",
+      "data-text-block-target": "popover",
+      style: "display: none;",
+    });
+
+    const popoverInput = createElement("input", {
+      type: "text",
+      className: "form-control form-control-sm expression-chip-popover-input",
+      placeholder: "Enter expression...",
+      "data-text-block-target": "popoverInput",
+      "data-action": "input->text-block#handlePopoverInput keydown->text-block#handlePopoverKeydown",
+    });
+    popover.appendChild(popoverInput);
+
+    const popoverPreview = createElement("div", {
+      className: "expression-popover-preview",
+      "data-text-block-target": "popoverPreview",
+    });
+    popover.appendChild(popoverPreview);
+
+    const popoverActions = createElement("div", {
+      className: "expression-chip-popover-actions",
+    });
+
+    const saveBtn = createElement("button", {
+      type: "button",
+      className: "btn btn-sm btn-primary",
+      textContent: "Save",
+      "data-action": "click->text-block#savePopover",
+    });
+    popoverActions.appendChild(saveBtn);
+
+    const cancelBtn = createElement("button", {
+      type: "button",
+      className: "btn btn-sm btn-secondary",
+      textContent: "Cancel",
+      "data-action": "click->text-block#cancelPopover",
+    });
+    popoverActions.appendChild(cancelBtn);
+
+    popover.appendChild(popoverActions);
+    wrapper.appendChild(popover);
+
+    blockEl.appendChild(wrapper);
+  }
+
+  _hasExpressionChips(content) {
+    if (!content) return false;
+    const text = this._extractTextFromTipTap(content);
+    return /\{\{[^}]+\}\}/.test(text);
   }
 
   /**
@@ -247,63 +310,6 @@ export class BlockRenderer {
     };
 
     return extractFromNode(content);
-  }
-
-  /**
-   * Get scope variables for a block's children context
-   * @param {string} blockId - The parent block ID
-   * @returns {Array<{name: string, type: string, arrayPath: string}>}
-   */
-  _getScopeVariables(blockId) {
-    const scopes = [];
-
-    const findParentLoops = (blocks, depth = 0) => {
-      if (depth > 10) return;
-
-      for (const block of blocks) {
-        if (block.type === "loop") {
-          scopes.push({
-            name: block.itemAlias || "item",
-            type: "loop-item",
-            arrayPath: block.expression?.raw || "",
-          });
-          if (block.indexAlias) {
-            scopes.push({
-              name: block.indexAlias,
-              type: "loop-index",
-              arrayPath: block.expression?.raw || "",
-            });
-          }
-        }
-
-        if (block.children && block.children.length > 0) {
-          findParentLoops(block.children, depth + 1);
-        }
-
-        if (block.columns) {
-          for (const col of block.columns) {
-            if (col.children && col.children.length > 0) {
-              findParentLoops(col.children, depth + 1);
-            }
-          }
-        }
-
-        if (block.rows) {
-          for (const row of block.rows) {
-            for (const cell of row.cells) {
-              if (cell.children && cell.children.length > 0) {
-                findParentLoops(cell.children, depth + 1);
-              }
-            }
-          }
-        }
-      }
-    };
-
-    const state = this.editor.getState();
-    findParentLoops(state.template.blocks);
-
-    return scopes;
   }
 
   _renderContainerContent(blockEl, block) {
@@ -329,42 +335,48 @@ export class BlockRenderer {
   }
 
   _renderConditionalContent(blockEl, block) {
-    const editorContainerId = `expr-editor-${block.id}`;
-    let editorContainer = blockEl.querySelector(`#${editorContainerId}`);
+    // Create Stimulus-controlled expression editor
+    const editorWrapper = createElement("div", {
+      className: "expression-editor mb-2",
+      "data-controller": "expression-editor",
+      "data-expression-editor-block-id-value": block.id,
+      "data-expression-editor-block-type-value": "conditional",
+      "data-expression-editor-expression-value": block.condition?.raw || "",
+    });
 
-    if (!editorContainer) {
-      editorContainer = createElement("div", {
-        id: editorContainerId,
-        className: "mb-2",
-      });
-      blockEl.appendChild(editorContainer);
-    }
+    const inputWrapper = createElement("div", {
+      className: "expression-editor-input-wrapper",
+    });
 
-    let editor = this.expressionEditors.get(block.id);
-    if (!editor) {
-      editor = new ExpressionEditor({
-        testData: this.editor.store.getTestData() || {},
-        scopeVariables: this._getScopeVariables(block.id),
-        onChange: (value) => {
-          this.editor.updateBlock(block.id, {
-            condition: { ...block.condition, raw: value },
-          });
-        },
-        onSave: (value) => {
-          this.editor.updateBlock(block.id, {
-            condition: { ...block.condition, raw: value },
-          });
-        },
-        onCancel: () => {},
-      });
-      editor.mount(editorContainer);
-      this.expressionEditors.set(block.id, editor);
-    }
+    const input = createElement("input", {
+      type: "text",
+      className: "form-control expression-editor-input",
+      placeholder: "e.g., customer.premium = true",
+      autocomplete: "off",
+      "data-expression-editor-target": "input",
+      "data-action":
+        "input->expression-editor#handleInput focus->expression-editor#handleFocus blur->expression-editor#handleBlur keydown->expression-editor#handleKeydown",
+      onClick: (e) => e.stopPropagation(),
+    });
+    input.value = block.condition?.raw || "";
+    inputWrapper.appendChild(input);
 
-    editor.setTestData(this.editor.store.getTestData() || {});
-    editor.setScopeVariables(this._getScopeVariables(block.id));
-    editor.setValue(block.condition?.raw || "");
-    editor.focus();
+    const dropdown = createElement("div", {
+      className: "expression-editor-dropdown",
+      "data-expression-editor-target": "dropdown",
+      style: "display: none;",
+    });
+    inputWrapper.appendChild(dropdown);
+
+    editorWrapper.appendChild(inputWrapper);
+
+    const preview = createElement("div", {
+      className: "expression-editor-preview",
+      "data-expression-editor-target": "preview",
+    });
+    editorWrapper.appendChild(preview);
+
+    blockEl.appendChild(editorWrapper);
 
     const checkbox = createElement("input", {
       type: "checkbox",
@@ -410,42 +422,48 @@ export class BlockRenderer {
   }
 
   _renderLoopContent(blockEl, block) {
-    const exprContainerId = `loop-expr-${block.id}`;
-    let exprContainer = blockEl.querySelector(`#${exprContainerId}`);
+    // Create Stimulus-controlled expression editor for loop array expression
+    const editorWrapper = createElement("div", {
+      className: "expression-editor mb-2",
+      "data-controller": "expression-editor",
+      "data-expression-editor-block-id-value": block.id,
+      "data-expression-editor-block-type-value": "loop",
+      "data-expression-editor-expression-value": block.expression?.raw || "",
+    });
 
-    if (!exprContainer) {
-      exprContainer = createElement("div", {
-        id: exprContainerId,
-        className: "mb-2",
-      });
-      blockEl.insertBefore(exprContainer, blockEl.querySelector(".row"));
-    }
+    const inputWrapper = createElement("div", {
+      className: "expression-editor-input-wrapper",
+    });
 
-    let exprEditor = this.expressionEditors.get(block.id);
-    if (!exprEditor) {
-      exprEditor = new ExpressionEditor({
-        testData: this.editor.store.getTestData() || {},
-        scopeVariables: this._getScopeVariables(block.id),
-        onChange: (value) => {
-          this.editor.updateBlock(block.id, {
-            expression: { ...block.expression, raw: value },
-          });
-        },
-        onSave: (value) => {
-          this.editor.updateBlock(block.id, {
-            expression: { ...block.expression, raw: value },
-          });
-        },
-        onCancel: () => {},
-      });
-      exprEditor.mount(exprContainer);
-      this.expressionEditors.set(block.id, exprEditor);
-    }
+    const input = createElement("input", {
+      type: "text",
+      className: "form-control expression-editor-input",
+      placeholder: "e.g., orders or customers.orders",
+      autocomplete: "off",
+      "data-expression-editor-target": "input",
+      "data-action":
+        "input->expression-editor#handleInput focus->expression-editor#handleFocus blur->expression-editor#handleBlur keydown->expression-editor#handleKeydown",
+      onClick: (e) => e.stopPropagation(),
+    });
+    input.value = block.expression?.raw || "";
+    inputWrapper.appendChild(input);
 
-    exprEditor.setTestData(this.editor.store.getTestData() || {});
-    exprEditor.setScopeVariables(this._getScopeVariables(block.id));
-    exprEditor.setValue(block.expression?.raw || "");
-    exprEditor.focus();
+    const dropdown = createElement("div", {
+      className: "expression-editor-dropdown",
+      "data-expression-editor-target": "dropdown",
+      style: "display: none;",
+    });
+    inputWrapper.appendChild(dropdown);
+
+    editorWrapper.appendChild(inputWrapper);
+
+    const preview = createElement("div", {
+      className: "expression-editor-preview",
+      "data-expression-editor-target": "preview",
+    });
+    editorWrapper.appendChild(preview);
+
+    blockEl.appendChild(editorWrapper);
 
     const itemAliasInput = createElement("input", {
       type: "text",
