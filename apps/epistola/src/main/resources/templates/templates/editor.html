@@ -724,12 +724,6 @@
         window.DEFAULT_THEME = /*[[${defaultTheme}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
         window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
-
-        // CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
-        window.getCsrfToken = function() {
-            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-            return match ? decodeURIComponent(match[1]) : '';
-        };
         /*]]>*/
     </script>
 
@@ -742,45 +736,61 @@
 
         let editorReady = false;
 
-        mountEditor({
-            container: container,
-            template: templateData,
-            dataExamples: dataExamples,
-            dataModel: dataModel,
-            themes: themes,
-            defaultTheme: defaultTheme,
-            onSave: async (template) => {
-                try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({ templateModel: template })
-                    });
-
-                    if (response.ok) {
-                        console.log('Draft saved successfully');
-                    } else {
-                        console.error('Failed to save draft:', response.statusText);
-                        alert('Failed to save draft. Please try again.');
-                    }
-                } catch (error) {
-                    console.error('Error saving draft:', error);
-                    alert('Error saving draft. Please try again.');
-                }
+        const editor = mountVanillaEditor({
+            container: 'editor-root',
+            template: window.TEMPLATE_MODEL,
+            onChange: () => {
+                if (editorReady) updateDirtyStatus();
             },
-            onSaveDataExamples: async (examples) => {
-                try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
-                        method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({ dataExamples: examples })
-                    });
+        });
+
+        editorReady = true;
+
+        // =========================================================================
+        // Initialize with server data
+        // =========================================================================
+        editor.setThemes(window.THEMES || []);
+        editor.setDefaultTheme(window.DEFAULT_THEME || null);
+        editor.setDataExamples(window.DATA_EXAMPLES || []);
+        if (window.DATA_MODEL) editor.setSchema(window.DATA_MODEL);
+
+        // Mark initial state as saved
+        editor.markAsSaved();
+
+        // =========================================================================
+        // Dirty state tracking
+        // =========================================================================
+        function updateDirtyStatus() {
+            if (editor.isDirty()) {
+                saveStatus.textContent = 'Unsaved changes';
+                saveStatus.className = 'save-status dirty';
+            }
+        }
+
+        // Warn before leaving with unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (editor.isDirty()) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // =========================================================================
+        // Save functionality
+        // =========================================================================
+        async function save() {
+            saveStatus.textContent = 'Saving…';
+            saveStatus.className = 'save-status saving';
+
+            try {
+                const response = await fetch(
+                    `/v1/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
+                    {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/vnd.epistola.v1+json' },
+                        body: JSON.stringify({ templateModel: editor.getTemplate() }),
+                    }
+                );
 
                 if (response.ok) {
                     editor.markAsSaved();
@@ -790,103 +800,19 @@
                     saveStatus.textContent = 'Save failed';
                     saveStatus.className = 'save-status error';
                 }
-            },
-            onUpdateDataExample: async (exampleId, updates, forceUpdate = false) => {
-                try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/data-examples/' + exampleId, {
-                        method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({ ...updates, forceUpdate: forceUpdate })
-                    });
+            } catch (err) {
+                saveStatus.textContent = 'Save error';
+                saveStatus.className = 'save-status error';
+                console.error('Save error:', err);
+            }
+        }
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log('Data example updated successfully');
-                        return {
-                            success: true,
-                            example: { id: data.id, name: data.name, data: data.data },
-                            warnings: data.warnings
-                        };
-                    } else {
-                        const errorData = await response.json().catch(() => ({}));
-                        console.error('Failed to update data example:', response.statusText);
-                        return { success: false, errors: errorData.errors };
-                    }
-                } catch (error) {
-                    console.error('Error updating data example:', error);
-                    return { success: false };
-                }
-            },
-            onDeleteDataExample: async (exampleId) => {
-                try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/data-examples/' + exampleId, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        }
-                    });
+        saveBtn.addEventListener('click', save);
 
-                    if (response.ok || response.status === 204) {
-                        console.log('Data example deleted successfully');
-                        return { success: true };
-                    } else {
-                        console.error('Failed to delete data example:', response.statusText);
-                        return { success: false };
-                    }
-                } catch (error) {
-                    console.error('Error deleting data example:', error);
-                    return { success: false };
-                }
-            },
-            onSaveSchema: async (schema, forceUpdate = false) => {
-                try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId, {
-                        method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({ dataModel: schema, forceUpdate: forceUpdate })
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log('Schema saved successfully');
-                        return { success: true, warnings: data.warnings };
-                    } else {
-                        console.error('Failed to save schema:', response.statusText);
-                        return { success: false };
-                    }
-                } catch (error) {
-                    console.error('Error saving schema:', error);
-                    return { success: false };
-                }
-            },
-            onValidateSchema: async (schema, examples) => {
-                try {
-                    const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/validate-schema', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({ schema: schema, examples: examples })
-                    });
-
-                    if (response.ok) {
-                        return await response.json();
-                    } else {
-                        console.error('Failed to validate schema:', response.statusText);
-                        return { compatible: false, errors: [{ path: '', message: 'Validation request failed' }], migrations: [] };
-                    }
-                } catch (error) {
-                    console.error('Error validating schema:', error);
-                    return { compatible: false, errors: [{ path: '', message: 'Validation request error' }], migrations: [] };
-                }
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                save();
             }
         });
 
