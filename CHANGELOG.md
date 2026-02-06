@@ -15,6 +15,7 @@
   - **UI Change**: Removed "Concurrency Level" field from load test form (no longer applicable with batch submission)
 
 ### Changed
+- **Improved load test results display**: Added proper CSS styling for metrics cards to display in a responsive grid layout. Cards now display in a clean grid instead of stacking vertically, with comprehensive styling for all UI components (progress bar, error summary, forms, alerts).
 - **Improved document generation performance**: Refactored JobPoller with drain loop pattern for faster throughput
   - Increased `max-concurrent-jobs` from 2 to 20 (10x parallelism)
   - Increased `max-batch-size` from 10 to 50 (claim more per poll)
