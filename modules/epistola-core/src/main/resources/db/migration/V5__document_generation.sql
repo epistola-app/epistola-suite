@@ -41,25 +41,8 @@ CREATE TABLE documents (
     FOREIGN KEY (variant_id, version_id) REFERENCES template_versions(variant_id, id) ON DELETE CASCADE
 ) PARTITION BY RANGE (created_at);
 
--- Create initial partitions (Nov 2024 through Aug 2026)
-CREATE TABLE documents_2024_11 PARTITION OF documents FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
-CREATE TABLE documents_2024_12 PARTITION OF documents FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
-CREATE TABLE documents_2025_01 PARTITION OF documents FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE documents_2025_02 PARTITION OF documents FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE documents_2025_03 PARTITION OF documents FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-CREATE TABLE documents_2025_04 PARTITION OF documents FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
-CREATE TABLE documents_2025_05 PARTITION OF documents FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
-CREATE TABLE documents_2025_06 PARTITION OF documents FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
-CREATE TABLE documents_2025_07 PARTITION OF documents FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
-CREATE TABLE documents_2025_08 PARTITION OF documents FOR VALUES FROM ('2025-08-01') TO ('2025-09-01');
-CREATE TABLE documents_2026_01 PARTITION OF documents FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
-CREATE TABLE documents_2026_02 PARTITION OF documents FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
-CREATE TABLE documents_2026_03 PARTITION OF documents FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
-CREATE TABLE documents_2026_04 PARTITION OF documents FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
-CREATE TABLE documents_2026_05 PARTITION OF documents FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
-CREATE TABLE documents_2026_06 PARTITION OF documents FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
-CREATE TABLE documents_2026_07 PARTITION OF documents FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-CREATE TABLE documents_2026_08 PARTITION OF documents FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
+-- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
+-- This avoids hardcoded dates and makes migrations truly date-agnostic
 
 -- Indexes for document queries
 CREATE INDEX idx_documents_tenant_id ON documents(tenant_id);
@@ -114,25 +97,8 @@ CREATE TABLE document_generation_requests (
         ON DELETE CASCADE
 ) PARTITION BY RANGE (created_at);
 
--- Create initial partitions (Nov 2024 through Aug 2026)
-CREATE TABLE document_generation_requests_2024_11 PARTITION OF document_generation_requests FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
-CREATE TABLE document_generation_requests_2024_12 PARTITION OF document_generation_requests FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
-CREATE TABLE document_generation_requests_2025_01 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE document_generation_requests_2025_02 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE document_generation_requests_2025_03 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-CREATE TABLE document_generation_requests_2025_04 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
-CREATE TABLE document_generation_requests_2025_05 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
-CREATE TABLE document_generation_requests_2025_06 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
-CREATE TABLE document_generation_requests_2025_07 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
-CREATE TABLE document_generation_requests_2025_08 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-08-01') TO ('2025-09-01');
-CREATE TABLE document_generation_requests_2026_01 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
-CREATE TABLE document_generation_requests_2026_02 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
-CREATE TABLE document_generation_requests_2026_03 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
-CREATE TABLE document_generation_requests_2026_04 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
-CREATE TABLE document_generation_requests_2026_05 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
-CREATE TABLE document_generation_requests_2026_06 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
-CREATE TABLE document_generation_requests_2026_07 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-CREATE TABLE document_generation_requests_2026_08 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
+-- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
+-- This avoids hardcoded dates and makes migrations truly date-agnostic
 
 -- Indexes for request queries
 CREATE INDEX idx_generation_requests_tenant_id ON document_generation_requests(tenant_id);

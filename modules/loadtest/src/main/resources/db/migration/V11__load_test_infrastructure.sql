@@ -102,25 +102,8 @@ CREATE TABLE load_test_requests (
     FOREIGN KEY (run_id) REFERENCES load_test_runs(id) ON DELETE CASCADE
 ) PARTITION BY RANGE (started_at);
 
--- Create initial partitions (Nov 2024 through Aug 2026)
-CREATE TABLE load_test_requests_2024_11 PARTITION OF load_test_requests FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
-CREATE TABLE load_test_requests_2024_12 PARTITION OF load_test_requests FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
-CREATE TABLE load_test_requests_2025_01 PARTITION OF load_test_requests FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
-CREATE TABLE load_test_requests_2025_02 PARTITION OF load_test_requests FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
-CREATE TABLE load_test_requests_2025_03 PARTITION OF load_test_requests FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
-CREATE TABLE load_test_requests_2025_04 PARTITION OF load_test_requests FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
-CREATE TABLE load_test_requests_2025_05 PARTITION OF load_test_requests FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
-CREATE TABLE load_test_requests_2025_06 PARTITION OF load_test_requests FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
-CREATE TABLE load_test_requests_2025_07 PARTITION OF load_test_requests FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
-CREATE TABLE load_test_requests_2025_08 PARTITION OF load_test_requests FOR VALUES FROM ('2025-08-01') TO ('2025-09-01');
-CREATE TABLE load_test_requests_2026_01 PARTITION OF load_test_requests FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
-CREATE TABLE load_test_requests_2026_02 PARTITION OF load_test_requests FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
-CREATE TABLE load_test_requests_2026_03 PARTITION OF load_test_requests FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
-CREATE TABLE load_test_requests_2026_04 PARTITION OF load_test_requests FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
-CREATE TABLE load_test_requests_2026_05 PARTITION OF load_test_requests FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
-CREATE TABLE load_test_requests_2026_06 PARTITION OF load_test_requests FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
-CREATE TABLE load_test_requests_2026_07 PARTITION OF load_test_requests FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
-CREATE TABLE load_test_requests_2026_08 PARTITION OF load_test_requests FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
+-- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
+-- This avoids hardcoded dates and makes migrations truly date-agnostic
 
 -- Indexes for load test request queries
 CREATE INDEX idx_load_test_requests_run_id ON load_test_requests(run_id);

@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.cleanup
 
+import jakarta.annotation.PostConstruct
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -14,8 +15,11 @@ import java.time.format.DateTimeFormatter
  * Scheduled maintenance for partitioned tables.
  *
  * This component runs periodic maintenance tasks to:
- * - Create future partitions (6 months ahead by default)
+ * - Create current month and next month partitions at startup (bootstrap)
+ * - Create next month's partition daily (1 month ahead)
  * - Drop old partitions (older than retention period)
+ *
+ * Runs daily at 2 AM for early failure detection (provides 30-day buffer to catch and fix issues).
  *
  * This enables instant TTL enforcement via partition dropping instead of slow DELETE operations.
  *
@@ -35,8 +39,6 @@ class PartitionMaintenanceScheduler(
     private val jdbi: Jdbi,
     @Value("\${epistola.partitions.retention-months:3}")
     private val retentionMonths: Int,
-    @Value("\${epistola.partitions.future-months:6}")
-    private val futureMonths: Int,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -47,17 +49,28 @@ class PartitionMaintenanceScheduler(
     )
 
     /**
-     * Run partition maintenance daily at 1 AM.
-     *
-     * Creates future partitions and drops old partitions for all configured tables.
+     * Initialize partitions at startup.
+     * Creates current month and next month partitions to bootstrap the system.
      */
-    @Scheduled(cron = "\${epistola.partitions.maintenance-cron:0 0 1 * * ?}")
+    @PostConstruct
+    fun initializePartitions() {
+        logger.info("Initializing partitions at startup")
+        maintainPartitions()
+    }
+
+    /**
+     * Run partition maintenance daily at 2 AM.
+     *
+     * Creates current and next month's partitions and drops old partitions for all configured tables.
+     * Daily execution provides early failure detection (30-day buffer to fix issues).
+     */
+    @Scheduled(cron = "\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
     fun maintainPartitions() {
-        logger.info("Starting partition maintenance (retention: {} months, future: {} months)", retentionMonths, futureMonths)
+        logger.info("Starting partition maintenance (retention: {} months)", retentionMonths)
 
         partitionConfigs.forEach { config ->
             try {
-                createFuturePartitions(config)
+                createRequiredPartitions(config)
                 dropOldPartitions(config)
             } catch (e: Exception) {
                 logger.error("Failed to maintain partitions for table {}: {}", config.tableName, e.message, e)
@@ -68,63 +81,68 @@ class PartitionMaintenanceScheduler(
     }
 
     /**
-     * Create partitions for future months if they don't exist.
+     * Create required partitions (current month + next month) if they don't exist.
+     *
+     * This is called at startup and daily to ensure we always have the necessary partitions.
+     * Provides 30-day buffer to detect and fix partition creation failures.
      */
-    private fun createFuturePartitions(config: PartitionConfig) {
+    private fun createRequiredPartitions(config: PartitionConfig) {
         val now = YearMonth.now()
-        var createdCount = 0
 
-        (1..futureMonths).forEach { monthsAhead ->
-            val month = now.plusMonths(monthsAhead.toLong())
-            val partitionName = "${config.tableName}_${month.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
-            val startDate = month.atDay(1)
-            val endDate = month.plusMonths(1).atDay(1)
+        // Create current month partition (needed immediately)
+        createPartitionForMonth(config, now)
 
-            try {
-                val created = jdbi.withHandle<Boolean, Exception> { handle ->
-                    // Check if partition already exists
-                    val exists = handle.createQuery(
+        // Create next month partition (buffer for month boundary)
+        createPartitionForMonth(config, now.plusMonths(1))
+    }
+
+    /**
+     * Create partition for a specific month if it doesn't exist.
+     */
+    private fun createPartitionForMonth(
+        config: PartitionConfig,
+        month: YearMonth,
+    ) {
+        val partitionName = "${config.tableName}_${month.format(DateTimeFormatter.ofPattern("yyyy_MM"))}"
+        val startDate = month.atDay(1)
+        val endDate = month.plusMonths(1).atDay(1)
+
+        try {
+            val exists = jdbi.withHandle<Boolean, Exception> { handle ->
+                handle.createQuery(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM pg_tables
+                        WHERE schemaname = 'public' AND tablename = :partitionName
+                    )
+                    """,
+                )
+                    .bind("partitionName", partitionName)
+                    .mapTo(Boolean::class.java)
+                    .one()
+            }
+
+            if (!exists) {
+                jdbi.useHandle<Exception> { handle ->
+                    handle.createUpdate(
                         """
-                        SELECT EXISTS (
-                            SELECT 1 FROM pg_tables
-                            WHERE schemaname = 'public' AND tablename = :partitionName
-                        )
+                        CREATE TABLE $partitionName
+                        PARTITION OF ${config.tableName}
+                        FOR VALUES FROM (:startDate) TO (:endDate)
                         """,
                     )
-                        .bind("partitionName", partitionName)
-                        .mapTo(Boolean::class.java)
-                        .one()
-
-                    if (!exists) {
-                        handle.createUpdate(
-                            """
-                            CREATE TABLE $partitionName
-                            PARTITION OF ${config.tableName}
-                            FOR VALUES FROM (:startDate) TO (:endDate)
-                            """,
-                        )
-                            .bind("startDate", startDate)
-                            .bind("endDate", endDate)
-                            .execute()
-                        true
-                    } else {
-                        false
-                    }
+                        .bind("startDate", startDate)
+                        .bind("endDate", endDate)
+                        .execute()
                 }
-
-                if (created) {
-                    createdCount++
-                    logger.info("Created partition: {}", partitionName)
-                }
-            } catch (e: Exception) {
-                logger.error("Failed to create partition {}: {}", partitionName, e.message, e)
+                logger.info("Created partition: {}", partitionName)
+            } else {
+                logger.debug("Partition already exists: {}", partitionName)
             }
-        }
-
-        if (createdCount > 0) {
-            logger.info("Created {} new partition(s) for table {}", createdCount, config.tableName)
-        } else {
-            logger.debug("No new partitions needed for table {}", config.tableName)
+        } catch (e: Exception) {
+            // This is critical - we need the partition!
+            logger.error("CRITICAL: Failed to create partition: {}", partitionName, e)
+            throw e
         }
     }
 

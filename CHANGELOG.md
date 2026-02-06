@@ -5,10 +5,12 @@
 ### Performance
 - **Table partitioning for efficient TTL enforcement**: Implemented PostgreSQL table partitioning with automatic partition dropping for instant cleanup
   - Partitioned tables: `documents`, `document_generation_requests`, `load_test_requests` (monthly RANGE partitions by created_at/started_at)
-  - `PartitionMaintenanceScheduler` automatically creates future partitions (6 months ahead) and drops old partitions (older than 3 months)
+  - `PartitionMaintenanceScheduler` creates next month's partition at start of current month (daily execution at 2 AM)
+  - Daily execution provides early failure detection (30-day buffer to catch and fix partition creation failures)
+  - Minimal bootstrap: migrations create only current + next month partitions (sustainable long-term)
   - Instant cleanup via `DROP TABLE` instead of slow DELETE operations on millions of rows
   - 30-50% query speedup from partition pruning
-  - Simple TTL enforcement via partition retention policy
+  - Simple TTL enforcement via partition retention policy (3 months default)
   - Configurable via `epistola.partitions.*` properties
 
 ### Changed
@@ -28,7 +30,7 @@
   - Runs table NOT partitioned (low volume aggregate data)
 - **Production configuration**: Added production-optimized settings in `application-prod.yaml`
   - Increased `max-concurrent-jobs` to 50 (from default 20)
-  - Configured partition retention (3 months) and future partition creation (6 months)
+  - Configured partition retention (3 months) and maintenance schedule (2 AM daily)
   - Configured load test runs retention (90 days)
   - 8-hour session timeout
 

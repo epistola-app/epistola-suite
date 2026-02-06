@@ -46,11 +46,8 @@ epistola:
     # Retain partitions for 3 months before dropping
     retention-months: 3
 
-    # Create partitions 6 months ahead
-    future-months: 6
-
-    # Run partition maintenance daily at 1 AM
-    maintenance-cron: "0 0 1 * * ?"
+    # Run partition maintenance daily at 2 AM (after other cleanups)
+    maintenance-cron: "0 0 2 * * ?"
 
   # Load test cleanup configuration
   loadtest:
