@@ -724,6 +724,10 @@
         window.DEFAULT_THEME = /*[[${defaultTheme}]]*/ null;
         window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
         window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
+        window.getCsrfToken = function() {
+            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
+        };
         /*]]>*/
     </script>
 
@@ -787,7 +791,10 @@
                     `/v1/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
                     {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/vnd.epistola.v1+json' },
+                        headers: {
+                            'Content-Type': 'application/vnd.epistola.v1+json',
+                            'X-XSRF-TOKEN': window.getCsrfToken(),
+                        },
                         body: JSON.stringify({ templateModel: editor.getTemplate() }),
                     }
                 );
@@ -1125,7 +1132,10 @@
                     `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/preview`,
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': window.getCsrfToken(),
+                        },
                         body: JSON.stringify({
                             data: testData,
                             templateModel: editor.getTemplate(),
