@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Load test documents now follow standard retention policy**: Removed immediate deletion of load test documents. Documents now follow the standard 30-day retention policy managed by DocumentCleanupScheduler, allowing proper inspection of generated documents.
+
 ### Performance
 - **Load test executor uses batch submission**: Replaced N individual `GenerateDocument` commands with single `GenerateDocumentBatch` call
   - 10-50x faster submission for large load tests (100+ documents)

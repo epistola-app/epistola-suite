@@ -137,9 +137,6 @@ class LoadTestExecutor(
         // Calculate and save metrics
         val metrics = calculateMetrics(requestResults, totalDurationMs)
         finalizeRun(run.id, metrics, completedCount, failedCount, wasCancelled)
-
-        // Delete load test documents
-        deleteLoadTestDocuments(run.id)
     }
 
     /**
@@ -540,34 +537,6 @@ class LoadTestExecutor(
         }
 
         logger.info("Finalized load test run {} with status {}", runId, wasCancelled)
-    }
-
-    /**
-     * Delete all documents generated during this load test.
-     */
-    private fun deleteLoadTestDocuments(runId: LoadTestRunId) {
-        val deleted = jdbi.withHandle<Int, Exception> { handle ->
-            handle.createUpdate(
-                """
-                DELETE FROM documents
-                WHERE correlation_id LIKE :pattern
-                """,
-            )
-                .bind("pattern", "loadtest-$runId-%")
-                .execute()
-        }
-
-        logger.info("Deleted {} load test documents for run {}", deleted, runId)
-    }
-
-    /**
-     * Classify exception into error type for metrics.
-     */
-    private fun classifyError(exception: Exception): String = when {
-        exception.message?.contains("validation", ignoreCase = true) == true -> "VALIDATION"
-        exception.message?.contains("timeout", ignoreCase = true) == true -> "TIMEOUT"
-        exception.message?.contains("not found", ignoreCase = true) == true -> "CONFIGURATION"
-        else -> "GENERATION"
     }
 
     /**
