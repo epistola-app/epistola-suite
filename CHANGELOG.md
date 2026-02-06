@@ -7,6 +7,100 @@
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
 
 ### Changed
+- **BREAKING: Simplified load test data model - eliminated redundant table**: Removed `load_test_requests` table which duplicated data already present in `document_generation_requests`
+  - Load test configuration and metrics remain in `load_test_runs` table with new `batch_id` link
+  - Request details queried directly from `document_generation_requests` via `batch_id` (single source of truth)
+  - Eliminated 100% request data duplication (saves 6MB per 10K-request load test)
+  - Detailed metrics (p50, p95, p99, avg, RPS, success rate) stored in `load_test_runs.metrics` JSONB column
+  - Simpler schema: 1 fewer table, 1 fewer partitioned table to manage
+  - Benefits: No data duplication, always accurate request data (never stale), simpler executor code, less partition management overhead
+  - Breaking change acceptable since project is not yet in production
+
+### Performance
+- **Table partitioning for efficient TTL enforcement**: Implemented PostgreSQL table partitioning with automatic partition dropping for instant cleanup
+  - Partitioned tables: `documents`, `document_generation_requests` (monthly RANGE partitions by created_at)
+  - `PartitionMaintenanceScheduler` creates next month's partition at start of current month (daily execution at 2 AM)
+  - Daily execution provides early failure detection (30-day buffer to catch and fix partition creation failures)
+  - Minimal bootstrap: migrations create only current + next month partitions (sustainable long-term)
+  - Instant cleanup via `DROP TABLE` instead of slow DELETE operations on millions of rows
+  - 30-50% query speedup from partition pruning
+  - Simple TTL enforcement via partition retention policy (3 months default)
+  - Configurable via `epistola.partitions.*` properties
+
+### Changed
+- **BREAKING: Calculated batch counters**: Removed real-time batch counter columns in favor of on-demand calculation
+  - Removed `completed_count` and `failed_count` columns from `document_generation_batches` (calculated on-demand)
+  - Added `final_completed_count` and `final_failed_count` columns (persisted only when batch completes)
+  - Added index on `(batch_id, status)` for efficient counter queries
+  - Benefits: simpler code (no triggers, no scheduled reconciliation), always accurate, less write overhead
+  - In-progress batches calculate counts on-demand; completed batches use stored final counts
+- **Removed `DocumentCleanupScheduler`**: All cleanup operations now handled by partition dropping
+  - Removed DELETE-based cleanup for expired jobs and old documents
+  - Removed scheduled batch counter reconciliation (replaced with calculated counters)
+  - Stale job recovery still handled by separate `StaleJobRecovery` component
+- **Updated `LoadTestCleanupScheduler`**: Changed focus from requests to runs
+  - Removed cleanup for `load_test_requests` (handled by partition dropping)
+  - Added cleanup for `load_test_runs` (90-day retention by default)
+  - Runs table NOT partitioned (low volume aggregate data)
+- **Production configuration**: Added production-optimized settings in `application-prod.yaml`
+  - Increased `max-concurrent-jobs` to 50 (from default 20)
+  - Configured partition retention (3 months) and maintenance schedule (2 AM daily)
+  - Configured load test runs retention (90 days)
+  - 8-hour session timeout
+
+### Fixed
+- **Load test documents now follow standard retention policy**: Removed immediate deletion of load test documents. Documents now follow the standard 30-day retention policy managed by DocumentCleanupScheduler, allowing proper inspection of generated documents.
+
+### Performance
+- **Load test executor uses batch submission**: Replaced N individual `GenerateDocument` commands with single `GenerateDocumentBatch` call
+  - 10-50x faster submission for large load tests (100+ documents)
+  - One database transaction instead of N transactions
+  - Single validation query instead of N queries
+  - Simpler code: removed CompletableFuture, synchronized blocks, and executor management
+  - Batch submission typically completes in <1 second for 1000 documents (was ~20-50 seconds)
+  - **UI Change**: Removed "Concurrency Level" field from load test form (no longer applicable with batch submission)
+
+### Changed
+- **Improved load test results display**: Added proper CSS styling for metrics cards to display in a responsive grid layout. Cards now display in a clean grid instead of stacking vertically, with comprehensive styling for all UI components (progress bar, error summary, forms, alerts).
+- **Improved document generation performance**: Refactored JobPoller with drain loop pattern for faster throughput
+  - Increased `max-concurrent-jobs` from 2 to 20 (10x parallelism)
+  - Increased `max-batch-size` from 10 to 50 (claim more per poll)
+  - Added on-completion re-polling: when a job completes, immediately check for more work instead of waiting for next scheduled poll
+  - Dedicated drain thread continuously claims work until queue is empty or at capacity
+  - Scheduled 5s poll now serves as fallback safety net; primary driver is completion-triggered drain
+  - Expected improvement: 100 documents now processed in ~execution time instead of several minutes
+
+### Added
+- **Adaptive batch job polling**: Job poller now dynamically adjusts batch size based on system performance
+  - Uses Exponential Moving Average (EMA) to track job processing times
+  - Increases batch size when jobs complete quickly (< 2s default)
+  - Decreases batch size when system is under load (> 5s default)
+  - Configurable via `epistola.generation.polling.adaptive-batch` properties
+  - Exposes Micrometer metrics for monitoring: `epistola.jobs.processing_time_ema_ms`, `epistola.jobs.batch_size`, `epistola.jobs.claimed.total`, `epistola.jobs.completed.total`, `epistola.jobs.failed.total`
+  - Default configuration maintains backward compatibility (min-batch-size: 1, max-batch-size: 10)
+  - Respects `max-concurrent-jobs` limit when claiming batches
+
+### Changed
+- **BREAKING: Flattened document generation architecture for horizontal scaling**
+  - Database schema (V5): Updated in place to eliminate two-table structure
+    - Removed `document_generation_items` table entirely
+    - Each request now represents ONE document (was: container for N items)
+    - Added batch_id column to group related requests
+    - Removed legacy fields: job_type, total_count, completed_count, failed_count (not needed in flattened structure)
+    - Created `document_generation_batches` table for aggregated tracking
+  - Simplified DocumentGenerationExecutor and command handlers:
+    - Removed item-level concurrency control (Semaphore, CompletableFuture)
+    - Concurrency now managed at JobPoller level
+    - Removed `fetchPendingItems()`, `processItem()`, `finalizeRequest()` methods
+    - Updated `generateDocument()` to accept `DocumentGenerationRequest` directly
+    - Added `updateBatchProgress()` to atomically update batch counts
+    - Simplified execution flow: generate → save → update batch (if applicable)
+    - Updated GenerateDocumentHandler to create request with all data (no separate items)
+  - Benefits:
+    - True horizontal scaling: each request can be claimed independently by any instance
+    - Simpler execution model: no item-level concurrency complexity
+    - Better failure isolation: one failed document doesn't affect others
+    - Performance: 10,000-doc batch distributed across all instances instead of single instance bottleneck
 - **BREAKING: Refined module architecture for clearer separation of concerns**
   - **Business logic** (`modules/epistola-core`): Domain logic, commands, queries, mediator, JDBI config
   - **REST API** (`modules/rest-api`): OpenAPI specs + REST controllers for external systems

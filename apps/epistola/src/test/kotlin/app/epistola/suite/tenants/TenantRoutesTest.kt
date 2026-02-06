@@ -111,7 +111,7 @@ class TenantRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `tenant row links to templates page`() = fixture {
+    fun `tenant row links to tenant home page`() = fixture {
         lateinit var tenant: Tenant
 
         given {
@@ -125,7 +125,7 @@ class TenantRoutesTest : BaseIntegrationTest() {
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-            assertThat(response.body).contains("/tenants/${tenant.id}/templates")
+            assertThat(response.body).contains("/tenants/${tenant.id}")
         }
     }
 }

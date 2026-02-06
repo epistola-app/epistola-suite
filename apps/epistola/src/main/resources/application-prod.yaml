@@ -16,10 +16,44 @@ spring:
             issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
             user-name-attribute: preferred_username
 
+  # Session configuration
+  session:
+    timeout: 8h
+
 epistola:
   auth:
     provider: keycloak
     registration-id: keycloak
     auto-provision: true
+
   demo:
     enabled: false  # Disable demo loading in production
+
+  # Document generation configuration
+  generation:
+    polling:
+      # Scale up concurrent jobs for production throughput
+      max-concurrent-jobs: 50
+
+      # Consider jobs stale after 15 minutes
+      stale-timeout-minutes: 15
+
+  # Partition maintenance configuration
+  partitions:
+    # Enable partition maintenance
+    enabled: true
+
+    # Retain partitions for 3 months before dropping
+    retention-months: 3
+
+    # Run partition maintenance daily at 2 AM (after other cleanups)
+    maintenance-cron: "0 0 2 * * ?"
+
+  # Load test cleanup configuration
+  loadtest:
+    cleanup:
+      # Retain load test run metrics for 90 days
+      runs-retention-days: 90
+
+      # Run cleanup daily at 3 AM
+      cron: "0 0 3 * * ?"

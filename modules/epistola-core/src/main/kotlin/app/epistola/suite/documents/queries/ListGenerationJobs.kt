@@ -32,9 +32,9 @@ class ListGenerationJobsHandler(
     override fun handle(query: ListGenerationJobs): List<DocumentGenerationRequest> = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_id, job_type, status, claimed_by, claimed_at,
-                   total_count, completed_count, failed_count, error_message,
-                   created_at, started_at, completed_at, expires_at
+            SELECT id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
+                   data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+                   error_message, created_at, started_at, completed_at, expires_at
             FROM document_generation_requests
             WHERE tenant_id = :tenantId
             """,
