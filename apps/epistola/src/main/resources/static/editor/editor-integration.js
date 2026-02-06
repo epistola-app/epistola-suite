@@ -3,6 +3,8 @@
  *
  * Wires the headless editor core with DOM adapters.
  * Import this module and call mountVanillaEditor() to bootstrap.
+ *
+ * Exposes window.__editor and window.__editorTestData for Stimulus controllers.
  */
 
 import { TemplateEditor, defaultBlockDefinitions } from '/headless-editor/headless-editor.js';
@@ -43,6 +45,16 @@ export function mountVanillaEditor(options) {
     },
   });
 
+  // =========================================================================
+  // Global state bridge for Stimulus controllers
+  // =========================================================================
+  window.__editorTestData = editor.store.getTestData() || {};
+
+  // Subscribe to test data changes
+  editor.subscribe(() => {
+    window.__editorTestData = editor.store.getTestData() || {};
+  });
+
   const renderer = new BlockRenderer(editor, container.id, options.debug);
   const sortableAdapter = new SortableAdapter(editor, container.id);
 
@@ -65,10 +77,13 @@ export function mountVanillaEditor(options) {
 
   render();
 
-  return {
+  // Create the public API object
+  const publicApi = {
     // Debug access to internal state
     getState: () => editor.getState(),
     subscribe: (callback) => editor.subscribe(callback),
+    // Internal editor reference for Stimulus controllers
+    store: editor.store,
 
     getTemplate: () => editor.getTemplate(),
     setTemplate: (template) => {
@@ -143,4 +158,9 @@ export function mountVanillaEditor(options) {
       render();
     },
   };
+
+  // Expose editor globally for Stimulus controllers
+  window.__editor = publicApi;
+
+  return publicApi;
 }
