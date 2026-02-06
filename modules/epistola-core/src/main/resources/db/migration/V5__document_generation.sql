@@ -17,11 +17,12 @@
 -- ============================================================================
 
 -- Generated documents stored in PostgreSQL BYTEA
+-- Partitioned by created_at for efficient TTL enforcement via partition dropping
 CREATE TABLE documents (
-    id UUID PRIMARY KEY,
-    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    id UUID NOT NULL,
+    tenant_id VARCHAR(63) NOT NULL,
+    template_id VARCHAR(50) NOT NULL,
+    variant_id VARCHAR(50) NOT NULL,
     version_id INTEGER NOT NULL,
     filename VARCHAR(255) NOT NULL,
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
@@ -30,11 +31,35 @@ CREATE TABLE documents (
     content BYTEA NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by VARCHAR(255),  -- Future: user ID from Keycloak
+    PRIMARY KEY (id, created_at),
 
     CONSTRAINT chk_documents_filename_not_empty CHECK (LENGTH(filename) > 0),
     CONSTRAINT chk_documents_size_positive CHECK (size_bytes > 0),
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+    FOREIGN KEY (template_id) REFERENCES document_templates(id) ON DELETE CASCADE,
+    FOREIGN KEY (variant_id) REFERENCES template_variants(id) ON DELETE CASCADE,
     FOREIGN KEY (variant_id, version_id) REFERENCES template_versions(variant_id, id) ON DELETE CASCADE
-);
+) PARTITION BY RANGE (created_at);
+
+-- Create initial partitions (Nov 2024 through Aug 2026)
+CREATE TABLE documents_2024_11 PARTITION OF documents FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
+CREATE TABLE documents_2024_12 PARTITION OF documents FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
+CREATE TABLE documents_2025_01 PARTITION OF documents FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE documents_2025_02 PARTITION OF documents FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE documents_2025_03 PARTITION OF documents FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+CREATE TABLE documents_2025_04 PARTITION OF documents FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
+CREATE TABLE documents_2025_05 PARTITION OF documents FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
+CREATE TABLE documents_2025_06 PARTITION OF documents FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
+CREATE TABLE documents_2025_07 PARTITION OF documents FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
+CREATE TABLE documents_2025_08 PARTITION OF documents FOR VALUES FROM ('2025-08-01') TO ('2025-09-01');
+CREATE TABLE documents_2026_01 PARTITION OF documents FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+CREATE TABLE documents_2026_02 PARTITION OF documents FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+CREATE TABLE documents_2026_03 PARTITION OF documents FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+CREATE TABLE documents_2026_04 PARTITION OF documents FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
+CREATE TABLE documents_2026_05 PARTITION OF documents FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
+CREATE TABLE documents_2026_06 PARTITION OF documents FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
+CREATE TABLE documents_2026_07 PARTITION OF documents FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+CREATE TABLE documents_2026_08 PARTITION OF documents FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
 
 -- Indexes for document queries
 CREATE INDEX idx_documents_tenant_id ON documents(tenant_id);
@@ -50,18 +75,19 @@ CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id
 -- Track document generation jobs.
 -- Each request represents ONE document to generate.
 -- Multiple requests can be grouped via batch_id for batch operations.
+-- Partitioned by created_at for efficient TTL enforcement via partition dropping
 CREATE TABLE document_generation_requests (
-    id UUID PRIMARY KEY,
+    id UUID NOT NULL,
     batch_id UUID,  -- Groups related requests. NULL for single-document requests.
-    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    template_id VARCHAR(50) NOT NULL REFERENCES document_templates(id) ON DELETE CASCADE,
-    variant_id VARCHAR(50) NOT NULL REFERENCES template_variants(id) ON DELETE CASCADE,
+    tenant_id VARCHAR(63) NOT NULL,
+    template_id VARCHAR(50) NOT NULL,
+    variant_id VARCHAR(50) NOT NULL,
     version_id INTEGER,  -- NULL = use environment to determine version
-    environment_id VARCHAR(30) REFERENCES environments(id) ON DELETE CASCADE,  -- NULL = use version_id directly
+    environment_id VARCHAR(30),
     data JSONB NOT NULL,
     filename VARCHAR(255),
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
-    document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
+    document_id UUID,  -- Note: FK to documents removed due to composite PK complexity
     status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'CANCELLED')),
     claimed_by VARCHAR(255),                    -- Instance identifier that claimed this job
     claimed_at TIMESTAMP WITH TIME ZONE,        -- When the job was claimed
@@ -70,18 +96,43 @@ CREATE TABLE document_generation_requests (
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE,  -- For auto-cleanup
+    PRIMARY KEY (id, created_at),
 
     -- Ensure either version_id OR environment_id is set, not both
     CONSTRAINT chk_requests_version_or_environment CHECK (
         (version_id IS NOT NULL AND environment_id IS NULL)
         OR (version_id IS NULL AND environment_id IS NOT NULL)
     ),
+    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+    FOREIGN KEY (template_id) REFERENCES document_templates(id) ON DELETE CASCADE,
+    FOREIGN KEY (variant_id) REFERENCES template_variants(id) ON DELETE CASCADE,
+    FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE,
     -- Foreign key to template_versions when version_id is specified
     CONSTRAINT fk_requests_variant_version
         FOREIGN KEY (variant_id, version_id)
         REFERENCES template_versions(variant_id, id)
         ON DELETE CASCADE
-);
+) PARTITION BY RANGE (created_at);
+
+-- Create initial partitions (Nov 2024 through Aug 2026)
+CREATE TABLE document_generation_requests_2024_11 PARTITION OF document_generation_requests FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
+CREATE TABLE document_generation_requests_2024_12 PARTITION OF document_generation_requests FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
+CREATE TABLE document_generation_requests_2025_01 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE document_generation_requests_2025_02 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE document_generation_requests_2025_03 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+CREATE TABLE document_generation_requests_2025_04 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
+CREATE TABLE document_generation_requests_2025_05 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
+CREATE TABLE document_generation_requests_2025_06 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
+CREATE TABLE document_generation_requests_2025_07 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
+CREATE TABLE document_generation_requests_2025_08 PARTITION OF document_generation_requests FOR VALUES FROM ('2025-08-01') TO ('2025-09-01');
+CREATE TABLE document_generation_requests_2026_01 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+CREATE TABLE document_generation_requests_2026_02 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+CREATE TABLE document_generation_requests_2026_03 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+CREATE TABLE document_generation_requests_2026_04 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
+CREATE TABLE document_generation_requests_2026_05 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
+CREATE TABLE document_generation_requests_2026_06 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
+CREATE TABLE document_generation_requests_2026_07 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+CREATE TABLE document_generation_requests_2026_08 PARTITION OF document_generation_requests FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
 
 -- Indexes for request queries
 CREATE INDEX idx_generation_requests_tenant_id ON document_generation_requests(tenant_id);
@@ -101,25 +152,26 @@ CREATE INDEX idx_generation_requests_created_at ON document_generation_requests(
 CREATE INDEX idx_dgr_pending_poll ON document_generation_requests(status, created_at)
     WHERE status = 'PENDING';
 
+-- Index for efficient batch counter queries (used for calculated counters)
+CREATE INDEX idx_dgr_batch_status ON document_generation_requests(batch_id, status)
+    WHERE batch_id IS NOT NULL;
+
 -- ============================================================================
 -- APPLICATION TABLES: BATCH METADATA (FOR AGGREGATIONS)
 -- ============================================================================
 
--- Track batch-level metadata and aggregated counts.
--- Updated atomically as individual requests complete.
+-- Track batch-level metadata.
+-- Counts are calculated on-demand for in-progress batches, finalized when batch completes.
 CREATE TABLE document_generation_batches (
     id UUID PRIMARY KEY,
     tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     total_count INTEGER NOT NULL,
-    completed_count INTEGER NOT NULL DEFAULT 0,
-    failed_count INTEGER NOT NULL DEFAULT 0,
+    final_completed_count INTEGER,  -- Set when batch completes. NULL for in-progress batches.
+    final_failed_count INTEGER,     -- Set when batch completes. NULL for in-progress batches.
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
 
-    CONSTRAINT chk_batches_total_count_positive CHECK (total_count > 0),
-    CONSTRAINT chk_batches_completed_count_non_negative CHECK (completed_count >= 0),
-    CONSTRAINT chk_batches_failed_count_non_negative CHECK (failed_count >= 0),
-    CONSTRAINT chk_batches_count_sum CHECK (completed_count + failed_count <= total_count)
+    CONSTRAINT chk_batches_total_count_positive CHECK (total_count > 0)
 );
 
 CREATE INDEX idx_generation_batches_tenant_id ON document_generation_batches(tenant_id);
@@ -129,9 +181,9 @@ CREATE INDEX idx_generation_batches_created_at ON document_generation_batches(cr
 -- COMMENTS
 -- ============================================================================
 
-COMMENT ON TABLE documents IS 'Generated documents stored as BYTEA. IDs are client-provided UUIDv7.';
-COMMENT ON TABLE document_generation_requests IS 'Document generation requests. Each request generates ONE document. Use batch_id to group related requests. IDs are client-provided UUIDv7.';
-COMMENT ON TABLE document_generation_batches IS 'Batch metadata and aggregated counts. Updated as individual requests complete.';
+COMMENT ON TABLE documents IS 'Generated documents stored as BYTEA. Partitioned by created_at for efficient TTL enforcement via partition dropping. IDs are client-provided UUIDv7.';
+COMMENT ON TABLE document_generation_requests IS 'Document generation requests. Partitioned by created_at for efficient TTL enforcement via partition dropping. Each request generates ONE document. Use batch_id to group related requests. IDs are client-provided UUIDv7.';
+COMMENT ON TABLE document_generation_batches IS 'Batch metadata. Counts are calculated on-demand for in-progress batches, finalized when batch completes.';
 
 COMMENT ON COLUMN documents.content IS 'PDF content stored as BYTEA. Future: migrate to object storage.';
 COMMENT ON COLUMN documents.created_by IS 'User ID from Keycloak. Not yet implemented.';
@@ -144,3 +196,7 @@ COMMENT ON COLUMN document_generation_requests.correlation_id IS 'Client-provide
 COMMENT ON COLUMN document_generation_requests.document_id IS 'Generated document. Set when request completes successfully.';
 COMMENT ON COLUMN document_generation_requests.claimed_by IS 'Instance identifier (hostname-pid) that claimed this job for processing.';
 COMMENT ON COLUMN document_generation_requests.claimed_at IS 'Timestamp when the job was claimed. Used for stale job recovery.';
+COMMENT ON COLUMN document_generation_requests.document_id IS 'Generated document ID. Note: No FK due to documents table composite PK (id, created_at). Referential integrity enforced at application level.';
+
+COMMENT ON COLUMN document_generation_batches.final_completed_count IS 'Final count of completed requests. Set when batch completes. NULL for in-progress batches.';
+COMMENT ON COLUMN document_generation_batches.final_failed_count IS 'Final count of failed requests. Set when batch completes. NULL for in-progress batches.';

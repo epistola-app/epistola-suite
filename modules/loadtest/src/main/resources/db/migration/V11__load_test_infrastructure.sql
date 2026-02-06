@@ -76,9 +76,10 @@ CREATE INDEX idx_ltr_pending_poll ON load_test_runs(status, created_at)
 -- ============================================================================
 
 -- Track individual requests within a load test run (for debugging and detailed analysis)
+-- Partitioned by started_at for efficient TTL enforcement via partition dropping
 CREATE TABLE load_test_requests (
-    id UUID PRIMARY KEY,
-    run_id UUID NOT NULL REFERENCES load_test_runs(id) ON DELETE CASCADE,
+    id UUID NOT NULL,
+    run_id UUID NOT NULL,
     sequence_number INTEGER NOT NULL,
 
     -- Timing
@@ -91,13 +92,35 @@ CREATE TABLE load_test_requests (
     error_message TEXT,
     error_type VARCHAR(100),
     document_id UUID,  -- Reference to generated document (will be deleted after test)
+    PRIMARY KEY (id, started_at),
 
     CONSTRAINT chk_ltr_duration CHECK (
         (completed_at IS NOT NULL AND duration_ms IS NOT NULL)
         OR (completed_at IS NULL AND duration_ms IS NULL)
     ),
-    CONSTRAINT chk_ltr_sequence_positive CHECK (sequence_number > 0)
-);
+    CONSTRAINT chk_ltr_sequence_positive CHECK (sequence_number > 0),
+    FOREIGN KEY (run_id) REFERENCES load_test_runs(id) ON DELETE CASCADE
+) PARTITION BY RANGE (started_at);
+
+-- Create initial partitions (Nov 2024 through Aug 2026)
+CREATE TABLE load_test_requests_2024_11 PARTITION OF load_test_requests FOR VALUES FROM ('2024-11-01') TO ('2024-12-01');
+CREATE TABLE load_test_requests_2024_12 PARTITION OF load_test_requests FOR VALUES FROM ('2024-12-01') TO ('2025-01-01');
+CREATE TABLE load_test_requests_2025_01 PARTITION OF load_test_requests FOR VALUES FROM ('2025-01-01') TO ('2025-02-01');
+CREATE TABLE load_test_requests_2025_02 PARTITION OF load_test_requests FOR VALUES FROM ('2025-02-01') TO ('2025-03-01');
+CREATE TABLE load_test_requests_2025_03 PARTITION OF load_test_requests FOR VALUES FROM ('2025-03-01') TO ('2025-04-01');
+CREATE TABLE load_test_requests_2025_04 PARTITION OF load_test_requests FOR VALUES FROM ('2025-04-01') TO ('2025-05-01');
+CREATE TABLE load_test_requests_2025_05 PARTITION OF load_test_requests FOR VALUES FROM ('2025-05-01') TO ('2025-06-01');
+CREATE TABLE load_test_requests_2025_06 PARTITION OF load_test_requests FOR VALUES FROM ('2025-06-01') TO ('2025-07-01');
+CREATE TABLE load_test_requests_2025_07 PARTITION OF load_test_requests FOR VALUES FROM ('2025-07-01') TO ('2025-08-01');
+CREATE TABLE load_test_requests_2025_08 PARTITION OF load_test_requests FOR VALUES FROM ('2025-08-01') TO ('2025-09-01');
+CREATE TABLE load_test_requests_2026_01 PARTITION OF load_test_requests FOR VALUES FROM ('2026-01-01') TO ('2026-02-01');
+CREATE TABLE load_test_requests_2026_02 PARTITION OF load_test_requests FOR VALUES FROM ('2026-02-01') TO ('2026-03-01');
+CREATE TABLE load_test_requests_2026_03 PARTITION OF load_test_requests FOR VALUES FROM ('2026-03-01') TO ('2026-04-01');
+CREATE TABLE load_test_requests_2026_04 PARTITION OF load_test_requests FOR VALUES FROM ('2026-04-01') TO ('2026-05-01');
+CREATE TABLE load_test_requests_2026_05 PARTITION OF load_test_requests FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
+CREATE TABLE load_test_requests_2026_06 PARTITION OF load_test_requests FOR VALUES FROM ('2026-06-01') TO ('2026-07-01');
+CREATE TABLE load_test_requests_2026_07 PARTITION OF load_test_requests FOR VALUES FROM ('2026-07-01') TO ('2026-08-01');
+CREATE TABLE load_test_requests_2026_08 PARTITION OF load_test_requests FOR VALUES FROM ('2026-08-01') TO ('2026-09-01');
 
 -- Indexes for load test request queries
 CREATE INDEX idx_load_test_requests_run_id ON load_test_requests(run_id);
@@ -109,7 +132,7 @@ CREATE INDEX idx_ltr_sequence ON load_test_requests(run_id, sequence_number);
 -- ============================================================================
 
 COMMENT ON TABLE load_test_runs IS 'Load test runs with aggregated performance metrics. IDs are client-provided UUIDv7.';
-COMMENT ON TABLE load_test_requests IS 'Individual requests within a load test run. Auto-deleted after 7 days.';
+COMMENT ON TABLE load_test_requests IS 'Individual requests within a load test run. Partitioned by started_at for efficient TTL enforcement via partition dropping.';
 
 COMMENT ON COLUMN load_test_runs.claimed_by IS 'Instance identifier (hostname-pid) that claimed this run for processing.';
 COMMENT ON COLUMN load_test_runs.claimed_at IS 'Timestamp when the run was claimed. Used for stale job recovery.';

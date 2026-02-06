@@ -69,9 +69,9 @@ class DocumentGenerationExecutor(
             // Save document and mark request as completed
             saveDocumentAndMarkCompleted(request.id, document)
 
-            // Update batch progress if this request is part of a batch
+            // Check if batch is complete and finalize if so
             request.batchId?.let { batchId ->
-                updateBatchProgress(batchId)
+                finalizeBatchIfComplete(batchId)
             }
 
             logger.info("Request {} completed successfully: document {}", request.id.value, document.id.value)
@@ -79,9 +79,9 @@ class DocumentGenerationExecutor(
             logger.error("Failed to process request {}: {}", request.id.value, e.message, e)
             markRequestFailed(request.id, e.message ?: "Unknown error")
 
-            // Update batch progress even on failure
+            // Check if batch is complete even on failure
             request.batchId?.let { batchId ->
-                updateBatchProgress(batchId)
+                finalizeBatchIfComplete(batchId)
             }
         }
     }
@@ -252,44 +252,78 @@ class DocumentGenerationExecutor(
     }
 
     /**
-     * Update batch progress by incrementing completed/failed counts.
-     *
-     * Atomically increments counts and sets completed_at when all requests are done.
-     * Uses a single UPDATE with aggregate query for consistency.
+     * Calculate current batch counts on-demand.
      */
-    private fun updateBatchProgress(batchId: BatchId) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE document_generation_batches b
-                SET
-                    completed_count = (
-                        SELECT COUNT(*)
-                        FROM document_generation_requests
-                        WHERE batch_id = :batchId AND status = 'COMPLETED'
-                    ),
-                    failed_count = (
-                        SELECT COUNT(*)
-                        FROM document_generation_requests
-                        WHERE batch_id = :batchId AND status = 'FAILED'
-                    ),
-                    completed_at = CASE
-                        WHEN (
-                            SELECT COUNT(*)
-                            FROM document_generation_requests
-                            WHERE batch_id = :batchId
-                              AND status IN ('COMPLETED', 'FAILED')
-                        ) = b.total_count
-                        THEN NOW()
-                        ELSE b.completed_at
-                    END
-                WHERE b.id = :batchId
-                """,
-            )
-                .bind("batchId", batchId)
-                .execute()
-        }
+    private data class BatchCounts(
+        val completed: Int,
+        val failed: Int,
+        val pending: Int,
+        val inProgress: Int,
+    ) {
+        val total: Int get() = completed + failed + pending + inProgress
+        val isComplete: Boolean get() = pending == 0 && inProgress == 0
+    }
 
-        logger.debug("Updated batch progress for batch {}", batchId.value)
+    private fun getBatchCounts(batchId: BatchId): BatchCounts = jdbi.withHandle<BatchCounts, Exception> { handle ->
+        val results = handle.createQuery(
+            """
+                SELECT
+                    status,
+                    COUNT(*) as count
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
+                GROUP BY status
+                """,
+        )
+            .bind("batchId", batchId)
+            .map { rs, _ -> rs.getString("status") to rs.getInt("count") }
+            .list()
+            .toMap()
+
+        BatchCounts(
+            completed = results["COMPLETED"] ?: 0,
+            failed = results["FAILED"] ?: 0,
+            pending = results["PENDING"] ?: 0,
+            inProgress = results["IN_PROGRESS"] ?: 0,
+        )
+    }
+
+    /**
+     * Check if batch is complete and finalize if so.
+     *
+     * Calculates final counts and stores them when all requests are done.
+     * Only finalizes once (idempotent - checks completed_at IS NULL).
+     */
+    private fun finalizeBatchIfComplete(batchId: BatchId) {
+        val counts = getBatchCounts(batchId)
+
+        if (counts.isComplete) {
+            jdbi.useHandle<Exception> { handle ->
+                val updated = handle.createUpdate(
+                    """
+                    UPDATE document_generation_batches
+                    SET
+                        final_completed_count = :completed,
+                        final_failed_count = :failed,
+                        completed_at = NOW()
+                    WHERE id = :batchId
+                      AND completed_at IS NULL
+                    """,
+                )
+                    .bind("batchId", batchId)
+                    .bind("completed", counts.completed)
+                    .bind("failed", counts.failed)
+                    .execute()
+
+                if (updated > 0) {
+                    logger.info(
+                        "Batch {} completed: {} succeeded, {} failed",
+                        batchId.value,
+                        counts.completed,
+                        counts.failed,
+                    )
+                }
+            }
+        }
     }
 }

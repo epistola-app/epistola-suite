@@ -12,41 +12,43 @@ import java.time.OffsetDateTime
  * Scheduled cleanup jobs for load test data.
  *
  * This component runs periodic cleanup tasks to remove:
- * - Old request details (load_test_requests older than retention period)
+ * - Old load test runs (aggregated metrics older than retention period)
  *
- * Note: load_test_runs (aggregated metrics) are retained indefinitely.
+ * Note: load_test_requests are cleaned up automatically via partition dropping.
  * Cleanup is scheduled via cron expression (default: 3 AM daily).
  */
 @Component
 @EnableScheduling
 class LoadTestCleanupScheduler(
     private val jdbi: Jdbi,
-    @Value("\${epistola.loadtest.cleanup.requests-retention-days:7}")
-    private val requestsRetentionDays: Int,
+    @Value("\${epistola.loadtest.cleanup.runs-retention-days:90}")
+    private val runsRetentionDays: Int,
 ) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /**
-     * Clean up old load test request details.
+     * Clean up old load test runs.
      *
-     * Deletes load_test_requests records older than the retention period.
-     * The aggregated metrics in load_test_runs are retained indefinitely.
+     * Deletes load_test_runs records older than the retention period.
+     * Only deletes completed, failed, or cancelled runs.
+     * Running or pending runs are never deleted.
+     *
+     * Note: load_test_runs is NOT partitioned (low volume aggregate data).
      */
     @Scheduled(cron = "\${epistola.loadtest.cleanup.cron:0 0 3 * * ?}")
-    fun cleanupOldRequests() {
-        logger.info("Starting cleanup of old load test request details...")
+    fun cleanupOldRuns() {
+        logger.info("Starting cleanup of old load test runs...")
 
         try {
-            val cutoffDate = OffsetDateTime.now().minusDays(requestsRetentionDays.toLong())
+            val cutoffDate = OffsetDateTime.now().minusDays(runsRetentionDays.toLong())
 
             val deleted = jdbi.withHandle<Int, Exception> { handle ->
                 handle.createUpdate(
                     """
-                    DELETE FROM load_test_requests ltr
-                    USING load_test_runs ltr_run
-                    WHERE ltr.run_id = ltr_run.id
-                      AND ltr_run.created_at < :cutoffDate
+                    DELETE FROM load_test_runs
+                    WHERE created_at < :cutoffDate
+                      AND status IN ('COMPLETED', 'FAILED', 'CANCELLED')
                     """,
                 )
                     .bind("cutoffDate", cutoffDate)
@@ -54,12 +56,12 @@ class LoadTestCleanupScheduler(
             }
 
             logger.info(
-                "Cleaned up {} old load test request records (older than {} days)",
+                "Cleaned up {} old load test runs (older than {} days)",
                 deleted,
-                requestsRetentionDays,
+                runsRetentionDays,
             )
         } catch (e: Exception) {
-            logger.error("Failed to cleanup old load test requests: {}", e.message, e)
+            logger.error("Failed to cleanup old load test runs: {}", e.message, e)
         }
     }
 }

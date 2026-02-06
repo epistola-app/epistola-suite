@@ -172,9 +172,9 @@ class GenerateDocumentBatchHandler(
             handle.createUpdate(
                 """
                 INSERT INTO document_generation_batches (
-                    id, tenant_id, total_count, completed_count, failed_count
+                    id, tenant_id, total_count
                 )
-                VALUES (:batchId, :tenantId, :totalCount, 0, 0)
+                VALUES (:batchId, :tenantId, :totalCount)
                 """,
             )
                 .bind("batchId", batchId)

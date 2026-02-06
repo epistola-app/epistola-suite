@@ -106,16 +106,16 @@ class FakeDocumentGenerationExecutor(
                     .execute()
             }
 
-            // Update batch progress if part of a batch
+            // Check if batch is complete and finalize if so
             request.batchId?.let { batchId ->
-                updateBatchProgress(batchId)
+                finalizeBatchIfComplete(batchId)
             }
 
             logger.debug("FAKE document {} created for request {}", documentId.value, request.id.value)
         } catch (e: Exception) {
             logger.error("FAKE execution failed for request {}: {}", request.id.value, e.message, e)
             markRequestFailed(request.id, e.message)
-            request.batchId?.let { updateBatchProgress(it) }
+            request.batchId?.let { finalizeBatchIfComplete(it) }
         }
     }
 
@@ -139,37 +139,60 @@ class FakeDocumentGenerationExecutor(
         }
     }
 
-    private fun updateBatchProgress(batchId: BatchId) {
-        localJdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE document_generation_batches b
-                SET
-                    completed_count = (
-                        SELECT COUNT(*)
-                        FROM document_generation_requests
-                        WHERE batch_id = :batchId AND status = 'COMPLETED'
-                    ),
-                    failed_count = (
-                        SELECT COUNT(*)
-                        FROM document_generation_requests
-                        WHERE batch_id = :batchId AND status = 'FAILED'
-                    ),
-                    completed_at = CASE
-                        WHEN (
-                            SELECT COUNT(*)
-                            FROM document_generation_requests
-                            WHERE batch_id = :batchId
-                              AND status IN ('COMPLETED', 'FAILED')
-                        ) = b.total_count
-                        THEN NOW()
-                        ELSE b.completed_at
-                    END
-                WHERE b.id = :batchId
+    private data class BatchCounts(
+        val completed: Int,
+        val failed: Int,
+        val pending: Int,
+        val inProgress: Int,
+    ) {
+        val isComplete: Boolean get() = pending == 0 && inProgress == 0
+    }
+
+    private fun getBatchCounts(batchId: BatchId): BatchCounts = localJdbi.withHandle<BatchCounts, Exception> { handle ->
+        val results = handle.createQuery(
+            """
+                SELECT
+                    status,
+                    COUNT(*) as count
+                FROM document_generation_requests
+                WHERE batch_id = :batchId
+                GROUP BY status
                 """,
-            )
-                .bind("batchId", batchId)
-                .execute()
+        )
+            .bind("batchId", batchId)
+            .map { rs, _ -> rs.getString("status") to rs.getInt("count") }
+            .list()
+            .toMap()
+
+        BatchCounts(
+            completed = results["COMPLETED"] ?: 0,
+            failed = results["FAILED"] ?: 0,
+            pending = results["PENDING"] ?: 0,
+            inProgress = results["IN_PROGRESS"] ?: 0,
+        )
+    }
+
+    private fun finalizeBatchIfComplete(batchId: BatchId) {
+        val counts = getBatchCounts(batchId)
+
+        if (counts.isComplete) {
+            localJdbi.useHandle<Exception> { handle ->
+                handle.createUpdate(
+                    """
+                    UPDATE document_generation_batches
+                    SET
+                        final_completed_count = :completed,
+                        final_failed_count = :failed,
+                        completed_at = NOW()
+                    WHERE id = :batchId
+                      AND completed_at IS NULL
+                    """,
+                )
+                    .bind("batchId", batchId)
+                    .bind("completed", counts.completed)
+                    .bind("failed", counts.failed)
+                    .execute()
+            }
         }
     }
 }
