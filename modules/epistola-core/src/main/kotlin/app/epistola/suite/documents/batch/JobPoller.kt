@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -23,6 +24,11 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * Supports adaptive batch sizing: claims multiple jobs per poll cycle based on system
  * performance, measured via job processing time.
+ *
+ * Uses a drain loop pattern for efficient queue processing:
+ * - When a job completes, it signals for more work immediately
+ * - The drain loop continuously claims jobs until the queue is empty or at capacity
+ * - Scheduled polling serves as a fallback safety net
  */
 @Component
 @ConditionalOnProperty(
@@ -40,7 +46,17 @@ class JobPoller(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeJobs = AtomicInteger(0)
-    private val executor = Executors.newVirtualThreadPerTaskExecutor()
+
+    // Dedicated executor for job processing (virtual threads)
+    private val jobThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()
+
+    // Dedicated single-thread executor for drain loop (serializes claiming)
+    private val drainExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "job-poller-drain").apply { isDaemon = true }
+    }
+
+    // Flag to coalesce multiple drain requests into one
+    private val drainRequested = AtomicBoolean(false)
 
     // Track job start times for duration calculation
     private val jobStartTimes = ConcurrentHashMap<GenerationRequestId, Long>()
@@ -60,89 +76,108 @@ class JobPoller(
     }
 
     /**
-     * Poll for pending jobs and claim a batch if capacity allows.
-     * Runs on a fixed delay to ensure continuous polling without overlapping.
-     *
-     * Tracks job processing time and reports to AdaptiveBatchSizer for batch size adjustment.
-     * Claims multiple jobs per poll cycle based on adaptive batch size and available capacity.
+     * Scheduled poll that triggers a drain. Serves as fallback safety net.
+     * The primary driver is on-completion re-polling via [requestDrain].
      */
     @Scheduled(fixedDelayString = "\${epistola.generation.polling.interval-ms:5000}")
-    fun poll() {
-        // Respect maxConcurrentJobs limit
-        val currentActive = activeJobs.get()
-        if (currentActive >= properties.maxConcurrentJobs) {
-            logger.debug("Max concurrent jobs reached ({}), skipping poll", properties.maxConcurrentJobs)
-            return
+    fun scheduledPoll() {
+        requestDrain()
+    }
+
+    /**
+     * Signal that draining should happen. Safe to call from any thread.
+     * Multiple calls are coalesced - only one drain runs at a time.
+     */
+    fun requestDrain() {
+        if (drainRequested.compareAndSet(false, true)) {
+            drainExecutor.submit { drain() }
         }
+    }
 
-        // Calculate how many jobs we can claim
-        val availableSlots = properties.maxConcurrentJobs - currentActive
-        val requestedBatchSize = batchSizer.getCurrentBatchSize()
-        val actualBatchSize = minOf(requestedBatchSize, availableSlots)
+    /**
+     * Continuously claim and process jobs until queue empty or at capacity.
+     * Runs on dedicated single thread - no concurrency issues with claiming.
+     */
+    private fun drain() {
+        while (true) {
+            drainRequested.set(false) // Reset flag, will be set again if more work needed
 
-        if (actualBatchSize <= 0) {
-            return
-        }
+            // Keep claiming until at capacity or no more work
+            while (activeJobs.get() < properties.maxConcurrentJobs) {
+                val availableSlots = properties.maxConcurrentJobs - activeJobs.get()
+                val requestedBatchSize = batchSizer.getCurrentBatchSize()
+                val actualBatchSize = minOf(requestedBatchSize, availableSlots)
 
-        // Claim batch of pending requests
-        val requests = claimPendingRequests(actualBatchSize)
+                if (actualBatchSize <= 0) {
+                    break
+                }
 
-        if (requests.isEmpty()) {
-            logger.debug(
-                "No pending jobs available | Batch size: {}, Active: {}/{}",
-                requestedBatchSize,
-                currentActive,
-                properties.maxConcurrentJobs,
-            )
-            return
-        }
+                val requests = claimPendingRequests(actualBatchSize)
+                if (requests.isEmpty()) {
+                    logger.debug(
+                        "No pending jobs available | Batch size: {}, Active: {}/{}",
+                        requestedBatchSize,
+                        activeJobs.get(),
+                        properties.maxConcurrentJobs,
+                    )
+                    break // Queue empty
+                }
 
-        logger.info(
-            "Claimed {} job(s) | Requested batch: {}, Available slots: {}, Active: {}/{}",
-            requests.size,
-            requestedBatchSize,
-            availableSlots,
-            currentActive,
-            properties.maxConcurrentJobs,
-        )
+                logger.info(
+                    "Claimed {} job(s) | Requested batch: {}, Available slots: {}, Active: {}/{}",
+                    requests.size,
+                    requestedBatchSize,
+                    availableSlots,
+                    activeJobs.get(),
+                    properties.maxConcurrentJobs,
+                )
 
-        // Increment counter for all claimed jobs
-        jobsClaimedCounter.increment(requests.size.toDouble())
+                // Increment counter for all claimed jobs
+                jobsClaimedCounter.increment(requests.size.toDouble())
 
-        // Submit each job to executor
-        requests.forEach { request ->
-            activeJobs.incrementAndGet()
+                // Submit each job to executor
+                requests.forEach { request ->
+                    activeJobs.incrementAndGet()
 
-            // Track start time for duration calculation
-            jobStartTimes[request.id] = System.currentTimeMillis()
+                    // Track start time for duration calculation
+                    jobStartTimes[request.id] = System.currentTimeMillis()
 
-            logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
+                    logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
-            // Execute on virtual thread, don't block the scheduler
-            executor.submit {
-                try {
-                    jobExecutor.execute(request)
-                    jobsCompletedCounter.increment()
-                } catch (e: Exception) {
-                    logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
-                    jobsFailedCounter.increment()
-                    markRequestFailed(request.id, e.message)
-                } finally {
-                    // Calculate duration and report to adaptive batch sizer
-                    val startTime = jobStartTimes.remove(request.id)
-                    val newActiveCount = activeJobs.decrementAndGet()
-                    if (startTime != null) {
-                        val duration = System.currentTimeMillis() - startTime
-                        batchSizer.recordJobCompletion(duration)
-                        logger.info(
-                            "Job completed: {} in {}ms | Active: {}/{}",
-                            request.id.value,
-                            duration,
-                            newActiveCount,
-                            properties.maxConcurrentJobs,
-                        )
+                    // Execute on virtual thread, don't block the drain thread
+                    jobThreadExecutor.submit {
+                        try {
+                            jobExecutor.execute(request)
+                            jobsCompletedCounter.increment()
+                        } catch (e: Exception) {
+                            logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
+                            jobsFailedCounter.increment()
+                            markRequestFailed(request.id, e.message)
+                        } finally {
+                            // Calculate duration and report to adaptive batch sizer
+                            val startTime = jobStartTimes.remove(request.id)
+                            val newActiveCount = activeJobs.decrementAndGet()
+                            if (startTime != null) {
+                                val duration = System.currentTimeMillis() - startTime
+                                batchSizer.recordJobCompletion(duration)
+                                logger.info(
+                                    "Job completed: {} in {}ms | Active: {}/{}",
+                                    request.id.value,
+                                    duration,
+                                    newActiveCount,
+                                    properties.maxConcurrentJobs,
+                                )
+                            }
+                            // Signal: slot freed, check for more work immediately
+                            requestDrain()
+                        }
                     }
                 }
+            }
+
+            // Check if another drain was requested while we were working
+            if (!drainRequested.get()) {
+                break // No more requests, exit drain loop
             }
         }
     }

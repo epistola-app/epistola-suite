@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- **Improved document generation performance**: Refactored JobPoller with drain loop pattern for faster throughput
+  - Increased `max-concurrent-jobs` from 2 to 20 (10x parallelism)
+  - Increased `max-batch-size` from 10 to 50 (claim more per poll)
+  - Added on-completion re-polling: when a job completes, immediately check for more work instead of waiting for next scheduled poll
+  - Dedicated drain thread continuously claims work until queue is empty or at capacity
+  - Scheduled 5s poll now serves as fallback safety net; primary driver is completion-triggered drain
+  - Expected improvement: 100 documents now processed in ~execution time instead of several minutes
+
 ### Added
 - **Adaptive batch job polling**: Job poller now dynamically adjusts batch size based on system performance
   - Uses Exponential Moving Average (EMA) to track job processing times
