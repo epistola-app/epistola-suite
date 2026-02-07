@@ -29,6 +29,7 @@ dependencies {
     // UI/Frontend modules
     implementation(project(":modules:vendor"))
     implementation(project(":modules:headless-editor"))
+    implementation(project(":modules:editor-v2"))
     implementation(project(":modules:schema-manager"))
 
     // Spring Boot - UI layer concerns

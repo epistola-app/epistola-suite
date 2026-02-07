@@ -26,6 +26,9 @@
  * ```
  */
 
+// Import CSS for bundling
+import "./ui/styles.css";
+
 import type {
   Template,
   DataExample,

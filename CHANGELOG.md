@@ -71,6 +71,12 @@
   - Comprehensive test coverage: 287 tests for all modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
   - Bundle size: 618 KB (166 KB gzipped) - includes TipTap rich text editor
+  - **Thymeleaf integration**: Replaced complex React-based editor.html with clean editor-v2 integration
+    - Simplified HTML page using editor-v2's built-in UI components
+    - Theme selector and data example selector in secondary toolbar
+    - PDF preview pane with live updates
+    - Keyboard shortcuts: Ctrl+S (save), Ctrl+Z (undo), Ctrl+Shift+Z (redo)
+    - Gradle module for static asset serving
 
 ### Fixed
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI

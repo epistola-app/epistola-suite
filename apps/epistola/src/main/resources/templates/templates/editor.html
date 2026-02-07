@@ -7,15 +7,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13/font/bootstrap-icons.css">
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <link rel="stylesheet" th:href="@{/editor/components/ExpressionEditor.css}">
+    <link rel="stylesheet" th:href="@{/editor-v2/template-editor-v2.css}">
     <style>
+        :root {
+            --header-height: 48px;
+            --secondary-toolbar-height: 40px;
+        }
+
         html, body {
             height: 100%;
             margin: 0;
             overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
         .editor-page {
@@ -24,116 +27,153 @@
             height: 100vh;
         }
 
-        /* Header */
+        /* Header bar */
         .editor-header {
-            padding: 0.625rem 1.5rem;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
+            height: var(--header-height);
+            padding: 0 1rem;
+            background: #1e293b;
+            color: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-shrink: 0;
         }
 
-        .editor-header h1 {
-            margin: 0;
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #1e293b;
-        }
-
-        .editor-header-left {
+        .editor-header__left {
             display: flex;
             align-items: center;
             gap: 1rem;
         }
 
-        .editor-header-right {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        /* Toolbar */
-        .editor-toolbar {
-            padding: 0.5rem 1rem;
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
+        .editor-header__back {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
             display: flex;
             align-items: center;
             gap: 0.25rem;
+        }
+
+        .editor-header__back:hover {
+            color: #f8fafc;
+        }
+
+        .editor-header__title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .editor-header__tags {
+            display: flex;
+            gap: 0.375rem;
+        }
+
+        .editor-header__tag {
+            background: #334155;
+            color: #94a3b8;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        /* Secondary toolbar for selectors */
+        .secondary-toolbar {
+            height: var(--secondary-toolbar-height);
+            padding: 0 1rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
             flex-shrink: 0;
-            flex-wrap: wrap;
+        }
+
+        .toolbar-select {
+            height: 28px;
+            padding: 0 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            background: #fff;
+            font-size: 0.8125rem;
+            color: #334155;
+            min-width: 150px;
+        }
+
+        .toolbar-select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .toolbar-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 500;
         }
 
         .toolbar-group {
             display: flex;
             align-items: center;
-            gap: 0.25rem;
+            gap: 0.5rem;
         }
 
         .toolbar-divider {
             width: 1px;
-            height: 1.5rem;
+            height: 20px;
             background: #e2e8f0;
-            margin: 0 0.25rem;
         }
 
-        .toolbar-group .btn {
-            font-size: 0.8rem;
-            padding: 0.3rem 0.5rem;
-            line-height: 1.2;
+        .toolbar-btn {
+            height: 28px;
+            padding: 0 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            background: #fff;
+            font-size: 0.8125rem;
+            color: #334155;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
         }
 
-        .toolbar-group .btn i {
-            margin-right: 0.15rem;
+        .toolbar-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
         }
 
-        /* Save status */
-        .save-status {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            min-width: 100px;
-            text-align: right;
+        .toolbar-btn--active {
+            background: #3b82f6;
+            color: #fff;
+            border-color: #3b82f6;
         }
 
-        .save-status.dirty {
-            color: #b45309;
+        .toolbar-btn--active:hover {
+            background: #2563eb;
         }
 
-        .save-status.saving {
-            color: #4a90d9;
-        }
-
-        .save-status.saved {
-            color: #16a34a;
-        }
-
-        .save-status.error {
-            color: #dc3545;
-        }
-
-        /* Editor main area - split layout */
+        /* Main content area */
         .editor-main {
             flex: 1;
             display: flex;
             overflow: hidden;
         }
 
-        .editor-pane {
+        .editor-container {
             flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem;
-            min-width: 400px;
+            min-width: 600px;
         }
 
+        /* Preview pane */
         .preview-pane {
-            flex: 1;
+            width: 50%;
+            min-width: 400px;
+            max-width: 800px;
             display: flex;
             flex-direction: column;
             border-left: 1px solid #e2e8f0;
             background: #f1f5f9;
-            min-width: 400px;
         }
 
         .preview-pane.hidden {
@@ -150,8 +190,8 @@
             flex-shrink: 0;
         }
 
-        .preview-header-title {
-            font-size: 0.875rem;
+        .preview-title {
+            font-size: 0.8125rem;
             font-weight: 500;
             color: #64748b;
             display: flex;
@@ -165,20 +205,20 @@
         }
 
         .preview-status.loading {
-            color: #4a90d9;
+            color: #3b82f6;
         }
 
         .preview-status.error {
-            color: #dc3545;
+            color: #dc2626;
         }
 
         .preview-content {
             flex: 1;
+            padding: 1rem;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1rem;
-            overflow: hidden;
         }
 
         .preview-iframe {
@@ -194,101 +234,16 @@
             color: #94a3b8;
         }
 
-        .preview-empty i {
-            font-size: 3rem;
+        .preview-empty svg {
+            width: 48px;
+            height: 48px;
             margin-bottom: 1rem;
             opacity: 0.5;
         }
 
-        #editor-root {
-            max-width: 860px;
-            margin: 0 auto;
-        }
-
-        /* Block cards */
-        .block {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            margin-bottom: 0.5rem;
-            padding: 0.625rem;
-            cursor: pointer;
-            transition: border-color 0.15s;
-        }
-
-        .block:hover {
-            border-color: #cbd5e1;
-        }
-
-        .block.selected {
-            border-color: #4a90d9;
-            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
-        }
-
-        .block-header {
-            margin-bottom: 0.25rem;
-        }
-
-        .drag-handle {
-            cursor: grab;
-        }
-
-        .drag-handle:active {
-            cursor: grabbing;
-        }
-
-        /* Nested block containers */
-        .block-children {
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: #f8fafc;
-            border: 1px dashed #e2e8f0;
-            border-radius: 4px;
-            min-height: 2rem;
-        }
-
-        .block-children .block {
-            background: #fff;
-        }
-
-        /* Columns */
-        .columns-layout {
-            display: flex;
-        }
-
-        .column-wrapper {
-            background: #f8fafc;
-            border: 1px dashed #e2e8f0;
-            border-radius: 4px;
-            padding: 0.5rem;
-            min-height: 3rem;
-        }
-
-        /* SortableJS feedback */
-        .sortable-ghost {
-            opacity: 0.4;
-            background: #e0f0ff;
-        }
-
-        .sortable-chosen {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .sortable-drag {
-            opacity: 0.8;
-        }
-
-        .invalid-drop-target {
-            background: #fee2e2 !important;
-            border-color: #fca5a5 !important;
-            transition: background 0.15s, border-color 0.15s;
-        }
-
-        /* Empty state */
-        .empty-state {
-            padding: 3rem 1rem;
-            color: #94a3b8;
-            font-size: 0.9rem;
+        /* Make editor fill container */
+        .editor-container .ev2-editor {
+            height: 100%;
         }
     </style>
 </head>
@@ -296,162 +251,80 @@
     <div class="editor-page">
         <!-- Header -->
         <header class="editor-header">
-            <div class="editor-header-left">
+            <div class="editor-header__left">
                 <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${templateId})}"
-                   class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Back
+                   class="editor-header__back">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back
                 </a>
-                <h1 th:text="${templateName}">Template Name</h1>
-                <span th:if="${variantTags != null and !variantTags.isEmpty()}" class="d-flex gap-1">
+                <h1 class="editor-header__title" th:text="${templateName}">Template Name</h1>
+                <div th:if="${variantTags != null and !variantTags.isEmpty()}" class="editor-header__tags">
                     <span th:each="entry : ${variantTags}"
-                          class="badge bg-light text-dark border"
+                          class="editor-header__tag"
                           th:text="${entry.key + '=' + entry.value}"></span>
-                </span>
-            </div>
-            <div class="editor-header-right">
-                <span id="save-status" class="save-status"></span>
-                <button id="btn-save" class="btn btn-sm btn-primary">
-                    <i class="bi bi-cloud-upload"></i> Save
-                </button>
+                </div>
             </div>
         </header>
 
-        <!-- Toolbar -->
-        <div class="editor-toolbar">
+        <!-- Secondary toolbar -->
+        <div class="secondary-toolbar">
             <div class="toolbar-group">
-                <button id="btn-add-text" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-type"></i> Text
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-add-container" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-box"></i> Container
-                </button>
-                <button id="btn-add-conditional" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-question-circle"></i> If
-                </button>
-                <button id="btn-add-loop" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-repeat"></i> Loop
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-add-columns" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-layout-three-columns"></i> Columns
-                </button>
-                <button id="btn-add-table" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-table"></i> Table
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-add-pagebreak" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-dash-lg"></i> Break
-                </button>
-                <button id="btn-add-pageheader" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-up-square"></i> Header
-                </button>
-                <button id="btn-add-pagefooter" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-down-square"></i> Footer
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-add-to-selected" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-plus-circle"></i> Add to selected
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-undo" class="btn btn-sm btn-outline-secondary" disabled>
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
-                <button id="btn-redo" class="btn btn-sm btn-outline-secondary" disabled>
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-export" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-download"></i> Export
-                </button>
-                <button id="btn-import" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-upload"></i> Import
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <select id="theme-selector" class="form-select form-select-sm" style="width: auto;" title="Select theme">
+                <span class="toolbar-label">Theme</span>
+                <select id="theme-selector" class="toolbar-select" title="Select theme">
                     <option value="">Default theme</option>
                 </select>
             </div>
 
             <div class="toolbar-group">
-                <select id="data-example-selector" class="form-select form-select-sm" style="width: auto;" title="Select test data">
+                <span class="toolbar-label">Test Data</span>
+                <select id="data-selector" class="toolbar-select" title="Select test data">
                     <option value="">No test data</option>
                 </select>
             </div>
 
             <div class="toolbar-divider"></div>
 
-            <div class="toolbar-group">
-                <button id="btn-page-settings" class="btn btn-sm btn-outline-secondary" title="Page settings">
-                    <i class="bi bi-file-earmark"></i> Page
-                </button>
-                <button id="btn-document-styles" class="btn btn-sm btn-outline-secondary" title="Document styles">
-                    <i class="bi bi-palette"></i> Styles
-                </button>
-                <button id="btn-block-styles" class="btn btn-sm btn-outline-secondary" title="Style selected block" disabled>
-                    <i class="bi bi-brush"></i> Block
-                </button>
-            </div>
+            <button id="btn-toggle-preview" class="toolbar-btn toolbar-btn--active" title="Toggle preview">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Preview
+            </button>
 
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-toggle-preview" class="btn btn-sm btn-outline-primary active" title="Toggle preview">
-                    <i class="bi bi-eye-slash"></i> Hide
-                </button>
-                <button id="btn-refresh-preview" class="btn btn-sm btn-outline-secondary" title="Refresh preview">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-            </div>
+            <button id="btn-refresh-preview" class="toolbar-btn" title="Refresh preview">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12a9 9 0 1 1-6.22-8.56"/>
+                    <path d="M21 3v9h-9"/>
+                </svg>
+            </button>
         </div>
 
-        <!-- Editor main area (split layout) -->
+        <!-- Main content -->
         <div class="editor-main">
-            <!-- Editor pane (left) -->
-            <div class="editor-pane">
-                <div id="editor-root"></div>
-            </div>
+            <!-- Editor container -->
+            <div id="editor-root" class="editor-container"></div>
 
-            <!-- Preview pane (right) -->
+            <!-- Preview pane -->
             <div id="preview-pane" class="preview-pane">
                 <div class="preview-header">
-                    <div class="preview-header-title">
-                        <i class="bi bi-file-pdf"></i>
-                        <span>Live Preview</span>
+                    <div class="preview-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        Live Preview
                     </div>
                     <span id="preview-status" class="preview-status"></span>
                 </div>
                 <div class="preview-content">
                     <div id="preview-empty" class="preview-empty">
-                        <i class="bi bi-file-earmark-pdf"></i>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
                         <p>Select test data to see preview</p>
                     </div>
                     <iframe id="preview-iframe" class="preview-iframe" style="display: none;"></iframe>
@@ -460,377 +333,82 @@
         </div>
     </div>
 
-    <!-- Page Settings Modal -->
-    <div class="modal fade" id="page-settings-modal" tabindex="-1" aria-labelledby="page-settings-title" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="page-settings-title">Page Settings</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="page-format" class="form-label">Page Format</label>
-                        <select id="page-format" class="form-select">
-                            <option value="A4">A4</option>
-                            <option value="Letter">Letter</option>
-                            <option value="Legal">Legal</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Orientation</label>
-                        <div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="page-orientation" id="orientation-portrait" value="portrait" checked>
-                                <label class="form-check-label" for="orientation-portrait">Portrait</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="page-orientation" id="orientation-landscape" value="landscape">
-                                <label class="form-check-label" for="orientation-landscape">Landscape</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Margins (mm)</label>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label for="margin-top" class="form-label small text-muted">Top</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-top" value="20" min="0" max="100">
-                            </div>
-                            <div class="col-6">
-                                <label for="margin-right" class="form-label small text-muted">Right</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-right" value="20" min="0" max="100">
-                            </div>
-                            <div class="col-6">
-                                <label for="margin-bottom" class="form-label small text-muted">Bottom</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-bottom" value="20" min="0" max="100">
-                            </div>
-                            <div class="col-6">
-                                <label for="margin-left" class="form-label small text-muted">Left</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-left" value="20" min="0" max="100">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-save-page-settings">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Document Styles Modal -->
-    <div class="modal fade" id="document-styles-modal" tabindex="-1" aria-labelledby="document-styles-title" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="document-styles-title">Document Styles</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="doc-font-family" class="form-label">Font Family</label>
-                        <input type="text" class="form-control" id="doc-font-family" placeholder="e.g., Arial, sans-serif">
-                    </div>
-                    <div class="mb-3">
-                        <label for="doc-font-size" class="form-label">Font Size (pt)</label>
-                        <input type="number" class="form-control" id="doc-font-size" value="12" min="6" max="72">
-                    </div>
-                    <div class="mb-3">
-                        <label for="doc-color" class="form-label">Text Color</label>
-                        <input type="color" class="form-control form-control-color" id="doc-color" value="#000000">
-                    </div>
-                    <div class="mb-3">
-                        <label for="doc-line-height" class="form-label">Line Height</label>
-                        <input type="number" class="form-control" id="doc-line-height" value="1.5" min="1" max="3" step="0.1">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-save-document-styles">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Block Styles Modal -->
-    <div class="modal fade" id="block-styles-modal" tabindex="-1" aria-labelledby="block-styles-title" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="block-styles-title">Block Styles</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">Styling for selected <span id="block-type-label" class="badge bg-secondary">block</span></p>
-
-                    <!-- Typography -->
-                    <h6 class="text-muted border-bottom pb-1 mb-3">Typography</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-font-size" class="form-label small">Font Size</label>
-                            <input type="text" class="form-control form-control-sm" id="block-font-size" placeholder="e.g., 14px, 1.2em">
-                        </div>
-                        <div class="col-6">
-                            <label for="block-font-weight" class="form-label small">Font Weight</label>
-                            <select class="form-select form-select-sm" id="block-font-weight">
-                                <option value="">Default</option>
-                                <option value="normal">Normal</option>
-                                <option value="bold">Bold</option>
-                                <option value="lighter">Lighter</option>
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                                <option value="300">300</option>
-                                <option value="400">400</option>
-                                <option value="500">500</option>
-                                <option value="600">600</option>
-                                <option value="700">700</option>
-                                <option value="800">800</option>
-                                <option value="900">900</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-color" class="form-label small">Text Color</label>
-                            <div class="input-group input-group-sm">
-                                <input type="color" class="form-control form-control-color" id="block-color-picker" value="#000000">
-                                <input type="text" class="form-control" id="block-color" placeholder="#000000">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label for="block-text-align" class="form-label small">Text Align</label>
-                            <select class="form-select form-select-sm" id="block-text-align">
-                                <option value="">Default</option>
-                                <option value="left">Left</option>
-                                <option value="center">Center</option>
-                                <option value="right">Right</option>
-                                <option value="justify">Justify</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Spacing -->
-                    <h6 class="text-muted border-bottom pb-1 mb-3">Spacing</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-padding" class="form-label small">Padding</label>
-                            <input type="text" class="form-control form-control-sm" id="block-padding" placeholder="e.g., 8px, 1em">
-                        </div>
-                        <div class="col-6">
-                            <label for="block-margin" class="form-label small">Margin</label>
-                            <input type="text" class="form-control form-control-sm" id="block-margin" placeholder="e.g., 8px, 1em">
-                        </div>
-                    </div>
-
-                    <!-- Background & Border -->
-                    <h6 class="text-muted border-bottom pb-1 mb-3">Background & Border</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-bg-color" class="form-label small">Background</label>
-                            <div class="input-group input-group-sm">
-                                <input type="color" class="form-control form-control-color" id="block-bg-color-picker" value="#ffffff">
-                                <input type="text" class="form-control" id="block-bg-color" placeholder="transparent">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label for="block-border-radius" class="form-label small">Border Radius</label>
-                            <input type="text" class="form-control form-control-sm" id="block-border-radius" placeholder="e.g., 4px, 0.5em">
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-clear-block-styles">
-                            <i class="bi bi-x-circle"></i> Clear All Styles
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-save-block-styles">Apply</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Debug Panel (local profile only) -->
-    <div th:if="${@environment.matchesProfiles('local')}"
-         id="debug-panel"
-         style="position: fixed; top: 60px; right: 16px; width: 360px; max-height: calc(100vh - 80px);
-                background: #1e1e2e; color: #cdd6f4; border-radius: 8px;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.3); z-index: 9999;
-                font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px;
-                display: flex; flex-direction: column; overflow: hidden;">
-        <div style="padding: 8px 12px; background: #313244; border-radius: 8px 8px 0 0;
-                    display: flex; justify-content: space-between; align-items: center;
-                    border-bottom: 1px solid #45475a;">
-            <span style="font-weight: 600; color: #f5c2e7;">Debug Panel</span>
-            <button id="debug-panel-toggle"
-                    style="background: none; border: none; color: #6c7086; cursor: pointer;
-                           font-size: 14px; padding: 2px 6px;">−</button>
-        </div>
-        <div id="debug-panel-content" style="flex: 1; overflow-y: auto; padding: 8px;">
-            <div style="margin-bottom: 8px;">
-                <div style="color: #89b4fa; font-weight: 500; margin-bottom: 4px;">State</div>
-                <pre id="debug-state" style="margin: 0; white-space: pre-wrap; word-break: break-all;
-                     background: #11111b; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;"></pre>
-            </div>
-            <div style="margin-bottom: 8px;">
-                <div style="color: #a6e3a1; font-weight: 500; margin-bottom: 4px;">History</div>
-                <div id="debug-history" style="background: #11111b; padding: 8px; border-radius: 4px;"></div>
-            </div>
-            <div>
-                <div style="color: #fab387; font-weight: 500; margin-bottom: 4px;">Store</div>
-                <pre id="debug-store" style="margin: 0; white-space: pre-wrap; word-break: break-all;
-                     background: #11111b; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto;"></pre>
-            </div>
-        </div>
-    </div>
-
-    <!-- SortableJS must load before module scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <!-- Bootstrap JS for modals -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Stimulus.js for expression editor controllers -->
-    <script type="importmap">
-    {
-        "imports": {
-            "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2/dist/stimulus.min.js"
-        }
-    }
-    </script>
-    <script type="module">
-        import { Application } from "@hotwired/stimulus";
-        import { ExpressionEditorController } from "/editor/controllers/expression_editor_controller.js";
-        import { TextBlockController } from "/editor/controllers/text_block_controller.js";
-
-        window.Stimulus = Application.start();
-        window.Stimulus.register("expression-editor", ExpressionEditorController);
-        window.Stimulus.register("text-block", TextBlockController);
-    </script>
-
     <!-- Server-provided data -->
     <script th:inline="javascript">
-        /*<![CDATA[*/
-        window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
-        window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
-        window.TENANT_ID = /*[[${tenantId}]]*/ '';
-        window.VARIANT_ID = /*[[${variantId}]]*/ '';
-        window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
-        window.DATA_MODEL = /*[[${dataModel}]]*/ null;
-        window.THEMES = /*[[${themes}]]*/ [];
-        window.DEFAULT_THEME = /*[[${defaultTheme}]]*/ null;
-        window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
-        window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
+        window.EDITOR_CONFIG = {
+            tenantId: [[${tenantId}]],
+            templateId: [[${templateId}]],
+            variantId: [[${variantId}]],
+            templateName: [[${templateName}]],
+            templateModel: [[${templateModel}]],
+            dataExamples: [[${dataExamples}]] || [],
+            dataModel: [[${dataModel}]],
+            themes: [[${themes}]] || [],
+            defaultTheme: [[${defaultTheme}]],
+        };
+
         window.getCsrfToken = function() {
             const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
             return match ? decodeURIComponent(match[1]) : '';
         };
-        /*]]>*/
     </script>
 
-    <!-- Vanilla editor bootstrap -->
+    <!-- Editor v2 -->
     <script type="module">
-        import { mountVanillaEditor } from '/editor/editor-integration.js';
+        import { mountEditor } from '/editor-v2/template-editor-v2.js';
 
-        const saveStatus = document.getElementById('save-status');
-        const saveBtn = document.getElementById('btn-save');
-
-        let editorReady = false;
-
-        const editor = mountVanillaEditor({
-            container: 'editor-root',
-            template: window.TEMPLATE_MODEL,
-            onChange: () => {
-                if (editorReady) updateDirtyStatus();
-            },
-        });
-
-        editorReady = true;
+        const config = window.EDITOR_CONFIG;
 
         // =========================================================================
-        // Initialize with server data
+        // Mount Editor
         // =========================================================================
-        editor.setThemes(window.THEMES || []);
-        editor.setDefaultTheme(window.DEFAULT_THEME || null);
-        editor.setDataExamples(window.DATA_EXAMPLES || []);
-        if (window.DATA_MODEL) editor.setSchema(window.DATA_MODEL);
-
-        // Mark initial state as saved
-        editor.markAsSaved();
-
-        // =========================================================================
-        // Dirty state tracking
-        // =========================================================================
-        function updateDirtyStatus() {
-            if (editor.isDirty()) {
-                saveStatus.textContent = 'Unsaved changes';
-                saveStatus.className = 'save-status dirty';
-            }
-        }
-
-        // Warn before leaving with unsaved changes
-        window.addEventListener('beforeunload', (e) => {
-            if (editor.isDirty()) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
-
-        // =========================================================================
-        // Save functionality
-        // =========================================================================
-        async function save() {
-            saveStatus.textContent = 'Saving…';
-            saveStatus.className = 'save-status saving';
-
-            try {
+        const editor = mountEditor({
+            container: document.getElementById('editor-root'),
+            template: config.templateModel,
+            dataExamples: config.dataExamples,
+            dataModel: config.dataModel,
+            themes: config.themes,
+            defaultTheme: config.defaultTheme,
+            autoSaveDelay: 800,
+            onSave: async (template) => {
                 const response = await fetch(
-                    `/v1/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
+                    `/v1/tenants/${config.tenantId}/templates/${config.templateId}/variants/${config.variantId}/draft`,
                     {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/vnd.epistola.v1+json',
                             'X-XSRF-TOKEN': window.getCsrfToken(),
                         },
-                        body: JSON.stringify({ templateModel: editor.getTemplate() }),
+                        body: JSON.stringify({ templateModel: template }),
                     }
                 );
 
-                if (response.ok) {
-                    editor.markAsSaved();
-                    saveStatus.textContent = 'Saved';
-                    saveStatus.className = 'save-status saved';
-                } else {
-                    saveStatus.textContent = 'Save failed';
-                    saveStatus.className = 'save-status error';
+                if (!response.ok) {
+                    throw new Error(`Save failed: ${response.status}`);
                 }
-            } catch (err) {
-                saveStatus.textContent = 'Save error';
-                saveStatus.className = 'save-status error';
-                console.error('Save error:', err);
-            }
-        }
+            },
+            onExampleSelected: (exampleId) => {
+                // Update data selector to match
+                const selector = document.getElementById('data-selector');
+                if (selector) selector.value = exampleId || '';
 
-        saveBtn.addEventListener('click', save);
-
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                save();
-            }
+                // Refresh preview when example changes
+                if (exampleId) {
+                    refreshPreview();
+                }
+            },
         });
 
+        // Expose for debugging
+        window.__editor = editor;
+
         // =========================================================================
-        // Theme selector
+        // Theme Selector
         // =========================================================================
         const themeSelector = document.getElementById('theme-selector');
-        const themes = editor.getThemes();
-        const currentThemeId = editor.getTemplate().themeId;
+        const currentThemeId = config.templateModel?.themeId;
 
-        themes.forEach(theme => {
+        config.themes.forEach(theme => {
             const option = document.createElement('option');
             option.value = theme.id;
             option.textContent = theme.name;
@@ -839,229 +417,34 @@
         });
 
         themeSelector.addEventListener('change', (e) => {
-            editor.updateThemeId(e.target.value || null);
+            const template = editor.getTemplate();
+            template.themeId = e.target.value || null;
+            editor.setTemplate(template);
         });
 
         // =========================================================================
-        // Data examples selector
+        // Data Example Selector
         // =========================================================================
-        const dataSelector = document.getElementById('data-example-selector');
-        const examples = editor.getDataExamples();
-        const selectedId = editor.getSelectedDataExampleId();
+        const dataSelector = document.getElementById('data-selector');
 
-        examples.forEach(ex => {
+        config.dataExamples.forEach(ex => {
             const option = document.createElement('option');
             option.value = ex.id;
             option.textContent = ex.name;
-            if (ex.id === selectedId) option.selected = true;
             dataSelector.appendChild(option);
         });
 
         dataSelector.addEventListener('change', (e) => {
-            editor.selectDataExample(e.target.value || null);
-        });
-
-        // =========================================================================
-        // Page Settings Modal
-        // =========================================================================
-        const pageSettingsModal = new bootstrap.Modal(document.getElementById('page-settings-modal'));
-        const btnPageSettings = document.getElementById('btn-page-settings');
-        const btnSavePageSettings = document.getElementById('btn-save-page-settings');
-
-        btnPageSettings.addEventListener('click', () => {
-            // Populate modal with current settings
-            const template = editor.getTemplate();
-            const pageSettings = template.pageSettings || {
-                format: 'A4',
-                orientation: 'portrait',
-                margins: { top: 20, right: 20, bottom: 20, left: 20 }
-            };
-
-            document.getElementById('page-format').value = pageSettings.format || 'A4';
-
-            const orientation = pageSettings.orientation || 'portrait';
-            document.getElementById('orientation-portrait').checked = orientation === 'portrait';
-            document.getElementById('orientation-landscape').checked = orientation === 'landscape';
-
-            const margins = pageSettings.margins || { top: 20, right: 20, bottom: 20, left: 20 };
-            document.getElementById('margin-top').value = margins.top ?? 20;
-            document.getElementById('margin-right').value = margins.right ?? 20;
-            document.getElementById('margin-bottom').value = margins.bottom ?? 20;
-            document.getElementById('margin-left').value = margins.left ?? 20;
-
-            pageSettingsModal.show();
-        });
-
-        btnSavePageSettings.addEventListener('click', () => {
-            const format = document.getElementById('page-format').value;
-            const orientation = document.querySelector('input[name="page-orientation"]:checked').value;
-            const margins = {
-                top: parseInt(document.getElementById('margin-top').value, 10) || 20,
-                right: parseInt(document.getElementById('margin-right').value, 10) || 20,
-                bottom: parseInt(document.getElementById('margin-bottom').value, 10) || 20,
-                left: parseInt(document.getElementById('margin-left').value, 10) || 20,
-            };
-
-            editor.updatePageSettings({ format, orientation, margins });
-            pageSettingsModal.hide();
-        });
-
-        // =========================================================================
-        // Document Styles Modal
-        // =========================================================================
-        const documentStylesModal = new bootstrap.Modal(document.getElementById('document-styles-modal'));
-        const btnDocumentStyles = document.getElementById('btn-document-styles');
-        const btnSaveDocumentStyles = document.getElementById('btn-save-document-styles');
-
-        btnDocumentStyles.addEventListener('click', () => {
-            // Populate modal with current styles
-            const template = editor.getTemplate();
-            const docStyles = template.documentStyles || {};
-
-            document.getElementById('doc-font-family').value = docStyles.fontFamily || '';
-            document.getElementById('doc-font-size').value = docStyles.fontSize || 12;
-            document.getElementById('doc-color').value = docStyles.color || '#000000';
-            document.getElementById('doc-line-height').value = docStyles.lineHeight || 1.5;
-
-            documentStylesModal.show();
-        });
-
-        btnSaveDocumentStyles.addEventListener('click', () => {
-            const styles = {};
-
-            const fontFamily = document.getElementById('doc-font-family').value.trim();
-            if (fontFamily) styles.fontFamily = fontFamily;
-
-            const fontSize = parseFloat(document.getElementById('doc-font-size').value);
-            if (!isNaN(fontSize) && fontSize > 0) styles.fontSize = fontSize;
-
-            const color = document.getElementById('doc-color').value;
-            if (color && color !== '#000000') styles.color = color;
-
-            const lineHeight = parseFloat(document.getElementById('doc-line-height').value);
-            if (!isNaN(lineHeight) && lineHeight > 0) styles.lineHeight = lineHeight;
-
-            editor.updateDocumentStyles(styles);
-            documentStylesModal.hide();
-        });
-
-        // =========================================================================
-        // Block Styles Modal
-        // =========================================================================
-        const blockStylesModal = new bootstrap.Modal(document.getElementById('block-styles-modal'));
-        const btnBlockStyles = document.getElementById('btn-block-styles');
-        const btnSaveBlockStyles = document.getElementById('btn-save-block-styles');
-        const btnClearBlockStyles = document.getElementById('btn-clear-block-styles');
-        const blockTypeLabel = document.getElementById('block-type-label');
-
-        // Form elements
-        const blockFontSize = document.getElementById('block-font-size');
-        const blockFontWeight = document.getElementById('block-font-weight');
-        const blockColor = document.getElementById('block-color');
-        const blockColorPicker = document.getElementById('block-color-picker');
-        const blockTextAlign = document.getElementById('block-text-align');
-        const blockPadding = document.getElementById('block-padding');
-        const blockMargin = document.getElementById('block-margin');
-        const blockBgColor = document.getElementById('block-bg-color');
-        const blockBgColorPicker = document.getElementById('block-bg-color-picker');
-        const blockBorderRadius = document.getElementById('block-border-radius');
-
-        // Sync color pickers with text inputs
-        blockColorPicker.addEventListener('input', () => {
-            blockColor.value = blockColorPicker.value;
-        });
-        blockColor.addEventListener('input', () => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(blockColor.value)) {
-                blockColorPicker.value = blockColor.value;
-            }
-        });
-        blockBgColorPicker.addEventListener('input', () => {
-            blockBgColor.value = blockBgColorPicker.value;
-        });
-        blockBgColor.addEventListener('input', () => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(blockBgColor.value)) {
-                blockBgColorPicker.value = blockBgColor.value;
+            selectedExampleId = e.target.value || null;
+            if (selectedExampleId) {
+                refreshPreview();
+            } else {
+                hidePreview();
             }
         });
 
-        // Enable/disable button based on selection
-        function updateBlockStylesButton() {
-            const state = editor.getState();
-            btnBlockStyles.disabled = !state.selectedBlockId;
-        }
-
-        // Subscribe to selection changes
-        editor.subscribe(updateBlockStylesButton);
-        updateBlockStylesButton();
-
-        // Open modal
-        btnBlockStyles.addEventListener('click', () => {
-            const state = editor.getState();
-            if (!state.selectedBlockId) return;
-
-            const block = editor.findBlock(state.selectedBlockId);
-            if (!block) return;
-
-            const styles = block.styles || {};
-
-            // Update label
-            blockTypeLabel.textContent = block.type;
-
-            // Populate form
-            blockFontSize.value = styles.fontSize || '';
-            blockFontWeight.value = styles.fontWeight || '';
-            blockColor.value = styles.color || '';
-            blockColorPicker.value = styles.color || '#000000';
-            blockTextAlign.value = styles.textAlign || '';
-            blockPadding.value = styles.padding || '';
-            blockMargin.value = styles.margin || '';
-            blockBgColor.value = styles.backgroundColor || '';
-            blockBgColorPicker.value = styles.backgroundColor || '#ffffff';
-            blockBorderRadius.value = styles.borderRadius || '';
-
-            blockStylesModal.show();
-        });
-
-        // Save styles
-        btnSaveBlockStyles.addEventListener('click', () => {
-            const state = editor.getState();
-            if (!state.selectedBlockId) return;
-
-            const styles = {};
-
-            if (blockFontSize.value.trim()) styles.fontSize = blockFontSize.value.trim();
-            if (blockFontWeight.value) styles.fontWeight = blockFontWeight.value;
-            if (blockColor.value.trim()) styles.color = blockColor.value.trim();
-            if (blockTextAlign.value) styles.textAlign = blockTextAlign.value;
-            if (blockPadding.value.trim()) styles.padding = blockPadding.value.trim();
-            if (blockMargin.value.trim()) styles.margin = blockMargin.value.trim();
-            if (blockBgColor.value.trim()) styles.backgroundColor = blockBgColor.value.trim();
-            if (blockBorderRadius.value.trim()) styles.borderRadius = blockBorderRadius.value.trim();
-
-            // Update block with new styles (empty object clears styles)
-            editor.updateBlock(state.selectedBlockId, {
-                styles: Object.keys(styles).length > 0 ? styles : undefined
-            });
-
-            blockStylesModal.hide();
-        });
-
-        // Clear all styles
-        btnClearBlockStyles.addEventListener('click', () => {
-            blockFontSize.value = '';
-            blockFontWeight.value = '';
-            blockColor.value = '';
-            blockColorPicker.value = '#000000';
-            blockTextAlign.value = '';
-            blockPadding.value = '';
-            blockMargin.value = '';
-            blockBgColor.value = '';
-            blockBgColorPicker.value = '#ffffff';
-            blockBorderRadius.value = '';
-        });
-
         // =========================================================================
-        // Live Preview
+        // Preview Pane
         // =========================================================================
         const previewPane = document.getElementById('preview-pane');
         const previewIframe = document.getElementById('preview-iframe');
@@ -1071,56 +454,33 @@
         const btnRefreshPreview = document.getElementById('btn-refresh-preview');
 
         let previewVisible = true;
+        let selectedExampleId = null;
         let previewDebounceTimer = null;
-        const PREVIEW_DEBOUNCE_MS = 800;
 
-        // Debounce utility
-        function debounce(fn, delay) {
-            return (...args) => {
-                clearTimeout(previewDebounceTimer);
-                previewDebounceTimer = setTimeout(() => fn(...args), delay);
-            };
-        }
-
-        // Get selected data example's data
         function getSelectedTestData() {
-            const selectedId = editor.getSelectedDataExampleId();
-            if (!selectedId) return null;
-            const examples = editor.getDataExamples();
-            const selected = examples.find(ex => ex.id === selectedId);
-            return selected?.data || null;
+            if (!selectedExampleId) return null;
+            const example = config.dataExamples.find(ex => ex.id === selectedExampleId);
+            return example?.data || null;
         }
 
-        // Toggle preview visibility
-        btnTogglePreview.addEventListener('click', () => {
-            previewVisible = !previewVisible;
-            previewPane.classList.toggle('hidden', !previewVisible);
-            btnTogglePreview.classList.toggle('active', previewVisible);
-            const icon = btnTogglePreview.querySelector('i');
-            icon.className = previewVisible ? 'bi bi-eye-slash' : 'bi bi-eye';
-            btnTogglePreview.innerHTML = '';
-            btnTogglePreview.appendChild(icon);
-            btnTogglePreview.appendChild(document.createTextNode(previewVisible ? ' Hide' : ' Preview'));
-        });
+        function hidePreview() {
+            previewIframe.style.display = 'none';
+            previewEmpty.style.display = 'block';
+            previewStatus.textContent = '';
+        }
 
-        // Refresh preview
         async function refreshPreview() {
             const testData = getSelectedTestData();
 
             if (!testData) {
-                previewIframe.style.display = 'none';
-                previewEmpty.style.display = 'block';
-                previewStatus.textContent = '';
+                hidePreview();
                 return;
             }
 
-            // Skip request if there are no blocks to render
             const template = editor.getTemplate();
             if (!template.blocks || template.blocks.length === 0) {
-                previewIframe.style.display = 'none';
-                previewEmpty.style.display = 'block';
                 previewEmpty.querySelector('p').textContent = 'Add blocks to see preview';
-                previewStatus.textContent = '';
+                hidePreview();
                 return;
             }
 
@@ -1129,7 +489,7 @@
 
             try {
                 const response = await fetch(
-                    `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/preview`,
+                    `/tenants/${config.tenantId}/templates/${config.templateId}/variants/${config.variantId}/preview`,
                     {
                         method: 'POST',
                         headers: {
@@ -1138,32 +498,28 @@
                         },
                         body: JSON.stringify({
                             data: testData,
-                            templateModel: editor.getTemplate(),
+                            templateModel: template,
                         }),
                     }
                 );
 
                 if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || `HTTP ${response.status}`);
+                    throw new Error(await response.text() || `HTTP ${response.status}`);
                 }
 
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
 
-                // Revoke old URL if exists
                 if (previewIframe.dataset.blobUrl) {
                     URL.revokeObjectURL(previewIframe.dataset.blobUrl);
                 }
                 previewIframe.dataset.blobUrl = url;
-
                 previewIframe.src = url;
                 previewIframe.style.display = 'block';
                 previewEmpty.style.display = 'none';
                 previewStatus.textContent = 'Updated';
                 previewStatus.className = 'preview-status';
 
-                // Clear "Updated" after 2 seconds
                 setTimeout(() => {
                     if (previewStatus.textContent === 'Updated') {
                         previewStatus.textContent = '';
@@ -1171,105 +527,62 @@
                 }, 2000);
             } catch (err) {
                 console.error('Preview error:', err);
-                previewStatus.textContent = 'Error: ' + (err.message || 'Failed to generate preview');
+                previewStatus.textContent = 'Error: ' + (err.message || 'Failed');
                 previewStatus.className = 'preview-status error';
             }
         }
 
-        // Debounced preview refresh
-        const debouncedRefreshPreview = debounce(refreshPreview, PREVIEW_DEBOUNCE_MS);
+        function debouncedRefreshPreview() {
+            clearTimeout(previewDebounceTimer);
+            previewDebounceTimer = setTimeout(refreshPreview, 800);
+        }
 
-        // Manual refresh button
+        btnTogglePreview.addEventListener('click', () => {
+            previewVisible = !previewVisible;
+            previewPane.classList.toggle('hidden', !previewVisible);
+            btnTogglePreview.classList.toggle('toolbar-btn--active', previewVisible);
+        });
+
         btnRefreshPreview.addEventListener('click', refreshPreview);
 
-        // Refresh when data example changes
-        dataSelector.addEventListener('change', () => {
-            refreshPreview();
-        });
+        // =========================================================================
+        // Keyboard Shortcuts
+        // =========================================================================
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+S / Cmd+S to save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                editor.saveNow();
+            }
 
-        // Auto-refresh on editor changes (debounced)
-        editor.subscribe(() => {
-            if (previewVisible && getSelectedTestData()) {
-                debouncedRefreshPreview();
+            // Ctrl+Z / Cmd+Z to undo
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                editor.undo();
+            }
+
+            // Ctrl+Shift+Z / Cmd+Shift+Z to redo
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+                e.preventDefault();
+                editor.redo();
+            }
+
+            // Ctrl+Y / Cmd+Y to redo (alternative)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                e.preventDefault();
+                editor.redo();
             }
         });
 
-        // Initial preview if data is selected
-        if (getSelectedTestData()) {
-            refreshPreview();
-        }
-
         // =========================================================================
-        // Debug Panel (only exists in local profile)
+        // Warn Before Unload
         // =========================================================================
-        const debugPanel = document.getElementById('debug-panel');
-        if (debugPanel) {
-            const debugState = document.getElementById('debug-state');
-            const debugHistory = document.getElementById('debug-history');
-            const debugStore = document.getElementById('debug-store');
-            const debugContent = document.getElementById('debug-panel-content');
-            const debugToggle = document.getElementById('debug-panel-toggle');
-
-            let collapsed = false;
-            debugToggle.addEventListener('click', () => {
-                collapsed = !collapsed;
-                debugContent.style.display = collapsed ? 'none' : 'block';
-                debugToggle.textContent = collapsed ? '+' : '−';
-            });
-
-            function updateDebugPanel() {
-                const state = editor.getState();
-
-                // State overview
-                debugState.textContent = JSON.stringify({
-                    selectedBlockId: state.selectedBlockId,
-                    blockCount: state.template.blocks.length,
-                    isDirty: editor.isDirty(),
-                    canUndo: editor.canUndo(),
-                    canRedo: editor.canRedo(),
-                }, null, 2);
-
-                // History info - using DOM manipulation
-                debugHistory.textContent = '';
-                const historyDiv = document.createElement('div');
-                historyDiv.style.cssText = 'display: flex; gap: 12px; color: #bac2de;';
-
-                const undoSpan = document.createElement('span');
-                undoSpan.textContent = 'Undo: ';
-                const undoVal = document.createElement('b');
-                undoVal.style.color = '#89b4fa';
-                undoVal.textContent = editor.canUndo() ? '✓' : '✗';
-                undoSpan.appendChild(undoVal);
-
-                const redoSpan = document.createElement('span');
-                redoSpan.textContent = 'Redo: ';
-                const redoVal = document.createElement('b');
-                redoVal.style.color = '#89b4fa';
-                redoVal.textContent = editor.canRedo() ? '✓' : '✗';
-                redoSpan.appendChild(redoVal);
-
-                const dirtySpan = document.createElement('span');
-                dirtySpan.textContent = 'Dirty: ';
-                const dirtyVal = document.createElement('b');
-                dirtyVal.style.color = editor.isDirty() ? '#f38ba8' : '#a6e3a1';
-                dirtyVal.textContent = editor.isDirty() ? 'Yes' : 'No';
-                dirtySpan.appendChild(dirtyVal);
-
-                historyDiv.appendChild(undoSpan);
-                historyDiv.appendChild(redoSpan);
-                historyDiv.appendChild(dirtySpan);
-                debugHistory.appendChild(historyDiv);
-
-                // Full store (template)
-                debugStore.textContent = JSON.stringify(state.template, null, 2);
+        window.addEventListener('beforeunload', (e) => {
+            if (editor.isDirty()) {
+                e.preventDefault();
+                e.returnValue = '';
             }
-
-            // Initial update
-            updateDebugPanel();
-
-            // Subscribe to changes
-            editor.subscribe(updateDebugPanel);
-        }
+        });
     </script>
 </body>
 </html>
