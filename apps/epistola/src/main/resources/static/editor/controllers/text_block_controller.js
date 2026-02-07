@@ -102,10 +102,12 @@ export class TextBlockController extends Controller {
           parent.appendChild(chip);
         }
       }
-    } else if (node.type === "expressionChip") {
-      // Native expression chip node
+    } else if (node.type === "expression" || node.type === "expressionChip") {
+      // TipTap expression node (attrs.expression) or legacy expressionChip
       const chip = this.createExpressionChip(node.attrs?.expression || "");
       parent.appendChild(chip);
+    } else if (node.type === "hardBreak") {
+      parent.appendChild(document.createElement("br"));
     }
   }
 
@@ -440,7 +442,10 @@ export class TextBlockController extends Controller {
         // Collect loose expression chips
         const expression = child.dataset.expression || "";
         log.debug("text-block", "convertToTipTap: loose chip found", { expression });
-        looseContent.push({ type: "text", text: `{{${expression}}}` });
+        looseContent.push({
+          type: "expression",
+          attrs: { expression, isNew: false },
+        });
       }
     }
 
@@ -470,8 +475,12 @@ export class TextBlockController extends Controller {
         }
       } else if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-chip")) {
         const expression = node.dataset.expression || "";
-        // Store as text with mustache syntax
-        content.push({ type: "text", text: `{{${expression}}}` });
+        content.push({
+          type: "expression",
+          attrs: { expression, isNew: false },
+        });
+      } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "BR") {
+        content.push({ type: "hardBreak" });
       }
     }
 

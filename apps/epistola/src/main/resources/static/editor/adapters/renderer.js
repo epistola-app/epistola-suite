@@ -289,8 +289,16 @@ export class BlockRenderer {
 
   _hasExpressionChips(content) {
     if (!content) return false;
-    const text = this._extractTextFromTipTap(content);
-    return /\{\{[^}]+\}\}/.test(text);
+
+    const hasChip = (node) => {
+      if (!node) return false;
+      if (node.type === "expression" || node.type === "expressionChip") return true;
+      if (node.type === "text" && node.text && /\{\{[^}]+\}\}/.test(node.text)) return true;
+      if (Array.isArray(node.content)) return node.content.some(hasChip);
+      return false;
+    };
+
+    return hasChip(content);
   }
 
   /**
