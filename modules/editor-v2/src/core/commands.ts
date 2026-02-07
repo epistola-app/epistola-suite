@@ -247,8 +247,29 @@ export class MoveBlockCommand implements Command<Template> {
     // Remove from current location
     let newBlocks = removeBlock(state.blocks, this.blockId);
 
+    // Adjust index if moving within same parent (after removal, indices shift)
+    let adjustedIndex = this.newIndex;
+    const origParentId = this.originalLocation.parent?.id ?? null;
+    const origContainerId = this.originalLocation.containerId;
+
+    // Parse the new parent ID to get block ID and container ID
+    let newBlockParentId = this.newParentId;
+    let newContainerId: string | null = null;
+    if (this.newParentId?.includes("::")) {
+      const parts = this.newParentId.split("::");
+      newBlockParentId = parts[0];
+      newContainerId = parts.slice(1).join("::");
+    }
+
+    // If same parent and container, adjust index
+    if (origParentId === newBlockParentId && origContainerId === newContainerId) {
+      if (this.originalLocation.index < this.newIndex) {
+        adjustedIndex = this.newIndex - 1;
+      }
+    }
+
     // Insert at new location
-    newBlocks = insertBlock(newBlocks, block, this.newParentId, this.newIndex);
+    newBlocks = insertBlock(newBlocks, block, this.newParentId, adjustedIndex);
 
     return { ...state, blocks: newBlocks };
   }

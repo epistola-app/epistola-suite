@@ -475,6 +475,25 @@ export function mountEditor(options: EditorOptions): EditorInstance {
         }
       }
     },
+    // Index-based callbacks for gap drop zones
+    onBlockMoveToIndex: (
+      blockId: string,
+      parentId: string | null,
+      index: number,
+    ) => {
+      const command = new MoveBlockCommand(blockId, parentId, index);
+      executeCommand(command);
+    },
+    onBlockAddAtIndex: (
+      blockType: string,
+      parentId: string | null,
+      index: number,
+    ) => {
+      const newBlock = createBlock(blockType as any);
+      if (!newBlock) return;
+      const command = new AddBlockCommand(newBlock, parentId, index);
+      executeCommand(command);
+    },
   });
 
   // Create palette with DnD manager from renderer

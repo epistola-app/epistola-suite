@@ -75,6 +75,20 @@ export interface EditorRenderContext {
     position: "before" | "after" | "inside",
     containerId?: string | null,
   ) => void;
+
+  /** Callback for index-based block move (used by gap drop zones) */
+  onBlockMoveToIndex?: (
+    blockId: string,
+    parentId: string | null,
+    index: number,
+  ) => void;
+
+  /** Callback for index-based block add (used by gap drop zones) */
+  onBlockAddAtIndex?: (
+    blockType: string,
+    parentId: string | null,
+    index: number,
+  ) => void;
 }
 
 /**
@@ -234,17 +248,17 @@ export function createRenderer(
       try {
         const dragData = JSON.parse(jsonData) as { blockId?: string; blockType?: string; source: string };
 
+        // Construct the composite parent ID if needed
+        const targetParentId = containerId && parentBlockId
+          ? `${parentBlockId}::${containerId}`
+          : parentBlockId;
+
         if (dragData.source === "palette" && dragData.blockType) {
-          // Construct the composite parent ID if needed
-          const targetParentId = containerId && parentBlockId
-            ? `${parentBlockId}::${containerId}`
-            : parentBlockId;
-          context.onBlockAdd?.(dragData.blockType, targetParentId, "before", null);
+          // Use index-based callback for precise insertion
+          context.onBlockAddAtIndex?.(dragData.blockType, targetParentId, index);
         } else if (dragData.source === "editor" && dragData.blockId) {
-          const targetParentId = containerId && parentBlockId
-            ? `${parentBlockId}::${containerId}`
-            : parentBlockId;
-          context.onBlockMove?.(dragData.blockId, targetParentId, "before", null);
+          // Use index-based callback for precise insertion
+          context.onBlockMoveToIndex?.(dragData.blockId, targetParentId, index);
         }
       } catch {
         // Invalid JSON
