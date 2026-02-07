@@ -1,0 +1,41 @@
+{
+  "name": "@epistola/vanilla-editor",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/vanilla-editor.js",
+  "module": "dist/vanilla-editor.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/vanilla-editor.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "esbuild src/index.ts --bundle --outfile=dist/vanilla-editor.js --format=esm --watch --external:@epistola/headless-editor",
+    "build": "esbuild src/index.ts --bundle --outfile=dist/vanilla-editor.js --format=esm --minify && tsc --emitDeclarationOnly",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@epistola/headless-editor": "workspace:*",
+    "@github/hotkey": "^3.0.2",
+    "@hotwired/stimulus": "^3.2.2",
+    "@tiptap/core": "^2.12.0",
+    "@tiptap/extension-placeholder": "^2.12.0",
+    "@tiptap/pm": "^2.12.0",
+    "@tiptap/starter-kit": "^2.12.0",
+    "sortablejs": "^1.15.6",
+    "uhtml": "^4.7.1"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.8",
+    "esbuild": "^0.25.0",
+    "jsdom": "^27.4.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.16"
+  }
+}

@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13/font/bootstrap-icons.css">
     <link rel="stylesheet" th:href="@{/css/main.css}">
-    <link rel="stylesheet" th:href="@{/editor/components/ExpressionEditor.css}">
+    <link rel="stylesheet" th:href="@{/vanilla-editor/vanilla-editor.css}">
     <style>
         html, body {
             height: 100%;
@@ -205,95 +205,12 @@
             margin: 0 auto;
         }
 
-        /* Block cards */
-        .block {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            margin-bottom: 0.5rem;
-            padding: 0.625rem;
-            cursor: pointer;
-            transition: border-color 0.15s;
-        }
-
-        .block:hover {
-            border-color: #cbd5e1;
-        }
-
-        .block.selected {
-            border-color: #4a90d9;
-            box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
-        }
-
-        .block-header {
-            margin-bottom: 0.25rem;
-        }
-
-        .drag-handle {
-            cursor: grab;
-        }
-
-        .drag-handle:active {
-            cursor: grabbing;
-        }
-
-        /* Nested block containers */
-        .block-children {
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: #f8fafc;
-            border: 1px dashed #e2e8f0;
-            border-radius: 4px;
-            min-height: 2rem;
-        }
-
-        .block-children .block {
-            background: #fff;
-        }
-
-        /* Columns */
-        .columns-layout {
-            display: flex;
-        }
-
-        .column-wrapper {
-            background: #f8fafc;
-            border: 1px dashed #e2e8f0;
-            border-radius: 4px;
-            padding: 0.5rem;
-            min-height: 3rem;
-        }
-
-        /* SortableJS feedback */
-        .sortable-ghost {
-            opacity: 0.4;
-            background: #e0f0ff;
-        }
-
-        .sortable-chosen {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .sortable-drag {
-            opacity: 0.8;
-        }
-
-        .invalid-drop-target {
-            background: #fee2e2 !important;
-            border-color: #fca5a5 !important;
-            transition: background 0.15s, border-color 0.15s;
-        }
-
-        /* Empty state */
-        .empty-state {
-            padding: 3rem 1rem;
-            color: #94a3b8;
-            font-size: 0.9rem;
-        }
+        /* Block styles, SortableJS feedback, and empty state
+           are now in vanilla-editor.css */
     </style>
 </head>
 <body>
-    <div class="editor-page">
+    <div class="editor-page" data-controller="editor">
         <!-- Header -->
         <header class="editor-header">
             <div class="editor-header-left">
@@ -309,8 +226,9 @@
                 </span>
             </div>
             <div class="editor-header-right">
-                <span id="save-status" class="save-status"></span>
-                <button id="btn-save" class="btn btn-sm btn-primary">
+                <span id="save-status" class="save-status" data-editor-target="saveStatus"></span>
+                <button id="btn-save" class="btn btn-sm btn-primary" data-hotkey="Mod+s"
+                        data-action="editor#save" data-editor-target="saveBtn">
                     <i class="bi bi-cloud-upload"></i> Save
                 </button>
             </div>
@@ -319,7 +237,7 @@
         <!-- Toolbar -->
         <div class="editor-toolbar">
             <div class="toolbar-group">
-                <button id="btn-add-text" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="text">
                     <i class="bi bi-type"></i> Text
                 </button>
             </div>
@@ -327,13 +245,13 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <button id="btn-add-container" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="container">
                     <i class="bi bi-box"></i> Container
                 </button>
-                <button id="btn-add-conditional" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="conditional">
                     <i class="bi bi-question-circle"></i> If
                 </button>
-                <button id="btn-add-loop" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="loop">
                     <i class="bi bi-arrow-repeat"></i> Loop
                 </button>
             </div>
@@ -341,10 +259,10 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <button id="btn-add-columns" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="columns">
                     <i class="bi bi-layout-three-columns"></i> Columns
                 </button>
-                <button id="btn-add-table" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="table">
                     <i class="bi bi-table"></i> Table
                 </button>
             </div>
@@ -352,13 +270,13 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <button id="btn-add-pagebreak" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="pagebreak">
                     <i class="bi bi-dash-lg"></i> Break
                 </button>
-                <button id="btn-add-pageheader" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="pageheader">
                     <i class="bi bi-arrow-up-square"></i> Header
                 </button>
-                <button id="btn-add-pagefooter" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="pagefooter">
                     <i class="bi bi-arrow-down-square"></i> Footer
                 </button>
             </div>
@@ -366,7 +284,7 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <button id="btn-add-to-selected" class="btn btn-sm btn-outline-primary">
+                <button class="btn btn-sm btn-outline-primary" data-action="editor#addBlockToSelected">
                     <i class="bi bi-plus-circle"></i> Add to selected
                 </button>
             </div>
@@ -374,10 +292,12 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <button id="btn-undo" class="btn btn-sm btn-outline-secondary" disabled>
+                <button id="btn-undo" class="btn btn-sm btn-outline-secondary" disabled data-hotkey="Mod+z"
+                        data-action="editor#undo" data-editor-target="undoBtn">
                     <i class="bi bi-arrow-counterclockwise"></i>
                 </button>
-                <button id="btn-redo" class="btn btn-sm btn-outline-secondary" disabled>
+                <button id="btn-redo" class="btn btn-sm btn-outline-secondary" disabled data-hotkey="Mod+y"
+                        data-action="editor#redo" data-editor-target="redoBtn">
                     <i class="bi bi-arrow-clockwise"></i>
                 </button>
             </div>
@@ -385,10 +305,10 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <button id="btn-export" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#exportTemplate">
                     <i class="bi bi-download"></i> Export
                 </button>
-                <button id="btn-import" class="btn btn-sm btn-outline-secondary">
+                <button class="btn btn-sm btn-outline-secondary" data-action="editor#importTemplate">
                     <i class="bi bi-upload"></i> Import
                 </button>
             </div>
@@ -396,13 +316,15 @@
             <div class="toolbar-divider"></div>
 
             <div class="toolbar-group">
-                <select id="theme-selector" class="form-select form-select-sm" style="width: auto;" title="Select theme">
+                <select id="theme-selector" class="form-select form-select-sm" style="width: auto;" title="Select theme"
+                        data-action="change->editor#handleThemeChange" data-editor-target="themeSelect">
                     <option value="">Default theme</option>
                 </select>
             </div>
 
             <div class="toolbar-group">
-                <select id="data-example-selector" class="form-select form-select-sm" style="width: auto;" title="Select test data">
+                <select id="data-example-selector" class="form-select form-select-sm" style="width: auto;" title="Select test data"
+                        data-action="change->editor#handleDataExampleChange" data-editor-target="dataExampleSelect">
                     <option value="">No test data</option>
                 </select>
             </div>
@@ -416,7 +338,8 @@
                 <button id="btn-document-styles" class="btn btn-sm btn-outline-secondary" title="Document styles">
                     <i class="bi bi-palette"></i> Styles
                 </button>
-                <button id="btn-block-styles" class="btn btn-sm btn-outline-secondary" title="Style selected block" disabled>
+                <button id="btn-block-styles" class="btn btn-sm btn-outline-secondary" title="Style selected block" disabled
+                        data-editor-target="blockStylesBtn">
                     <i class="bi bi-brush"></i> Block
                 </button>
             </div>
@@ -688,28 +611,8 @@
         </div>
     </div>
 
-    <!-- SortableJS must load before module scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <!-- Bootstrap JS for modals -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Stimulus.js for expression editor controllers -->
-    <script type="importmap">
-    {
-        "imports": {
-            "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2/dist/stimulus.min.js"
-        }
-    }
-    </script>
-    <script type="module">
-        import { Application } from "@hotwired/stimulus";
-        import { ExpressionEditorController } from "/editor/controllers/expression_editor_controller.js";
-        import { TextBlockController } from "/editor/controllers/text_block_controller.js";
-
-        window.Stimulus = Application.start();
-        window.Stimulus.register("expression-editor", ExpressionEditorController);
-        window.Stimulus.register("text-block", TextBlockController);
-    </script>
 
     <!-- Server-provided data -->
     <script th:inline="javascript">
@@ -733,133 +636,42 @@
 
     <!-- Vanilla editor bootstrap -->
     <script type="module">
-        import { mountVanillaEditor } from '/editor/editor-integration.js';
+        import { mountEditor } from '/vanilla-editor/vanilla-editor.js';
 
-        const saveStatus = document.getElementById('save-status');
-        const saveBtn = document.getElementById('btn-save');
-
-        let editorReady = false;
-
-        const editor = mountVanillaEditor({
-            container: 'editor-root',
+        // =========================================================================
+        // Mount editor with full configuration
+        // =========================================================================
+        const mounted = mountEditor({
+            container: '#editor-root',
             template: window.TEMPLATE_MODEL,
-            onChange: () => {
-                if (editorReady) updateDirtyStatus();
+            themes: window.THEMES || [],
+            defaultTheme: window.DEFAULT_THEME || null,
+            dataExamples: window.DATA_EXAMPLES || [],
+            schema: window.DATA_MODEL || null,
+            save: {
+                handler: async (template) => {
+                    const response = await fetch(
+                        `/v1/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
+                        {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/vnd.epistola.v1+json',
+                                'X-XSRF-TOKEN': window.getCsrfToken(),
+                            },
+                            body: JSON.stringify({ templateModel: template }),
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error('Save failed');
+                    }
+                },
             },
         });
 
-        editorReady = true;
-
-        // =========================================================================
-        // Initialize with server data
-        // =========================================================================
-        editor.setThemes(window.THEMES || []);
-        editor.setDefaultTheme(window.DEFAULT_THEME || null);
-        editor.setDataExamples(window.DATA_EXAMPLES || []);
-        if (window.DATA_MODEL) editor.setSchema(window.DATA_MODEL);
-
-        // Mark initial state as saved
+        // Get the underlying TemplateEditor for modal/preview/debug code
+        const editor = mounted.getEditor();
         editor.markAsSaved();
-
-        // =========================================================================
-        // Dirty state tracking
-        // =========================================================================
-        function updateDirtyStatus() {
-            if (editor.isDirty()) {
-                saveStatus.textContent = 'Unsaved changes';
-                saveStatus.className = 'save-status dirty';
-            }
-        }
-
-        // Warn before leaving with unsaved changes
-        window.addEventListener('beforeunload', (e) => {
-            if (editor.isDirty()) {
-                e.preventDefault();
-                e.returnValue = '';
-            }
-        });
-
-        // =========================================================================
-        // Save functionality
-        // =========================================================================
-        async function save() {
-            saveStatus.textContent = 'Saving…';
-            saveStatus.className = 'save-status saving';
-
-            try {
-                const response = await fetch(
-                    `/v1/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
-                    {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/vnd.epistola.v1+json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({ templateModel: editor.getTemplate() }),
-                    }
-                );
-
-                if (response.ok) {
-                    editor.markAsSaved();
-                    saveStatus.textContent = 'Saved';
-                    saveStatus.className = 'save-status saved';
-                } else {
-                    saveStatus.textContent = 'Save failed';
-                    saveStatus.className = 'save-status error';
-                }
-            } catch (err) {
-                saveStatus.textContent = 'Save error';
-                saveStatus.className = 'save-status error';
-                console.error('Save error:', err);
-            }
-        }
-
-        saveBtn.addEventListener('click', save);
-
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                save();
-            }
-        });
-
-        // =========================================================================
-        // Theme selector
-        // =========================================================================
-        const themeSelector = document.getElementById('theme-selector');
-        const themes = editor.getThemes();
-        const currentThemeId = editor.getTemplate().themeId;
-
-        themes.forEach(theme => {
-            const option = document.createElement('option');
-            option.value = theme.id;
-            option.textContent = theme.name;
-            if (theme.id === currentThemeId) option.selected = true;
-            themeSelector.appendChild(option);
-        });
-
-        themeSelector.addEventListener('change', (e) => {
-            editor.updateThemeId(e.target.value || null);
-        });
-
-        // =========================================================================
-        // Data examples selector
-        // =========================================================================
-        const dataSelector = document.getElementById('data-example-selector');
-        const examples = editor.getDataExamples();
-        const selectedId = editor.getSelectedDataExampleId();
-
-        examples.forEach(ex => {
-            const option = document.createElement('option');
-            option.value = ex.id;
-            option.textContent = ex.name;
-            if (ex.id === selectedId) option.selected = true;
-            dataSelector.appendChild(option);
-        });
-
-        dataSelector.addEventListener('change', (e) => {
-            editor.selectDataExample(e.target.value || null);
-        });
 
         // =========================================================================
         // Page Settings Modal
@@ -983,16 +795,6 @@
                 blockBgColorPicker.value = blockBgColor.value;
             }
         });
-
-        // Enable/disable button based on selection
-        function updateBlockStylesButton() {
-            const state = editor.getState();
-            btnBlockStyles.disabled = !state.selectedBlockId;
-        }
-
-        // Subscribe to selection changes
-        editor.subscribe(updateBlockStylesButton);
-        updateBlockStylesButton();
 
         // Open modal
         btnBlockStyles.addEventListener('click', () => {
@@ -1183,7 +985,7 @@
         btnRefreshPreview.addEventListener('click', refreshPreview);
 
         // Refresh when data example changes
-        dataSelector.addEventListener('change', () => {
+        document.getElementById('data-example-selector')?.addEventListener('change', () => {
             refreshPreview();
         });
 
