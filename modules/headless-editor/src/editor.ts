@@ -6,6 +6,7 @@
  * UI is completely decoupled - bring your own components.
  */
 
+import { computed } from 'nanostores';
 import { createEditorStore, BlockTree, type EditorStore } from './store.js';
 import { defaultBlockDefinitions } from './blocks/definitions.js';
 import { UndoManager } from './undo.js';
@@ -61,6 +62,15 @@ export class TemplateEditor {
   private blockDefinitions: Record<string, BlockDefinition>;
   private callbacks: EditorCallbacks;
   private undoManager: UndoManager;
+  private _batching = false;
+  private _batchSnapshotTaken = false;
+
+  /**
+   * Reactive computed store that indicates whether the current template
+   * differs from the last saved state. Subscribers are notified only when
+   * the dirty state transitions (not on every template mutation).
+   */
+  readonly $isDirty;
 
   constructor(config: EditorConfig = {}) {
     const initialTemplate: Template = config.template ?? {
@@ -74,6 +84,18 @@ export class TemplateEditor {
     this.callbacks = config.callbacks ?? {};
     this.undoManager = new UndoManager();
 
+    // Derived store: dirty when template differs from last saved state
+    this.$isDirty = computed(
+      [this.store.$template, this.store.$lastSavedTemplate],
+      (template, lastSaved) => {
+        if (lastSaved === null) {
+          // Never saved — dirty if there's any content
+          return template.blocks.length > 0 || template.name !== 'Untitled';
+        }
+        return JSON.stringify(template) !== JSON.stringify(lastSaved);
+      }
+    );
+
     // Wire up change notifications
     this.store.subscribeTemplate((template) => {
       this.callbacks.onTemplateChange?.(template);
@@ -86,7 +108,56 @@ export class TemplateEditor {
 
   /** Save current state to history (call before mutations) */
   private saveToHistory(): void {
+    if (this._batching) {
+      // During batch: take only one snapshot (the state before the first mutation)
+      if (!this._batchSnapshotTaken) {
+        this.undoManager.push(this.store.getTemplate());
+        this._batchSnapshotTaken = true;
+      }
+      return;
+    }
     this.undoManager.push(this.store.getTemplate());
+  }
+
+  /**
+   * Group multiple mutations into a single undo entry and a single
+   * `onTemplateChange` callback notification.
+   *
+   * @example
+   * ```ts
+   * editor.batch(() => {
+   *   editor.addBlock('text');
+   *   editor.addBlock('container');
+   * });
+   * // Single undo() reverts both additions
+   * ```
+   *
+   * @param fn - Function containing mutations to batch
+   */
+  batch(fn: () => void): void {
+    if (this._batching) {
+      // Nested batch — just run inline
+      fn();
+      return;
+    }
+
+    this._batching = true;
+    this._batchSnapshotTaken = false;
+
+    // Suppress onTemplateChange during batch
+    const originalCallback = this.callbacks.onTemplateChange;
+    this.callbacks.onTemplateChange = undefined;
+
+    try {
+      fn();
+    } finally {
+      this._batching = false;
+      this._batchSnapshotTaken = false;
+
+      // Restore callback and fire once
+      this.callbacks.onTemplateChange = originalCallback;
+      this.callbacks.onTemplateChange?.(this.store.getTemplate());
+    }
   }
 
   // =========================================================================
@@ -137,7 +208,8 @@ export class TemplateEditor {
   }
 
   /**
-   * Get the nanostores directly (for framework integrations)
+   * Get the nanostores directly (for framework integrations).
+   * Includes reactive computed stores: `$isDirty`, `$canUndo`, `$canRedo`.
    */
   getStores() {
     return {
@@ -151,6 +223,9 @@ export class TemplateEditor {
       $previewOverrides: this.store.$previewOverrides,
       $themes: this.store.$themes,
       $defaultTheme: this.store.$defaultTheme,
+      $isDirty: this.$isDirty,
+      $canUndo: this.undoManager.$canUndo,
+      $canRedo: this.undoManager.$canRedo,
     };
   }
 
@@ -351,6 +426,81 @@ export class TemplateEditor {
    */
   clearPreviewOverrides(): void {
     this.store.setPreviewOverrides({ ...DEFAULT_PREVIEW_OVERRIDES });
+  }
+
+  // =========================================================================
+  // SCOPE VARIABLES & EXPRESSION CONTEXT
+  // =========================================================================
+
+  /**
+   * Walk up the block tree from the given block and collect all enclosing
+   * loop blocks' `itemAlias` and `indexAlias` as scope variables.
+   *
+   * Returns variables with the outermost loop's variables first.
+   * Returns an empty array if the block is not inside any loop or not found.
+   *
+   * @param blockId - The block to start from
+   * @returns Array of scope variables from enclosing loops
+   */
+  getScopeVariables(blockId: string): ScopeVariable[] {
+    const template = this.store.getTemplate();
+    const block = BlockTree.findBlock(template.blocks, blockId);
+    if (!block) return [];
+
+    const variables: ScopeVariable[] = [];
+    let currentId: string | null = blockId;
+
+    while (currentId !== null) {
+      const parent = BlockTree.findParent(template.blocks, currentId, null);
+      if (parent === null) break;
+
+      if (parent.type === 'loop') {
+        const loopBlock = parent as LoopBlock;
+        // Prepend (outermost first)
+        const loopVars: ScopeVariable[] = [
+          { name: loopBlock.itemAlias, type: 'loop-item', arrayPath: loopBlock.expression.raw },
+        ];
+        if (loopBlock.indexAlias) {
+          loopVars.push({ name: loopBlock.indexAlias, type: 'loop-index', arrayPath: loopBlock.expression.raw });
+        }
+        variables.unshift(...loopVars);
+      }
+
+      currentId = parent.id;
+    }
+
+    return variables;
+  }
+
+  /**
+   * Merge the current test data with scope variables for a given block
+   * into a single evaluation context object.
+   *
+   * Scope variables from enclosing loops are included as placeholder values
+   * so that expressions referencing them don't fail during preview.
+   *
+   * @param blockId - The block to build context for
+   * @returns Merged evaluation context
+   */
+  getExpressionContext(blockId: string): EvaluationContext {
+    const testData = this.store.getTestData();
+    const scopeVars = this.getScopeVariables(blockId);
+
+    if (scopeVars.length === 0) {
+      return { ...testData };
+    }
+
+    const context: EvaluationContext = { ...testData };
+    for (const v of scopeVars) {
+      if (v.type === 'loop-item') {
+        // Placeholder — the actual value depends on which iteration is being rendered
+        context[v.name] = `<${v.name}>`;
+      } else if (v.type === 'loop-index') {
+        context[v.name] = 0;
+      }
+    }
+
+    return context;
   }
 
   // =========================================================================

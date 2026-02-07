@@ -35,6 +35,9 @@ function generateId(): string {
 
 export const textBlockDefinition: BlockDefinition = {
   type: "text",
+  label: "Text",
+  icon: "text",
+  category: "Content",
 
   create: (id: string): TextBlock => ({
     id,
@@ -72,6 +75,9 @@ export const textBlockDefinition: BlockDefinition = {
 
 export const containerBlockDefinition: BlockDefinition = {
   type: "container",
+  label: "Container",
+  icon: "container",
+  category: "Layout",
 
   create: (id: string): ContainerBlock => ({
     id,
@@ -105,6 +111,9 @@ export const containerBlockDefinition: BlockDefinition = {
 
 export const conditionalBlockDefinition: BlockDefinition = {
   type: "conditional",
+  label: "Conditional",
+  icon: "conditional",
+  category: "Logic",
 
   create: (id: string): ConditionalBlock => ({
     id,
@@ -146,6 +155,9 @@ export const conditionalBlockDefinition: BlockDefinition = {
 
 export const loopBlockDefinition: BlockDefinition = {
   type: "loop",
+  label: "Loop",
+  icon: "loop",
+  category: "Logic",
 
   create: (id: string): LoopBlock => ({
     id,
@@ -201,6 +213,9 @@ function createColumn(): Column {
 
 export const columnsBlockDefinition: BlockDefinition = {
   type: "columns",
+  label: "Columns",
+  icon: "columns",
+  category: "Layout",
 
   create: (id: string): ColumnsBlock => ({
     id,
@@ -268,6 +283,9 @@ function createRow(cellCount: number, isHeader = false): TableRow {
 
 export const tableBlockDefinition: BlockDefinition = {
   type: "table",
+  label: "Table",
+  icon: "table",
+  category: "Layout",
 
   create: (id: string): TableBlock => ({
     id,
@@ -313,6 +331,9 @@ export const tableBlockDefinition: BlockDefinition = {
 
 export const pageBreakBlockDefinition: BlockDefinition = {
   type: "pagebreak",
+  label: "Page Break",
+  icon: "pagebreak",
+  category: "Layout",
 
   create: (id: string): PageBreakBlock => ({
     id,
@@ -336,6 +357,9 @@ export const pageBreakBlockDefinition: BlockDefinition = {
 
 export const pageHeaderBlockDefinition: BlockDefinition = {
   type: "pageheader",
+  label: "Page Header",
+  icon: "pageheader",
+  category: "Layout",
 
   create: (id: string): PageHeaderBlock => ({
     id,
@@ -369,6 +393,9 @@ export const pageHeaderBlockDefinition: BlockDefinition = {
 
 export const pageFooterBlockDefinition: BlockDefinition = {
   type: "pagefooter",
+  label: "Page Footer",
+  icon: "pagefooter",
+  category: "Layout",
 
   create: (id: string): PageFooterBlock => ({
     id,

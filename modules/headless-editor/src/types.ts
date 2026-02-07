@@ -367,7 +367,8 @@ export interface ValidationResult {
 }
 
 /**
- * Block definition - describes what a block can do (logic only, no UI)
+ * Block definition - describes what a block can do (logic only, no UI).
+ * Includes optional render hints for UI presentation.
  */
 export interface BlockDefinition {
   type: string;
@@ -380,6 +381,15 @@ export interface BlockDefinition {
 
   /** Block declares its own constraints */
   constraints: BlockConstraints;
+
+  /** Human-readable display name (e.g., "Text", "Conditional") */
+  label?: string;
+
+  /** Icon identifier string for UI rendering (e.g., "text", "columns") */
+  icon?: string;
+
+  /** Grouping category for toolbar organization (e.g., "Content", "Layout", "Logic") */
+  category?: string;
 }
 
 // ============================================================================
