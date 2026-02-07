@@ -71,11 +71,12 @@ export class BlockRenderer {
         return undefined;
       },
       onBeforeElUpdated: (fromEl, toEl) => {
-        // Don't update focused inputs/textareas - let user keep typing
-        if (fromEl === document.activeElement) {
-          if (fromEl.tagName === "INPUT" || fromEl.tagName === "TEXTAREA") {
-            return false;
-          }
+        // Don't update focused text inputs/textareas - let user keep typing.
+        if (
+          fromEl === document.activeElement &&
+          (fromEl.tagName === "TEXTAREA" || fromEl.tagName === "INPUT")
+        ) {
+          return false;
         }
         // Don't update Stimulus controller elements - they manage themselves
         if (fromEl.dataset?.controller) {
@@ -378,27 +379,6 @@ export class BlockRenderer {
 
     blockEl.appendChild(editorWrapper);
 
-    const checkbox = createElement("input", {
-      type: "checkbox",
-      className: "form-check-input",
-      id: `inverse-${block.id}`,
-      onClick: (e) => e.stopPropagation(),
-      onChange: (e) => {
-        this.editor.updateBlock(block.id, { inverse: e.target.checked });
-      },
-    });
-    checkbox.checked = block.inverse || false;
-
-    blockEl.appendChild(
-      createElement("div", { className: "form-check mt-1" }, [
-        checkbox,
-        createElement("label", {
-          className: "form-check-label small",
-          htmlFor: `inverse-${block.id}`,
-          textContent: "Inverse (show when false)",
-        }),
-      ]),
-    );
 
     const childrenEl = createElement("div", {
       className: "block-children sortable-container",
