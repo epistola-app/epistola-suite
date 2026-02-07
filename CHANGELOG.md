@@ -4,6 +4,10 @@
 
 ### Fixed
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
+- **Template Data Validation Endpoint**: Implemented `validateTemplateData` method in `EpistolaTemplateApi` to support the updated API contract
+  - Validates template input data against the template's JSON Schema
+  - Returns 404 if template not found, valid=true if no schema defined
+  - Maps validation errors to structured response with message and path
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
 
@@ -53,6 +57,14 @@
   - Full unit test coverage: 10 test files, 70+ tests, 100% core coverage
   - Single dependency: nanostores (~1KB) for reactive state
 
+- **Headless Editor Core Improvements**: Enhanced reactive state and batching capabilities
+  - Reactive computed stores: `$isDirty`, `$canUndo`, `$canRedo` via nanostores
+  - `batch(fn)` method for grouped mutations with single undo entry
+  - `getScopeVariables(blockId)` for expression autocomplete context
+  - `getExpressionContext(blockId)` merging test data with scope variables
+  - Render hints in BlockDefinition (label, icon, category) for UI block picker
+  - 7 new comprehensive test files for batch, undo/redo, dirty state, scope variables
+
 - **Vanilla JS Editor UI**: New lightweight UI layer using Bootstrap 5 + SortableJS
   - BlockRenderer: DOM rendering for all 9 block types
   - SortableAdapter: SortableJS drag-drop integration with drop zone validation
@@ -67,6 +79,17 @@
   - React editor module excluded from build pipeline (retained for reference)
   - Editor page uses vanilla editor with headless core via import maps
   - All state management moved to framework-agnostic nanostores
+
+- **Refactored Editor UI to vanilla-editor Package**: Consolidated editor UI into new framework-agnostic package
+  - Removed legacy adapter files: dom-helpers.js, renderer.js (777 lines), sortable-adapter.js, ui-controller.js
+  - Removed legacy controllers: expression_editor_controller.js (501 lines), text_block_controller.js with tests
+  - Removed: editor-integration.js (166 lines), editor-logger.js, ExpressionEditor.css (232 lines)
+  - New `@epistola/vanilla-editor` package with uhtml-based renderer (replaces morphdom + createElement)
+  - TipTap headless editor for text blocks with custom expression chip nodes
+  - @github/hotkey for declarative keyboard shortcuts (Ctrl+Z, Ctrl+S, etc.)
+  - Stimulus EditorController orchestrating toolbar, save, dirty tracking, undo/redo
+  - Updated editor.html from ~570 lines inline script to ~20 lines mount configuration
+  - Known issues to address: block selection highlight, sortable drag preview styling, expression chip cursor edge cases
 
 ### Fixed
 - **Headless editor drop operation handling**: Fixed drop() method to correctly handle before/after sibling positions (was ignoring position parameter)
