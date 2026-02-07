@@ -68,9 +68,20 @@
     - Block selection updates sidebar with properties
     - Drag-and-drop from palette to canvas
     - Before-unload handler for unsaved changes
-  - Comprehensive test coverage: 287 tests for all modules
+  - **Headless editor API**: `createEditor()` for framework-agnostic usage without DOM
+    - Full state management: addBlock, updateBlock, deleteBlock, moveBlock
+    - Document mutations: updateDocumentStyles, updatePageSettings, updateTheme
+    - History: undo/redo with canUndo/canRedo
+    - `onChange(listener)` subscription for preview updates - notifies on every change with change type
+    - Batch operations with `batch()` for atomic multi-command operations
+  - **Decoupled tree operations**: Commands now delegate to registry-based tree.ts
+    - Removed hardcoded block type checks (columns, rows) from commands.ts
+    - Generic handling of all block types via registry
+  - **DnD improvements**: Palette now uses DnD manager for consistent drag handling
+  - **Documentation**: Added README.md and ARCHITECTURE.md for editor-v2
+  - Comprehensive test coverage: 323 tests for all modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
-  - Bundle size: 618 KB (166 KB gzipped) - includes TipTap rich text editor
+  - Bundle size: 620 KB (167 KB gzipped) - includes TipTap rich text editor
   - **Thymeleaf integration**: Replaced complex React-based editor.html with clean editor-v2 integration
     - Simplified HTML page using editor-v2's built-in UI components
     - Theme selector and data example selector in secondary toolbar
