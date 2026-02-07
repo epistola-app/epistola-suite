@@ -53,7 +53,14 @@
     - Native HTML5 drag-and-drop: `createDndManager()` for reordering blocks
     - Drop zones with before/after/inside positioning
     - CSS class constants for styling selection and drag states
-  - Comprehensive test coverage: 258 tests for all modules
+  - **UI components**: Pure HTML/CSS components without framework dependencies (~700 LoC)
+    - Input components: `createUnitInput()`, `createColorInput()`, `createSpacingInput()`, `createSelectInput()`
+    - `createPalette()` - Block palette with drag-and-drop and category grouping
+    - `createSidebar()` - Style sidebar with properties/styles tabs
+    - `createToolbar()` - Editor toolbar with undo/redo and save status
+    - CSS variables for theming and consistent styling
+    - All components support destroy() for cleanup
+  - Comprehensive test coverage: 287 tests for all modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
   - Bundle size: 34.41 KB (8.97 KB gzipped) - ~75% smaller than projected
 
