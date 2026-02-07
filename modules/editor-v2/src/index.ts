@@ -89,6 +89,10 @@ export {
   CompositeCommand,
 } from "./core/commands.ts";
 
+// Re-export headless editor API
+export { createEditor } from "./core/editor.ts";
+export type { Editor, EditorOptions as HeadlessEditorOptions, ChangeType, ChangeListener } from "./core/editor.ts";
+
 // Re-export block registry and tree operations
 export {
   registry,
