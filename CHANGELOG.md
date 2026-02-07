@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### Added
+- **Editor v2 Core Foundation**: New framework-agnostic editor core (`@epistola/editor-v2`) as clean slate rewrite
+  - **Observable state container**: Simple pub/sub pattern without React/Zustand dependency (~150 LoC)
+    - `createState()` with `subscribe()`, `subscribeKey()`, and `batch()` methods
+    - `createComputed()` for derived values with automatic updates
+  - **Command pattern**: All mutations through commands for built-in undo/redo (~450 LoC)
+    - Generic block tree operations: `findBlock()`, `updateBlockInTree()`, `insertBlock()`, `removeBlock()`
+    - Block commands: `AddBlockCommand`, `UpdateBlockCommand`, `DeleteBlockCommand`, `MoveBlockCommand`
+    - Document commands: `UpdateDocumentStylesCommand`, `UpdatePageSettingsCommand`, `UpdateThemeCommand`
+    - `CompositeCommand` for grouping multiple commands
+  - **History manager**: Stack-based undo/redo with configurable limit (~100 LoC)
+    - `createHistory()` with `push()`, `undo()`, `redo()`, `clear()`
+    - `createDebouncedPush()` for merging rapid successive operations
+    - Reactive `subscribe()` for UI updates
+  - **Save orchestrator**: Unified dirty detection and debounced auto-save (~100 LoC)
+    - Single source of truth for save status: `saved`, `dirty`, `saving`, `error`
+    - `requestSave()` with configurable debounce delay
+    - `saveNow()` for immediate save, `cancelPending()` to cancel pending saves
+    - `createBeforeUnloadHandler()` for unsaved changes warning
+  - **Framework-agnostic types**: Pure TypeScript types without React dependencies
+    - `CSSStyles` replacing React's `CSSProperties`
+    - `RichTextContent` compatible with TipTap JSON format
+    - All template types from existing editor (Block, Template, etc.)
+  - Comprehensive test coverage: 103 tests for all core modules
+  - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
+  - Bundle size: 14.48 KB (4.07 KB gzipped) - ~85% smaller than projected
+
 ### Fixed
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
