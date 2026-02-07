@@ -651,11 +651,11 @@
             save: {
                 handler: async (template) => {
                     const response = await fetch(
-                        `/v1/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
+                        `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
                         {
                             method: 'PUT',
                             headers: {
-                                'Content-Type': 'application/vnd.epistola.v1+json',
+                                'Content-Type': 'application/json',
                                 'X-XSRF-TOKEN': window.getCsrfToken(),
                             },
                             body: JSON.stringify({ templateModel: template }),
