@@ -709,19 +709,59 @@
 .ev2-block {
   position: relative;
   padding: var(--ev2-space-sm);
-  margin: var(--ev2-space-xs) 0;
-  border: 1px dashed transparent;
+  margin: var(--ev2-space-sm) 0;
+  border: 2px dashed var(--ev2-color-border);
   border-radius: var(--ev2-radius-sm);
+  background: var(--ev2-color-bg);
   transition: all 0.15s;
 }
 
 .ev2-block:hover {
-  border-color: var(--ev2-color-border);
+  border-color: var(--ev2-color-border-strong);
   background: var(--ev2-color-bg-subtle);
 }
 
 .ev2-block--selected {
   border-color: var(--ev2-color-primary);
+  border-style: solid;
+  background: var(--ev2-color-primary-light);
+}
+
+/* DnD states */
+.ev2-block--dragging {
+  opacity: 0.4;
+  border-color: var(--ev2-color-primary);
+}
+
+.ev2-block--drag-over {
+  border-color: var(--ev2-color-primary);
+}
+
+.ev2-block--drop-before::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--ev2-color-primary);
+  border-radius: 2px;
+}
+
+.ev2-block--drop-after::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--ev2-color-primary);
+  border-radius: 2px;
+}
+
+.ev2-block--drop-inside {
+  border-color: var(--ev2-color-primary);
+  border-style: solid;
   background: var(--ev2-color-primary-light);
 }
 
@@ -753,17 +793,8 @@
   cursor: grabbing;
 }
 
-/* Drop zones */
-.ev2-drop-zone {
-  height: 4px;
-  margin: 2px 0;
-  border-radius: 2px;
-  background: transparent;
-  transition: all 0.15s;
-}
-
+/* Drop zone active state (old style - kept for compatibility) */
 .ev2-drop-zone--active {
-  height: 24px;
   background: var(--ev2-color-primary-light);
   border: 2px dashed var(--ev2-color-primary);
 }
@@ -792,4 +823,122 @@
 .ev2-canvas-empty__hint {
   font-size: var(--ev2-font-size-sm);
   opacity: 0.7;
+}
+
+/* ============================================================================
+   Renderer Elements
+   ============================================================================ */
+
+/* Root container from renderer */
+.ev2-root {
+  min-height: 100%;
+}
+
+/* Canvas from renderer (paper simulation) */
+.ev2-canvas {
+  max-width: 800px;
+  margin: 0 auto;
+  min-height: 1000px;
+  background: var(--ev2-color-bg);
+  border: 1px solid var(--ev2-color-border);
+  border-radius: var(--ev2-radius-md);
+  box-shadow: var(--ev2-shadow-md);
+  padding: var(--ev2-space-xl);
+}
+
+/* Block content wrapper */
+.ev2-block-content {
+  min-height: 24px;
+}
+
+/* Placeholder for empty containers */
+.ev2-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  padding: var(--ev2-space-md);
+  border: 2px dashed var(--ev2-color-border);
+  border-radius: var(--ev2-radius-sm);
+  background: var(--ev2-color-bg-subtle);
+  color: var(--ev2-color-text-muted);
+  font-size: var(--ev2-font-size-sm);
+  text-align: center;
+}
+
+.ev2-placeholder:hover {
+  border-color: var(--ev2-color-primary);
+  background: var(--ev2-color-primary-light);
+}
+
+/* Drop zone container (for children) */
+.ev2-drop-zone {
+  min-height: 40px;
+  padding: var(--ev2-space-xs);
+}
+
+/* Block type labels */
+.ev2-text-placeholder,
+.ev2-container-label,
+.ev2-logic-label,
+.ev2-table-placeholder,
+.ev2-pagebreak,
+.ev2-header-label,
+.ev2-footer-label,
+.ev2-unknown-block {
+  padding: var(--ev2-space-xs) var(--ev2-space-sm);
+  font-size: var(--ev2-font-size-xs);
+  color: var(--ev2-color-text-muted);
+  background: var(--ev2-color-bg-muted);
+  border-radius: var(--ev2-radius-sm);
+  display: inline-block;
+}
+
+.ev2-pagebreak {
+  display: block;
+  text-align: center;
+  border-top: 2px dashed var(--ev2-color-border);
+  border-bottom: 2px dashed var(--ev2-color-border);
+  padding: var(--ev2-space-sm);
+  background: var(--ev2-color-bg-subtle);
+}
+
+/* Columns layout */
+.ev2-columns {
+  display: flex;
+  gap: var(--ev2-space-md);
+}
+
+.ev2-column {
+  flex: 1;
+  min-height: 60px;
+  padding: var(--ev2-space-xs);
+  border: 1px dashed var(--ev2-color-border);
+  border-radius: var(--ev2-radius-sm);
+  background: var(--ev2-color-bg-subtle);
+}
+
+.ev2-column:hover {
+  border-color: var(--ev2-color-border-strong);
+}
+
+/* Drag handle */
+.ev2-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  cursor: grab;
+  color: var(--ev2-color-text-light);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ev2-block:hover .ev2-drag-handle {
+  opacity: 1;
+}
+
+.ev2-drag-handle:active {
+  cursor: grabbing;
 }

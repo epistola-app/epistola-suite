@@ -260,6 +260,7 @@ export function createDndManager(): DndManager {
 
       function handleDrop(event: DragEvent): void {
         event.preventDefault();
+        event.stopPropagation(); // Prevent parent drop zones from also handling this drop
         clearDropIndicators();
 
         if (!event.dataTransfer || !dropCallback) return;

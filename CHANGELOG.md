@@ -92,6 +92,10 @@
 ### Fixed
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
+- **DnD event bubbling**: Drop events now stop propagation to prevent duplicate handling by parent drop zones
+- **DnD inside drops**: Only container blocks (those with getChildren) now accept "inside" drops to prevent blocks from disappearing
+- **Empty parentId handling**: Treat empty string parentId as null for root-level insertions
+- **CSS styling fixes**: Added missing styles for blocks, placeholders, drop indicators, and DnD states
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
 
 ### Added
