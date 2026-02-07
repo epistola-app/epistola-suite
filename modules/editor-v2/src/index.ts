@@ -51,7 +51,7 @@ import {
   MoveBlockCommand,
   UpdateDocumentStylesCommand,
 } from "./core/commands.ts";
-import { findBlock } from "./blocks/tree.ts";
+import { findBlock, findBlockLocation } from "./blocks/tree.ts";
 import { createRenderer } from "./dom/renderer.ts";
 import { createPalette } from "./ui/palette.ts";
 import { createSidebar } from "./ui/sidebar.ts";
@@ -376,28 +376,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     onSave: () => saveOrchestrator.saveNow(),
   });
 
-  // Create palette
-  const palette = createPalette({
-    container: paletteEl,
-    onDragStart: (blockType, event) => {
-      event.dataTransfer?.setData("application/ev2-block-type", blockType);
-    },
-  });
-
-  // Create sidebar
-  const sidebar = createSidebar({
-    container: sidebarEl,
-    onDocumentStylesChange: (styles: Partial<DocumentStyles>) => {
-      const command = new UpdateDocumentStylesCommand(styles);
-      executeCommand(command);
-    },
-    onBlockStylesChange: (blockId: string, styles: Partial<CSSStyles>) => {
-      const command = new UpdateBlockCommand(blockId, { styles });
-      executeCommand(command);
-    },
-  });
-
-  // Create renderer
+  // Create renderer first (it has the DnD manager)
   const renderer = createRenderer({
     root: canvasEl,
     template: state.getState().template,
@@ -416,9 +395,31 @@ export function mountEditor(options: EditorOptions): EditorInstance {
       position: "before" | "after" | "inside",
       _containerId?: string | null,
     ) => {
-      // Convert position to index for MoveBlockCommand
-      const command = new MoveBlockCommand(blockId, targetBlockId, position === "inside" ? 0 : -1);
-      executeCommand(command);
+      // For "inside" position, insert into the target block's children at index 0
+      // For "before"/"after", insert relative to the target block
+      if (position === "inside") {
+        const command = new MoveBlockCommand(blockId, targetBlockId, 0);
+        executeCommand(command);
+      } else {
+        // Find the target's parent and calculate the correct index
+        const template = state.getState().template;
+        const targetLocation = targetBlockId
+          ? findBlockLocation(template.blocks, targetBlockId)
+          : null;
+
+        if (targetLocation) {
+          const parentId = targetLocation.parent?.id ?? null;
+          const targetIndex = targetLocation.index;
+          const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
+          const command = new MoveBlockCommand(blockId, parentId, insertIndex);
+          executeCommand(command);
+        } else {
+          // Target not found or inserting at root - insert at end
+          const insertIndex = position === "after" ? template.blocks.length : 0;
+          const command = new MoveBlockCommand(blockId, null, insertIndex);
+          executeCommand(command);
+        }
+      }
     },
     onBlockAdd: (
       blockType: string,
@@ -427,10 +428,51 @@ export function mountEditor(options: EditorOptions): EditorInstance {
       _containerId?: string | null,
     ) => {
       const newBlock = createBlock(blockType as any);
-      if (newBlock) {
-        const command = new AddBlockCommand(newBlock, targetBlockId, position === "inside" ? 0 : -1);
+      if (!newBlock) return;
+
+      // For "inside" position, insert into the target block's children at index 0
+      // For "before"/"after", insert relative to the target block
+      if (position === "inside") {
+        const command = new AddBlockCommand(newBlock, targetBlockId, 0);
         executeCommand(command);
+      } else {
+        const template = state.getState().template;
+        const targetLocation = targetBlockId
+          ? findBlockLocation(template.blocks, targetBlockId)
+          : null;
+
+        if (targetLocation) {
+          const parentId = targetLocation.parent?.id ?? null;
+          const targetIndex = targetLocation.index;
+          const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
+          const command = new AddBlockCommand(newBlock, parentId, insertIndex);
+          executeCommand(command);
+        } else {
+          // Insert at root level
+          const insertIndex = position === "after" ? template.blocks.length : 0;
+          const command = new AddBlockCommand(newBlock, null, insertIndex);
+          executeCommand(command);
+        }
       }
+    },
+  });
+
+  // Create palette with DnD manager from renderer
+  const palette = createPalette({
+    container: paletteEl,
+    dnd: renderer.getContext().dnd,
+  });
+
+  // Create sidebar
+  const sidebar = createSidebar({
+    container: sidebarEl,
+    onDocumentStylesChange: (styles: Partial<DocumentStyles>) => {
+      const command = new UpdateDocumentStylesCommand(styles);
+      executeCommand(command);
+    },
+    onBlockStylesChange: (blockId: string, styles: Partial<CSSStyles>) => {
+      const command = new UpdateBlockCommand(blockId, { styles });
+      executeCommand(command);
     },
   });
 

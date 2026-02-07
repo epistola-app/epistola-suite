@@ -5,6 +5,7 @@
  */
 
 import { registry, type BlockCategory, type BlockDefinition } from "../blocks/index.ts";
+import type { DndManager } from "../dom/dnd.ts";
 
 // ============================================================================
 // Types
@@ -13,9 +14,11 @@ import { registry, type BlockCategory, type BlockDefinition } from "../blocks/in
 export interface PaletteOptions {
   /** Container element to mount into */
   container: HTMLElement;
-  /** Callback when drag starts */
+  /** DnD manager for drag handling (required for proper drag-and-drop) */
+  dnd?: DndManager;
+  /** Callback when drag starts (fallback if no dnd manager) */
   onDragStart?: (blockType: string, event: DragEvent) => void;
-  /** Callback when drag ends */
+  /** Callback when drag ends (fallback if no dnd manager) */
   onDragEnd?: (event: DragEvent) => void;
   /** Initially collapsed */
   collapsed?: boolean;
@@ -64,10 +67,14 @@ const CATEGORY_LABELS: Record<BlockCategory, string> = {
 export function createPalette(options: PaletteOptions): Palette {
   const {
     container,
+    dnd,
     onDragStart,
     onDragEnd,
     collapsed: initialCollapsed = false,
   } = options;
+
+  // Track cleanup functions for DnD
+  const dndCleanups: Array<() => void> = [];
 
   let isCollapsed = initialCollapsed;
 
@@ -101,6 +108,12 @@ export function createPalette(options: PaletteOptions): Palette {
 
   // Render blocks by category
   function render(): void {
+    // Clean up old DnD handlers
+    for (const cleanup of dndCleanups) {
+      cleanup();
+    }
+    dndCleanups.length = 0;
+
     content.innerHTML = "";
 
     for (const category of CATEGORY_ORDER) {
@@ -132,7 +145,6 @@ export function createPalette(options: PaletteOptions): Palette {
   function createPaletteItem(def: BlockDefinition): HTMLElement {
     const item = document.createElement("div");
     item.className = "ev2-palette__item";
-    item.draggable = true;
     item.dataset.blockType = def.type;
     item.title = def.description ?? def.label;
 
@@ -147,21 +159,27 @@ export function createPalette(options: PaletteOptions): Palette {
     item.appendChild(icon);
     item.appendChild(label);
 
-    // Drag events
-    item.addEventListener("dragstart", (e) => {
-      item.classList.add("ev2-palette__item--dragging");
-      e.dataTransfer?.setData("application/ev2-block-type", def.type);
-      e.dataTransfer?.setData("text/plain", def.type);
-      if (e.dataTransfer) {
-        e.dataTransfer.effectAllowed = "copy";
-      }
-      onDragStart?.(def.type, e);
-    });
+    // Use DnD manager if available (preferred - handles MIME types correctly)
+    if (dnd) {
+      const cleanup = dnd.makePaletteDraggable(item, def.type);
+      dndCleanups.push(cleanup);
+    } else {
+      // Fallback: manual drag handling (legacy)
+      item.draggable = true;
+      item.addEventListener("dragstart", (e) => {
+        item.classList.add("ev2-palette__item--dragging");
+        e.dataTransfer?.setData("text/plain", def.type);
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = "copy";
+        }
+        onDragStart?.(def.type, e);
+      });
 
-    item.addEventListener("dragend", (e) => {
-      item.classList.remove("ev2-palette__item--dragging");
-      onDragEnd?.(e);
-    });
+      item.addEventListener("dragend", (e) => {
+        item.classList.remove("ev2-palette__item--dragging");
+        onDragEnd?.(e);
+      });
+    }
 
     return item;
   }
@@ -197,6 +215,12 @@ export function createPalette(options: PaletteOptions): Palette {
     },
 
     destroy(): void {
+      // Clean up DnD handlers
+      for (const cleanup of dndCleanups) {
+        cleanup();
+      }
+      dndCleanups.length = 0;
+
       toggleBtn.removeEventListener("click", handleToggle);
       root.remove();
     },
