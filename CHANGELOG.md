@@ -60,9 +60,17 @@
     - `createToolbar()` - Editor toolbar with undo/redo and save status
     - CSS variables for theming and consistent styling
     - All components support destroy() for cleanup
+  - **Full editor integration**: Working `mountEditor()` API with all components wired together
+    - Complete editor layout with toolbar, palette, canvas, and sidebar
+    - State management with reactive updates to all components
+    - Command execution with undo/redo through history manager
+    - Auto-save with debounced persistence
+    - Block selection updates sidebar with properties
+    - Drag-and-drop from palette to canvas
+    - Before-unload handler for unsaved changes
   - Comprehensive test coverage: 287 tests for all modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
-  - Bundle size: 34.41 KB (8.97 KB gzipped) - ~75% smaller than projected
+  - Bundle size: 618 KB (166 KB gzipped) - includes TipTap rich text editor
 
 ### Fixed
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI

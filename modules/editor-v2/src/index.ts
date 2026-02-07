@@ -5,7 +5,10 @@
  *
  * @example
  * ```typescript
- * import { mountEditor } from '@epistola/editor-v2';
+ * import { mountEditor, registerAllBlocks } from '@epistola/editor-v2';
+ *
+ * // Register all block types
+ * registerAllBlocks();
  *
  * const editor = mountEditor({
  *   container: document.getElementById('editor-root'),
@@ -23,7 +26,34 @@
  * ```
  */
 
-import type { Template, DataExample, ThemeSummary, JsonObject } from "./types/template.ts";
+import type {
+  Template,
+  DataExample,
+  ThemeSummary,
+  JsonObject,
+  DocumentStyles,
+} from "./types/template.ts";
+import type { CSSStyles } from "./types/styles.ts";
+import { createState } from "./core/state.ts";
+import { createHistory } from "./core/history.ts";
+import {
+  createSaveOrchestrator,
+  createBeforeUnloadHandler,
+  type SaveStatus,
+} from "./core/persistence.ts";
+import {
+  AddBlockCommand,
+  UpdateBlockCommand,
+  DeleteBlockCommand,
+  MoveBlockCommand,
+  UpdateDocumentStylesCommand,
+} from "./core/commands.ts";
+import { findBlock } from "./blocks/tree.ts";
+import { createRenderer } from "./dom/renderer.ts";
+import { createPalette } from "./ui/palette.ts";
+import { createSidebar } from "./ui/sidebar.ts";
+import { createToolbar } from "./ui/toolbar.ts";
+import { registry, createBlock, registerAllBlocks } from "./blocks/index.ts";
 
 // Re-export types for consumers
 export type { Template, DataExample, ThemeSummary } from "./types/template.ts";
@@ -77,6 +107,7 @@ export {
   findBlocksByType,
   getBlockPath,
   registerContainerBlock,
+  registerAllBlocks,
 } from "./blocks/index.ts";
 
 // Re-export DOM rendering layer
@@ -111,6 +142,41 @@ export type {
   EditorRenderer,
 } from "./dom/index.ts";
 
+// Re-export UI components
+export {
+  createPalette,
+  createSidebar,
+  createToolbar,
+  createUnitInput,
+  createColorInput,
+  createSpacingInput,
+  createSelectInput,
+} from "./ui/index.ts";
+export type {
+  Palette,
+  PaletteOptions,
+  Sidebar,
+  SidebarOptions,
+  Toolbar,
+  ToolbarOptions,
+} from "./ui/index.ts";
+
+// Re-export rich text module
+export {
+  createRichTextEditor,
+  contentToHTML,
+  contentToText,
+  createEmptyContent,
+  createTextContent,
+  ExpressionNode,
+} from "./richtext/index.ts";
+export type {
+  RichTextEditor,
+  RichTextEditorOptions,
+  ExpressionEvaluator,
+  ExpressionNodeOptions,
+} from "./richtext/index.ts";
+
 /**
  * Options for mounting the template editor.
  */
@@ -141,6 +207,9 @@ export interface EditorOptions {
 
   /** Debounce delay for auto-save in milliseconds (default: 1000) */
   autoSaveDelay?: number;
+
+  /** Whether to auto-register all block types (default: true) */
+  registerBlocks?: boolean;
 }
 
 /**
@@ -176,30 +245,43 @@ export interface EditorInstance {
 }
 
 /**
+ * Editor internal state.
+ */
+interface EditorState {
+  template: Template;
+  selectedBlockId: string | null;
+  dataExamples: DataExample[];
+  selectedExampleId: string | null;
+}
+
+/**
  * Mount the template editor into a container element.
- *
- * NOTE: This is currently a stub implementation for Phase 1.
- * Full rendering will be implemented in later phases.
  *
  * @param options Editor configuration options
  * @returns An editor instance with control methods
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, onSave } = options;
+  const {
+    container,
+    template,
+    dataExamples = [],
+    onSave,
+    autoSaveDelay = 1000,
+    registerBlocks = true,
+  } = options;
 
   // Validate container
   if (!container || !(container instanceof HTMLElement)) {
     throw new Error("mountEditor requires a valid HTMLElement container");
   }
 
-  // For Phase 1, we just set up the core infrastructure
-  // Full rendering will come in later phases
-
-  // Add root class for CSS scoping
-  container.classList.add("template-editor-v2-root");
+  // Register block types if requested
+  if (registerBlocks && registry.size === 0) {
+    registerAllBlocks();
+  }
 
   // Create default template if not provided
-  let currentTemplate: Template = template ?? {
+  const defaultTemplate: Template = {
     id: crypto.randomUUID(),
     name: "Untitled Template",
     version: 1,
@@ -212,68 +294,229 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     documentStyles: {},
   };
 
-  // Track if mounted
+  // Initialize state
+  const state = createState<EditorState>({
+    template: template ?? defaultTemplate,
+    selectedBlockId: null,
+    dataExamples,
+    selectedExampleId: null,
+  });
+
+  // Initialize history
+  const history = createHistory({ limit: 100 });
+
+  // Initialize save orchestrator
+  const saveOrchestrator = createSaveOrchestrator({
+    debounceDelay: autoSaveDelay,
+    getTemplate: () => state.getState().template,
+    save: async (tmpl) => {
+      if (onSave) {
+        await onSave(tmpl);
+      }
+    },
+  });
+
+  // Setup before unload handler
+  const removeBeforeUnload = createBeforeUnloadHandler(saveOrchestrator);
+
+  // Track mount state
   let isMounted = true;
 
-  // Placeholder save function
-  const doSave = async () => {
-    if (onSave) {
-      await onSave(currentTemplate);
-    }
-  };
-
-  // Stub: Display a placeholder message (will be replaced with real UI)
+  // Create editor layout
+  container.classList.add("ev2-editor");
   container.innerHTML = `
-    <div style="padding: 20px; font-family: system-ui, sans-serif; color: #666;">
-      <h2 style="margin: 0 0 10px 0; color: #333;">Template Editor v2</h2>
-      <p style="margin: 0;">Phase 3 complete: DOM rendering layer ready.</p>
-      <p style="margin: 10px 0 0 0; font-size: 14px;">
-        Template: <strong>${currentTemplate.name}</strong>
-      </p>
-      <p style="margin: 5px 0 0 0; font-size: 12px; color: #999;">
-        Block implementations will be added in Phase 4.
-      </p>
+    <div class="ev2-editor__toolbar"></div>
+    <div class="ev2-editor__main">
+      <div class="ev2-editor__palette"></div>
+      <div class="ev2-editor__canvas"></div>
+      <div class="ev2-editor__sidebar"></div>
     </div>
   `;
 
-  // Stub history state
-  let historyCanUndo = false;
-  let historyCanRedo = false;
+  // Get layout elements
+  const toolbarEl = container.querySelector(".ev2-editor__toolbar") as HTMLElement;
+  const paletteEl = container.querySelector(".ev2-editor__palette") as HTMLElement;
+  const canvasEl = container.querySelector(".ev2-editor__canvas") as HTMLElement;
+  const sidebarEl = container.querySelector(".ev2-editor__sidebar") as HTMLElement;
+
+  // Execute command and push to history
+  function executeCommand(
+    command: AddBlockCommand | UpdateBlockCommand | DeleteBlockCommand | MoveBlockCommand | UpdateDocumentStylesCommand,
+  ): void {
+    const currentState = state.getState();
+    const stateBefore = currentState.template;
+    const newTemplate = command.execute(currentState.template);
+    state.setState({ template: newTemplate });
+    history.push(command, stateBefore);
+    saveOrchestrator.markDirty();
+  }
+
+  // Create toolbar
+  const toolbar = createToolbar({
+    container: toolbarEl,
+    templateName: state.getState().template.name,
+    onUndo: () => {
+      const prevState = history.undo();
+      if (prevState) {
+        state.setState({ template: prevState });
+        saveOrchestrator.markDirty();
+      }
+    },
+    onRedo: () => {
+      const currentState = state.getState();
+      const newState = history.redo(currentState.template);
+      if (newState) {
+        state.setState({ template: newState });
+        saveOrchestrator.markDirty();
+      }
+    },
+    onSave: () => saveOrchestrator.saveNow(),
+  });
+
+  // Create palette
+  const palette = createPalette({
+    container: paletteEl,
+    onDragStart: (blockType, event) => {
+      event.dataTransfer?.setData("application/ev2-block-type", blockType);
+    },
+  });
+
+  // Create sidebar
+  const sidebar = createSidebar({
+    container: sidebarEl,
+    onDocumentStylesChange: (styles: Partial<DocumentStyles>) => {
+      const command = new UpdateDocumentStylesCommand(styles);
+      executeCommand(command);
+    },
+    onBlockStylesChange: (blockId: string, styles: Partial<CSSStyles>) => {
+      const command = new UpdateBlockCommand(blockId, { styles });
+      executeCommand(command);
+    },
+  });
+
+  // Create renderer
+  const renderer = createRenderer({
+    root: canvasEl,
+    template: state.getState().template,
+    data: {},
+    mode: "edit",
+    onBlockClick: (blockId: string, _event: MouseEvent) => {
+      state.setState({ selectedBlockId: blockId });
+    },
+    onBlockChange: (blockId: string, updates: Record<string, unknown>) => {
+      const command = new UpdateBlockCommand(blockId, updates);
+      executeCommand(command);
+    },
+    onBlockMove: (
+      blockId: string,
+      targetBlockId: string | null,
+      position: "before" | "after" | "inside",
+      _containerId?: string | null,
+    ) => {
+      // Convert position to index for MoveBlockCommand
+      const command = new MoveBlockCommand(blockId, targetBlockId, position === "inside" ? 0 : -1);
+      executeCommand(command);
+    },
+    onBlockAdd: (
+      blockType: string,
+      targetBlockId: string | null,
+      position: "before" | "after" | "inside",
+      _containerId?: string | null,
+    ) => {
+      const newBlock = createBlock(blockType as any);
+      if (newBlock) {
+        const command = new AddBlockCommand(newBlock, targetBlockId, position === "inside" ? 0 : -1);
+        executeCommand(command);
+      }
+    },
+  });
+
+  // Initial render
+  renderer.render();
+
+  // Subscribe to state changes
+  const unsubscribeState = state.subscribe((newState, _prevState) => {
+    // Update renderer context and re-render
+    renderer.getContext().template = newState.template;
+    renderer.render();
+
+    // Update sidebar with selected block
+    if (newState.selectedBlockId) {
+      const block = findBlock(newState.template.blocks, newState.selectedBlockId);
+      sidebar.setSelectedBlock(block ?? null);
+    } else {
+      sidebar.setSelectedBlock(null);
+      sidebar.setDocumentStyles(newState.template.documentStyles);
+    }
+  });
+
+  // Subscribe to history changes
+  const unsubscribeHistory = history.subscribe((canUndo, canRedo) => {
+    toolbar.setUndoRedo(canUndo, canRedo);
+  });
+
+  // Subscribe to save status changes
+  const unsubscribeSave = saveOrchestrator.onStatusChange((status: SaveStatus) => {
+    toolbar.setSaveStatus(status);
+  });
+
+  // Initial sidebar state
+  sidebar.setDocumentStyles(state.getState().template.documentStyles);
 
   return {
     unmount: () => {
       if (!isMounted) return;
       isMounted = false;
+
+      // Cleanup subscriptions
+      unsubscribeState();
+      unsubscribeHistory();
+      unsubscribeSave();
+      removeBeforeUnload();
+
+      // Cleanup components
+      toolbar.destroy();
+      palette.destroy();
+      sidebar.destroy();
+      renderer.dispose();
+      saveOrchestrator.dispose();
+
+      // Clear container
       container.innerHTML = "";
-      container.classList.remove("template-editor-v2-root");
+      container.classList.remove("ev2-editor");
     },
 
-    getTemplate: () => currentTemplate,
+    getTemplate: () => state.getState().template,
 
     setTemplate: (newTemplate: Template) => {
-      currentTemplate = newTemplate;
-      // In later phases, this will trigger re-render
+      state.setState({ template: newTemplate, selectedBlockId: null });
+      history.clear();
+      saveOrchestrator.markSaved();
     },
 
-    isDirty: () => {
-      // Stub: always false until persistence is wired up
-      return false;
-    },
+    isDirty: () => saveOrchestrator.getStatus() === "dirty",
 
-    saveNow: doSave,
+    saveNow: () => saveOrchestrator.saveNow(),
 
     undo: () => {
-      // Stub: will be implemented with history integration
-      console.log("[editor-v2] undo() called (stub)");
+      const prevState = history.undo();
+      if (prevState) {
+        state.setState({ template: prevState });
+        saveOrchestrator.markDirty();
+      }
     },
 
     redo: () => {
-      // Stub: will be implemented with history integration
-      console.log("[editor-v2] redo() called (stub)");
+      const currentState = state.getState();
+      const newState = history.redo(currentState.template);
+      if (newState) {
+        state.setState({ template: newState });
+        saveOrchestrator.markDirty();
+      }
     },
 
-    canUndo: () => historyCanUndo,
+    canUndo: () => history.canUndo(),
 
-    canRedo: () => historyCanRedo,
+    canRedo: () => history.canRedo(),
   };
 }

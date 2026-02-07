@@ -2,7 +2,7 @@
  * Tests for UI input components.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   createUnitInput,
   parseValueWithUnit,
