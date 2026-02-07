@@ -188,6 +188,73 @@ export function createRenderer(
   }
 
   /**
+   * Create a gap drop zone element.
+   * This provides an explicit drop target between blocks.
+   */
+  function createGapDropZone(
+    parentBlockId: string | null,
+    containerId: string | null,
+    index: number,
+  ): HTMLElement {
+    const gap = document.createElement("div");
+    gap.className = "ev2-gap-drop-zone";
+    gap.dataset.parentId = parentBlockId ?? "";
+    gap.dataset.index = String(index);
+    if (containerId) {
+      gap.dataset.containerId = containerId;
+    }
+
+    // Make the gap a drop zone that triggers "before" on the next block
+    // We use a custom approach here - the gap itself handles the drop
+    gap.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      gap.classList.add("ev2-gap-drop-zone--active");
+    });
+
+    gap.addEventListener("dragleave", (event) => {
+      const relatedTarget = event.relatedTarget as HTMLElement | null;
+      if (!gap.contains(relatedTarget)) {
+        gap.classList.remove("ev2-gap-drop-zone--active");
+      }
+    });
+
+    gap.addEventListener("drop", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      gap.classList.remove("ev2-gap-drop-zone--active");
+
+      // Get drag data
+      const jsonData = event.dataTransfer?.getData("application/x-editor-v2-block");
+      if (!jsonData) return;
+
+      try {
+        const dragData = JSON.parse(jsonData) as { blockId?: string; blockType?: string; source: string };
+
+        if (dragData.source === "palette" && dragData.blockType) {
+          // Construct the composite parent ID if needed
+          const targetParentId = containerId && parentBlockId
+            ? `${parentBlockId}::${containerId}`
+            : parentBlockId;
+          context.onBlockAdd?.(dragData.blockType, targetParentId, "before", null);
+        } else if (dragData.source === "editor" && dragData.blockId) {
+          const targetParentId = containerId && parentBlockId
+            ? `${parentBlockId}::${containerId}`
+            : parentBlockId;
+          context.onBlockMove?.(dragData.blockId, targetParentId, "before", null);
+        }
+      } catch {
+        // Invalid JSON
+      }
+    });
+
+    return gap;
+  }
+
+  /**
    * Render a single block.
    */
   function renderSingleBlock(block: Block, parent: HTMLElement): HTMLElement {
@@ -234,6 +301,32 @@ export function createRenderer(
 
     parent.appendChild(wrapper);
     return wrapper;
+  }
+
+  /**
+   * Render blocks with gap drop zones between them.
+   */
+  function renderBlocksWithGaps(
+    blocks: Block[],
+    parent: HTMLElement,
+    parentBlockId: string | null = null,
+    containerId: string | null = null,
+  ): void {
+    if (context.mode === "edit") {
+      // Add initial gap before first block
+      const initialGap = createGapDropZone(parentBlockId, containerId, 0);
+      parent.appendChild(initialGap);
+    }
+
+    for (let i = 0; i < blocks.length; i++) {
+      renderSingleBlock(blocks[i], parent);
+
+      if (context.mode === "edit") {
+        // Add gap after each block
+        const gap = createGapDropZone(parentBlockId, containerId, i + 1);
+        parent.appendChild(gap);
+      }
+    }
   }
 
   /**
@@ -315,7 +408,7 @@ export function createRenderer(
       placeholder.textContent = "Drop blocks here";
 
       if (context.mode === "edit") {
-        dnd.makeDropZone(placeholder, block.id);
+        dnd.makeDropZone(placeholder, block.id, null, true);
       }
 
       parent.appendChild(placeholder);
@@ -325,13 +418,8 @@ export function createRenderer(
     const childContainer = document.createElement("div");
     childContainer.className = RENDERER_CLASSES.dropZone;
 
-    if (context.mode === "edit") {
-      dnd.makeDropZone(childContainer, block.id);
-    }
-
-    for (const child of children) {
-      renderSingleBlock(child, childContainer);
-    }
+    // Render children with gaps between them
+    renderBlocksWithGaps(children, childContainer, block.id, null);
 
     parent.appendChild(childContainer);
   }
@@ -353,19 +441,17 @@ export function createRenderer(
       columnEl.style.flex = String(column.size);
       columnEl.dataset.columnId = column.id;
 
-      if (context.mode === "edit") {
-        dnd.makeDropZone(columnEl, block.id, column.id);
-      }
-
       if (column.children.length === 0) {
         const placeholder = document.createElement("div");
         placeholder.className = RENDERER_CLASSES.placeholder;
         placeholder.textContent = "Drop blocks here";
+        if (context.mode === "edit") {
+          dnd.makeDropZone(placeholder, block.id, column.id, true);
+        }
         columnEl.appendChild(placeholder);
       } else {
-        for (const child of column.children) {
-          renderSingleBlock(child, columnEl);
-        }
+        // Render children with gaps
+        renderBlocksWithGaps(column.children, columnEl, block.id, column.id);
       }
 
       columnsContainer.appendChild(columnEl);
@@ -445,16 +531,17 @@ export function createRenderer(
         dnd.makeDropZone(canvas, null);
       }
 
-      // Render all blocks
+      // Render all blocks with gaps between them
       if (context.template.blocks.length === 0) {
         const placeholder = document.createElement("div");
         placeholder.className = RENDERER_CLASSES.placeholder;
         placeholder.textContent = "Drop blocks here to get started";
+        if (context.mode === "edit") {
+          dnd.makeDropZone(placeholder, null, null, true);
+        }
         canvas.appendChild(placeholder);
       } else {
-        for (const block of context.template.blocks) {
-          renderSingleBlock(block, canvas);
-        }
+        renderBlocksWithGaps(context.template.blocks, canvas, null, null);
       }
 
       context.root.appendChild(canvas);

@@ -884,6 +884,52 @@
   padding: var(--ev2-space-xs);
 }
 
+/* Gap drop zones between blocks */
+.ev2-gap-drop-zone {
+  height: 12px;
+  margin: 0;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.ev2-gap-drop-zone::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: transparent;
+  transform: translateY(-50%);
+  transition: all 0.15s ease;
+}
+
+.ev2-gap-drop-zone:hover::before {
+  background: var(--ev2-color-border);
+}
+
+.ev2-gap-drop-zone--active {
+  height: 40px;
+  background: var(--ev2-color-primary-light);
+  border: 2px dashed var(--ev2-color-primary);
+}
+
+.ev2-gap-drop-zone--active::before {
+  display: none;
+}
+
+.ev2-gap-drop-zone--active::after {
+  content: "Drop here";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ev2-color-primary);
+}
+
 /* Block type labels */
 .ev2-text-placeholder,
 .ev2-container-label,
