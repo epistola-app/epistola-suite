@@ -35,14 +35,25 @@
     - `getChildren()`, `updateBlock()`, `insertBlock()`, `removeBlock()`, `moveBlock()`
     - `walkTree()`, `countBlocks()`, `findBlocksByType()`, `getBlockPath()` utilities
     - Works with columns, tables, and any multi-container block types
-  - **Container block definition**: Sample block to prove registry works
+  - **All block definitions**: Complete set of block types for templates (~400 LoC)
+    - Content blocks: `text` (rich text with expressions)
+    - Structure blocks: `container`, `columns` (multi-column layout)
+    - Logic blocks: `conditional` (show/hide), `loop` (iteration)
+    - Data blocks: `table` (rows/cells with multi-container support)
+    - Layout blocks: `pagebreak`, `pageheader`, `pagefooter`
+    - Multi-container operations for columns and tables
+    - Utility functions: `addColumn()`, `removeColumn()`, `addTableRow()`, etc.
+  - **Rich text module**: TipTap integration without React (~300 LoC)
+    - `ExpressionNode` extension for `{{expression}}` chips in vanilla JS
+    - `createRichTextEditor()` wrapper for TipTap with expression support
+    - `contentToHTML()`, `contentToText()`, `createEmptyContent()` utilities
   - **DOM rendering layer**: State-to-DOM binding with selection and drag-and-drop (~450 LoC)
     - `createRenderer()` for rendering template blocks to DOM
     - Block selection: `createSelectionManager()` with single, multi, and range selection
     - Native HTML5 drag-and-drop: `createDndManager()` for reordering blocks
     - Drop zones with before/after/inside positioning
     - CSS class constants for styling selection and drag states
-  - Comprehensive test coverage: 223 tests for all modules
+  - Comprehensive test coverage: 258 tests for all modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
   - Bundle size: 34.41 KB (8.97 KB gzipped) - ~75% smaller than projected
 

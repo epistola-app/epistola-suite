@@ -46,3 +46,73 @@ export type { BlockLocation } from "./tree.ts";
 
 // Block definitions
 export { containerBlockDef, registerContainerBlock } from "./container.ts";
+export { textBlockDef, registerTextBlock } from "./text.ts";
+export { conditionalBlockDef, registerConditionalBlock } from "./conditional.ts";
+export { loopBlockDef, registerLoopBlock } from "./loop.ts";
+export {
+  columnsBlockDef,
+  registerColumnsBlock,
+  addColumn,
+  removeColumn,
+  setColumnSize,
+} from "./columns.ts";
+export {
+  tableBlockDef,
+  registerTableBlock,
+  addTableRow,
+  removeTableRow,
+  addTableColumn,
+  removeTableColumn,
+  getCell,
+} from "./table.ts";
+export { pageBreakBlockDef, registerPageBreakBlock } from "./pagebreak.ts";
+export {
+  pageHeaderBlockDef,
+  pageFooterBlockDef,
+  registerPageHeaderBlock,
+  registerPageFooterBlock,
+} from "./header-footer.ts";
+
+// Import for registration
+import { registerContainerBlock } from "./container.ts";
+import { registerTextBlock } from "./text.ts";
+import { registerConditionalBlock } from "./conditional.ts";
+import { registerLoopBlock } from "./loop.ts";
+import { registerColumnsBlock } from "./columns.ts";
+import { registerTableBlock } from "./table.ts";
+import { registerPageBreakBlock } from "./pagebreak.ts";
+import { registerPageHeaderBlock, registerPageFooterBlock } from "./header-footer.ts";
+
+/**
+ * Register all built-in block types.
+ *
+ * Call this once during application initialization.
+ *
+ * @example
+ * ```typescript
+ * import { registerAllBlocks } from './blocks';
+ *
+ * // At app startup
+ * registerAllBlocks();
+ * ```
+ */
+export function registerAllBlocks(): void {
+  // Content blocks
+  registerTextBlock();
+
+  // Structure blocks
+  registerContainerBlock();
+  registerColumnsBlock();
+
+  // Logic blocks
+  registerConditionalBlock();
+  registerLoopBlock();
+
+  // Data blocks
+  registerTableBlock();
+
+  // Layout blocks
+  registerPageBreakBlock();
+  registerPageHeaderBlock();
+  registerPageFooterBlock();
+}
