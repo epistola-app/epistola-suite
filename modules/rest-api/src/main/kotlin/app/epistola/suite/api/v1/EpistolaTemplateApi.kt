@@ -13,7 +13,6 @@ import app.epistola.api.model.TemplateDataValidationResult
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateListResponse
 import app.epistola.api.model.UpdateDraftRequest
-import app.epistola.api.model.ValidateTemplateDataRequest
 import app.epistola.api.model.UpdateTemplateRequest
 import app.epistola.api.model.UpdateVariantRequest
 import app.epistola.api.model.ValidateTemplateDataRequest
@@ -46,7 +45,6 @@ import app.epistola.suite.templates.commands.versions.UpdateVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
-import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
