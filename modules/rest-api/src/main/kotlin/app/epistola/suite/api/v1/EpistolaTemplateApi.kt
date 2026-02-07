@@ -13,6 +13,7 @@ import app.epistola.api.model.TemplateDataValidationResult
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateListResponse
 import app.epistola.api.model.UpdateDraftRequest
+import app.epistola.api.model.ValidateTemplateDataRequest
 import app.epistola.api.model.UpdateTemplateRequest
 import app.epistola.api.model.UpdateVariantRequest
 import app.epistola.api.model.ValidateTemplateDataRequest
@@ -45,6 +46,7 @@ import app.epistola.suite.templates.commands.versions.UpdateVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.VersionStatus
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
@@ -167,6 +169,39 @@ class EpistolaTemplateApi(
         } else {
             ResponseEntity.notFound().build()
         }
+    }
+
+    override fun validateTemplateData(
+        tenantId: String,
+        templateId: String,
+        validateTemplateDataRequest: ValidateTemplateDataRequest,
+    ): ResponseEntity<TemplateDataValidationResult> {
+        val template = GetDocumentTemplate(
+            tenantId = TenantId.of(tenantId),
+            id = TemplateId.of(templateId),
+        ).query() ?: return ResponseEntity.notFound().build()
+
+        val schema = template.dataModel
+            ?: return ResponseEntity.ok(
+                TemplateDataValidationResult(
+                    valid = true,
+                    errors = null,
+                ),
+            )
+
+        val validationErrors = jsonSchemaValidator.validate(schema, validateTemplateDataRequest.data)
+
+        return ResponseEntity.ok(
+            TemplateDataValidationResult(
+                valid = validationErrors.isEmpty(),
+                errors = validationErrors.map { error ->
+                    TemplateDataValidationError(
+                        message = error.message,
+                        path = error.path,
+                    )
+                },
+            ),
+        )
     }
 
     // ================== Variant operations ==================
