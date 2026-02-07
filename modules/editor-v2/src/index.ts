@@ -397,12 +397,16 @@ export function mountEditor(options: EditorOptions): EditorInstance {
       blockId: string,
       targetBlockId: string | null,
       position: "before" | "after" | "inside",
-      _containerId?: string | null,
+      containerId?: string | null,
     ) => {
       // For "inside" position, insert into the target block's children at index 0
       // For "before"/"after", insert relative to the target block
       if (position === "inside") {
-        const command = new MoveBlockCommand(blockId, targetBlockId, 0);
+        // Construct composite ID for multi-container blocks (e.g., columns)
+        const parentId = containerId && targetBlockId
+          ? `${targetBlockId}::${containerId}`
+          : targetBlockId;
+        const command = new MoveBlockCommand(blockId, parentId, 0);
         executeCommand(command);
       } else {
         // Find the target's parent and calculate the correct index
@@ -412,7 +416,11 @@ export function mountEditor(options: EditorOptions): EditorInstance {
           : null;
 
         if (targetLocation) {
-          const parentId = targetLocation.parent?.id ?? null;
+          // Construct composite ID if target is in a multi-container block
+          let parentId = targetLocation.parent?.id ?? null;
+          if (parentId && targetLocation.containerId) {
+            parentId = `${parentId}::${targetLocation.containerId}`;
+          }
           const targetIndex = targetLocation.index;
           const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
           const command = new MoveBlockCommand(blockId, parentId, insertIndex);
@@ -429,7 +437,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
       blockType: string,
       targetBlockId: string | null,
       position: "before" | "after" | "inside",
-      _containerId?: string | null,
+      containerId?: string | null,
     ) => {
       const newBlock = createBlock(blockType as any);
       if (!newBlock) return;
@@ -437,7 +445,11 @@ export function mountEditor(options: EditorOptions): EditorInstance {
       // For "inside" position, insert into the target block's children at index 0
       // For "before"/"after", insert relative to the target block
       if (position === "inside") {
-        const command = new AddBlockCommand(newBlock, targetBlockId, 0);
+        // Construct composite ID for multi-container blocks (e.g., columns)
+        const parentId = containerId && targetBlockId
+          ? `${targetBlockId}::${containerId}`
+          : targetBlockId;
+        const command = new AddBlockCommand(newBlock, parentId, 0);
         executeCommand(command);
       } else {
         const template = state.getState().template;
@@ -446,7 +458,11 @@ export function mountEditor(options: EditorOptions): EditorInstance {
           : null;
 
         if (targetLocation) {
-          const parentId = targetLocation.parent?.id ?? null;
+          // Construct composite ID if target is in a multi-container block
+          let parentId = targetLocation.parent?.id ?? null;
+          if (parentId && targetLocation.containerId) {
+            parentId = `${parentId}::${targetLocation.containerId}`;
+          }
           const targetIndex = targetLocation.index;
           const insertIndex = position === "after" ? targetIndex + 1 : targetIndex;
           const command = new AddBlockCommand(newBlock, parentId, insertIndex);
