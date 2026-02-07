@@ -3,7 +3,12 @@
 ## [Unreleased]
 
 ### Fixed
+- **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
+- **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
+
+### Added
+- **Job Offer Letter demo template**: Second demo template with tables, conditionals, loops, and columns
 
  ### Added
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
