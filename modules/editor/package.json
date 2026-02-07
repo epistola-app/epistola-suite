@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "watch": "vite build --watch",
-    "build": "tsc -b && vite build",
+    "build:disabled": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps -o build/sbom.json",

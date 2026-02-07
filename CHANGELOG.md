@@ -5,6 +5,65 @@
  ### Added
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
+### Added
+- **Live PDF Preview**: Split-pane editor with real-time PDF preview
+  - Side-by-side layout: editor (left) and PDF preview (right)
+  - Debounced auto-refresh (800ms) on template changes
+  - Manual refresh and toggle visibility buttons
+  - Uses existing preview endpoint with live templateModel
+
+- **DOM Diffing with morphdom**: Replaced full DOM rebuilds with efficient patching
+  - Imported morphdom via ESM CDN for minimal DOM updates
+  - Preserves focus and cursor position during re-renders
+  - Fixes duplicate block and keystroke re-render issues
+
+- **Debug Panel** (local profile only): Developer tooling for editor state inspection
+  - Shows selected block, block count, dirty state, undo/redo status
+  - Displays full template store as JSON
+  - Collapsible panel, Catppuccin Mocha theme
+  - Only rendered when running with `--spring.profiles.active=local`
+
+- **Block-Level Styling**: Per-block CSS styling via modal
+  - Typography: fontSize, fontWeight, color, textAlign
+  - Spacing: padding, margin
+  - Background & Border: backgroundColor, borderRadius
+  - Color pickers synced with text inputs
+  - Block button enabled only when a block is selected
+
+- **Framework-Agnostic Headless Editor**: New `@epistola/headless-editor` module provides pure TypeScript editor core
+  - TemplateEditor orchestrator with block CRUD, selection management, and undo/redo
+  - BlockTree utilities for nested block manipulation (children, columns, table cells)
+  - UndoManager with configurable history depth and deep-clone snapshots
+  - 9 block types with constraint-based validation: text, container, conditional, loop, columns, table, pagebreak, pageheader, pagefooter
+  - DragDropPort interface for framework-agnostic drag-and-drop adapters
+  - Data examples management with auto-selection and validation
+  - JSON schema support for data model validation
+  - Preview overrides for conditionals and loops during template preview
+  - Dirty state tracking with lastSavedTemplate for unsaved changes detection
+  - Theme management: themes list, default theme, theme ID assignment
+  - Document styles and page settings (A4/Letter, margins, orientation)
+  - Full unit test coverage: 10 test files, 70+ tests, 100% core coverage
+  - Single dependency: nanostores (~1KB) for reactive state
+
+- **Vanilla JS Editor UI**: New lightweight UI layer using Bootstrap 5 + SortableJS
+  - BlockRenderer: DOM rendering for all 9 block types
+  - SortableAdapter: SortableJS drag-drop integration with drop zone validation
+  - UIController: toolbar, keyboard shortcuts (Ctrl+S, Ctrl+Z), file import/export
+  - Plain JavaScript static resources served by Spring Boot via import maps
+
+### Changed
+- **BREAKING: Migrated from React Editor to Headless Editor Architecture**
+  - Removed React 19, Zustand, Zundo, Immer, TipTap, dnd-kit dependencies from editor
+  - New stack: Vanilla JS, Bootstrap 5, SortableJS, nanostores
+  - Build tool: esbuild instead of Vite
+  - React editor module excluded from build pipeline (retained for reference)
+  - Editor page uses vanilla editor with headless core via import maps
+  - All state management moved to framework-agnostic nanostores
+
+### Fixed
+- **Headless editor drop operation handling**: Fixed drop() method to correctly handle before/after sibling positions (was ignoring position parameter)
+- **Headless editor undo for block updates**: Added undo support for updateBlock operation which was missing from history tracking
+- **Headless editor file import error handling**: Added proper error handling for FileReader failures and null results during JSON import
 
 ### Changed
 - **BREAKING: Simplified load test data model - eliminated redundant table**: Removed `load_test_requests` table which duplicated data already present in `document_generation_requests`
@@ -27,6 +86,40 @@
   - Simple TTL enforcement via partition retention policy (3 months default)
   - Configurable via `epistola.partitions.*` properties
 
+### Changed
+- **BREAKING: Calculated batch counters**: Removed real-time batch counter columns in favor of on-demand calculation
+  - Removed `completed_count` and `failed_count` columns from `document_generation_batches` (calculated on-demand)
+  - Added `final_completed_count` and `final_failed_count` columns (persisted only when batch completes)
+  - Added index on `(batch_id, status)` for efficient counter queries
+  - Benefits: simpler code (no triggers, no scheduled reconciliation), always accurate, less write overhead
+  - In-progress batches calculate counts on-demand; completed batches use stored final counts
+- **Removed `DocumentCleanupScheduler`**: All cleanup operations now handled by partition dropping
+  - Removed DELETE-based cleanup for expired jobs and old documents
+  - Removed scheduled batch counter reconciliation (replaced with calculated counters)
+  - Stale job recovery still handled by separate `StaleJobRecovery` component
+- **Updated `LoadTestCleanupScheduler`**: Changed focus from requests to runs
+  - Removed cleanup for `load_test_requests` (handled by partition dropping)
+  - Added cleanup for `load_test_runs` (90-day retention by default)
+  - Runs table NOT partitioned (low volume aggregate data)
+- **Production configuration**: Added production-optimized settings in `application-prod.yaml`
+  - Increased `max-concurrent-jobs` to 50 (from default 20)
+  - Configured partition retention (3 months) and maintenance schedule (2 AM daily)
+  - Configured load test runs retention (90 days)
+  - 8-hour session timeout
+
+### Fixed
+- **Load test documents now follow standard retention policy**: Removed immediate deletion of load test documents. Documents now follow the standard 30-day retention policy managed by DocumentCleanupScheduler, allowing proper inspection of generated documents.
+
+### Performance
+- **Load test executor uses batch submission**: Replaced N individual `GenerateDocument` commands with single `GenerateDocumentBatch` call
+  - 10-50x faster submission for large load tests (100+ documents)
+  - One database transaction instead of N transactions
+  - Single validation query instead of N queries
+  - Simpler code: removed CompletableFuture, synchronized blocks, and executor management
+  - Batch submission typically completes in <1 second for 1000 documents (was ~20-50 seconds)
+  - **UI Change**: Removed "Concurrency Level" field from load test form (no longer applicable with batch submission)
+
+### Changed
 ### Changed
 - **BREAKING: Calculated batch counters**: Removed real-time batch counter columns in favor of on-demand calculation
   - Removed `completed_count` and `failed_count` columns from `document_generation_batches` (calculated on-demand)
