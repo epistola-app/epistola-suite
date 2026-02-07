@@ -28,6 +28,12 @@ import type { Template, DataExample, ThemeSummary, JsonObject } from "./types/te
 // Re-export types for consumers
 export type { Template, DataExample, ThemeSummary } from "./types/template.ts";
 export type { SaveStatus } from "./core/persistence.ts";
+export type {
+  BlockDefinition,
+  BlockCategory,
+  RenderContext,
+  BlockLocation,
+} from "./blocks/index.ts";
 
 // Re-export core utilities (for advanced usage)
 export { createState, createComputed } from "./core/state.ts";
@@ -40,17 +46,38 @@ export {
   createBeforeUnloadHandler,
 } from "./core/persistence.ts";
 export {
-  findBlock,
-  findBlockLocation,
-  getBlockChildren,
   AddBlockCommand,
   UpdateBlockCommand,
   DeleteBlockCommand,
   MoveBlockCommand,
   UpdateDocumentStylesCommand,
   UpdatePageSettingsCommand,
+  UpdateThemeCommand,
   CompositeCommand,
 } from "./core/commands.ts";
+
+// Re-export block registry and tree operations
+export {
+  registry,
+  registerBlock,
+  unregisterBlock,
+  createBlock,
+  getBlockLabel,
+  getBlockIcon,
+  canContain,
+  findBlock,
+  findBlockLocation,
+  getChildren,
+  updateBlock,
+  insertBlock,
+  removeBlock,
+  moveBlock,
+  walkTree,
+  countBlocks,
+  findBlocksByType,
+  getBlockPath,
+  registerContainerBlock,
+} from "./blocks/index.ts";
 
 /**
  * Options for mounting the template editor.
@@ -167,7 +194,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   container.innerHTML = `
     <div style="padding: 20px; font-family: system-ui, sans-serif; color: #666;">
       <h2 style="margin: 0 0 10px 0; color: #333;">Template Editor v2</h2>
-      <p style="margin: 0;">Phase 1 complete: Core infrastructure ready.</p>
+      <p style="margin: 0;">Phase 2 complete: Block registry + tree operations ready.</p>
       <p style="margin: 10px 0 0 0; font-size: 14px;">
         Template: <strong>${currentTemplate.name}</strong>
       </p>

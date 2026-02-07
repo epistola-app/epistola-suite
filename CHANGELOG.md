@@ -25,9 +25,20 @@
     - `CSSStyles` replacing React's `CSSProperties`
     - `RichTextContent` compatible with TipTap JSON format
     - All template types from existing editor (Block, Template, etc.)
-  - Comprehensive test coverage: 103 tests for all core modules
+  - **Block registry**: Central registration for all block types (~150 LoC)
+    - `registerBlock()` for type-safe block definition registration
+    - `registry.get()`, `registry.getAll()`, `registry.getByCategory()` for lookups
+    - `createBlock()` factory for creating new block instances
+    - `canContain()` for validating block nesting
+  - **Registry-based tree operations**: Generic traversal without switch statements (~250 LoC)
+    - `findBlock()`, `findBlockLocation()` with multi-container support
+    - `getChildren()`, `updateBlock()`, `insertBlock()`, `removeBlock()`, `moveBlock()`
+    - `walkTree()`, `countBlocks()`, `findBlocksByType()`, `getBlockPath()` utilities
+    - Works with columns, tables, and any multi-container block types
+  - **Container block definition**: Sample block to prove registry works
+  - Comprehensive test coverage: 164 tests for all core + blocks modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
-  - Bundle size: 14.48 KB (4.07 KB gzipped) - ~85% smaller than projected
+  - Bundle size: 20.98 KB (5.73 KB gzipped) - ~80% smaller than projected
 
 ### Fixed
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
