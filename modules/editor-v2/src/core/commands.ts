@@ -5,6 +5,9 @@
  * - Built-in undo/redo support
  * - Serializable operations for debugging
  * - Centralized validation
+ *
+ * Tree operations are delegated to blocks/tree.ts which uses the registry
+ * for generic handling of all block types.
  */
 
 import type {
@@ -12,9 +15,22 @@ import type {
   Template,
   DocumentStyles,
   PageSettings,
-  Column,
-  TableRow,
 } from "../types/template.ts";
+
+// Import tree operations from blocks/tree.ts (registry-based, no hardcoded types)
+import {
+  getChildren,
+  findBlock,
+  findBlockLocation,
+  updateBlock,
+  insertBlock as treeInsertBlock,
+  removeBlock,
+  type BlockLocation,
+} from "../blocks/tree.ts";
+
+// Re-export tree functions for backward compatibility
+export { getChildren, findBlock, findBlockLocation, updateBlock, removeBlock };
+export type { BlockLocation };
 
 // ============================================================================
 // Command Interface
@@ -39,152 +55,12 @@ export interface Command<T = Template> {
 }
 
 // ============================================================================
-// Block Tree Operations
+// Block Tree Operations (Adapters for composite IDs)
 // ============================================================================
 
 /**
- * Get all children from a block, regardless of container type.
- */
-export function getBlockChildren(block: Block): Block[] {
-  if ("children" in block && Array.isArray(block.children)) {
-    return block.children;
-  }
-  if ("columns" in block && Array.isArray(block.columns)) {
-    return block.columns.flatMap((col) => col.children);
-  }
-  if ("rows" in block && Array.isArray(block.rows)) {
-    return block.rows.flatMap((row) => row.cells.flatMap((cell) => cell.children));
-  }
-  return [];
-}
-
-/**
- * Find a block by ID in the tree.
- */
-export function findBlock(blocks: Block[], id: string): Block | undefined {
-  for (const block of blocks) {
-    if (block.id === id) {
-      return block;
-    }
-    const children = getBlockChildren(block);
-    const found = findBlock(children, id);
-    if (found) {
-      return found;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Find a block and its parent information.
- */
-export interface BlockLocation {
-  block: Block;
-  parent: Block | null;
-  /** For columns/tables, the container ID (columnId, rowId::cellId) */
-  containerId: string | null;
-  index: number;
-}
-
-export function findBlockLocation(
-  blocks: Block[],
-  id: string,
-  parent: Block | null = null,
-  containerId: string | null = null,
-): BlockLocation | undefined {
-  for (let i = 0; i < blocks.length; i++) {
-    const block = blocks[i];
-    if (block.id === id) {
-      return { block, parent, containerId, index: i };
-    }
-
-    // Search in regular children
-    if ("children" in block && Array.isArray(block.children)) {
-      const found = findBlockLocation(block.children, id, block, null);
-      if (found) return found;
-    }
-
-    // Search in columns
-    if ("columns" in block && Array.isArray(block.columns)) {
-      for (const col of block.columns) {
-        const found = findBlockLocation(col.children, id, block, col.id);
-        if (found) return found;
-      }
-    }
-
-    // Search in table cells
-    if ("rows" in block && Array.isArray(block.rows)) {
-      for (const row of block.rows) {
-        for (const cell of row.cells) {
-          const found = findBlockLocation(
-            cell.children,
-            id,
-            block,
-            `${row.id}::${cell.id}`,
-          );
-          if (found) return found;
-        }
-      }
-    }
-  }
-  return undefined;
-}
-
-/**
- * Update a block in the tree by ID.
- * Returns a new tree with the updated block.
- */
-export function updateBlockInTree(
-  blocks: Block[],
-  id: string,
-  updater: (block: Block) => Block | null,
-): Block[] {
-  return blocks.reduce<Block[]>((acc, block) => {
-    if (block.id === id) {
-      const updated = updater(block);
-      if (updated) acc.push(updated);
-      return acc;
-    }
-
-    // Clone the block
-    let updatedBlock: Block;
-
-    // Handle regular children
-    if ("children" in block && Array.isArray(block.children)) {
-      const newChildren = updateBlockInTree(block.children, id, updater);
-      updatedBlock = { ...block, children: newChildren } as Block;
-    }
-    // Handle columns
-    else if ("columns" in block && Array.isArray(block.columns)) {
-      const newColumns: Column[] = block.columns.map((col) => ({
-        ...col,
-        children: updateBlockInTree(col.children, id, updater),
-      }));
-      updatedBlock = { ...block, columns: newColumns } as Block;
-    }
-    // Handle table rows and cells
-    else if ("rows" in block && Array.isArray(block.rows)) {
-      const newRows: TableRow[] = block.rows.map((row) => ({
-        ...row,
-        cells: row.cells.map((cell) => ({
-          ...cell,
-          children: updateBlockInTree(cell.children, id, updater),
-        })),
-      }));
-      updatedBlock = { ...block, rows: newRows } as Block;
-    }
-    // Leaf block, no children
-    else {
-      updatedBlock = { ...block } as Block;
-    }
-
-    acc.push(updatedBlock);
-    return acc;
-  }, []);
-}
-
-/**
  * Insert a block at a specific location.
+ * Handles composite IDs (parentId::containerId) for multi-container blocks.
  */
 export function insertBlock(
   blocks: Block[],
@@ -194,87 +70,19 @@ export function insertBlock(
 ): Block[] {
   // Insert at root level
   if (parentId === null) {
-    const newBlocks = [...blocks];
-    newBlocks.splice(index, 0, block);
-    return newBlocks;
+    return treeInsertBlock(blocks, block, null, index);
   }
 
-  // Handle composite IDs for columns (parentId::columnId)
-  if (parentId.includes("::") && !parentId.includes(":::")) {
+  // Parse composite IDs for multi-container blocks
+  if (parentId.includes("::")) {
     const parts = parentId.split("::");
-    if (parts.length === 2) {
-      const [blockId, columnId] = parts;
-      return updateBlockInTree(blocks, blockId, (parent) => {
-        if (parent.type === "columns" && "columns" in parent) {
-          return {
-            ...parent,
-            columns: parent.columns.map((col) =>
-              col.id === columnId
-                ? {
-                    ...col,
-                    children: [
-                      ...col.children.slice(0, index),
-                      block,
-                      ...col.children.slice(index),
-                    ],
-                  }
-                : col,
-            ),
-          };
-        }
-        return parent;
-      });
-    }
-
-    // Handle table cells (parentId::rowId::cellId)
-    if (parts.length === 3) {
-      const [blockId, rowId, cellId] = parts;
-      return updateBlockInTree(blocks, blockId, (parent) => {
-        if (parent.type === "table" && "rows" in parent) {
-          return {
-            ...parent,
-            rows: parent.rows.map((row) =>
-              row.id === rowId
-                ? {
-                    ...row,
-                    cells: row.cells.map((cell) =>
-                      cell.id === cellId
-                        ? {
-                            ...cell,
-                            children: [
-                              ...cell.children.slice(0, index),
-                              block,
-                              ...cell.children.slice(index),
-                            ],
-                          }
-                        : cell,
-                    ),
-                  }
-                : row,
-            ),
-          };
-        }
-        return parent;
-      });
-    }
+    const blockId = parts[0];
+    const containerId = parts.slice(1).join("::");
+    return treeInsertBlock(blocks, block, blockId, index, containerId);
   }
 
-  // Insert into regular children container
-  return updateBlockInTree(blocks, parentId, (parent) => {
-    if ("children" in parent && Array.isArray(parent.children)) {
-      const newChildren = [...parent.children];
-      newChildren.splice(index, 0, block);
-      return { ...parent, children: newChildren } as Block;
-    }
-    return parent;
-  });
-}
-
-/**
- * Remove a block from the tree.
- */
-export function removeBlock(blocks: Block[], id: string): Block[] {
-  return updateBlockInTree(blocks, id, () => null);
+  // Simple parent ID
+  return treeInsertBlock(blocks, block, parentId, index);
 }
 
 // ============================================================================
@@ -338,7 +146,7 @@ export class UpdateBlockCommand implements Command<Template> {
 
     return {
       ...state,
-      blocks: updateBlockInTree(state.blocks, this.blockId, (block) => ({
+      blocks: updateBlock(state.blocks, this.blockId, (block) => ({
         ...block,
         ...this.updates,
       }) as Block),
@@ -352,7 +160,7 @@ export class UpdateBlockCommand implements Command<Template> {
 
     return {
       ...state,
-      blocks: updateBlockInTree(state.blocks, this.blockId, () => this.previousBlock!),
+      blocks: updateBlock(state.blocks, this.blockId, () => this.previousBlock!),
     };
   }
 }

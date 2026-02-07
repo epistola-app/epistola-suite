@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   findBlock,
   findBlockLocation,
-  updateBlockInTree,
+  updateBlock,
   insertBlock,
   removeBlock,
-  getBlockChildren,
+  getChildren,
   AddBlockCommand,
   UpdateBlockCommand,
   DeleteBlockCommand,
@@ -14,8 +14,69 @@ import {
   UpdatePageSettingsCommand,
   CompositeCommand,
 } from "./commands.ts";
+import { registry, registerBlock } from "../blocks/index.ts";
+import type { BlockDefinition, MultiContainerBlockDefinition } from "../blocks/types.ts";
 import type { Block, Template, TextBlock, ContainerBlock, ColumnsBlock } from "../types/template.ts";
 import { createEmptyDocument } from "../types/richtext.ts";
+
+// ============================================================================
+// Test Block Definitions (must register before tests)
+// ============================================================================
+
+const containerDef: BlockDefinition<ContainerBlock> = {
+  type: "container",
+  label: "Container",
+  category: "structure",
+  icon: "",
+  createDefault: () => ({
+    id: crypto.randomUUID(),
+    type: "container",
+    children: [],
+  }),
+  getChildren: (block) => block.children,
+  setChildren: (block, children) => ({ ...block, children }),
+};
+
+const textDef: BlockDefinition<TextBlock> = {
+  type: "text",
+  label: "Text",
+  category: "content",
+  icon: "",
+  createDefault: () => ({
+    id: crypto.randomUUID(),
+    type: "text",
+    content: { type: "doc", content: [] },
+  }),
+};
+
+const columnsDef: MultiContainerBlockDefinition<ColumnsBlock> = {
+  type: "columns",
+  label: "Columns",
+  category: "structure",
+  icon: "",
+  createDefault: () => ({
+    id: crypto.randomUUID(),
+    type: "columns",
+    columns: [
+      { id: "col-1", size: 1, children: [] },
+      { id: "col-2", size: 1, children: [] },
+    ],
+  }),
+  getChildren: (block) => block.columns.flatMap((col) => col.children),
+  getContainers: (block) =>
+    block.columns.map((col) => ({
+      blockId: block.id,
+      containerId: col.id,
+    })),
+  getContainerChildren: (block, containerId) =>
+    block.columns.find((col) => col.id === containerId)?.children ?? [],
+  setContainerChildren: (block, containerId, children) => ({
+    ...block,
+    columns: block.columns.map((col) =>
+      col.id === containerId ? { ...col, children } : col,
+    ),
+  }),
+};
 
 function createTestTemplate(blocks: Block[] = []): Template {
   return {
@@ -60,16 +121,23 @@ function createColumnsBlock(id: string): ColumnsBlock {
 }
 
 describe("Block Tree Operations", () => {
-  describe("getBlockChildren", () => {
+  beforeEach(() => {
+    registry.clear();
+    registerBlock(containerDef);
+    registerBlock(textDef);
+    registerBlock(columnsDef);
+  });
+
+  describe("getChildren", () => {
     it("should return children from container block", () => {
       const child = createTextBlock("child");
       const container = createContainerBlock("container", [child]);
-      expect(getBlockChildren(container)).toEqual([child]);
+      expect(getChildren(container)).toEqual([child]);
     });
 
     it("should return empty array for leaf blocks", () => {
       const text = createTextBlock("text");
-      expect(getBlockChildren(text)).toEqual([]);
+      expect(getChildren(text)).toEqual([]);
     });
 
     it("should flatten children from columns", () => {
@@ -81,7 +149,7 @@ describe("Block Tree Operations", () => {
           { id: "col-2", size: 1, children: [createTextBlock("t2")] },
         ],
       };
-      expect(getBlockChildren(block)).toHaveLength(2);
+      expect(getChildren(block)).toHaveLength(2);
     });
   });
 
@@ -156,10 +224,10 @@ describe("Block Tree Operations", () => {
     });
   });
 
-  describe("updateBlockInTree", () => {
+  describe("updateBlock", () => {
     it("should update block at root level", () => {
       const block = createTextBlock("target");
-      const result = updateBlockInTree([block], "target", (b) => ({
+      const result = updateBlock([block], "target", (b) => ({
         ...b,
         styles: { color: "red" },
       }));
@@ -170,7 +238,7 @@ describe("Block Tree Operations", () => {
     it("should update nested block", () => {
       const nested = createTextBlock("nested");
       const container = createContainerBlock("container", [nested]);
-      const result = updateBlockInTree([container], "nested", (b) => ({
+      const result = updateBlock([container], "nested", (b) => ({
         ...b,
         styles: { color: "blue" },
       }));
@@ -182,7 +250,7 @@ describe("Block Tree Operations", () => {
     it("should remove block when updater returns null", () => {
       const block1 = createTextBlock("keep");
       const block2 = createTextBlock("remove");
-      const result = updateBlockInTree([block1, block2], "remove", () => null);
+      const result = updateBlock([block1, block2], "remove", () => null);
 
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("keep");
@@ -240,6 +308,13 @@ describe("Block Tree Operations", () => {
 });
 
 describe("Block Commands", () => {
+  beforeEach(() => {
+    registry.clear();
+    registerBlock(containerDef);
+    registerBlock(textDef);
+    registerBlock(columnsDef);
+  });
+
   describe("AddBlockCommand", () => {
     it("should add block at root level", () => {
       const template = createTestTemplate();
