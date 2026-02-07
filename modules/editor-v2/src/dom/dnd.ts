@@ -2,7 +2,7 @@
  * Native HTML5 drag-and-drop for blocks.
  *
  * Provides drag-and-drop functionality using the native HTML5 DnD API.
- * No external dependencies required.
+ * Uses a floating indicator element for clear visual feedback.
  */
 
 // ============================================================================
@@ -87,58 +87,133 @@ export const DND_CLASSES = {
 } as const;
 
 // ============================================================================
+// Drop Indicator Element
+// ============================================================================
+
+/**
+ * Create the floating drop indicator element.
+ */
+function createDropIndicatorElement(): HTMLElement {
+  const indicator = document.createElement("div");
+  indicator.className = "ev2-drop-indicator";
+  indicator.innerHTML = `
+    <div class="ev2-drop-indicator__line"></div>
+    <div class="ev2-drop-indicator__label">Drop here</div>
+  `;
+  indicator.style.cssText = `
+    position: fixed;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+    z-index: 10000;
+    display: none;
+    transform: translateY(-50%);
+  `;
+
+  // Style the line
+  const line = indicator.querySelector(".ev2-drop-indicator__line") as HTMLElement;
+  line.style.cssText = `
+    height: 4px;
+    background: #3b82f6;
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+  `;
+
+  // Style the label
+  const label = indicator.querySelector(".ev2-drop-indicator__label") as HTMLElement;
+  label.style.cssText = `
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #3b82f6;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+  `;
+
+  return indicator;
+}
+
+// ============================================================================
 // Implementation
 // ============================================================================
 
 /**
  * Create a drag-and-drop manager.
- *
- * @example
- * ```typescript
- * const dnd = createDndManager();
- *
- * // Make blocks draggable
- * dnd.makeDraggable(blockElement, 'block-1');
- *
- * // Make containers accept drops
- * dnd.makeDropZone(containerElement, 'container-1');
- *
- * // Handle drops
- * dnd.onDrop((data, target) => {
- *   if (data.source === 'palette') {
- *     // Add new block
- *     addBlock(data.blockType, target.blockId, target.position);
- *   } else {
- *     // Move existing block
- *     moveBlock(data.blockId, target.blockId, target.position);
- *   }
- * });
- * ```
  */
 export function createDndManager(): DndManager {
   let dropCallback: DropCallback | null = null;
   let currentDragData: DragData | null = null;
   const cleanupFunctions: Array<() => void> = [];
 
+  // Create and append drop indicator
+  const dropIndicator = createDropIndicatorElement();
+  document.body.appendChild(dropIndicator);
+
+  // Track current drop target for "inside" highlighting
+  let currentInsideTarget: HTMLElement | null = null;
+
+  function hideDropIndicator(): void {
+    dropIndicator.style.display = "none";
+    if (currentInsideTarget) {
+      currentInsideTarget.classList.remove(DND_CLASSES.dropInside);
+      currentInsideTarget = null;
+    }
+  }
+
+  function showDropIndicator(
+    element: HTMLElement,
+    position: DropPosition,
+  ): void {
+    const rect = element.getBoundingClientRect();
+
+    // Clear previous inside target
+    if (currentInsideTarget && currentInsideTarget !== element) {
+      currentInsideTarget.classList.remove(DND_CLASSES.dropInside);
+    }
+
+    if (position === "inside") {
+      // For inside drops, highlight the container
+      dropIndicator.style.display = "none";
+      element.classList.add(DND_CLASSES.dropInside);
+      currentInsideTarget = element;
+    } else {
+      // For before/after, show the line indicator
+      if (currentInsideTarget) {
+        currentInsideTarget.classList.remove(DND_CLASSES.dropInside);
+        currentInsideTarget = null;
+      }
+
+      const y = position === "before" ? rect.top : rect.bottom;
+      const padding = 8; // Horizontal padding
+
+      dropIndicator.style.display = "block";
+      dropIndicator.style.left = `${rect.left - padding}px`;
+      dropIndicator.style.top = `${y}px`;
+      dropIndicator.style.width = `${rect.width + padding * 2}px`;
+    }
+  }
+
   function clearDropIndicators(): void {
-    document.querySelectorAll(
-      `.${DND_CLASSES.dragOver}, .${DND_CLASSES.dropBefore}, .${DND_CLASSES.dropAfter}, .${DND_CLASSES.dropInside}`,
-    ).forEach((el) => {
-      el.classList.remove(
-        DND_CLASSES.dragOver,
-        DND_CLASSES.dropBefore,
-        DND_CLASSES.dropAfter,
-        DND_CLASSES.dropInside,
-      );
+    hideDropIndicator();
+    document.querySelectorAll(`.${DND_CLASSES.dragOver}`).forEach((el) => {
+      el.classList.remove(DND_CLASSES.dragOver);
     });
   }
 
-  function getDropPosition(event: DragEvent, element: HTMLElement): DropPosition {
+  function getDropPosition(
+    event: DragEvent,
+    element: HTMLElement,
+  ): DropPosition {
     const rect = element.getBoundingClientRect();
     const y = event.clientY - rect.top;
     const height = rect.height;
 
-    // Check if the element can accept "inside" drops (has children)
+    // Check if the element can accept "inside" drops
     const allowInside = element.dataset.allowInside === "true";
 
     if (allowInside) {
@@ -156,23 +231,6 @@ export function createDndManager(): DndManager {
     }
   }
 
-  function setDropIndicator(element: HTMLElement, position: DropPosition): void {
-    clearDropIndicators();
-    element.classList.add(DND_CLASSES.dragOver);
-
-    switch (position) {
-      case "before":
-        element.classList.add(DND_CLASSES.dropBefore);
-        break;
-      case "after":
-        element.classList.add(DND_CLASSES.dropAfter);
-        break;
-      case "inside":
-        element.classList.add(DND_CLASSES.dropInside);
-        break;
-    }
-  }
-
   return {
     makeDraggable(element: HTMLElement, blockId: string): () => void {
       element.draggable = true;
@@ -187,7 +245,10 @@ export function createDndManager(): DndManager {
         };
 
         event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData(DRAG_MIME_TYPE, JSON.stringify(currentDragData));
+        event.dataTransfer.setData(
+          DRAG_MIME_TYPE,
+          JSON.stringify(currentDragData),
+        );
         event.dataTransfer.setData("text/plain", blockId);
 
         // Add dragging class after a short delay to avoid it being captured in drag image
@@ -239,28 +300,27 @@ export function createDndManager(): DndManager {
         }
 
         event.preventDefault();
+        event.stopPropagation(); // Prevent parent zones from showing their indicator
         event.dataTransfer.dropEffect = "move";
 
         const position = getDropPosition(event, element);
-        setDropIndicator(element, position);
+        element.classList.add(DND_CLASSES.dragOver);
+        showDropIndicator(element, position);
       }
 
       function handleDragLeave(event: DragEvent): void {
         // Only clear if we're leaving the element entirely
         const relatedTarget = event.relatedTarget as HTMLElement | null;
         if (!element.contains(relatedTarget)) {
-          element.classList.remove(
-            DND_CLASSES.dragOver,
-            DND_CLASSES.dropBefore,
-            DND_CLASSES.dropAfter,
-            DND_CLASSES.dropInside,
-          );
+          element.classList.remove(DND_CLASSES.dragOver);
+          // Don't hide indicator immediately - let the next dragover handle it
+          // This prevents flickering when moving between elements
         }
       }
 
       function handleDrop(event: DragEvent): void {
         event.preventDefault();
-        event.stopPropagation(); // Prevent parent drop zones from also handling this drop
+        event.stopPropagation();
         clearDropIndicators();
 
         if (!event.dataTransfer || !dropCallback) return;
@@ -326,7 +386,10 @@ export function createDndManager(): DndManager {
         };
 
         event.dataTransfer.effectAllowed = "copy";
-        event.dataTransfer.setData(DRAG_MIME_TYPE, JSON.stringify(currentDragData));
+        event.dataTransfer.setData(
+          DRAG_MIME_TYPE,
+          JSON.stringify(currentDragData),
+        );
         event.dataTransfer.setData("text/plain", blockType);
 
         element.classList.add(DND_CLASSES.dragging);
@@ -363,6 +426,7 @@ export function createDndManager(): DndManager {
       dropCallback = null;
       currentDragData = null;
       clearDropIndicators();
+      dropIndicator.remove();
     },
   };
 }
