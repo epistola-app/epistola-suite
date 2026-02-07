@@ -68,8 +68,8 @@ export function insertBlock(
   parentId: string | null,
   index: number,
 ): Block[] {
-  // Insert at root level
-  if (parentId === null) {
+  // Insert at root level (treat empty string same as null)
+  if (parentId === null || parentId === "") {
     return treeInsertBlock(blocks, block, null, index);
   }
 
