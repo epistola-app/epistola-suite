@@ -36,9 +36,15 @@
     - `walkTree()`, `countBlocks()`, `findBlocksByType()`, `getBlockPath()` utilities
     - Works with columns, tables, and any multi-container block types
   - **Container block definition**: Sample block to prove registry works
-  - Comprehensive test coverage: 164 tests for all core + blocks modules
+  - **DOM rendering layer**: State-to-DOM binding with selection and drag-and-drop (~450 LoC)
+    - `createRenderer()` for rendering template blocks to DOM
+    - Block selection: `createSelectionManager()` with single, multi, and range selection
+    - Native HTML5 drag-and-drop: `createDndManager()` for reordering blocks
+    - Drop zones with before/after/inside positioning
+    - CSS class constants for styling selection and drag states
+  - Comprehensive test coverage: 223 tests for all modules
   - Minimal dependencies: Only TipTap and JSONata (vs 45 deps in current editor)
-  - Bundle size: 20.98 KB (5.73 KB gzipped) - ~80% smaller than projected
+  - Bundle size: 34.41 KB (8.97 KB gzipped) - ~75% smaller than projected
 
 ### Fixed
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI

@@ -79,6 +79,38 @@ export {
   registerContainerBlock,
 } from "./blocks/index.ts";
 
+// Re-export DOM rendering layer
+export {
+  // Selection
+  createSelectionManager,
+  SELECTION_CLASSES,
+  applySelectionClasses,
+  handleSelectionClick,
+  // Drag-and-drop
+  createDndManager,
+  DND_CLASSES,
+  createDragHandle,
+  calculateInsertIndex,
+  // Renderer
+  createRenderer,
+  RENDERER_CLASSES,
+  focusBlock,
+  getBlockIdFromEvent,
+} from "./dom/index.ts";
+export type {
+  SelectionState,
+  SelectionListener,
+  SelectionManager,
+  DropPosition,
+  DropTarget,
+  DragData,
+  DropCallback,
+  DndManager,
+  RenderMode,
+  EditorRenderContext,
+  EditorRenderer,
+} from "./dom/index.ts";
+
 /**
  * Options for mounting the template editor.
  */
@@ -194,12 +226,12 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   container.innerHTML = `
     <div style="padding: 20px; font-family: system-ui, sans-serif; color: #666;">
       <h2 style="margin: 0 0 10px 0; color: #333;">Template Editor v2</h2>
-      <p style="margin: 0;">Phase 2 complete: Block registry + tree operations ready.</p>
+      <p style="margin: 0;">Phase 3 complete: DOM rendering layer ready.</p>
       <p style="margin: 10px 0 0 0; font-size: 14px;">
         Template: <strong>${currentTemplate.name}</strong>
       </p>
       <p style="margin: 5px 0 0 0; font-size: 12px; color: #999;">
-        UI rendering will be implemented in Phase 3-5.
+        Block implementations will be added in Phase 4.
       </p>
     </div>
   `;
