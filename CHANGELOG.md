@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
+- **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
+
+### Added
+- **Job Offer Letter demo template**: Second demo template with tables, conditionals, loops, and columns
+
  ### Added
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
