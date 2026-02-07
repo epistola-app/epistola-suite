@@ -59,6 +59,7 @@ export interface DndManager {
     element: HTMLElement,
     blockId: string | null,
     containerId?: string | null,
+    allowInside?: boolean,
   ): () => void;
 
   /** Make a palette item draggable */
@@ -137,10 +138,10 @@ export function createDndManager(): DndManager {
     const y = event.clientY - rect.top;
     const height = rect.height;
 
-    // Check if the element is a container that accepts children
-    const isContainer = element.dataset.dropZone === "true";
+    // Check if the element can accept "inside" drops (has children)
+    const allowInside = element.dataset.allowInside === "true";
 
-    if (isContainer) {
+    if (allowInside) {
       // For containers: top 25% = before, bottom 25% = after, middle = inside
       if (y < height * 0.25) {
         return "before";
@@ -218,8 +219,10 @@ export function createDndManager(): DndManager {
       element: HTMLElement,
       blockId: string | null,
       containerId: string | null = null,
+      allowInside: boolean = true,
     ): () => void {
       element.dataset.dropZone = "true";
+      element.dataset.allowInside = String(allowInside);
       if (blockId) {
         element.dataset.blockId = blockId;
       }
@@ -302,6 +305,7 @@ export function createDndManager(): DndManager {
         element.removeEventListener("dragleave", handleDragLeave);
         element.removeEventListener("drop", handleDrop);
         delete element.dataset.dropZone;
+        delete element.dataset.allowInside;
       };
 
       cleanupFunctions.push(cleanup);

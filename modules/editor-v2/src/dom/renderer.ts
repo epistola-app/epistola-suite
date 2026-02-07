@@ -203,7 +203,10 @@ export function createRenderer(
     // Set up drag-and-drop in edit mode
     if (context.mode === "edit") {
       dnd.makeDraggable(wrapper, block.id);
-      dnd.makeDropZone(wrapper, block.id);
+
+      // Only mark blocks that can contain children as "inside" drop targets
+      const canContainChildren = def?.getChildren !== undefined;
+      dnd.makeDropZone(wrapper, block.id, null, canContainChildren);
 
       // Click handler for selection
       wrapper.addEventListener("click", (event) => {
