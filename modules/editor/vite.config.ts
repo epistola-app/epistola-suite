@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path, {resolve} from 'path'
 
-// Shared dependencies loaded via import map - excluded from bundle
-const EXTERNALS = [
+// Shared dependencies loaded via import map - excluded from bundle (React editor)
+const REACT_EXTERNALS = [
   'react',
   'react-dom',
   'react-dom/client',
@@ -67,7 +67,7 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: EXTERNALS,
+      external: REACT_EXTERNALS,
       output: {
         assetFileNames: 'template-editor.[ext]',
       },
