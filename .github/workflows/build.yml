@@ -101,16 +101,43 @@ jobs:
 
       - name: Commit coverage badge
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/coverage.json
-          if git diff --staged --quiet; then
-            echo "No changes to coverage badge"
-          else
-            git commit -m "chore: update coverage badge [skip ci]"
-            git push
+          FILE_PATH=".github/badges/coverage.json"
+
+          # Get current file SHA if it exists (required for updates)
+          CURRENT_SHA=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.sha' 2>/dev/null || echo "")
+
+          # Read new content and base64 encode it
+          NEW_CONTENT=$(base64 -w0 ${FILE_PATH})
+
+          # Check if content has changed by comparing with existing
+          if [ -n "$CURRENT_SHA" ]; then
+            EXISTING_CONTENT=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.content' | tr -d '\n')
+            if [ "$NEW_CONTENT" = "$EXISTING_CONTENT" ]; then
+              echo "No changes to coverage badge"
+              exit 0
+            fi
           fi
+
+          # Create or update the file via GitHub API (commits are automatically signed)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
+              --method PUT \
+              -f message="chore: update coverage badge [skip ci]" \
+              -f content="${NEW_CONTENT}" \
+              -f branch="main" \
+              -f sha="${CURRENT_SHA}"
+          else
+            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
+              --method PUT \
+              -f message="chore: update coverage badge [skip ci]" \
+              -f content="${NEW_CONTENT}" \
+              -f branch="main"
+          fi
+
+          echo "Coverage badge updated and committed (signed by GitHub)"
 
       - name: Generate SBOMs
         run: |
