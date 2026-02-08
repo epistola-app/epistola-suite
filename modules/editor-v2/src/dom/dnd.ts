@@ -168,24 +168,55 @@ export function createDndManager(): DndManager {
           const blockId = item.dataset.blockId;
           if (!blockId) return;
 
-          // If it was moved to a different container or position
           const toEl = evt.to as HTMLElement;
+          const fromEl = evt.from as HTMLElement;
           const newParentId = getParentId(toEl);
           const newIndex = evt.newIndex ?? 0;
+          const oldIndex = evt.oldIndex ?? 0;
 
-          // Only trigger callback if actually moved
-          if (evt.from !== evt.to || evt.oldIndex !== evt.newIndex) {
-            moveCallback?.(blockId, newParentId, newIndex);
+          // Check if actually moved
+          if (evt.from === evt.to && oldIndex === newIndex) {
+            return;
           }
+
+          // IMPORTANT: Revert SortableJS's DOM manipulation before triggering callback.
+          // Our re-render will handle the actual DOM update based on new state.
+          // This prevents duplicates and ensures state is the source of truth.
+          if (evt.from !== evt.to) {
+            // Moved to different container - move back to original container
+            if (fromEl.children[oldIndex]) {
+              fromEl.insertBefore(item, fromEl.children[oldIndex]);
+            } else {
+              fromEl.appendChild(item);
+            }
+          } else {
+            // Moved within same container - revert to original position
+            const children = Array.from(fromEl.children);
+            const currentPos = children.indexOf(item);
+            if (currentPos !== oldIndex) {
+              if (oldIndex >= fromEl.children.length) {
+                fromEl.appendChild(item);
+              } else if (currentPos < oldIndex) {
+                fromEl.insertBefore(item, fromEl.children[oldIndex + 1] || null);
+              } else {
+                fromEl.insertBefore(item, fromEl.children[oldIndex]);
+              }
+            }
+          }
+
+          // Now trigger callback - re-render will update DOM correctly
+          moveCallback?.(blockId, newParentId, newIndex);
         },
 
         onAdd(evt: SortableEvent) {
           const item = evt.item as HTMLElement;
           item.classList.remove(DND_CLASSES.dragging);
 
-          // Check if this is from palette
+          // Check if this is from palette (has blockType, not blockId)
           const blockType = item.dataset.blockType;
-          if (blockType) {
+          const blockId = item.dataset.blockId;
+
+          if (blockType && !blockId) {
             // This is from palette - add new block
             const toEl = evt.to as HTMLElement;
             const newParentId = getParentId(toEl);
@@ -197,6 +228,7 @@ export function createDndManager(): DndManager {
             // Trigger add callback
             addCallback?.(blockType, newParentId, newIndex);
           }
+          // Note: blocks moved between containers are handled by onEnd, not onAdd
         },
       });
 
