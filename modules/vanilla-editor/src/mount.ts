@@ -94,6 +94,11 @@ export function mountEditor(config: MountConfig): MountedEditor {
   mountConfig = config;
   isMounted = true;
 
+  // Expose editor to window for E2E tests
+  if (typeof window !== 'undefined') {
+    (window as any).__editor = editor;
+  }
+
   // Configure themes
   if (config.themes) {
     editor.setThemes(config.themes);

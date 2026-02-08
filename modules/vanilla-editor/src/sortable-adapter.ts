@@ -122,7 +122,9 @@ export class SortableAdapter {
     if (!draggedId) return;
 
     const toContainer = evt.to as HTMLElement;
+    const fromContainer = evt.from as HTMLElement;
     const newIndex = evt.newIndex ?? 0;
+    const oldIndex = evt.oldIndex ?? 0;
 
     let targetParentId: string | null = null;
     if (toContainer.classList.contains('sortable-container')) {
@@ -130,6 +132,20 @@ export class SortableAdapter {
     }
 
     if (this.dnd.canDrop(draggedId, targetParentId, 'inside')) {
+      // CRITICAL: Revert SortableJS's DOM manipulation before calling moveBlock.
+      // SortableJS physically moved the DOM node, but we need uhtml to handle
+      // all DOM updates to avoid conflicts. Revert the move, then let the editor
+      // state update trigger a clean uhtml re-render.
+      if (toContainer !== fromContainer || newIndex !== oldIndex) {
+        // Move the item back to its original position
+        if (oldIndex < fromContainer.children.length) {
+          fromContainer.insertBefore(evt.item, fromContainer.children[oldIndex]);
+        } else {
+          fromContainer.appendChild(evt.item);
+        }
+      }
+
+      // Now update editor state, which will trigger uhtml to render the new state cleanly
       this.editor.moveBlock(draggedId, targetParentId, newIndex);
     } else {
       this.onInvalidDrop?.();

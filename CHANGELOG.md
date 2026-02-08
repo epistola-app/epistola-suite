@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Fixed
+- **E2E test failures and drag-drop bug in vanilla-editor**: Fixed multiple issues causing Playwright E2E test failures
+  - Fixed browser context scope issues by passing selectors as parameters to page.waitForFunction()
+  - Fixed stale locator issues using :scope > selector to target direct children after DOM re-renders
+  - Fixed template literal syntax errors (single quotes to backticks) for proper selector interpolation
+  - Added missing SELECTORS import to block-operations.spec.ts
+  - Fixed SortableJS + uhtml conflict in sortable-adapter.ts by reverting DOM changes before state update
+  - Test results improved from 19 failures to 3 timeout-related failures (56/59 passing)
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
 - **Template Data Validation Endpoint**: Implemented `validateTemplateData` method in `EpistolaTemplateApi` to support the updated API contract
   - Validates template input data against the template's JSON Schema
