@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- **Design Token System for UI Consistency**: Implemented CSS custom properties matching the editor's token system for visual consistency across Thymeleaf and React components
+  - Complete token system: colors (OKLch), spacing, border radius, shadows, typography
+  - All `main.css` styles now use design tokens instead of hardcoded values
+  - Relative color syntax for dynamic badge and alert styling
+  - No build step required - pure CSS implementation
+  - Primary color changed from blue to dark gray to match editor design
+  - See `docs/consistent-ui.md` for full documentation
+
 ### Fixed
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
 
