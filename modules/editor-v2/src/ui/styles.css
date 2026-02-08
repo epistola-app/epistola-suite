@@ -716,7 +716,8 @@
   transition: all 0.15s;
 }
 
-.ev2-block:hover {
+/* Only highlight the innermost hovered block, not its ancestors */
+.ev2-block:hover:not(:has(.ev2-block:hover)) {
   border-color: var(--ev2-color-border-strong);
   background: var(--ev2-color-bg-subtle);
 }
@@ -812,7 +813,8 @@
   transition: opacity 0.15s;
 }
 
-.ev2-block:hover .ev2-block__drag-handle {
+/* Only show drag handle on innermost hovered block */
+.ev2-block:hover:not(:has(.ev2-block:hover)) .ev2-block__drag-handle {
   opacity: 1;
 }
 
@@ -1024,7 +1026,8 @@
   transition: opacity 0.15s;
 }
 
-.ev2-block:hover .ev2-drag-handle {
+/* Only show drag handle on innermost hovered block */
+.ev2-block:hover:not(:has(.ev2-block:hover)) .ev2-drag-handle {
   opacity: 1;
 }
 
