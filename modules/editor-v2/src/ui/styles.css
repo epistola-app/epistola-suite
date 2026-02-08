@@ -727,10 +727,46 @@
   background: var(--ev2-color-primary-light);
 }
 
-/* DnD states */
+/* DnD states - SortableJS classes */
 .ev2-block--dragging {
   opacity: 0.4;
   border-color: var(--ev2-color-primary);
+}
+
+.ev2-block--ghost {
+  opacity: 0.4;
+  background: var(--ev2-color-primary-light);
+  border: 2px dashed var(--ev2-color-primary);
+}
+
+.ev2-block--chosen {
+  border-color: var(--ev2-color-primary);
+  box-shadow: var(--ev2-shadow-md);
+}
+
+.ev2-block--drag {
+  opacity: 1;
+  background: var(--ev2-color-bg);
+  border-color: var(--ev2-color-primary);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  cursor: grabbing;
+}
+
+.ev2-block--fallback {
+  opacity: 0.9;
+}
+
+/* Palette item SortableJS states */
+.ev2-palette__item.ev2-block--ghost {
+  opacity: 0.4;
+}
+
+.ev2-palette__item.ev2-block--chosen {
+  box-shadow: var(--ev2-shadow-md);
+}
+
+.ev2-palette__item.ev2-block--dragging {
+  opacity: 0.5;
 }
 
 .ev2-block--drag-over {

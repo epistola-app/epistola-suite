@@ -1,9 +1,11 @@
 /**
- * Native HTML5 drag-and-drop for blocks.
+ * Drag-and-drop for blocks using SortableJS.
  *
- * Provides drag-and-drop functionality using the native HTML5 DnD API.
- * Uses a floating indicator element for clear visual feedback.
+ * Provides drag-and-drop functionality with smooth animations and
+ * proper handling of nested sortable containers.
  */
+
+import Sortable, { type SortableEvent } from "sortablejs";
 
 // ============================================================================
 // Types
@@ -43,30 +45,42 @@ export interface DragData {
 }
 
 /**
- * Callback when a drop occurs.
+ * Callback when a block is moved.
  */
-export type DropCallback = (data: DragData, target: DropTarget) => void;
+export type MoveCallback = (
+  blockId: string,
+  newParentId: string | null,
+  newIndex: number,
+) => void;
+
+/**
+ * Callback when a new block is added from palette.
+ */
+export type AddCallback = (
+  blockType: string,
+  parentId: string | null,
+  index: number,
+) => void;
 
 /**
  * Drag-and-drop manager interface.
  */
 export interface DndManager {
-  /** Make a block element draggable */
-  makeDraggable(element: HTMLElement, blockId: string): () => void;
-
-  /** Make an element a drop zone (container for blocks) */
-  makeDropZone(
+  /** Create a sortable container for blocks */
+  makeSortable(
     element: HTMLElement,
-    blockId: string | null,
+    parentId: string | null,
     containerId?: string | null,
-    allowInside?: boolean,
   ): () => void;
 
-  /** Make a palette item draggable */
-  makePaletteDraggable(element: HTMLElement, blockType: string): () => void;
+  /** Make a palette grid container sortable (items can be dragged out as clones) */
+  makePaletteContainer(element: HTMLElement): () => void;
 
-  /** Set the drop callback */
-  onDrop(callback: DropCallback): void;
+  /** Set the move callback */
+  onMove(callback: MoveCallback): void;
+
+  /** Set the add callback */
+  onAdd(callback: AddCallback): void;
 
   /** Dispose of the manager */
   dispose(): void;
@@ -76,368 +90,197 @@ export interface DndManager {
 // Constants
 // ============================================================================
 
-const DRAG_MIME_TYPE = "application/x-editor-v2-block";
-
 export const DND_CLASSES = {
   dragging: "ev2-block--dragging",
-  dragOver: "ev2-block--drag-over",
-  dropBefore: "ev2-block--drop-before",
-  dropAfter: "ev2-block--drop-after",
-  dropInside: "ev2-block--drop-inside",
+  ghost: "ev2-block--ghost",
+  chosen: "ev2-block--chosen",
+  drag: "ev2-block--drag",
+  fallback: "ev2-block--fallback",
 } as const;
 
-// ============================================================================
-// Drop Indicator Element
-// ============================================================================
-
-/**
- * Create the floating drop indicator element.
- */
-function createDropIndicatorElement(): HTMLElement {
-  const indicator = document.createElement("div");
-  indicator.className = "ev2-drop-indicator";
-  indicator.innerHTML = `
-    <div class="ev2-drop-indicator__line"></div>
-    <div class="ev2-drop-indicator__label">Drop here</div>
-  `;
-  indicator.style.cssText = `
-    position: fixed;
-    left: 0;
-    top: 0;
-    pointer-events: none;
-    z-index: 10000;
-    display: none;
-    transform: translateY(-50%);
-  `;
-
-  // Style the line
-  const line = indicator.querySelector(".ev2-drop-indicator__line") as HTMLElement;
-  line.style.cssText = `
-    height: 4px;
-    background: #3b82f6;
-    border-radius: 2px;
-    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
-  `;
-
-  // Style the label
-  const label = indicator.querySelector(".ev2-drop-indicator__label") as HTMLElement;
-  label.style.cssText = `
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    background: #3b82f6;
-    color: white;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
-    white-space: nowrap;
-  `;
-
-  return indicator;
-}
+const SORTABLE_GROUP = "ev2-blocks";
 
 // ============================================================================
 // Implementation
 // ============================================================================
 
 /**
- * Create a drag-and-drop manager.
+ * Create a drag-and-drop manager using SortableJS.
  */
 export function createDndManager(): DndManager {
-  let dropCallback: DropCallback | null = null;
-  let currentDragData: DragData | null = null;
+  let moveCallback: MoveCallback | null = null;
+  let addCallback: AddCallback | null = null;
+  const sortableInstances: Sortable[] = [];
   const cleanupFunctions: Array<() => void> = [];
 
-  // Create and append drop indicator
-  const dropIndicator = createDropIndicatorElement();
-  document.body.appendChild(dropIndicator);
+  /**
+   * Get the parent ID for a sortable container.
+   */
+  function getParentId(element: HTMLElement): string | null {
+    const parentId = element.dataset.parentId;
+    const containerId = element.dataset.containerId;
 
-  // Track current drop target for "inside" highlighting
-  let currentInsideTarget: HTMLElement | null = null;
-
-  function hideDropIndicator(): void {
-    dropIndicator.style.display = "none";
-    if (currentInsideTarget) {
-      currentInsideTarget.classList.remove(DND_CLASSES.dropInside);
-      currentInsideTarget = null;
-    }
-  }
-
-  function showDropIndicator(
-    element: HTMLElement,
-    position: DropPosition,
-  ): void {
-    const rect = element.getBoundingClientRect();
-
-    // Clear previous inside target
-    if (currentInsideTarget && currentInsideTarget !== element) {
-      currentInsideTarget.classList.remove(DND_CLASSES.dropInside);
-    }
-
-    if (position === "inside") {
-      // For inside drops, highlight the container
-      dropIndicator.style.display = "none";
-      element.classList.add(DND_CLASSES.dropInside);
-      currentInsideTarget = element;
-    } else {
-      // For before/after, show the line indicator
-      if (currentInsideTarget) {
-        currentInsideTarget.classList.remove(DND_CLASSES.dropInside);
-        currentInsideTarget = null;
-      }
-
-      const y = position === "before" ? rect.top : rect.bottom;
-      const padding = 8; // Horizontal padding
-
-      dropIndicator.style.display = "block";
-      dropIndicator.style.left = `${rect.left - padding}px`;
-      dropIndicator.style.top = `${y}px`;
-      dropIndicator.style.width = `${rect.width + padding * 2}px`;
-    }
-  }
-
-  function clearDropIndicators(): void {
-    hideDropIndicator();
-    document.querySelectorAll(`.${DND_CLASSES.dragOver}`).forEach((el) => {
-      el.classList.remove(DND_CLASSES.dragOver);
-    });
-  }
-
-  function getDropPosition(
-    event: DragEvent,
-    element: HTMLElement,
-  ): DropPosition {
-    const rect = element.getBoundingClientRect();
-    const y = event.clientY - rect.top;
-    const height = rect.height;
-
-    // Check if the element can accept "inside" drops
-    const allowInside = element.dataset.allowInside === "true";
-
-    if (allowInside) {
-      // For containers: top 25% = before, bottom 25% = after, middle = inside
-      if (y < height * 0.25) {
-        return "before";
-      } else if (y > height * 0.75) {
-        return "after";
-      } else {
-        return "inside";
-      }
-    } else {
-      // For non-containers: top 50% = before, bottom 50% = after
-      return y < height / 2 ? "before" : "after";
-    }
+    if (!parentId) return null;
+    if (containerId) return `${parentId}::${containerId}`;
+    return parentId;
   }
 
   return {
-    makeDraggable(element: HTMLElement, blockId: string): () => void {
-      element.draggable = true;
-      element.dataset.blockId = blockId;
-
-      function handleDragStart(event: DragEvent): void {
-        if (!event.dataTransfer) return;
-
-        currentDragData = {
-          blockId,
-          source: "editor",
-        };
-
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData(
-          DRAG_MIME_TYPE,
-          JSON.stringify(currentDragData),
-        );
-        event.dataTransfer.setData("text/plain", blockId);
-
-        // Add dragging class after a short delay to avoid it being captured in drag image
-        requestAnimationFrame(() => {
-          element.classList.add(DND_CLASSES.dragging);
-        });
-      }
-
-      function handleDragEnd(): void {
-        element.classList.remove(DND_CLASSES.dragging);
-        clearDropIndicators();
-        currentDragData = null;
-      }
-
-      element.addEventListener("dragstart", handleDragStart);
-      element.addEventListener("dragend", handleDragEnd);
-
-      const cleanup = () => {
-        element.removeEventListener("dragstart", handleDragStart);
-        element.removeEventListener("dragend", handleDragEnd);
-        element.draggable = false;
-      };
-
-      cleanupFunctions.push(cleanup);
-      return cleanup;
-    },
-
-    makeDropZone(
+    makeSortable(
       element: HTMLElement,
-      blockId: string | null,
+      parentId: string | null,
       containerId: string | null = null,
-      allowInside: boolean = true,
     ): () => void {
-      element.dataset.dropZone = "true";
-      element.dataset.allowInside = String(allowInside);
-      if (blockId) {
-        element.dataset.blockId = blockId;
-      }
+      // Store parent info on element for later retrieval
+      element.dataset.parentId = parentId ?? "";
       if (containerId) {
         element.dataset.containerId = containerId;
       }
+      element.dataset.sortable = "true";
 
-      function handleDragOver(event: DragEvent): void {
-        if (!event.dataTransfer) return;
+      const sortable = Sortable.create(element, {
+        group: {
+          name: SORTABLE_GROUP,
+          pull: true,
+          put: true,
+        },
+        animation: 150,
+        fallbackOnBody: true,
+        swapThreshold: 0.65,
+        dragClass: DND_CLASSES.drag,
+        ghostClass: DND_CLASSES.ghost,
+        chosenClass: DND_CLASSES.chosen,
+        fallbackClass: DND_CLASSES.fallback,
+        draggable: ".ev2-block",
+        handle: ".ev2-block", // Entire block is draggable
+        filter: ".ev2-gap-drop-zone, .ev2-placeholder", // Don't drag gaps or placeholders
 
-        // Check if this is a valid drop (don't allow dropping on self)
-        if (currentDragData?.blockId === blockId) {
-          return;
-        }
+        onStart(evt: SortableEvent) {
+          const item = evt.item as HTMLElement;
+          item.classList.add(DND_CLASSES.dragging);
+        },
 
-        event.preventDefault();
-        event.stopPropagation(); // Prevent parent zones from showing their indicator
-        event.dataTransfer.dropEffect = "move";
+        onEnd(evt: SortableEvent) {
+          const item = evt.item as HTMLElement;
+          item.classList.remove(DND_CLASSES.dragging);
 
-        const position = getDropPosition(event, element);
-        element.classList.add(DND_CLASSES.dragOver);
-        showDropIndicator(element, position);
-      }
+          // Handle move within editor
+          const blockId = item.dataset.blockId;
+          if (!blockId) return;
 
-      function handleDragLeave(event: DragEvent): void {
-        // Only clear if we're leaving the element entirely
-        const relatedTarget = event.relatedTarget as HTMLElement | null;
-        if (!element.contains(relatedTarget)) {
-          element.classList.remove(DND_CLASSES.dragOver);
-          // Don't hide indicator immediately - let the next dragover handle it
-          // This prevents flickering when moving between elements
-        }
-      }
+          // If it was moved to a different container or position
+          const toEl = evt.to as HTMLElement;
+          const newParentId = getParentId(toEl);
+          const newIndex = evt.newIndex ?? 0;
 
-      function handleDrop(event: DragEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
-        clearDropIndicators();
-
-        if (!event.dataTransfer || !dropCallback) return;
-
-        const position = getDropPosition(event, element);
-
-        // Try to get drag data from dataTransfer or current state
-        let dragData: DragData | null = currentDragData;
-
-        if (!dragData) {
-          const jsonData = event.dataTransfer.getData(DRAG_MIME_TYPE);
-          if (jsonData) {
-            try {
-              dragData = JSON.parse(jsonData);
-            } catch {
-              // Invalid JSON, ignore
-            }
+          // Only trigger callback if actually moved
+          if (evt.from !== evt.to || evt.oldIndex !== evt.newIndex) {
+            moveCallback?.(blockId, newParentId, newIndex);
           }
-        }
+        },
 
-        if (!dragData) return;
+        onAdd(evt: SortableEvent) {
+          const item = evt.item as HTMLElement;
+          item.classList.remove(DND_CLASSES.dragging);
 
-        // Don't allow dropping on self
-        if (dragData.blockId === blockId) {
-          return;
-        }
+          // Check if this is from palette
+          const blockType = item.dataset.blockType;
+          if (blockType) {
+            // This is from palette - add new block
+            const toEl = evt.to as HTMLElement;
+            const newParentId = getParentId(toEl);
+            const newIndex = evt.newIndex ?? 0;
 
-        const target: DropTarget = {
-          blockId: blockId ?? "",
-          position,
-          containerId,
-        };
+            // Remove the palette clone from the sortable
+            item.remove();
 
-        dropCallback(dragData, target);
-      }
+            // Trigger add callback
+            addCallback?.(blockType, newParentId, newIndex);
+          }
+        },
+      });
 
-      element.addEventListener("dragover", handleDragOver);
-      element.addEventListener("dragleave", handleDragLeave);
-      element.addEventListener("drop", handleDrop);
+      sortableInstances.push(sortable);
 
       const cleanup = () => {
-        element.removeEventListener("dragover", handleDragOver);
-        element.removeEventListener("dragleave", handleDragLeave);
-        element.removeEventListener("drop", handleDrop);
-        delete element.dataset.dropZone;
-        delete element.dataset.allowInside;
+        sortable.destroy();
+        const idx = sortableInstances.indexOf(sortable);
+        if (idx !== -1) {
+          sortableInstances.splice(idx, 1);
+        }
+        delete element.dataset.parentId;
+        delete element.dataset.containerId;
+        delete element.dataset.sortable;
       };
 
       cleanupFunctions.push(cleanup);
       return cleanup;
     },
 
-    makePaletteDraggable(element: HTMLElement, blockType: string): () => void {
-      element.draggable = true;
-      element.dataset.blockType = blockType;
+    makePaletteContainer(element: HTMLElement): () => void {
+      const sortable = Sortable.create(element, {
+        group: {
+          name: SORTABLE_GROUP,
+          pull: "clone",
+          put: false,
+        },
+        sort: false,
+        draggable: ".ev2-palette__item",
+        ghostClass: DND_CLASSES.ghost,
+        chosenClass: DND_CLASSES.chosen,
+        dragClass: DND_CLASSES.drag,
 
-      function handleDragStart(event: DragEvent): void {
-        if (!event.dataTransfer) return;
+        onStart(evt: SortableEvent) {
+          const item = evt.item as HTMLElement;
+          item.classList.add(DND_CLASSES.dragging);
+        },
 
-        currentDragData = {
-          blockType,
-          source: "palette",
-        };
+        onEnd(evt: SortableEvent) {
+          const item = evt.item as HTMLElement;
+          item.classList.remove(DND_CLASSES.dragging);
+        },
+      });
 
-        event.dataTransfer.effectAllowed = "copy";
-        event.dataTransfer.setData(
-          DRAG_MIME_TYPE,
-          JSON.stringify(currentDragData),
-        );
-        event.dataTransfer.setData("text/plain", blockType);
-
-        element.classList.add(DND_CLASSES.dragging);
-      }
-
-      function handleDragEnd(): void {
-        element.classList.remove(DND_CLASSES.dragging);
-        clearDropIndicators();
-        currentDragData = null;
-      }
-
-      element.addEventListener("dragstart", handleDragStart);
-      element.addEventListener("dragend", handleDragEnd);
+      sortableInstances.push(sortable);
 
       const cleanup = () => {
-        element.removeEventListener("dragstart", handleDragStart);
-        element.removeEventListener("dragend", handleDragEnd);
-        element.draggable = false;
+        sortable.destroy();
+        const idx = sortableInstances.indexOf(sortable);
+        if (idx !== -1) {
+          sortableInstances.splice(idx, 1);
+        }
       };
 
       cleanupFunctions.push(cleanup);
       return cleanup;
     },
 
-    onDrop(callback: DropCallback): void {
-      dropCallback = callback;
+    onMove(callback: MoveCallback): void {
+      moveCallback = callback;
+    },
+
+    onAdd(callback: AddCallback): void {
+      addCallback = callback;
     },
 
     dispose(): void {
-      for (const cleanup of cleanupFunctions) {
-        cleanup();
+      for (const sortable of sortableInstances) {
+        sortable.destroy();
       }
+      sortableInstances.length = 0;
       cleanupFunctions.length = 0;
-      dropCallback = null;
-      currentDragData = null;
-      clearDropIndicators();
-      dropIndicator.remove();
+      moveCallback = null;
+      addCallback = null;
     },
   };
 }
 
 // ============================================================================
-// Utilities
+// Utilities (kept for backward compatibility)
 // ============================================================================
 
 /**
  * Create a drag handle element for a block.
- * Useful when you want only part of a block to be draggable.
  */
 export function createDragHandle(): HTMLElement {
   const handle = document.createElement("div");
@@ -455,6 +298,7 @@ export function createDragHandle(): HTMLElement {
 
 /**
  * Calculate the insertion index based on drop position.
+ * @deprecated Use SortableJS which handles this automatically
  */
 export function calculateInsertIndex(
   position: DropPosition,
@@ -467,6 +311,9 @@ export function calculateInsertIndex(
     case "after":
       return isMovingDown ? targetIndex + 1 : targetIndex + 1;
     case "inside":
-      return 0; // Insert at beginning of container
+      return 0;
   }
 }
+
+// Legacy exports for backward compatibility
+export type DropCallback = (data: DragData, target: DropTarget) => void;

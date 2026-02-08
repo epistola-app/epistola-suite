@@ -20,11 +20,13 @@
     "@tiptap/extension-underline": "^3.11.1",
     "@tiptap/pm": "^3.11.1",
     "@tiptap/starter-kit": "^3.11.1",
-    "jsonata": "^2.0.5"
+    "jsonata": "^2.0.5",
+    "sortablejs": "^1.15.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.4",
+    "@types/sortablejs": "^1.15.9",
     "@vitest/coverage-v8": "^4.0.16",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",

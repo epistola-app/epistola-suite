@@ -136,12 +136,18 @@ export function createPalette(options: PaletteOptions): Palette {
         grid.appendChild(item);
       }
 
+      // Make the grid a sortable palette container (items can be cloned out)
+      if (dnd) {
+        const cleanup = dnd.makePaletteContainer(grid);
+        dndCleanups.push(cleanup);
+      }
+
       section.appendChild(grid);
       content.appendChild(section);
     }
   }
 
-  // Create draggable palette item
+  // Create palette item (SortableJS handles drag via container)
   function createPaletteItem(def: BlockDefinition): HTMLElement {
     const item = document.createElement("div");
     item.className = "ev2-palette__item";
@@ -159,12 +165,8 @@ export function createPalette(options: PaletteOptions): Palette {
     item.appendChild(icon);
     item.appendChild(label);
 
-    // Use DnD manager if available (preferred - handles MIME types correctly)
-    if (dnd) {
-      const cleanup = dnd.makePaletteDraggable(item, def.type);
-      dndCleanups.push(cleanup);
-    } else {
-      // Fallback: manual drag handling (legacy)
+    // Fallback: manual drag handling when no dnd manager (legacy)
+    if (!dnd) {
       item.draggable = true;
       item.addEventListener("dragstart", (e) => {
         item.classList.add("ev2-palette__item--dragging");
