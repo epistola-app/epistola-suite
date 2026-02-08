@@ -15,7 +15,7 @@ dependencyManagement {
 
 dependencies {
     // Generated server interfaces from epistola-contract
-    api("app.epistola.contract:server-kotlin-springboot4:1.0-SNAPSHOT")
+    api(libs.epistola.server.restapi)
 
     // Business logic - provides commands, queries, and domain services
     implementation(project(":modules:epistola-core"))

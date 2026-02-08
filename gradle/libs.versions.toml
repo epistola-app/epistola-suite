@@ -13,6 +13,7 @@ uuid-creator = "6.1.1"
 openapi-generator = "7.19.0"
 jackson2 = "2.21.0"
 spring-web = "7.0.3"
+epistola-contract = "0.1.1"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -28,6 +29,7 @@ jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", ve
 jackson2-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson2" }
 jackson2-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson2" }
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
+epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
