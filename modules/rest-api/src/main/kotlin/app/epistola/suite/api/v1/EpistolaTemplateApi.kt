@@ -8,11 +8,14 @@ import app.epistola.api.model.ActivationListResponse
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
 import app.epistola.api.model.SetActivationRequest
+import app.epistola.api.model.TemplateDataValidationError
+import app.epistola.api.model.TemplateDataValidationResult
 import app.epistola.api.model.TemplateDto
 import app.epistola.api.model.TemplateListResponse
 import app.epistola.api.model.UpdateDraftRequest
 import app.epistola.api.model.UpdateTemplateRequest
 import app.epistola.api.model.UpdateVariantRequest
+import app.epistola.api.model.ValidateTemplateDataRequest
 import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantListResponse
 import app.epistola.api.model.VersionDto
@@ -52,14 +55,17 @@ import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.GetDraft
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 @RestController
 class EpistolaTemplateApi(
     private val objectMapper: ObjectMapper,
+    private val jsonSchemaValidator: JsonSchemaValidator,
 ) : TemplatesApi,
     VariantsApi,
     VersionsApi {
@@ -122,6 +128,33 @@ class EpistolaTemplateApi(
         ).execute() ?: return ResponseEntity.notFound().build()
         val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
+    }
+
+    override fun validateTemplateData(
+        tenantId: String,
+        templateId: String,
+        validateTemplateDataRequest: ValidateTemplateDataRequest,
+    ): ResponseEntity<TemplateDataValidationResult> {
+        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
+            ?: return ResponseEntity.notFound().build()
+
+        val dataModel = template.dataModel
+            ?: return ResponseEntity.ok(TemplateDataValidationResult(valid = true, errors = emptyList()))
+
+        val dataNode = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data)
+        val errors = jsonSchemaValidator.validate(dataModel, dataNode)
+
+        return ResponseEntity.ok(
+            TemplateDataValidationResult(
+                valid = errors.isEmpty(),
+                errors = errors.map { error ->
+                    TemplateDataValidationError(
+                        path = error.path,
+                        message = error.message,
+                    )
+                },
+            ),
+        )
     }
 
     override fun deleteTemplate(
