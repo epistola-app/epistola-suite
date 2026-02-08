@@ -79,7 +79,7 @@ class ApiExceptionHandler {
             ApiErrorResponse(
                 code = "THEME_NOT_FOUND",
                 message = ex.message ?: "Theme not found",
-                details = mapOf("themeId" to ex.themeId.value.toString()),
+                details = mapOf("themeId" to ex.themeId.value),
             ),
         )
     }
@@ -96,7 +96,7 @@ class ApiExceptionHandler {
             ApiErrorResponse(
                 code = "THEME_IN_USE",
                 message = ex.message ?: "Theme is in use and cannot be deleted",
-                details = mapOf("themeId" to ex.themeId.value.toString()),
+                details = mapOf("themeId" to ex.themeId.value),
             ),
         )
     }
@@ -113,7 +113,7 @@ class ApiExceptionHandler {
             ApiErrorResponse(
                 code = "LAST_THEME",
                 message = ex.message ?: "Cannot delete the last theme for a tenant",
-                details = mapOf("themeId" to ex.themeId.value.toString()),
+                details = mapOf("themeId" to ex.themeId.value),
             ),
         )
     }

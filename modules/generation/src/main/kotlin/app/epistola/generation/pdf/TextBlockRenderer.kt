@@ -29,8 +29,7 @@ class TextBlockRenderer : BlockRenderer {
         )
 
         // Convert TipTap content to iText elements
-        @Suppress("UNCHECKED_CAST")
-        val content = block.content as? Map<String, Any>
+        val content = block.content
         val elements = context.tipTapConverter.convert(content, context.data, context.loopContext, context.fontCache)
 
         for (element in elements) {

@@ -121,9 +121,8 @@ class DocumentGenerationExecutor(
             ) ?: throw IllegalStateException("No active version for environment ${request.environmentId}")
         }
 
-        // 2. Validate template model exists
+        // 2. Get template model
         val templateModel = version.templateModel
-            ?: throw IllegalStateException("Version ${version.id} has no template model")
 
         // 3. Fetch template to get default theme
         val template = mediator.query(

@@ -262,21 +262,6 @@ value class GenerationRequestId(override val value: UUID) : UuidId<GenerationReq
 }
 
 /**
- * Typed ID for DocumentGenerationItem entities.
- * @deprecated Items table has been removed. Use GenerationRequestId instead.
- */
-@Deprecated("Items table removed in V9 migration. Each request now represents a single document.")
-@JvmInline
-value class GenerationItemId(override val value: UUID) : UuidId<GenerationItemId> {
-    companion object {
-        fun generate(): GenerationItemId = GenerationItemId(UUIDv7.generate())
-        fun of(value: UUID): GenerationItemId = GenerationItemId(value)
-    }
-
-    override fun toString(): String = value.toString()
-}
-
-/**
  * Typed ID for DocumentGenerationBatch entities.
  * Groups related generation requests together for batch tracking.
  */

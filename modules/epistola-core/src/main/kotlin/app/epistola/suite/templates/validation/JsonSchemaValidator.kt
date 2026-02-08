@@ -233,7 +233,7 @@ class JsonSchemaValidator(
         }
 
         val typeNode = current.get("type")
-        return typeNode?.asText() ?: "unknown"
+        return typeNode?.asString() ?: "unknown"
     }
 
     /**
@@ -255,9 +255,9 @@ class JsonSchemaValidator(
     }
 
     private fun tryConvertToString(value: JsonNode): Pair<JsonNode?, Boolean> = when {
-        value.isTextual -> Pair(value, true)
+        value.isString -> Pair(value, true)
         value.isNumber || value.isBoolean -> {
-            val stringValue = objectMapper.valueToTree<JsonNode>(value.asText())
+            val stringValue = objectMapper.valueToTree<JsonNode>(value.asString())
             Pair(stringValue, true)
         }
         else -> Pair(null, false) // Objects/arrays cannot be auto-converted to string
@@ -265,8 +265,8 @@ class JsonSchemaValidator(
 
     private fun tryConvertToNumber(value: JsonNode, expectedType: String): Pair<JsonNode?, Boolean> = when {
         value.isNumber -> Pair(value, true)
-        value.isTextual -> {
-            val text = value.asText()
+        value.isString -> {
+            val text = value.asString()
             val number = if (expectedType == "integer") {
                 text.toLongOrNull()?.let { objectMapper.valueToTree<JsonNode>(it) }
             } else {
@@ -279,8 +279,8 @@ class JsonSchemaValidator(
 
     private fun tryConvertToBoolean(value: JsonNode): Pair<JsonNode?, Boolean> = when {
         value.isBoolean -> Pair(value, true)
-        value.isTextual -> {
-            val text = value.asText().lowercase()
+        value.isString -> {
+            val text = value.asString().lowercase()
             when (text) {
                 "true", "1", "yes" -> Pair(objectMapper.valueToTree(true), true)
                 "false", "0", "no" -> Pair(objectMapper.valueToTree(false), true)
