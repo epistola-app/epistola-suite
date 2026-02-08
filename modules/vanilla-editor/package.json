@@ -18,7 +18,10 @@
     "dev": "esbuild src/index.ts --bundle --outfile=dist/vanilla-editor.js --format=esm --watch --external:@epistola/headless-editor",
     "build": "esbuild src/index.ts --bundle --outfile=dist/vanilla-editor.js --format=esm --minify && tsc --emitDeclarationOnly",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e:bundled": "playwright test --config=playwright.config.ts",
+    "test:e2e:bundled:ui": "playwright test --ui --config=playwright.config.ts",
+    "test:e2e:bundled:debug": "playwright test --debug --config=playwright.config.ts"
   },
   "dependencies": {
     "@epistola/headless-editor": "workspace:*",
@@ -32,6 +35,8 @@
     "uhtml": "^4.7.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.10.11",
     "@types/sortablejs": "^1.15.8",
     "esbuild": "^0.25.0",
     "jsdom": "^27.4.0",

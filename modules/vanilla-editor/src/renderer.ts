@@ -142,6 +142,7 @@ export class BlockRenderer {
         class=${`block ${isSelected ? "selected" : ""}`}
         data-block-id=${block.id}
         data-block-type=${block.type}
+        data-testid="block"
         onclick=${(e: Event) => {
           this.editor.selectBlock(block.id);
           e.stopPropagation();
@@ -158,6 +159,7 @@ export class BlockRenderer {
     return html`
       <div
         class="block-header d-flex justify-content-between align-items-center"
+        data-testid="block-header"
       >
         <div class="d-flex align-items-center gap-2">
           <i class="bi bi-grip-vertical drag-handle text-muted"></i>
@@ -172,6 +174,7 @@ export class BlockRenderer {
         <button
           class="btn btn-outline-danger btn-sm"
           title="Delete block"
+          data-testid="block-delete"
           onclick=${(e: Event) => {
             this.editor.deleteBlock(block.id);
             e.stopPropagation();
@@ -665,7 +668,7 @@ export class BlockRenderer {
   /** Render the empty state message when no blocks exist */
   private renderEmpty(): HtmlResult {
     return html`
-      <div class="empty-state text-center text-muted p-4">
+      <div class="empty-state text-center text-muted p-4" data-testid="empty-state">
         No blocks yet. Add one using the toolbar above.
       </div>
     `;
