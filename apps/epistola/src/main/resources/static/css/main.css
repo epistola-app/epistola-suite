@@ -338,27 +338,44 @@ button[type="submit"]:disabled {
    Table Styles (scoped to regular pages)
    ============================================================================= */
 
+/* Table container for responsive overflow */
+.table-container {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background-color: var(--card);
+}
+
 main.regular table {
     width: 100%;
     border-collapse: collapse;
-    background-color: var(--card);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    font-size: 0.875rem;
+    caption-side: bottom;
+}
+
+main.regular table caption {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+    text-align: left;
 }
 
 main.regular th,
 main.regular td {
     padding: var(--space-3) var(--space-4);
     text-align: left;
+    vertical-align: middle;
 }
 
 main.regular th {
-    background-color: var(--muted);
-    font-weight: 600;
+    height: 40px;
+    font-size: 0.75rem;
+    font-weight: 500;
     color: var(--muted-foreground);
-    border-bottom: 2px solid var(--border);
+    background-color: transparent;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
 }
 
 main.regular td {
@@ -381,6 +398,14 @@ main.regular .empty-message {
     text-align: center;
     color: var(--muted-foreground);
     font-style: italic;
+}
+
+/* Standalone table (without container) */
+main.regular table:not(.table-container table) {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
 }
 
 /* Key-value table (for configuration) */
