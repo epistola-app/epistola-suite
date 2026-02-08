@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- **shadcn-style Component Styling**: Updated Thymeleaf component styles to match the editor's shadcn/ui visual patterns
+  - Focus rings: Changed from box-shadow to 3px outline rings with 50% opacity (consistent with shadcn)
+  - Button variants: Added `btn-outline` and `btn-ghost` variants
+  - Button sizes: Added `btn-sm`, `btn-lg`, `btn-icon` size variants
+  - Input styling: Height standardized to 36px, transparent background, subtle shadow
+  - Input sizes: Added `input-sm` and `input-lg` size variants
+  - Cards: Unified `.card` and `.form-section` styling with border and shadow
+  - Transitions: All interactive elements now have smooth 150ms transitions
+  - No build step required - pure CSS implementation
+
 - **Design Token System for UI Consistency**: Implemented CSS custom properties matching the editor's token system for visual consistency across Thymeleaf and React components
   - Complete token system: colors (OKLch), spacing, border radius, shadows, typography
   - All `main.css` styles now use design tokens instead of hardcoded values

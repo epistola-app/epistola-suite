@@ -41,6 +41,7 @@
     --radius-xl: calc(var(--radius) + 4px);  /* 14px */
 
     /* Shadows */
+    --shadow-xs: 0 1px 2px 0 oklch(0 0 0 / 5%);
     --shadow-sm: 0 1px 2px oklch(0 0 0 / 5%);
     --shadow-md: 0 4px 6px oklch(0 0 0 / 10%);
     --shadow-lg: 0 10px 15px oklch(0 0 0 / 10%);
@@ -92,11 +93,14 @@ main.regular section {
    Form Styles
    ============================================================================= */
 
+.card,
 .form-section {
-    background-color: var(--background);
-    padding: var(--space-6);
-    border-radius: var(--radius-md);
+    background-color: var(--card);
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    padding: var(--space-6);
 }
 
 .form-group {
@@ -104,63 +108,72 @@ main.regular section {
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: var(--space-1);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--muted-foreground);
+    user-select: none;
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
+    height: 36px;
     padding: var(--space-2) var(--space-3);
-    font-size: 1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    border: 1px solid var(--input);
+    border-radius: var(--radius-md);
     font-family: inherit;
-    background-color: var(--background);
+    background-color: transparent;
     color: var(--foreground);
+    box-shadow: var(--shadow-xs);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--muted-foreground);
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
-    outline: none;
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: 3px solid oklch(from var(--ring) l c h / 50%);
+    outline-offset: 0;
     border-color: var(--ring);
-    box-shadow: 0 0 0 2px oklch(from var(--ring) l c h / 20%);
 }
 
 .form-group textarea {
-    resize: vertical;
+    height: auto;
     min-height: 80px;
+    resize: vertical;
 }
 
-.form-group select {
-    width: 100%;
-    padding: var(--space-2) var(--space-3);
-    font-size: 1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-family: inherit;
-    background-color: var(--background);
-    color: var(--foreground);
-}
-
-.form-group select:focus {
-    outline: none;
-    border-color: var(--ring);
-    box-shadow: 0 0 0 2px oklch(from var(--ring) l c h / 20%);
+.form-group input:disabled,
+.form-group textarea:disabled,
+.form-group select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 /* Form validation error styles */
 .form-group.error input,
-.form-group.error textarea {
+.form-group.error textarea,
+.form-group.error select {
     border-color: var(--destructive);
 }
 
 .form-group.error input:focus,
-.form-group.error textarea:focus {
+.form-group.error textarea:focus,
+.form-group.error select:focus {
     border-color: var(--destructive);
-    box-shadow: 0 0 0 2px oklch(from var(--destructive) l c h / 20%);
+    outline: 3px solid oklch(from var(--destructive) l c h / 50%);
+    outline-offset: 0;
 }
 
 .form-error {
@@ -200,73 +213,125 @@ main.regular section {
     width: 100%;
 }
 
+/* Input size variants */
+.input-sm {
+    height: 32px;
+    font-size: 0.75rem;
+    padding: var(--space-1) var(--space-2);
+}
+
+.input-lg {
+    height: 40px;
+    font-size: 1rem;
+    padding: var(--space-3) var(--space-4);
+}
+
 /* =============================================================================
    Button Styles
    ============================================================================= */
 
-.btn {
-    display: inline-block;
-    padding: var(--space-2) var(--space-4);
-    background-color: var(--primary);
-    color: var(--primary-foreground);
-    text-decoration: none;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    border: none;
-    font-size: 1rem;
-    font-family: inherit;
-    font-weight: 500;
-    transition: filter 0.15s ease;
-}
-
-.btn:hover {
-    filter: brightness(0.85);
-    color: var(--primary-foreground);
-}
-
-.btn-small {
-    padding: var(--space-1) var(--space-3);
+.btn,
+button[type="submit"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    height: 36px;
+    padding: 0 var(--space-4);
     font-size: 0.875rem;
-}
-
-.btn-primary {
+    font-weight: 500;
+    font-family: inherit;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-decoration: none;
     background-color: var(--primary);
     color: var(--primary-foreground);
 }
 
+.btn:hover,
+button[type="submit"]:hover {
+    opacity: 0.9;
+}
+
+.btn:focus-visible,
+button[type="submit"]:focus-visible {
+    outline: 3px solid oklch(from var(--ring) l c h / 50%);
+    outline-offset: 0;
+}
+
+.btn:disabled,
+button[type="submit"]:disabled {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* Variants */
 .btn-secondary {
-    background-color: var(--muted);
-    color: var(--muted-foreground);
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
 }
 
 .btn-secondary:hover {
-    filter: brightness(0.95);
-    color: var(--muted-foreground);
+    opacity: 0.8;
 }
 
+.btn-destructive,
 .btn-danger {
     background-color: var(--destructive);
-    color: var(--primary-foreground);
+    color: white;
 }
 
-.btn-danger:hover {
-    filter: brightness(0.85);
+.btn-outline {
+    background-color: transparent;
+    border-color: var(--border);
+    color: var(--foreground);
 }
 
-button[type="submit"] {
-    padding: var(--space-2) var(--space-6);
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--primary-foreground);
-    background-color: var(--primary);
-    border: none;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: filter 0.15s ease;
+.btn-outline:hover {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+    opacity: 1;
 }
 
-button[type="submit"]:hover {
-    filter: brightness(0.85);
+.btn-ghost {
+    background-color: transparent;
+    color: var(--foreground);
+}
+
+.btn-ghost:hover {
+    background-color: var(--accent);
+    color: var(--accent-foreground);
+    opacity: 1;
+}
+
+/* Sizes */
+.btn-sm,
+.btn-small {
+    height: 32px;
+    padding: 0 var(--space-3);
+    font-size: 0.75rem;
+    border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+    height: 40px;
+    padding: 0 var(--space-6);
+}
+
+.btn-icon {
+    width: 36px;
+    padding: 0;
+}
+
+.btn-icon.btn-sm {
+    width: 32px;
+}
+
+.btn-icon.btn-lg {
+    width: 40px;
 }
 
 /* =============================================================================
@@ -276,9 +341,10 @@ button[type="submit"]:hover {
 main.regular table {
     width: 100%;
     border-collapse: collapse;
-    background-color: var(--background);
+    background-color: var(--card);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     overflow: hidden;
 }
 
@@ -297,6 +363,10 @@ main.regular th {
 
 main.regular td {
     border-bottom: 1px solid var(--border);
+}
+
+main.regular tbody tr {
+    transition: background-color 0.15s ease;
 }
 
 main.regular tbody tr:hover {
@@ -418,10 +488,17 @@ main.regular .empty-message {
 .breadcrumb a {
     color: var(--primary);
     text-decoration: none;
+    transition: color 0.15s ease;
 }
 
 .breadcrumb a:hover {
     text-decoration: underline;
+}
+
+.breadcrumb a:focus-visible {
+    outline: 3px solid oklch(from var(--ring) l c h / 50%);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
 }
 
 /* =============================================================================
@@ -469,11 +546,18 @@ main.regular .empty-message {
 .app-footer a {
     color: var(--muted-foreground);
     text-decoration: none;
+    transition: color 0.15s ease;
 }
 
 .app-footer a:hover {
     color: var(--foreground);
     text-decoration: underline;
+}
+
+.app-footer a:focus-visible {
+    outline: 3px solid oklch(from var(--ring) l c h / 50%);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
 }
 
 .app-footer .link-button {
@@ -484,11 +568,18 @@ main.regular .empty-message {
     color: var(--muted-foreground);
     cursor: pointer;
     text-decoration: none;
+    transition: color 0.15s ease;
 }
 
 .app-footer .link-button:hover {
     color: var(--foreground);
     text-decoration: underline;
+}
+
+.app-footer .link-button:focus-visible {
+    outline: 3px solid oklch(from var(--ring) l c h / 50%);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
 }
 
 /* =============================================================================
@@ -547,9 +638,10 @@ main.regular .empty-message {
 }
 
 .metric-card {
-    background-color: var(--background);
+    background-color: var(--card);
+    color: var(--card-foreground);
     padding: var(--space-5);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border);
 }
