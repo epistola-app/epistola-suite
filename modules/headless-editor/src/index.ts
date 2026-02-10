@@ -110,3 +110,10 @@ export {
   getMethodsForType,
   formatTypeForDisplay,
 } from "./expression/index.js";
+
+// Style cascade helpers
+export {
+  INHERITABLE_STYLE_KEYS,
+  resolveDocumentStyles,
+  resolveBlockStyles,
+} from "./styles/cascade.js";

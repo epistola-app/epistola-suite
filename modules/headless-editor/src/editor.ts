@@ -10,6 +10,7 @@ import { computed } from 'nanostores';
 import { createEditorStore, BlockTree, type EditorStore } from './store.js';
 import { defaultBlockDefinitions } from './blocks/definitions.js';
 import { UndoManager } from './undo.js';
+import { resolveBlockStyles, resolveDocumentStyles } from './styles/cascade.js';
 import {
   evaluateJsonata,
   evaluateJsonataBoolean,
@@ -40,6 +41,7 @@ import type {
   PreviewOverrides,
   PageSettings,
   DocumentStyles,
+  CSSStyles,
   ThemeSummary,
 } from './types.js';
 import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
@@ -802,6 +804,26 @@ export class TemplateEditor {
       ...current,
       documentStyles: updatedDocumentStyles,
     });
+  }
+
+  /**
+   * Get resolved document styles for rendering.
+   */
+  getResolvedDocumentStyles(): CSSStyles {
+    const current = this.store.getTemplate();
+    return resolveDocumentStyles(current.documentStyles);
+  }
+
+  /**
+   * Get resolved styles for a block by ID.
+   * Applies document style fallbacks for inheritable properties.
+   */
+  getResolvedBlockStyles(blockId: string): CSSStyles {
+    const current = this.store.getTemplate();
+    const block = BlockTree.findBlock(current.blocks, blockId);
+    if (!block) return {};
+
+    return resolveBlockStyles(current.documentStyles, block.styles);
   }
 
   // =========================================================================

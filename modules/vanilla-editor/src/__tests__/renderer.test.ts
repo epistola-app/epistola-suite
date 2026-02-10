@@ -75,6 +75,48 @@ describe('BlockRenderer', () => {
       const blockEl = container.querySelector(`[data-block-id="${block.id}"]`);
       expect(blockEl?.classList.contains('selected')).toBe(true);
     });
+
+    it('applies inherited document styles to rendered block content', () => {
+      const block = editor.addBlock('text')!;
+      editor.updateDocumentStyles({
+        fontFamily: 'Georgia, serif',
+        color: '#222222',
+        backgroundColor: '#f2f2f2',
+      });
+
+      renderer.render();
+
+      const contentEl = container.querySelector(
+        `[data-block-id="${block.id}"] .block-content`,
+      ) as HTMLElement;
+
+      expect(contentEl.getAttribute('style')).toContain('font-family: Georgia, serif;');
+      expect(contentEl.style.color).toBe('rgb(34, 34, 34)');
+      expect(contentEl.style.backgroundColor).toBe('rgb(242, 242, 242)');
+    });
+
+    it('applies block style overrides over document styles', () => {
+      const block = editor.addBlock('text')!;
+      editor.updateDocumentStyles({ color: '#444444', fontSize: '14px' });
+      editor.updateBlock(block.id, {
+        styles: { color: '#111111', paddingTop: '8px' },
+      });
+
+      renderer.render();
+
+      const contentEl = container.querySelector(
+        `[data-block-id="${block.id}"] .block-content`,
+      ) as HTMLElement;
+      const editorEl = container.querySelector(
+        `[data-block-id="${block.id}"] .text-block-editor`,
+      ) as HTMLElement;
+
+      expect(contentEl.style.color).toBe('rgb(17, 17, 17)');
+      expect(contentEl.getAttribute('style')).toContain('font-size: 14px;');
+      expect(contentEl.getAttribute('style')).toContain('padding-top: 8px;');
+      expect(editorEl.style.color).toBe('rgb(17, 17, 17)');
+      expect(editorEl.getAttribute('style')).toContain('font-size: 14px;');
+    });
   });
 
   describe('block selection via click', () => {

@@ -9,6 +9,7 @@ import { render, html } from "uhtml";
 import type { Hole } from "uhtml";
 import type {
   TemplateEditor,
+  CSSStyles,
   Block,
   TextBlock,
   ContainerBlock,
@@ -23,6 +24,21 @@ import type { RendererOptions } from "./types.js";
 
 /** Return type of uhtml's html tagged template */
 type HtmlResult = Node | HTMLElement | Hole;
+
+function toKebabCase(property: string): string {
+  return property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+}
+
+function styleObjectToString(styles: CSSStyles): string {
+  const declarations: string[] = [];
+
+  for (const [property, value] of Object.entries(styles)) {
+    if (value === undefined || value === null) continue;
+    declarations.push(`${toKebabCase(property)}: ${String(value)};`);
+  }
+
+  return declarations.join(" ");
+}
 
 // ============================================================================
 // Badge & Icon Utilities
@@ -136,6 +152,8 @@ export class BlockRenderer {
     selectedBlockId: string | null,
   ): HtmlResult {
     const isSelected = selectedBlockId === block.id;
+    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
+    const resolvedStyleString = styleObjectToString(resolvedStyles);
 
     return html`
       <div
@@ -149,7 +167,9 @@ export class BlockRenderer {
         }}
       >
         ${this.renderBlockHeader(block)}
-        ${this.renderBlockContent(block, selectedBlockId)}
+        <div class="block-content" style=${resolvedStyleString}>
+          ${this.renderBlockContent(block, selectedBlockId)}
+        </div>
       </div>
     `;
   }
@@ -226,6 +246,13 @@ export class BlockRenderer {
    * Uses a Stimulus-controlled wrapper for TipTap text editing.
    */
   private renderTextBlock(block: TextBlock): HtmlResult {
+    const resolvedStyleString = styleObjectToString(
+      this.editor.getResolvedBlockStyles(block.id),
+    );
+    const editorStyle = resolvedStyleString
+      ? `${resolvedStyleString} min-height: 4rem;`
+      : "min-height: 4rem;";
+
     return html`
       <div
         class="text-block-wrapper mt-2"
@@ -239,7 +266,7 @@ export class BlockRenderer {
           class="form-control text-block-editor"
           contenteditable="true"
           data-text-block-target="editor"
-          style="min-height: 4rem;"
+          style=${editorStyle}
           onclick=${(e: Event) => e.stopPropagation()}
         ></div>
       </div>

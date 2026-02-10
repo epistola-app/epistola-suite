@@ -454,19 +454,83 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="doc-font-family" class="form-label">Font Family</label>
-                        <input type="text" class="form-control" id="doc-font-family" placeholder="e.g., Arial, sans-serif">
+                        <input type="text" class="form-control" id="doc-font-family" placeholder="e.g., Inter, Arial, sans-serif">
                     </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label for="doc-font-size-value" class="form-label">Font Size</label>
+                            <input type="number" class="form-control" id="doc-font-size-value" value="12" min="1" step="0.1">
+                        </div>
+                        <div class="col-4">
+                            <label for="doc-font-size-unit" class="form-label">Unit</label>
+                            <select class="form-select" id="doc-font-size-unit">
+                                <option value="pt">pt</option>
+                                <option value="px">px</option>
+                                <option value="em">em</option>
+                                <option value="rem">rem</option>
+                                <option value="%">%</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
-                        <label for="doc-font-size" class="form-label">Font Size (pt)</label>
-                        <input type="number" class="form-control" id="doc-font-size" value="12" min="6" max="72">
+                        <label for="doc-font-weight" class="form-label">Font Weight</label>
+                        <select class="form-select" id="doc-font-weight">
+                            <option value="">Default</option>
+                            <option value="normal">Normal</option>
+                            <option value="500">500</option>
+                            <option value="600">600</option>
+                            <option value="bold">Bold</option>
+                        </select>
                     </div>
+
                     <div class="mb-3">
                         <label for="doc-color" class="form-label">Text Color</label>
-                        <input type="color" class="form-control form-control-color" id="doc-color" value="#000000">
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" id="doc-color-picker" value="#000000">
+                            <input type="text" class="form-control" id="doc-color" placeholder="#000000">
+                        </div>
                     </div>
+
                     <div class="mb-3">
                         <label for="doc-line-height" class="form-label">Line Height</label>
-                        <input type="number" class="form-control" id="doc-line-height" value="1.5" min="1" max="3" step="0.1">
+                        <input type="number" class="form-control" id="doc-line-height" value="1.5" min="0.8" max="3" step="0.1">
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label for="doc-letter-spacing-value" class="form-label">Letter Spacing</label>
+                            <input type="number" class="form-control" id="doc-letter-spacing-value" step="0.1" placeholder="e.g., 0.5">
+                        </div>
+                        <div class="col-4">
+                            <label for="doc-letter-spacing-unit" class="form-label">Unit</label>
+                            <select class="form-select" id="doc-letter-spacing-unit">
+                                <option value="px">px</option>
+                                <option value="em">em</option>
+                                <option value="rem">rem</option>
+                                <option value="%">%</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="doc-text-align" class="form-label">Text Align</label>
+                        <select class="form-select" id="doc-text-align">
+                            <option value="">Default</option>
+                            <option value="left">Left</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right</option>
+                            <option value="justify">Justify</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="doc-background-color" class="form-label">Background Color</label>
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" id="doc-background-color-picker" value="#ffffff">
+                            <input type="text" class="form-control" id="doc-background-color" placeholder="e.g., #ffffff">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -724,16 +788,101 @@
         const documentStylesModal = new bootstrap.Modal(document.getElementById('document-styles-modal'));
         const btnDocumentStyles = document.getElementById('btn-document-styles');
         const btnSaveDocumentStyles = document.getElementById('btn-save-document-styles');
+        const docFontFamily = document.getElementById('doc-font-family');
+        const docFontSizeValue = document.getElementById('doc-font-size-value');
+        const docFontSizeUnit = document.getElementById('doc-font-size-unit');
+        const docFontWeight = document.getElementById('doc-font-weight');
+        const docColor = document.getElementById('doc-color');
+        const docColorPicker = document.getElementById('doc-color-picker');
+        const docLineHeight = document.getElementById('doc-line-height');
+        const docLetterSpacingValue = document.getElementById('doc-letter-spacing-value');
+        const docLetterSpacingUnit = document.getElementById('doc-letter-spacing-unit');
+        const docTextAlign = document.getElementById('doc-text-align');
+        const docBackgroundColor = document.getElementById('doc-background-color');
+        const docBackgroundColorPicker = document.getElementById('doc-background-color-picker');
+
+        function isHexColor(value) {
+            return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value.trim());
+        }
+
+        function parseValueWithUnit(value, fallbackUnit) {
+            if (value == null || value === '') return { value: '', unit: fallbackUnit };
+
+            const raw = String(value).trim();
+            const match = raw.match(/^(-?\d*\.?\d+)\s*(pt|px|em|rem|%)$/i);
+            if (match) {
+                return {
+                    value: match[1],
+                    unit: match[2].toLowerCase(),
+                };
+            }
+
+            const numeric = Number(raw);
+            if (!Number.isNaN(numeric)) {
+                return {
+                    value: String(numeric),
+                    unit: fallbackUnit,
+                };
+            }
+
+            return { value: '', unit: fallbackUnit };
+        }
+
+        function composeValueWithUnit(value, unit, options = {}) {
+            const allowNegative = options.allowNegative === true;
+            const trimmed = String(value || '').trim();
+            if (!trimmed) return null;
+
+            const numeric = Number(trimmed);
+            if (Number.isNaN(numeric)) return null;
+            if (!allowNegative && numeric <= 0) return null;
+
+            return `${numeric}${unit}`;
+        }
+
+        docColorPicker.addEventListener('input', () => {
+            docColor.value = docColorPicker.value;
+        });
+        docColor.addEventListener('input', () => {
+            if (isHexColor(docColor.value)) {
+                docColorPicker.value = docColor.value.trim();
+            }
+        });
+        docBackgroundColorPicker.addEventListener('input', () => {
+            docBackgroundColor.value = docBackgroundColorPicker.value;
+        });
+        docBackgroundColor.addEventListener('input', () => {
+            if (isHexColor(docBackgroundColor.value)) {
+                docBackgroundColorPicker.value = docBackgroundColor.value.trim();
+            }
+        });
 
         btnDocumentStyles.addEventListener('click', () => {
             // Populate modal with current styles
             const template = editor.getTemplate();
             const docStyles = template.documentStyles || {};
 
-            document.getElementById('doc-font-family').value = docStyles.fontFamily || '';
-            document.getElementById('doc-font-size').value = docStyles.fontSize || 12;
-            document.getElementById('doc-color').value = docStyles.color || '#000000';
-            document.getElementById('doc-line-height').value = docStyles.lineHeight || 1.5;
+            const parsedFontSize = parseValueWithUnit(docStyles.fontSize, 'pt');
+            const parsedLetterSpacing = parseValueWithUnit(docStyles.letterSpacing, 'px');
+
+            docFontFamily.value = docStyles.fontFamily || '';
+            docFontSizeValue.value = parsedFontSize.value || '12';
+            docFontSizeUnit.value = parsedFontSize.unit || 'pt';
+            docFontWeight.value = docStyles.fontWeight || '';
+
+            const colorValue = docStyles.color || '#000000';
+            docColor.value = colorValue;
+            docColorPicker.value = isHexColor(colorValue) ? colorValue : '#000000';
+
+            docLineHeight.value = docStyles.lineHeight || 1.5;
+
+            docLetterSpacingValue.value = parsedLetterSpacing.value || '';
+            docLetterSpacingUnit.value = parsedLetterSpacing.unit || 'px';
+            docTextAlign.value = docStyles.textAlign || '';
+
+            const backgroundColorValue = docStyles.backgroundColor || '';
+            docBackgroundColor.value = backgroundColorValue;
+            docBackgroundColorPicker.value = isHexColor(backgroundColorValue) ? backgroundColorValue : '#ffffff';
 
             documentStylesModal.show();
         });
@@ -741,17 +890,27 @@
         btnSaveDocumentStyles.addEventListener('click', () => {
             const styles = {};
 
-            const fontFamily = document.getElementById('doc-font-family').value.trim();
+            const fontFamily = docFontFamily.value.trim();
             if (fontFamily) styles.fontFamily = fontFamily;
 
-            const fontSize = parseFloat(document.getElementById('doc-font-size').value);
-            if (!isNaN(fontSize) && fontSize > 0) styles.fontSize = fontSize;
+            const fontSize = composeValueWithUnit(docFontSizeValue.value, docFontSizeUnit.value);
+            if (fontSize) styles.fontSize = fontSize;
 
-            const color = document.getElementById('doc-color').value;
+            if (docFontWeight.value) styles.fontWeight = docFontWeight.value;
+
+            const color = docColor.value.trim();
             if (color && color !== '#000000') styles.color = color;
 
-            const lineHeight = parseFloat(document.getElementById('doc-line-height').value);
+            const lineHeight = parseFloat(docLineHeight.value);
             if (!isNaN(lineHeight) && lineHeight > 0) styles.lineHeight = lineHeight;
+
+            const letterSpacing = composeValueWithUnit(docLetterSpacingValue.value, docLetterSpacingUnit.value, { allowNegative: true });
+            if (letterSpacing) styles.letterSpacing = letterSpacing;
+
+            if (docTextAlign.value) styles.textAlign = docTextAlign.value;
+
+            const backgroundColor = docBackgroundColor.value.trim();
+            if (backgroundColor) styles.backgroundColor = backgroundColor;
 
             editor.updateDocumentStyles(styles);
             documentStylesModal.hide();

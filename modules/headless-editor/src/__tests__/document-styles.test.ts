@@ -183,4 +183,55 @@ describe("Document Styles", () => {
       expect(editor.getTemplate().documentStyles?.textAlign).toBe("center");
     });
   });
+
+  describe("resolved styles API", () => {
+    it("should return resolved document styles", () => {
+      const editor = new TemplateEditor();
+
+      editor.updateDocumentStyles({
+        fontFamily: "Arial",
+        color: "#333",
+      });
+
+      expect(editor.getResolvedDocumentStyles()).toEqual({
+        fontFamily: "Arial",
+        color: "#333",
+      });
+    });
+
+    it("should return empty resolved block styles when block is missing", () => {
+      const editor = new TemplateEditor();
+
+      editor.updateDocumentStyles({ fontFamily: "Arial" });
+
+      expect(editor.getResolvedBlockStyles("missing-block")).toEqual({});
+    });
+
+    it("should resolve block styles with document fallback and block override", () => {
+      const editor = new TemplateEditor();
+      const block = editor.addBlock("text");
+
+      expect(block).not.toBeNull();
+
+      editor.updateDocumentStyles({
+        fontFamily: "Arial",
+        color: "#555",
+        backgroundColor: "#eee",
+      });
+
+      editor.updateBlock(block!.id, {
+        styles: {
+          color: "#111",
+          paddingTop: "8px",
+        },
+      });
+
+      expect(editor.getResolvedBlockStyles(block!.id)).toEqual({
+        fontFamily: "Arial",
+        color: "#111",
+        backgroundColor: "#eee",
+        paddingTop: "8px",
+      });
+    });
+  });
 });

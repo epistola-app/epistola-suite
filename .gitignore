@@ -53,3 +53,4 @@ dist/
 coverage/
 playwright-report/
 test-results/
+.auth/
