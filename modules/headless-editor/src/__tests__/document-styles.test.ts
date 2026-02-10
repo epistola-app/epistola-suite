@@ -233,5 +233,100 @@ describe("Document Styles", () => {
         paddingTop: "8px",
       });
     });
+
+    it("should inherit parent block styles hierarchically", () => {
+      const editor = new TemplateEditor();
+
+      // Set document-level styles
+      editor.updateDocumentStyles({
+        fontFamily: "Arial",
+        fontSize: "14px",
+        color: "#333",
+      });
+
+      // Add a container block with large font size
+      const container = editor.addBlock("container");
+      expect(container).not.toBeNull();
+      editor.updateBlock(container!.id, {
+        styles: {
+          fontSize: "4rem",
+          color: "#ff0000",
+          fontWeight: "700",
+        },
+      });
+
+      // Add a nested text block inside the container
+      const nestedBlock = editor.addBlock("text", container!.id);
+      expect(nestedBlock).not.toBeNull();
+
+      // Get resolved styles for both blocks
+      const containerResolvedStyles = editor.getResolvedBlockStyles(
+        container!.id,
+      );
+      const nestedResolvedStyles = editor.getResolvedBlockStyles(
+        nestedBlock!.id,
+      );
+
+      // Container should have its overrides
+      expect(containerResolvedStyles).toEqual({
+        fontFamily: "Arial",
+        fontSize: "4rem",
+        color: "#ff0000",
+        fontWeight: "700",
+      });
+
+      // Nested block SHOULD inherit from parent container
+      expect(nestedResolvedStyles).toEqual({
+        fontFamily: "Arial",
+        fontSize: "4rem", // Inherited from container
+        color: "#ff0000", // Inherited from container
+        fontWeight: "700", // Inherited from container
+      });
+    });
+
+    it("should cascade styles through multiple nesting levels", () => {
+      const editor = new TemplateEditor();
+
+      // Set document styles
+      editor.updateDocumentStyles({
+        fontSize: "12px",
+        color: "#000",
+        fontWeight: "400",
+      });
+
+      // Level 1: Container with large font and red background
+      const container1 = editor.addBlock("container");
+      expect(container1).not.toBeNull();
+      editor.updateBlock(container1!.id, {
+        styles: {
+          fontSize: "3rem",
+          backgroundColor: "#ff0000",
+        },
+      });
+
+      // Level 2: Nested container overrides font size and adds blue color
+      const container2 = editor.addBlock("container", container1!.id);
+      expect(container2).not.toBeNull();
+      editor.updateBlock(container2!.id, {
+        styles: {
+          fontSize: "2rem",
+          color: "#0000ff",
+        },
+      });
+
+      // Level 3: Text block deeply nested
+      const textBlock = editor.addBlock("text", container2!.id);
+      expect(textBlock).not.toBeNull();
+
+      // Text block inherits cascade: document → container1 → container2 → textBlock
+      const textResolvedStyles = editor.getResolvedBlockStyles(textBlock!.id);
+
+      expect(textResolvedStyles).toEqual({
+        fontSize: "2rem", // From container2 (most recent override)
+        color: "#0000ff", // From container2
+        backgroundColor: "#ff0000", // From container1
+        fontWeight: "400", // From document
+      });
+    });
   });
 });

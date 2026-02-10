@@ -816,14 +816,29 @@ export class TemplateEditor {
 
   /**
    * Get resolved styles for a block by ID.
-   * Applies document style fallbacks for inheritable properties.
+   * Applies hierarchical cascade: document → ancestors → block.
    */
   getResolvedBlockStyles(blockId: string): CSSStyles {
     const current = this.store.getTemplate();
     const block = BlockTree.findBlock(current.blocks, blockId);
     if (!block) return {};
 
-    return resolveBlockStyles(current.documentStyles, block.styles);
+    // Build ancestor chain from root to parent
+    const ancestors: Block[] = [];
+    let currentParent = BlockTree.findParent(current.blocks, blockId);
+    while (currentParent) {
+      ancestors.unshift(currentParent); // Add to front (root first)
+      currentParent = BlockTree.findParent(current.blocks, currentParent.id);
+    }
+
+    // Merge styles: document → ancestor1 → ancestor2 → ... → block
+    let resolved = resolveBlockStyles(current.documentStyles, undefined);
+    for (const ancestor of ancestors) {
+      resolved = resolveBlockStyles(resolved, ancestor.styles);
+    }
+    resolved = resolveBlockStyles(resolved, block.styles);
+
+    return resolved;
   }
 
   // =========================================================================

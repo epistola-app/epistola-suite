@@ -10,6 +10,16 @@
   padding: 0.625rem;
   cursor: pointer;
   transition: border-color 0.15s;
+
+  /* Reset inherited styles from parent blocks */
+  font-size: 1rem;
+  color: #000;
+  font-weight: normal;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-align: left;
+  background-color: #fff;
 }
 
 .block:hover {
@@ -23,6 +33,18 @@
 
 .block-header {
   margin-bottom: 0.25rem;
+
+  /* Reset inherited styles to prevent parent block styles from affecting headers */
+  font-size: 14px !important;
+  color: #64748b !important;
+  font-weight: normal !important;
+  line-height: 1.5 !important;
+  letter-spacing: normal !important;
+  text-align: left !important;
+}
+
+.block-ui {
+  margin-bottom: 0.5rem;
 }
 
 .drag-handle {
@@ -35,11 +57,11 @@
 
 /* Nested block containers */
 .block-children {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: #f8fafc;
+  /* margin-top: 0.5rem; */
+  /* padding: 0.5rem; */
+  background: transparent;
   border: 1px dashed #e2e8f0;
-  border-radius: 4px;
+  /* border-radius: 6px; */
   min-height: 2rem;
 }
 
@@ -205,6 +227,7 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   line-height: 1.5;
+  border-radius: 0 !important;
 }
 
 .text-block-editor:focus {

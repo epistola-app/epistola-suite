@@ -21,7 +21,7 @@ object StyleApplicator {
         fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyDocumentStyles(element, it) }
+        documentStyles?.let { applyDocumentStyles(element, it, fontCache) }
 
         // Apply block-specific styles (override document styles)
         blockStyles?.let { applyBlockStyles(element, it, fontCache) }
@@ -51,7 +51,7 @@ object StyleApplicator {
         fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyDocumentStyles(element, it) }
+        documentStyles?.let { applyDocumentStyles(element, it, fontCache) }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
@@ -87,7 +87,7 @@ object StyleApplicator {
         }
     }
 
-    private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles) {
+    private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles, fontCache: FontCache) {
         styles.fontFamily?.let { fontFamily ->
             // iText uses font programs, we'll use a default font
             // Custom font handling would require font registration
@@ -107,6 +107,19 @@ object StyleApplicator {
 
         styles.textAlign?.let { align ->
             element.setTextAlignment(mapTextAlign(align))
+        }
+
+        // Font weight (numeric values: 100-900)
+        styles.fontWeight?.let { weight ->
+            val numericWeight = weight.toIntOrNull() ?: 400
+            if (numericWeight >= 700) {
+                element.setFont(fontCache.bold)
+            }
+        }
+
+        // Letter spacing
+        styles.letterSpacing?.let { spacing ->
+            parseSize(spacing)?.let { element.setCharacterSpacing(it) }
         }
 
         // Note: lineHeight is handled differently in iText - skipping for now
@@ -173,21 +186,19 @@ object StyleApplicator {
             }
         }
 
-        // Font weight
-        val isBold = (styles["fontWeight"] as? String)?.let { weight ->
-            weight == "bold" || weight.toIntOrNull()?.let { it >= 700 } == true
-        } ?: false
+        // Font weight (numeric values: 100-900, >= 700 is bold)
+        (styles["fontWeight"] as? String)?.let { weight ->
+            val numericWeight = weight.toIntOrNull() ?: 400
+            if (numericWeight >= 700) {
+                element.setFont(fontCache.bold)
+            }
+        }
 
         // Font style
-        val isItalic = (styles["fontStyle"] as? String) == "italic"
-
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
-            val font = when {
-                isBold -> fontCache.bold
-                else -> fontCache.italic
+        (styles["fontStyle"] as? String)?.let { style ->
+            if (style == "italic") {
+                element.setFont(fontCache.italic)
             }
-            element.setFont(font)
         }
 
         // Note: lineHeight is handled differently in iText - skipping for now

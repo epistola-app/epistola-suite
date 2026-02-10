@@ -6,7 +6,7 @@
   "description": "Shared frontend dependencies bundled as ESM for import maps",
   "scripts": {
     "generate:lucide": "node scripts/generate-lucide-entry.js",
-    "build": "npm run generate:lucide && rollup -c",
+    "build:old": "npm run generate:lucide && rollup -c",
     "clean": "rm -rf dist"
   },
   "dependencies": {
