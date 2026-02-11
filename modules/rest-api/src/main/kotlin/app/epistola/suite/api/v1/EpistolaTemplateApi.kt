@@ -60,7 +60,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
-import tools.jackson.databind.node.ObjectNode
 
 @RestController
 class EpistolaTemplateApi(
@@ -128,33 +127,6 @@ class EpistolaTemplateApi(
         ).execute() ?: return ResponseEntity.notFound().build()
         val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
-    }
-
-    override fun validateTemplateData(
-        tenantId: String,
-        templateId: String,
-        validateTemplateDataRequest: ValidateTemplateDataRequest,
-    ): ResponseEntity<TemplateDataValidationResult> {
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
-            ?: return ResponseEntity.notFound().build()
-
-        val dataModel = template.dataModel
-            ?: return ResponseEntity.ok(TemplateDataValidationResult(valid = true, errors = emptyList()))
-
-        val dataNode = objectMapper.valueToTree<ObjectNode>(validateTemplateDataRequest.data)
-        val errors = jsonSchemaValidator.validate(dataModel, dataNode)
-
-        return ResponseEntity.ok(
-            TemplateDataValidationResult(
-                valid = errors.isEmpty(),
-                errors = errors.map { error ->
-                    TemplateDataValidationError(
-                        path = error.path,
-                        message = error.message,
-                    )
-                },
-            ),
-        )
     }
 
     override fun deleteTemplate(

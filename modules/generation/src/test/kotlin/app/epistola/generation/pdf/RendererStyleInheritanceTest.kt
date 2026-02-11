@@ -3,6 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.ConditionalBlock
+import app.epistola.template.model.ContainerBlock
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
 import app.epistola.template.model.LoopBlock
@@ -10,7 +11,6 @@ import app.epistola.template.model.TableBlock
 import app.epistola.template.model.TableCell
 import app.epistola.template.model.TableRow
 import app.epistola.template.model.TextBlock
-import app.epistola.template.model.ContainerBlock
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
 import org.junit.jupiter.api.Assertions.assertEquals
