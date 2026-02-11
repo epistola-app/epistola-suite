@@ -152,8 +152,6 @@ export class BlockRenderer {
     selectedBlockId: string | null,
   ): HtmlResult {
     const isSelected = selectedBlockId === block.id;
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
     const content = this.renderBlockContent(block, selectedBlockId);
 
     return html`

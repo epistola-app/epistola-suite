@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INHERITABLE_STYLE_KEYS,
   resolveBlockStyles,
+  resolveBlockStylesWithAncestors,
   resolveDocumentStyles,
 } from "../styles/cascade";
 
@@ -86,6 +87,43 @@ describe("style cascade", () => {
     expect(resolved).toEqual({
       fontSize: "14px",
       backgroundColor: "#ffffff",
+      paddingTop: "8px",
+    });
+  });
+
+  it("cascades styles through ancestors with nearest override wins", () => {
+    const resolved = resolveBlockStylesWithAncestors(
+      {
+        fontSize: "14px",
+        color: "#333333",
+      },
+      [
+        { fontSize: "2rem", backgroundColor: "#f3f3f3" },
+        { color: "#111111" },
+      ],
+      undefined,
+    );
+
+    expect(resolved).toEqual({
+      fontSize: "2rem",
+      color: "#111111",
+      backgroundColor: "#f3f3f3",
+    });
+  });
+
+  it("allows block styles to override inherited ancestor values", () => {
+    const resolved = resolveBlockStylesWithAncestors(
+      {
+        fontSize: "14px",
+        color: "#333333",
+      },
+      [{ fontSize: "2rem", color: "#111111" }],
+      { color: "#ff0000", paddingTop: "8px" },
+    );
+
+    expect(resolved).toEqual({
+      fontSize: "2rem",
+      color: "#ff0000",
       paddingTop: "8px",
     });
   });

@@ -11,6 +11,17 @@ import com.itextpdf.layout.properties.UnitValue
  * Applies CSS-like styles to iText elements.
  */
 object StyleApplicator {
+    private val inheritableKeys = setOf(
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "color",
+        "lineHeight",
+        "letterSpacing",
+        "textAlign",
+        "backgroundColor",
+    )
+
     /**
      * Applies styles from block styles and document styles to an iText element.
      */
@@ -61,6 +72,68 @@ object StyleApplicator {
 
         // Apply block inline styles (override preset styles)
         blockInlineStyles?.let { applyBlockStyles(element, it, fontCache) }
+    }
+
+    /**
+     * Converts document styles into inheritable style map.
+     */
+    fun documentStylesToInheritedMap(documentStyles: DocumentStyles?): Map<String, Any> {
+        if (documentStyles == null) return emptyMap()
+
+        val styles = mutableMapOf<String, Any>()
+        documentStyles.fontFamily?.let { styles["fontFamily"] = it }
+        documentStyles.fontSize?.let { styles["fontSize"] = it }
+        documentStyles.fontWeight?.let { styles["fontWeight"] = it }
+        documentStyles.color?.let { styles["color"] = it }
+        documentStyles.lineHeight?.let { styles["lineHeight"] = it }
+        documentStyles.letterSpacing?.let { styles["letterSpacing"] = it }
+        documentStyles.textAlign?.let { styles["textAlign"] = it.name.lowercase() }
+        documentStyles.backgroundColor?.let { styles["backgroundColor"] = it }
+        return styles
+    }
+
+    /**
+     * Resolves inherited styles in hierarchical order:
+     * parent inherited -> preset -> inline.
+     * Only inheritable keys are carried forward.
+     */
+    fun resolveInheritedStyles(
+        parentInheritedStyles: Map<String, Any>,
+        presetName: String?,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        inlineStyles: Map<String, Any>?,
+    ): Map<String, Any> {
+        val resolved = parentInheritedStyles.toMutableMap()
+
+        val presetStyles = presetName?.let { blockStylePresets[it] }
+        if (presetStyles != null) {
+            for ((key, value) in presetStyles) {
+                if (key in inheritableKeys) {
+                    resolved[key] = normalizeStyleValue(key, value)
+                }
+            }
+        }
+
+        if (inlineStyles != null) {
+            for ((key, value) in inlineStyles) {
+                if (key in inheritableKeys) {
+                    resolved[key] = normalizeStyleValue(key, value)
+                }
+            }
+        }
+
+        return resolved
+    }
+
+    /**
+     * Applies pre-resolved style map to an element.
+     */
+    fun <T : BlockElement<T>> applyResolvedStyles(
+        element: T,
+        resolvedStyles: Map<String, Any>,
+        fontCache: FontCache,
+    ) {
+        applyBlockStyles(element, resolvedStyles, fontCache)
     }
 
     /**
@@ -202,6 +275,16 @@ object StyleApplicator {
         }
 
         // Note: lineHeight is handled differently in iText - skipping for now
+    }
+
+    private fun normalizeStyleValue(key: String, value: Any): Any {
+        if (key == "textAlign") {
+            return when (value) {
+                is TextAlign -> value.name.lowercase()
+                else -> value.toString().lowercase()
+            }
+        }
+        return value
     }
 
     private fun parseFontSize(fontSize: String): Float? = when {

@@ -47,7 +47,15 @@ class PageHeaderEventHandler(
         // ✅ Constrain layout to the header rectangle
         val canvas = Canvas(pdfCanvas, headerRect)
 
-        val elements = blockRenderers.renderBlocks(headerBlock.children, context)
+        val inheritedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
+            headerBlock.stylePreset,
+            context.blockStylePresets,
+            headerBlock.styles,
+        )
+        val childContext = context.copy(inheritedStyles = inheritedStyles)
+
+        val elements = blockRenderers.renderBlocks(headerBlock.children, childContext)
         for (element in elements) {
             when (element) {
                 is IBlockElement -> canvas.add(element)

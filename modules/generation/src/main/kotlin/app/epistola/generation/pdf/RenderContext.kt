@@ -20,4 +20,6 @@ data class RenderContext(
     val fontCache: FontCache,
     /** Block style presets from theme (named style collections like CSS classes) */
     val blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
+    /** Inheritable styles resolved from document/ancestor chain */
+    val inheritedStyles: Map<String, Any> = emptyMap(),
 )

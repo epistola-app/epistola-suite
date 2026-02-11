@@ -10,7 +10,10 @@ import { computed } from 'nanostores';
 import { createEditorStore, BlockTree, type EditorStore } from './store.js';
 import { defaultBlockDefinitions } from './blocks/definitions.js';
 import { UndoManager } from './undo.js';
-import { resolveBlockStyles, resolveDocumentStyles } from './styles/cascade.js';
+import {
+  resolveBlockStylesWithAncestors,
+  resolveDocumentStyles,
+} from './styles/cascade.js';
 import {
   evaluateJsonata,
   evaluateJsonataBoolean,
@@ -831,14 +834,15 @@ export class TemplateEditor {
       currentParent = BlockTree.findParent(current.blocks, currentParent.id);
     }
 
-    // Merge styles: document → ancestor1 → ancestor2 → ... → block
-    let resolved = resolveBlockStyles(current.documentStyles, undefined);
-    for (const ancestor of ancestors) {
-      resolved = resolveBlockStyles(resolved, ancestor.styles);
-    }
-    resolved = resolveBlockStyles(resolved, block.styles);
+    const ancestorStyles = ancestors
+      .map((ancestor) => ancestor.styles)
+      .filter((styles): styles is CSSStyles => Boolean(styles));
 
-    return resolved;
+    return resolveBlockStylesWithAncestors(
+      current.documentStyles,
+      ancestorStyles,
+      block.styles,
+    );
   }
 
   // =========================================================================

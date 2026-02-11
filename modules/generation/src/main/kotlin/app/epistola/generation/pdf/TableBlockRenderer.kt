@@ -39,15 +39,14 @@ class TableBlockRenderer : BlockRenderer {
         val table = Table(columnWidths)
         table.useAllAvailableWidth()
 
-        // Apply block styles with theme preset resolution
-        StyleApplicator.applyStylesWithPreset(
-            table,
-            block.styles,
+        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
-            context.fontCache,
+            block.styles,
         )
+
+        StyleApplicator.applyResolvedStyles(table, resolvedStyles, context.fontCache)
 
         // Border style
         val borderStyle = block.borderStyle ?: BorderStyle.All
@@ -63,10 +62,13 @@ class TableBlockRenderer : BlockRenderer {
                 val cell = Cell(rowspan, colspan)
                 cell.setPadding(8f)
 
-                // Apply cell styles
-                if (tableCell.styles != null) {
-                    StyleApplicator.applyStyles(cell, tableCell.styles, context.documentStyles, context.fontCache)
-                }
+                val cellResolvedStyles = StyleApplicator.resolveInheritedStyles(
+                    resolvedStyles,
+                    null,
+                    emptyMap(),
+                    tableCell.styles,
+                )
+                StyleApplicator.applyResolvedStyles(cell, cellResolvedStyles, context.fontCache)
 
                 // Apply border based on border style
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)
@@ -77,7 +79,8 @@ class TableBlockRenderer : BlockRenderer {
                 }
 
                 // Render cell children
-                val childElements = blockRenderers.renderBlocks(tableCell.children, context)
+                val childContext = context.copy(inheritedStyles = cellResolvedStyles)
+                val childElements = blockRenderers.renderBlocks(tableCell.children, childContext)
                 for (element in childElements) {
                     when (element) {
                         is com.itextpdf.layout.element.IBlockElement -> cell.add(element)

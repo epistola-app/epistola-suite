@@ -49,3 +49,21 @@ export function resolveBlockStyles(
 
   return resolved;
 }
+
+/**
+ * Resolves effective block styles using hierarchical cascade:
+ * document -> ancestor styles (root to parent) -> block styles.
+ */
+export function resolveBlockStylesWithAncestors(
+  documentStyles?: DocumentStyles | CSSStyles,
+  ancestorStyles: CSSStyles[] = [],
+  blockStyles?: CSSStyles,
+): CSSStyles {
+  let resolved = resolveBlockStyles(documentStyles, undefined);
+
+  for (const ancestorStyle of ancestorStyles) {
+    resolved = resolveBlockStyles(resolved, ancestorStyle);
+  }
+
+  return resolveBlockStyles(resolved, blockStyles);
+}

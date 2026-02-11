@@ -27,8 +27,15 @@ class ConditionalBlockRenderer : BlockRenderer {
         val shouldRender = if (block.inverse == true) !conditionResult else conditionResult
 
         return if (shouldRender) {
+            val childInheritedStyles = StyleApplicator.resolveInheritedStyles(
+                context.inheritedStyles,
+                block.stylePreset,
+                context.blockStylePresets,
+                block.styles,
+            )
+            val childContext = context.copy(inheritedStyles = childInheritedStyles)
             // Render children
-            blockRenderers.renderBlocks(block.children, context)
+            blockRenderers.renderBlocks(block.children, childContext)
         } else {
             emptyList()
         }

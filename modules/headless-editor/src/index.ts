@@ -116,4 +116,5 @@ export {
   INHERITABLE_STYLE_KEYS,
   resolveDocumentStyles,
   resolveBlockStyles,
+  resolveBlockStylesWithAncestors,
 } from "./styles/cascade.js";

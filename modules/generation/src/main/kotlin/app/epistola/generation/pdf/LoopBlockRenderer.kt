@@ -28,6 +28,12 @@ class LoopBlockRenderer : BlockRenderer {
         val results = mutableListOf<IElement>()
         val itemAlias = block.itemAlias
         val indexAlias = block.indexAlias
+        val inheritedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
+            block.stylePreset,
+            context.blockStylePresets,
+            block.styles,
+        )
 
         // Render children for each item
         for ((index, item) in iterable.withIndex()) {
@@ -43,7 +49,10 @@ class LoopBlockRenderer : BlockRenderer {
                 itemContext[indexAlias] = index
             }
 
-            val childContext = context.copy(loopContext = itemContext)
+            val childContext = context.copy(
+                loopContext = itemContext,
+                inheritedStyles = inheritedStyles,
+            )
 
             // Render children with new context
             val childElements = blockRenderers.renderBlocks(block.children, childContext)
