@@ -3,6 +3,9 @@ import {
   extractPaths,
   inferType,
   parsePath,
+  extractPathAtCursor,
+  getExpressionCompletions,
+  buildEvaluationContext,
   resolvePathType,
   resolvePathValue,
   getMethodsForType,
@@ -211,5 +214,187 @@ describe("formatTypeForDisplay", () => {
 
   it("should format object type", () => {
     expect(formatTypeForDisplay({ kind: "object", properties: {} })).toBe("object");
+  });
+});
+
+describe("extractPathAtCursor", () => {
+  it("extracts a simple partial at root", () => {
+    expect(extractPathAtCursor("cus")).toEqual({ path: [], partial: "cus" });
+  });
+
+  it("extracts a nested path after dot", () => {
+    expect(extractPathAtCursor("customer.")).toEqual({ path: ["customer"], partial: "" });
+  });
+
+  it("extracts path and partial for nested typing", () => {
+    expect(extractPathAtCursor("customer.na")).toEqual({ path: ["customer"], partial: "na" });
+  });
+
+  it("extracts after operators", () => {
+    expect(extractPathAtCursor("count + cus")).toEqual({ path: [], partial: "cus" });
+  });
+
+  it("extracts method chain path", () => {
+    expect(extractPathAtCursor("customer.name.toLowerCase().")).toEqual({
+      path: ["customer", "name", "toLowerCase()"],
+      partial: "",
+    });
+  });
+});
+
+describe("getExpressionCompletions", () => {
+  const testData = {
+    customer: {
+      name: "John",
+      age: 30,
+      email: "john@example.com",
+    },
+    orders: [
+      { id: 1, total: 100 },
+      { id: 2, total: 200 },
+    ],
+    tags: ["vip", "premium"],
+    count: 42,
+  };
+
+  it("returns top-level completions for empty input", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.options.map((o) => o.label)).toContain("customer");
+    expect(result?.options.map((o) => o.label)).toContain("orders");
+  });
+
+  it("prioritizes scope variables over data keys", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "",
+      testData,
+      scopeVars: [
+        { name: "order", type: "loop-item", arrayPath: "orders" },
+        { name: "idx", type: "loop-index", arrayPath: "orders" },
+      ],
+    });
+
+    const order = result?.options.find((o) => o.label === "order");
+    const customer = result?.options.find((o) => o.label === "customer");
+    expect(order).toBeDefined();
+    expect(customer).toBeDefined();
+    expect((order?.boost ?? 0) > (customer?.boost ?? 0)).toBe(true);
+  });
+
+  it("returns object property completions for dotted access", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "customer.",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.options.map((o) => o.label)).toContain("name");
+    expect(result?.options.map((o) => o.label)).toContain("age");
+  });
+
+  it("returns method completions for string type", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "customer.name.",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.options.map((o) => o.label)).toContain("toLowerCase");
+    expect(result?.options.map((o) => o.label)).toContain("trim");
+  });
+
+  it("returns property/method completions for array type", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "orders.",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.options.map((o) => o.label)).toContain("[0]");
+    expect(result?.options.map((o) => o.label)).toContain("length");
+    expect(result?.options.map((o) => o.label)).toContain("map");
+  });
+
+  it("returns method completions for number type", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "count.",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.options.map((o) => o.label)).toContain("toFixed");
+    expect(result?.options.map((o) => o.label)).toContain("toPrecision");
+  });
+
+  it("resolves scoped object completions from loop item", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "order.",
+      testData,
+      scopeVars: [{ name: "order", type: "loop-item", arrayPath: "orders" }],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.options.map((o) => o.label)).toContain("id");
+    expect(result?.options.map((o) => o.label)).toContain("total");
+  });
+
+  it("includes replacement range based on partial text", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "customer.na",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result?.partial).toBe("na");
+    expect(result?.from).toBe("customer.".length);
+    expect(result?.to).toBe("customer.na".length);
+  });
+
+  it("returns null for unknown path with trailing dot", () => {
+    const result = getExpressionCompletions({
+      textBeforeCursor: "doesnotexist.",
+      testData,
+      scopeVars: [],
+    });
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("buildEvaluationContext", () => {
+  const testData = {
+    customer: {
+      orders: [
+        { id: 1, total: 100 },
+        { id: 2, total: 200 },
+      ],
+    },
+  };
+
+  it("merges loop item and index scope values", () => {
+    const context = buildEvaluationContext(testData, [
+      { name: "order", type: "loop-item", arrayPath: "customer.orders" },
+      { name: "idx", type: "loop-index", arrayPath: "customer.orders" },
+    ]);
+
+    expect(context.order).toEqual({ id: 1, total: 100 });
+    expect(context.idx).toBe(0);
+  });
+
+  it("ignores unresolved scope vars", () => {
+    const context = buildEvaluationContext(testData, [
+      { name: "missing", type: "loop-item", arrayPath: "customer.missing" },
+    ]);
+
+    expect("missing" in context).toBe(false);
   });
 });

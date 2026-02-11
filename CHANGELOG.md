@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Fixed
+- **Expression authoring parity in headless + vanilla editors**: Improved completion, preview, and inline chip editing flows without React-coupled dependencies.
+  - Headless expression utilities now expose cursor-aware completion APIs, richer method catalogs, and shared scope-aware evaluation context builders.
+  - Vanilla conditional/loop expression editor now uses shared headless completion/context logic with explicit preview error rendering and block-type warnings.
+  - Inline expression chips now support `{{` creation flow, click-to-edit popover lifecycle, save/cancel behavior for new chips, and shared completion/preview behavior.
+- **Vanilla E2E reliability and safety improvements**
+  - Playwright worker count is capped to 4 for local runs.
+  - Added focused expression behavior E2E coverage for conditional/loop editors and inline chips.
+  - Replaced legacy E2E editor-internal assertions in updated specs with UI-level assertions.
 - **E2E test failures and drag-drop bug in vanilla-editor**: Fixed multiple issues causing Playwright E2E test failures
   - Fixed browser context scope issues by passing selectors as parameters to page.waitForFunction()
   - Fixed stale locator issues using :scope > selector to target direct children after DOM re-renders

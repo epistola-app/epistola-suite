@@ -24,6 +24,7 @@ describe('ExpressionChipNode', () => {
     const editor = createEditor();
     const nodeType = editor.schema.nodes.expression;
     expect(nodeType.spec.attrs?.expression?.default).toBe('');
+    expect(nodeType.spec.attrs?.isNew?.default).toBe(false);
     editor.destroy();
   });
 
@@ -59,7 +60,7 @@ describe('ExpressionChipNode', () => {
     const json = editor.getJSON();
     const paragraph = json.content?.[0];
     const nodes = paragraph?.content ?? [];
-    const exprNode = nodes.find((n: { type: string }) => n.type === 'expression');
+    const exprNode = nodes.find((n) => n.type === 'expression');
     expect(exprNode).toBeDefined();
     expect(exprNode?.attrs?.expression).toBe('order.total');
     editor.destroy();
@@ -101,6 +102,45 @@ describe('ExpressionChipNode', () => {
     const paragraph = json.content?.[0];
     const exprNode = paragraph?.content?.[0];
     expect(exprNode?.attrs?.expression).toBe('');
+    expect(exprNode?.attrs?.isNew).toBe(false);
+    editor.destroy();
+  });
+
+  it('should serialize and render isNew attribute when true', () => {
+    const editor = createEditor();
+    editor.commands.insertContent({
+      type: 'expression',
+      attrs: { expression: '', isNew: true },
+    });
+
+    const json = editor.getJSON();
+    const paragraph = json.content?.[0];
+    const exprNode = paragraph?.content?.[0];
+    expect(exprNode?.attrs?.isNew).toBe(true);
+
+    const html = editor.getHTML();
+    expect(html).toContain('data-is-new="true"');
+    editor.destroy();
+  });
+
+  it('should parse isNew from HTML attribute', () => {
+    const editor = createEditor({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'expression',
+              attrs: { expression: '', isNew: true },
+            },
+          ],
+        },
+      ],
+    });
+
+    const html = editor.getHTML();
+    expect(html).toContain('data-is-new="true"');
     editor.destroy();
   });
 });

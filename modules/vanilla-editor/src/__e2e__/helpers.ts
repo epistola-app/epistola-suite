@@ -209,6 +209,27 @@ export class AppHelpers {
   }
 
   // ============================================
+  // Expression Editing
+  // ============================================
+
+  async fillExpressionInput(block: Locator, value: string): Promise<void> {
+    const input = block.locator(SELECTORS.expressionInput).first();
+    await input.click();
+    await input.fill(value);
+  }
+
+  async typeInTextBlock(block: Locator, value: string): Promise<void> {
+    const editor = block.locator('.text-block-editor').first();
+    await editor.click();
+    await this.page.keyboard.type(value);
+  }
+
+  async openExpressionChipPopover(chip: Locator): Promise<void> {
+    await chip.click();
+    await expect(this.page.locator(SELECTORS.expressionChipPopover)).toBeVisible();
+  }
+
+  // ============================================
   // Table Operations
   // ============================================
 

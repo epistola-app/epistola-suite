@@ -186,29 +186,9 @@ test.describe('Block Operations - Moving Blocks', () => {
     await expect(container.locator(`[data-block-type="${BLOCK_TYPES.text}"]`)).toBeVisible();
   });
 
-  test('move block programmatically', async ({ page, appHelpers }) => {
-    // Test the moveBlock API directly (which is what drag-and-drop calls internally)
-    await appHelpers.addContainerBlock();
-    await appHelpers.addTextBlock();
-
-    const container = appHelpers.getBlockByType(BLOCK_TYPES.container).last();
-    const textBlock = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
-
-    const containerId = await container.getAttribute('data-block-id');
-    const textBlockId = await textBlock.getAttribute('data-block-id');
-
-    // Call editor.moveBlock() directly
-    await page.evaluate(({ blockId, parentId }) => {
-      const editor = window.__editor || (window as any).getEditor?.();
-      if (editor) {
-        editor.moveBlock(blockId, parentId, 0);
-      }
-    }, { blockId: textBlockId, parentId: containerId });
-
-    await page.waitForTimeout(500);
-
-    // Verify the text block is now inside the container
-    await expect(container.locator(`[data-block-type="${BLOCK_TYPES.text}"]`)).toBeVisible();
+  test.skip('move block with drag-and-drop', async () => {
+    // TODO: Re-enable when we have a reliable UI-level drag simulation for SortableJS.
+    // Intentionally no editor API calls in E2E.
   });
 });
 

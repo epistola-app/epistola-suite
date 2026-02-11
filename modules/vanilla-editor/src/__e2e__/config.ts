@@ -46,9 +46,22 @@ export const SELECTORS = {
 
   // Specific block elements
   expressionInput: '.expression-editor-input',
+  expressionDropdown: '.expression-editor-dropdown',
+  expressionPreview: '.expression-editor-preview',
+  expressionPreviewWarning: '.expression-preview-warning',
+  expressionPreviewError: '.expression-preview-error',
   columnWrapper: '.column-wrapper',
   tableRow: 'tr',
   addTextLink: 'text=+ Add text',
+
+  // Expression chips
+  expressionChip: '.expression-chip',
+  expressionChipExpr: '.expression-chip-expr',
+  expressionChipPopover: '.expression-chip-popover',
+  expressionChipPopoverInput: '.expression-chip-popover-input',
+  expressionChipPopoverPreview: '.expression-popover-preview',
+  expressionChipPopoverSave: '.expression-chip-popover-actions .btn.btn-primary',
+  expressionChipPopoverCancel: '.expression-chip-popover-actions .btn.btn-outline-secondary',
 } as const;
 
 export const BLOCK_TYPES = {

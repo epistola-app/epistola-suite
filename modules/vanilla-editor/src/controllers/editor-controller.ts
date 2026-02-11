@@ -21,15 +21,30 @@
  * - `blockStylesBtn` — block styles button (disabled when nothing selected)
  */
 
-import { Controller } from '@hotwired/stimulus';
-import type { TemplateEditor, Template, ThemeSummary, DataExample } from '@epistola/headless-editor';
-import { getEditor, getMountConfig } from '../mount.js';
+import { Controller } from "@hotwired/stimulus";
+import type {
+  TemplateEditor,
+  Template,
+  ThemeSummary,
+  DataExample,
+  Block,
+  BlockDefinition,
+  PageHeaderBlock,
+  PageFooterBlock,
+  BlockType,
+} from "@epistola/headless-editor";
+import { getEditor, getMountConfig } from "../mount.js";
 
 export class EditorController extends Controller {
   static targets = [
-    'undoBtn', 'redoBtn', 'saveBtn', 'saveStatus',
-    'themeSelect', 'dataExampleSelect', 'blockContainer',
-    'blockStylesBtn',
+    "undoBtn",
+    "redoBtn",
+    "saveBtn",
+    "saveStatus",
+    "themeSelect",
+    "dataExampleSelect",
+    "blockContainer",
+    "blockStylesBtn",
   ];
   static values = {
     dirty: Boolean,
@@ -69,9 +84,15 @@ export class EditorController extends Controller {
 
     // Subscribe to reactive stores and update Stimulus values
     this.unsubscribers.push(
-      stores.$isDirty.subscribe((dirty: boolean) => { this.dirtyValue = dirty; }),
-      stores.$canUndo.subscribe((canUndo: boolean) => { this.canUndoValue = canUndo; }),
-      stores.$canRedo.subscribe((canRedo: boolean) => { this.canRedoValue = canRedo; }),
+      stores.$isDirty.subscribe((dirty: boolean) => {
+        this.dirtyValue = dirty;
+      }),
+      stores.$canUndo.subscribe((canUndo: boolean) => {
+        this.canUndoValue = canUndo;
+      }),
+      stores.$canRedo.subscribe((canRedo: boolean) => {
+        this.canRedoValue = canRedo;
+      }),
     );
 
     // Read save handler from mount config
@@ -85,7 +106,7 @@ export class EditorController extends Controller {
       const themes = editor.getThemes();
       const currentThemeId = editor.getTemplate().themeId;
       for (const theme of themes) {
-        const option = document.createElement('option');
+        const option = document.createElement("option");
         option.value = theme.id;
         option.textContent = theme.name;
         if (theme.id === currentThemeId) option.selected = true;
@@ -98,7 +119,7 @@ export class EditorController extends Controller {
       const examples = editor.getDataExamples();
       const selectedId = editor.getSelectedDataExampleId();
       for (const example of examples) {
-        const option = document.createElement('option');
+        const option = document.createElement("option");
         option.value = example.id;
         option.textContent = example.name;
         if (example.id === selectedId) option.selected = true;
@@ -120,17 +141,17 @@ export class EditorController extends Controller {
     this.beforeUnloadHandler = (e: BeforeUnloadEvent) => {
       if (stores.$isDirty.get()) {
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = "";
       }
     };
-    window.addEventListener('beforeunload', this.beforeUnloadHandler);
+    window.addEventListener("beforeunload", this.beforeUnloadHandler);
   }
 
   disconnect(): void {
     for (const unsub of this.unsubscribers) unsub();
     this.unsubscribers = [];
     if (this.beforeUnloadHandler) {
-      window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+      window.removeEventListener("beforeunload", this.beforeUnloadHandler);
       this.beforeUnloadHandler = undefined;
     }
   }
@@ -154,11 +175,11 @@ export class EditorController extends Controller {
   dirtyValueChanged(): void {
     if (this.hasSaveStatusTarget) {
       if (this.dirtyValue) {
-        this.saveStatusTarget.textContent = 'Unsaved changes';
-        this.saveStatusTarget.className = 'save-status dirty';
+        this.saveStatusTarget.textContent = "Unsaved changes";
+        this.saveStatusTarget.className = "save-status dirty";
       } else {
-        this.saveStatusTarget.textContent = 'Saved';
-        this.saveStatusTarget.className = 'save-status saved';
+        this.saveStatusTarget.textContent = "Saved";
+        this.saveStatusTarget.className = "save-status saved";
       }
     }
   }
@@ -186,7 +207,7 @@ export class EditorController extends Controller {
 
     const state = editor.getState();
     if (state.selectedBlockId) {
-      editor.addBlock('text', state.selectedBlockId);
+      editor.addBlock("text", state.selectedBlockId);
     }
   }
 
@@ -227,22 +248,22 @@ export class EditorController extends Controller {
     if (!editor || !this.saveHandler) return;
 
     if (this.hasSaveStatusTarget) {
-      this.saveStatusTarget.textContent = 'Saving...';
-      this.saveStatusTarget.className = 'save-status saving';
+      this.saveStatusTarget.textContent = "Saving...";
+      this.saveStatusTarget.className = "save-status saving";
     }
 
     try {
       await this.saveHandler(editor.getTemplate());
       editor.markAsSaved();
       if (this.hasSaveStatusTarget) {
-        this.saveStatusTarget.textContent = 'Saved';
-        this.saveStatusTarget.className = 'save-status saved';
+        this.saveStatusTarget.textContent = "Saved";
+        this.saveStatusTarget.className = "save-status saved";
       }
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Save failed';
+      const msg = error instanceof Error ? error.message : "Save failed";
       if (this.hasSaveStatusTarget) {
         this.saveStatusTarget.textContent = msg;
-        this.saveStatusTarget.className = 'save-status error';
+        this.saveStatusTarget.className = "save-status error";
       }
     }
   }
@@ -276,10 +297,10 @@ export class EditorController extends Controller {
     if (!editor) return;
 
     const json = editor.exportJSON();
-    const blob = new Blob([json], { type: 'application/json' });
+    const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `template-${editor.getTemplate().id}.json`;
     document.body.appendChild(a);
@@ -292,9 +313,9 @@ export class EditorController extends Controller {
     const editor = getEditor();
     if (!editor) return;
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
 
     input.onchange = () => {
       const file = input.files?.[0];
@@ -303,7 +324,7 @@ export class EditorController extends Controller {
       const reader = new FileReader();
       reader.onload = (event) => {
         const json = event.target?.result;
-        if (typeof json !== 'string') return;
+        if (typeof json !== "string") return;
         editor.importJSON(json);
       };
       reader.readAsText(file);

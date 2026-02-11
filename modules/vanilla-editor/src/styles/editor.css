@@ -210,6 +210,12 @@
   white-space: nowrap;
 }
 
+.expression-preview-warning {
+  margin-top: 0.375rem;
+  color: #92400e;
+  font-size: 0.72rem;
+}
+
 /* ==========================================================================
    Text Block Editor
    ========================================================================== */
@@ -310,6 +316,14 @@
   font-family: monospace;
   font-size: 0.875rem;
   margin-bottom: 0.5rem;
+}
+
+.expression-chip-dropdown {
+  position: static;
+  display: none;
+  border-radius: 6px;
+  margin-top: 0.25rem;
+  max-height: 180px;
 }
 
 .expression-popover-preview {

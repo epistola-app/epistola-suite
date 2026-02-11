@@ -18,6 +18,7 @@ import { InputRule } from '@tiptap/core';
  * e.g. typing `{{customer.name}}` creates a chip with expression "customer.name".
  */
 const EXPRESSION_INPUT_REGEX = /\{\{([^}]+)\}\}$/;
+const OPEN_EXPRESSION_INPUT_REGEX = /\{\{$/;
 
 export const ExpressionChipNode = Node.create({
   name: 'expression',
@@ -35,6 +36,12 @@ export const ExpressionChipNode = Node.create({
           'data-expression': attributes.expression,
         }),
       },
+      isNew: {
+        default: false,
+        parseHTML: (element: HTMLElement) => element.getAttribute('data-is-new') === 'true',
+        renderHTML: (attributes: { isNew?: boolean }) =>
+          attributes.isNew ? { 'data-is-new': 'true' } : {},
+      },
     };
   },
 
@@ -46,6 +53,7 @@ export const ExpressionChipNode = Node.create({
 
   renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, string> }) {
     const expression = HTMLAttributes['data-expression'] ?? '';
+
     return [
       'span',
       mergeAttributes(HTMLAttributes, {
@@ -72,7 +80,15 @@ export const ExpressionChipNode = Node.create({
         handler: ({ state, range, match }) => {
           const expression = match[1]?.trim() ?? '';
           const { tr } = state;
-          const node = this.type.create({ expression });
+          const node = this.type.create({ expression, isNew: false });
+          tr.replaceWith(range.from, range.to, node);
+        },
+      }),
+      new InputRule({
+        find: OPEN_EXPRESSION_INPUT_REGEX,
+        handler: ({ state, range }) => {
+          const { tr } = state;
+          const node = this.type.create({ expression: '', isNew: true });
           tr.replaceWith(range.from, range.to, node);
         },
       }),

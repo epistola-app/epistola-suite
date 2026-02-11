@@ -22,3 +22,31 @@ export interface MethodSuggestion {
   signature: string;
   detail: string;
 }
+
+export interface ExpressionCompletionItem {
+  label: string;
+  type: "method" | "property" | "variable";
+  detail: string;
+  apply: string;
+  info?: string;
+  boost: number;
+}
+
+export interface ExpressionPathAtCursor {
+  path: string[];
+  partial: string;
+}
+
+export interface ExpressionCompletionRequest {
+  textBeforeCursor: string;
+  testData: Record<string, unknown>;
+  scopeVars: ScopeVariable[];
+}
+
+export interface ExpressionCompletionResult {
+  from: number;
+  to: number;
+  path: string[];
+  partial: string;
+  options: ExpressionCompletionItem[];
+}

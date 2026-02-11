@@ -149,14 +149,12 @@ test.describe('Document Styles - UI', () => {
     await page.fill('#doc-color', '#000000');
     await page.click('#btn-save-document-styles');
 
-    const documentStyles = await page.evaluate(() => {
-      const editor = (window as any).__editor;
-      return editor?.getTemplate()?.documentStyles || {};
-    });
-
-    expect(documentStyles.fontFamily).toBe('Georgia, serif');
-    expect(documentStyles.fontSize).toBe('16px');
-    expect(documentStyles.color).not.toBe('#000000');
+    await page.click('#btn-document-styles');
+    await expect(page.locator('#document-styles-modal')).toBeVisible();
+    await expect(page.locator('#doc-font-family')).toHaveValue('Georgia, serif');
+    await expect(page.locator('#doc-font-size-value')).toHaveValue('16');
+    await expect(page.locator('#doc-font-size-unit')).toHaveValue('px');
+    await expect(page.locator('#doc-color')).not.toHaveValue('#000000');
   });
 });
 

@@ -100,15 +100,29 @@ export {
 } from "./evaluator/index.js";
 
 // Expression utilities (for UI autocomplete)
-export type { ScopeVariable as ExpressionScopeVariable, InferredType, PathInfo, MethodSuggestion } from "./expression/index.js";
+export type {
+  ScopeVariable as ExpressionScopeVariable,
+  InferredType,
+  PathInfo,
+  MethodSuggestion,
+  ExpressionCompletionItem,
+  ExpressionPathAtCursor,
+  ExpressionCompletionRequest,
+  ExpressionCompletionResult,
+} from "./expression/index.js";
 export {
   extractPaths,
   inferType,
   parsePath,
+  extractPathAtCursor,
   resolvePathType,
   resolvePathValue,
   getMethodsForType,
   formatTypeForDisplay,
+  buildTopLevelCompletions,
+  buildTypeCompletions,
+  getExpressionCompletions,
+  buildEvaluationContext,
 } from "./expression/index.js";
 
 // Style cascade helpers
