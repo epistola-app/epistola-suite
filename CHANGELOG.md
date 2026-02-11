@@ -18,6 +18,21 @@
 - **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
 
+### Changed
+- **Nested style inheritance now matches editor and PDF generation**: Implemented hierarchical style cascade resolution across headless-editor, vanilla-editor, and Kotlin PDF generation.
+  - Cascade order is now explicit and consistent: `document -> ancestors -> block`
+  - Inheritable keys include typography/alignment and `backgroundColor`
+  - Renderer structure now keeps style application scoped to `.block-content` only, with block chrome (`.block-ui`, headers, controls) isolated from content styling
+  - Added maintainability helpers in renderer to centralize styled content wrapping
+
+### Added
+- **Cross-runtime cascade validation and parity tests**
+  - Added shared fixture set for style cascade behavior in TypeScript and Kotlin tests
+  - Added fixture-driven headless resolver tests for contract-level validation
+  - Added Kotlin fixture-driven resolver tests and nested renderer inheritance tests (container, table/cell, conditional, loop)
+  - Added compatibility coverage for `fontWeight` keyword + numeric handling in Kotlin PDF rendering
+- **Style cascade roadmap docs**: Added phased implementation roadmap and compatibility notes under `docs/style-cascade-roadmap/`
+
 ### Added
 - **Job Offer Letter demo template**: Second demo template with tables, conditionals, loops, and columns
 

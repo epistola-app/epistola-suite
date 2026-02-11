@@ -5,6 +5,7 @@ import {
   resolveBlockStylesWithAncestors,
   resolveDocumentStyles,
 } from "../styles/cascade";
+import { STYLE_CASCADE_FIXTURES } from "./fixtures/style-cascade-fixtures";
 
 describe("style cascade", () => {
   it("defines the expected inheritable properties", () => {
@@ -126,5 +127,19 @@ describe("style cascade", () => {
       color: "#ff0000",
       paddingTop: "8px",
     });
+  });
+
+  describe("fixture-driven cascade contract", () => {
+    for (const fixture of STYLE_CASCADE_FIXTURES) {
+      it(`${fixture.id}: ${fixture.description}`, () => {
+        const resolved = resolveBlockStylesWithAncestors(
+          fixture.documentStyles,
+          fixture.ancestorStyles,
+          fixture.blockStyles,
+        );
+
+        expect(resolved).toEqual(fixture.expected);
+      });
+    }
   });
 });

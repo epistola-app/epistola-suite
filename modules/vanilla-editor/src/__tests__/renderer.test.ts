@@ -229,6 +229,54 @@ describe('BlockRenderer', () => {
       const containerEl = container.querySelector(`[data-block-id="${containerBlock.id}"]`);
       expect(containerEl?.contains(nestedText!)).toBe(true);
     });
+
+    it('keeps conditional expression editor outside styled content region', () => {
+      editor.addBlock('conditional');
+      renderer.render();
+
+      const conditional = container.querySelector(
+        '[data-block-type="conditional"]',
+      ) as HTMLElement;
+      const blockUi = conditional.querySelector('.block-ui');
+      const blockContent = conditional.querySelector('.block-content');
+      const expressionInput = conditional.querySelector('.expression-editor-input');
+
+      expect(blockUi).not.toBeNull();
+      expect(blockContent).not.toBeNull();
+      expect(expressionInput).not.toBeNull();
+      expect(blockUi?.contains(expressionInput!)).toBe(true);
+      expect(blockContent?.contains(expressionInput!)).toBe(false);
+    });
+
+    it('keeps page header info banner outside styled content region', () => {
+      editor.addBlock('pageheader');
+      renderer.render();
+
+      const pageHeader = container.querySelector(
+        '[data-block-type="pageheader"]',
+      ) as HTMLElement;
+      const blockUi = pageHeader.querySelector('.block-ui');
+      const blockContent = pageHeader.querySelector('.block-content');
+      const infoBanner = pageHeader.querySelector('.alert.alert-info');
+
+      expect(infoBanner).not.toBeNull();
+      expect(blockUi?.contains(infoBanner!)).toBe(true);
+      expect(blockContent?.contains(infoBanner!)).toBe(false);
+    });
+
+    it('keeps table add row control outside styled content region', () => {
+      editor.addBlock('table');
+      renderer.render();
+
+      const table = container.querySelector('[data-block-type="table"]') as HTMLElement;
+      const blockUi = table.querySelector('.block-ui');
+      const blockContent = table.querySelector('.block-content');
+      const addRowButton = table.querySelector('button[title="Add row"]');
+
+      expect(addRowButton).not.toBeNull();
+      expect(blockUi?.contains(addRowButton!)).toBe(true);
+      expect(blockContent?.contains(addRowButton!)).toBe(false);
+    });
   });
 });
 

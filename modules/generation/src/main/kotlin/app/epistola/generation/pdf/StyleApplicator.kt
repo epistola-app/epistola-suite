@@ -23,6 +23,19 @@ object StyleApplicator {
     )
 
     /**
+     * Backward-compatible font-weight handling.
+     * Supports CSS keywords and numeric values.
+     */
+    fun isBoldFontWeight(weight: String): Boolean {
+        val normalized = weight.trim().lowercase()
+        return when (normalized) {
+            "bold", "bolder" -> true
+            "normal", "lighter" -> false
+            else -> normalized.toIntOrNull()?.let { it >= 700 } ?: false
+        }
+    }
+
+    /**
      * Applies styles from block styles and document styles to an iText element.
      */
     fun <T : BlockElement<T>> applyStyles(
@@ -182,10 +195,9 @@ object StyleApplicator {
             element.setTextAlignment(mapTextAlign(align))
         }
 
-        // Font weight (numeric values: 100-900)
+        // Font weight (supports keyword and numeric values)
         styles.fontWeight?.let { weight ->
-            val numericWeight = weight.toIntOrNull() ?: 400
-            if (numericWeight >= 700) {
+            if (isBoldFontWeight(weight)) {
                 element.setFont(fontCache.bold)
             }
         }
@@ -195,8 +207,8 @@ object StyleApplicator {
             parseSize(spacing)?.let { element.setCharacterSpacing(it) }
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
-        // styles.lineHeight would require setFixedLeading which needs a specific point value
+        // Note: lineHeight is intentionally ignored for now in PDF rendering.
+        // iText leading depends on layout context and cannot be mapped 1:1 from CSS values.
     }
 
     private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache) {
@@ -259,10 +271,9 @@ object StyleApplicator {
             }
         }
 
-        // Font weight (numeric values: 100-900, >= 700 is bold)
+        // Font weight (supports keyword and numeric values)
         (styles["fontWeight"] as? String)?.let { weight ->
-            val numericWeight = weight.toIntOrNull() ?: 400
-            if (numericWeight >= 700) {
+            if (isBoldFontWeight(weight)) {
                 element.setFont(fontCache.bold)
             }
         }
@@ -274,7 +285,7 @@ object StyleApplicator {
             }
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Note: lineHeight is intentionally ignored for now in PDF rendering.
     }
 
     private fun normalizeStyleValue(key: String, value: Any): Any {

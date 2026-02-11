@@ -233,6 +233,15 @@ export class BlockRenderer {
     }
   }
 
+  private getResolvedStyleString(blockId: string): string {
+    return styleObjectToString(this.editor.getResolvedBlockStyles(blockId));
+  }
+
+  private renderStyledContent(blockId: string, content: HtmlResult): HtmlResult {
+    const resolvedStyleString = this.getResolvedStyleString(blockId);
+    return html`<div class="block-content" style=${resolvedStyleString}>${content}</div>`;
+  }
+
   // ==========================================================================
   // Block Type Templates
   // ==========================================================================
@@ -242,15 +251,14 @@ export class BlockRenderer {
    * Uses a Stimulus-controlled wrapper for TipTap text editing.
    */
   private renderTextBlock(block: TextBlock): HtmlResult {
-    const resolvedStyleString = styleObjectToString(
-      this.editor.getResolvedBlockStyles(block.id),
-    );
+    const resolvedStyleString = this.getResolvedStyleString(block.id);
     const editorStyle = resolvedStyleString
       ? `${resolvedStyleString} min-height: 4rem;`
       : "min-height: 4rem;";
 
-    return html`
-      <div class="block-content" style=${resolvedStyleString}>
+    return this.renderStyledContent(
+      block.id,
+      html`
         <div
           class="text-block-wrapper mt-2"
           data-controller="text-block"
@@ -267,8 +275,8 @@ export class BlockRenderer {
             onclick=${(e: Event) => e.stopPropagation()}
           ></div>
         </div>
-      </div>
-    `;
+      `,
+    );
   }
 
   /**
@@ -278,9 +286,6 @@ export class BlockRenderer {
     block: ContainerBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     const children =
       block.children.length === 0
         ? [
@@ -294,16 +299,17 @@ export class BlockRenderer {
         : block.children.map((child) =>
             this.renderBlock(child, selectedBlockId),
           );
-    return html`
-      <div class="block-content" style=${resolvedStyleString}>
+    return this.renderStyledContent(
+      block.id,
+      html`
         <div
           class="block-children sortable-container"
           data-parent-id=${block.id}
         >
           ${children}
         </div>
-      </div>
-    `;
+      `,
+    );
   }
 
   /**
@@ -313,9 +319,6 @@ export class BlockRenderer {
     block: ConditionalBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     return html`
       <div class="block-ui">
         <div
@@ -348,25 +351,28 @@ export class BlockRenderer {
           ></div>
         </div>
       </div>
-      <div class="block-content" style=${resolvedStyleString}>
-        <div
-          class="block-children sortable-container"
-          data-parent-id=${block.id}
-        >
-          ${block.children.length === 0
-            ? [
-                html`<div
-                  class="empty-state text-muted small"
-                  style="padding: 0.5rem;"
-                >
-                  Content when condition is true
-                </div>`,
-              ]
-            : block.children.map((child) =>
-                this.renderBlock(child, selectedBlockId),
-              )}
-        </div>
-      </div>
+      ${this.renderStyledContent(
+        block.id,
+        html`
+          <div
+            class="block-children sortable-container"
+            data-parent-id=${block.id}
+          >
+            ${block.children.length === 0
+              ? [
+                  html`<div
+                    class="empty-state text-muted small"
+                    style="padding: 0.5rem;"
+                  >
+                    Content when condition is true
+                  </div>`,
+                ]
+              : block.children.map((child) =>
+                  this.renderBlock(child, selectedBlockId),
+                )}
+          </div>
+        `,
+      )}
     `;
   }
 
@@ -377,9 +383,6 @@ export class BlockRenderer {
     block: LoopBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     return html`
       <div class="block-ui">
         <div
@@ -448,25 +451,28 @@ export class BlockRenderer {
           </div>
         </div>
       </div>
-      <div class="block-content" style=${resolvedStyleString}>
-        <div
-          class="block-children sortable-container"
-          data-parent-id=${block.id}
-        >
-          ${block.children.length === 0
-            ? [
-                html`<div
-                  class="empty-state text-muted small"
-                  style="padding: 0.5rem;"
-                >
-                  Loop body (repeated for each item)
-                </div>`,
-              ]
-            : block.children.map((child) =>
-                this.renderBlock(child, selectedBlockId),
-              )}
-        </div>
-      </div>
+      ${this.renderStyledContent(
+        block.id,
+        html`
+          <div
+            class="block-children sortable-container"
+            data-parent-id=${block.id}
+          >
+            ${block.children.length === 0
+              ? [
+                  html`<div
+                    class="empty-state text-muted small"
+                    style="padding: 0.5rem;"
+                  >
+                    Loop body (repeated for each item)
+                  </div>`,
+                ]
+              : block.children.map((child) =>
+                  this.renderBlock(child, selectedBlockId),
+                )}
+          </div>
+        `,
+      )}
     `;
   }
 
@@ -477,9 +483,6 @@ export class BlockRenderer {
     block: ColumnsBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     return html`
       <div class="block-ui">
         <div class="d-flex gap-2">
@@ -498,52 +501,55 @@ export class BlockRenderer {
           </span>
         </div>
       </div>
-      <div class="block-content" style=${resolvedStyleString}>
-        <div
-          class="columns-layout d-flex gap-2"
-          data-parent-id=${block.id}
-          style=${`gap: ${block.gap ?? 16}px;`}
-        >
-          ${block.columns.map(
-            (column) => html`
-              <div
-                class="column-wrapper flex-fill sortable-container"
-                data-parent-id=${column.id}
-                data-column-id=${column.id}
-                style=${`flex: ${column.size};`}
-              >
+      ${this.renderStyledContent(
+        block.id,
+        html`
+          <div
+            class="columns-layout d-flex gap-2"
+            data-parent-id=${block.id}
+            style=${`gap: ${block.gap ?? 16}px;`}
+          >
+            ${block.columns.map(
+              (column) => html`
                 <div
-                  class="d-flex justify-content-between align-items-center mb-1"
+                  class="column-wrapper flex-fill sortable-container"
+                  data-parent-id=${column.id}
+                  data-column-id=${column.id}
+                  style=${`flex: ${column.size};`}
                 >
-                  <small class="text-muted">Size: ${column.size}</small>
-                  <button
-                    class="btn btn-outline-danger btn-sm py-0"
-                    title="Remove column"
-                    onclick=${(e: Event) => {
-                      e.stopPropagation();
-                      this.editor.removeColumn(block.id, column.id);
-                    }}
+                  <div
+                    class="d-flex justify-content-between align-items-center mb-1"
                   >
-                    <i class="bi bi-x"></i>
-                  </button>
+                    <small class="text-muted">Size: ${column.size}</small>
+                    <button
+                      class="btn btn-outline-danger btn-sm py-0"
+                      title="Remove column"
+                      onclick=${(e: Event) => {
+                        e.stopPropagation();
+                        this.editor.removeColumn(block.id, column.id);
+                      }}
+                    >
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+                  ${column.children.length === 0
+                    ? [
+                        html`<div
+                          class="empty-state text-muted small text-center"
+                          style="padding: 1rem; border: 1px dashed #dee2e6; border-radius: 4px;"
+                        >
+                          Drop content here
+                        </div>`,
+                      ]
+                    : column.children.map((child) =>
+                        this.renderBlock(child, selectedBlockId),
+                      )}
                 </div>
-                ${column.children.length === 0
-                  ? [
-                      html`<div
-                        class="empty-state text-muted small text-center"
-                        style="padding: 1rem; border: 1px dashed #dee2e6; border-radius: 4px;"
-                      >
-                        Drop content here
-                      </div>`,
-                    ]
-                  : column.children.map((child) =>
-                      this.renderBlock(child, selectedBlockId),
-                    )}
-              </div>
-            `,
-          )}
-        </div>
-      </div>
+              `,
+            )}
+          </div>
+        `,
+      )}
     `;
   }
 
@@ -554,9 +560,6 @@ export class BlockRenderer {
     block: TableBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     return html`
       <div class="block-ui">
         <div class="d-flex gap-2">
@@ -575,81 +578,84 @@ export class BlockRenderer {
           >
         </div>
       </div>
-      <div class="block-content" style=${resolvedStyleString}>
-        <table class="table table-bordered table-sm mb-0">
-          ${block.rows.map(
-            (row) => html`
-              <tr
-                data-row-id=${row.id}
-                class=${row.isHeader ? "table-light" : ""}
-              >
-                ${row.cells.map((cell) => {
-                  const cellContent =
-                    cell.children.length === 0
-                      ? [
-                          html`<div
-                            class="text-muted small text-center"
-                            style="padding: 0.25rem; cursor: pointer;"
-                            title="Click to add a text block"
-                            onclick=${(e: Event) => {
-                              e.stopPropagation();
-                              this.editor.addBlock("text", cell.id);
-                            }}
-                          >
-                            + Add text
-                          </div>`,
-                        ]
-                      : cell.children.map((child) =>
-                          this.renderBlock(child, selectedBlockId),
-                        );
-                  return row.isHeader
-                    ? html`<th
-                        data-cell-id=${cell.id}
-                        data-parent-id=${cell.id}
-                        class="sortable-container p-1"
-                        style="vertical-align: top; min-width: 100px;"
-                      >
-                        ${cellContent}
+      ${this.renderStyledContent(
+        block.id,
+        html`
+          <table class="table table-bordered table-sm mb-0">
+            ${block.rows.map(
+              (row) => html`
+                <tr
+                  data-row-id=${row.id}
+                  class=${row.isHeader ? "table-light" : ""}
+                >
+                  ${row.cells.map((cell) => {
+                    const cellContent =
+                      cell.children.length === 0
+                        ? [
+                            html`<div
+                              class="text-muted small text-center"
+                              style="padding: 0.25rem; cursor: pointer;"
+                              title="Click to add a text block"
+                              onclick=${(e: Event) => {
+                                e.stopPropagation();
+                                this.editor.addBlock("text", cell.id);
+                              }}
+                            >
+                              + Add text
+                            </div>`,
+                          ]
+                        : cell.children.map((child) =>
+                            this.renderBlock(child, selectedBlockId),
+                          );
+                    return row.isHeader
+                      ? html`<th
+                          data-cell-id=${cell.id}
+                          data-parent-id=${cell.id}
+                          class="sortable-container p-1"
+                          style="vertical-align: top; min-width: 100px;"
+                        >
+                          ${cellContent}
+                        </th>`
+                      : html`<td
+                          data-cell-id=${cell.id}
+                          data-parent-id=${cell.id}
+                          class="sortable-container p-1"
+                          style="vertical-align: top; min-width: 100px;"
+                        >
+                          ${cellContent}
+                        </td>`;
+                  })}
+                  ${row.isHeader
+                    ? html`<th style="width: 40px; vertical-align: middle;">
+                        <button
+                          class="btn btn-outline-danger btn-sm py-0"
+                          title="Remove row"
+                          onclick=${(e: Event) => {
+                            e.stopPropagation();
+                            this.editor.removeRow(block.id, row.id);
+                          }}
+                        >
+                          <i class="bi bi-x"></i>
+                        </button>
                       </th>`
-                    : html`<td
-                        data-cell-id=${cell.id}
-                        data-parent-id=${cell.id}
-                        class="sortable-container p-1"
-                        style="vertical-align: top; min-width: 100px;"
-                      >
-                        ${cellContent}
-                      </td>`;
-                })}
-                ${row.isHeader
-                  ? html`<th style="width: 40px; vertical-align: middle;">
-                      <button
-                        class="btn btn-outline-danger btn-sm py-0"
-                        title="Remove row"
-                        onclick=${(e: Event) => {
-                          e.stopPropagation();
-                          this.editor.removeRow(block.id, row.id);
-                        }}
-                      >
-                        <i class="bi bi-x"></i>
-                      </button>
-                    </th>`
-                  : html`<td style="width: 40px; vertical-align: middle;">
-                      <button
-                        class="btn btn-outline-danger btn-sm py-0"
-                        title="Remove row"
-                        onclick=${(e: Event) => {
-                          e.stopPropagation();
-                          this.editor.removeRow(block.id, row.id);
-                        }}
-                      >
-                        <i class="bi bi-x"></i>
-                      </button>
-                    </td>`}
-              </tr>
-            `,
-          )}
-        </table>
-      </div>
+                    : html`<td style="width: 40px; vertical-align: middle;">
+                        <button
+                          class="btn btn-outline-danger btn-sm py-0"
+                          title="Remove row"
+                          onclick=${(e: Event) => {
+                            e.stopPropagation();
+                            this.editor.removeRow(block.id, row.id);
+                          }}
+                        >
+                          <i class="bi bi-x"></i>
+                        </button>
+                      </td>`}
+                </tr>
+              `,
+            )}
+          </table>
+        `,
+      )}
     `;
   }
 
@@ -681,34 +687,34 @@ export class BlockRenderer {
     block: PageHeaderBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     return html`
       <div class="block-ui">
         <div class="alert alert-info py-1 px-2 small">
           Content appears at the top of every page
         </div>
       </div>
-      <div class="block-content" style=${resolvedStyleString}>
-        <div
-          class="block-children sortable-container"
-          data-parent-id=${block.id}
-        >
-          ${block.children.length === 0
-            ? [
-                html`<div
-                  class="empty-state text-muted small"
-                  style="padding: 0.5rem;"
-                >
-                  Add header content
-                </div>`,
-              ]
-            : block.children.map((child) =>
-                this.renderBlock(child, selectedBlockId),
-              )}
-        </div>
-      </div>
+      ${this.renderStyledContent(
+        block.id,
+        html`
+          <div
+            class="block-children sortable-container"
+            data-parent-id=${block.id}
+          >
+            ${block.children.length === 0
+              ? [
+                  html`<div
+                    class="empty-state text-muted small"
+                    style="padding: 0.5rem;"
+                  >
+                    Add header content
+                  </div>`,
+                ]
+              : block.children.map((child) =>
+                  this.renderBlock(child, selectedBlockId),
+                )}
+          </div>
+        `,
+      )}
     `;
   }
 
@@ -719,34 +725,34 @@ export class BlockRenderer {
     block: PageFooterBlock,
     selectedBlockId: string | null,
   ): HtmlResult {
-    const resolvedStyles = this.editor.getResolvedBlockStyles(block.id);
-    const resolvedStyleString = styleObjectToString(resolvedStyles);
-
     return html`
       <div class="block-ui">
         <div class="alert alert-info py-1 px-2 small">
           Content appears at the bottom of every page
         </div>
       </div>
-      <div class="block-content" style=${resolvedStyleString}>
-        <div
-          class="block-children sortable-container"
-          data-parent-id=${block.id}
-        >
-          ${block.children.length === 0
-            ? [
-                html`<div
-                  class="empty-state text-muted small"
-                  style="padding: 0.5rem;"
-                >
-                  Add footer content
-                </div>`,
-              ]
-            : block.children.map((child) =>
-                this.renderBlock(child, selectedBlockId),
-              )}
-        </div>
-      </div>
+      ${this.renderStyledContent(
+        block.id,
+        html`
+          <div
+            class="block-children sortable-container"
+            data-parent-id=${block.id}
+          >
+            ${block.children.length === 0
+              ? [
+                  html`<div
+                    class="empty-state text-muted small"
+                    style="padding: 0.5rem;"
+                  >
+                    Add footer content
+                  </div>`,
+                ]
+              : block.children.map((child) =>
+                  this.renderBlock(child, selectedBlockId),
+                )}
+          </div>
+        `,
+      )}
     `;
   }
 
