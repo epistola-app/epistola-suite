@@ -20,7 +20,7 @@ import type {
   PageHeaderBlock,
   PageFooterBlock,
 } from "@epistola/headless-editor";
-import type { RendererOptions } from "./types.js";
+import type { RendererOptions, BlockRendererPlugin } from "./types.js";
 
 /** Return type of uhtml's html tagged template */
 type HtmlResult = Node | HTMLElement | Hole;
@@ -98,11 +98,65 @@ export class BlockRenderer {
   private editor: TemplateEditor;
   private container: HTMLElement;
   private debug: boolean;
+  private rendererPlugins: Record<string, BlockRendererPlugin>;
 
   constructor(options: RendererOptions) {
     this.editor = options.editor;
     this.container = options.container;
     this.debug = options.debug ?? false;
+    this.rendererPlugins = {};
+
+    this.registerPlugin({
+      type: "text",
+      render: ({ block }) => this.renderTextBlock(block as TextBlock),
+    });
+    this.registerPlugin({
+      type: "container",
+      render: ({ block, selectedBlockId }) =>
+        this.renderContainerBlock(block as ContainerBlock, selectedBlockId),
+    });
+    this.registerPlugin({
+      type: "conditional",
+      render: ({ block, selectedBlockId }) =>
+        this.renderConditionalBlock(block as ConditionalBlock, selectedBlockId),
+    });
+    this.registerPlugin({
+      type: "loop",
+      render: ({ block, selectedBlockId }) =>
+        this.renderLoopBlock(block as LoopBlock, selectedBlockId),
+    });
+    this.registerPlugin({
+      type: "columns",
+      render: ({ block, selectedBlockId }) =>
+        this.renderColumnsBlock(block as ColumnsBlock, selectedBlockId),
+    });
+    this.registerPlugin({
+      type: "table",
+      render: ({ block, selectedBlockId }) =>
+        this.renderTableBlock(block as TableBlock, selectedBlockId),
+    });
+    this.registerPlugin({
+      type: "pagebreak",
+      render: () => this.renderPageBreakBlock(),
+    });
+    this.registerPlugin({
+      type: "pageheader",
+      render: ({ block, selectedBlockId }) =>
+        this.renderPageHeaderBlock(block as PageHeaderBlock, selectedBlockId),
+    });
+    this.registerPlugin({
+      type: "pagefooter",
+      render: ({ block, selectedBlockId }) =>
+        this.renderPageFooterBlock(block as PageFooterBlock, selectedBlockId),
+    });
+
+    for (const plugin of options.rendererPlugins ?? []) {
+      this.registerPlugin(plugin);
+    }
+  }
+
+  registerPlugin(plugin: BlockRendererPlugin): void {
+    this.rendererPlugins[plugin.type] = plugin;
   }
 
   /**
@@ -120,11 +174,9 @@ export class BlockRenderer {
 
     render(
       this.container,
-      html`${
-        blocks.length === 0
-          ? [this.renderEmpty()]
-          : blocks.map((block) => this.renderBlock(block, selectedBlockId))
-      }`,
+      html`${blocks.length === 0
+        ? [this.renderEmpty()]
+        : blocks.map((block) => this.renderBlock(block, selectedBlockId))}`,
     );
 
     if (this.debug && start) {
@@ -207,39 +259,28 @@ export class BlockRenderer {
     block: Block,
     selectedBlockId: string | null,
   ): HtmlResult {
-    switch (block.type) {
-      case "text":
-        return this.renderTextBlock(block);
-      case "container":
-        return this.renderContainerBlock(block, selectedBlockId);
-      case "conditional":
-        return this.renderConditionalBlock(block, selectedBlockId);
-      case "loop":
-        return this.renderLoopBlock(block, selectedBlockId);
-      case "columns":
-        return this.renderColumnsBlock(block, selectedBlockId);
-      case "table":
-        return this.renderTableBlock(block, selectedBlockId);
-      case "pagebreak":
-        return this.renderPageBreakBlock();
-      case "pageheader":
-        return this.renderPageHeaderBlock(block, selectedBlockId);
-      case "pagefooter":
-        return this.renderPageFooterBlock(block, selectedBlockId);
-      default:
-        return html`<div class="text-muted small">
-          Unknown block type: ${(block as Block).type}
-        </div>`;
+    const plugin = this.rendererPlugins[block.type];
+    if (plugin) {
+      return plugin.render({ block, selectedBlockId }) as HtmlResult;
     }
+
+    return html`<div class="text-muted small">
+      Unknown block type: ${(block as Block).type}
+    </div>`;
   }
 
   private getResolvedStyleString(blockId: string): string {
     return styleObjectToString(this.editor.getResolvedBlockStyles(blockId));
   }
 
-  private renderStyledContent(blockId: string, content: HtmlResult): HtmlResult {
+  private renderStyledContent(
+    blockId: string,
+    content: HtmlResult,
+  ): HtmlResult {
     const resolvedStyleString = this.getResolvedStyleString(blockId);
-    return html`<div class="block-content" style=${resolvedStyleString}>${content}</div>`;
+    return html`<div class="block-content" style=${resolvedStyleString}>
+      ${content}
+    </div>`;
   }
 
   // ==========================================================================
@@ -443,7 +484,8 @@ export class BlockRenderer {
                 onclick=${(e: Event) => e.stopPropagation()}
                 oninput=${(e: Event) => {
                   this.editor.updateBlock(block.id, {
-                    indexAlias: (e.target as HTMLInputElement).value || undefined,
+                    indexAlias:
+                      (e.target as HTMLInputElement).value || undefined,
                   });
                 }}
               />
@@ -763,7 +805,10 @@ export class BlockRenderer {
   /** Render the empty state message when no blocks exist */
   private renderEmpty(): HtmlResult {
     return html`
-      <div class="empty-state text-center text-muted p-4" data-testid="empty-state">
+      <div
+        class="empty-state text-center text-muted p-4"
+        data-testid="empty-state"
+      >
         No blocks yet. Add one using the toolbar above.
       </div>
     `;

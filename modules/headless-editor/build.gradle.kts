@@ -2,31 +2,30 @@ plugins {
     `java-library`
 }
 
-val verifyFrontendBuild by tasks.registering {
-    description = "Verifies that the frontend build output exists"
-    group = "verification"
+val buildFrontend by tasks.registering(Exec::class) {
+    description = "Builds headless editor frontend assets"
+    group = "build"
 
-    doLast {
-        val distDir = file("dist")
-        if (!distDir.exists() || !distDir.isDirectory) {
-            throw GradleException(
-                """
-                Frontend build output not found at: ${distDir.absolutePath}
+    workingDir = rootProject.projectDir
+    commandLine("pnpm", "--filter", "@epistola/headless-editor", "build")
 
-                Please run the frontend build first:
-                  pnpm --filter @epistola/headless-editor build
-                """.trimIndent(),
-            )
-        }
-    }
+    inputs.dir(layout.projectDirectory.dir("src"))
+    inputs.file(layout.projectDirectory.file("package.json"))
+    inputs.file(layout.projectDirectory.file("tsconfig.json"))
+    inputs.file(rootProject.layout.projectDirectory.file("pnpm-lock.yaml"))
+    outputs.dir(layout.projectDirectory.dir("dist"))
 }
 
 val copyDistToResources by tasks.registering(Copy::class) {
-    dependsOn(verifyFrontendBuild)
+    dependsOn(buildFrontend)
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/headless-editor"))
 }
 
 tasks.named("processResources") {
+    dependsOn(copyDistToResources)
+}
+
+tasks.named("compileJava") {
     dependsOn(copyDistToResources)
 }

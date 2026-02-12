@@ -392,6 +392,56 @@ export interface BlockDefinition {
   category?: string;
 }
 
+/**
+ * Output capability metadata declared by a block plugin.
+ * Used by hosts to determine whether a block participates in a generation path.
+ */
+export interface BlockPluginCapabilities {
+  html?: boolean;
+  pdf?: boolean;
+}
+
+/**
+ * Toolbar metadata declared by a block plugin.
+ */
+export interface BlockToolbarConfig {
+  visible?: boolean;
+  order?: number;
+  group?: string;
+  label?: string;
+  icon?: string;
+}
+
+/**
+ * Catalog item exposed for editor toolbars.
+ */
+export interface BlockCatalogItem {
+  type: string;
+  label: string;
+  icon?: string;
+  group: string;
+  order: number;
+  visible: boolean;
+  addableAtRoot: boolean;
+}
+
+/**
+ * Block plugin contract used for registration in headless editor.
+ * Mirrors block definition behavior and adds explicit capability metadata.
+ */
+export interface BlockPlugin {
+  type: string;
+  create: (id: string) => Block;
+  validate: (block: Block) => ValidationResult;
+  constraints: BlockConstraints;
+  dropContainers?: (block: Block) => string[];
+  label?: string;
+  icon?: string;
+  category?: string;
+  capabilities?: BlockPluginCapabilities;
+  toolbar?: boolean | BlockToolbarConfig;
+}
+
 // ============================================================================
 // Drag & Drop Types
 // ============================================================================
@@ -428,7 +478,12 @@ export interface DragDropPort {
   getDropZones(draggedId: string): DropZone[];
 
   /** Execute the drop (position defaults to 'inside' if omitted) */
-  drop(draggedId: string, targetId: string | null, index: number, position?: DropPosition): void;
+  drop(
+    draggedId: string,
+    targetId: string | null,
+    index: number,
+    position?: DropPosition,
+  ): void;
 }
 
 // ============================================================================
@@ -559,7 +614,7 @@ export interface EditorCallbacks {
  */
 export interface EditorConfig {
   template?: Template;
-  blocks?: Record<string, BlockDefinition>;
+  plugins?: BlockPlugin[];
   callbacks?: EditorCallbacks;
 }
 

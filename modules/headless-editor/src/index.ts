@@ -29,6 +29,8 @@ export {
   pageHeaderBlockDefinition,
   pageFooterBlockDefinition,
   blockHelpers,
+  blockDefinitionToPlugin,
+  blockDefinitionsToPlugins,
 } from "./blocks/index.js";
 
 // Types
@@ -63,6 +65,10 @@ export type {
   BlockConstraints,
   ValidationResult,
   BlockDefinition,
+  BlockPlugin,
+  BlockPluginCapabilities,
+  BlockToolbarConfig,
+  BlockCatalogItem,
   // Drag & drop types
   DropPosition,
   DropZone,
@@ -91,7 +97,11 @@ export type {
 export { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from "./types.js";
 
 // Expression evaluator
-export type { EvaluationResult, EvaluationContext, ScopeVariable } from "./evaluator/index.js";
+export type {
+  EvaluationResult,
+  EvaluationContext,
+  ScopeVariable,
+} from "./evaluator/index.js";
 export {
   evaluateJsonata,
   evaluateJsonataBoolean,

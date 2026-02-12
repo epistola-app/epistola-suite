@@ -92,10 +92,17 @@
   opacity: 0.8;
 }
 
+.ve-block-dragging .text-block-editor,
+.ve-block-dragging .text-block-editor * {
+  pointer-events: none;
+}
+
 .invalid-drop-target {
   background: #fee2e2 !important;
   border-color: #fca5a5 !important;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 /* Empty state */
@@ -355,4 +362,104 @@
 .expression-chip-popover-actions .btn {
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
+}
+
+.ve-app-shell {
+  --ve-toolbar-height: 3.5rem;
+  --ve-toolbar-margin-bottom: 1rem;
+  --ve-shell-gap: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ve-shell-gap);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ve-app-toolbar {
+  padding: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #fff;
+  height: var(--ve-toolbar-height);
+  min-height: var(--ve-toolbar-height);
+  max-height: var(--ve-toolbar-height);
+  margin-bottom: var(--ve-toolbar-margin-bottom) !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  font-size: 12px !important;
+}
+
+.ve-app-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 44%);
+  gap: 0.75rem;
+  height: calc(
+    100% - var(--ve-toolbar-height) - var(--ve-toolbar-margin-bottom) -
+      var(--ve-shell-gap)
+  );
+  max-height: calc(
+    100% - var(--ve-toolbar-height) - var(--ve-toolbar-margin-bottom) -
+      var(--ve-shell-gap)
+  );
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ve-editor-pane,
+.ve-preview-pane {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.ve-preview-pane .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ve-preview-pane .card-body {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.ve-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-sm {
+  font-size: 12px !important;
+  text-wrap: nowrap;
+  padding: 0.25rem 0.75rem !important;
+}
+
+.ve-app-shell .btn-sm,
+.block .btn-sm {
+  --bs-btn-font-size: 0.75rem;
+  --bs-btn-padding-y: 0.2rem;
+  --bs-btn-padding-x: 0.45rem;
+}
+
+.ve-app-shell .form-select-sm,
+.ve-app-shell .form-control-sm {
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .ve-app-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .ve-preview-pane .card-body {
+    min-height: 0 !important;
+  }
 }

@@ -22,6 +22,7 @@
  */
 
 import { Controller } from "@hotwired/stimulus";
+import { html, render as renderHtml } from "uhtml";
 import type {
   TemplateEditor,
   Template,
@@ -33,7 +34,7 @@ import type {
   PageFooterBlock,
   BlockType,
 } from "@epistola/headless-editor";
-import { getEditor, getMountConfig } from "../mount.js";
+import { getEditorForElement, getRuntimeForElement } from "../mount.js";
 
 export class EditorController extends Controller {
   static targets = [
@@ -77,7 +78,7 @@ export class EditorController extends Controller {
   private beforeUnloadHandler?: (e: BeforeUnloadEvent) => void;
 
   connect(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
 
     const stores = editor.getStores();
@@ -96,21 +97,20 @@ export class EditorController extends Controller {
     );
 
     // Read save handler from mount config
-    const config = getMountConfig();
-    if (config?.save) {
-      this.saveHandler = config.save.handler;
-    }
+    this.saveHandler = getRuntimeForElement(this.element)?.saveHandler;
 
     // Populate theme selector
     if (this.hasThemeSelectTarget) {
       const themes = editor.getThemes();
       const currentThemeId = editor.getTemplate().themeId;
-      for (const theme of themes) {
-        const option = document.createElement("option");
-        option.value = theme.id;
-        option.textContent = theme.name;
-        if (theme.id === currentThemeId) option.selected = true;
-        this.themeSelectTarget.appendChild(option);
+      renderHtml(
+        this.themeSelectTarget,
+        html`${themes.map(
+          (theme) => html`<option value=${theme.id}>${theme.name}</option>`,
+        )}`,
+      );
+      if (currentThemeId) {
+        this.themeSelectTarget.value = currentThemeId;
       }
     }
 
@@ -118,12 +118,15 @@ export class EditorController extends Controller {
     if (this.hasDataExampleSelectTarget) {
       const examples = editor.getDataExamples();
       const selectedId = editor.getSelectedDataExampleId();
-      for (const example of examples) {
-        const option = document.createElement("option");
-        option.value = example.id;
-        option.textContent = example.name;
-        if (example.id === selectedId) option.selected = true;
-        this.dataExampleSelectTarget.appendChild(option);
+      renderHtml(
+        this.dataExampleSelectTarget,
+        html`${examples.map(
+          (example) =>
+            html`<option value=${example.id}>${example.name}</option>`,
+        )}`,
+      );
+      if (selectedId) {
+        this.dataExampleSelectTarget.value = selectedId;
       }
     }
 
@@ -190,7 +193,7 @@ export class EditorController extends Controller {
 
   /** Add a block of the specified type at root level. Data attribute: `data-block-type`. */
   addBlock(event: Event): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
 
     const target = event.currentTarget as HTMLElement;
@@ -202,7 +205,7 @@ export class EditorController extends Controller {
 
   /** Add a text block inside the currently selected container. */
   addBlockToSelected(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
 
     const state = editor.getState();
@@ -212,15 +215,15 @@ export class EditorController extends Controller {
   }
 
   undo(): void {
-    getEditor()?.undo();
+    this.getEditor()?.undo();
   }
 
   redo(): void {
-    getEditor()?.redo();
+    this.getEditor()?.redo();
   }
 
   deleteSelected(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
     const state = editor.getState();
     if (state.selectedBlockId) {
@@ -229,7 +232,7 @@ export class EditorController extends Controller {
   }
 
   clearSelection(): void {
-    getEditor()?.selectBlock(null);
+    this.getEditor()?.selectBlock(null);
   }
 
   // ==========================================================================
@@ -244,7 +247,17 @@ export class EditorController extends Controller {
   }
 
   async save(): Promise<void> {
-    const editor = getEditor();
+    const editor = this.getEditor();
+    if (!this.saveHandler) {
+      this.saveHandler = getRuntimeForElement(this.element)?.saveHandler;
+      if (!this.saveHandler && editor) {
+        this.saveHandler = (
+          editor as unknown as {
+            __saveHandler?: (template: Template) => Promise<void>;
+          }
+        ).__saveHandler;
+      }
+    }
     if (!editor || !this.saveHandler) return;
 
     if (this.hasSaveStatusTarget) {
@@ -273,7 +286,7 @@ export class EditorController extends Controller {
   // ==========================================================================
 
   handleThemeChange(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor || !this.hasThemeSelectTarget) return;
     editor.updateThemeId(this.themeSelectTarget.value || null);
   }
@@ -283,7 +296,7 @@ export class EditorController extends Controller {
   // ==========================================================================
 
   handleDataExampleChange(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor || !this.hasDataExampleSelectTarget) return;
     editor.selectDataExample(this.dataExampleSelectTarget.value || null);
   }
@@ -293,7 +306,7 @@ export class EditorController extends Controller {
   // ==========================================================================
 
   exportTemplate(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
 
     const json = editor.exportJSON();
@@ -310,7 +323,7 @@ export class EditorController extends Controller {
   }
 
   importTemplate(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
 
     const input = document.createElement("input");
@@ -331,5 +344,9 @@ export class EditorController extends Controller {
     };
 
     input.click();
+  }
+
+  private getEditor(): TemplateEditor | null {
+    return getEditorForElement(this.element);
   }
 }

@@ -8,69 +8,53 @@
 import type {
   TemplateEditor,
   Template,
+  BlockPlugin,
   ThemeSummary,
   DataExample,
   JsonSchema,
   JsonObject,
   DragDropPort,
   Block,
-} from '@epistola/headless-editor';
-// ============================================================================
-// Mount Config
-// ============================================================================
+} from "@epistola/headless-editor";
 
-/**
- * Configuration object for `mountEditor()`.
- * Describes everything needed to create a fully functional editor instance.
- */
-export interface MountConfig {
-  /**
-   * Target container element or CSS selector.
-   * If a string, resolved via `document.querySelector()`.
-   * If an HTMLElement, used directly.
-   */
+export type PreviewResult =
+  | string
+  | Blob
+  | {
+      mimeType: string;
+      data: string | Blob;
+    }
+  | void;
+export interface EditorAppUiConfig {
+  showThemeSelector?: boolean;
+  showDataExampleSelector?: boolean;
+  showPreview?: boolean;
+  labels?: {
+    save?: string;
+    preview?: string;
+  };
+}
+
+export interface MountEditorAppConfig {
   container: string | HTMLElement;
-
-  /** Initial template data to load into the editor */
   template: Template;
-
-  /**
-   * Save lifecycle configuration.
-   * When provided, the editor manages the full save cycle:
-   * call handler, markAsSaved(), dirty status UI, error handling.
-   */
-  save?: SaveConfig;
-
-  /**
-   * Preview lifecycle configuration.
-   * When provided, the editor manages debounced preview refresh on template changes.
-   */
-  preview?: PreviewConfig;
-
-  /** Available themes for the theme selector dropdown */
+  onSave?: (template: Template) => Promise<void>;
+  onPreview?: (template: Template, data: JsonObject) => Promise<PreviewResult>;
   themes?: ThemeSummary[];
-
-  /** Default theme to pre-select */
   defaultTheme?: ThemeSummary | null;
-
-  /** Data examples for the data example selector dropdown */
   dataExamples?: DataExample[];
-
-  /** JSON schema for expression autocomplete */
   schema?: JsonSchema | null;
-
-  /** Enable debug mode (logs state changes, render timings) */
   debug?: boolean;
+  ui?: EditorAppUiConfig;
+  plugins?: BlockPlugin[];
+  rendererPlugins?: BlockRendererPlugin[];
 }
 
 // ============================================================================
 // Mounted Editor (return type)
 // ============================================================================
 
-/**
- * Public API returned by `mountEditor()`.
- * Provides access to the current template, the underlying editor, and cleanup.
- */
+/** Public API returned by `mountEditorApp()`. */
 export interface MountedEditor {
   /** Get the current template as a snapshot */
   getTemplate(): Template;
@@ -84,56 +68,9 @@ export interface MountedEditor {
   /**
    * Destroy the editor, cleaning up all subscriptions, controllers,
    * SortableJS instances, TipTap editors, hotkey bindings, and DOM content.
-   * After calling destroy(), `mountEditor()` can be called again on the same container.
+   * After calling destroy(), `mountEditorApp()` can be called again on the same container.
    */
   destroy(): void;
-}
-
-// ============================================================================
-// Save Config
-// ============================================================================
-
-/**
- * Configuration for the save lifecycle.
- * The handler is called when the user triggers save (button click or Ctrl+S).
- */
-export interface SaveConfig {
-  /**
-   * Async function that persists the template.
-   * Called with the current template data.
-   * On success, the editor automatically calls `markAsSaved()`.
-   * On failure, the editor updates the save status UI to indicate failure.
-   */
-  handler: (template: Template) => Promise<void>;
-}
-
-// ============================================================================
-// Preview Config
-// ============================================================================
-
-/**
- * Configuration for the live preview lifecycle.
- * The handler is called with debounced updates when the template changes.
- */
-export interface PreviewConfig {
-  /**
-   * Async function that renders a preview.
-   * Called with the current template and test data.
-   * Should return HTML content or update the preview iframe.
-   */
-  handler: (template: Template, data: JsonObject) => Promise<string>;
-
-  /**
-   * Preview iframe element or CSS selector.
-   * The handler's return value is written to this iframe's srcdoc.
-   */
-  iframe: string | HTMLIFrameElement;
-
-  /**
-   * Debounce delay in milliseconds for automatic preview refresh.
-   * Defaults to 500ms.
-   */
-  debounceMs?: number;
 }
 
 // ============================================================================
@@ -163,6 +100,19 @@ export interface RendererOptions {
 
   /** Enable debug logging for render timings */
   debug?: boolean;
+
+  /** Optional block renderer plugins keyed by block type */
+  rendererPlugins?: BlockRendererPlugin[];
+}
+
+export interface BlockRendererPluginContext {
+  block: Block;
+  selectedBlockId: string | null;
+}
+
+export interface BlockRendererPlugin {
+  type: string;
+  render: (context: BlockRendererPluginContext) => unknown;
 }
 
 // ============================================================================

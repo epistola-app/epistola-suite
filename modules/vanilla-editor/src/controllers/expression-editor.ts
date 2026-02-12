@@ -6,17 +6,19 @@
  */
 
 import { Controller } from "@hotwired/stimulus";
+import { html, render as renderHtml } from "uhtml";
 import {
   buildEvaluationContext,
   evaluateJsonata,
   getExpressionCompletions,
 } from "@epistola/headless-editor";
 import type {
+  TemplateEditor,
   ScopeVariable,
   ExpressionCompletionItem,
   EvaluationResult,
 } from "@epistola/headless-editor";
-import { getEditor } from "../mount.js";
+import { getEditorForElement } from "../mount.js";
 
 interface RenderableSuggestion {
   item: ExpressionCompletionItem;
@@ -238,37 +240,36 @@ export class ExpressionEditorController extends Controller {
     }
 
     this.completionRange = { from: completion.from, to: completion.to };
-    const suggestions: RenderableSuggestion[] = completion.options.map((item) => ({
-      item,
-      value: item.apply,
-    }));
+    const suggestions: RenderableSuggestion[] = completion.options.map(
+      (item) => ({
+        item,
+        value: item.apply,
+      }),
+    );
     this.renderDropdown(suggestions);
   }
 
   private renderDropdown(suggestions: RenderableSuggestion[]): void {
-    while (this.dropdownTarget.firstChild) {
-      this.dropdownTarget.removeChild(this.dropdownTarget.firstChild);
-    }
-
-    for (const suggestion of suggestions) {
-      const item = document.createElement("div");
-      item.className = "expression-suggestion-item";
-      item.dataset.value = suggestion.value;
-      item.dataset.action =
-        "click-&gt;expression-editor#selectSuggestionFromClick mouseenter-&gt;expression-editor#highlightFromMouse";
-
-      const label = document.createElement("span");
-      label.className = "expression-suggestion-label";
-      label.textContent = suggestion.item.label;
-      item.appendChild(label);
-
-      const detail = document.createElement("span");
-      detail.className = "expression-suggestion-detail";
-      detail.textContent = suggestion.item.detail;
-      item.appendChild(detail);
-
-      this.dropdownTarget.appendChild(item);
-    }
+    renderHtml(
+      this.dropdownTarget,
+      html`${suggestions.map(
+        (suggestion) => html`
+          <div
+            class="expression-suggestion-item"
+            data-value=${suggestion.value}
+            onclick=${(event: Event) => this.selectSuggestionFromClick(event)}
+            onmouseenter=${(event: Event) => this.highlightFromMouse(event)}
+          >
+            <span class="expression-suggestion-label"
+              >${suggestion.item.label}</span
+            >
+            <span class="expression-suggestion-detail"
+              >${suggestion.item.detail}</span
+            >
+          </div>
+        `,
+      )}`,
+    );
 
     this.isOpen = true;
     this.dropdownTarget.style.display = "block";
@@ -328,12 +329,19 @@ export class ExpressionEditorController extends Controller {
     if (requestId !== this.previewRequestId) return;
 
     if (!result.success) {
-      this.renderPreviewResult(false, result.error ?? "Expression evaluation failed");
+      this.renderPreviewResult(
+        false,
+        result.error ?? "Expression evaluation failed",
+      );
       return;
     }
 
     const warning = getBlockTypeWarning(this.blockTypeValue, result.value);
-    this.renderPreviewResult(true, formatExpressionPreviewValue(result.value), warning);
+    this.renderPreviewResult(
+      true,
+      formatExpressionPreviewValue(result.value),
+      warning,
+    );
   }
 
   private async evaluate(expression: string): Promise<EvaluationResult> {
@@ -352,13 +360,10 @@ export class ExpressionEditorController extends Controller {
   }
 
   private setPreviewMessage(message: string, className: string): void {
-    while (this.previewTarget.firstChild) {
-      this.previewTarget.removeChild(this.previewTarget.firstChild);
-    }
-    const span = document.createElement("span");
-    span.className = className;
-    span.textContent = message;
-    this.previewTarget.appendChild(span);
+    renderHtml(
+      this.previewTarget,
+      html`<span class=${className}>${message}</span>`,
+    );
   }
 
   private renderPreviewResult(
@@ -368,33 +373,23 @@ export class ExpressionEditorController extends Controller {
   ): void {
     if (!this.hasPreviewTarget) return;
 
-    while (this.previewTarget.firstChild) {
-      this.previewTarget.removeChild(this.previewTarget.firstChild);
-    }
-
-    const wrapper = document.createElement("div");
-    wrapper.className = isSuccess
+    const wrapperClass = isSuccess
       ? "expression-preview-success"
       : "expression-preview-error";
+    const label = isSuccess ? "Preview:" : "Error:";
 
-    const label = document.createElement("span");
-    label.className = "expression-preview-label";
-    label.textContent = isSuccess ? "Preview:" : "Error:";
-    wrapper.appendChild(label);
-
-    const code = document.createElement("code");
-    code.className = "expression-preview-value";
-    code.textContent = message;
-    wrapper.appendChild(code);
-
-    this.previewTarget.appendChild(wrapper);
-
-    if (warning && isSuccess) {
-      const warningEl = document.createElement("div");
-      warningEl.className = "expression-preview-warning";
-      warningEl.textContent = warning;
-      this.previewTarget.appendChild(warningEl);
-    }
+    renderHtml(
+      this.previewTarget,
+      html`
+        <div class=${wrapperClass}>
+          <span class="expression-preview-label">${label}</span>
+          <code class="expression-preview-value">${message}</code>
+        </div>
+        ${warning && isSuccess
+          ? html`<div class="expression-preview-warning">${warning}</div>`
+          : null}
+      `,
+    );
   }
 
   private getTextBeforeCursor(): string {
@@ -408,13 +403,13 @@ export class ExpressionEditorController extends Controller {
   }
 
   private getTestData(): Record<string, unknown> {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return {};
     return editor.getState().testData ?? {};
   }
 
   private getScopeVariables(): ScopeVariable[] {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return [];
     return editor.getScopeVariables(this.blockIdValue);
   }
@@ -428,7 +423,7 @@ export class ExpressionEditorController extends Controller {
   }
 
   private notifyChange(): void {
-    const editor = getEditor();
+    const editor = this.getEditor();
     if (!editor) return;
 
     const blockId = this.blockIdValue;
@@ -450,5 +445,9 @@ export class ExpressionEditorController extends Controller {
     if (!this.element.contains(event.target as Node)) {
       this.closeDropdown();
     }
+  }
+
+  private getEditor(): TemplateEditor | null {
+    return getEditorForElement(this.element);
   }
 }

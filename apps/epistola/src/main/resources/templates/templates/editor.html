@@ -1,1238 +1,176 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13/font/bootstrap-icons.css">
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <link rel="stylesheet" th:href="@{/vanilla-editor/vanilla-editor.css}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title th:text="${templateName + ' - Edit - Epistola'}">
+      Edit Template - Epistola
+    </title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13/font/bootstrap-icons.css"
+    />
+    <link rel="stylesheet" th:href="@{/css/main.css}" />
+    <link rel="stylesheet" th:href="@{/vanilla-editor/vanilla-editor.css}" />
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-        }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
 
-        .editor-page {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
+      :root {
+        --editor-header-height: 3.5rem;
+        --editor-main-padding: 1rem;
+      }
 
-        /* Header */
-        .editor-header {
-            padding: 0.625rem 1.5rem;
-            background: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
+      .editor-page {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-        .editor-header h1 {
-            margin: 0;
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #1e293b;
-        }
+      .editor-header {
+        padding: 0.625rem 1.5rem;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+        height: var(--editor-header-height);
+      }
 
-        .editor-header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
+      .editor-header h1 {
+        margin: 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #1e293b;
+      }
 
-        .editor-header-right {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
+      .editor-header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
 
-        /* Toolbar */
-        .editor-toolbar {
-            padding: 0.5rem 1rem;
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            flex-shrink: 0;
-            flex-wrap: wrap;
-        }
+      .editor-main {
+        flex: 1;
+        overflow: hidden;
+        padding: var(--editor-main-padding);
+        background: #f1f5f9;
+        height: calc(100vh - var(--editor-header-height));
+      }
 
-        .toolbar-group {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .toolbar-divider {
-            width: 1px;
-            height: 1.5rem;
-            background: #e2e8f0;
-            margin: 0 0.25rem;
-        }
-
-        .toolbar-group .btn {
-            font-size: 0.8rem;
-            padding: 0.3rem 0.5rem;
-            line-height: 1.2;
-        }
-
-        .toolbar-group .btn i {
-            margin-right: 0.15rem;
-        }
-
-        /* Save status */
-        .save-status {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            min-width: 100px;
-            text-align: right;
-        }
-
-        .save-status.dirty {
-            color: #b45309;
-        }
-
-        .save-status.saving {
-            color: #4a90d9;
-        }
-
-        .save-status.saved {
-            color: #16a34a;
-        }
-
-        .save-status.error {
-            color: #dc3545;
-        }
-
-        /* Editor main area - split layout */
-        .editor-main {
-            flex: 1;
-            display: flex;
-            overflow: hidden;
-        }
-
-        .editor-pane {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem;
-            min-width: 400px;
-        }
-
-        .preview-pane {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border-left: 1px solid #e2e8f0;
-            background: #f1f5f9;
-            min-width: 400px;
-        }
-
-        .preview-pane.hidden {
-            display: none;
-        }
-
-        .preview-header {
-            padding: 0.5rem 1rem;
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
-
-        .preview-header-title {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: #64748b;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .preview-status {
-            font-size: 0.75rem;
-            color: #94a3b8;
-        }
-
-        .preview-status.loading {
-            color: #4a90d9;
-        }
-
-        .preview-status.error {
-            color: #dc3545;
-        }
-
-        .preview-content {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            overflow: hidden;
-        }
-
-        .preview-iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .preview-empty {
-            text-align: center;
-            color: #94a3b8;
-        }
-
-        .preview-empty i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        #editor-root {
-            max-width: 860px;
-            margin: 0 auto;
-        }
-
-        /* Block styles, SortableJS feedback, and empty state
-           are now in vanilla-editor.css */
+      #editor-root {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
     </style>
-</head>
-<body>
-    <div class="editor-page" data-controller="editor">
-        <!-- Header -->
-        <header class="editor-header">
-            <div class="editor-header-left">
-                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${templateId})}"
-                   class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-left"></i> Back
-                </a>
-                <h1 th:text="${templateName}">Template Name</h1>
-                <span th:if="${variantTags != null and !variantTags.isEmpty()}" class="d-flex gap-1">
-                    <span th:each="entry : ${variantTags}"
-                          class="badge bg-light text-dark border"
-                          th:text="${entry.key + '=' + entry.value}"></span>
-                </span>
-            </div>
-            <div class="editor-header-right">
-                <span id="save-status" class="save-status" data-editor-target="saveStatus"></span>
-                <button id="btn-save" class="btn btn-sm btn-primary" data-hotkey="Mod+s"
-                        data-action="editor#save" data-editor-target="saveBtn">
-                    <i class="bi bi-cloud-upload"></i> Save
-                </button>
-            </div>
-        </header>
-
-        <!-- Toolbar -->
-        <div class="editor-toolbar">
-            <div class="toolbar-group">
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="text">
-                    <i class="bi bi-type"></i> Text
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="container">
-                    <i class="bi bi-box"></i> Container
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="conditional">
-                    <i class="bi bi-question-circle"></i> If
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="loop">
-                    <i class="bi bi-arrow-repeat"></i> Loop
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="columns">
-                    <i class="bi bi-layout-three-columns"></i> Columns
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="table">
-                    <i class="bi bi-table"></i> Table
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="pagebreak">
-                    <i class="bi bi-dash-lg"></i> Break
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="pageheader">
-                    <i class="bi bi-arrow-up-square"></i> Header
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#addBlock" data-block-type="pagefooter">
-                    <i class="bi bi-arrow-down-square"></i> Footer
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button class="btn btn-sm btn-outline-primary" data-action="editor#addBlockToSelected">
-                    <i class="bi bi-plus-circle"></i> Add to selected
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-undo" class="btn btn-sm btn-outline-secondary" disabled data-hotkey="Mod+z"
-                        data-action="editor#undo" data-editor-target="undoBtn">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
-                <button id="btn-redo" class="btn btn-sm btn-outline-secondary" disabled data-hotkey="Mod+y"
-                        data-action="editor#redo" data-editor-target="redoBtn">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#exportTemplate">
-                    <i class="bi bi-download"></i> Export
-                </button>
-                <button class="btn btn-sm btn-outline-secondary" data-action="editor#importTemplate">
-                    <i class="bi bi-upload"></i> Import
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <select id="theme-selector" class="form-select form-select-sm" style="width: auto;" title="Select theme"
-                        data-action="change->editor#handleThemeChange" data-editor-target="themeSelect">
-                    <option value="">Default theme</option>
-                </select>
-            </div>
-
-            <div class="toolbar-group">
-                <select id="data-example-selector" class="form-select form-select-sm" style="width: auto;" title="Select test data"
-                        data-action="change->editor#handleDataExampleChange" data-editor-target="dataExampleSelect">
-                    <option value="">No test data</option>
-                </select>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-page-settings" class="btn btn-sm btn-outline-secondary" title="Page settings">
-                    <i class="bi bi-file-earmark"></i> Page
-                </button>
-                <button id="btn-document-styles" class="btn btn-sm btn-outline-secondary" title="Document styles">
-                    <i class="bi bi-palette"></i> Styles
-                </button>
-                <button id="btn-block-styles" class="btn btn-sm btn-outline-secondary" title="Style selected block" disabled
-                        data-editor-target="blockStylesBtn">
-                    <i class="bi bi-brush"></i> Block
-                </button>
-            </div>
-
-            <div class="toolbar-divider"></div>
-
-            <div class="toolbar-group">
-                <button id="btn-toggle-preview" class="btn btn-sm btn-outline-primary active" title="Toggle preview">
-                    <i class="bi bi-eye-slash"></i> Hide
-                </button>
-                <button id="btn-refresh-preview" class="btn btn-sm btn-outline-secondary" title="Refresh preview">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-            </div>
+  </head>
+  <body>
+    <div class="editor-page">
+      <header class="editor-header">
+        <div class="editor-header-left">
+          <a
+            th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${templateId})}"
+            class="btn btn-sm btn-outline-secondary"
+          >
+            <i class="bi bi-arrow-left"></i> Back
+          </a>
+          <h1 th:text="${templateName}">Template Name</h1>
+          <span
+            th:if="${variantTags != null and !variantTags.isEmpty()}"
+            class="d-flex gap-1"
+          >
+            <span
+              th:each="entry : ${variantTags}"
+              class="badge bg-light text-dark border"
+              th:text="${entry.key + '=' + entry.value}"
+            ></span>
+          </span>
         </div>
+      </header>
 
-        <!-- Editor main area (split layout) -->
-        <div class="editor-main">
-            <!-- Editor pane (left) -->
-            <div class="editor-pane">
-                <div id="editor-root"></div>
-            </div>
-
-            <!-- Preview pane (right) -->
-            <div id="preview-pane" class="preview-pane">
-                <div class="preview-header">
-                    <div class="preview-header-title">
-                        <i class="bi bi-file-pdf"></i>
-                        <span>Live Preview</span>
-                    </div>
-                    <span id="preview-status" class="preview-status"></span>
-                </div>
-                <div class="preview-content">
-                    <div id="preview-empty" class="preview-empty">
-                        <i class="bi bi-file-earmark-pdf"></i>
-                        <p>Select test data to see preview</p>
-                    </div>
-                    <iframe id="preview-iframe" class="preview-iframe" style="display: none;"></iframe>
-                </div>
-            </div>
-        </div>
+      <main class="editor-main">
+        <div id="editor-root"></div>
+      </main>
     </div>
 
-    <!-- Page Settings Modal -->
-    <div class="modal fade" id="page-settings-modal" tabindex="-1" aria-labelledby="page-settings-title" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="page-settings-title">Page Settings</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="page-format" class="form-label">Page Format</label>
-                        <select id="page-format" class="form-select">
-                            <option value="A4">A4</option>
-                            <option value="Letter">Letter</option>
-                            <option value="Legal">Legal</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Orientation</label>
-                        <div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="page-orientation" id="orientation-portrait" value="portrait" checked>
-                                <label class="form-check-label" for="orientation-portrait">Portrait</label>
-                            </div>
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="radio" name="page-orientation" id="orientation-landscape" value="landscape">
-                                <label class="form-check-label" for="orientation-landscape">Landscape</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Margins (mm)</label>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label for="margin-top" class="form-label small text-muted">Top</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-top" value="20" min="0" max="100">
-                            </div>
-                            <div class="col-6">
-                                <label for="margin-right" class="form-label small text-muted">Right</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-right" value="20" min="0" max="100">
-                            </div>
-                            <div class="col-6">
-                                <label for="margin-bottom" class="form-label small text-muted">Bottom</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-bottom" value="20" min="0" max="100">
-                            </div>
-                            <div class="col-6">
-                                <label for="margin-left" class="form-label small text-muted">Left</label>
-                                <input type="number" class="form-control form-control-sm" id="margin-left" value="20" min="0" max="100">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-save-page-settings">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Document Styles Modal -->
-    <div class="modal fade" id="document-styles-modal" tabindex="-1" aria-labelledby="document-styles-title" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="document-styles-title">Document Styles</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="doc-font-family" class="form-label">Font Family</label>
-                        <input type="text" class="form-control" id="doc-font-family" placeholder="e.g., Inter, Arial, sans-serif">
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-8">
-                            <label for="doc-font-size-value" class="form-label">Font Size</label>
-                            <input type="number" class="form-control" id="doc-font-size-value" value="12" min="1" step="0.1">
-                        </div>
-                        <div class="col-4">
-                            <label for="doc-font-size-unit" class="form-label">Unit</label>
-                            <select class="form-select" id="doc-font-size-unit">
-                                <option value="pt">pt</option>
-                                <option value="px">px</option>
-                                <option value="em">em</option>
-                                <option value="rem">rem</option>
-                                <option value="%">%</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="doc-font-weight" class="form-label">Font Weight</label>
-                        <select class="form-select" id="doc-font-weight">
-                            <option value="">Default</option>
-                            <option value="100">100 (Thin)</option>
-                            <option value="200">200 (Extra Light)</option>
-                            <option value="300">300 (Light)</option>
-                            <option value="400">400 (Normal)</option>
-                            <option value="500">500 (Medium)</option>
-                            <option value="600">600 (Semi Bold)</option>
-                            <option value="700">700 (Bold)</option>
-                            <option value="800">800 (Extra Bold)</option>
-                            <option value="900">900 (Black)</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="doc-color" class="form-label">Text Color</label>
-                        <div class="input-group">
-                            <input type="color" class="form-control form-control-color" id="doc-color-picker" value="#000000">
-                            <input type="text" class="form-control" id="doc-color" placeholder="#000000">
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="doc-line-height" class="form-label">Line Height</label>
-                        <input type="number" class="form-control" id="doc-line-height" value="1.5" min="0.8" max="3" step="0.1">
-                    </div>
-
-                    <div class="row g-2 mb-3">
-                        <div class="col-8">
-                            <label for="doc-letter-spacing-value" class="form-label">Letter Spacing</label>
-                            <input type="number" class="form-control" id="doc-letter-spacing-value" step="0.1" placeholder="e.g., 0.5">
-                        </div>
-                        <div class="col-4">
-                            <label for="doc-letter-spacing-unit" class="form-label">Unit</label>
-                            <select class="form-select" id="doc-letter-spacing-unit">
-                                <option value="px">px</option>
-                                <option value="em">em</option>
-                                <option value="rem">rem</option>
-                                <option value="%">%</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="doc-text-align" class="form-label">Text Align</label>
-                        <select class="form-select" id="doc-text-align">
-                            <option value="">Default</option>
-                            <option value="left">Left</option>
-                            <option value="center">Center</option>
-                            <option value="right">Right</option>
-                            <option value="justify">Justify</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="doc-background-color" class="form-label">Background Color</label>
-                        <div class="input-group">
-                            <input type="color" class="form-control form-control-color" id="doc-background-color-picker" value="#ffffff">
-                            <input type="text" class="form-control" id="doc-background-color" placeholder="e.g., #ffffff">
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-save-document-styles">Save</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Block Styles Modal -->
-    <div class="modal fade" id="block-styles-modal" tabindex="-1" aria-labelledby="block-styles-title" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="block-styles-title">Block Styles</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-muted small mb-3">Styling for selected <span id="block-type-label" class="badge bg-secondary">block</span></p>
-
-                    <!-- Typography -->
-                    <h6 class="text-muted border-bottom pb-1 mb-3">Typography</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-font-size" class="form-label small">Font Size</label>
-                            <input type="text" class="form-control form-control-sm" id="block-font-size" placeholder="e.g., 14px, 1.2em">
-                        </div>
-                        <div class="col-6">
-                            <label for="block-font-weight" class="form-label small">Font Weight</label>
-                            <select class="form-select form-select-sm" id="block-font-weight">
-                                <option value="">Default</option>
-                                <option value="100">100 (Thin)</option>
-                                <option value="200">200 (Extra Light)</option>
-                                <option value="300">300 (Light)</option>
-                                <option value="400">400 (Normal)</option>
-                                <option value="500">500 (Medium)</option>
-                                <option value="600">600 (Semi Bold)</option>
-                                <option value="700">700 (Bold)</option>
-                                <option value="800">800 (Extra Bold)</option>
-                                <option value="900">900 (Black)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-color" class="form-label small">Text Color</label>
-                            <div class="input-group input-group-sm">
-                                <input type="color" class="form-control form-control-color" id="block-color-picker" value="#000000">
-                                <input type="text" class="form-control" id="block-color" placeholder="#000000">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label for="block-text-align" class="form-label small">Text Align</label>
-                            <select class="form-select form-select-sm" id="block-text-align">
-                                <option value="">Default</option>
-                                <option value="left">Left</option>
-                                <option value="center">Center</option>
-                                <option value="right">Right</option>
-                                <option value="justify">Justify</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Spacing -->
-                    <h6 class="text-muted border-bottom pb-1 mb-3">Spacing</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-padding" class="form-label small">Padding</label>
-                            <input type="text" class="form-control form-control-sm" id="block-padding" placeholder="e.g., 8px, 1em">
-                        </div>
-                        <div class="col-6">
-                            <label for="block-margin" class="form-label small">Margin</label>
-                            <input type="text" class="form-control form-control-sm" id="block-margin" placeholder="e.g., 8px, 1em">
-                        </div>
-                    </div>
-
-                    <!-- Background & Border -->
-                    <h6 class="text-muted border-bottom pb-1 mb-3">Background & Border</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label for="block-bg-color" class="form-label small">Background</label>
-                            <div class="input-group input-group-sm">
-                                <input type="color" class="form-control form-control-color" id="block-bg-color-picker" value="#ffffff">
-                                <input type="text" class="form-control" id="block-bg-color" placeholder="transparent">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label for="block-border-radius" class="form-label small">Border Radius</label>
-                            <input type="text" class="form-control form-control-sm" id="block-border-radius" placeholder="e.g., 4px, 0.5em">
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-clear-block-styles">
-                            <i class="bi bi-x-circle"></i> Clear All Styles
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="btn-save-block-styles">Apply</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Debug Panel (local profile only) -->
-    <div th:if="${@environment.matchesProfiles('local')}"
-         id="debug-panel"
-         style="position: fixed; top: 60px; right: 16px; width: 360px; max-height: calc(100vh - 80px);
-                background: #1e1e2e; color: #cdd6f4; border-radius: 8px;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.3); z-index: 9999;
-                font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 11px;
-                display: flex; flex-direction: column; overflow: hidden;">
-        <div style="padding: 8px 12px; background: #313244; border-radius: 8px 8px 0 0;
-                    display: flex; justify-content: space-between; align-items: center;
-                    border-bottom: 1px solid #45475a;">
-            <span style="font-weight: 600; color: #f5c2e7;">Debug Panel</span>
-            <button id="debug-panel-toggle"
-                    style="background: none; border: none; color: #6c7086; cursor: pointer;
-                           font-size: 14px; padding: 2px 6px;">−</button>
-        </div>
-        <div id="debug-panel-content" style="flex: 1; overflow-y: auto; padding: 8px;">
-            <div style="margin-bottom: 8px;">
-                <div style="color: #89b4fa; font-weight: 500; margin-bottom: 4px;">State</div>
-                <pre id="debug-state" style="margin: 0; white-space: pre-wrap; word-break: break-all;
-                     background: #11111b; padding: 8px; border-radius: 4px; max-height: 200px; overflow-y: auto;"></pre>
-            </div>
-            <div style="margin-bottom: 8px;">
-                <div style="color: #a6e3a1; font-weight: 500; margin-bottom: 4px;">History</div>
-                <div id="debug-history" style="background: #11111b; padding: 8px; border-radius: 4px;"></div>
-            </div>
-            <div>
-                <div style="color: #fab387; font-weight: 500; margin-bottom: 4px;">Store</div>
-                <pre id="debug-store" style="margin: 0; white-space: pre-wrap; word-break: break-all;
-                     background: #11111b; padding: 8px; border-radius: 4px; max-height: 300px; overflow-y: auto;"></pre>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bootstrap JS for modals -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Server-provided data -->
     <script th:inline="javascript">
-        /*<![CDATA[*/
-        window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
-        window.TEMPLATE_ID = /*[[${templateId}]]*/ '';
-        window.TENANT_ID = /*[[${tenantId}]]*/ '';
-        window.VARIANT_ID = /*[[${variantId}]]*/ '';
-        window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
-        window.DATA_MODEL = /*[[${dataModel}]]*/ null;
-        window.THEMES = /*[[${themes}]]*/ [];
-        window.DEFAULT_THEME = /*[[${defaultTheme}]]*/ null;
-        window.APP_VERSION = /*[[${appVersion}]]*/ 'dev';
-        window.APP_NAME = /*[[${appName}]]*/ 'Epistola';
-        window.getCsrfToken = function() {
-            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-            return match ? decodeURIComponent(match[1]) : '';
-        };
-        /*]]>*/
+      /*<![CDATA[*/
+      window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
+      window.TEMPLATE_ID = /*[[${templateId}]]*/ "";
+      window.TENANT_ID = /*[[${tenantId}]]*/ "";
+      window.VARIANT_ID = /*[[${variantId}]]*/ "";
+      window.DATA_EXAMPLES = /*[[${dataExamples}]]*/ [];
+      window.DATA_MODEL = /*[[${dataModel}]]*/ null;
+      window.THEMES = /*[[${themes}]]*/ [];
+      window.DEFAULT_THEME = /*[[${defaultTheme}]]*/ null;
+      window.getCsrfToken = function () {
+        const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : "";
+      };
+      /*]]>*/
     </script>
 
-    <!-- Vanilla editor bootstrap -->
     <script type="module">
-        import { mountEditor } from '/vanilla-editor/vanilla-editor.js';
+      import { mountEditorApp } from "/vanilla-editor/vanilla-editor.js";
 
-        // =========================================================================
-        // Mount editor with full configuration
-        // =========================================================================
-        const mounted = mountEditor({
-            container: '#editor-root',
-            template: window.TEMPLATE_MODEL,
-            themes: window.THEMES || [],
-            defaultTheme: window.DEFAULT_THEME || null,
-            dataExamples: window.DATA_EXAMPLES || [],
-            schema: window.DATA_MODEL || null,
-            save: {
-                handler: async (template) => {
-                    const response = await fetch(
-                        `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
-                        {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-XSRF-TOKEN': window.getCsrfToken(),
-                            },
-                            body: JSON.stringify({ templateModel: template }),
-                        }
-                    );
-
-                    if (!response.ok) {
-                        throw new Error('Save failed');
-                    }
-                },
+      const mounted = mountEditorApp({
+        container: "#editor-root",
+        template: window.TEMPLATE_MODEL,
+        themes: window.THEMES || [],
+        defaultTheme: window.DEFAULT_THEME || null,
+        dataExamples: window.DATA_EXAMPLES || [],
+        schema: window.DATA_MODEL || null,
+        onSave: async (template) => {
+          const response = await fetch(
+            `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-XSRF-TOKEN": window.getCsrfToken(),
+              },
+              body: JSON.stringify({ templateModel: template }),
             },
-        });
-
-        // Get the underlying TemplateEditor for modal/preview/debug code
-        const editor = mounted.getEditor();
-        editor.markAsSaved();
-
-        // =========================================================================
-        // Page Settings Modal
-        // =========================================================================
-        const pageSettingsModal = new bootstrap.Modal(document.getElementById('page-settings-modal'));
-        const btnPageSettings = document.getElementById('btn-page-settings');
-        const btnSavePageSettings = document.getElementById('btn-save-page-settings');
-
-        btnPageSettings.addEventListener('click', () => {
-            // Populate modal with current settings
-            const template = editor.getTemplate();
-            const pageSettings = template.pageSettings || {
-                format: 'A4',
-                orientation: 'portrait',
-                margins: { top: 20, right: 20, bottom: 20, left: 20 }
-            };
-
-            document.getElementById('page-format').value = pageSettings.format || 'A4';
-
-            const orientation = pageSettings.orientation || 'portrait';
-            document.getElementById('orientation-portrait').checked = orientation === 'portrait';
-            document.getElementById('orientation-landscape').checked = orientation === 'landscape';
-
-            const margins = pageSettings.margins || { top: 20, right: 20, bottom: 20, left: 20 };
-            document.getElementById('margin-top').value = margins.top ?? 20;
-            document.getElementById('margin-right').value = margins.right ?? 20;
-            document.getElementById('margin-bottom').value = margins.bottom ?? 20;
-            document.getElementById('margin-left').value = margins.left ?? 20;
-
-            pageSettingsModal.show();
-        });
-
-        btnSavePageSettings.addEventListener('click', () => {
-            const format = document.getElementById('page-format').value;
-            const orientation = document.querySelector('input[name="page-orientation"]:checked').value;
-            const margins = {
-                top: parseInt(document.getElementById('margin-top').value, 10) || 20,
-                right: parseInt(document.getElementById('margin-right').value, 10) || 20,
-                bottom: parseInt(document.getElementById('margin-bottom').value, 10) || 20,
-                left: parseInt(document.getElementById('margin-left').value, 10) || 20,
-            };
-
-            editor.updatePageSettings({ format, orientation, margins });
-            pageSettingsModal.hide();
-        });
-
-        // =========================================================================
-        // Document Styles Modal
-        // =========================================================================
-        const documentStylesModal = new bootstrap.Modal(document.getElementById('document-styles-modal'));
-        const btnDocumentStyles = document.getElementById('btn-document-styles');
-        const btnSaveDocumentStyles = document.getElementById('btn-save-document-styles');
-        const docFontFamily = document.getElementById('doc-font-family');
-        const docFontSizeValue = document.getElementById('doc-font-size-value');
-        const docFontSizeUnit = document.getElementById('doc-font-size-unit');
-        const docFontWeight = document.getElementById('doc-font-weight');
-        const docColor = document.getElementById('doc-color');
-        const docColorPicker = document.getElementById('doc-color-picker');
-        const docLineHeight = document.getElementById('doc-line-height');
-        const docLetterSpacingValue = document.getElementById('doc-letter-spacing-value');
-        const docLetterSpacingUnit = document.getElementById('doc-letter-spacing-unit');
-        const docTextAlign = document.getElementById('doc-text-align');
-        const docBackgroundColor = document.getElementById('doc-background-color');
-        const docBackgroundColorPicker = document.getElementById('doc-background-color-picker');
-
-        function isHexColor(value) {
-            return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value.trim());
-        }
-
-        function parseValueWithUnit(value, fallbackUnit) {
-            if (value == null || value === '') return { value: '', unit: fallbackUnit };
-
-            const raw = String(value).trim();
-            const match = raw.match(/^(-?\d*\.?\d+)\s*(pt|px|em|rem|%)$/i);
-            if (match) {
-                return {
-                    value: match[1],
-                    unit: match[2].toLowerCase(),
-                };
-            }
-
-            const numeric = Number(raw);
-            if (!Number.isNaN(numeric)) {
-                return {
-                    value: String(numeric),
-                    unit: fallbackUnit,
-                };
-            }
-
-            return { value: '', unit: fallbackUnit };
-        }
-
-        function composeValueWithUnit(value, unit, options = {}) {
-            const allowNegative = options.allowNegative === true;
-            const trimmed = String(value || '').trim();
-            if (!trimmed) return null;
-
-            const numeric = Number(trimmed);
-            if (Number.isNaN(numeric)) return null;
-            if (!allowNegative && numeric <= 0) return null;
-
-            return `${numeric}${unit}`;
-        }
-
-        docColorPicker.addEventListener('input', () => {
-            docColor.value = docColorPicker.value;
-        });
-        docColor.addEventListener('input', () => {
-            if (isHexColor(docColor.value)) {
-                docColorPicker.value = docColor.value.trim();
-            }
-        });
-        docBackgroundColorPicker.addEventListener('input', () => {
-            docBackgroundColor.value = docBackgroundColorPicker.value;
-        });
-        docBackgroundColor.addEventListener('input', () => {
-            if (isHexColor(docBackgroundColor.value)) {
-                docBackgroundColorPicker.value = docBackgroundColor.value.trim();
-            }
-        });
-
-        btnDocumentStyles.addEventListener('click', () => {
-            // Populate modal with current styles
-            const template = editor.getTemplate();
-            const docStyles = template.documentStyles || {};
-
-            const parsedFontSize = parseValueWithUnit(docStyles.fontSize, 'pt');
-            const parsedLetterSpacing = parseValueWithUnit(docStyles.letterSpacing, 'px');
-
-            docFontFamily.value = docStyles.fontFamily || '';
-            docFontSizeValue.value = parsedFontSize.value || '12';
-            docFontSizeUnit.value = parsedFontSize.unit || 'pt';
-            docFontWeight.value = docStyles.fontWeight || '';
-
-            const colorValue = docStyles.color || '#000000';
-            docColor.value = colorValue;
-            docColorPicker.value = isHexColor(colorValue) ? colorValue : '#000000';
-
-            docLineHeight.value = docStyles.lineHeight || 1.5;
-
-            docLetterSpacingValue.value = parsedLetterSpacing.value || '';
-            docLetterSpacingUnit.value = parsedLetterSpacing.unit || 'px';
-            docTextAlign.value = docStyles.textAlign || '';
-
-            const backgroundColorValue = docStyles.backgroundColor || '';
-            docBackgroundColor.value = backgroundColorValue;
-            docBackgroundColorPicker.value = isHexColor(backgroundColorValue) ? backgroundColorValue : '#ffffff';
-
-            documentStylesModal.show();
-        });
-
-        btnSaveDocumentStyles.addEventListener('click', () => {
-            const styles = {};
-
-            const fontFamily = docFontFamily.value.trim();
-            if (fontFamily) styles.fontFamily = fontFamily;
-
-            const fontSize = composeValueWithUnit(docFontSizeValue.value, docFontSizeUnit.value);
-            if (fontSize) styles.fontSize = fontSize;
-
-            if (docFontWeight.value) styles.fontWeight = docFontWeight.value;
-
-            const color = docColor.value.trim();
-            if (color && color !== '#000000') styles.color = color;
-
-            const lineHeight = parseFloat(docLineHeight.value);
-            if (!isNaN(lineHeight) && lineHeight > 0) styles.lineHeight = lineHeight;
-
-            const letterSpacing = composeValueWithUnit(docLetterSpacingValue.value, docLetterSpacingUnit.value, { allowNegative: true });
-            if (letterSpacing) styles.letterSpacing = letterSpacing;
-
-            if (docTextAlign.value) styles.textAlign = docTextAlign.value;
-
-            const backgroundColor = docBackgroundColor.value.trim();
-            if (backgroundColor) styles.backgroundColor = backgroundColor;
-
-            editor.updateDocumentStyles(styles);
-            documentStylesModal.hide();
-        });
-
-        // =========================================================================
-        // Block Styles Modal
-        // =========================================================================
-        const blockStylesModal = new bootstrap.Modal(document.getElementById('block-styles-modal'));
-        const btnBlockStyles = document.getElementById('btn-block-styles');
-        const btnSaveBlockStyles = document.getElementById('btn-save-block-styles');
-        const btnClearBlockStyles = document.getElementById('btn-clear-block-styles');
-        const blockTypeLabel = document.getElementById('block-type-label');
-
-        // Form elements
-        const blockFontSize = document.getElementById('block-font-size');
-        const blockFontWeight = document.getElementById('block-font-weight');
-        const blockColor = document.getElementById('block-color');
-        const blockColorPicker = document.getElementById('block-color-picker');
-        const blockTextAlign = document.getElementById('block-text-align');
-        const blockPadding = document.getElementById('block-padding');
-        const blockMargin = document.getElementById('block-margin');
-        const blockBgColor = document.getElementById('block-bg-color');
-        const blockBgColorPicker = document.getElementById('block-bg-color-picker');
-        const blockBorderRadius = document.getElementById('block-border-radius');
-
-        // Sync color pickers with text inputs
-        blockColorPicker.addEventListener('input', () => {
-            blockColor.value = blockColorPicker.value;
-        });
-        blockColor.addEventListener('input', () => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(blockColor.value)) {
-                blockColorPicker.value = blockColor.value;
-            }
-        });
-        blockBgColorPicker.addEventListener('input', () => {
-            blockBgColor.value = blockBgColorPicker.value;
-        });
-        blockBgColor.addEventListener('input', () => {
-            if (/^#[0-9A-Fa-f]{6}$/.test(blockBgColor.value)) {
-                blockBgColorPicker.value = blockBgColor.value;
-            }
-        });
-
-        // Open modal
-        btnBlockStyles.addEventListener('click', () => {
-            const state = editor.getState();
-            if (!state.selectedBlockId) return;
-
-            const block = editor.findBlock(state.selectedBlockId);
-            if (!block) return;
-
-            const styles = block.styles || {};
-
-            // Update label
-            blockTypeLabel.textContent = block.type;
-
-            // Populate form
-            blockFontSize.value = styles.fontSize || '';
-            blockFontWeight.value = styles.fontWeight || '';
-            blockColor.value = styles.color || '';
-            blockColorPicker.value = styles.color || '#000000';
-            blockTextAlign.value = styles.textAlign || '';
-            blockPadding.value = styles.padding || '';
-            blockMargin.value = styles.margin || '';
-            blockBgColor.value = styles.backgroundColor || '';
-            blockBgColorPicker.value = styles.backgroundColor || '#ffffff';
-            blockBorderRadius.value = styles.borderRadius || '';
-
-            blockStylesModal.show();
-        });
-
-        // Save styles
-        btnSaveBlockStyles.addEventListener('click', () => {
-            const state = editor.getState();
-            if (!state.selectedBlockId) return;
-
-            const styles = {};
-
-            if (blockFontSize.value.trim()) styles.fontSize = blockFontSize.value.trim();
-            if (blockFontWeight.value) styles.fontWeight = blockFontWeight.value;
-            if (blockColor.value.trim()) styles.color = blockColor.value.trim();
-            if (blockTextAlign.value) styles.textAlign = blockTextAlign.value;
-            if (blockPadding.value.trim()) styles.padding = blockPadding.value.trim();
-            if (blockMargin.value.trim()) styles.margin = blockMargin.value.trim();
-            if (blockBgColor.value.trim()) styles.backgroundColor = blockBgColor.value.trim();
-            if (blockBorderRadius.value.trim()) styles.borderRadius = blockBorderRadius.value.trim();
-
-            // Update block with new styles (empty object clears styles)
-            editor.updateBlock(state.selectedBlockId, {
-                styles: Object.keys(styles).length > 0 ? styles : undefined
-            });
-
-            blockStylesModal.hide();
-        });
-
-        // Clear all styles
-        btnClearBlockStyles.addEventListener('click', () => {
-            blockFontSize.value = '';
-            blockFontWeight.value = '';
-            blockColor.value = '';
-            blockColorPicker.value = '#000000';
-            blockTextAlign.value = '';
-            blockPadding.value = '';
-            blockMargin.value = '';
-            blockBgColor.value = '';
-            blockBgColorPicker.value = '#ffffff';
-            blockBorderRadius.value = '';
-        });
-
-        // =========================================================================
-        // Live Preview
-        // =========================================================================
-        const previewPane = document.getElementById('preview-pane');
-        const previewIframe = document.getElementById('preview-iframe');
-        const previewEmpty = document.getElementById('preview-empty');
-        const previewStatus = document.getElementById('preview-status');
-        const btnTogglePreview = document.getElementById('btn-toggle-preview');
-        const btnRefreshPreview = document.getElementById('btn-refresh-preview');
-
-        let previewVisible = true;
-        let previewDebounceTimer = null;
-        const PREVIEW_DEBOUNCE_MS = 800;
-
-        // Debounce utility
-        function debounce(fn, delay) {
-            return (...args) => {
-                clearTimeout(previewDebounceTimer);
-                previewDebounceTimer = setTimeout(() => fn(...args), delay);
-            };
-        }
-
-        // Get selected data example's data
-        function getSelectedTestData() {
-            const selectedId = editor.getSelectedDataExampleId();
-            if (!selectedId) return null;
-            const examples = editor.getDataExamples();
-            const selected = examples.find(ex => ex.id === selectedId);
-            return selected?.data || null;
-        }
-
-        // Toggle preview visibility
-        btnTogglePreview.addEventListener('click', () => {
-            previewVisible = !previewVisible;
-            previewPane.classList.toggle('hidden', !previewVisible);
-            btnTogglePreview.classList.toggle('active', previewVisible);
-            const icon = btnTogglePreview.querySelector('i');
-            icon.className = previewVisible ? 'bi bi-eye-slash' : 'bi bi-eye';
-            btnTogglePreview.innerHTML = '';
-            btnTogglePreview.appendChild(icon);
-            btnTogglePreview.appendChild(document.createTextNode(previewVisible ? ' Hide' : ' Preview'));
-        });
-
-        // Refresh preview
-        async function refreshPreview() {
-            const testData = getSelectedTestData();
-
-            if (!testData) {
-                previewIframe.style.display = 'none';
-                previewEmpty.style.display = 'block';
-                previewStatus.textContent = '';
-                return;
-            }
-
-            // Skip request if there are no blocks to render
-            const template = editor.getTemplate();
-            if (!template.blocks || template.blocks.length === 0) {
-                previewIframe.style.display = 'none';
-                previewEmpty.style.display = 'block';
-                previewEmpty.querySelector('p').textContent = 'Add blocks to see preview';
-                previewStatus.textContent = '';
-                return;
-            }
-
-            previewStatus.textContent = 'Loading...';
-            previewStatus.className = 'preview-status loading';
-
-            try {
-                const response = await fetch(
-                    `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/preview`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-XSRF-TOKEN': window.getCsrfToken(),
-                        },
-                        body: JSON.stringify({
-                            data: testData,
-                            templateModel: editor.getTemplate(),
-                        }),
-                    }
-                );
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(errorText || `HTTP ${response.status}`);
-                }
-
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-
-                // Revoke old URL if exists
-                if (previewIframe.dataset.blobUrl) {
-                    URL.revokeObjectURL(previewIframe.dataset.blobUrl);
-                }
-                previewIframe.dataset.blobUrl = url;
-
-                previewIframe.src = url;
-                previewIframe.style.display = 'block';
-                previewEmpty.style.display = 'none';
-                previewStatus.textContent = 'Updated';
-                previewStatus.className = 'preview-status';
-
-                // Clear "Updated" after 2 seconds
-                setTimeout(() => {
-                    if (previewStatus.textContent === 'Updated') {
-                        previewStatus.textContent = '';
-                    }
-                }, 2000);
-            } catch (err) {
-                console.error('Preview error:', err);
-                previewStatus.textContent = 'Error: ' + (err.message || 'Failed to generate preview');
-                previewStatus.className = 'preview-status error';
-            }
-        }
-
-        // Debounced preview refresh
-        const debouncedRefreshPreview = debounce(refreshPreview, PREVIEW_DEBOUNCE_MS);
-
-        // Manual refresh button
-        btnRefreshPreview.addEventListener('click', refreshPreview);
-
-        // Refresh when data example changes
-        document.getElementById('data-example-selector')?.addEventListener('change', () => {
-            refreshPreview();
-        });
-
-        // Auto-refresh on editor changes (debounced)
-        editor.subscribe(() => {
-            if (previewVisible && getSelectedTestData()) {
-                debouncedRefreshPreview();
-            }
-        });
-
-        // Initial preview if data is selected
-        if (getSelectedTestData()) {
-            refreshPreview();
-        }
-
-        // =========================================================================
-        // Debug Panel (only exists in local profile)
-        // =========================================================================
-        const debugPanel = document.getElementById('debug-panel');
-        if (debugPanel) {
-            const debugState = document.getElementById('debug-state');
-            const debugHistory = document.getElementById('debug-history');
-            const debugStore = document.getElementById('debug-store');
-            const debugContent = document.getElementById('debug-panel-content');
-            const debugToggle = document.getElementById('debug-panel-toggle');
-
-            let collapsed = false;
-            debugToggle.addEventListener('click', () => {
-                collapsed = !collapsed;
-                debugContent.style.display = collapsed ? 'none' : 'block';
-                debugToggle.textContent = collapsed ? '+' : '−';
-            });
-
-            function updateDebugPanel() {
-                const state = editor.getState();
-
-                // State overview
-                debugState.textContent = JSON.stringify({
-                    selectedBlockId: state.selectedBlockId,
-                    blockCount: state.template.blocks.length,
-                    isDirty: editor.isDirty(),
-                    canUndo: editor.canUndo(),
-                    canRedo: editor.canRedo(),
-                }, null, 2);
-
-                // History info - using DOM manipulation
-                debugHistory.textContent = '';
-                const historyDiv = document.createElement('div');
-                historyDiv.style.cssText = 'display: flex; gap: 12px; color: #bac2de;';
-
-                const undoSpan = document.createElement('span');
-                undoSpan.textContent = 'Undo: ';
-                const undoVal = document.createElement('b');
-                undoVal.style.color = '#89b4fa';
-                undoVal.textContent = editor.canUndo() ? '✓' : '✗';
-                undoSpan.appendChild(undoVal);
-
-                const redoSpan = document.createElement('span');
-                redoSpan.textContent = 'Redo: ';
-                const redoVal = document.createElement('b');
-                redoVal.style.color = '#89b4fa';
-                redoVal.textContent = editor.canRedo() ? '✓' : '✗';
-                redoSpan.appendChild(redoVal);
-
-                const dirtySpan = document.createElement('span');
-                dirtySpan.textContent = 'Dirty: ';
-                const dirtyVal = document.createElement('b');
-                dirtyVal.style.color = editor.isDirty() ? '#f38ba8' : '#a6e3a1';
-                dirtyVal.textContent = editor.isDirty() ? 'Yes' : 'No';
-                dirtySpan.appendChild(dirtyVal);
-
-                historyDiv.appendChild(undoSpan);
-                historyDiv.appendChild(redoSpan);
-                historyDiv.appendChild(dirtySpan);
-                debugHistory.appendChild(historyDiv);
-
-                // Full store (template)
-                debugStore.textContent = JSON.stringify(state.template, null, 2);
-            }
-
-            // Initial update
-            updateDebugPanel();
-
-            // Subscribe to changes
-            editor.subscribe(updateDebugPanel);
-        }
+          );
+
+          if (!response.ok) {
+            throw new Error("Save failed");
+          }
+        },
+        onPreview: async (template, data) => {
+          const response = await fetch(
+            `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/preview`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-XSRF-TOKEN": window.getCsrfToken(),
+              },
+              body: JSON.stringify({
+                data,
+                templateModel: template,
+              }),
+            },
+          );
+
+          if (!response.ok) {
+            throw new Error("Preview failed");
+          }
+
+          return await response.blob();
+        },
+      });
     </script>
-</body>
+  </body>
 </html>

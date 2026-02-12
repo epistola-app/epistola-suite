@@ -6,25 +6,31 @@
  * UI is completely decoupled - bring your own components.
  */
 
-import { computed } from 'nanostores';
-import { createEditorStore, BlockTree, type EditorStore } from './store.js';
-import { defaultBlockDefinitions } from './blocks/definitions.js';
-import { UndoManager } from './undo.js';
+import { computed } from "nanostores";
+import { createEditorStore, BlockTree, type EditorStore } from "./store.js";
+import { defaultBlockDefinitions } from "./blocks/definitions.js";
+import { UndoManager } from "./undo.js";
 import {
   resolveBlockStylesWithAncestors,
   resolveDocumentStyles,
-} from './styles/cascade.js';
+} from "./styles/cascade.js";
 import {
   evaluateJsonata,
   evaluateJsonataBoolean,
   evaluateJsonataArray,
   evaluateJsonataString,
-} from './evaluator/index.js';
-import type { EvaluationResult, EvaluationContext, ScopeVariable } from './evaluator/index.js';
+} from "./evaluator/index.js";
+import type {
+  EvaluationResult,
+  EvaluationContext,
+  ScopeVariable,
+} from "./evaluator/index.js";
 import type {
   Template,
   Block,
   BlockDefinition,
+  BlockPlugin,
+  BlockPluginCapabilities,
   EditorConfig,
   EditorCallbacks,
   EditorState,
@@ -46,8 +52,10 @@ import type {
   DocumentStyles,
   CSSStyles,
   ThemeSummary,
-} from './types.js';
-import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from './types.js';
+  BlockToolbarConfig,
+  BlockCatalogItem,
+} from "./types.js";
+import { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from "./types.js";
 
 /**
  * Generate a simple unique ID
@@ -65,6 +73,12 @@ function generateId(): string {
 export class TemplateEditor {
   private store: EditorStore;
   private blockDefinitions: Record<string, BlockDefinition>;
+  private blockPluginCapabilities: Record<string, BlockPluginCapabilities>;
+  private blockToolbarConfig: Record<string, BlockToolbarConfig>;
+  private blockDropContainerResolvers: Record<
+    string,
+    (block: Block) => string[]
+  >;
   private callbacks: EditorCallbacks;
   private undoManager: UndoManager;
   private _batching = false;
@@ -80,14 +94,39 @@ export class TemplateEditor {
   constructor(config: EditorConfig = {}) {
     const initialTemplate: Template = config.template ?? {
       id: generateId(),
-      name: 'Untitled',
+      name: "Untitled",
       blocks: [],
     };
 
     this.store = createEditorStore(initialTemplate);
-    this.blockDefinitions = config.blocks ?? defaultBlockDefinitions;
+    this.blockDefinitions = { ...defaultBlockDefinitions };
+    this.blockPluginCapabilities = Object.fromEntries(
+      Object.keys(this.blockDefinitions).map((type) => [
+        type,
+        { html: true, pdf: true },
+      ]),
+    );
+    this.blockToolbarConfig = Object.fromEntries(
+      Object.entries(this.blockDefinitions).map(([type, definition]) => [
+        type,
+        {
+          visible: true,
+          order: 0,
+          group: definition.category ?? "Blocks",
+          label: definition.label ?? type,
+          icon: definition.icon,
+        },
+      ]),
+    );
+    this.blockDropContainerResolvers = {};
     this.callbacks = config.callbacks ?? {};
     this.undoManager = new UndoManager();
+
+    if (config.plugins && config.plugins.length > 0) {
+      for (const plugin of config.plugins) {
+        this.registerBlockPlugin(plugin);
+      }
+    }
 
     // Derived store: dirty when template differs from last saved state
     this.$isDirty = computed(
@@ -95,10 +134,10 @@ export class TemplateEditor {
       (template, lastSaved) => {
         if (lastSaved === null) {
           // Never saved — dirty if there's any content
-          return template.blocks.length > 0 || template.name !== 'Untitled';
+          return template.blocks.length > 0 || template.name !== "Untitled";
         }
         return JSON.stringify(template) !== JSON.stringify(lastSaved);
-      }
+      },
     );
 
     // Wire up change notifications
@@ -196,9 +235,10 @@ export class TemplateEditor {
     const unsubDataExamples = this.store.subscribeDataExamples(() => {
       callback(this.getState());
     });
-    const unsubSelectedDataExampleId = this.store.subscribeSelectedDataExampleId(() => {
-      callback(this.getState());
-    });
+    const unsubSelectedDataExampleId =
+      this.store.subscribeSelectedDataExampleId(() => {
+        callback(this.getState());
+      });
     const unsubTestData = this.store.subscribeTestData(() => {
       callback(this.getState());
     });
@@ -240,7 +280,9 @@ export class TemplateEditor {
   markAsSaved(): void {
     const currentTemplate = this.store.getTemplate();
     // Deep copy to prevent accidental mutation of saved state
-    this.store.setLastSavedTemplate(JSON.parse(JSON.stringify(currentTemplate)) as Template);
+    this.store.setLastSavedTemplate(
+      JSON.parse(JSON.stringify(currentTemplate)) as Template,
+    );
   }
 
   /**
@@ -254,7 +296,9 @@ export class TemplateEditor {
     // Never saved - check if there's any content
     if (lastSaved === null) {
       // Consider dirty if there are blocks (not empty/default)
-      return currentTemplate.blocks.length > 0 || currentTemplate.name !== 'Untitled';
+      return (
+        currentTemplate.blocks.length > 0 || currentTemplate.name !== "Untitled"
+      );
     }
 
     // Compare using JSON.stringify (simple deep equality)
@@ -294,7 +338,9 @@ export class TemplateEditor {
     } else if (examples.length === 0) {
       // Clear selection and restore default test data
       this.store.setSelectedDataExampleId(null);
-      this.store.setTestData(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+      this.store.setTestData(
+        JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject,
+      );
     }
   }
 
@@ -324,7 +370,9 @@ export class TemplateEditor {
 
     // If the updated example is currently selected, sync testData
     if (this.store.getSelectedDataExampleId() === id && updates.data) {
-      this.store.setTestData(JSON.parse(JSON.stringify(updates.data)) as JsonObject);
+      this.store.setTestData(
+        JSON.parse(JSON.stringify(updates.data)) as JsonObject,
+      );
     }
   }
 
@@ -346,7 +394,9 @@ export class TemplateEditor {
       } else {
         // Clear selection and restore default test data
         this.store.setSelectedDataExampleId(null);
-        this.store.setTestData(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+        this.store.setTestData(
+          JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject,
+        );
       }
     }
   }
@@ -360,13 +410,17 @@ export class TemplateEditor {
 
     if (id === null) {
       // Restore default test data
-      this.store.setTestData(JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject);
+      this.store.setTestData(
+        JSON.parse(JSON.stringify(DEFAULT_TEST_DATA)) as JsonObject,
+      );
     } else {
       const examples = this.store.getDataExamples();
       const selected = examples.find((ex) => ex.id === id);
       if (selected) {
         // Deep copy to avoid mutation issues
-        this.store.setTestData(JSON.parse(JSON.stringify(selected.data)) as JsonObject);
+        this.store.setTestData(
+          JSON.parse(JSON.stringify(selected.data)) as JsonObject,
+        );
       }
     }
   }
@@ -400,9 +454,9 @@ export class TemplateEditor {
    * Set a single preview override for a conditional or loop block
    */
   setPreviewOverride(
-    type: 'conditionals' | 'loops',
+    type: "conditionals" | "loops",
     blockId: string,
-    value: 'data' | 'show' | 'hide' | number
+    value: "data" | "show" | "hide" | number,
   ): void {
     const current = this.store.getPreviewOverrides();
     const updated: PreviewOverrides = {
@@ -410,10 +464,10 @@ export class TemplateEditor {
       loops: { ...current.loops },
     };
 
-    if (type === 'conditionals') {
-      updated.conditionals[blockId] = value as 'data' | 'show' | 'hide';
+    if (type === "conditionals") {
+      updated.conditionals[blockId] = value as "data" | "show" | "hide";
     } else {
-      updated.loops[blockId] = value as number | 'data';
+      updated.loops[blockId] = value as number | "data";
     }
 
     this.store.setPreviewOverrides(updated);
@@ -459,14 +513,22 @@ export class TemplateEditor {
       const parent = BlockTree.findParent(template.blocks, currentId, null);
       if (parent === null) break;
 
-      if (parent.type === 'loop') {
+      if (parent.type === "loop") {
         const loopBlock = parent as LoopBlock;
         // Prepend (outermost first)
         const loopVars: ScopeVariable[] = [
-          { name: loopBlock.itemAlias, type: 'loop-item', arrayPath: loopBlock.expression.raw },
+          {
+            name: loopBlock.itemAlias,
+            type: "loop-item",
+            arrayPath: loopBlock.expression.raw,
+          },
         ];
         if (loopBlock.indexAlias) {
-          loopVars.push({ name: loopBlock.indexAlias, type: 'loop-index', arrayPath: loopBlock.expression.raw });
+          loopVars.push({
+            name: loopBlock.indexAlias,
+            type: "loop-index",
+            arrayPath: loopBlock.expression.raw,
+          });
         }
         variables.unshift(...loopVars);
       }
@@ -497,10 +559,10 @@ export class TemplateEditor {
 
     const context: EvaluationContext = { ...testData };
     for (const v of scopeVars) {
-      if (v.type === 'loop-item') {
+      if (v.type === "loop-item") {
         // Placeholder — the actual value depends on which iteration is being rendered
         context[v.name] = `<${v.name}>`;
-      } else if (v.type === 'loop-index') {
+      } else if (v.type === "loop-index") {
         context[v.name] = 0;
       }
     }
@@ -517,7 +579,10 @@ export class TemplateEditor {
    * @param expression - Raw expression string (JSONata syntax)
    * @param scope - Additional scope variables (e.g., loop item/index)
    */
-  async evaluateExpression(expression: string, scope?: EvaluationContext): Promise<EvaluationResult> {
+  async evaluateExpression(
+    expression: string,
+    scope?: EvaluationContext,
+  ): Promise<EvaluationResult> {
     const testData = this.store.getTestData();
     const context: EvaluationContext = { ...testData, ...scope };
     return evaluateJsonata(expression, context);
@@ -529,22 +594,28 @@ export class TemplateEditor {
    * @param blockId - ID of the conditional block
    * @param scope - Additional scope variables
    */
-  async evaluateCondition(blockId: string, scope?: EvaluationContext): Promise<boolean> {
+  async evaluateCondition(
+    blockId: string,
+    scope?: EvaluationContext,
+  ): Promise<boolean> {
     const block = this.findBlock(blockId);
-    if (!block || block.type !== 'conditional') return false;
+    if (!block || block.type !== "conditional") return false;
 
     const conditionalBlock = block as ConditionalBlock;
 
     // Check for preview override
     const overrides = this.store.getPreviewOverrides();
     const override = overrides.conditionals[blockId];
-    if (override === 'show') return true;
-    if (override === 'hide') return false;
+    if (override === "show") return true;
+    if (override === "hide") return false;
 
     // Evaluate the actual condition
     const testData = this.store.getTestData();
     const context: EvaluationContext = { ...testData, ...scope };
-    let result = await evaluateJsonataBoolean(conditionalBlock.condition.raw, context);
+    let result = await evaluateJsonataBoolean(
+      conditionalBlock.condition.raw,
+      context,
+    );
 
     // Apply inverse if set
     if (conditionalBlock.inverse) {
@@ -560,9 +631,12 @@ export class TemplateEditor {
    * @param blockId - ID of the loop block
    * @param scope - Additional scope variables
    */
-  async evaluateLoopArray(blockId: string, scope?: EvaluationContext): Promise<unknown[]> {
+  async evaluateLoopArray(
+    blockId: string,
+    scope?: EvaluationContext,
+  ): Promise<unknown[]> {
     const block = this.findBlock(blockId);
-    if (!block || block.type !== 'loop') return [];
+    if (!block || block.type !== "loop") return [];
 
     const loopBlock = block as LoopBlock;
 
@@ -577,11 +651,14 @@ export class TemplateEditor {
    * @param blockId - ID of the loop block
    * @param scope - Additional scope variables
    */
-  async getLoopIterationCount(blockId: string, scope?: EvaluationContext): Promise<number> {
+  async getLoopIterationCount(
+    blockId: string,
+    scope?: EvaluationContext,
+  ): Promise<number> {
     // Check for preview override
     const overrides = this.store.getPreviewOverrides();
     const override = overrides.loops[blockId];
-    if (typeof override === 'number') return override;
+    if (typeof override === "number") return override;
 
     // Use actual array length
     const array = await this.evaluateLoopArray(blockId, scope);
@@ -597,10 +674,10 @@ export class TemplateEditor {
   async buildLoopIterationContext(
     blockId: string,
     index: number,
-    scope?: EvaluationContext
+    scope?: EvaluationContext,
   ): Promise<EvaluationContext> {
     const block = this.findBlock(blockId);
-    if (!block || block.type !== 'loop') return { ...scope };
+    if (!block || block.type !== "loop") return { ...scope };
 
     const loopBlock = block as LoopBlock;
     const array = await this.evaluateLoopArray(blockId, scope);
@@ -624,8 +701,11 @@ export class TemplateEditor {
    * @param content - TipTap JSONContent
    * @param scope - Evaluation scope
    */
-  async interpolateText(content: TipTapContent, scope?: EvaluationContext): Promise<string> {
-    if (!content) return '';
+  async interpolateText(
+    content: TipTapContent,
+    scope?: EvaluationContext,
+  ): Promise<string> {
+    if (!content) return "";
 
     const testData = this.store.getTestData();
     const context: EvaluationContext = { ...testData, ...scope };
@@ -657,13 +737,13 @@ export class TemplateEditor {
    * Also handles expression nodes from the React editor
    */
   private extractTextFromTipTap(content: TipTapContent): string {
-    if (!content || typeof content !== 'object') return '';
+    if (!content || typeof content !== "object") return "";
 
     const extractFromNode = (node: Record<string, unknown>): string => {
-      if (!node) return '';
+      if (!node) return "";
 
       // Handle expression nodes (from React editor's TipTap extension)
-      if (node.type === 'expression' && node.attrs) {
+      if (node.type === "expression" && node.attrs) {
         const attrs = node.attrs as Record<string, unknown>;
         if (attrs.expression) {
           return `{{${attrs.expression}}}`;
@@ -671,16 +751,18 @@ export class TemplateEditor {
       }
 
       // Handle regular text nodes
-      if (node.type === 'text' && typeof node.text === 'string') {
+      if (node.type === "text" && typeof node.text === "string") {
         return node.text;
       }
 
       // Recurse into content array
       if (Array.isArray(node.content)) {
-        return node.content.map((child) => extractFromNode(child as Record<string, unknown>)).join('');
+        return node.content
+          .map((child) => extractFromNode(child as Record<string, unknown>))
+          .join("");
       }
 
-      return '';
+      return "";
     };
 
     return extractFromNode(content as Record<string, unknown>);
@@ -752,7 +834,7 @@ export class TemplateEditor {
   /**
    * Update template metadata (name, etc.)
    */
-  updateTemplate(updates: Partial<Omit<Template, 'blocks'>>): void {
+  updateTemplate(updates: Partial<Omit<Template, "blocks">>): void {
     const current = this.store.getTemplate();
     this.store.setTemplate({ ...current, ...updates });
   }
@@ -766,8 +848,8 @@ export class TemplateEditor {
 
     const current = this.store.getTemplate();
     const currentPageSettings = current.pageSettings ?? {
-      format: 'A4',
-      orientation: 'portrait',
+      format: "A4",
+      orientation: "portrait",
       margins: { top: 20, right: 20, bottom: 20, left: 20 },
     };
 
@@ -853,7 +935,11 @@ export class TemplateEditor {
    * Add a new block
    * Returns the created block, or null if creation failed
    */
-  addBlock(type: string, parentId: string | null = null, index: number = -1): Block | null {
+  addBlock(
+    type: string,
+    parentId: string | null = null,
+    index: number = -1,
+  ): Block | null {
     const definition = this.blockDefinitions[type];
     if (!definition) {
       this.callbacks.onError?.(new Error(`Unknown block type: ${type}`));
@@ -871,9 +957,11 @@ export class TemplateEditor {
       // Adding to root - check if block type allows root
       if (
         definition.constraints.allowedParentTypes !== null &&
-        !definition.constraints.allowedParentTypes.includes('root')
+        !definition.constraints.allowedParentTypes.includes("root")
       ) {
-        this.callbacks.onError?.(new Error(`Block type ${type} cannot be placed at root level`));
+        this.callbacks.onError?.(
+          new Error(`Block type ${type} cannot be placed at root level`),
+        );
         return null;
       }
     }
@@ -889,7 +977,12 @@ export class TemplateEditor {
 
     const template = this.store.getTemplate();
     const targetIndex = index === -1 ? this.getChildCount(parentId) : index;
-    const newBlocks = BlockTree.addBlock(template.blocks, newBlock, parentId, targetIndex);
+    const newBlocks = BlockTree.addBlock(
+      template.blocks,
+      newBlock,
+      parentId,
+      targetIndex,
+    );
 
     this.store.setTemplate({ ...template, blocks: newBlocks });
     return newBlock;
@@ -898,7 +991,10 @@ export class TemplateEditor {
   /**
    * Validate if a parent can accept a child of given type
    */
-  private validateParentForChild(parentId: string, childType: string): ValidationResult {
+  private validateParentForChild(
+    parentId: string,
+    childType: string,
+  ): ValidationResult {
     const template = this.store.getTemplate();
     const errors: string[] = [];
 
@@ -920,7 +1016,9 @@ export class TemplateEditor {
         parentDef.constraints.allowedChildTypes !== null &&
         !parentDef.constraints.allowedChildTypes.includes(childType)
       ) {
-        errors.push(`Block type ${parent.type} does not accept ${childType} children`);
+        errors.push(
+          `Block type ${parent.type} does not accept ${childType} children`,
+        );
         return { valid: false, errors };
       }
 
@@ -930,7 +1028,9 @@ export class TemplateEditor {
         childDef.constraints.allowedParentTypes !== null &&
         !childDef.constraints.allowedParentTypes.includes(parent.type)
       ) {
-        errors.push(`Block type ${childType} cannot be nested in ${parent.type}`);
+        errors.push(
+          `Block type ${childType} cannot be nested in ${parent.type}`,
+        );
         return { valid: false, errors };
       }
 
@@ -945,7 +1045,7 @@ export class TemplateEditor {
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
-        !childDef.constraints.allowedParentTypes.includes('columns')
+        !childDef.constraints.allowedParentTypes.includes("columns")
       ) {
         errors.push(`Block type ${childType} cannot be nested in a column`);
         return { valid: false, errors };
@@ -961,7 +1061,7 @@ export class TemplateEditor {
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
-        !childDef.constraints.allowedParentTypes.includes('table')
+        !childDef.constraints.allowedParentTypes.includes("table")
       ) {
         errors.push(`Block type ${childType} cannot be nested in a table cell`);
         return { valid: false, errors };
@@ -1014,7 +1114,12 @@ export class TemplateEditor {
     this.saveToHistory();
 
     const template = this.store.getTemplate();
-    const newBlocks = BlockTree.moveBlock(template.blocks, id, newParentId, newIndex);
+    const newBlocks = BlockTree.moveBlock(
+      template.blocks,
+      id,
+      newParentId,
+      newIndex,
+    );
     this.store.setTemplate({ ...template, blocks: newBlocks });
   }
 
@@ -1034,14 +1139,14 @@ export class TemplateEditor {
    */
   addColumn(columnsBlockId: string): void {
     const block = this.findBlock(columnsBlockId);
-    if (!block || block.type !== 'columns') {
-      this.callbacks.onError?.(new Error('Target is not a columns block'));
+    if (!block || block.type !== "columns") {
+      this.callbacks.onError?.(new Error("Target is not a columns block"));
       return;
     }
 
     const columnsBlock = block as ColumnsBlock;
     if (columnsBlock.columns.length >= 6) {
-      this.callbacks.onError?.(new Error('Maximum 6 columns allowed'));
+      this.callbacks.onError?.(new Error("Maximum 6 columns allowed"));
       return;
     }
 
@@ -1063,14 +1168,14 @@ export class TemplateEditor {
    */
   removeColumn(columnsBlockId: string, columnId: string): void {
     const block = this.findBlock(columnsBlockId);
-    if (!block || block.type !== 'columns') {
-      this.callbacks.onError?.(new Error('Target is not a columns block'));
+    if (!block || block.type !== "columns") {
+      this.callbacks.onError?.(new Error("Target is not a columns block"));
       return;
     }
 
     const columnsBlock = block as ColumnsBlock;
     if (columnsBlock.columns.length <= 1) {
-      this.callbacks.onError?.(new Error('Cannot remove last column'));
+      this.callbacks.onError?.(new Error("Cannot remove last column"));
       return;
     }
 
@@ -1086,8 +1191,8 @@ export class TemplateEditor {
    */
   addRow(tableBlockId: string, isHeader = false): void {
     const block = this.findBlock(tableBlockId);
-    if (!block || block.type !== 'table') {
-      this.callbacks.onError?.(new Error('Target is not a table block'));
+    if (!block || block.type !== "table") {
+      this.callbacks.onError?.(new Error("Target is not a table block"));
       return;
     }
 
@@ -1115,14 +1220,14 @@ export class TemplateEditor {
    */
   removeRow(tableBlockId: string, rowId: string): void {
     const block = this.findBlock(tableBlockId);
-    if (!block || block.type !== 'table') {
-      this.callbacks.onError?.(new Error('Target is not a table block'));
+    if (!block || block.type !== "table") {
+      this.callbacks.onError?.(new Error("Target is not a table block"));
       return;
     }
 
     const tableBlock = block as TableBlock;
     if (tableBlock.rows.length <= 1) {
-      this.callbacks.onError?.(new Error('Cannot remove last row'));
+      this.callbacks.onError?.(new Error("Cannot remove last row"));
       return;
     }
 
@@ -1160,7 +1265,113 @@ export class TemplateEditor {
    * Register a custom block type
    */
   registerBlock(definition: BlockDefinition): void {
+    this.validateBlockDefinition(definition);
     this.blockDefinitions[definition.type] = definition;
+    this.blockPluginCapabilities[definition.type] = {
+      html: true,
+      pdf: true,
+    };
+    this.blockDropContainerResolvers[definition.type] = (block) =>
+      this.getDefaultDropContainers(block);
+    this.blockToolbarConfig[definition.type] = {
+      visible: true,
+      order: 0,
+      group: definition.category ?? "Blocks",
+      label: definition.label ?? definition.type,
+      icon: definition.icon,
+    };
+  }
+
+  /**
+   * Register a block plugin with runtime contract validation.
+   */
+  registerBlockPlugin(plugin: BlockPlugin): void {
+    this.validateBlockPlugin(plugin);
+    this.blockDefinitions[plugin.type] = {
+      type: plugin.type,
+      create: plugin.create,
+      validate: plugin.validate,
+      constraints: plugin.constraints,
+      label: plugin.label,
+      icon: plugin.icon,
+      category: plugin.category,
+    };
+    this.blockPluginCapabilities[plugin.type] = {
+      html: plugin.capabilities?.html ?? true,
+      pdf: plugin.capabilities?.pdf ?? true,
+    };
+    this.blockDropContainerResolvers[plugin.type] =
+      plugin.dropContainers ??
+      ((block) => this.getDefaultDropContainers(block));
+
+    const baseToolbar: BlockToolbarConfig = {
+      visible: true,
+      order: 0,
+      group: plugin.category ?? "Blocks",
+      label: plugin.label ?? plugin.type,
+      icon: plugin.icon,
+    };
+
+    if (plugin.toolbar === false) {
+      this.blockToolbarConfig[plugin.type] = { ...baseToolbar, visible: false };
+    } else if (plugin.toolbar === true || plugin.toolbar === undefined) {
+      this.blockToolbarConfig[plugin.type] = baseToolbar;
+    } else {
+      this.blockToolbarConfig[plugin.type] = {
+        ...baseToolbar,
+        ...plugin.toolbar,
+      };
+    }
+  }
+
+  /**
+   * Get registered block plugin capabilities metadata for a block type.
+   */
+  getBlockPluginCapabilities(
+    type: string,
+  ): BlockPluginCapabilities | undefined {
+    return this.blockPluginCapabilities[type];
+  }
+
+  /**
+   * Collect declared drop container IDs for the current template.
+   */
+  getDropContainerIds(): string[] {
+    const template = this.store.getTemplate();
+    const ids = new Set<string>();
+
+    const collect = (blocks: Block[]) => {
+      for (const block of blocks) {
+        const resolver = this.blockDropContainerResolvers[block.type];
+        const containerIds = resolver
+          ? resolver(block)
+          : this.getDefaultDropContainers(block);
+        for (const id of containerIds) {
+          ids.add(id);
+        }
+
+        if ("children" in block && Array.isArray(block.children)) {
+          collect(block.children);
+        }
+        if (block.type === "columns") {
+          const columnsBlock = block as ColumnsBlock;
+          for (const column of columnsBlock.columns) {
+            collect(column.children);
+          }
+        }
+        if (block.type === "table") {
+          const tableBlock = block as TableBlock;
+          for (const row of tableBlock.rows) {
+            for (const cell of row.cells) {
+              collect(cell.children);
+            }
+          }
+        }
+      }
+    };
+
+    collect(template.blocks);
+    return [...ids];
   }
 
   /**
@@ -1175,6 +1386,44 @@ export class TemplateEditor {
    */
   getBlockTypes(): string[] {
     return Object.keys(this.blockDefinitions);
+  }
+
+  /**
+   * Get toolbar catalog metadata for registered block types.
+   */
+  getBlockCatalog(): BlockCatalogItem[] {
+    const entries: BlockCatalogItem[] = Object.entries(
+      this.blockDefinitions,
+    ).map(([type, definition]) => {
+      const toolbar = this.blockToolbarConfig[type] ?? {
+        visible: true,
+        order: 0,
+        group: definition.category ?? "Blocks",
+        label: definition.label ?? type,
+        icon: definition.icon,
+      };
+
+      const constraints = definition.constraints;
+      const addableAtRoot =
+        constraints.allowedParentTypes === null ||
+        constraints.allowedParentTypes.includes("root");
+
+      return {
+        type,
+        label: toolbar.label ?? definition.label ?? type,
+        icon: toolbar.icon ?? definition.icon,
+        group: toolbar.group ?? definition.category ?? "Blocks",
+        order: toolbar.order ?? 0,
+        visible: toolbar.visible !== false,
+        addableAtRoot,
+      };
+    });
+
+    return entries.sort((a, b) => {
+      if (a.group !== b.group) return a.group.localeCompare(b.group);
+      if (a.order !== b.order) return a.order - b.order;
+      return a.label.localeCompare(b.label);
+    });
   }
 
   // =========================================================================
@@ -1199,18 +1448,18 @@ export class TemplateEditor {
         const result = definition.validate(block);
         errors.push(...result.errors);
 
-        if ('children' in block && Array.isArray(block.children)) {
+        if ("children" in block && Array.isArray(block.children)) {
           validateBlocks(block.children);
         }
 
-        if (block.type === 'columns') {
+        if (block.type === "columns") {
           const columnsBlock = block as ColumnsBlock;
           for (const col of columnsBlock.columns) {
             validateBlocks(col.children);
           }
         }
 
-        if (block.type === 'table') {
+        if (block.type === "table") {
           const tableBlock = block as TableBlock;
           for (const row of tableBlock.rows) {
             for (const cell of row.cells) {
@@ -1245,28 +1494,30 @@ export class TemplateEditor {
       const parsed: unknown = JSON.parse(json);
 
       // Basic structure validation
-      if (typeof parsed !== 'object' || parsed === null) {
-        throw new Error('Template must be an object');
+      if (typeof parsed !== "object" || parsed === null) {
+        throw new Error("Template must be an object");
       }
 
       const obj = parsed as Record<string, unknown>;
 
-      if (typeof obj.id !== 'string' || obj.id.length === 0) {
-        throw new Error('Template must have a non-empty string id');
+      if (typeof obj.id !== "string" || obj.id.length === 0) {
+        throw new Error("Template must have a non-empty string id");
       }
 
-      if (typeof obj.name !== 'string') {
-        throw new Error('Template must have a string name');
+      if (typeof obj.name !== "string") {
+        throw new Error("Template must have a string name");
       }
 
       if (!Array.isArray(obj.blocks)) {
-        throw new Error('Template must have a blocks array');
+        throw new Error("Template must have a blocks array");
       }
 
       const template = parsed as Template;
       this.store.setTemplate(template);
     } catch (e) {
-      this.callbacks.onError?.(new Error(`Invalid JSON: ${(e as Error).message}`));
+      this.callbacks.onError?.(
+        new Error(`Invalid JSON: ${(e as Error).message}`),
+      );
     }
   }
 
@@ -1333,7 +1584,11 @@ export class TemplateEditor {
    * Can this block be dropped at this location?
    * Both the dragged block and target must agree on the relationship.
    */
-  canDrop(draggedId: string, targetId: string | null, position: DropPosition): boolean {
+  canDrop(
+    draggedId: string,
+    targetId: string | null,
+    position: DropPosition,
+  ): boolean {
     const dragged = this.findBlock(draggedId);
     if (!dragged) return false;
 
@@ -1349,7 +1604,7 @@ export class TemplateEditor {
     // Dropping at root level
     if (targetId === null) {
       const allowedParents = draggedDef.constraints.allowedParentTypes;
-      return allowedParents === null || allowedParents.includes('root');
+      return allowedParents === null || allowedParents.includes("root");
     }
 
     const target = this.findBlock(targetId);
@@ -1361,7 +1616,7 @@ export class TemplateEditor {
     // Can't drop inside own descendants (would create cycle)
     if (this.isDescendant(draggedId, targetId)) return false;
 
-    if (position === 'inside') {
+    if (position === "inside") {
       // Target must accept children
       if (!targetDef.constraints.canHaveChildren) return false;
 
@@ -1379,7 +1634,8 @@ export class TemplateEditor {
 
       // Check max children
       if (targetDef.constraints.maxChildren !== undefined) {
-        const currentChildren = 'children' in target ? target.children.length : 0;
+        const currentChildren =
+          "children" in target ? target.children.length : 0;
         if (currentChildren >= targetDef.constraints.maxChildren) {
           return false;
         }
@@ -1390,12 +1646,16 @@ export class TemplateEditor {
 
     // position === 'before' or 'after' means sibling
     // Find target's parent and check if dragged can be sibling
-    const targetParent = BlockTree.findParent(this.store.getTemplate().blocks, targetId, null);
+    const targetParent = BlockTree.findParent(
+      this.store.getTemplate().blocks,
+      targetId,
+      null,
+    );
 
     if (targetParent === null) {
       // Target is at root, check if dragged allows root
       const allowedParents = draggedDef.constraints.allowedParentTypes;
-      return allowedParents === null || allowedParents.includes('root');
+      return allowedParents === null || allowedParents.includes("root");
     }
 
     const targetParentDef = this.blockDefinitions[targetParent.type];
@@ -1409,7 +1669,10 @@ export class TemplateEditor {
 
     // Dragged must allow this parent type
     const allowedParents = draggedDef.constraints.allowedParentTypes;
-    if (allowedParents !== null && !allowedParents.includes(targetParent.type)) {
+    if (
+      allowedParents !== null &&
+      !allowedParents.includes(targetParent.type)
+    ) {
       return false;
     }
 
@@ -1424,34 +1687,46 @@ export class TemplateEditor {
     const template = this.store.getTemplate();
 
     // Check root level
-    if (this.canDrop(draggedId, null, 'inside')) {
-      zones.push({ targetId: null, position: 'inside', targetType: null });
+    if (this.canDrop(draggedId, null, "inside")) {
+      zones.push({ targetId: null, position: "inside", targetType: null });
     }
 
     // Recursively check all blocks
     const checkBlock = (block: Block) => {
       // Check dropping inside this block
-      if (this.canDrop(draggedId, block.id, 'inside')) {
-        zones.push({ targetId: block.id, position: 'inside', targetType: block.type });
+      if (this.canDrop(draggedId, block.id, "inside")) {
+        zones.push({
+          targetId: block.id,
+          position: "inside",
+          targetType: block.type,
+        });
       }
 
       // Check dropping before/after this block
-      if (this.canDrop(draggedId, block.id, 'before')) {
-        zones.push({ targetId: block.id, position: 'before', targetType: block.type });
+      if (this.canDrop(draggedId, block.id, "before")) {
+        zones.push({
+          targetId: block.id,
+          position: "before",
+          targetType: block.type,
+        });
       }
-      if (this.canDrop(draggedId, block.id, 'after')) {
-        zones.push({ targetId: block.id, position: 'after', targetType: block.type });
+      if (this.canDrop(draggedId, block.id, "after")) {
+        zones.push({
+          targetId: block.id,
+          position: "after",
+          targetType: block.type,
+        });
       }
 
       // Recurse into children
-      if ('children' in block && Array.isArray(block.children)) {
+      if ("children" in block && Array.isArray(block.children)) {
         for (const child of block.children) {
           checkBlock(child);
         }
       }
 
       // Recurse into columns
-      if (block.type === 'columns') {
+      if (block.type === "columns") {
         const columnsBlock = block as ColumnsBlock;
         for (const col of columnsBlock.columns) {
           for (const child of col.children) {
@@ -1461,7 +1736,7 @@ export class TemplateEditor {
       }
 
       // Recurse into table cells
-      if (block.type === 'table') {
+      if (block.type === "table") {
         const tableBlock = block as TableBlock;
         for (const row of tableBlock.rows) {
           for (const cell of row.cells) {
@@ -1487,22 +1762,40 @@ export class TemplateEditor {
    * @param index - The insertion index
    * @param position - The drop position for validation (defaults to 'inside')
    */
-  drop(draggedId: string, targetId: string | null, index: number, position: DropPosition = 'inside'): void {
+  drop(
+    draggedId: string,
+    targetId: string | null,
+    index: number,
+    position: DropPosition = "inside",
+  ): void {
     if (!this.canDrop(draggedId, targetId, position)) {
-      this.callbacks.onError?.(new Error('Invalid drop target'));
+      this.callbacks.onError?.(new Error("Invalid drop target"));
       return;
     }
 
-    if (position === 'inside') {
+    if (position === "inside") {
       this.moveBlock(draggedId, targetId, index);
     } else {
       const target = this.findBlock(targetId!);
       if (!target) return;
 
-      const targetParent = BlockTree.findParent(this.store.getTemplate().blocks, targetId!, null);
-      const actualIndex = position === 'after'
-        ? BlockTree.getChildIndex(this.store.getTemplate().blocks, targetId!, null) + 1
-        : BlockTree.getChildIndex(this.store.getTemplate().blocks, targetId!, null);
+      const targetParent = BlockTree.findParent(
+        this.store.getTemplate().blocks,
+        targetId!,
+        null,
+      );
+      const actualIndex =
+        position === "after"
+          ? BlockTree.getChildIndex(
+              this.store.getTemplate().blocks,
+              targetId!,
+              null,
+            ) + 1
+          : BlockTree.getChildIndex(
+              this.store.getTemplate().blocks,
+              targetId!,
+              null,
+            );
 
       this.moveBlock(draggedId, targetParent?.id ?? null, actualIndex);
     }
@@ -1531,23 +1824,26 @@ export class TemplateEditor {
   /**
    * Check if potentialDescendantId is a descendant of ancestorId
    */
-  private isDescendant(ancestorId: string, potentialDescendantId: string): boolean {
+  private isDescendant(
+    ancestorId: string,
+    potentialDescendantId: string,
+  ): boolean {
     const ancestor = this.findBlock(ancestorId);
     if (!ancestor) return false;
 
     const checkInBlocks = (blocks: Block[]): boolean => {
       for (const block of blocks) {
         if (block.id === potentialDescendantId) return true;
-        if ('children' in block && Array.isArray(block.children)) {
+        if ("children" in block && Array.isArray(block.children)) {
           if (checkInBlocks(block.children)) return true;
         }
-        if (block.type === 'columns') {
+        if (block.type === "columns") {
           const columnsBlock = block as ColumnsBlock;
           for (const col of columnsBlock.columns) {
             if (checkInBlocks(col.children)) return true;
           }
         }
-        if (block.type === 'table') {
+        if (block.type === "table") {
           const tableBlock = block as TableBlock;
           for (const row of tableBlock.rows) {
             for (const cell of row.cells) {
@@ -1560,16 +1856,16 @@ export class TemplateEditor {
     };
 
     // Check in ancestor's children/columns/cells
-    if ('children' in ancestor && Array.isArray(ancestor.children)) {
+    if ("children" in ancestor && Array.isArray(ancestor.children)) {
       if (checkInBlocks(ancestor.children)) return true;
     }
-    if (ancestor.type === 'columns') {
+    if (ancestor.type === "columns") {
       const columnsBlock = ancestor as ColumnsBlock;
       for (const col of columnsBlock.columns) {
         if (checkInBlocks(col.children)) return true;
       }
     }
-    if (ancestor.type === 'table') {
+    if (ancestor.type === "table") {
       const tableBlock = ancestor as TableBlock;
       for (const row of tableBlock.rows) {
         for (const cell of row.cells) {
@@ -1579,5 +1875,123 @@ export class TemplateEditor {
     }
 
     return false;
+  }
+
+  private validateBlockDefinition(definition: BlockDefinition): void {
+    if (!definition || typeof definition !== "object") {
+      throw new Error("Block definition must be an object");
+    }
+    if (!definition.type || typeof definition.type !== "string") {
+      throw new Error("Block definition requires a non-empty string type");
+    }
+    if (typeof definition.create !== "function") {
+      throw new Error(
+        `Block definition '${definition.type}' requires a create(id) function`,
+      );
+    }
+    if (typeof definition.validate !== "function") {
+      throw new Error(
+        `Block definition '${definition.type}' requires a validate(block) function`,
+      );
+    }
+    if (!definition.constraints || typeof definition.constraints !== "object") {
+      throw new Error(
+        `Block definition '${definition.type}' requires constraints`,
+      );
+    }
+  }
+
+  private validateBlockPlugin(plugin: BlockPlugin): void {
+    if (!plugin || typeof plugin !== "object") {
+      throw new Error("Block plugin must be an object");
+    }
+    if (!plugin.type || typeof plugin.type !== "string") {
+      throw new Error("Block plugin requires a non-empty string type");
+    }
+    if (typeof plugin.create !== "function") {
+      throw new Error(`Block plugin '${plugin.type}' is missing create(id)`);
+    }
+    if (typeof plugin.validate !== "function") {
+      throw new Error(
+        `Block plugin '${plugin.type}' is missing validate(block)`,
+      );
+    }
+    if (!plugin.constraints || typeof plugin.constraints !== "object") {
+      throw new Error(`Block plugin '${plugin.type}' is missing constraints`);
+    }
+
+    const constraints = plugin.constraints;
+    if (typeof constraints.canHaveChildren !== "boolean") {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid constraints.canHaveChildren (expected boolean)`,
+      );
+    }
+    if (typeof constraints.canBeDragged !== "boolean") {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid constraints.canBeDragged (expected boolean)`,
+      );
+    }
+    if (typeof constraints.canBeNested !== "boolean") {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid constraints.canBeNested (expected boolean)`,
+      );
+    }
+    if (
+      constraints.allowedChildTypes !== null &&
+      !Array.isArray(constraints.allowedChildTypes)
+    ) {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid constraints.allowedChildTypes (expected array or null)`,
+      );
+    }
+    if (
+      constraints.allowedParentTypes !== null &&
+      !Array.isArray(constraints.allowedParentTypes)
+    ) {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid constraints.allowedParentTypes (expected array or null)`,
+      );
+    }
+    if (
+      plugin.dropContainers !== undefined &&
+      typeof plugin.dropContainers !== "function"
+    ) {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid dropContainers (expected function)`,
+      );
+    }
+
+    if (
+      plugin.toolbar !== undefined &&
+      typeof plugin.toolbar !== "boolean" &&
+      typeof plugin.toolbar !== "object"
+    ) {
+      throw new Error(
+        `Block plugin '${plugin.type}' has invalid toolbar (expected boolean or object)`,
+      );
+    }
+  }
+
+  private getDefaultDropContainers(block: Block): string[] {
+    switch (block.type) {
+      case "container":
+      case "conditional":
+      case "loop":
+      case "pageheader":
+      case "pagefooter":
+        return [block.id];
+      case "columns": {
+        const columnsBlock = block as ColumnsBlock;
+        return columnsBlock.columns.map((column) => column.id);
+      }
+      case "table": {
+        const tableBlock = block as TableBlock;
+        return tableBlock.rows.flatMap((row) =>
+          row.cells.map((cell) => cell.id),
+        );
+      }
+      default:
+        return [];
+    }
   }
 }

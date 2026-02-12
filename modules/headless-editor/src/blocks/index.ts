@@ -11,3 +11,7 @@ export {
   pageFooterBlockDefinition,
   blockHelpers,
 } from "./definitions.js";
+export {
+  blockDefinitionToPlugin,
+  blockDefinitionsToPlugins,
+} from "./plugins.js";
