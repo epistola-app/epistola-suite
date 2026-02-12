@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { TemplateEditor } from "../editor";
+import { blockDefinitionToPlugin } from "../blocks/plugins";
 import type { Template, Block } from "../types";
 
 describe("TemplateEditor", () => {
@@ -33,6 +34,27 @@ describe("TemplateEditor", () => {
     it("should default template name to Untitled", () => {
       const editor = new TemplateEditor();
       expect(editor.getTemplate().name).toBe("Untitled");
+    });
+
+    it("should register plugins provided via config", () => {
+      const editor = new TemplateEditor({
+        plugins: [
+          {
+            type: "plugin-block",
+            create: (id) => ({ id, type: "plugin-block" }) as unknown as Block,
+            validate: () => ({ valid: true, errors: [] }),
+            constraints: {
+              canHaveChildren: false,
+              allowedChildTypes: [],
+              canBeDragged: true,
+              canBeNested: true,
+              allowedParentTypes: null,
+            },
+          },
+        ],
+      });
+
+      expect(editor.getBlockTypes()).toContain("plugin-block");
     });
   });
 
@@ -785,6 +807,44 @@ describe("TemplateEditor", () => {
       expect(updated.children).toHaveLength(1);
       expect(updated.children[0].id).toBe(text.id);
     });
+
+    it("returns built-in declared drop containers for nested blocks", () => {
+      const editor = new TemplateEditor();
+      const container = editor.addBlock("container")!;
+      const columns = editor.addBlock("columns")! as {
+        columns: { id: string }[];
+      };
+      const table = editor.addBlock("table")! as {
+        rows: { cells: { id: string }[] }[];
+      };
+
+      const containers = editor.getDropContainerIds();
+      expect(containers).toContain(container.id);
+      expect(containers).toContain(columns.columns[0].id);
+      expect(containers).toContain(table.rows[0].cells[0].id);
+    });
+
+    it("returns plugin-declared drop containers for custom blocks", () => {
+      const editor = new TemplateEditor();
+      editor.registerBlockPlugin({
+        type: "plugin-container",
+        create: (id) =>
+          ({ id, type: "plugin-container", children: [] }) as unknown as Block,
+        validate: () => ({ valid: true, errors: [] }),
+        constraints: {
+          canHaveChildren: true,
+          allowedChildTypes: null,
+          canBeDragged: true,
+          canBeNested: true,
+          allowedParentTypes: null,
+        },
+        dropContainers: (block) => [block.id],
+      });
+
+      const custom = editor.addBlock("plugin-container")!;
+      const containers = editor.getDropContainerIds();
+      expect(containers).toContain(custom.id);
+    });
   });
 
   describe("columns operations", () => {
@@ -1016,12 +1076,12 @@ describe("TemplateEditor", () => {
       expect(editor.getBlockDefinition("custom-banner")).toBeDefined();
     });
 
-    it("should use custom block definitions from config", () => {
+    it("registers custom blocks through plugin config while keeping built-ins", () => {
       const editor = new TemplateEditor({
-        blocks: {
-          myblock: {
+        plugins: [
+          {
             type: "myblock",
-            create: (id) => ({ id, type: "myblock" as const }) as Block,
+            create: (id) => ({ id, type: "myblock" }) as unknown as Block,
             validate: () => ({ valid: true, errors: [] }),
             constraints: {
               canHaveChildren: false,
@@ -1031,12 +1091,156 @@ describe("TemplateEditor", () => {
               allowedParentTypes: null,
             },
           },
-        },
+        ],
       });
 
       expect(editor.getBlockTypes()).toContain("myblock");
-      // Default blocks are not present when custom blocks provided
-      expect(editor.getBlockTypes()).not.toContain("text");
+      expect(editor.getBlockTypes()).toContain("text");
+    });
+
+    it("should register block plugins with capabilities metadata", () => {
+      const editor = new TemplateEditor();
+
+      editor.registerBlockPlugin({
+        type: "custom-banner",
+        create: (id) =>
+          ({
+            id,
+            type: "custom-banner",
+            content: "Banner",
+          }) as unknown as Block,
+        validate: () => ({ valid: true, errors: [] }),
+        constraints: {
+          canHaveChildren: false,
+          allowedChildTypes: [],
+          canBeDragged: true,
+          canBeNested: true,
+          allowedParentTypes: null,
+        },
+        capabilities: {
+          html: true,
+          pdf: false,
+        },
+      });
+
+      expect(editor.getBlockTypes()).toContain("custom-banner");
+      expect(editor.getBlockPluginCapabilities("custom-banner")).toEqual({
+        html: true,
+        pdf: false,
+      });
+    });
+
+    it("should expose default generation capabilities for built-in blocks", () => {
+      const editor = new TemplateEditor();
+      expect(editor.getBlockPluginCapabilities("text")).toEqual({
+        html: true,
+        pdf: true,
+      });
+    });
+
+    it("should reject invalid block plugins with descriptive errors", () => {
+      const editor = new TemplateEditor();
+
+      expect(() => {
+        editor.registerBlockPlugin({
+          type: "invalid-plugin",
+          create: ((id: string) => ({
+            id,
+            type: "invalid-plugin",
+          })) as unknown as (id: string) => Block,
+          validate: () => ({ valid: true, errors: [] }),
+          constraints: {
+            canHaveChildren: true,
+            allowedChildTypes: [] as string[],
+            canBeDragged: true,
+            canBeNested: true,
+            allowedParentTypes: "root" as unknown as string[],
+          },
+        });
+      }).toThrow("allowedParentTypes");
+    });
+
+    it("should adapt block definitions to plugin contracts", () => {
+      const editor = new TemplateEditor();
+      const definition = editor.getBlockDefinition("text");
+
+      expect(definition).toBeDefined();
+      const plugin = blockDefinitionToPlugin(definition!);
+      expect(plugin.type).toBe("text");
+      expect(plugin.capabilities).toEqual({ html: true, pdf: true });
+      expect(plugin.toolbar).toEqual({
+        visible: true,
+        order: 0,
+        group: "Content",
+        label: "Text",
+        icon: "text",
+      });
+      expect(
+        plugin.dropContainers?.({ id: "x", type: "text" } as unknown as Block),
+      ).toEqual([]);
+    });
+
+    it("should expose block catalog entries from plugin toolbar metadata", () => {
+      const editor = new TemplateEditor();
+
+      editor.registerBlockPlugin({
+        type: "custom-banner",
+        create: (id) =>
+          ({ id, type: "custom-banner", content: null }) as unknown as Block,
+        validate: () => ({ valid: true, errors: [] }),
+        constraints: {
+          canHaveChildren: false,
+          allowedChildTypes: [],
+          canBeDragged: true,
+          canBeNested: true,
+          allowedParentTypes: ["root"],
+        },
+        toolbar: {
+          visible: true,
+          group: "Custom",
+          order: 2,
+          label: "Banner",
+          icon: "banner",
+        },
+      });
+
+      const catalog = editor.getBlockCatalog();
+      const banner = catalog.find((item) => item.type === "custom-banner");
+
+      expect(banner).toEqual({
+        type: "custom-banner",
+        label: "Banner",
+        icon: "banner",
+        group: "Custom",
+        order: 2,
+        visible: true,
+        addableAtRoot: true,
+      });
+    });
+
+    it("should hide plugins from toolbar catalog when toolbar is false", () => {
+      const editor = new TemplateEditor();
+
+      editor.registerBlockPlugin({
+        type: "internal-cell",
+        create: (id) =>
+          ({ id, type: "internal-cell", children: [] }) as unknown as Block,
+        validate: () => ({ valid: true, errors: [] }),
+        constraints: {
+          canHaveChildren: true,
+          allowedChildTypes: null,
+          canBeDragged: false,
+          canBeNested: true,
+          allowedParentTypes: null,
+        },
+        toolbar: false,
+      });
+
+      const catalog = editor.getBlockCatalog();
+      const internalCell = catalog.find(
+        (item) => item.type === "internal-cell",
+      );
+      expect(internalCell?.visible).toBe(false);
     });
   });
 
@@ -1058,6 +1262,55 @@ describe("TemplateEditor", () => {
       editor.selectBlock(block.id);
 
       expect(onBlockSelect).toHaveBeenCalledWith(block.id);
+    });
+  });
+
+  describe("pluginization parity", () => {
+    it("preserves add/move/delete/undo-redo behavior for built-in blocks", () => {
+      const editor = new TemplateEditor();
+      const text = editor.addBlock("text")!;
+      const container = editor.addBlock("container")!;
+
+      editor.moveBlock(text.id, container.id, 0);
+      expect(
+        (editor.findBlock(container.id) as { children: Block[] }).children[0]
+          .id,
+      ).toBe(text.id);
+
+      editor.deleteBlock(text.id);
+      expect(
+        (editor.findBlock(container.id) as { children: Block[] }).children,
+      ).toHaveLength(0);
+
+      editor.undo();
+      expect(
+        (editor.findBlock(container.id) as { children: Block[] }).children,
+      ).toHaveLength(1);
+
+      editor.redo();
+      expect(
+        (editor.findBlock(container.id) as { children: Block[] }).children,
+      ).toHaveLength(0);
+    });
+
+    it("loads existing templates with built-in block types unchanged", () => {
+      const editor = new TemplateEditor();
+      editor.setTemplate({
+        id: "compat-template",
+        name: "Compatibility",
+        blocks: [
+          { id: "b1", type: "text", content: null },
+          {
+            id: "b2",
+            type: "container",
+            children: [{ id: "b3", type: "text", content: null }],
+          },
+        ] as unknown as Block[],
+      });
+
+      const result = editor.validateTemplate();
+      expect(result.valid).toBe(true);
+      expect(editor.getTemplate().blocks).toHaveLength(2);
     });
   });
 });

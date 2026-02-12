@@ -21,7 +21,8 @@
     "test:watch": "vitest",
     "test:e2e:bundled": "playwright test --config=playwright.config.ts",
     "test:e2e:bundled:ui": "playwright test --ui --config=playwright.config.ts",
-    "test:e2e:bundled:debug": "playwright test --debug --config=playwright.config.ts"
+    "test:e2e:bundled:debug": "playwright test --debug --config=playwright.config.ts",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@epistola/headless-editor": "workspace:*",
@@ -38,6 +39,7 @@
     "@playwright/test": "^1.58.2",
     "@types/node": "^24.10.11",
     "@types/sortablejs": "^1.15.8",
+    "@vitest/coverage-v8": "^4.0.18",
     "esbuild": "^0.25.0",
     "jsdom": "^27.4.0",
     "typescript": "~5.9.3",

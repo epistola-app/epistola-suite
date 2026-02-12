@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { TemplateEditor } from "@epistola/headless-editor";
-import { setEditor, getEditor } from "../mount";
 import {
   applySuggestionAtCursor,
   coerceConditionalResult,
@@ -13,11 +12,10 @@ describe("ExpressionEditorController scope variables via core API", () => {
 
   beforeEach(() => {
     editor = new TemplateEditor();
-    setEditor(editor);
   });
 
   afterEach(() => {
-    setEditor(null);
+    // no-op
   });
 
   it("should return empty scope variables for root-level block", () => {
@@ -28,7 +26,10 @@ describe("ExpressionEditorController scope variables via core API", () => {
 
   it("should return loop variable for block inside a loop", () => {
     const loop = editor.addBlock("loop")!;
-    editor.updateBlock(loop.id, { itemAlias: "order", expression: { raw: "orders" } });
+    editor.updateBlock(loop.id, {
+      itemAlias: "order",
+      expression: { raw: "orders" },
+    });
     const text = editor.addBlock("text", loop.id)!;
 
     const scopes = editor.getScopeVariables(text.id);
@@ -59,10 +60,6 @@ describe("ExpressionEditorController scope variables via core API", () => {
   it("should access test data from editor state", () => {
     const state = editor.getState();
     expect(state.testData).toBeDefined();
-  });
-
-  it("should get editor via getEditor()", () => {
-    expect(getEditor()).toBe(editor);
   });
 });
 
@@ -104,11 +101,21 @@ describe("expression-editor helper behavior", () => {
   });
 
   it("applies completion replacement using shared range", () => {
-    const replaced = applySuggestionAtCursor("customer.na", " + 1", { from: 9, to: 11 }, "name");
+    const replaced = applySuggestionAtCursor(
+      "customer.na",
+      " + 1",
+      { from: 9, to: 11 },
+      "name",
+    );
     expect(replaced.text).toBe("customer.name + 1");
     expect(replaced.cursorPos).toBe("customer.name".length);
 
-    const safeStart = applySuggestionAtCursor("cus", "", { from: -10, to: 3 }, "customer");
+    const safeStart = applySuggestionAtCursor(
+      "cus",
+      "",
+      { from: -10, to: 3 },
+      "customer",
+    );
     expect(safeStart.text).toBe("customer");
     expect(safeStart.cursorPos).toBe("customer".length);
   });

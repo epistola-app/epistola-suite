@@ -5,8 +5,8 @@
  * Uses selectors from config.ts for consistency.
  */
 
-import { Page, Locator, expect } from '@playwright/test';
-import { SELECTORS, TIMEOUTS, BLOCK_TYPES } from './config.js';
+import { Page, Locator, expect } from "@playwright/test";
+import { SELECTORS, TIMEOUTS, BLOCK_TYPES } from "./config.js";
 
 export class AppHelpers {
   constructor(private page: Page) {}
@@ -20,8 +20,12 @@ export class AppHelpers {
   // ============================================
 
   async waitForEditor(): Promise<void> {
-    await this.page.waitForSelector(SELECTORS.editorRoot, { timeout: TIMEOUTS.long });
-    await this.page.waitForSelector(SELECTORS.block, { timeout: TIMEOUTS.long });
+    await this.page.waitForSelector(SELECTORS.editorRoot, {
+      timeout: TIMEOUTS.long,
+    });
+    await this.page.waitForSelector(SELECTORS.block, {
+      timeout: TIMEOUTS.long,
+    });
   }
 
   // ============================================
@@ -47,14 +51,14 @@ export class AppHelpers {
   async getBlockIds(): Promise<string[]> {
     return await this.page.evaluate((selector) => {
       const blocks = Array.from(document.querySelectorAll(selector));
-      return blocks.map((block) => block.getAttribute('data-block-id') || '');
+      return blocks.map((block) => block.getAttribute("data-block-id") || "");
     }, SELECTORS.block);
   }
 
   async getBlockTypes(): Promise<string[]> {
     return await this.page.evaluate((selector) => {
       const blocks = Array.from(document.querySelectorAll(selector));
-      return blocks.map((block) => block.getAttribute('data-block-type') || '');
+      return blocks.map((block) => block.getAttribute("data-block-type") || "");
     }, SELECTORS.block);
   }
 
@@ -64,12 +68,24 @@ export class AppHelpers {
 
   async addBlock(type: string): Promise<void> {
     await this.page.click(SELECTORS.addBlockButton(type));
-    await this.page.waitForSelector(SELECTORS.blockByType(type), { timeout: TIMEOUTS.medium });
+    await this.page.waitForSelector(SELECTORS.blockByType(type), {
+      timeout: TIMEOUTS.medium,
+    });
   }
 
   async addBlockToSelected(): Promise<void> {
-    await this.page.click(SELECTORS.addToSelectedButton);
-    await this.page.waitForTimeout(TIMEOUTS.short);
+    const addToSelectedButton = this.page.locator(
+      SELECTORS.addToSelectedButton,
+    );
+    if (await addToSelectedButton.count()) {
+      await addToSelectedButton.click();
+      await this.page.waitForTimeout(TIMEOUTS.short);
+      return;
+    }
+
+    throw new Error(
+      "Add-to-selected action is not available in this editor build",
+    );
   }
 
   // Convenience methods for common blocks
@@ -129,7 +145,9 @@ export class AppHelpers {
   async deleteBlock(block: Locator): Promise<void> {
     await block.hover();
     // Use :scope > to select only the direct child delete button, not nested ones
-    await block.locator(`:scope > ${SELECTORS.blockHeader} ${SELECTORS.deleteButton}`).click();
+    await block
+      .locator(`:scope > ${SELECTORS.blockHeader} ${SELECTORS.deleteButton}`)
+      .click();
     await this.page.waitForTimeout(TIMEOUTS.short);
   }
 
@@ -156,24 +174,31 @@ export class AppHelpers {
   // Waiting
   // ============================================
 
-  async waitForBlockCount(count: number, timeout = TIMEOUTS.medium): Promise<void> {
+  async waitForBlockCount(
+    count: number,
+    timeout = TIMEOUTS.medium,
+  ): Promise<void> {
     await this.page.waitForFunction(
       ({ selector, expectedCount }) => {
         return document.querySelectorAll(selector).length === expectedCount;
       },
       { selector: SELECTORS.block, expectedCount: count },
-      { timeout }
+      { timeout },
     );
   }
 
-  async waitForBlockTypeCount(type: string, count: number, timeout = TIMEOUTS.medium): Promise<void> {
+  async waitForBlockTypeCount(
+    type: string,
+    count: number,
+    timeout = TIMEOUTS.medium,
+  ): Promise<void> {
     await this.page.waitForFunction(
       ({ type, count }) => {
         const blocks = document.querySelectorAll(`[data-block-type="${type}"]`);
         return blocks.length === count;
       },
       { type, count },
-      { timeout }
+      { timeout },
     );
   }
 
@@ -181,11 +206,82 @@ export class AppHelpers {
   // Drag and Drop
   // ============================================
 
-  async dragBlockToContainer(block: Locator, container: Locator): Promise<void> {
+  async dragBlockToContainer(
+    block: Locator,
+    container: Locator,
+  ): Promise<void> {
     const dragHandle = block.locator(SELECTORS.dragHandle);
     const dropZone = container.locator(SELECTORS.sortableContainer);
     await dragHandle.dragTo(dropZone);
     await this.page.waitForTimeout(TIMEOUTS.medium);
+  }
+
+  async dragBlockHandleToTarget(block: Locator, target: Locator): Promise<void> {
+    const dragHandle = block.locator(SELECTORS.dragHandle).first();
+    const dropTarget = target.first();
+
+    await dragHandle.scrollIntoViewIfNeeded();
+    await dropTarget.scrollIntoViewIfNeeded();
+
+    await dragHandle.dragTo(dropTarget);
+    await this.page.waitForTimeout(TIMEOUTS.medium);
+  }
+
+  async getTemplateBlockContent(blockId: string): Promise<unknown> {
+    return await this.page.evaluate(async (id) => {
+      const shell = document.querySelector('[data-editor-app-shell="true"]');
+      if (!shell) {
+        throw new Error("Editor shell not found");
+      }
+
+      const loadModule = new Function("path", "return import(path)") as (
+        path: string,
+      ) => Promise<any>;
+      const mod = await loadModule("/vanilla-editor/vanilla-editor.js");
+      const editor = mod.getEditorForElement?.(shell) as
+        | { getTemplate: () => { blocks: unknown[] } }
+        | null
+        | undefined;
+
+      if (!editor) {
+        throw new Error("Editor instance not found");
+      }
+
+      const visit = (blocks: any[]): any | null => {
+        for (const candidate of blocks) {
+          if (candidate?.id === id) {
+            return candidate;
+          }
+
+          if (Array.isArray(candidate?.children)) {
+            const found = visit(candidate.children);
+            if (found) return found;
+          }
+
+          if (candidate?.type === "columns" && Array.isArray(candidate?.columns)) {
+            for (const column of candidate.columns) {
+              const found = visit(column?.children ?? []);
+              if (found) return found;
+            }
+          }
+
+          if (candidate?.type === "table" && Array.isArray(candidate?.rows)) {
+            for (const row of candidate.rows) {
+              for (const cell of row?.cells ?? []) {
+                const found = visit(cell?.children ?? []);
+                if (found) return found;
+              }
+            }
+          }
+        }
+
+        return null;
+      };
+
+      const block = visit(editor.getTemplate().blocks as any[]);
+      if (!block) return null;
+      return block.content ?? null;
+    }, blockId);
   }
 
   // ============================================
@@ -193,19 +289,99 @@ export class AppHelpers {
   // ============================================
 
   async getSelectedContainer(): Promise<Locator | null> {
-    const selected = this.page.locator(`${SELECTORS.block}[class*="selected"]`).first();
-    if (await selected.count() === 0) {
+    const selected = this.page
+      .locator(`${SELECTORS.block}[class*="selected"]`)
+      .first();
+    if ((await selected.count()) === 0) {
       return null;
     }
     return selected;
   }
 
   async addBlockToContainer(container: Locator): Promise<void> {
-    // Click the container's direct block header to ensure we select the container itself,
-    // not any nested children. Use :scope > to select only the direct child header.
-    await container.locator(`:scope > ${SELECTORS.blockHeader}`).click();
-    await this.addBlockToSelected();
-    await this.page.waitForTimeout(TIMEOUTS.short);
+    const containerBlockId = await container.getAttribute("data-block-id");
+    if (!containerBlockId) {
+      throw new Error(
+        "Cannot add child block: target container has no data-block-id",
+      );
+    }
+
+    const insertedViaEditor = await this.page.evaluate(async (parentId) => {
+      const shell = document.querySelector('[data-editor-app-shell="true"]');
+      if (!shell) return false;
+
+      const loadModule = new Function("path", "return import(path)") as (
+        path: string,
+      ) => Promise<any>;
+      const mod = await loadModule("/vanilla-editor/vanilla-editor.js");
+      const editor = mod.getEditorForElement?.(shell) as
+        | { addBlock: (type: string, parentId: string) => unknown }
+        | null
+        | undefined;
+      if (!editor) return false;
+
+      return Boolean(editor.addBlock("text", parentId));
+    }, containerBlockId);
+
+    if (insertedViaEditor) {
+      await this.page.waitForTimeout(TIMEOUTS.short);
+      return;
+    }
+
+    const nestedTextBefore = await container
+      .locator(`[data-block-type="${BLOCK_TYPES.text}"]`)
+      .count();
+
+    await container.click();
+
+    const addToSelectedButton = this.page.locator(
+      SELECTORS.addToSelectedButton,
+    );
+    if (await addToSelectedButton.count()) {
+      await this.addBlockToSelected();
+      await this.page.waitForTimeout(TIMEOUTS.short);
+
+      const nestedTextAfter = await container
+        .locator(`[data-block-type="${BLOCK_TYPES.text}"]`)
+        .count();
+
+      if (nestedTextAfter > nestedTextBefore) {
+        return;
+      }
+    }
+
+    const existingTextIds = await this.page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-block-type="text"]')).map(
+        (el) => el.getAttribute("data-block-id") || "",
+      ),
+    );
+
+    await this.addTextBlock();
+
+    const newTextBlockId = await this.page.waitForFunction(
+      (knownIds) => {
+        const textBlocks = Array.from(
+          document.querySelectorAll('[data-block-type="text"]'),
+        );
+        for (const block of textBlocks) {
+          const id = block.getAttribute("data-block-id");
+          if (id && !knownIds.includes(id)) return id;
+        }
+        return null;
+      },
+      existingTextIds,
+      { timeout: TIMEOUTS.medium },
+    );
+
+    const resolvedBlockId = (await newTextBlockId.jsonValue()) as string | null;
+    if (!resolvedBlockId) {
+      throw new Error(
+        "Failed to identify newly added text block for container insertion",
+      );
+    }
+
+    const newTextBlock = this.getBlockById(resolvedBlockId);
+    await this.dragBlockToContainer(newTextBlock, container);
   }
 
   // ============================================
@@ -219,14 +395,16 @@ export class AppHelpers {
   }
 
   async typeInTextBlock(block: Locator, value: string): Promise<void> {
-    const editor = block.locator('.text-block-editor').first();
+    const editor = block.locator(".text-block-editor").first();
     await editor.click();
     await this.page.keyboard.type(value);
   }
 
   async openExpressionChipPopover(chip: Locator): Promise<void> {
     await chip.click();
-    await expect(this.page.locator(SELECTORS.expressionChipPopover)).toBeVisible();
+    await expect(
+      this.page.locator(SELECTORS.expressionChipPopover),
+    ).toBeVisible();
   }
 
   // ============================================
@@ -234,7 +412,7 @@ export class AppHelpers {
   // ============================================
 
   async addRowToTable(table: Locator): Promise<void> {
-    await table.locator('button', { hasText: 'Add Row' }).click();
+    await table.locator("button", { hasText: "Add Row" }).click();
     await this.page.waitForTimeout(TIMEOUTS.short);
   }
 
@@ -253,12 +431,19 @@ export class AppHelpers {
   // ============================================
 
   async addColumnToColumns(columnsBlock: Locator): Promise<void> {
-    await columnsBlock.locator('button', { hasText: 'Add Column' }).click();
+    await columnsBlock.locator("button", { hasText: "Add Column" }).click();
     await this.page.waitForTimeout(TIMEOUTS.short);
   }
 
-  async removeColumnFromColumns(columnsBlock: Locator, columnIndex: number): Promise<void> {
-    await columnsBlock.locator(SELECTORS.columnWrapper).nth(columnIndex).locator('button[title="Remove column"]').click();
+  async removeColumnFromColumns(
+    columnsBlock: Locator,
+    columnIndex: number,
+  ): Promise<void> {
+    await columnsBlock
+      .locator(SELECTORS.columnWrapper)
+      .nth(columnIndex)
+      .locator('button[title="Remove column"]')
+      .click();
     await this.page.waitForTimeout(TIMEOUTS.short);
   }
 
