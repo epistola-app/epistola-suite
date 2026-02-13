@@ -5,7 +5,7 @@
  */
 
 import { test, expect } from "./fixtures.js";
-import { BLOCK_TYPES, SELECTORS } from "./config.js";
+import { AUTH, BLOCK_TYPES, ROUTES, SELECTORS, TIMEOUTS } from "./config.js";
 
 test.describe("Block Operations - Adding Blocks", () => {
   test("add text block", async ({ page, appHelpers }) => {
@@ -72,7 +72,7 @@ test.describe("Block Operations - Adding Blocks", () => {
     expect(lastTypes).toEqual(types);
   });
 
-  test.skip("add child block to container", async ({ page, appHelpers }) => {
+  test("add child block to container", async ({ page, appHelpers }) => {
     await appHelpers.addContainerBlock();
     const container = appHelpers.getBlockByType(BLOCK_TYPES.container).last();
 
@@ -88,7 +88,7 @@ test.describe("Block Operations - Adding Blocks", () => {
     await expect(container.locator(".empty-state")).not.toBeVisible();
   });
 
-  test.skip("add child block to conditional", async ({ page, appHelpers }) => {
+  test("add child block to conditional", async ({ page, appHelpers }) => {
     await appHelpers.addConditionalBlock();
     const conditional = appHelpers
       .getBlockByType(BLOCK_TYPES.conditional)
@@ -101,7 +101,7 @@ test.describe("Block Operations - Adding Blocks", () => {
     ).toBeVisible();
   });
 
-  test.skip("add child block to loop", async ({ page, appHelpers }) => {
+  test("add child block to loop", async ({ page, appHelpers }) => {
     await appHelpers.addLoopBlock();
     const loop = appHelpers.getBlockByType(BLOCK_TYPES.loop).last();
 
@@ -127,7 +127,7 @@ test.describe("Block Operations - Deleting Blocks", () => {
     await appHelpers.waitForBlockCount(initialCount - 1);
   });
 
-  test.skip("delete container with children removes everything", async ({
+  test("delete container with children removes everything", async ({
     page,
     appHelpers,
   }) => {
@@ -199,6 +199,14 @@ test.describe("Block Operations - Selecting Blocks", () => {
 });
 
 test.describe("Block Operations - Moving Blocks", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`${AUTH.baseUrl}${ROUTES.editor}?veDndMode=fallback`, {
+      waitUntil: "load",
+    });
+    await page.waitForSelector(SELECTORS.editorRoot, { timeout: TIMEOUTS.veryLong });
+    await page.waitForSelector(SELECTORS.block, { timeout: TIMEOUTS.long });
+  });
+
   test("text editor rejects native drag-and-drop events", async ({
     page,
     appHelpers,
@@ -300,13 +308,10 @@ test.describe("Block Operations - Moving Blocks", () => {
     ).toHaveCount(0);
   });
 
-  test.skip("drag block from root into container", async ({
+  test("drag block from root into container", async ({
     page,
     appHelpers,
   }) => {
-    // SKIPPED: Playwright's dragTo() is incompatible with SortableJS (HTML5 Drag API vs mouse events).
-    // The actual drag-and-drop works in the browser, but can't be tested with Playwright's built-in dragTo().
-    // TODO: Implement custom drag simulation using raw mouse events that SortableJS expects.
     await appHelpers.addContainerBlock();
     await appHelpers.addTextBlock();
 
@@ -320,9 +325,42 @@ test.describe("Block Operations - Moving Blocks", () => {
     ).toBeVisible();
   });
 
-  test.skip("move block with drag-and-drop", async () => {
-    // TODO: Re-enable when we have a reliable UI-level drag simulation for SortableJS.
-    // Intentionally no editor API calls in E2E.
+  test("move block with drag-and-drop", async ({ page, appHelpers }) => {
+    await appHelpers.addTextBlock();
+    await appHelpers.addTextBlock();
+
+    const textBlocks = appHelpers.getBlockByType(BLOCK_TYPES.text);
+    const firstBlock = textBlocks.nth(-2);
+    const secondBlock = textBlocks.last();
+
+    const firstId = await firstBlock.getAttribute("data-block-id");
+    const secondId = await secondBlock.getAttribute("data-block-id");
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBeTruthy();
+
+    const beforeOrder = await page.evaluate(({ a, b }) => {
+      const root = document.querySelector(".ve-editor-pane");
+      if (!root) return { aIndex: -1, bIndex: -1 };
+      const ids = Array.from(root.children)
+        .map((el) => el.getAttribute("data-block-id") || "")
+        .filter(Boolean);
+      return { aIndex: ids.indexOf(a), bIndex: ids.indexOf(b) };
+    }, { a: firstId!, b: secondId! });
+
+    await appHelpers.dragBlockHandleToTarget(firstBlock, secondBlock);
+
+    const afterOrder = await page.evaluate(({ a, b }) => {
+      const root = document.querySelector(".ve-editor-pane");
+      if (!root) return { aIndex: -1, bIndex: -1 };
+      const ids = Array.from(root.children)
+        .map((el) => el.getAttribute("data-block-id") || "")
+        .filter(Boolean);
+      return { aIndex: ids.indexOf(a), bIndex: ids.indexOf(b) };
+    }, { a: firstId!, b: secondId! });
+
+    expect(beforeOrder.aIndex).toBeGreaterThanOrEqual(0);
+    expect(beforeOrder.bIndex).toBeGreaterThanOrEqual(0);
+    expect(afterOrder.aIndex).not.toBe(beforeOrder.aIndex);
   });
 });
 

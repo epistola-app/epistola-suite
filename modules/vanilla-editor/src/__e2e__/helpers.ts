@@ -210,10 +210,13 @@ export class AppHelpers {
     block: Locator,
     container: Locator,
   ): Promise<void> {
-    const dragHandle = block.locator(SELECTORS.dragHandle);
     const dropZone = container.locator(SELECTORS.sortableContainer);
-    await dragHandle.dragTo(dropZone);
-    await this.page.waitForTimeout(TIMEOUTS.medium);
+    const target =
+      (await dropZone.locator(SELECTORS.emptyState).count()) > 0
+        ? dropZone.locator(SELECTORS.emptyState).first()
+        : dropZone;
+
+    await this.dragBlockHandleToTarget(block, target);
   }
 
   async dragBlockHandleToTarget(block: Locator, target: Locator): Promise<void> {
@@ -223,7 +226,23 @@ export class AppHelpers {
     await dragHandle.scrollIntoViewIfNeeded();
     await dropTarget.scrollIntoViewIfNeeded();
 
-    await dragHandle.dragTo(dropTarget);
+    const sourceBox = await dragHandle.boundingBox();
+    const targetBox = await dropTarget.boundingBox();
+    if (!sourceBox || !targetBox) {
+      throw new Error("Could not resolve drag source or target bounding box");
+    }
+
+    const sourceX = sourceBox.x + sourceBox.width / 2;
+    const sourceY = sourceBox.y + sourceBox.height / 2;
+    const targetX = targetBox.x + targetBox.width / 2;
+    const targetY = targetBox.y + targetBox.height / 2;
+
+    await this.page.mouse.move(sourceX, sourceY);
+    await this.page.mouse.down();
+    await this.page.mouse.move(targetX, targetY, { steps: 30 });
+    await this.page.mouse.move(targetX, targetY, { steps: 8 });
+    await this.page.waitForTimeout(TIMEOUTS.short);
+    await this.page.mouse.up();
     await this.page.waitForTimeout(TIMEOUTS.medium);
   }
 
@@ -304,28 +323,6 @@ export class AppHelpers {
       throw new Error(
         "Cannot add child block: target container has no data-block-id",
       );
-    }
-
-    const insertedViaEditor = await this.page.evaluate(async (parentId) => {
-      const shell = document.querySelector('[data-editor-app-shell="true"]');
-      if (!shell) return false;
-
-      const loadModule = new Function("path", "return import(path)") as (
-        path: string,
-      ) => Promise<any>;
-      const mod = await loadModule("/vanilla-editor/vanilla-editor.js");
-      const editor = mod.getEditorForElement?.(shell) as
-        | { addBlock: (type: string, parentId: string) => unknown }
-        | null
-        | undefined;
-      if (!editor) return false;
-
-      return Boolean(editor.addBlock("text", parentId));
-    }, containerBlockId);
-
-    if (insertedViaEditor) {
-      await this.page.waitForTimeout(TIMEOUTS.short);
-      return;
     }
 
     const nestedTextBefore = await container

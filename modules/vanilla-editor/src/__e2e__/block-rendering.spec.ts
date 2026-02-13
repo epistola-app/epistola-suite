@@ -388,7 +388,7 @@ test.describe("Block Rendering - Text Blocks", () => {
     await expect(editorArea).toBeVisible();
   });
 
-  test.skip("text block inside container renders correctly", async ({
+  test("text block inside container renders correctly", async ({
     page,
     appHelpers,
   }) => {
@@ -422,7 +422,7 @@ test.describe("Block Rendering - Container Blocks", () => {
     );
   });
 
-  test.skip("container with children renders all nested blocks", async ({
+  test("container with children renders all nested blocks", async ({
     page,
     appHelpers,
   }) => {
@@ -438,7 +438,7 @@ test.describe("Block Rendering - Container Blocks", () => {
     await expect(textBlocks).toHaveCount(2);
   });
 
-  test.skip("container with nested blocks renders correctly", async ({
+  test("container with nested blocks renders correctly", async ({
     page,
     appHelpers,
   }) => {
@@ -468,7 +468,7 @@ test.describe("Block Rendering - Container Blocks", () => {
     await expect(badge).toContainText(BLOCK_TYPES.container);
   });
 
-  test.skip("nested text block inherits container font size and background color", async ({
+  test("nested text block inherits container font size and background color", async ({
     page,
     appHelpers,
   }) => {
@@ -552,7 +552,7 @@ test.describe("Block Rendering - Conditional Blocks", () => {
     );
   });
 
-  test.skip("conditional block with children renders nested content", async ({
+  test("conditional block with children renders nested content", async ({
     page,
     appHelpers,
   }) => {

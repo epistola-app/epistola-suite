@@ -30,7 +30,7 @@ test.describe("Undo / Redo - Basic Operations", () => {
     await appHelpers.waitForBlockCount(initialCount);
   });
 
-  test.skip("undo delete restores container with children intact", async ({
+  test("undo delete restores container with children intact", async ({
     page,
     appHelpers,
   }) => {
