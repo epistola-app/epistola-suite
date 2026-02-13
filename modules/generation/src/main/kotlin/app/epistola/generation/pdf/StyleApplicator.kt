@@ -11,6 +11,30 @@ import com.itextpdf.layout.properties.UnitValue
  * Applies CSS-like styles to iText elements.
  */
 object StyleApplicator {
+    private val inheritableKeys = setOf(
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "color",
+        "lineHeight",
+        "letterSpacing",
+        "textAlign",
+        "backgroundColor",
+    )
+
+    /**
+     * Backward-compatible font-weight handling.
+     * Supports CSS keywords and numeric values.
+     */
+    fun isBoldFontWeight(weight: String): Boolean {
+        val normalized = weight.trim().lowercase()
+        return when (normalized) {
+            "bold", "bolder" -> true
+            "normal", "lighter" -> false
+            else -> normalized.toIntOrNull()?.let { it >= 700 } ?: false
+        }
+    }
+
     /**
      * Applies styles from block styles and document styles to an iText element.
      */
@@ -21,7 +45,7 @@ object StyleApplicator {
         fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyDocumentStyles(element, it) }
+        documentStyles?.let { applyDocumentStyles(element, it, fontCache) }
 
         // Apply block-specific styles (override document styles)
         blockStyles?.let { applyBlockStyles(element, it, fontCache) }
@@ -51,7 +75,7 @@ object StyleApplicator {
         fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyDocumentStyles(element, it) }
+        documentStyles?.let { applyDocumentStyles(element, it, fontCache) }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
@@ -61,6 +85,68 @@ object StyleApplicator {
 
         // Apply block inline styles (override preset styles)
         blockInlineStyles?.let { applyBlockStyles(element, it, fontCache) }
+    }
+
+    /**
+     * Converts document styles into inheritable style map.
+     */
+    fun documentStylesToInheritedMap(documentStyles: DocumentStyles?): Map<String, Any> {
+        if (documentStyles == null) return emptyMap()
+
+        val styles = mutableMapOf<String, Any>()
+        documentStyles.fontFamily?.let { styles["fontFamily"] = it }
+        documentStyles.fontSize?.let { styles["fontSize"] = it }
+        documentStyles.fontWeight?.let { styles["fontWeight"] = it }
+        documentStyles.color?.let { styles["color"] = it }
+        documentStyles.lineHeight?.let { styles["lineHeight"] = it }
+        documentStyles.letterSpacing?.let { styles["letterSpacing"] = it }
+        documentStyles.textAlign?.let { styles["textAlign"] = it.name.lowercase() }
+        documentStyles.backgroundColor?.let { styles["backgroundColor"] = it }
+        return styles
+    }
+
+    /**
+     * Resolves inherited styles in hierarchical order:
+     * parent inherited -> preset -> inline.
+     * Only inheritable keys are carried forward.
+     */
+    fun resolveInheritedStyles(
+        parentInheritedStyles: Map<String, Any>,
+        presetName: String?,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        inlineStyles: Map<String, Any>?,
+    ): Map<String, Any> {
+        val resolved = parentInheritedStyles.toMutableMap()
+
+        val presetStyles = presetName?.let { blockStylePresets[it] }
+        if (presetStyles != null) {
+            for ((key, value) in presetStyles) {
+                if (key in inheritableKeys) {
+                    resolved[key] = normalizeStyleValue(key, value)
+                }
+            }
+        }
+
+        if (inlineStyles != null) {
+            for ((key, value) in inlineStyles) {
+                if (key in inheritableKeys) {
+                    resolved[key] = normalizeStyleValue(key, value)
+                }
+            }
+        }
+
+        return resolved
+    }
+
+    /**
+     * Applies pre-resolved style map to an element.
+     */
+    fun <T : BlockElement<T>> applyResolvedStyles(
+        element: T,
+        resolvedStyles: Map<String, Any>,
+        fontCache: FontCache,
+    ) {
+        applyBlockStyles(element, resolvedStyles, fontCache)
     }
 
     /**
@@ -87,7 +173,7 @@ object StyleApplicator {
         }
     }
 
-    private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles) {
+    private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles, fontCache: FontCache) {
         styles.fontFamily?.let { fontFamily ->
             // iText uses font programs, we'll use a default font
             // Custom font handling would require font registration
@@ -109,8 +195,20 @@ object StyleApplicator {
             element.setTextAlignment(mapTextAlign(align))
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
-        // styles.lineHeight would require setFixedLeading which needs a specific point value
+        // Font weight (supports keyword and numeric values)
+        styles.fontWeight?.let { weight ->
+            if (isBoldFontWeight(weight)) {
+                element.setFont(fontCache.bold)
+            }
+        }
+
+        // Letter spacing
+        styles.letterSpacing?.let { spacing ->
+            parseSize(spacing)?.let { element.setCharacterSpacing(it) }
+        }
+
+        // Note: lineHeight is intentionally ignored for now in PDF rendering.
+        // iText leading depends on layout context and cannot be mapped 1:1 from CSS values.
     }
 
     private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache) {
@@ -173,24 +271,31 @@ object StyleApplicator {
             }
         }
 
-        // Font weight
-        val isBold = (styles["fontWeight"] as? String)?.let { weight ->
-            weight == "bold" || weight.toIntOrNull()?.let { it >= 700 } == true
-        } ?: false
-
-        // Font style
-        val isItalic = (styles["fontStyle"] as? String) == "italic"
-
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
-            val font = when {
-                isBold -> fontCache.bold
-                else -> fontCache.italic
+        // Font weight (supports keyword and numeric values)
+        (styles["fontWeight"] as? String)?.let { weight ->
+            if (isBoldFontWeight(weight)) {
+                element.setFont(fontCache.bold)
             }
-            element.setFont(font)
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Font style
+        (styles["fontStyle"] as? String)?.let { style ->
+            if (style == "italic") {
+                element.setFont(fontCache.italic)
+            }
+        }
+
+        // Note: lineHeight is intentionally ignored for now in PDF rendering.
+    }
+
+    private fun normalizeStyleValue(key: String, value: Any): Any {
+        if (key == "textAlign") {
+            return when (value) {
+                is TextAlign -> value.name.lowercase()
+                else -> value.toString().lowercase()
+            }
+        }
+        return value
     }
 
     private fun parseFontSize(fontSize: String): Float? = when {

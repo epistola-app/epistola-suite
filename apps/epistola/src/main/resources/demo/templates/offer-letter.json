@@ -1,0 +1,1117 @@
+{
+  "slug": "demo-offer-letter",
+  "name": "Job Offer Letter",
+  "dataModel": {
+    "type": "object",
+    "properties": {
+      "company": {
+        "type": "object",
+        "description": "Hiring company details",
+        "properties": {
+          "name": { "type": "string" },
+          "address": { "type": "string" },
+          "city": { "type": "string" },
+          "country": { "type": "string" },
+          "hrContact": { "type": "string" },
+          "hrEmail": { "type": "string", "format": "email" }
+        },
+        "required": ["name", "address", "hrContact", "hrEmail"]
+      },
+      "candidate": {
+        "type": "object",
+        "description": "Candidate receiving the offer",
+        "properties": {
+          "name": { "type": "string" },
+          "address": { "type": "string" },
+          "city": { "type": "string" },
+          "country": { "type": "string" }
+        },
+        "required": ["name"]
+      },
+      "position": {
+        "type": "object",
+        "description": "Job position details",
+        "properties": {
+          "title": { "type": "string" },
+          "department": { "type": "string" },
+          "startDate": { "type": "string", "format": "date" },
+          "manager": { "type": "string" },
+          "location": { "type": "string" },
+          "type": { "type": "string", "description": "Full-time, Part-time, Contract" }
+        },
+        "required": ["title", "department", "startDate"]
+      },
+      "compensation": {
+        "type": "object",
+        "description": "Salary and compensation details",
+        "properties": {
+          "baseSalary": { "type": "number" },
+          "currency": { "type": "string" },
+          "frequency": { "type": "string", "description": "Annual, Monthly" },
+          "signingBonus": { "type": "number", "minimum": 0 },
+          "equityShares": { "type": "number", "minimum": 0 },
+          "vestingPeriod": { "type": "string" }
+        },
+        "required": ["baseSalary", "currency", "frequency"]
+      },
+      "benefits": {
+        "type": "array",
+        "description": "List of benefits included in the offer",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "string" }
+          },
+          "required": ["name", "description"]
+        }
+      },
+      "offerDate": { "type": "string", "format": "date" },
+      "expiryDate": { "type": "string", "format": "date" },
+      "relocation": {
+        "type": "boolean",
+        "description": "Whether relocation assistance is offered"
+      },
+      "relocationBudget": {
+        "type": "number",
+        "description": "Relocation budget amount"
+      }
+    },
+    "required": ["company", "candidate", "position", "compensation", "benefits", "offerDate", "expiryDate"]
+  },
+  "dataExamples": [
+    {
+      "id": "offer-senior-engineer",
+      "name": "Senior Engineer - Full Package",
+      "data": {
+        "company": {
+          "name": "Epistola Solutions B.V.",
+          "address": "Innovation Street 42",
+          "city": "Amsterdam",
+          "country": "Netherlands",
+          "hrContact": "Sarah van der Berg",
+          "hrEmail": "hr@epistola.app"
+        },
+        "candidate": {
+          "name": "Alex Johnson",
+          "address": "Keizersgracht 123",
+          "city": "Amsterdam",
+          "country": "Netherlands"
+        },
+        "position": {
+          "title": "Senior Software Engineer",
+          "department": "Engineering",
+          "startDate": "2024-03-01",
+          "manager": "Maria Chen",
+          "location": "Amsterdam, NL (Hybrid)",
+          "type": "Full-time"
+        },
+        "compensation": {
+          "baseSalary": 95000,
+          "currency": "EUR",
+          "frequency": "Annual",
+          "signingBonus": 5000,
+          "equityShares": 1200,
+          "vestingPeriod": "4 years with 1-year cliff"
+        },
+        "benefits": [
+          { "name": "Health Insurance", "description": "Comprehensive medical, dental, and vision coverage" },
+          { "name": "Pension Plan", "description": "Company matches up to 6% of salary" },
+          { "name": "Paid Time Off", "description": "28 days annual leave + national holidays" },
+          { "name": "Learning Budget", "description": "EUR 2,000 per year for courses and conferences" },
+          { "name": "Home Office", "description": "EUR 500 one-time setup budget" }
+        ],
+        "offerDate": "2024-02-01",
+        "expiryDate": "2024-02-15",
+        "relocation": false
+      }
+    },
+    {
+      "id": "offer-with-relocation",
+      "name": "Product Manager - With Relocation",
+      "data": {
+        "company": {
+          "name": "Epistola Solutions B.V.",
+          "address": "Innovation Street 42",
+          "city": "Amsterdam",
+          "country": "Netherlands",
+          "hrContact": "Sarah van der Berg",
+          "hrEmail": "hr@epistola.app"
+        },
+        "candidate": {
+          "name": "Priya Sharma",
+          "address": "15 Baker Street",
+          "city": "London",
+          "country": "United Kingdom"
+        },
+        "position": {
+          "title": "Senior Product Manager",
+          "department": "Product",
+          "startDate": "2024-04-15",
+          "manager": "Thomas Weber",
+          "location": "Amsterdam, NL",
+          "type": "Full-time"
+        },
+        "compensation": {
+          "baseSalary": 105000,
+          "currency": "EUR",
+          "frequency": "Annual",
+          "signingBonus": 8000,
+          "equityShares": 2000,
+          "vestingPeriod": "4 years with 1-year cliff"
+        },
+        "benefits": [
+          { "name": "Health Insurance", "description": "Comprehensive medical, dental, and vision coverage" },
+          { "name": "Pension Plan", "description": "Company matches up to 6% of salary" },
+          { "name": "Paid Time Off", "description": "30 days annual leave + national holidays" },
+          { "name": "Learning Budget", "description": "EUR 3,000 per year for courses and conferences" }
+        ],
+        "offerDate": "2024-03-01",
+        "expiryDate": "2024-03-21",
+        "relocation": true,
+        "relocationBudget": 10000
+      }
+    },
+    {
+      "id": "offer-junior-minimal",
+      "name": "Junior Developer - Minimal Package",
+      "data": {
+        "company": {
+          "name": "Epistola Solutions B.V.",
+          "address": "Innovation Street 42",
+          "city": "Amsterdam",
+          "country": "Netherlands",
+          "hrContact": "Sarah van der Berg",
+          "hrEmail": "hr@epistola.app"
+        },
+        "candidate": {
+          "name": "Emma de Vries",
+          "address": "Damrak 50",
+          "city": "Amsterdam",
+          "country": "Netherlands"
+        },
+        "position": {
+          "title": "Junior Developer",
+          "department": "Engineering",
+          "startDate": "2024-03-15",
+          "manager": "Maria Chen",
+          "location": "Amsterdam, NL (Hybrid)",
+          "type": "Full-time"
+        },
+        "compensation": {
+          "baseSalary": 48000,
+          "currency": "EUR",
+          "frequency": "Annual"
+        },
+        "benefits": [
+          { "name": "Health Insurance", "description": "Comprehensive medical and dental coverage" },
+          { "name": "Pension Plan", "description": "Company matches up to 4% of salary" },
+          { "name": "Paid Time Off", "description": "25 days annual leave + national holidays" }
+        ],
+        "offerDate": "2024-02-20",
+        "expiryDate": "2024-03-06",
+        "relocation": false
+      }
+    }
+  ],
+  "templateModel": {
+    "id": "offer-letter-v1",
+    "name": "Job Offer Letter",
+    "version": 1,
+    "pageSettings": {
+      "format": "A4",
+      "orientation": "portrait",
+      "margins": {
+        "top": 40,
+        "right": 40,
+        "bottom": 40,
+        "left": 40
+      }
+    },
+    "documentStyles": {
+      "fontFamily": "Helvetica",
+      "fontSize": "10pt",
+      "color": "#333333",
+      "lineHeight": "1.5"
+    },
+    "blocks": [
+      {
+        "type": "container",
+        "id": "letterhead",
+        "styles": {
+          "marginBottom": "30px",
+          "paddingBottom": "15px",
+          "borderBottom": "2px solid #1e40af"
+        },
+        "children": [
+          {
+            "type": "columns",
+            "id": "letterhead-cols",
+            "gap": 20,
+            "columns": [
+              {
+                "id": "company-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "company-name",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "company.name", "isNew": false }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "16pt",
+                      "fontWeight": "bold",
+                      "color": "#1e40af",
+                      "marginBottom": "4px"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "id": "company-address",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "company.address", "isNew": false }
+                            },
+                            { "type": "text", "text": ", " },
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "company.city", "isNew": false }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "9pt",
+                      "color": "#666666"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "date-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "offer-date",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "offerDate", "isNew": false }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "10pt",
+                      "textAlign": "right",
+                      "color": "#666666"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "container",
+        "id": "recipient",
+        "styles": {
+          "marginBottom": "25px"
+        },
+        "children": [
+          {
+            "type": "text",
+            "id": "candidate-name",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "candidate.name", "isNew": false }
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "candidate.address", "isNew": false }
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "candidate.city", "isNew": false }
+                    },
+                    { "type": "text", "text": ", " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "candidate.country", "isNew": false }
+                    }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "fontSize": "10pt",
+              "lineHeight": "1.6"
+            }
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "greeting",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Dear " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "candidate.name", "isNew": false }
+                },
+                { "type": "text", "text": "," }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "marginBottom": "15px"
+        }
+      },
+      {
+        "type": "text",
+        "id": "intro-paragraph",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "We are pleased to extend you an offer of employment for the position of " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "position.title", "isNew": false }
+                },
+                { "type": "text", "text": " in the " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "position.department", "isNew": false }
+                },
+                { "type": "text", "text": " department at " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "company.name", "isNew": false }
+                },
+                { "type": "text", "text": ". After careful consideration, we believe your skills and experience are a strong match for this role." }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "marginBottom": "20px"
+        }
+      },
+      {
+        "type": "text",
+        "id": "position-heading",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Position Details" }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "fontSize": "13pt",
+          "fontWeight": "bold",
+          "color": "#1e40af",
+          "marginBottom": "10px"
+        }
+      },
+      {
+        "type": "table",
+        "id": "position-table",
+        "borderStyle": "horizontal",
+        "columnWidths": [30, 70],
+        "styles": {
+          "marginBottom": "25px"
+        },
+        "rows": [
+          {
+            "id": "row-title",
+            "cells": [
+              {
+                "id": "cell-title-label",
+                "styles": { "padding": "6px 8px", "fontWeight": "bold", "color": "#555555" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "title-label",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Title" }] }] }
+                  }
+                ]
+              },
+              {
+                "id": "cell-title-val",
+                "styles": { "padding": "6px 8px" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "title-val",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "position.title", "isNew": false } }] }] }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "row-dept",
+            "cells": [
+              {
+                "id": "cell-dept-label",
+                "styles": { "padding": "6px 8px", "fontWeight": "bold", "color": "#555555" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "dept-label",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Department" }] }] }
+                  }
+                ]
+              },
+              {
+                "id": "cell-dept-val",
+                "styles": { "padding": "6px 8px" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "dept-val",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "position.department", "isNew": false } }] }] }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "row-location",
+            "cells": [
+              {
+                "id": "cell-loc-label",
+                "styles": { "padding": "6px 8px", "fontWeight": "bold", "color": "#555555" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "loc-label",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Location" }] }] }
+                  }
+                ]
+              },
+              {
+                "id": "cell-loc-val",
+                "styles": { "padding": "6px 8px" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "loc-val",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "position.location", "isNew": false } }] }] }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "row-start",
+            "cells": [
+              {
+                "id": "cell-start-label",
+                "styles": { "padding": "6px 8px", "fontWeight": "bold", "color": "#555555" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "start-label",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Start Date" }] }] }
+                  }
+                ]
+              },
+              {
+                "id": "cell-start-val",
+                "styles": { "padding": "6px 8px" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "start-val",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "position.startDate", "isNew": false } }] }] }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "row-manager",
+            "cells": [
+              {
+                "id": "cell-mgr-label",
+                "styles": { "padding": "6px 8px", "fontWeight": "bold", "color": "#555555" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "mgr-label",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Reports To" }] }] }
+                  }
+                ]
+              },
+              {
+                "id": "cell-mgr-val",
+                "styles": { "padding": "6px 8px" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "mgr-val",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "position.manager", "isNew": false } }] }] }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "row-type",
+            "cells": [
+              {
+                "id": "cell-type-label",
+                "styles": { "padding": "6px 8px", "fontWeight": "bold", "color": "#555555" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "type-label",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Employment" }] }] }
+                  }
+                ]
+              },
+              {
+                "id": "cell-type-val",
+                "styles": { "padding": "6px 8px" },
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "type-val",
+                    "content": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "expression", "attrs": { "expression": "position.type", "isNew": false } }] }] }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "comp-heading",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Compensation" }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "fontSize": "13pt",
+          "fontWeight": "bold",
+          "color": "#1e40af",
+          "marginBottom": "10px"
+        }
+      },
+      {
+        "type": "text",
+        "id": "salary-detail",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Your " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "compensation.frequency", "isNew": false }
+                },
+                { "type": "text", "text": " base salary will be " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "compensation.currency", "isNew": false }
+                },
+                { "type": "text", "text": " " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "compensation.baseSalary", "isNew": false }
+                },
+                { "type": "text", "text": ", subject to applicable tax withholdings and deductions." }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "marginBottom": "15px"
+        }
+      },
+      {
+        "type": "conditional",
+        "id": "signing-bonus-section",
+        "condition": {
+          "language": "jsonata",
+          "raw": "compensation.signingBonus > 0"
+        },
+        "children": [
+          {
+            "type": "text",
+            "id": "signing-bonus-text",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "You will receive a one-time signing bonus of " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "compensation.currency", "isNew": false }
+                    },
+                    { "type": "text", "text": " " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "compensation.signingBonus", "isNew": false }
+                    },
+                    { "type": "text", "text": ", payable with your first month's salary." }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "marginBottom": "10px"
+            }
+          }
+        ]
+      },
+      {
+        "type": "conditional",
+        "id": "equity-section",
+        "condition": {
+          "language": "jsonata",
+          "raw": "compensation.equityShares > 0"
+        },
+        "children": [
+          {
+            "type": "text",
+            "id": "equity-text",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "You will be granted " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "compensation.equityShares", "isNew": false }
+                    },
+                    { "type": "text", "text": " stock options, vesting over " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "compensation.vestingPeriod", "isNew": false }
+                    },
+                    { "type": "text", "text": "." }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "marginBottom": "10px"
+            }
+          }
+        ]
+      },
+      {
+        "type": "conditional",
+        "id": "relocation-section",
+        "condition": {
+          "language": "jsonata",
+          "raw": "relocation = true"
+        },
+        "children": [
+          {
+            "type": "container",
+            "id": "relocation-box",
+            "styles": {
+              "padding": "12px",
+              "backgroundColor": "#eff6ff",
+              "borderRadius": "4px",
+              "borderLeft": "3px solid #2563eb",
+              "marginBottom": "15px"
+            },
+            "children": [
+              {
+                "type": "text",
+                "id": "relocation-text",
+                "content": {
+                  "type": "doc",
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "content": [
+                        {
+                          "type": "text",
+                          "marks": [{ "type": "bold" }],
+                          "text": "Relocation Assistance: "
+                        },
+                        { "type": "text", "text": "We will provide a relocation package of up to " },
+                        {
+                          "type": "expression",
+                          "attrs": { "expression": "compensation.currency", "isNew": false }
+                        },
+                        { "type": "text", "text": " " },
+                        {
+                          "type": "expression",
+                          "attrs": { "expression": "relocationBudget", "isNew": false }
+                        },
+                        { "type": "text", "text": " to support your move. This covers moving expenses, temporary housing, and travel costs." }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "benefits-heading",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Benefits" }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "fontSize": "13pt",
+          "fontWeight": "bold",
+          "color": "#1e40af",
+          "marginBottom": "10px",
+          "marginTop": "10px"
+        }
+      },
+      {
+        "type": "text",
+        "id": "benefits-intro",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "As a full-time employee, you will be eligible for the following benefits:" }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "marginBottom": "10px"
+        }
+      },
+      {
+        "type": "loop",
+        "id": "benefits-loop",
+        "expression": { "raw": "benefits" },
+        "itemAlias": "benefit",
+        "indexAlias": "i",
+        "children": [
+          {
+            "type": "text",
+            "id": "benefit-item",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    { "type": "text", "text": "- " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "benefit.name", "isNew": false }
+                    },
+                    { "type": "text", "text": " — " },
+                    {
+                      "type": "expression",
+                      "attrs": { "expression": "benefit.description", "isNew": false }
+                    }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "marginBottom": "4px",
+              "paddingLeft": "10px"
+            }
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "id": "closing-paragraph",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "This offer is contingent upon successful completion of background verification. Please confirm your acceptance by signing and returning this letter no later than " },
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "expiryDate", "isNew": false }
+                },
+                { "type": "text", "text": "." }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "marginTop": "25px",
+          "marginBottom": "20px"
+        }
+      },
+      {
+        "type": "text",
+        "id": "warm-closing",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "We are excited about the possibility of you joining our team. If you have any questions, please do not hesitate to reach out." }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "marginBottom": "30px"
+        }
+      },
+      {
+        "type": "text",
+        "id": "signature",
+        "content": {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Warm regards," }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "company.hrContact", "isNew": false }
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                { "type": "text", "text": "Human Resources" }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "expression",
+                  "attrs": { "expression": "company.hrEmail", "isNew": false }
+                }
+              ]
+            }
+          ]
+        },
+        "styles": {
+          "lineHeight": "1.8"
+        }
+      },
+      {
+        "type": "container",
+        "id": "acceptance-section",
+        "styles": {
+          "marginTop": "40px",
+          "paddingTop": "20px",
+          "borderTop": "1px solid #cbd5e1"
+        },
+        "children": [
+          {
+            "type": "text",
+            "id": "acceptance-heading",
+            "content": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "marks": [{ "type": "bold" }],
+                      "text": "Acceptance of Offer"
+                    }
+                  ]
+                }
+              ]
+            },
+            "styles": {
+              "marginBottom": "20px"
+            }
+          },
+          {
+            "type": "columns",
+            "id": "signature-cols",
+            "gap": 40,
+            "columns": [
+              {
+                "id": "candidate-sig-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "candidate-sig",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            { "type": "text", "text": "________________________" }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "candidate.name", "isNew": false }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            { "type": "text", "text": "Date: _______________" }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "9pt",
+                      "lineHeight": "2.0"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "company-sig-col",
+                "size": 1,
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "company-sig",
+                    "content": {
+                      "type": "doc",
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            { "type": "text", "text": "________________________" }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "company.hrContact", "isNew": false }
+                            },
+                            { "type": "text", "text": ", " },
+                            {
+                              "type": "expression",
+                              "attrs": { "expression": "company.name", "isNew": false }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "paragraph",
+                          "content": [
+                            { "type": "text", "text": "Date: _______________" }
+                          ]
+                        }
+                      ]
+                    },
+                    "styles": {
+                      "fontSize": "9pt",
+                      "lineHeight": "2.0"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -30,15 +30,16 @@ class ColumnsBlockRenderer : BlockRenderer {
         val table = Table(columnWidths)
         table.useAllAvailableWidth()
 
-        // Apply block styles with theme preset resolution
-        StyleApplicator.applyStylesWithPreset(
-            table,
-            block.styles,
+        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
-            context.fontCache,
+            block.styles,
         )
+
+        StyleApplicator.applyResolvedStyles(table, resolvedStyles, context.fontCache)
+
+        val childContext = context.copy(inheritedStyles = resolvedStyles)
 
         // Gap between columns (simulated via cell padding)
         val gap = block.gap?.toFloat() ?: 8f
@@ -58,7 +59,7 @@ class ColumnsBlockRenderer : BlockRenderer {
             }
 
             // Render column children
-            val childElements = blockRenderers.renderBlocks(column.children, context)
+            val childElements = blockRenderers.renderBlocks(column.children, childContext)
             for (element in childElements) {
                 when (element) {
                     is com.itextpdf.layout.element.IBlockElement -> cell.add(element)

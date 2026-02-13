@@ -3,11 +3,128 @@
 ## [Unreleased]
 
 ### Fixed
+- **Expression authoring parity in headless + vanilla editors**: Improved completion, preview, and inline chip editing flows without React-coupled dependencies.
+  - Headless expression utilities now expose cursor-aware completion APIs, richer method catalogs, and shared scope-aware evaluation context builders.
+  - Vanilla conditional/loop expression editor now uses shared headless completion/context logic with explicit preview error rendering and block-type warnings.
+  - Inline expression chips now support `{{` creation flow, click-to-edit popover lifecycle, save/cancel behavior for new chips, and shared completion/preview behavior.
+- **Vanilla E2E reliability and safety improvements**
+  - Playwright worker count is capped to 4 for local runs.
+  - Added focused expression behavior E2E coverage for conditional/loop editors and inline chips.
+  - Replaced legacy E2E editor-internal assertions in updated specs with UI-level assertions.
+- **E2E test failures and drag-drop bug in vanilla-editor**: Fixed multiple issues causing Playwright E2E test failures
+  - Fixed browser context scope issues by passing selectors as parameters to page.waitForFunction()
+  - Fixed stale locator issues using :scope > selector to target direct children after DOM re-renders
+  - Fixed template literal syntax errors (single quotes to backticks) for proper selector interpolation
+  - Added missing SELECTORS import to block-operations.spec.ts
+  - Fixed SortableJS + uhtml conflict in sortable-adapter.ts by reverting DOM changes before state update
+  - Test results improved from 19 failures to 3 timeout-related failures (56/59 passing)
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
+- **Template Data Validation Endpoint**: Implemented `validateTemplateData` method in `EpistolaTemplateApi` to support the updated API contract
+  - Validates template input data against the template's JSON Schema
+  - Returns 404 if template not found, valid=true if no schema defined
+  - Maps validation errors to structured response with message and path
+- **Expression chips invisible in editor**: Text blocks with TipTap `expression` nodes now render chips correctly in the editor UI
+- **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
+
+### Changed
+- **Nested style inheritance now matches editor and PDF generation**: Implemented hierarchical style cascade resolution across headless-editor, vanilla-editor, and Kotlin PDF generation.
+  - Cascade order is now explicit and consistent: `document -> ancestors -> block`
+  - Inheritable keys include typography/alignment and `backgroundColor`
+  - Renderer structure now keeps style application scoped to `.block-content` only, with block chrome (`.block-ui`, headers, controls) isolated from content styling
+  - Added maintainability helpers in renderer to centralize styled content wrapping
+
+### Added
+- **Cross-runtime cascade validation and parity tests**
+  - Added shared fixture set for style cascade behavior in TypeScript and Kotlin tests
+  - Added fixture-driven headless resolver tests for contract-level validation
+  - Added Kotlin fixture-driven resolver tests and nested renderer inheritance tests (container, table/cell, conditional, loop)
+  - Added compatibility coverage for `fontWeight` keyword + numeric handling in Kotlin PDF rendering
+- **Style cascade roadmap docs**: Added phased implementation roadmap and compatibility notes under `docs/style-cascade-roadmap/`
+
+### Added
+- **Job Offer Letter demo template**: Second demo template with tables, conditionals, loops, and columns
 
  ### Added
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
+### Added
+- **Live PDF Preview**: Split-pane editor with real-time PDF preview
+  - Side-by-side layout: editor (left) and PDF preview (right)
+  - Debounced auto-refresh (800ms) on template changes
+  - Manual refresh and toggle visibility buttons
+  - Uses existing preview endpoint with live templateModel
+
+- **DOM Diffing with morphdom**: Replaced full DOM rebuilds with efficient patching
+  - Imported morphdom via ESM CDN for minimal DOM updates
+  - Preserves focus and cursor position during re-renders
+  - Fixes duplicate block and keystroke re-render issues
+
+- **Debug Panel** (local profile only): Developer tooling for editor state inspection
+  - Shows selected block, block count, dirty state, undo/redo status
+  - Displays full template store as JSON
+  - Collapsible panel, Catppuccin Mocha theme
+  - Only rendered when running with `--spring.profiles.active=local`
+
+- **Block-Level Styling**: Per-block CSS styling via modal
+  - Typography: fontSize, fontWeight, color, textAlign
+  - Spacing: padding, margin
+  - Background & Border: backgroundColor, borderRadius
+  - Color pickers synced with text inputs
+  - Block button enabled only when a block is selected
+
+- **Framework-Agnostic Headless Editor**: New `@epistola/headless-editor` module provides pure TypeScript editor core
+  - TemplateEditor orchestrator with block CRUD, selection management, and undo/redo
+  - BlockTree utilities for nested block manipulation (children, columns, table cells)
+  - UndoManager with configurable history depth and deep-clone snapshots
+  - 9 block types with constraint-based validation: text, container, conditional, loop, columns, table, pagebreak, pageheader, pagefooter
+  - DragDropPort interface for framework-agnostic drag-and-drop adapters
+  - Data examples management with auto-selection and validation
+  - JSON schema support for data model validation
+  - Preview overrides for conditionals and loops during template preview
+  - Dirty state tracking with lastSavedTemplate for unsaved changes detection
+  - Theme management: themes list, default theme, theme ID assignment
+  - Document styles and page settings (A4/Letter, margins, orientation)
+  - Full unit test coverage: 10 test files, 70+ tests, 100% core coverage
+  - Single dependency: nanostores (~1KB) for reactive state
+
+- **Headless Editor Core Improvements**: Enhanced reactive state and batching capabilities
+  - Reactive computed stores: `$isDirty`, `$canUndo`, `$canRedo` via nanostores
+  - `batch(fn)` method for grouped mutations with single undo entry
+  - `getScopeVariables(blockId)` for expression autocomplete context
+  - `getExpressionContext(blockId)` merging test data with scope variables
+  - Render hints in BlockDefinition (label, icon, category) for UI block picker
+  - 7 new comprehensive test files for batch, undo/redo, dirty state, scope variables
+
+- **Vanilla JS Editor UI**: New lightweight UI layer using Bootstrap 5 + SortableJS
+  - BlockRenderer: DOM rendering for all 9 block types
+  - SortableAdapter: SortableJS drag-drop integration with drop zone validation
+  - UIController: toolbar, keyboard shortcuts (Ctrl+S, Ctrl+Z), file import/export
+  - Plain JavaScript static resources served by Spring Boot via import maps
+
+### Changed
+- **BREAKING: Migrated from React Editor to Headless Editor Architecture**
+  - Removed React 19, Zustand, Zundo, Immer, TipTap, dnd-kit dependencies from editor
+  - New stack: Vanilla JS, Bootstrap 5, SortableJS, nanostores
+  - Build tool: esbuild instead of Vite
+  - React editor module excluded from build pipeline (retained for reference)
+  - Editor page uses vanilla editor with headless core via import maps
+  - All state management moved to framework-agnostic nanostores
+
+- **Refactored Editor UI to vanilla-editor Package**: Consolidated editor UI into new framework-agnostic package
+  - Removed legacy adapter files: dom-helpers.js, renderer.js (777 lines), sortable-adapter.js, ui-controller.js
+  - Removed legacy controllers: expression_editor_controller.js (501 lines), text_block_controller.js with tests
+  - Removed: editor-integration.js (166 lines), editor-logger.js, ExpressionEditor.css (232 lines)
+  - New `@epistola/vanilla-editor` package with uhtml-based renderer (replaces morphdom + createElement)
+  - TipTap headless editor for text blocks with custom expression chip nodes
+  - @github/hotkey for declarative keyboard shortcuts (Ctrl+Z, Ctrl+S, etc.)
+  - Stimulus EditorController orchestrating toolbar, save, dirty tracking, undo/redo
+  - Updated editor.html from ~570 lines inline script to ~20 lines mount configuration
+  - Known issues to address: block selection highlight, sortable drag preview styling, expression chip cursor edge cases
+
+### Fixed
+- **Headless editor drop operation handling**: Fixed drop() method to correctly handle before/after sibling positions (was ignoring position parameter)
+- **Headless editor undo for block updates**: Added undo support for updateBlock operation which was missing from history tracking
+- **Headless editor file import error handling**: Added proper error handling for FileReader failures and null results during JSON import
 
 ### Changed
 - **BREAKING: Simplified load test data model - eliminated redundant table**: Removed `load_test_requests` table which duplicated data already present in `document_generation_requests`

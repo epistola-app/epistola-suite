@@ -18,18 +18,19 @@ class ContainerBlockRenderer : BlockRenderer {
 
         val div = Div()
 
-        // Apply block styles with theme preset resolution
-        StyleApplicator.applyStylesWithPreset(
-            div,
-            block.styles,
+        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
-            context.fontCache,
+            block.styles,
         )
 
+        StyleApplicator.applyResolvedStyles(div, resolvedStyles, context.fontCache)
+
+        val childContext = context.copy(inheritedStyles = resolvedStyles)
+
         // Render children
-        val childElements = blockRenderers.renderBlocks(block.children, context)
+        val childElements = blockRenderers.renderBlocks(block.children, childContext)
         for (element in childElements) {
             when (element) {
                 is com.itextpdf.layout.element.IBlockElement -> div.add(element)

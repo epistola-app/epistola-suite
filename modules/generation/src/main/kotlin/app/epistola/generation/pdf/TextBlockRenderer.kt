@@ -18,15 +18,14 @@ class TextBlockRenderer : BlockRenderer {
 
         val div = Div()
 
-        // Apply block styles with theme preset resolution
-        StyleApplicator.applyStylesWithPreset(
-            div,
-            block.styles,
+        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
-            context.documentStyles,
-            context.fontCache,
+            block.styles,
         )
+
+        StyleApplicator.applyResolvedStyles(div, resolvedStyles, context.fontCache)
 
         // Convert TipTap content to iText elements
         val content = block.content

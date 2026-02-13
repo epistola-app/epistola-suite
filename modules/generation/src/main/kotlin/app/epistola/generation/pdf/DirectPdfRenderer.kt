@@ -59,6 +59,7 @@ class DirectPdfRenderer(
         val fontCache = FontCache()
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage)
         val effectiveDocumentStyles = resolvedDocumentStyles ?: template.documentStyles
+        val initialInheritedStyles = StyleApplicator.documentStylesToInheritedMap(effectiveDocumentStyles)
         val context = RenderContext(
             data = data,
             loopContext = emptyMap(),
@@ -68,6 +69,7 @@ class DirectPdfRenderer(
             defaultExpressionLanguage = defaultExpressionLanguage,
             fontCache = fontCache,
             blockStylePresets = blockStylePresets,
+            inheritedStyles = initialInheritedStyles,
         )
 
         // Register page header event handler if present

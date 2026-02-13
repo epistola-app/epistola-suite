@@ -46,7 +46,15 @@ class PageFooterEventHandler(
         // ✅ This constructor exists in iText 9
         val canvas = Canvas(pdfCanvas, footerRect)
 
-        val elements = blockRenderers.renderBlocks(footerBlock.children, context)
+        val inheritedStyles = StyleApplicator.resolveInheritedStyles(
+            context.inheritedStyles,
+            footerBlock.stylePreset,
+            context.blockStylePresets,
+            footerBlock.styles,
+        )
+        val childContext = context.copy(inheritedStyles = inheritedStyles)
+
+        val elements = blockRenderers.renderBlocks(footerBlock.children, childContext)
         for (element in elements) {
             when (element) {
                 is IBlockElement -> canvas.add(element)

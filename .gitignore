@@ -51,3 +51,6 @@ dist/
 
 ### Test Coverage ###
 coverage/
+playwright-report/
+test-results/
+.auth/
