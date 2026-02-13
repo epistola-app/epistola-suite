@@ -70,6 +70,7 @@ interface CoreMountConfig {
   debug?: boolean;
   plugins?: BlockPlugin[];
   rendererPlugins?: BlockRendererPlugin[];
+  dndMode?: "native" | "fallback";
 }
 
 interface AppRuntime {
@@ -149,6 +150,7 @@ function mountEditor(config: CoreMountConfig): MountedEditor {
     editor,
     container,
     dragDropPort: editor.getDragDropPort(),
+    dndMode: config.dndMode,
   });
 
   // Register Stimulus controllers
@@ -226,6 +228,7 @@ export function mountEditorApp(config: MountEditorAppConfig): MountedEditor {
     debug: config.debug,
     plugins: config.plugins,
     rendererPlugins: config.rendererPlugins,
+    dndMode: config.dndMode,
   });
 
   const editor = mounted.getEditor();

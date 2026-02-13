@@ -124,6 +124,11 @@
     <script type="module">
       import { mountEditorApp } from "/vanilla-editor/vanilla-editor.js";
 
+      const dndModeParam = new URLSearchParams(window.location.search).get(
+        "veDndMode",
+      );
+      const dndMode = dndModeParam === "fallback" ? "fallback" : "native";
+
       const mounted = mountEditorApp({
         container: "#editor-root",
         template: window.TEMPLATE_MODEL,
@@ -131,6 +136,7 @@
         defaultTheme: window.DEFAULT_THEME || null,
         dataExamples: window.DATA_EXAMPLES || [],
         schema: window.DATA_MODEL || null,
+        dndMode,
         onSave: async (template) => {
           const response = await fetch(
             `/tenants/${window.TENANT_ID}/templates/${window.TEMPLATE_ID}/variants/${window.VARIANT_ID}/draft`,

@@ -23,6 +23,10 @@ class EditorDevConfig : WebMvcConfigurer {
             .addResourceLocations("file:$projectRoot/modules/headless-editor/dist/")
             .setCacheControl(CacheControl.noCache())
 
+        registry.addResourceHandler("/vanilla-editor/**")
+            .addResourceLocations("file:$projectRoot/modules/vanilla-editor/dist/")
+            .setCacheControl(CacheControl.noCache())
+
         registry.addResourceHandler("/vendor/**")
             .addResourceLocations("file:$projectRoot/modules/vendor/dist/")
             .setCacheControl(CacheControl.noCache())

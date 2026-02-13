@@ -32,6 +32,7 @@ export class SortableAdapter {
   private dnd: DragDropPort;
   private instances: Sortable[] = [];
   private isDragging = false;
+  private dndMode: "native" | "fallback";
   private onInvalidDrop?: () => void;
   private readonly onGlobalDragBlocker = (event: Event): void => {
     const target = event.target;
@@ -51,6 +52,7 @@ export class SortableAdapter {
     this.editor = options.editor;
     this.container = options.container;
     this.dnd = options.dragDropPort;
+    this.dndMode = options.dndMode ?? "native";
   }
 
   /**
@@ -109,15 +111,19 @@ export class SortableAdapter {
       group: "blocks",
       animation: 150,
       handle: ".drag-handle",
+      draggable: "[data-block-id]",
       ghostClass: "sortable-ghost",
       chosenClass: "sortable-chosen",
       dragClass: "sortable-drag",
       fallbackOnBody: true,
+      forceFallback: this.dndMode === "fallback",
+      fallbackTolerance: this.dndMode === "fallback" ? 0 : 3,
       swapThreshold: 0.65,
       emptyInsertThreshold: isNested ? 30 : 0,
       onChoose: (evt: SortableEvent) => this.handleStart(evt),
       onStart: (evt: SortableEvent) => this.handleStart(evt),
-      onUnchoose: () => this.setDraggingState(false),
+      // Keep drag state until onEnd; some browsers fire unchoose before end.
+      onUnchoose: () => undefined,
       onEnd: (evt: SortableEvent) => this.handleDrop(evt),
       onMove: (evt: MoveEvent) => this.handleMove(evt),
     };
@@ -151,44 +157,65 @@ export class SortableAdapter {
   }
 
   private handleDrop(evt: SortableEvent): void {
-    if (!this.isDragging) return;
-    this.setDraggingState(false);
+    try {
+      const draggedId = (evt.item as HTMLElement).dataset.blockId;
+      if (!draggedId) return;
 
-    const draggedId = (evt.item as HTMLElement).dataset.blockId;
-    if (!draggedId) return;
+      const toContainer = evt.to as HTMLElement;
+      const fromContainer = evt.from as HTMLElement;
+      const newIndex = evt.newIndex ?? 0;
+      const oldIndex = evt.oldIndex ?? 0;
 
-    const toContainer = evt.to as HTMLElement;
-    const fromContainer = evt.from as HTMLElement;
-    const newIndex = evt.newIndex ?? 0;
-    const oldIndex = evt.oldIndex ?? 0;
-
-    let targetParentId: string | null = null;
-    if (toContainer.classList.contains("sortable-container")) {
-      targetParentId = toContainer.dataset.parentId ?? null;
-    }
-
-    if (this.dnd.canDrop(draggedId, targetParentId, "inside")) {
-      // CRITICAL: Revert SortableJS's DOM manipulation before calling moveBlock.
-      // SortableJS physically moved the DOM node, but we need uhtml to handle
-      // all DOM updates to avoid conflicts. Revert the move, then let the editor
-      // state update trigger a clean uhtml re-render.
-      if (toContainer !== fromContainer || newIndex !== oldIndex) {
-        // Move the item back to its original position
-        if (oldIndex < fromContainer.children.length) {
-          fromContainer.insertBefore(
-            evt.item,
-            fromContainer.children[oldIndex],
-          );
-        } else {
-          fromContainer.appendChild(evt.item);
-        }
+      let targetParentId: string | null = null;
+      if (toContainer.classList.contains("sortable-container")) {
+        targetParentId = toContainer.dataset.parentId ?? null;
       }
 
-      // Now update editor state, which will trigger uhtml to render the new state cleanly
-      this.editor.moveBlock(draggedId, targetParentId, newIndex);
-    } else {
+      let sourceParentId: string | null = null;
+      if (fromContainer.classList.contains("sortable-container")) {
+        sourceParentId = fromContainer.dataset.parentId ?? null;
+      }
+
+      const didSortableMutateDom =
+        toContainer !== fromContainer || newIndex !== oldIndex;
+
+      if (this.dnd.canDrop(draggedId, targetParentId, "inside")) {
+        // CRITICAL: Revert SortableJS's DOM manipulation before calling moveBlock.
+        // uhtml owns final DOM updates and should reconcile from editor state.
+        if (didSortableMutateDom) {
+          this.revertSortableDomMove(evt.item as HTMLElement, fromContainer, oldIndex);
+        }
+
+        // No-op move (same parent/index): keep state/history untouched.
+        if (sourceParentId === targetParentId && oldIndex === newIndex) {
+          return;
+        }
+
+        this.editor.moveBlock(draggedId, targetParentId, newIndex);
+        return;
+      }
+
+      // Restore DOM on rejected drops so visuals can't diverge from state.
+      if (didSortableMutateDom) {
+        this.revertSortableDomMove(evt.item as HTMLElement, fromContainer, oldIndex);
+      }
       this.onInvalidDrop?.();
+    } finally {
+      this.setDraggingState(false);
     }
+  }
+
+  private revertSortableDomMove(
+    item: HTMLElement,
+    fromContainer: HTMLElement,
+    oldIndex: number,
+  ): void {
+    if (oldIndex < fromContainer.children.length) {
+      fromContainer.insertBefore(item, fromContainer.children[oldIndex]);
+      return;
+    }
+
+    fromContainer.appendChild(item);
   }
 
   private setDraggingState(isDragging: boolean): void {

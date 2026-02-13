@@ -48,6 +48,7 @@ export interface MountEditorAppConfig {
   ui?: EditorAppUiConfig;
   plugins?: BlockPlugin[];
   rendererPlugins?: BlockRendererPlugin[];
+  dndMode?: "native" | "fallback";
 }
 
 // ============================================================================
@@ -132,4 +133,7 @@ export interface SortableAdapterOptions {
 
   /** DragDropPort from the editor for validation and execution */
   dragDropPort: DragDropPort;
+
+  /** Drag interaction mode; fallback is useful for E2E automation */
+  dndMode?: "native" | "fallback";
 }
