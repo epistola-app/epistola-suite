@@ -16,35 +16,31 @@ export class EpistolaInspector extends LitElement {
 
   override render() {
     if (!this.engine || !this.doc) {
-      return html`<div class="p-3 text-sm text-gray-400">No document</div>`
+      return html`<div class="panel-empty">No document</div>`
     }
 
     if (!this.selectedNodeId) {
       return html`
-        <div class="p-3">
-          <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Inspector
-          </div>
-          <div class="text-sm text-gray-400">Select a block to inspect</div>
+        <div class="epistola-inspector">
+          <div class="panel-heading">Inspector</div>
+          <div class="panel-empty">Select a block to inspect</div>
         </div>
       `
     }
 
     const node = this.doc.nodes[this.selectedNodeId]
-    if (!node) return html`<div class="p-3 text-sm text-red-400">Node not found</div>`
+    if (!node) return html`<div class="panel-error">Node not found</div>`
 
     const def = this.engine.registry.get(node.type)
 
     return html`
-      <div class="epistola-inspector p-3">
-        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Inspector
-        </div>
+      <div class="epistola-inspector">
+        <div class="panel-heading">Inspector</div>
 
         <!-- Node info -->
-        <div class="mb-4 pb-3 border-b border-gray-200">
-          <div class="text-sm font-medium text-gray-800">${def?.label ?? node.type}</div>
-          <div class="text-xs text-gray-400 font-mono mt-0.5">${node.id}</div>
+        <div class="inspector-node-info">
+          <div class="inspector-node-label">${def?.label ?? node.type}</div>
+          <div class="inspector-node-id">${node.id}</div>
         </div>
 
         <!-- Props -->
@@ -54,11 +50,11 @@ export class EpistolaInspector extends LitElement {
         }
 
         <!-- Style preset -->
-        <div class="mb-4">
-          <label class="block text-xs font-medium text-gray-600 mb-1">Style Preset</label>
+        <div class="inspector-section">
+          <label class="inspector-field-label">Style Preset</label>
           <input
             type="text"
-            class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            class="inspector-input"
             .value=${node.stylePreset ?? ''}
             @change=${(e: Event) => this._handleStylePreset(e)}
             placeholder="None"
@@ -66,9 +62,9 @@ export class EpistolaInspector extends LitElement {
         </div>
 
         <!-- Delete -->
-        <div class="mt-6 pt-3 border-t border-gray-200">
+        <div class="inspector-delete-section">
           <button
-            class="w-full px-3 py-1.5 text-sm bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200"
+            class="inspector-delete-btn"
             @click=${this._handleDelete}
           >
             Delete Block
@@ -80,8 +76,8 @@ export class EpistolaInspector extends LitElement {
 
   private _renderInspectorFields(node: Node, def: ComponentDefinition): unknown {
     return html`
-      <div class="mb-4">
-        <div class="text-xs font-medium text-gray-600 mb-2">Properties</div>
+      <div class="inspector-section">
+        <div class="inspector-section-label">Properties</div>
         ${def.inspector.map(field => this._renderField(node, field))}
       </div>
     `
@@ -94,11 +90,11 @@ export class EpistolaInspector extends LitElement {
     switch (field.type) {
       case 'text':
         return html`
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-0.5">${field.label}</label>
+          <div class="inspector-field">
+            <label class="inspector-field-label">${field.label}</label>
             <input
               type="text"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+              class="inspector-input"
               .value=${String(value ?? '')}
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
             />
@@ -106,11 +102,11 @@ export class EpistolaInspector extends LitElement {
         `
       case 'number':
         return html`
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-0.5">${field.label}</label>
+          <div class="inspector-field">
+            <label class="inspector-field-label">${field.label}</label>
             <input
               type="number"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+              class="inspector-input"
               .value=${String(value ?? 0)}
               @change=${(e: Event) => this._handlePropChange(field.key, Number((e.target as HTMLInputElement).value))}
             />
@@ -118,22 +114,22 @@ export class EpistolaInspector extends LitElement {
         `
       case 'boolean':
         return html`
-          <div class="mb-2 flex items-center gap-2">
+          <div class="inspector-checkbox-field">
             <input
               type="checkbox"
-              class="rounded border-gray-300"
+              class="inspector-checkbox"
               .checked=${Boolean(value)}
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).checked)}
             />
-            <label class="text-xs text-gray-500">${field.label}</label>
+            <label class="inspector-field-label">${field.label}</label>
           </div>
         `
       case 'select':
         return html`
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-0.5">${field.label}</label>
+          <div class="inspector-field">
+            <label class="inspector-field-label">${field.label}</label>
             <select
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+              class="inspector-select"
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLSelectElement).value)}
             >
               ${(field.options ?? []).map(opt => html`
@@ -144,11 +140,11 @@ export class EpistolaInspector extends LitElement {
         `
       case 'expression':
         return html`
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-0.5">${field.label}</label>
+          <div class="inspector-field">
+            <label class="inspector-field-label">${field.label}</label>
             <input
               type="text"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded font-mono focus:ring-1 focus:ring-blue-500"
+              class="inspector-input mono"
               .value=${String(value ?? '')}
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
               placeholder="Expression..."
@@ -157,9 +153,9 @@ export class EpistolaInspector extends LitElement {
         `
       default:
         return html`
-          <div class="mb-2">
-            <label class="block text-xs text-gray-500 mb-0.5">${field.label}</label>
-            <div class="text-xs text-gray-400">Unsupported field type: ${field.type}</div>
+          <div class="inspector-field">
+            <label class="inspector-field-label">${field.label}</label>
+            <div class="inspector-unsupported">Unsupported field type: ${field.type}</div>
           </div>
         `
     }

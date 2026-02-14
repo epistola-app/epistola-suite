@@ -24,12 +24,12 @@ export class EpistolaCanvas extends LitElement {
 
   override render() {
     if (!this.doc || !this.engine) {
-      return html`<div class="flex items-center justify-center h-full text-gray-400">No document</div>`
+      return html`<div class="editor-empty">No document</div>`
     }
 
     return html`
-      <div class="epistola-canvas p-6" @click=${this._handleCanvasClick}>
-        <div class="mx-auto max-w-3xl bg-white border border-gray-200 rounded-lg shadow-sm min-h-96 p-4">
+      <div class="epistola-canvas" @click=${this._handleCanvasClick}>
+        <div class="canvas-page">
           ${this._renderNodeChildren(this.doc.root)}
         </div>
       </div>
@@ -61,12 +61,12 @@ export class EpistolaCanvas extends LitElement {
 
     return html`
       <div
-        class="canvas-slot ${slot.children.length === 0 ? 'min-h-12 border border-dashed border-gray-300 rounded flex items-center justify-center' : ''}"
+        class="canvas-slot ${slot.children.length === 0 ? 'empty' : ''}"
         data-slot-id=${slotId}
         data-slot-name=${slot.name}
       >
         ${slot.children.length === 0
-          ? html`<span class="text-xs text-gray-400">${isMultiSlot ? slot.name : 'Drop blocks here'}</span>`
+          ? html`<span class="canvas-slot-hint">${isMultiSlot ? slot.name : 'Drop blocks here'}</span>`
           : slot.children.map(childId => this._renderBlock(childId))
         }
       </div>
@@ -84,21 +84,18 @@ export class EpistolaCanvas extends LitElement {
 
     return html`
       <div
-        class="canvas-block relative my-1 rounded transition-all
-          ${isSelected
-            ? 'ring-2 ring-blue-500 ring-offset-1'
-            : 'hover:ring-1 hover:ring-gray-300'}"
+        class="canvas-block ${isSelected ? 'selected' : ''}"
         data-node-id=${nodeId}
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
       >
         <!-- Block header -->
-        <div class="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-t border border-gray-200 text-xs text-gray-500">
-          <span class="font-medium">${label}</span>
-          <span class="text-gray-300 ml-auto font-mono text-[10px]">${nodeId.slice(0, 6)}</span>
+        <div class="canvas-block-header">
+          <span class="canvas-block-label">${label}</span>
+          <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
         </div>
 
         <!-- Block content area -->
-        <div class="px-2 py-2 border border-t-0 border-gray-200 rounded-b ${node.type === 'text' ? 'min-h-8' : ''}">
+        <div class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}">
           ${this._renderBlockContent(nodeId)}
         </div>
       </div>
@@ -132,23 +129,23 @@ export class EpistolaCanvas extends LitElement {
 
     switch (node.type) {
       case 'text':
-        return html`<div class="text-sm text-gray-600 italic">Text content</div>`
+        return html`<div class="canvas-leaf-text">Text content</div>`
       case 'pagebreak':
-        return html`<div class="flex items-center gap-2 py-1">
-          <div class="flex-1 border-t border-dashed border-gray-400"></div>
-          <span class="text-xs text-gray-400">Page Break</span>
-          <div class="flex-1 border-t border-dashed border-gray-400"></div>
+        return html`<div class="canvas-pagebreak">
+          <div class="canvas-pagebreak-line"></div>
+          <span class="canvas-pagebreak-label">Page Break</span>
+          <div class="canvas-pagebreak-line"></div>
         </div>`
       default:
-        return html`<div class="text-xs text-gray-400">${node.type}</div>`
+        return html`<div class="canvas-leaf-default">${node.type}</div>`
     }
   }
 
   private _renderColumnsLayout(slotIds: SlotId[]): unknown {
     return html`
-      <div class="flex gap-2">
+      <div class="canvas-columns">
         ${slotIds.map(slotId => html`
-          <div class="flex-1">
+          <div class="canvas-column">
             ${this._renderSlot(slotId)}
           </div>
         `)}

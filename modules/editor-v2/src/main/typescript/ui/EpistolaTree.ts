@@ -19,14 +19,12 @@ export class EpistolaTree extends LitElement {
 
   override render() {
     if (!this.doc || !this.engine) {
-      return html`<div class="p-3 text-sm text-gray-400">No document</div>`
+      return html`<div class="panel-empty">No document</div>`
     }
 
     return html`
-      <div class="epistola-tree p-2">
-        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mb-1">
-          Structure
-        </div>
+      <div class="epistola-tree">
+        <div class="panel-heading">Structure</div>
         ${this._renderNode(this.doc.root, 0)}
       </div>
     `
@@ -44,15 +42,14 @@ export class EpistolaTree extends LitElement {
 
     return html`
       <div
-        class="tree-node cursor-pointer select-none"
+        class="tree-node"
         style="padding-left: ${depth * 16}px"
       >
         <div
-          class="flex items-center gap-1.5 px-2 py-1 rounded text-sm
-            ${isSelected ? 'bg-blue-100 text-blue-800 font-medium' : 'hover:bg-gray-100 text-gray-700'}"
+          class="tree-node-label ${isSelected ? 'selected' : ''}"
           @click=${() => this._handleSelect(nodeId)}
         >
-          <span class="text-xs text-gray-400 ${isRoot ? 'font-bold' : ''}">${isRoot ? '/' : '>'}</span>
+          <span class="tree-node-icon ${isRoot ? 'root' : ''}">${isRoot ? '/' : '>'}</span>
           <span>${label}</span>
         </div>
 

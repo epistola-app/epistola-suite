@@ -15,13 +15,13 @@ import './EpistolaToolbar.js'
  * <epistola-editor> — Root editor element.
  *
  * Shadow DOM is disabled (createRenderRoot returns this) so that
- * Tailwind CSS classes work without scoping issues. This is intentional —
- * the editor is not a reusable web component library, it's an application
- * component embedded in a specific Thymeleaf page.
+ * the global editor.css styles apply without scoping issues. This is
+ * intentional — the editor is not a reusable web component library,
+ * it's an application component embedded in a specific Thymeleaf page.
  */
 @customElement('epistola-editor')
 export class EpistolaEditor extends LitElement {
-  /** Disable Shadow DOM — use light DOM for Tailwind compatibility. */
+  /** Disable Shadow DOM — use light DOM for global CSS compatibility. */
   override createRenderRoot() {
     return this
   }
@@ -66,27 +66,25 @@ export class EpistolaEditor extends LitElement {
 
   override render() {
     if (!this._engine || !this._doc) {
-      return html`<div class="flex items-center justify-center h-full text-gray-500">No template loaded</div>`
+      return html`<div class="editor-empty">No template loaded</div>`
     }
 
     return html`
-      <div class="epistola-editor flex flex-col h-full w-full bg-white text-gray-900">
+      <div class="epistola-editor">
         <!-- Toolbar -->
         <epistola-toolbar
           .engine=${this._engine}
         ></epistola-toolbar>
 
         <!-- Main layout: palette | tree | canvas | inspector -->
-        <div class="flex flex-1 overflow-hidden">
+        <div class="editor-main">
           <!-- Palette -->
           <epistola-palette
-            class="w-48 border-r border-gray-200 overflow-y-auto shrink-0"
             .engine=${this._engine}
           ></epistola-palette>
 
           <!-- Tree -->
           <epistola-tree
-            class="w-56 border-r border-gray-200 overflow-y-auto shrink-0"
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
@@ -94,7 +92,6 @@ export class EpistolaEditor extends LitElement {
 
           <!-- Canvas -->
           <epistola-canvas
-            class="flex-1 overflow-auto bg-gray-50"
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
@@ -102,7 +99,6 @@ export class EpistolaEditor extends LitElement {
 
           <!-- Inspector -->
           <epistola-inspector
-            class="w-72 border-l border-gray-200 overflow-y-auto shrink-0"
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}

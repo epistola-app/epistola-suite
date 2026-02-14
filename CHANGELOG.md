@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- **Editor V2: Replaced Tailwind CSS with vanilla CSS**: Removed Tailwind CSS dependency in favor of hand-written CSS using modern features
+  - Uses `@layer` (base, layout, components, states) for cascade control
+  - Custom properties (design tokens) for colors, spacing, typography, radii, and panel widths
+  - CSS nesting for component-scoped styles
+  - Semantic class names (`.toolbar-btn`, `.canvas-block`, `.inspector-input`, etc.) replace ~120 Tailwind utility classes
+  - Removed `tailwindcss` and `@tailwindcss/vite` dependencies
+  - CSS output: 7.97 kB (1.77 kB gzipped)
+
 ### Added
 - **Editor V2 module (`modules/editor-v2/`)**: New template editor built with Lit web components + headless engine architecture, replacing React + TipTap + Zustand
   - **Node/slot data model**: Normalized graph (`TemplateDocument` with flat `nodes` and `slots` maps) replaces recursive `blocks[]` with composite IDs. Every insert/move/remove is a uniform slot.children update.

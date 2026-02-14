@@ -1,1 +1,550 @@
-@import "tailwindcss";
+/*
+ * Epistola Editor V2 — Vanilla CSS
+ *
+ * Modern CSS using @layer for cascade control, CSS nesting,
+ * custom properties for design tokens, and :has() for contextual styling.
+ */
+
+@layer base, layout, components, states;
+
+/* ---------------------------------------------------------------------------
+ * Design tokens
+ * --------------------------------------------------------------------------- */
+
+:root {
+  /* Colors — gray palette */
+  --ep-gray-50: #f9fafb;
+  --ep-gray-100: #f3f4f6;
+  --ep-gray-200: #e5e7eb;
+  --ep-gray-300: #d1d5db;
+  --ep-gray-400: #9ca3af;
+  --ep-gray-500: #6b7280;
+  --ep-gray-600: #4b5563;
+  --ep-gray-700: #374151;
+  --ep-gray-800: #1f2937;
+  --ep-gray-900: #111827;
+
+  /* Colors — blue palette */
+  --ep-blue-100: #dbeafe;
+  --ep-blue-500: #3b82f6;
+  --ep-blue-800: #1e40af;
+
+  /* Colors — red palette */
+  --ep-red-50: #fef2f2;
+  --ep-red-100: #fee2e2;
+  --ep-red-200: #fecaca;
+  --ep-red-400: #f87171;
+  --ep-red-600: #dc2626;
+
+  /* Colors — base */
+  --ep-white: #ffffff;
+
+  /* Spacing scale */
+  --ep-space-0-5: 0.125rem;
+  --ep-space-1: 0.25rem;
+  --ep-space-1-5: 0.375rem;
+  --ep-space-2: 0.5rem;
+  --ep-space-3: 0.75rem;
+  --ep-space-4: 1rem;
+  --ep-space-6: 1.5rem;
+
+  /* Typography */
+  --ep-text-xs: 0.75rem;
+  --ep-text-sm: 0.875rem;
+  --ep-text-base: 1rem;
+  --ep-leading-tight: 1.25;
+
+  /* Radii */
+  --ep-radius-sm: 0.25rem;
+  --ep-radius-md: 0.375rem;
+  --ep-radius-lg: 0.5rem;
+
+  /* Borders */
+  --ep-border: 1px solid var(--ep-gray-200);
+
+  /* Shadows */
+  --ep-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+  /* Panel widths */
+  --ep-palette-width: 12rem;
+  --ep-tree-width: 14rem;
+  --ep-inspector-width: 18rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base layer — resets and element defaults
+ * --------------------------------------------------------------------------- */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  button {
+    cursor: pointer;
+    font: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  input,
+  select {
+    font: inherit;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Layout layer — editor shell grid
+ * --------------------------------------------------------------------------- */
+
+@layer layout {
+  .epistola-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--ep-white);
+    color: var(--ep-gray-900);
+  }
+
+  .editor-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--ep-gray-500);
+  }
+
+  .editor-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Panel sizing applied to custom element tags */
+  epistola-palette {
+    width: var(--ep-palette-width);
+    border-right: var(--ep-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  epistola-tree {
+    width: var(--ep-tree-width);
+    border-right: var(--ep-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  epistola-canvas {
+    flex: 1;
+    overflow: auto;
+    background: var(--ep-gray-50);
+  }
+
+  epistola-inspector {
+    width: var(--ep-inspector-width);
+    border-left: var(--ep-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Components layer
+ * --------------------------------------------------------------------------- */
+
+@layer components {
+
+  /* -- Shared: panel heading ------------------------------------------------ */
+
+  .panel-heading {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    margin-bottom: var(--ep-space-1);
+  }
+
+  /* -- Shared: empty / placeholder states ---------------------------------- */
+
+  .panel-empty {
+    padding: var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-400);
+  }
+
+  .panel-error {
+    padding: var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-red-400);
+  }
+
+  /* -- Toolbar -------------------------------------------------------------- */
+
+  .epistola-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-4);
+    border-bottom: var(--ep-border);
+    background: var(--ep-white);
+  }
+
+  .toolbar-title {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    margin-left: var(--ep-space-4);
+  }
+
+  .toolbar-btn {
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-300);
+    color: var(--ep-gray-700);
+    background: var(--ep-white);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-gray-100);
+    }
+
+    &:disabled {
+      border-color: var(--ep-gray-100);
+      color: var(--ep-gray-300);
+      cursor: not-allowed;
+    }
+  }
+
+  /* -- Tree ----------------------------------------------------------------- */
+
+  .epistola-tree {
+    padding: var(--ep-space-2);
+  }
+
+  .tree-node {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tree-node-label {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-700);
+
+    &:hover {
+      background: var(--ep-gray-100);
+    }
+
+    &.selected {
+      background: var(--ep-blue-100);
+      color: var(--ep-blue-800);
+      font-weight: 500;
+    }
+  }
+
+  .tree-node-icon {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+
+    &.root {
+      font-weight: 700;
+    }
+  }
+
+  /* -- Canvas --------------------------------------------------------------- */
+
+  .epistola-canvas {
+    padding: var(--ep-space-6);
+  }
+
+  .canvas-page {
+    max-width: 48rem;
+    margin-inline: auto;
+    background: var(--ep-white);
+    border: var(--ep-border);
+    border-radius: var(--ep-radius-lg);
+    box-shadow: var(--ep-shadow-sm);
+    min-height: 24rem;
+    padding: var(--ep-space-4);
+  }
+
+  .canvas-slot {
+    /* non-empty slot: no extra styles */
+  }
+
+  .canvas-slot.empty {
+    min-height: 3rem;
+    border: 1px dashed var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .canvas-slot-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-block {
+    position: relative;
+    margin-block: var(--ep-space-1);
+    border-radius: var(--ep-radius-sm);
+    transition: box-shadow 150ms ease;
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--ep-gray-300);
+    }
+
+    &.selected {
+      box-shadow: 0 0 0 1px var(--ep-white), 0 0 0 3px var(--ep-blue-500);
+    }
+  }
+
+  .canvas-block-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    background: var(--ep-gray-50);
+    border-radius: var(--ep-radius-sm) var(--ep-radius-sm) 0 0;
+    border: var(--ep-border);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .canvas-block-label {
+    font-weight: 500;
+  }
+
+  .canvas-block-id {
+    color: var(--ep-gray-300);
+    margin-left: auto;
+    font-family: monospace;
+    font-size: 10px;
+  }
+
+  .canvas-block-content {
+    padding: var(--ep-space-2);
+    border: var(--ep-border);
+    border-top: none;
+    border-radius: 0 0 var(--ep-radius-sm) var(--ep-radius-sm);
+
+    &.text-type {
+      min-height: 2rem;
+    }
+  }
+
+  .canvas-leaf-text {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-600);
+    font-style: italic;
+  }
+
+  .canvas-pagebreak {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding-block: var(--ep-space-1);
+  }
+
+  .canvas-pagebreak-line {
+    flex: 1;
+    border-top: 1px dashed var(--ep-gray-400);
+  }
+
+  .canvas-pagebreak-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-leaf-default {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-columns {
+    display: flex;
+    gap: var(--ep-space-2);
+  }
+
+  .canvas-column {
+    flex: 1;
+  }
+
+  /* -- Palette -------------------------------------------------------------- */
+
+  .epistola-palette {
+    padding: var(--ep-space-2);
+  }
+
+  .palette-category {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .palette-category-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-weight: 500;
+  }
+
+  .palette-item {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    width: 100%;
+    text-align: left;
+    padding: var(--ep-space-1-5) var(--ep-space-2);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-700);
+
+    &:hover {
+      background: var(--ep-gray-100);
+    }
+  }
+
+  .palette-item-icon {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    width: 1rem;
+    text-align: center;
+  }
+
+  /* -- Inspector ------------------------------------------------------------ */
+
+  .epistola-inspector {
+    padding: var(--ep-space-3);
+  }
+
+  .inspector-node-info {
+    margin-bottom: var(--ep-space-4);
+    padding-bottom: var(--ep-space-3);
+    border-bottom: var(--ep-border);
+  }
+
+  .inspector-node-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-gray-800);
+  }
+
+  .inspector-node-id {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    font-family: monospace;
+    margin-top: var(--ep-space-0-5);
+  }
+
+  .inspector-section {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .inspector-section-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-gray-600);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .inspector-field {
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .inspector-field-label {
+    display: block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+    margin-bottom: var(--ep-space-0-5);
+  }
+
+  .inspector-input {
+    width: 100%;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-sm);
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-white);
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px var(--ep-blue-500);
+      border-color: var(--ep-blue-500);
+    }
+
+    &.mono {
+      font-family: monospace;
+    }
+  }
+
+  .inspector-checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .inspector-checkbox {
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-300);
+  }
+
+  .inspector-select {
+    width: 100%;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-sm);
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-white);
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px var(--ep-blue-500);
+      border-color: var(--ep-blue-500);
+    }
+  }
+
+  .inspector-delete-section {
+    margin-top: var(--ep-space-6);
+    padding-top: var(--ep-space-3);
+    border-top: var(--ep-border);
+  }
+
+  .inspector-delete-btn {
+    width: 100%;
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    background: var(--ep-red-50);
+    color: var(--ep-red-600);
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-sm);
+
+    &:hover {
+      background: var(--ep-red-100);
+    }
+  }
+
+  .inspector-unsupported {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+}

@@ -25,12 +25,12 @@ export class EpistolaToolbar extends LitElement {
     const canRedo = this.engine?.canRedo ?? false
 
     return html`
-      <div class="epistola-toolbar flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white">
-        <span class="text-sm font-semibold text-gray-700">Template Editor</span>
+      <div class="epistola-toolbar">
+        <span class="toolbar-title">Template Editor</span>
 
-        <div class="flex items-center gap-1 ml-4">
+        <div class="toolbar-actions">
           <button
-            class="px-2 py-1 text-xs rounded border ${canUndo ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-gray-100 text-gray-300 cursor-not-allowed'}"
+            class="toolbar-btn"
             ?disabled=${!canUndo}
             @click=${this._handleUndo}
             title="Undo (Ctrl+Z)"
@@ -38,7 +38,7 @@ export class EpistolaToolbar extends LitElement {
             Undo
           </button>
           <button
-            class="px-2 py-1 text-xs rounded border ${canRedo ? 'border-gray-300 hover:bg-gray-100 text-gray-700' : 'border-gray-100 text-gray-300 cursor-not-allowed'}"
+            class="toolbar-btn"
             ?disabled=${!canRedo}
             @click=${this._handleRedo}
             title="Redo (Ctrl+Shift+Z)"

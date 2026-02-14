@@ -43,7 +43,7 @@ export class EpistolaPalette extends LitElement {
 
   override render() {
     if (!this.engine) {
-      return html`<div class="p-3 text-sm text-gray-400">No engine</div>`
+      return html`<div class="panel-empty">No engine</div>`
     }
 
     const definitions = this.engine.registry
@@ -60,27 +60,25 @@ export class EpistolaPalette extends LitElement {
     }
 
     return html`
-      <div class="epistola-palette p-2">
-        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 py-1 mb-1">
-          Blocks
-        </div>
+      <div class="epistola-palette">
+        <div class="panel-heading">Blocks</div>
 
         ${CATEGORY_ORDER.map(cat => {
           const items = grouped.get(cat)
           if (!items || items.length === 0) return ''
 
           return html`
-            <div class="mb-3">
-              <div class="text-xs text-gray-400 px-2 py-1 font-medium">
+            <div class="palette-category">
+              <div class="palette-category-label">
                 ${CATEGORY_LABELS[cat]}
               </div>
               ${items.map(def => html`
                 <button
-                  class="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                  class="palette-item"
                   @click=${() => this._handleInsert(def.type)}
                   title="Click to insert ${def.label}"
                 >
-                  <span class="text-xs text-gray-400 w-4 text-center">+</span>
+                  <span class="palette-item-icon">+</span>
                   <span>${def.label}</span>
                 </button>
               `)}

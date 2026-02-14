@@ -1,10 +1,8 @@
 import { defineConfig } from 'vitest/config'
-import tailwindcss from '@tailwindcss/vite'
 import path, { resolve } from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src/main/typescript'),
