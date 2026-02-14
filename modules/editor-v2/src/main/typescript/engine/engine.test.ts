@@ -1007,3 +1007,112 @@ describe('Immutability', () => {
     expect(engine.doc.root).not.toBe('hacked')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Data examples
+// ---------------------------------------------------------------------------
+
+describe('Data examples', () => {
+  const examples = [
+    { name: 'Example 1', value: 100 },
+    { name: 'Example 2', value: 200 },
+    { name: 'Example 3', value: 300 },
+  ]
+
+  it('stores dataModel and dataExamples from options', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const dataModel = { type: 'object', properties: { name: { type: 'string' } } }
+    const engine = new EditorEngine(doc, registry, { dataModel, dataExamples: examples })
+
+    expect(engine.dataModel).toBe(dataModel)
+    expect(engine.dataExamples).toBe(examples)
+  })
+
+  it('defaults currentExampleIndex to 0', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    expect(engine.currentExampleIndex).toBe(0)
+    expect(engine.currentExample).toBe(examples[0])
+  })
+
+  it('setCurrentExample switches the active example', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    engine.setCurrentExample(2)
+    expect(engine.currentExampleIndex).toBe(2)
+    expect(engine.currentExample).toBe(examples[2])
+  })
+
+  it('setCurrentExample ignores out-of-bounds index', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    engine.setCurrentExample(99)
+    expect(engine.currentExampleIndex).toBe(0)
+
+    engine.setCurrentExample(-1)
+    expect(engine.currentExampleIndex).toBe(0)
+  })
+
+  it('setCurrentExample ignores same index', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    let notified = false
+    engine.onExampleChange(() => { notified = true })
+
+    engine.setCurrentExample(0) // same as current
+    expect(notified).toBe(false)
+  })
+
+  it('notifies example listeners on change', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    const changes: { index: number; example: object | undefined }[] = []
+    engine.onExampleChange((index, example) => {
+      changes.push({ index, example })
+    })
+
+    engine.setCurrentExample(1)
+    engine.setCurrentExample(2)
+
+    expect(changes).toEqual([
+      { index: 1, example: examples[1] },
+      { index: 2, example: examples[2] },
+    ])
+  })
+
+  it('unsubscribe stops notifications', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    let count = 0
+    const unsub = engine.onExampleChange(() => { count++ })
+
+    engine.setCurrentExample(1)
+    expect(count).toBe(1)
+
+    unsub()
+    engine.setCurrentExample(2)
+    expect(count).toBe(1)
+  })
+
+  it('currentExample returns undefined when no examples', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+
+    expect(engine.dataExamples).toBeUndefined()
+    expect(engine.currentExample).toBeUndefined()
+  })
+})

@@ -15,10 +15,189 @@
   <script type="module">
     import { mountEditor, createEmptyDocument } from './src/main/typescript/lib.ts'
 
+    // -----------------------------------------------------------------------
+    // Sample data model (JSON Schema) — invoice template
+    // -----------------------------------------------------------------------
+    const dataModel = {
+      type: 'object',
+      properties: {
+        company: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            address: { type: 'string' },
+            phone: { type: 'string' },
+            email: { type: 'string' },
+            vatNumber: { type: 'string' },
+          },
+        },
+        customer: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            address: {
+              type: 'object',
+              properties: {
+                street: { type: 'string' },
+                city: { type: 'string' },
+                zip: { type: 'string' },
+                country: { type: 'string' },
+              },
+            },
+            email: { type: 'string' },
+          },
+        },
+        invoice: {
+          type: 'object',
+          properties: {
+            number: { type: 'string' },
+            date: { type: 'string' },
+            dueDate: { type: 'string' },
+            currency: { type: 'string' },
+          },
+        },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              description: { type: 'string' },
+              quantity: { type: 'number' },
+              unitPrice: { type: 'number' },
+              total: { type: 'number' },
+            },
+          },
+        },
+        subtotal: { type: 'number' },
+        taxRate: { type: 'number' },
+        taxAmount: { type: 'number' },
+        total: { type: 'number' },
+        notes: { type: 'string' },
+      },
+    }
+
+    // -----------------------------------------------------------------------
+    // Sample data examples
+    // -----------------------------------------------------------------------
+    const dataExamples = [
+      {
+        name: 'Acme Corp Invoice',
+        company: {
+          name: 'Epistola BV',
+          address: 'Herengracht 100, 1017 BS Amsterdam',
+          phone: '+31 20 123 4567',
+          email: 'info@epistola.app',
+          vatNumber: 'NL123456789B01',
+        },
+        customer: {
+          name: 'Acme Corporation',
+          address: {
+            street: '123 Business Ave',
+            city: 'New York',
+            zip: '10001',
+            country: 'United States',
+          },
+          email: 'billing@acme.com',
+        },
+        invoice: {
+          number: 'INV-2026-0042',
+          date: '2026-02-15',
+          dueDate: '2026-03-15',
+          currency: 'EUR',
+        },
+        items: [
+          { description: 'Document Generation API — Pro Plan', quantity: 1, unitPrice: 299.00, total: 299.00 },
+          { description: 'Additional API calls (5,000)', quantity: 5, unitPrice: 49.00, total: 245.00 },
+          { description: 'Premium support', quantity: 1, unitPrice: 99.00, total: 99.00 },
+        ],
+        subtotal: 643.00,
+        taxRate: 21,
+        taxAmount: 135.03,
+        total: 778.03,
+        notes: 'Payment due within 30 days. Bank: ING NL91INGB0001234567.',
+      },
+      {
+        name: 'Small Business Invoice',
+        company: {
+          name: 'Epistola BV',
+          address: 'Herengracht 100, 1017 BS Amsterdam',
+          phone: '+31 20 123 4567',
+          email: 'info@epistola.app',
+          vatNumber: 'NL123456789B01',
+        },
+        customer: {
+          name: 'Coffee Corner B.V.',
+          address: {
+            street: 'Kalverstraat 42',
+            city: 'Amsterdam',
+            zip: '1012 PE',
+            country: 'Netherlands',
+          },
+          email: 'admin@coffeecorner.nl',
+        },
+        invoice: {
+          number: 'INV-2026-0043',
+          date: '2026-02-15',
+          dueDate: '2026-03-01',
+          currency: 'EUR',
+        },
+        items: [
+          { description: 'Document Generation API — Starter Plan', quantity: 1, unitPrice: 49.00, total: 49.00 },
+        ],
+        subtotal: 49.00,
+        taxRate: 21,
+        taxAmount: 10.29,
+        total: 59.29,
+        notes: 'Bedankt voor uw bestelling!',
+      },
+      {
+        name: 'Enterprise (GBP)',
+        company: {
+          name: 'Epistola Ltd',
+          address: '10 Downing Street, London SW1A 2AA',
+          phone: '+44 20 7946 0958',
+          email: 'sales@epistola.co.uk',
+          vatNumber: 'GB987654321',
+        },
+        customer: {
+          name: 'GlobalTech Industries PLC',
+          address: {
+            street: '1 Canada Square, Canary Wharf',
+            city: 'London',
+            zip: 'E14 5AB',
+            country: 'United Kingdom',
+          },
+          email: 'accounts@globaltech.co.uk',
+        },
+        invoice: {
+          number: 'INV-2026-UK-0007',
+          date: '2026-01-31',
+          dueDate: '2026-02-28',
+          currency: 'GBP',
+        },
+        items: [
+          { description: 'Enterprise License — Annual', quantity: 1, unitPrice: 4999.00, total: 4999.00 },
+          { description: 'Onboarding & training (2 days)', quantity: 2, unitPrice: 750.00, total: 1500.00 },
+          { description: 'Custom template development', quantity: 10, unitPrice: 200.00, total: 2000.00 },
+          { description: 'Dedicated support (12 months)', quantity: 1, unitPrice: 1200.00, total: 1200.00 },
+        ],
+        subtotal: 9699.00,
+        taxRate: 20,
+        taxAmount: 1939.80,
+        total: 11638.80,
+        notes: 'Payment terms: Net 30. Purchase order: PO-2026-1234.',
+      },
+    ]
+
+    // -----------------------------------------------------------------------
+    // Mount editor
+    // -----------------------------------------------------------------------
     const container = document.getElementById('editor-container')
     const instance = mountEditor({
       container,
       template: createEmptyDocument(),
+      dataModel,
+      dataExamples,
     })
 
     // Expose for debugging in console

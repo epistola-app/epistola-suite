@@ -48,6 +48,8 @@ export class EditorEngine {
 
   private _dataModel: object | undefined
   private _dataExamples: object[] | undefined
+  private _currentExampleIndex: number = 0
+  private _exampleListeners: Set<(index: number, example: object | undefined) => void> = new Set()
 
   constructor(
     doc: TemplateDocument,
@@ -100,6 +102,32 @@ export class EditorEngine {
 
   get dataExamples(): object[] | undefined {
     return this._dataExamples
+  }
+
+  get currentExampleIndex(): number {
+    return this._currentExampleIndex
+  }
+
+  /** The currently selected data example, or undefined if none. */
+  get currentExample(): object | undefined {
+    return this._dataExamples?.[this._currentExampleIndex]
+  }
+
+  /** Switch the active data example by index. Notifies example listeners. */
+  setCurrentExample(index: number): void {
+    if (index === this._currentExampleIndex) return
+    if (!this._dataExamples || index < 0 || index >= this._dataExamples.length) return
+    this._currentExampleIndex = index
+    const example = this._dataExamples[index]
+    for (const listener of this._exampleListeners) {
+      listener(index, example)
+    }
+  }
+
+  /** Subscribe to data example changes. Returns unsubscribe function. */
+  onExampleChange(listener: (index: number, example: object | undefined) => void): () => void {
+    this._exampleListeners.add(listener)
+    return () => { this._exampleListeners.delete(listener) }
   }
 
   get resolvedDocStyles(): Record<string, unknown> {

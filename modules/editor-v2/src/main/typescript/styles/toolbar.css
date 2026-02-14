@@ -43,4 +43,39 @@
       cursor: not-allowed;
     }
   }
+
+  .toolbar-example-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    margin-left: auto;
+  }
+
+  .toolbar-example-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-gray-500);
+    white-space: nowrap;
+  }
+
+  .toolbar-example-select {
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-300);
+    color: var(--ep-gray-700);
+    background: var(--ep-white);
+    min-width: 10rem;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--ep-gray-400);
+    }
+
+    &:focus {
+      border-color: var(--ep-blue-500);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--ep-blue-100, #dbeafe);
+    }
+  }
 }

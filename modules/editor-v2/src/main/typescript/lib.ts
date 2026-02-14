@@ -77,7 +77,7 @@ export function createEmptyDocument(): TemplateDocument {
  * Mount the editor into a DOM element.
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template } = options
+  const { container, template, dataModel, dataExamples } = options
   const doc = template ?? createEmptyDocument()
 
   // Create the custom element
@@ -86,8 +86,8 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   editorEl.style.width = '100%'
   editorEl.style.display = 'block'
 
-  // Initialize the engine
-  editorEl.initEngine(doc, createDefaultRegistry())
+  // Initialize the engine with data model context
+  editorEl.initEngine(doc, createDefaultRegistry(), { dataModel, dataExamples })
 
   // Mount into the container
   container.innerHTML = ''

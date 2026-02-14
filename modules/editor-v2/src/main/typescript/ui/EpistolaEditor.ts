@@ -40,13 +40,20 @@ export class EpistolaEditor extends LitElement {
   /**
    * Initialize the engine with a template document.
    */
-  initEngine(doc: TemplateDocument, registry?: ComponentRegistry): void {
+  initEngine(
+    doc: TemplateDocument,
+    registry?: ComponentRegistry,
+    options?: { dataModel?: object; dataExamples?: object[] },
+  ): void {
     // Clean up previous engine
     this._unsubEngine?.()
     this._unsubSelection?.()
 
     const reg = registry ?? createDefaultRegistry()
-    this._engine = new EditorEngine(doc, reg)
+    this._engine = new EditorEngine(doc, reg, {
+      dataModel: options?.dataModel,
+      dataExamples: options?.dataExamples,
+    })
     this._doc = this._engine.doc
 
     this._unsubEngine = this._engine.subscribe((newDoc) => {
