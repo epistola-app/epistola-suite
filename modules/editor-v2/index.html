@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Editor V2 — Development</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #editor-container { height: 100%; }
+  </style>
+</head>
+<body class="h-full">
+  <div id="editor-container"></div>
+
+  <script type="module">
+    import { mountEditor, createEmptyDocument } from './src/main/typescript/lib.ts'
+
+    const container = document.getElementById('editor-container')
+    const instance = mountEditor({
+      container,
+      template: createEmptyDocument(),
+    })
+
+    // Expose for debugging in console
+    window.editor = instance
+  </script>
+</body>
+</html>

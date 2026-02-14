@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+- **Editor V2 module (`modules/editor-v2/`)**: New template editor built with Lit web components + headless engine architecture, replacing React + TipTap + Zustand
+  - **Node/slot data model**: Normalized graph (`TemplateDocument` with flat `nodes` and `slots` maps) replaces recursive `blocks[]` with composite IDs. Every insert/move/remove is a uniform slot.children update.
+  - **JSON Schemas**: Draft 2020-12 schemas for `TemplateDocument`, `Theme`, `ComponentManifest`, `StyleRegistry` in `modules/template-model/schemas/`
+  - **Type generation pipeline**: `json-schema-to-typescript` generates TS interfaces from schemas
+  - **Headless engine** (`EditorEngine`): Framework-agnostic state management with deep-freeze immutability, derived indexes for O(1) parent lookups, subscribe/notify pattern
+  - **Command system**: `InsertNode`, `RemoveNode`, `MoveNode`, `UpdateNodeProps`, `UpdateNodeStyles`, `SetStylePreset`, `UpdateDocumentStyles`, `UpdatePageSettings` — each produces an inverse for undo. Validation includes cycle detection, parent-child constraints, duplicate prevention.
+  - **Undo/redo**: `UndoStack` with 100-entry depth, redo clears on new dispatch
+  - **Component registry**: Built-in types (root, text, container, columns, table, conditional, loop, pagebreak, pageheader, pagefooter) with slot templates, allowed children, style policies, inspector config
+  - **Lit UI layer**: `<epistola-editor>` shell with tree, canvas, palette, inspector, and toolbar panels. Light DOM for Tailwind CSS compatibility.
+  - **Bundle size**: 57KB raw / 14KB gzipped (vs ~750KB+ for V1 with all React/Radix dependencies)
+  - **45 engine tests** covering all commands, undo/redo, registry, selection, subscription, and immutability
+
 ### Changed
 - **Editor README replaced with architecture documentation**: Replaced Vite boilerplate README with a comprehensive technical specification covering public API, data structures, state management, block system, rich text, expression evaluation, drag & drop, style system, PDF preview, table system, schema/validation, and utility functions. Serves as a rewrite specification with language-agnostic descriptions and collapsible TypeScript reference sections.
 
