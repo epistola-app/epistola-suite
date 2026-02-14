@@ -31,10 +31,10 @@
       "type": "object",
       "description": "Page margins in millimeters.",
       "properties": {
-        "top": { "type": "number", "minimum": 0, "description": "Top margin in mm." },
-        "right": { "type": "number", "minimum": 0, "description": "Right margin in mm." },
-        "bottom": { "type": "number", "minimum": 0, "description": "Bottom margin in mm." },
-        "left": { "type": "number", "minimum": 0, "description": "Left margin in mm." }
+        "top": { "type": "integer", "minimum": 0, "description": "Top margin in mm." },
+        "right": { "type": "integer", "minimum": 0, "description": "Right margin in mm." },
+        "bottom": { "type": "integer", "minimum": 0, "description": "Bottom margin in mm." },
+        "left": { "type": "integer", "minimum": 0, "description": "Left margin in mm." }
       },
       "required": ["top", "right", "bottom", "left"],
       "additionalProperties": false

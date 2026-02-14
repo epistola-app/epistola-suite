@@ -1,5 +1,62 @@
+import net.pwall.json.kotlin.codegen.gradle.JSONSchemaCodegen
+import net.pwall.json.kotlin.codegen.gradle.JSONSchemaCodegenPlugin
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("net.pwall.json:json-kotlin-gradle:0.121")
+    }
+}
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
+}
+
+apply<JSONSchemaCodegenPlugin>()
+
+val generatedSrcDir = layout.buildDirectory.dir("generated-sources/kotlin")
+
+configure<JSONSchemaCodegen> {
+    configFile.set(file("src/main/resources/codegen-config.json"))
+    packageName.set("app.epistola.template.model")
+    generatorComment.set("Generated from JSON Schema — do not edit manually")
+    outputDir.set(generatedSrcDir.map { it.asFile })
+
+    inputs {
+        // template-shared.schema.json has only $defs, no root type
+        inputComposite {
+            file.set(file("schemas/template-shared.schema.json"))
+            pointer.set("/\$defs")
+            // Exclude string-only types that are just aliases, not useful as generated classes
+            exclude.set(listOf("NodeId", "SlotId"))
+        }
+
+        // Root-level schemas with their own $defs
+        inputFile(file("schemas/template-document.schema.json"))
+        inputFile(file("schemas/theme.schema.json"))
+        inputFile(file("schemas/component-manifest.schema.json"))
+        inputFile(file("schemas/style-registry.schema.json"))
+    }
+}
+
+// DocumentStyles is an open map type (Map<String, Any>) which can't be expressed by the codegen tool.
+// Remove the generated empty interface so our handwritten typealias in TemplateModel.kt takes precedence.
+val removeGeneratedDocumentStyles by tasks.registering(Delete::class) {
+    delete(generatedSrcDir.map { it.file("app/epistola/template/model/DocumentStyles.kt") })
+}
+
+tasks.named("generate") {
+    finalizedBy(removeGeneratedDocumentStyles)
+}
+
+sourceSets.main {
+    kotlin.srcDirs(generatedSrcDir)
+}
+
+tasks.named("compileKotlin") {
+    dependsOn("generate")
 }
 
 dependencies {
