@@ -16,6 +16,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@epistola/design-system": "workspace:*",
     "@epistola/template-model": "workspace:*",
     "lit": "^3.3.0",
     "nanoid": "^5.1.5"

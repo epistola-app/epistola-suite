@@ -24,6 +24,8 @@ importers:
         specifier: ^9.1.7
         version: 9.1.7
 
+  modules/design-system: {}
+
   modules/editor:
     dependencies:
       '@codemirror/autocomplete':
@@ -234,6 +236,9 @@ importers:
 
   modules/editor-v2:
     dependencies:
+      '@epistola/design-system':
+        specifier: workspace:*
+        version: link:../design-system
       '@epistola/template-model':
         specifier: workspace:*
         version: link:../template-model
