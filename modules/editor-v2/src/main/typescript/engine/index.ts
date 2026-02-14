@@ -34,3 +34,12 @@ export {
 } from './registry.js'
 export { deepFreeze } from './freeze.js'
 export { getNestedValue, setNestedValue } from './props.js'
+export { defaultStyleRegistry } from './style-registry.js'
+export {
+  getInheritableKeys,
+  resolveDocumentStyles,
+  resolveNodeStyles,
+  resolvePageSettings,
+  resolvePresetStyles,
+  DEFAULT_PAGE_SETTINGS,
+} from './styles.js'

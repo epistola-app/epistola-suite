@@ -5,12 +5,22 @@
  * undo/redo, and change notification. Framework-agnostic.
  */
 
-import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
+import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js'
+import type { Theme } from '@epistola/template-model/generated/theme.js'
+import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
 import { type Command, type CommandResult, applyCommand } from './commands.js'
 import { UndoStack } from './undo.js'
 import type { ComponentRegistry } from './registry.js'
 import { deepFreeze } from './freeze.js'
+import { defaultStyleRegistry } from './style-registry.js'
+import {
+  getInheritableKeys,
+  resolveDocumentStyles,
+  resolveNodeStyles,
+  resolvePageSettings,
+  resolvePresetStyles,
+} from './styles.js'
 
 // ---------------------------------------------------------------------------
 // Listener type
@@ -30,16 +40,25 @@ export class EditorEngine {
   private _selectedNodeId: NodeId | null = null
   private _selectionListeners: Set<(nodeId: NodeId | null) => void> = new Set()
   readonly registry: ComponentRegistry
+  readonly styleRegistry: StyleRegistry
+  private _theme: Theme | undefined
+  private _resolvedDocStyles!: Record<string, unknown>
+  private _inheritableKeys: Set<string>
+  private _resolvedPageSettings!: PageSettings
 
   constructor(
     doc: TemplateDocument,
     registry: ComponentRegistry,
-    undoDepth = 100,
+    options?: { theme?: Theme; styleRegistry?: StyleRegistry; undoDepth?: number },
   ) {
     this.registry = registry
+    this.styleRegistry = options?.styleRegistry ?? defaultStyleRegistry
+    this._theme = options?.theme
     this._doc = deepFreeze(structuredClone(doc))
     this._indexes = buildIndexes(this._doc)
-    this._undoStack = new UndoStack(undoDepth)
+    this._undoStack = new UndoStack(options?.undoDepth ?? 100)
+    this._inheritableKeys = getInheritableKeys(this.styleRegistry)
+    this._recomputeStyles()
   }
 
   // -----------------------------------------------------------------------
@@ -64,6 +83,53 @@ export class EditorEngine {
 
   getSlot(id: SlotId) {
     return this._doc.slots[id]
+  }
+
+  get theme(): Theme | undefined {
+    return this._theme
+  }
+
+  get resolvedDocStyles(): Record<string, unknown> {
+    return this._resolvedDocStyles
+  }
+
+  get resolvedPageSettings(): PageSettings {
+    return this._resolvedPageSettings
+  }
+
+  /** Resolve a single node's final styles through the full cascade. */
+  getResolvedNodeStyles(nodeId: NodeId): Record<string, unknown> {
+    const node = this._doc.nodes[nodeId]
+    if (!node) return {}
+
+    const presetStyles = resolvePresetStyles(
+      this._theme?.blockStylePresets,
+      node.stylePreset,
+    )
+    return resolveNodeStyles(
+      this._resolvedDocStyles,
+      this._inheritableKeys,
+      presetStyles,
+      node.styles,
+    )
+  }
+
+  /** Update the theme (e.g. when loading a different theme). */
+  setTheme(theme: Theme | undefined): void {
+    this._theme = theme
+    this._recomputeStyles()
+    this._notify()
+  }
+
+  private _recomputeStyles(): void {
+    this._resolvedDocStyles = resolveDocumentStyles(
+      this._theme?.documentStyles as Record<string, unknown> | undefined,
+      this._doc.documentStylesOverride as Record<string, unknown> | undefined,
+    )
+    this._resolvedPageSettings = resolvePageSettings(
+      this._theme?.pageSettings as PageSettings | undefined,
+      this._doc.pageSettingsOverride as PageSettings | undefined,
+    )
   }
 
   // -----------------------------------------------------------------------
@@ -97,6 +163,7 @@ export class EditorEngine {
     if (result.ok) {
       this._doc = deepFreeze(result.doc)
       this._indexes = buildIndexes(this._doc)
+      this._recomputeStyles()
 
       if (result.inverse) {
         this._undoStack.push(result.inverse)
@@ -118,6 +185,7 @@ export class EditorEngine {
     if (result.ok) {
       this._doc = deepFreeze(result.doc)
       this._indexes = buildIndexes(this._doc)
+      this._recomputeStyles()
       this._notify()
     }
 
@@ -177,6 +245,7 @@ export class EditorEngine {
   replaceDocument(doc: TemplateDocument): void {
     this._doc = deepFreeze(structuredClone(doc))
     this._indexes = buildIndexes(this._doc)
+    this._recomputeStyles()
     this._undoStack.clear()
     this._selectedNodeId = null
     this._notify()
