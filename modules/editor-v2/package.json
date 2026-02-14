@@ -16,6 +16,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@atlaskit/pragmatic-drag-and-drop": "^1.7.7",
+    "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
     "@epistola/design-system": "workspace:*",
     "@epistola/template-model": "workspace:*",
     "lit": "^3.3.0",

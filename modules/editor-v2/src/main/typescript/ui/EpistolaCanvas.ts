@@ -1,7 +1,11 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
+import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
+import { isDragData, isPaletteDrag, isBlockDrag, type DragData } from '../dnd/types.js'
+import { resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere, type Edge } from '../dnd/drop-logic.js'
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -13,6 +17,8 @@ export class EpistolaCanvas extends LitElement {
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
 
+  private _dndCleanup: (() => void) | null = null
+
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation()
     this.engine?.selectNode(nodeId)
@@ -21,6 +27,150 @@ export class EpistolaCanvas extends LitElement {
   private _handleCanvasClick() {
     this.engine?.selectNode(null)
   }
+
+  override updated() {
+    this._dndCleanup?.()
+    this._dndCleanup = this._setupDnD()
+  }
+
+  override disconnectedCallback() {
+    this._dndCleanup?.()
+    this._dndCleanup = null
+    super.disconnectedCallback()
+  }
+
+  // ---------------------------------------------------------------------------
+  // DnD setup
+  // ---------------------------------------------------------------------------
+
+  private _setupDnD(): (() => void) | null {
+    if (!this.engine || !this.doc) return null
+
+    const cleanups: (() => void)[] = []
+
+    // Setup drag sources on canvas blocks (skip root)
+    const blocks = this.querySelectorAll<HTMLElement>('.canvas-block[data-node-id]')
+    for (const blockEl of blocks) {
+      const nodeId = blockEl.dataset.nodeId as NodeId | undefined
+      if (!nodeId || nodeId === this.doc.root) continue
+
+      const node = this.doc.nodes[nodeId]
+      if (!node) continue
+
+      // Drag source
+      cleanups.push(draggable({
+        element: blockEl,
+        dragHandle: blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl,
+        getInitialData: (): DragData => ({ source: 'block', nodeId, blockType: node.type }),
+        onDragStart: () => blockEl.classList.add('dragging'),
+        onDrop: () => blockEl.classList.remove('dragging'),
+      }))
+
+      // Drop target on each block (edge detection)
+      cleanups.push(dropTargetForElements({
+        element: blockEl,
+        getData: ({ input, element }) => attachClosestEdge(
+          { nodeId },
+          { element, input, allowedEdges: ['top', 'bottom'] },
+        ),
+        canDrop: ({ source }) => {
+          const dragData = source.data as Record<string, unknown>
+          if (!isDragData(dragData)) return false
+
+          // Resolve parent slot of this block via DOM
+          const slotEl = blockEl.closest<HTMLElement>('[data-slot-id]')
+          const slotId = slotEl?.dataset.slotId as SlotId | undefined
+          if (!slotId) return false
+
+          return canDropHere(dragData, slotId, this.doc!, this.engine!.indexes, this.engine!.registry)
+        },
+        onDragEnter: ({ self }) => {
+          const edge = extractClosestEdge(self.data)
+          if (edge === 'top' || edge === 'bottom') {
+            blockEl.setAttribute('data-drop-edge', edge)
+          }
+        },
+        onDrag: ({ self }) => {
+          const edge = extractClosestEdge(self.data)
+          if (edge === 'top' || edge === 'bottom') {
+            blockEl.setAttribute('data-drop-edge', edge)
+          }
+        },
+        onDragLeave: () => {
+          blockEl.removeAttribute('data-drop-edge')
+        },
+        onDrop: ({ self, source }) => {
+          blockEl.removeAttribute('data-drop-edge')
+
+          const dragData = source.data as Record<string, unknown>
+          if (!isDragData(dragData)) return
+
+          const edge = extractClosestEdge(self.data) as Edge | null
+          if (!edge) return
+
+          const location = resolveDropOnBlockEdge(nodeId, edge, this.doc!, this.engine!.indexes)
+          if (!location) return
+
+          this._handleDrop(dragData, location.targetSlotId, location.index)
+        },
+      }))
+    }
+
+    // Setup drop targets on empty slots
+    const slots = this.querySelectorAll<HTMLElement>('.canvas-slot[data-slot-id]')
+    for (const slotEl of slots) {
+      const slotId = slotEl.dataset.slotId as SlotId | undefined
+      if (!slotId) continue
+
+      const slot = this.doc.slots[slotId]
+      if (!slot) continue
+
+      // Only make empty slots direct drop targets (non-empty slots are handled by block edges)
+      if (slot.children.length > 0) continue
+
+      cleanups.push(dropTargetForElements({
+        element: slotEl,
+        canDrop: ({ source }) => {
+          const dragData = source.data as Record<string, unknown>
+          if (!isDragData(dragData)) return false
+          return canDropHere(dragData, slotId, this.doc!, this.engine!.indexes, this.engine!.registry)
+        },
+        onDragEnter: () => slotEl.classList.add('drag-over'),
+        onDragLeave: () => slotEl.classList.remove('drag-over'),
+        onDrop: ({ source }) => {
+          slotEl.classList.remove('drag-over')
+
+          const dragData = source.data as Record<string, unknown>
+          if (!isDragData(dragData)) return
+
+          const location = resolveDropOnEmptySlot(slotId)
+          this._handleDrop(dragData, location.targetSlotId, location.index)
+        },
+      }))
+    }
+
+    return () => cleanups.forEach(fn => fn())
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drop handler
+  // ---------------------------------------------------------------------------
+
+  private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
+    if (!this.engine) return
+
+    if (isPaletteDrag(dragData)) {
+      const { node, slots } = this.engine.registry.createNode(dragData.blockType)
+      this.engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId, index })
+      this.engine.selectNode(node.id)
+    } else if (isBlockDrag(dragData)) {
+      this.engine.dispatch({ type: 'MoveNode', nodeId: dragData.nodeId, targetSlotId, index })
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   override render() {
     if (!this.doc || !this.engine) {

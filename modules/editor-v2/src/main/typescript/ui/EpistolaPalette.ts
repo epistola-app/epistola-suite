@@ -1,7 +1,9 @@
 import { LitElement, html } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
+import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, ComponentCategory } from '../engine/registry.js'
+import type { DragData } from '../dnd/types.js'
 
 const CATEGORY_ORDER: ComponentCategory[] = ['content', 'layout', 'logic', 'page']
 const CATEGORY_LABELS: Record<ComponentCategory, string> = {
@@ -18,6 +20,8 @@ export class EpistolaPalette extends LitElement {
   }
 
   @property({ attribute: false }) engine?: EditorEngine
+
+  private _dndCleanup: (() => void) | null = null
 
   private _handleInsert(type: string) {
     if (!this.engine) return
@@ -39,6 +43,39 @@ export class EpistolaPalette extends LitElement {
 
     // Select the newly inserted node
     this.engine.selectNode(node.id)
+  }
+
+  override updated() {
+    this._dndCleanup?.()
+    this._dndCleanup = this._setupDnD()
+  }
+
+  override disconnectedCallback() {
+    this._dndCleanup?.()
+    this._dndCleanup = null
+    super.disconnectedCallback()
+  }
+
+  private _setupDnD(): (() => void) | null {
+    const items = this.querySelectorAll<HTMLElement>('.palette-item[data-block-type]')
+    if (items.length === 0) return null
+
+    const cleanups: (() => void)[] = []
+
+    for (const item of items) {
+      const blockType = item.dataset.blockType
+      if (!blockType) continue
+
+      const cleanup = draggable({
+        element: item,
+        getInitialData: (): DragData => ({ source: 'palette', blockType }),
+        onDragStart: () => item.classList.add('dragging'),
+        onDrop: () => item.classList.remove('dragging'),
+      })
+      cleanups.push(cleanup)
+    }
+
+    return () => cleanups.forEach(fn => fn())
   }
 
   override render() {
@@ -75,6 +112,7 @@ export class EpistolaPalette extends LitElement {
               ${items.map(def => html`
                 <button
                   class="palette-item"
+                  data-block-type=${def.type}
                   @click=${() => this._handleInsert(def.type)}
                   title="Click to insert ${def.label}"
                 >

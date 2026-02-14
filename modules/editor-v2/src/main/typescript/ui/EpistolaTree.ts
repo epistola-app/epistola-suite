@@ -43,6 +43,7 @@ export class EpistolaTree extends LitElement {
     return html`
       <div
         class="tree-node"
+        data-node-id=${nodeId}
         style="padding-left: ${depth * 16}px"
       >
         <div

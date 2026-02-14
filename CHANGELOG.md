@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- **Editor V2: Drag-and-drop block positioning**: Blocks can now be dragged to insert or reorder using `@atlaskit/pragmatic-drag-and-drop`
+  - Palette items are drag sources — drag from palette to insert a new block at a specific position in the canvas
+  - Canvas blocks are drag sources — drag by the block header to reorder within or across slots
+  - Drop indicator line (blue 2px) shows exact insertion point on block edges
+  - Visual feedback: source dimming during drag, empty slot highlighting on hover
+  - Containment validation: drops are rejected if the parent type doesn't allow the child type (e.g. text into text)
+  - Cycle prevention: can't drag a block into its own descendant
+  - Click-to-insert remains as a quick shortcut alongside drag
+  - Tree panel nodes now have `data-node-id` attributes (prep for future tree DnD)
+  - 14 new unit tests for drop logic (resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere)
+
 ### Changed
 - **Design System: Split editor CSS into shared design system + component files**: Extracted the monolithic 550-line `editor.css` into a modular architecture
   - New `modules/design-system/` with `tokens.css`, `base.css`, and `components.css` — shared between the editor and the main app

@@ -1,0 +1,50 @@
+/*
+ * Drag-and-Drop Visual Feedback
+ */
+
+@layer states {
+  /* Drop indicator line on block edges */
+  .canvas-block[data-drop-edge='top']::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ep-blue-500);
+    border-radius: 1px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .canvas-block[data-drop-edge='bottom']::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ep-blue-500);
+    border-radius: 1px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Empty slot highlight when dragging over */
+  .canvas-slot.drag-over {
+    border-color: var(--ep-blue-400);
+    background: color-mix(in srgb, var(--ep-blue-100) 50%, transparent);
+  }
+
+  /* Dimmed drag source */
+  .canvas-block.dragging,
+  .palette-item.dragging {
+    opacity: 0.4;
+  }
+
+  /* Cursor feedback for invalid drops */
+  .canvas-slot.drop-forbidden,
+  .canvas-block.drop-forbidden {
+    cursor: not-allowed;
+  }
+}
