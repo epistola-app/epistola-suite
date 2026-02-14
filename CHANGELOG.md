@@ -3,6 +3,21 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: Rich text editing with ProseMirror** (Phase 4):
+  - **ProseMirror integration**: Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks, with full JSON compatibility with the existing TipTap-based backend converter
+  - **Inline formatting**: Bold, italic, underline, strikethrough marks with keyboard shortcuts (Ctrl+B/I/U)
+  - **Block types**: Paragraphs, headings (H1-H3), bullet lists, ordered lists
+  - **Expression chips**: Inline `{{expression}}` nodes rendered as styled pills; type `{{` to insert, click to edit
+  - **Expression editor dialog**: Native `<dialog>` with text input and field path autocomplete from JSON Schema data model
+  - **Floating bubble menu**: Selection-based toolbar with formatting buttons, heading toggles, list wrapping, and expression insertion; positioned with `@floating-ui/dom`
+  - **Heading input rules**: `# `, `## `, `### ` at line start auto-converts to headings
+  - **Schema field path extractor** (`engine/schema-paths.ts`): Walks JSON Schema properties recursively to extract dot-notation field paths for expression autocomplete
+  - **Data model support**: `EditorOptions` accepts `dataModel` and `dataExamples`; `EditorEngine` stores and exposes them for expression UI
+  - **Content sync**: Bidirectional sync between ProseMirror state and EditorEngine using `isSyncing` flag + JSON equality check to prevent loops
+  - **EpistolaTextEditor Lit component**: Light DOM component wrapping ProseMirror with lifecycle management, external content sync (engine undo), and resolved style passthrough
+  - **28 new tests** for ProseMirror schema (roundtrip, marks, lists), input rules (regex matching, handler), and schema-paths (flat, nested, arrays, depth limit)
+
+### Added
 - **Kotlin codegen from JSON Schema**: Template model types (PageSettings, Margins, PageFormat, Orientation, Expression, ExpressionLanguage, BorderStyle, etc.) are now generated from JSON Schema using `json-kotlin-schema-codegen`, establishing the schemas as the single source of truth for both TypeScript and Kotlin types
 - **Open DocumentStyles**: `DocumentStyles` changed from a closed data class with 8 named properties to `Map<String, Any>`, matching the JSON Schema open object and letting the style-registry drive available properties
 

@@ -248,12 +248,51 @@ importers:
       '@epistola/template-model':
         specifier: workspace:*
         version: link:../template-model
+      '@floating-ui/dom':
+        specifier: ^1.7.5
+        version: 1.7.5
       lit:
         specifier: ^3.3.0
         version: 3.3.2
       nanoid:
         specifier: ^5.1.5
         version: 5.1.6
+      prosemirror-commands:
+        specifier: ^1.7.1
+        version: 1.7.1
+      prosemirror-dropcursor:
+        specifier: ^1.8.2
+        version: 1.8.2
+      prosemirror-gapcursor:
+        specifier: ^1.4.0
+        version: 1.4.0
+      prosemirror-history:
+        specifier: ^1.5.0
+        version: 1.5.0
+      prosemirror-inputrules:
+        specifier: ^1.5.1
+        version: 1.5.1
+      prosemirror-keymap:
+        specifier: ^1.2.3
+        version: 1.2.3
+      prosemirror-model:
+        specifier: ^1.25.4
+        version: 1.25.4
+      prosemirror-schema-basic:
+        specifier: ^1.2.4
+        version: 1.2.4
+      prosemirror-schema-list:
+        specifier: ^1.5.1
+        version: 1.5.1
+      prosemirror-state:
+        specifier: ^1.4.4
+        version: 1.4.4
+      prosemirror-transform:
+        specifier: ^1.11.0
+        version: 1.11.0
+      prosemirror-view:
+        specifier: ^1.41.6
+        version: 1.41.6
     devDependencies:
       '@types/node':
         specifier: ^24.10.4

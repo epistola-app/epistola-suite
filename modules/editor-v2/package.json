@@ -20,8 +20,21 @@
     "@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
     "@epistola/design-system": "workspace:*",
     "@epistola/template-model": "workspace:*",
+    "@floating-ui/dom": "^1.7.5",
     "lit": "^3.3.0",
-    "nanoid": "^5.1.5"
+    "nanoid": "^5.1.5",
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-dropcursor": "^1.8.2",
+    "prosemirror-gapcursor": "^1.4.0",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.4",
+    "prosemirror-schema-basic": "^1.2.4",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-transform": "^1.11.0",
+    "prosemirror-view": "^1.41.6"
   },
   "devDependencies": {
     "@types/node": "^24.10.4",

@@ -46,10 +46,13 @@ export class EditorEngine {
   private _inheritableKeys: Set<string>
   private _resolvedPageSettings!: PageSettings
 
+  private _dataModel: object | undefined
+  private _dataExamples: object[] | undefined
+
   constructor(
     doc: TemplateDocument,
     registry: ComponentRegistry,
-    options?: { theme?: Theme; styleRegistry?: StyleRegistry; undoDepth?: number },
+    options?: { theme?: Theme; styleRegistry?: StyleRegistry; undoDepth?: number; dataModel?: object; dataExamples?: object[] },
   ) {
     this.registry = registry
     this.styleRegistry = options?.styleRegistry ?? defaultStyleRegistry
@@ -58,6 +61,8 @@ export class EditorEngine {
     this._indexes = buildIndexes(this._doc)
     this._undoStack = new UndoStack(options?.undoDepth ?? 100)
     this._inheritableKeys = getInheritableKeys(this.styleRegistry)
+    this._dataModel = options?.dataModel
+    this._dataExamples = options?.dataExamples
     this._recomputeStyles()
   }
 
@@ -87,6 +92,14 @@ export class EditorEngine {
 
   get theme(): Theme | undefined {
     return this._theme
+  }
+
+  get dataModel(): object | undefined {
+    return this._dataModel
+  }
+
+  get dataExamples(): object[] | undefined {
+    return this._dataExamples
   }
 
   get resolvedDocStyles(): Record<string, unknown> {

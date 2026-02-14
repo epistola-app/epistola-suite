@@ -1,0 +1,311 @@
+/*
+ * ProseMirror / Expression / Bubble Menu styles
+ */
+
+@layer components {
+  /* -----------------------------------------------------------------------
+   * ProseMirror container
+   * ----------------------------------------------------------------------- */
+
+  .prosemirror-container {
+    min-height: 2rem;
+  }
+
+  .prosemirror-container .ProseMirror {
+    outline: none;
+    min-height: 1.5rem;
+    line-height: 1.6;
+  }
+
+  .prosemirror-container .ProseMirror p {
+    margin: 0 0 0.5em;
+  }
+
+  .prosemirror-container .ProseMirror p:last-child {
+    margin-bottom: 0;
+  }
+
+  .prosemirror-container .ProseMirror h1 {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 0.4em 0;
+    line-height: 1.3;
+  }
+
+  .prosemirror-container .ProseMirror h2 {
+    font-size: 1.25em;
+    font-weight: 600;
+    margin: 0.3em 0;
+    line-height: 1.3;
+  }
+
+  .prosemirror-container .ProseMirror h3 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 0.2em 0;
+    line-height: 1.3;
+  }
+
+  .prosemirror-container .ProseMirror ul,
+  .prosemirror-container .ProseMirror ol {
+    padding-left: 1.5em;
+    margin: 0.3em 0;
+  }
+
+  .prosemirror-container .ProseMirror li {
+    margin-bottom: 0.15em;
+  }
+
+  .prosemirror-container .ProseMirror u {
+    text-decoration: underline;
+  }
+
+  .prosemirror-container .ProseMirror s {
+    text-decoration: line-through;
+  }
+
+  /* Gap cursor */
+  .prosemirror-container .ProseMirror-gapcursor {
+    position: relative;
+  }
+
+  .prosemirror-container .ProseMirror-gapcursor::after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: -2px;
+    width: 20px;
+    border-top: 1px solid var(--ep-gray-900, #111);
+    animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+  }
+
+  @keyframes ProseMirror-cursor-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+
+  /* -----------------------------------------------------------------------
+   * Expression chip (inline in ProseMirror content)
+   * ----------------------------------------------------------------------- */
+
+  .expression-chip {
+    display: inline;
+    padding: 1px 6px;
+    border-radius: var(--ep-radius-sm, 4px);
+    background: var(--ep-blue-50, #eff6ff);
+    color: var(--ep-blue-700, #1d4ed8);
+    font-family: var(--ep-font-mono, monospace);
+    font-size: 0.85em;
+    border: 1px solid var(--ep-blue-200, #bfdbfe);
+    cursor: pointer;
+    vertical-align: baseline;
+    white-space: nowrap;
+    user-select: none;
+    transition: background-color 150ms ease;
+
+    &:hover {
+      background: var(--ep-blue-100, #dbeafe);
+    }
+  }
+
+  /* -----------------------------------------------------------------------
+   * Bubble menu (floating toolbar)
+   * ----------------------------------------------------------------------- */
+
+  .pm-bubble-menu {
+    position: fixed;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    background: var(--ep-white, #fff);
+    border: 1px solid var(--ep-gray-200, #e5e7eb);
+    border-radius: var(--ep-radius-md, 6px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  }
+
+  .pm-bubble-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--ep-radius-sm, 4px);
+    background: transparent;
+    color: var(--ep-gray-600, #4b5563);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 100ms ease, color 100ms ease;
+
+    &:hover {
+      background: var(--ep-gray-100, #f3f4f6);
+    }
+
+    &.active {
+      background: var(--ep-blue-100, #dbeafe);
+      color: var(--ep-blue-700, #1d4ed8);
+    }
+
+    &.bold {
+      font-weight: 800;
+    }
+
+    &.italic {
+      font-style: italic;
+    }
+
+    &.underline {
+      text-decoration: underline;
+    }
+
+    &.strikethrough {
+      text-decoration: line-through;
+    }
+
+    &.expression {
+      font-family: var(--ep-font-mono, monospace);
+      font-size: 11px;
+    }
+  }
+
+  .pm-bubble-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--ep-gray-200, #e5e7eb);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Expression dialog
+   * ----------------------------------------------------------------------- */
+
+  .expression-dialog {
+    border: none;
+    border-radius: var(--ep-radius-lg, 8px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    padding: 0;
+    min-width: 320px;
+    max-width: 420px;
+    max-height: 80vh;
+    overflow: hidden;
+  }
+
+  .expression-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .expression-dialog-form {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .expression-dialog-label {
+    font-size: var(--ep-text-sm, 14px);
+    font-weight: 500;
+    color: var(--ep-gray-700, #374151);
+  }
+
+  .expression-dialog-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--ep-gray-300, #d1d5db);
+    border-radius: var(--ep-radius-sm, 4px);
+    font-family: var(--ep-font-mono, monospace);
+    font-size: var(--ep-text-sm, 14px);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 150ms ease;
+
+    &:focus {
+      border-color: var(--ep-blue-500, #3b82f6);
+      box-shadow: 0 0 0 2px var(--ep-blue-100, #dbeafe);
+    }
+  }
+
+  .expression-dialog-paths {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .expression-dialog-paths-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ep-gray-500, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .expression-dialog-paths-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .expression-dialog-path-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-radius: var(--ep-radius-sm, 4px);
+    cursor: pointer;
+    transition: background-color 100ms ease;
+
+    &:hover {
+      background: var(--ep-gray-50, #f9fafb);
+    }
+  }
+
+  .expression-dialog-path-name {
+    font-family: var(--ep-font-mono, monospace);
+    font-size: 13px;
+    color: var(--ep-gray-800, #1f2937);
+  }
+
+  .expression-dialog-path-type {
+    font-size: 11px;
+    color: var(--ep-gray-400, #9ca3af);
+    margin-left: 12px;
+  }
+
+  .expression-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+  }
+
+  .expression-dialog-btn {
+    padding: 6px 16px;
+    border-radius: var(--ep-radius-sm, 4px);
+    font-size: var(--ep-text-sm, 14px);
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--ep-gray-300, #d1d5db);
+    background: var(--ep-white, #fff);
+    color: var(--ep-gray-700, #374151);
+    transition: background-color 100ms ease;
+
+    &:hover {
+      background: var(--ep-gray-50, #f9fafb);
+    }
+
+    &.save {
+      background: var(--ep-blue-600, #2563eb);
+      color: white;
+      border-color: var(--ep-blue-600, #2563eb);
+
+      &:hover {
+        background: var(--ep-blue-700, #1d4ed8);
+      }
+    }
+  }
+}

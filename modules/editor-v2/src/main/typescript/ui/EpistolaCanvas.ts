@@ -8,6 +8,7 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
+import '../ui/EpistolaTextEditor.js'
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -319,8 +320,22 @@ export class EpistolaCanvas extends LitElement {
     if (!node) return nothing
 
     switch (node.type) {
-      case 'text':
-        return html`<div class="canvas-leaf-text">Text content</div>`
+      case 'text': {
+        const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId)
+        const def = this.engine!.registry.get(node.type)
+        const applicableStyles = def?.applicableStyles
+        const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles)
+        const textStyles = toStyleMap(filteredStyles)
+        return html`
+          <epistola-text-editor
+            .nodeId=${nodeId}
+            .content=${node.props?.content ?? null}
+            .resolvedStyles=${textStyles}
+            .engine=${this.engine}
+            .isSelected=${this.selectedNodeId === nodeId}
+          ></epistola-text-editor>
+        `
+      }
       case 'pagebreak':
         return html`<div class="canvas-pagebreak">
           <div class="canvas-pagebreak-line"></div>

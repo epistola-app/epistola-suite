@@ -29,6 +29,10 @@ export interface EditorOptions {
   template?: TemplateDocument
   /** Callback when the template is saved */
   onSave?: (template: TemplateDocument) => Promise<void>
+  /** JSON Schema describing the data model (for expression autocomplete) */
+  dataModel?: object
+  /** Example data objects for previewing expressions */
+  dataExamples?: object[]
 }
 
 export interface EditorInstance {
