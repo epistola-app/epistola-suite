@@ -68,4 +68,110 @@
     font-size: var(--ep-text-xs);
     color: var(--ep-gray-400);
   }
+
+  /* Style groups */
+  .inspector-style-group {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .inspector-style-group-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--ep-space-1);
+  }
+
+  /* Unit input: number + unit dropdown side by side */
+  .style-unit-input {
+    display: flex;
+    gap: var(--ep-space-1);
+  }
+
+  .style-unit-number {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .style-unit-select {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  /* Color input: picker + text side by side */
+  .style-color-input {
+    display: flex;
+    gap: var(--ep-space-1);
+    align-items: center;
+  }
+
+  .style-color-picker {
+    width: 32px;
+    height: 28px;
+    padding: 1px;
+    border: var(--ep-border);
+    border-radius: var(--ep-radius-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .style-color-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Spacing input: 4 values in a row */
+  .style-spacing-input {
+    display: flex;
+    gap: var(--ep-space-1);
+    align-items: center;
+  }
+
+  .style-spacing-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    flex: 1;
+  }
+
+  .style-spacing-label {
+    font-size: 9px;
+    color: var(--ep-gray-400);
+    font-weight: 500;
+  }
+
+  .style-spacing-number {
+    width: 100%;
+    text-align: center;
+  }
+
+  .style-spacing-unit {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  /* Margins grid (page settings) */
+  .inspector-margins-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: var(--ep-space-1);
+  }
+
+  .inspector-margin-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+
+  .inspector-margin-field .style-spacing-number {
+    text-align: center;
+  }
+
+  /* Scrollable inspector when content overflows */
+  .epistola-inspector {
+    overflow-y: auto;
+  }
 }
