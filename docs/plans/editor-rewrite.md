@@ -1,5 +1,22 @@
 # Editor V2 — Implementation Plan
 
+## Progress Summary
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **0. Foundation** | **Mostly done** | Schemas, types, scaffold complete. Kotlin data classes pending. |
+| **1. Headless Engine** | **Done** | All commands, undo/redo, registry, 45 tests passing. |
+| **2. Minimal UI** | **Partially done** | Shell, tree, canvas, palette, inspector, toolbar render. DnD not started. |
+| **2.x Design System** | **Done** | Shared `modules/design-system/` extracted (not in original plan). |
+| **3. Styles + Themes** | Not started | |
+| **4. Rich Text** | Not started | |
+| **5. Preview** | Not started | |
+| **6. Save + Publish** | Not started | |
+| **7. Backend Adaptation** | Not started | |
+| **8. Cleanup** | Not started | |
+
+---
+
 ## Context
 
 The current editor (React 19 + TipTap + Zustand + dnd-kit) has two structural problems:
@@ -27,7 +44,7 @@ Additionally: **React is being dropped**. The rest of the app uses Thymeleaf + H
 
 **Fallback**: If Lit proves too verbose after Phase 2 (minimal UI), Svelte 5 is the alternative — the headless engine is framework-agnostic so only the UI layer would change.
 
-### 2. Styling: Vanilla CSS (no Tailwind)
+### 2. Styling: Vanilla CSS with Shared Design System
 
 Modern CSS (2026) provides everything needed without a utility framework:
 
@@ -42,7 +59,14 @@ Modern CSS (2026) provides everything needed without a utility framework:
 - **Popover API** — native modals/dialogs without Radix UI
 - **View Transitions** — smooth panel/mode transitions
 
-This eliminates Tailwind, PostCSS, and all CSS tooling overhead. The editor's CSS is self-contained and ships as part of the bundle.
+This eliminates Tailwind, PostCSS, and all CSS tooling overhead.
+
+**Design system module** (`modules/design-system/`): Shared CSS consumed by both the editor (via Vite `@design` alias) and the main app (via Gradle copy + Thymeleaf fragment). Contains:
+- `tokens.css` — `:root` custom properties (colors, typography, spacing, radii, shadows)
+- `base.css` — `@layer base` resets (box-sizing, button/input defaults)
+- `components.css` — `@layer components` shared UI patterns (`.panel-*`, `.ep-input`, `.ep-select`, `.ep-checkbox`, `.ep-btn-danger`)
+
+Editor-specific styles live in `modules/editor-v2/src/main/typescript/styles/` as 6 component files (editor-layout, toolbar, tree, canvas, palette, inspector). `editor.css` is an import-only entry point with `@layer` ordering.
 
 ### 3. Node/Slot Data Model
 
@@ -106,151 +130,145 @@ type ThemeRef =
 | State | **Headless engine + Lit reactive properties** | Engine owns state, exposes subscribe/notify. No Zustand, no Immer. |
 | Validation | **Ajv** (structural) + custom rules (semantic) | Standard JSON Schema validation + registry-based rules. |
 | IDs | **nanoid** | Lightweight, URL-safe, fast. |
-| CSS | **Vanilla CSS** | Modern CSS features (nesting, layers, scope, custom properties) cover all needs. |
+| CSS | **Vanilla CSS** + shared design system | Modern CSS features (nesting, layers, scope, custom properties). Shared `modules/design-system/` for app-wide consistency. |
 
 ---
 
 ## Implementation Phases
 
-### Phase 0: Foundation (Schemas + Types)
+### Phase 0: Foundation (Schemas + Types) — MOSTLY DONE
 
-**0.1 — Create `modules/editor-v2/` scaffold**
+**0.1 — Create `modules/editor-v2/` scaffold** ✅
 - `package.json`, `tsconfig.json`, `vite.config.ts` (library mode, ESM output)
-- Add Lit, vitest dependencies
-- Wire into pnpm workspace
-- Scope: Small
+- Lit, vitest, nanoid dependencies
+- Wired into pnpm workspace
 
-**0.2 — Define JSON Schemas in `modules/template-model/`**
-- Create `schemas/` dir with JSON Schema Draft 2020-12 files:
+**0.2 — Define JSON Schemas in `modules/template-model/`** ✅
+- JSON Schema Draft 2020-12 files in `schemas/`:
   - `template-document.schema.json`, `template-shared.schema.json`
   - `theme.schema.json`, `style-registry.schema.json`, `component-manifest.schema.json`
-- Add `package.json` to template-model for TS tooling
-- Scope: Medium
 
-**0.3 — Type generation pipeline**
-- Use `json-schema-to-typescript` to generate TS interfaces from schemas
-- Export from `@epistola/template-model` package
-- `editor-v2` depends on `@epistola/template-model` in workspace
-- Scope: Small
+**0.3 — Type generation pipeline** ✅
+- `json-schema-to-typescript` generates TS interfaces from schemas
+- Generated types in `modules/template-model/generated/`
+- `editor-v2` depends on `@epistola/template-model` workspace package
+- Hand-written `ts/model.ts` re-exports with branded NodeId/SlotId types
 
-**0.4 — Kotlin data classes for V2 model**
+**0.4 — Kotlin data classes for V2 model** ⬜ NOT STARTED
 - Replace `TemplateModel.kt` with `TemplateDocument`, `Node`, `Slot`, `ThemeRef`
 - Jackson `@JsonTypeInfo` on Node for type discrimination
 - Round-trip serialization tests
-- Scope: Medium
 
-### Phase 1: Headless Engine
+### Phase 1: Headless Engine — DONE ✅
 
-**1.1 — Engine core**
+**1.1 — Engine core** ✅
 - `EditorEngine` class: state, derived indexes (`parentByNodeId`, `slotsByNodeId`), subscribe/notify
 - Deep-freeze state to prevent accidental mutation
-- Scope: Medium
 
-**1.2 — Command dispatch**
-- Commands: `InsertNode`, `RemoveNode`, `MoveNode`, `UpdateNodeProps`, `UpdateNodeStyles`, `SetStylePreset`
+**1.2 — Command dispatch** ✅
+- Commands: `InsertNode`, `RemoveNode`, `MoveNode`, `UpdateNodeProps`, `UpdateNodeStyles`, `SetStylePreset`, `UpdateDocumentStyles`, `UpdatePageSettings`
 - Each command produces an inverse for undo
-- Validation before apply (cycle detection, allowed children via registry)
-- Comprehensive unit tests per command
-- Scope: Large
+- Validation includes cycle detection, parent-child constraints, duplicate prevention
 
-**1.3 — Undo/redo**
-- `UndoStack` with configurable depth (100)
-- Dispatch pushes inverse to undo stack; `undo()` pops and dispatches
-- Compound command grouping for rapid operations
-- Scope: Medium
+**1.3 — Undo/redo** ✅
+- `UndoStack` with 100-entry depth
+- Redo clears on new dispatch
 
-**1.4 — Component registry**
-- `ComponentDefinition`: type, label, slots template, allowed children, style policy, inspector config
-- Register all built-in types
-- Used by: command validation, palette, inspector, DnD
-- Scope: Medium
+**1.4 — Component registry** ✅
+- 10 built-in types: root, text, container, columns, table, conditional, loop, pagebreak, pageheader, pagefooter
+- Slot templates, allowed children, style policies, inspector config
 
-### Phase 2: Minimal UI
+**Verification**: 45 engine tests passing (`pnpm --filter @epistola/editor-v2 test`)
 
-**2.1 — Editor shell**
+### Phase 2: Minimal UI — PARTIALLY DONE
+
+**2.1 — Editor shell** ✅
 - `<epistola-editor>` Lit element as root entry point
-- `mountEditor()` / `unmountEditor()` API (same pattern as V1)
-- Layout: left (tree), center (canvas), right (inspector), top (toolbar)
-- Vanilla CSS with `@layer` for cascade control, custom properties for design tokens
-- Scope: Medium
+- `mountEditor()` API (same pattern as V1)
+- Layout: left (palette), center-left (tree), center (canvas), right (inspector), top (toolbar)
+- All UI components use Light DOM (no Shadow DOM) for shared CSS
 
-**2.2 — Tree panel**
-- `<epistola-tree>`: render node hierarchy from engine state
+**2.1b — Design system extraction** ✅ (added during implementation)
+- Shared `modules/design-system/` with `tokens.css`, `base.css`, `components.css`
+- Editor-specific styles in `styles/` directory (6 component CSS files)
+- `editor.css` is import-only entry point
+- Vite `@design` alias resolves to `../design-system`
+- Gradle `copyDesignSystem` task copies to Spring Boot static resources
+- `fragments/styles.html` Thymeleaf fragment for centralized CSS includes
+- Main app `main.css` rewritten to use `var(--ep-*)` design tokens
+- Generic class renames: `.inspector-input` → `.ep-input`, `.inspector-select` → `.ep-select`, `.inspector-checkbox` → `.ep-checkbox`, `.inspector-delete-btn` → `.ep-btn-danger`
+
+**Bundle size**: 8.51 kB CSS (1.99 kB gzipped), 55.05 kB JS (13.75 kB gzipped)
+
+**2.2 — Tree panel** ✅
+- `<epistola-tree>`: renders node hierarchy from engine state
 - Click-to-select, highlight selected, node type icons
-- Scope: Medium
 
-**2.3 — Canvas (structural)**
-- `<epistola-canvas>`: render nodes as structural blocks (type label + placeholder)
+**2.3 — Canvas (structural)** ✅
+- `<epistola-canvas>`: renders nodes as structural blocks (type label + placeholder)
 - Click-to-select, highlight selected, slot drop zone placeholders
-- Scope: Medium
+- Columns layout, page break visualization
 
-**2.4 — Block palette + DnD**
-- `<epistola-palette>`: list insertable types from registry
-- Integrate `@atlaskit/pragmatic-drag-and-drop`
-- Palette items = drag sources, slot zones = drop targets, tree items = both
-- On drop: dispatch `InsertNode` or `MoveNode`
-- Scope: Large
+**2.4 — Block palette + DnD** ⬜ PARTIAL
+- `<epistola-palette>`: list insertable types from registry, grouped by category ✅
+- Click-to-insert working ✅
+- `@atlaskit/pragmatic-drag-and-drop` integration: ⬜ NOT STARTED
+  - Palette items = drag sources, slot zones = drop targets, tree items = both
+  - On drop: dispatch `InsertNode` or `MoveNode`
 
-**2.5 — Basic inspector**
-- `<epistola-inspector>`: show editable fields based on registry `inspectorConfig`
-- Basic property editors (text, number, expression input)
-- Dispatch `UpdateNodeProps` on change
-- Scope: Medium
+**2.5 — Basic inspector** ✅
+- `<epistola-inspector>`: shows editable fields based on registry `inspectorConfig`
+- Property editors: text, number, boolean (checkbox), select, expression (mono input)
+- Style preset field
+- Delete block button
+- Dispatches `UpdateNodeProps` on change
 
-### Phase 3: Styles + Themes
+### Phase 3: Styles + Themes — NOT STARTED
 
 **3.1 — Style + theme resolution**
 - Style registry: define style properties, groups, allowed values
 - Theme resolver cascade: theme defaults → document overrides → preset → inline
 - `resolvePageSettings()`, `resolveDocumentStyles()`, `resolveNodeStyles(nodeId)`
-- Scope: Medium
 
 **3.2 — Style editor in inspector**
 - Color picker, spacing input, font selector, border controls
 - Respect style policy per block type
 - Show inherited vs. overridden indicators
-- Scope: Medium
 
-### Phase 4: Rich Text
+### Phase 4: Rich Text — NOT STARTED
 
 **4.1 — TipTap integration**
 - Mount TipTap (core, no React wrapper) inside text node on canvas
 - Port `ExpressionNode` extension from V1
 - On blur/debounce: dispatch `UpdateNodeProps` with `content: editor.getJSON()`
 - Separate undo stack while TipTap is focused
-- Scope: Large
 
 **4.2 — Text toolbar**
 - Formatting: bold, italic, underline, strike, heading, lists, expression insert
-- Scope: Medium
 
-### Phase 5: Preview
+### Phase 5: Preview — NOT STARTED
 
 **5.1 — Client-side preview engine**
 - JSONata expression evaluation
 - Conditional show/hide, loop expansion
 - Apply resolved styles, render as HTML
-- Scope: Large
 
 **5.2 — Preview panel + PDF**
 - `<epistola-preview>`: example selector, HTML preview
 - Backend PDF preview endpoint integration
-- Scope: Medium
 
-### Phase 6: Save + Publish
+### Phase 6: Save + Publish — NOT STARTED
 
 **6.1 — Autosave**
 - Debounced save (3s inactivity) via callback from host page
 - Save status indicator
-- Scope: Small
 
 **6.2 — Validation + Publish flow**
 - Structural validation (Ajv) + semantic validation (registry rules)
 - Show errors in UI, block publish if invalid
 - Backend creates immutable `TemplateVersion` snapshot
-- Scope: Medium
 
-### Phase 7: Backend Adaptation
+### Phase 7: Backend Adaptation — NOT STARTED
 
 **7.1 — Update backend domain for node/slot model**
 - `TemplateVersion.templateModel` type → `TemplateDocument`
@@ -258,32 +276,27 @@ type ThemeRef =
 - Update `ThemeStyleResolver`
 - Flyway migration: `TRUNCATE template_versions CASCADE;`
 - Update `DemoLoader` for V2 format
-- Scope: Medium
 
 **7.2 — Rewrite PDF generation for node/slot traversal**
 - `DirectPdfRenderer`: traverse `root → slot → children → slot → ...` instead of `blocks[]`
 - Each block renderer: `Block` → `Node` + `TemplateDocument`
 - `RenderContext` gains `TemplateDocument` reference
 - `TipTapConverter.kt` unchanged (same TipTap JSON format)
-- Scope: Large
 
 **7.3 — Update Thymeleaf host page**
 - `editor.html`: load editor-v2 bundle, simplified import map, updated `mountEditor()` call
-- Scope: Small
 
-### Phase 8: Cleanup
+### Phase 8: Cleanup — NOT STARTED
 
 - Delete `modules/editor/` (old React editor)
 - Delete React-related vendor dependencies
 - Clean up import map
-- Scope: Small
 
-### Phase 9: Plugin PoC (if time permits)
+### Phase 9: Plugin PoC (if time permits) — NOT STARTED
 
 - Plugin manifest format + registry extension
 - Custom block type registration
 - Placeholder rendering for unknown plugins
-- Scope: Medium
 
 ---
 
@@ -311,7 +324,7 @@ type ThemeRef =
 After each phase, verify:
 
 - **Phase 0**: `pnpm run generate:types` produces valid TS, Kotlin serialization tests pass (`./gradlew test --tests *TemplateDocument*`)
-- **Phase 1**: Engine unit tests pass (`pnpm --filter @epistola/editor-v2 test`), all commands + undo/redo tested
+- **Phase 1**: Engine unit tests pass (`pnpm --filter @epistola/editor-v2 test`), all commands + undo/redo tested ✅
 - **Phase 2**: Editor mounts in a test HTML page, tree/canvas/inspector render, DnD creates/moves nodes
 - **Phase 3**: Styles apply on canvas, theme resolution correct
 - **Phase 4**: Text editing works in canvas, expressions render as chips
