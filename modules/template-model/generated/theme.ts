@@ -30,14 +30,7 @@ export interface Theme {
  * Default document-level styles inherited by all templates using this theme.
  */
 export interface DocumentStyles {
-  fontFamily?: string;
-  fontSize?: string;
-  fontWeight?: string;
-  color?: string;
-  lineHeight?: string;
-  letterSpacing?: string;
-  textAlign?: "left" | "center" | "right" | "justify";
-  backgroundColor?: string;
+  [k: string]: unknown;
 }
 /**
  * Default page settings inherited by templates using this theme.
@@ -46,11 +39,30 @@ export interface PageSettings {
   format: "A4" | "Letter" | "Custom";
   orientation: "portrait" | "landscape";
   margins: Margins;
+  /**
+   * Page background color (CSS color value).
+   */
+  backgroundColor?: string;
 }
+/**
+ * Page margins in millimeters.
+ */
 export interface Margins {
+  /**
+   * Top margin in mm.
+   */
   top: number;
+  /**
+   * Right margin in mm.
+   */
   right: number;
+  /**
+   * Bottom margin in mm.
+   */
   bottom: number;
+  /**
+   * Left margin in mm.
+   */
   left: number;
 }
 export interface BlockStylePreset {

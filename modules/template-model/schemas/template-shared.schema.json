@@ -34,11 +34,12 @@
 
     "Margins": {
       "type": "object",
+      "description": "Page margins in millimeters.",
       "properties": {
-        "top": { "type": "number", "minimum": 0 },
-        "right": { "type": "number", "minimum": 0 },
-        "bottom": { "type": "number", "minimum": 0 },
-        "left": { "type": "number", "minimum": 0 }
+        "top": { "type": "number", "minimum": 0, "description": "Top margin in mm." },
+        "right": { "type": "number", "minimum": 0, "description": "Right margin in mm." },
+        "bottom": { "type": "number", "minimum": 0, "description": "Bottom margin in mm." },
+        "left": { "type": "number", "minimum": 0, "description": "Left margin in mm." }
       },
       "required": ["top", "right", "bottom", "left"],
       "additionalProperties": false
@@ -49,7 +50,8 @@
       "properties": {
         "format": { "$ref": "#/$defs/PageFormat" },
         "orientation": { "$ref": "#/$defs/Orientation" },
-        "margins": { "$ref": "#/$defs/Margins" }
+        "margins": { "$ref": "#/$defs/Margins" },
+        "backgroundColor": { "type": "string", "description": "Page background color (CSS color value)." }
       },
       "required": ["format", "orientation", "margins"],
       "additionalProperties": false
@@ -57,17 +59,7 @@
 
     "DocumentStyles": {
       "type": "object",
-      "properties": {
-        "fontFamily": { "type": "string" },
-        "fontSize": { "type": "string" },
-        "fontWeight": { "type": "string" },
-        "color": { "type": "string" },
-        "lineHeight": { "type": "string" },
-        "letterSpacing": { "type": "string" },
-        "textAlign": { "$ref": "#/$defs/TextAlign" },
-        "backgroundColor": { "type": "string" }
-      },
-      "additionalProperties": false
+      "description": "Document-level style overrides. Open object — the style-registry drives available properties."
     },
 
     "ExpressionLanguage": {

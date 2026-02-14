@@ -76,6 +76,7 @@ export type PageFormat = 'A4' | 'Letter' | 'Custom'
 export type Orientation = 'portrait' | 'landscape'
 export type TextAlign = 'left' | 'center' | 'right' | 'justify'
 
+/** Page margins in millimeters. */
 export interface Margins {
   top: number
   right: number
@@ -87,22 +88,15 @@ export interface PageSettings {
   format: PageFormat
   orientation: Orientation
   margins: Margins
+  backgroundColor?: string
 }
 
 // ---------------------------------------------------------------------------
 // Document styles
 // ---------------------------------------------------------------------------
 
-export interface DocumentStyles {
-  fontFamily?: string
-  fontSize?: string
-  fontWeight?: string
-  color?: string
-  lineHeight?: string
-  letterSpacing?: string
-  textAlign?: TextAlign
-  backgroundColor?: string
-}
+/** Open object — the style-registry drives available properties. */
+export type DocumentStyles = Record<string, unknown>
 
 // ---------------------------------------------------------------------------
 // Expression
