@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { EditorEngine } from './EditorEngine.js'
-import { buildIndexes } from './indexes.js'
+import { buildIndexes, getNodeDepth, findAncestorAtLevel } from './indexes.js'
+import { getNestedValue, setNestedValue } from './props.js'
 import type { Command, InsertNode, MoveNode } from './commands.js'
 import { ComponentRegistry, createDefaultRegistry } from './registry.js'
 import {
@@ -31,6 +32,122 @@ describe('buildIndexes', () => {
     expect(indexes.parentSlotByNodeId.get(containerNodeId)).toBe(rootSlotId)
     expect(indexes.parentNodeByNodeId.get(textNodeId)).toBe(rootId)
     expect(indexes.parentSlotByNodeId.has(rootId)).toBe(false)
+  })
+
+  it('computes depth for all nodes', () => {
+    const { doc, rootId, textNodeId, containerNodeId, containerSlotId } =
+      createTestDocumentWithChildren()
+
+    // Add a child inside the container to get depth 2
+    const deepChild = nodeId('deep')
+    doc.nodes[deepChild] = { id: deepChild, type: 'text', slots: [], props: { content: null } }
+    doc.slots[containerSlotId].children.push(deepChild)
+
+    const indexes = buildIndexes(doc)
+
+    expect(indexes.depthByNodeId.get(rootId)).toBe(0)
+    expect(indexes.depthByNodeId.get(textNodeId)).toBe(1)
+    expect(indexes.depthByNodeId.get(containerNodeId)).toBe(1)
+    expect(indexes.depthByNodeId.get(deepChild)).toBe(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getNodeDepth / findAncestorAtLevel
+// ---------------------------------------------------------------------------
+
+describe('getNodeDepth', () => {
+  it('returns 0 for root', () => {
+    const { doc, rootId } = createTestDocumentWithChildren()
+    const indexes = buildIndexes(doc)
+    expect(getNodeDepth(rootId, indexes)).toBe(0)
+  })
+
+  it('returns correct depth for nested nodes', () => {
+    const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren()
+    const deepChild = nodeId('deep')
+    doc.nodes[deepChild] = { id: deepChild, type: 'text', slots: [] }
+    doc.slots[containerSlotId].children.push(deepChild)
+
+    const indexes = buildIndexes(doc)
+    expect(getNodeDepth(containerNodeId, indexes)).toBe(1)
+    expect(getNodeDepth(deepChild, indexes)).toBe(2)
+  })
+
+  it('returns 0 for unknown nodes', () => {
+    const { doc } = createTestDocumentWithChildren()
+    const indexes = buildIndexes(doc)
+    expect(getNodeDepth('nonexistent' as NodeId, indexes)).toBe(0)
+  })
+})
+
+describe('findAncestorAtLevel', () => {
+  it('returns self when already at target level', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const indexes = buildIndexes(doc)
+    expect(findAncestorAtLevel(textNodeId, 1, indexes)).toBe(textNodeId)
+  })
+
+  it('returns ancestor at specified level', () => {
+    const { doc, rootId, containerNodeId, containerSlotId } = createTestDocumentWithChildren()
+    const deepChild = nodeId('deep')
+    doc.nodes[deepChild] = { id: deepChild, type: 'text', slots: [] }
+    doc.slots[containerSlotId].children.push(deepChild)
+
+    const indexes = buildIndexes(doc)
+    // deepChild is at depth 2, find ancestor at level 1 → containerNodeId
+    expect(findAncestorAtLevel(deepChild, 1, indexes)).toBe(containerNodeId)
+    // find ancestor at level 0 → rootId
+    expect(findAncestorAtLevel(deepChild, 0, indexes)).toBe(rootId)
+  })
+
+  it('returns null if no ancestor exists at level', () => {
+    const { doc } = createTestDocumentWithChildren()
+    const indexes = buildIndexes(doc)
+    // orphan node not in the tree
+    expect(findAncestorAtLevel('nonexistent' as NodeId, 0, indexes)).toBe('nonexistent')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getNestedValue / setNestedValue
+// ---------------------------------------------------------------------------
+
+describe('getNestedValue', () => {
+  it('gets a top-level value', () => {
+    expect(getNestedValue({ foo: 42 }, 'foo')).toBe(42)
+  })
+
+  it('gets a nested value', () => {
+    expect(getNestedValue({ a: { b: { c: 'deep' } } }, 'a.b.c')).toBe('deep')
+  })
+
+  it('returns undefined for missing path', () => {
+    expect(getNestedValue({ a: 1 }, 'b.c')).toBeUndefined()
+  })
+
+  it('returns undefined when traversing through null', () => {
+    expect(getNestedValue({ a: null }, 'a.b')).toBeUndefined()
+  })
+})
+
+describe('setNestedValue', () => {
+  it('sets a top-level value', () => {
+    const obj: Record<string, unknown> = {}
+    setNestedValue(obj, 'foo', 42)
+    expect(obj.foo).toBe(42)
+  })
+
+  it('sets a nested value, creating intermediate objects', () => {
+    const obj: Record<string, unknown> = {}
+    setNestedValue(obj, 'a.b.c', 'deep')
+    expect((obj.a as Record<string, unknown>)?.b).toEqual({ c: 'deep' })
+  })
+
+  it('overwrites existing nested values', () => {
+    const obj: Record<string, unknown> = { a: { b: 'old' } }
+    setNestedValue(obj, 'a.b', 'new')
+    expect((obj.a as Record<string, unknown>).b).toBe('new')
   })
 })
 

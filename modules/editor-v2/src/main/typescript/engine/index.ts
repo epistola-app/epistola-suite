@@ -18,6 +18,8 @@ export {
   buildIndexes,
   getAncestorPath,
   isAncestor,
+  getNodeDepth,
+  findAncestorAtLevel,
 } from './indexes.js'
 export { UndoStack } from './undo.js'
 export {
@@ -31,3 +33,4 @@ export {
   type InspectorField,
 } from './registry.js'
 export { deepFreeze } from './freeze.js'
+export { getNestedValue, setNestedValue } from './props.js'

@@ -4,8 +4,9 @@ import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-d
 import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
-import { isDragData, isPaletteDrag, isBlockDrag, type DragData } from '../dnd/types.js'
+import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
+import { handleDrop } from '../dnd/drop-handler.js'
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -189,14 +190,7 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
     if (!this.engine) return
-
-    if (isPaletteDrag(dragData)) {
-      const { node, slots } = this.engine.registry.createNode(dragData.blockType)
-      this.engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId, index })
-      this.engine.selectNode(node.id)
-    } else if (isBlockDrag(dragData)) {
-      this.engine.dispatch({ type: 'MoveNode', nodeId: dragData.nodeId, targetSlotId, index })
-    }
+    handleDrop(this.engine, dragData, targetSlotId, index)
   }
 
   // ---------------------------------------------------------------------------

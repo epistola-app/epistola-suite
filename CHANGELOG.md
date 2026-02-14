@@ -23,6 +23,13 @@
   - 14 new unit tests for drop logic (resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere)
 
 ### Changed
+- **Editor V2: Improved architecture separation**: Extracted shared logic from UI components into headless modules
+  - New `dnd/drop-handler.ts`: shared drop execution (InsertNode/MoveNode dispatch) used by canvas and tree panels
+  - Moved `getNodeDepth()` and `findAncestorAtLevel()` from `EpistolaTree` into `engine/indexes.ts` as pure functions
+  - Added `depthByNodeId` to `DocumentIndexes` for O(1) node depth lookups (computed once via BFS on state change)
+  - New `engine/props.ts`: extracted `getNestedValue`/`setNestedValue` from inspector into shared module
+  - 14 new tests for extracted utilities (depth, ancestors, nested props)
+
 - **Design System: Split editor CSS into shared design system + component files**: Extracted the monolithic 550-line `editor.css` into a modular architecture
   - New `modules/design-system/` with `tokens.css`, `base.css`, and `components.css` — shared between the editor and the main app
   - Editor-specific styles split into 6 component files under `styles/` (editor-layout, toolbar, tree, canvas, palette, inspector)

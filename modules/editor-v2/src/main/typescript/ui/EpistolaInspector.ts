@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId, Node } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
+import { getNestedValue, setNestedValue } from '../engine/props.js'
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -195,33 +196,6 @@ export class EpistolaInspector extends LitElement {
     })
     this.engine.selectNode(null)
   }
-}
-
-// ---------------------------------------------------------------------------
-// Nested value helpers
-// ---------------------------------------------------------------------------
-
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split('.')
-  let current: unknown = obj
-  for (const key of keys) {
-    if (current == null || typeof current !== 'object') return undefined
-    current = (current as Record<string, unknown>)[key]
-  }
-  return current
-}
-
-function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
-  const keys = path.split('.')
-  let current: Record<string, unknown> = obj
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i]
-    if (typeof current[key] !== 'object' || current[key] == null) {
-      current[key] = {}
-    }
-    current = current[key] as Record<string, unknown>
-  }
-  current[keys[keys.length - 1]] = value
 }
 
 declare global {

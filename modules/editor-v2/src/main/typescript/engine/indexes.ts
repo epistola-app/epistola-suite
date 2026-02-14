@@ -17,6 +17,8 @@ export interface DocumentIndexes {
   readonly parentNodeByNodeId: ReadonlyMap<NodeId, NodeId>
   /** Maps a slot ID to the node that owns it. */
   readonly nodeBySlotId: ReadonlyMap<SlotId, NodeId>
+  /** Maps a node ID to its depth in the tree (root = 0). */
+  readonly depthByNodeId: ReadonlyMap<NodeId, number>
 }
 
 /**
@@ -36,7 +38,28 @@ export function buildIndexes(doc: TemplateDocument): DocumentIndexes {
     }
   }
 
-  return { parentSlotByNodeId, parentNodeByNodeId, nodeBySlotId }
+  // Compute depths via BFS from root
+  const depthByNodeId = new Map<NodeId, number>()
+  depthByNodeId.set(doc.root, 0)
+  const queue: NodeId[] = [doc.root]
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!
+    const depth = depthByNodeId.get(nodeId)!
+    const node = doc.nodes[nodeId]
+    if (!node) continue
+
+    for (const slotId of node.slots) {
+      const slot = doc.slots[slotId]
+      if (!slot) continue
+      for (const childId of slot.children) {
+        depthByNodeId.set(childId, depth + 1)
+        queue.push(childId)
+      }
+    }
+  }
+
+  return { parentSlotByNodeId, parentNodeByNodeId, nodeBySlotId, depthByNodeId }
 }
 
 /**
@@ -91,4 +114,33 @@ export function isAncestor(
   }
 
   return false
+}
+
+/**
+ * Get the depth of a node (root = 0). Returns 0 for unknown nodes.
+ */
+export function getNodeDepth(nodeId: NodeId, indexes: DocumentIndexes): number {
+  return indexes.depthByNodeId.get(nodeId) ?? 0
+}
+
+/**
+ * Walk up from `nodeId` to find the ancestor at `targetLevel`.
+ * Returns the ancestor node ID, or null if no ancestor exists at that level.
+ */
+export function findAncestorAtLevel(
+  nodeId: NodeId,
+  targetLevel: number,
+  indexes: DocumentIndexes,
+): NodeId | null {
+  let current = nodeId
+  let currentLevel = indexes.depthByNodeId.get(current) ?? 0
+
+  while (currentLevel > targetLevel) {
+    const parentNodeId = indexes.parentNodeByNodeId.get(current)
+    if (!parentNodeId) return null
+    current = parentNodeId
+    currentLevel--
+  }
+
+  return current
 }

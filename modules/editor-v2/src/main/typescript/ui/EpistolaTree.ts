@@ -9,8 +9,10 @@ import {
 } from '@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item'
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
-import { isDragData, isPaletteDrag, isBlockDrag, type DragData } from '../dnd/types.js'
+import { getNodeDepth, findAncestorAtLevel } from '../engine/indexes.js'
+import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, resolveDropInsideNode, canDropHere, type Edge } from '../dnd/drop-logic.js'
+import { handleDrop } from '../dnd/drop-handler.js'
 
 const INDENT_PER_LEVEL = 16
 
@@ -71,7 +73,7 @@ export class EpistolaTree extends LitElement {
       }
 
       // Drop target
-      const depth = this._getNodeDepth(nodeId)
+      const depth = getNodeDepth(nodeId, this.engine.indexes)
       cleanups.push(dropTargetForElements({
         element: labelEl,
         getData: ({ input, element }) => {
@@ -174,68 +176,22 @@ export class EpistolaTree extends LitElement {
       case 'reorder-below': {
         const edge: Edge = instruction.type === 'reorder-above' ? 'top' : 'bottom'
         const loc = resolveDropOnBlockEdge(targetNodeId, edge, this.doc, this.engine.indexes)
-        if (loc) this._handleDrop(dragData, loc.targetSlotId, loc.index)
+        if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
         break
       }
       case 'make-child': {
         const loc = resolveDropInsideNode(targetNodeId, this.doc)
-        if (loc) this._handleDrop(dragData, loc.targetSlotId, loc.index)
+        if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
         break
       }
       case 'reparent': {
-        // reparent at desiredLevel — walk up from targetNodeId to find the ancestor at that level,
-        // then insert below it in its parent slot
-        const ancestor = this._findAncestorAtLevel(targetNodeId, instruction.desiredLevel)
+        const ancestor = findAncestorAtLevel(targetNodeId, instruction.desiredLevel, this.engine.indexes)
         if (ancestor) {
           const loc = resolveDropOnBlockEdge(ancestor, 'bottom', this.doc, this.engine.indexes)
-          if (loc) this._handleDrop(dragData, loc.targetSlotId, loc.index)
+          if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
         }
         break
       }
-    }
-  }
-
-  private _findAncestorAtLevel(nodeId: NodeId, targetLevel: number): NodeId | null {
-    let current = nodeId
-    let currentLevel = this._getNodeDepth(current)
-
-    while (currentLevel > targetLevel) {
-      const parentNodeId = this.engine!.indexes.parentNodeByNodeId.get(current)
-      if (!parentNodeId) return null
-      current = parentNodeId
-      currentLevel--
-    }
-
-    return current
-  }
-
-  private _getNodeDepth(nodeId: NodeId): number {
-    let depth = 0
-    let current: NodeId | undefined = nodeId
-
-    while (current !== undefined) {
-      const parent = this.engine!.indexes.parentNodeByNodeId.get(current)
-      if (parent === undefined) break
-      depth++
-      current = parent
-    }
-
-    return depth
-  }
-
-  // ---------------------------------------------------------------------------
-  // Drop handler
-  // ---------------------------------------------------------------------------
-
-  private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
-    if (!this.engine) return
-
-    if (isPaletteDrag(dragData)) {
-      const { node, slots } = this.engine.registry.createNode(dragData.blockType)
-      this.engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId, index })
-      this.engine.selectNode(node.id)
-    } else if (isBlockDrag(dragData)) {
-      this.engine.dispatch({ type: 'MoveNode', nodeId: dragData.nodeId, targetSlotId, index })
     }
   }
 
