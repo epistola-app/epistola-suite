@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
+import { styleMap } from 'lit/directives/style-map.js'
 import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
@@ -202,9 +203,15 @@ export class EpistolaCanvas extends LitElement {
       return html`<div class="editor-empty">No document</div>`
     }
 
+    const pageSettings = this.engine.resolvedPageSettings
+    const pageStyle: Record<string, string> = {}
+    if (pageSettings.backgroundColor) {
+      pageStyle.backgroundColor = pageSettings.backgroundColor
+    }
+
     return html`
       <div class="epistola-canvas" @click=${this._handleCanvasClick}>
-        <div class="canvas-page">
+        <div class="canvas-page" style=${styleMap(pageStyle)}>
           ${this._renderNodeChildren(this.doc.root)}
         </div>
       </div>
@@ -257,6 +264,10 @@ export class EpistolaCanvas extends LitElement {
     const def = this.engine!.registry.get(node.type)
     const label = def?.label ?? node.type
 
+    // Resolve styles through the full cascade for visual preview
+    const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId)
+    const contentStyle = toStyleMap(resolvedStyles)
+
     return html`
       <div
         class="canvas-block ${isSelected ? 'selected' : ''}"
@@ -270,7 +281,10 @@ export class EpistolaCanvas extends LitElement {
         </div>
 
         <!-- Block content area -->
-        <div class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}">
+        <div
+          class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
+          style=${styleMap(contentStyle)}
+        >
           ${this._renderBlockContent(nodeId)}
         </div>
       </div>
@@ -327,6 +341,37 @@ export class EpistolaCanvas extends LitElement {
       </div>
     `
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Convert a camelCase key to kebab-case CSS property name. */
+function camelToKebab(key: string): string {
+  return key.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)
+}
+
+/**
+ * Convert a resolved styles object to a styleMap-compatible record.
+ * Handles both scalar values and spacing objects (padding/margin).
+ */
+function toStyleMap(styles: Record<string, unknown>): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, value] of Object.entries(styles)) {
+    if (value == null) continue
+
+    // Spacing objects with top/right/bottom/left
+    if (typeof value === 'object' && value !== null && 'top' in value) {
+      const obj = value as Record<string, unknown>
+      const cssKey = camelToKebab(key)
+      result[cssKey] = `${obj.top} ${obj.right} ${obj.bottom} ${obj.left}`
+      continue
+    }
+
+    result[camelToKebab(key)] = String(value)
+  }
+  return result
 }
 
 declare global {
