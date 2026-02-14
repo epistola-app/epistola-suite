@@ -27,6 +27,9 @@
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
 
 ### Changed
+- **TemplateEditor internals decomposed into focused services**: Refactored the headless editor core by splitting the monolithic `editor.ts` into dedicated services for state repository, block registry, block operations, drag-drop, expression evaluation, style management, and template IO.
+  - Kept the public `TemplateEditor` API behavior stable while reducing `editor.ts` complexity and centralizing nanostore access behind `EditorStateRepository`.
+  - Preserved existing block operations, validation shape, and drag-drop semantics; headless and vanilla typechecks/tests continue to pass.
 - **Headless/vanilla block registry simplified for MVP**: Replaced runtime block plugin registration with built-in block definitions, removed plugin registry APIs, and aligned tests/docs/types around the built-in catalog and drop-container behavior.
 - **Nested style inheritance now matches editor and PDF generation**: Implemented hierarchical style cascade resolution across headless-editor, vanilla-editor, and Kotlin PDF generation.
   - Cascade order is now explicit and consistent: `document -> ancestors -> block`
