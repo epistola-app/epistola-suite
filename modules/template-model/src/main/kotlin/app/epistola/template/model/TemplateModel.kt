@@ -13,6 +13,17 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
  */
 typealias DocumentStyles = Map<String, Any>
 
+/**
+ * An expression with a language identifier.
+ *
+ * Defined manually because the codegen tool cannot express default parameter values,
+ * and existing stored templates omit `language` (defaulting to jsonata).
+ */
+data class Expression(
+    val raw: String,
+    val language: ExpressionLanguage = ExpressionLanguage.jsonata,
+)
+
 // ---------------------------------------------------------------------------
 // V1 Template Model (block-based, recursive)
 //

@@ -41,14 +41,16 @@ configure<JSONSchemaCodegen> {
     }
 }
 
-// DocumentStyles is an open map type (Map<String, Any>) which can't be expressed by the codegen tool.
-// Remove the generated empty interface so our handwritten typealias in TemplateModel.kt takes precedence.
-val removeGeneratedDocumentStyles by tasks.registering(Delete::class) {
+// Remove generated types that need manual definitions:
+// - DocumentStyles: open map type (Map<String, Any>) which the codegen can't express
+// - Expression: needs a default value for `language` (jsonata) which the codegen can't express
+val removeGeneratedOverrides by tasks.registering(Delete::class) {
     delete(generatedSrcDir.map { it.file("app/epistola/template/model/DocumentStyles.kt") })
+    delete(generatedSrcDir.map { it.file("app/epistola/template/model/Expression.kt") })
 }
 
 tasks.named("generate") {
-    finalizedBy(removeGeneratedDocumentStyles)
+    finalizedBy(removeGeneratedOverrides)
 }
 
 sourceSets.main {
