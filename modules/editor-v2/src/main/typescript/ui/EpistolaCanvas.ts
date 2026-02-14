@@ -5,7 +5,7 @@ import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import { isDragData, isPaletteDrag, isBlockDrag, type DragData } from '../dnd/types.js'
-import { resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere, type Edge } from '../dnd/drop-logic.js'
+import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -66,7 +66,7 @@ export class EpistolaCanvas extends LitElement {
         onDrop: () => blockEl.classList.remove('dragging'),
       }))
 
-      // Drop target on each block (edge detection)
+      // Drop target on each block (edge detection for inserting before/after in parent slot)
       cleanups.push(dropTargetForElements({
         element: blockEl,
         getData: ({ input, element }) => attachClosestEdge(
@@ -77,20 +77,30 @@ export class EpistolaCanvas extends LitElement {
           const dragData = source.data as Record<string, unknown>
           if (!isDragData(dragData)) return false
 
+          // Can't drop a block on itself
+          if (isBlockDrag(dragData) && dragData.nodeId === nodeId) return false
+
           // Resolve parent slot of this block via DOM
           const slotEl = blockEl.closest<HTMLElement>('[data-slot-id]')
-          const slotId = slotEl?.dataset.slotId as SlotId | undefined
-          if (!slotId) return false
+          const parentSlotId = slotEl?.dataset.slotId as SlotId | undefined
+          if (!parentSlotId) return false
 
-          return canDropHere(dragData, slotId, this.doc!, this.engine!.indexes, this.engine!.registry)
+          return canDropHere(dragData, parentSlotId, this.doc!, this.engine!.indexes, this.engine!.registry)
         },
-        onDragEnter: ({ self }) => {
+        onDragEnter: ({ self, location }) => {
+          // Only show edge indicator if this block is the innermost drop target.
+          // A nested slot (inside this block) takes priority.
+          if (location.current.dropTargets[0]?.element !== blockEl) return
           const edge = extractClosestEdge(self.data)
           if (edge === 'top' || edge === 'bottom') {
             blockEl.setAttribute('data-drop-edge', edge)
           }
         },
-        onDrag: ({ self }) => {
+        onDrag: ({ self, location }) => {
+          if (location.current.dropTargets[0]?.element !== blockEl) {
+            blockEl.removeAttribute('data-drop-edge')
+            return
+          }
           const edge = extractClosestEdge(self.data)
           if (edge === 'top' || edge === 'bottom') {
             blockEl.setAttribute('data-drop-edge', edge)
@@ -99,8 +109,11 @@ export class EpistolaCanvas extends LitElement {
         onDragLeave: () => {
           blockEl.removeAttribute('data-drop-edge')
         },
-        onDrop: ({ self, source }) => {
+        onDrop: ({ self, source, location }) => {
           blockEl.removeAttribute('data-drop-edge')
+
+          // If a deeper target (nested slot) is innermost, skip — it handles the drop
+          if (location.current.dropTargets[0]?.element !== blockEl) return
 
           const dragData = source.data as Record<string, unknown>
           if (!isDragData(dragData)) return
@@ -108,15 +121,17 @@ export class EpistolaCanvas extends LitElement {
           const edge = extractClosestEdge(self.data) as Edge | null
           if (!edge) return
 
-          const location = resolveDropOnBlockEdge(nodeId, edge, this.doc!, this.engine!.indexes)
-          if (!location) return
+          const dropLocation = resolveDropOnBlockEdge(nodeId, edge, this.doc!, this.engine!.indexes)
+          if (!dropLocation) return
 
-          this._handleDrop(dragData, location.targetSlotId, location.index)
+          this._handleDrop(dragData, dropLocation.targetSlotId, dropLocation.index)
         },
       }))
     }
 
-    // Setup drop targets on empty slots
+    // Setup drop targets on ALL slots (empty and non-empty).
+    // Empty slots accept drops at index 0.
+    // Non-empty slots accept drops in the empty space below children (append).
     const slots = this.querySelectorAll<HTMLElement>('.canvas-slot[data-slot-id]')
     for (const slotEl of slots) {
       const slotId = slotEl.dataset.slotId as SlotId | undefined
@@ -125,9 +140,6 @@ export class EpistolaCanvas extends LitElement {
       const slot = this.doc.slots[slotId]
       if (!slot) continue
 
-      // Only make empty slots direct drop targets (non-empty slots are handled by block edges)
-      if (slot.children.length > 0) continue
-
       cleanups.push(dropTargetForElements({
         element: slotEl,
         canDrop: ({ source }) => {
@@ -135,16 +147,35 @@ export class EpistolaCanvas extends LitElement {
           if (!isDragData(dragData)) return false
           return canDropHere(dragData, slotId, this.doc!, this.engine!.indexes, this.engine!.registry)
         },
-        onDragEnter: () => slotEl.classList.add('drag-over'),
-        onDragLeave: () => slotEl.classList.remove('drag-over'),
-        onDrop: ({ source }) => {
+        onDragEnter: ({ location }) => {
+          if (location.current.dropTargets[0]?.element === slotEl) {
+            slotEl.classList.add('drag-over')
+          }
+        },
+        onDrag: ({ location }) => {
+          if (location.current.dropTargets[0]?.element === slotEl) {
+            slotEl.classList.add('drag-over')
+          } else {
+            slotEl.classList.remove('drag-over')
+          }
+        },
+        onDragLeave: () => {
           slotEl.classList.remove('drag-over')
+        },
+        onDrop: ({ source, location }) => {
+          slotEl.classList.remove('drag-over')
+
+          // Only handle if this slot is the innermost target.
+          // If a child block is innermost, its edge handler takes care of it.
+          if (location.current.dropTargets[0]?.element !== slotEl) return
 
           const dragData = source.data as Record<string, unknown>
           if (!isDragData(dragData)) return
 
-          const location = resolveDropOnEmptySlot(slotId)
-          this._handleDrop(dragData, location.targetSlotId, location.index)
+          // Append at end of slot
+          const currentSlot = this.doc!.slots[slotId]
+          const index = currentSlot ? currentSlot.children.length : 0
+          this._handleDrop(dragData, slotId, index)
         },
       }))
     }

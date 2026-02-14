@@ -30,9 +30,10 @@
     pointer-events: none;
   }
 
-  /* Empty slot highlight when dragging over */
+  /* Slot highlight when dragging over (empty or non-empty) */
   .canvas-slot.drag-over {
-    border-color: var(--ep-blue-400);
+    border: 1px dashed var(--ep-blue-400);
+    border-radius: var(--ep-radius-sm);
     background: color-mix(in srgb, var(--ep-blue-100) 50%, transparent);
   }
 
