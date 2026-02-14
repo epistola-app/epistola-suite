@@ -8,7 +8,7 @@
 
 import { computed } from "nanostores";
 import { createEditorStore, BlockTree, type EditorStore } from "./store.js";
-import { defaultBlockDefinitions } from "./blocks/definitions.js";
+import { defaultBlockPlugins } from "./blocks/plugins.js";
 import { UndoManager } from "./undo.js";
 import {
   resolveBlockStylesWithAncestors,
@@ -72,7 +72,7 @@ function generateId(): string {
  */
 export class TemplateEditor {
   private store: EditorStore;
-  private blockDefinitions: Record<string, BlockDefinition>;
+  private blockPlugins: Record<string, BlockPlugin>;
   private blockPluginCapabilities: Record<string, BlockPluginCapabilities>;
   private blockToolbarConfig: Record<string, BlockToolbarConfig>;
   private blockDropContainerResolvers: Record<
@@ -99,26 +99,41 @@ export class TemplateEditor {
     };
 
     this.store = createEditorStore(initialTemplate);
-    this.blockDefinitions = { ...defaultBlockDefinitions };
+    this.blockPlugins = Object.fromEntries(
+      defaultBlockPlugins.map((plugin) => [plugin.type, plugin]),
+    );
     this.blockPluginCapabilities = Object.fromEntries(
-      Object.keys(this.blockDefinitions).map((type) => [
-        type,
-        { html: true, pdf: true },
+      defaultBlockPlugins.map((plugin) => [
+        plugin.type,
+        plugin.capabilities ?? { html: true, pdf: true },
       ]),
     );
     this.blockToolbarConfig = Object.fromEntries(
-      Object.entries(this.blockDefinitions).map(([type, definition]) => [
-        type,
-        {
-          visible: true,
-          order: 0,
-          group: definition.category ?? "Blocks",
-          label: definition.label ?? type,
-          icon: definition.icon,
-        },
+      defaultBlockPlugins.map((plugin) => [
+        plugin.type,
+        typeof plugin.toolbar === "boolean"
+          ? {
+              visible: plugin.toolbar,
+              order: 0,
+              group: plugin.category ?? "Blocks",
+              label: plugin.label ?? plugin.type,
+              icon: plugin.icon,
+            }
+          : (plugin.toolbar ?? {
+              visible: true,
+              order: 0,
+              group: plugin.category ?? "Blocks",
+              label: plugin.label ?? plugin.type,
+              icon: plugin.icon,
+            }),
       ]),
     );
-    this.blockDropContainerResolvers = {};
+    this.blockDropContainerResolvers = Object.fromEntries(
+      defaultBlockPlugins.map((plugin) => [
+        plugin.type,
+        plugin.dropContainers ?? (() => []),
+      ]),
+    );
     this.callbacks = config.callbacks ?? {};
     this.undoManager = new UndoManager();
 
@@ -940,7 +955,7 @@ export class TemplateEditor {
     parentId: string | null = null,
     index: number = -1,
   ): Block | null {
-    const definition = this.blockDefinitions[type];
+    const definition = this.blockPlugins[type];
     if (!definition) {
       this.callbacks.onError?.(new Error(`Unknown block type: ${type}`));
       return null;
@@ -1001,7 +1016,7 @@ export class TemplateEditor {
     // Check if parent is a regular block with children
     const parent = BlockTree.findBlock(template.blocks, parentId);
     if (parent) {
-      const parentDef = this.blockDefinitions[parent.type];
+      const parentDef = this.blockPlugins[parent.type];
       if (!parentDef) {
         errors.push(`Unknown parent block type: ${parent.type}`);
         return { valid: false, errors };
@@ -1022,7 +1037,7 @@ export class TemplateEditor {
         return { valid: false, errors };
       }
 
-      const childDef = this.blockDefinitions[childType];
+      const childDef = this.blockPlugins[childType];
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
@@ -1041,7 +1056,7 @@ export class TemplateEditor {
     const columnResult = BlockTree.findColumn(template.blocks, parentId);
     if (columnResult) {
       // Columns can accept any block type
-      const childDef = this.blockDefinitions[childType];
+      const childDef = this.blockPlugins[childType];
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
@@ -1057,7 +1072,7 @@ export class TemplateEditor {
     const cellResult = BlockTree.findCell(template.blocks, parentId);
     if (cellResult) {
       // Cells can accept any block type
-      const childDef = this.blockDefinitions[childType];
+      const childDef = this.blockPlugins[childType];
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
@@ -1262,15 +1277,31 @@ export class TemplateEditor {
   // =========================================================================
 
   /**
-   * Register a custom block type
+   * Register a custom block type (legacy API, use registerBlockPlugin instead)
+   * @deprecated Use registerBlockPlugin with BlockPlugin instead
    */
   registerBlock(definition: BlockDefinition): void {
     this.validateBlockDefinition(definition);
-    this.blockDefinitions[definition.type] = definition;
-    this.blockPluginCapabilities[definition.type] = {
-      html: true,
-      pdf: true,
+    // Convert BlockDefinition to BlockPlugin
+    this.blockPlugins[definition.type] = {
+      type: definition.type,
+      create: definition.create,
+      validate: definition.validate,
+      constraints: definition.constraints,
+      label: definition.label,
+      icon: definition.icon,
+      category: definition.category,
+      capabilities: { html: true, pdf: true },
+      toolbar: {
+        visible: true,
+        order: 0,
+        group: definition.category ?? "Blocks",
+        label: definition.label ?? definition.type,
+        icon: definition.icon,
+      },
+      dropContainers: (block) => this.getDefaultDropContainers(block),
     };
+    this.blockPluginCapabilities[definition.type] = { html: true, pdf: true };
     this.blockDropContainerResolvers[definition.type] = (block) =>
       this.getDefaultDropContainers(block);
     this.blockToolbarConfig[definition.type] = {
@@ -1287,7 +1318,7 @@ export class TemplateEditor {
    */
   registerBlockPlugin(plugin: BlockPlugin): void {
     this.validateBlockPlugin(plugin);
-    this.blockDefinitions[plugin.type] = {
+    this.blockPlugins[plugin.type] = {
       type: plugin.type,
       create: plugin.create,
       validate: plugin.validate,
@@ -1378,14 +1409,14 @@ export class TemplateEditor {
    * Get block definition
    */
   getBlockDefinition(type: string): BlockDefinition | undefined {
-    return this.blockDefinitions[type];
+    return this.blockPlugins[type];
   }
 
   /**
    * Get all registered block types
    */
   getBlockTypes(): string[] {
-    return Object.keys(this.blockDefinitions);
+    return Object.keys(this.blockPlugins);
   }
 
   /**
@@ -1393,7 +1424,7 @@ export class TemplateEditor {
    */
   getBlockCatalog(): BlockCatalogItem[] {
     const entries: BlockCatalogItem[] = Object.entries(
-      this.blockDefinitions,
+      this.blockPlugins,
     ).map(([type, definition]) => {
       const toolbar = this.blockToolbarConfig[type] ?? {
         visible: true,
@@ -1439,7 +1470,7 @@ export class TemplateEditor {
 
     const validateBlocks = (blocks: Block[]) => {
       for (const block of blocks) {
-        const definition = this.blockDefinitions[block.type];
+        const definition = this.blockPlugins[block.type];
         if (!definition) {
           errors.push(`Unknown block type: ${block.type}`);
           continue;
@@ -1574,7 +1605,7 @@ export class TemplateEditor {
     const block = this.findBlock(blockId);
     if (!block) return false;
 
-    const definition = this.blockDefinitions[block.type];
+    const definition = this.blockPlugins[block.type];
     if (!definition) return false;
 
     return definition.constraints.canBeDragged;
@@ -1592,7 +1623,7 @@ export class TemplateEditor {
     const dragged = this.findBlock(draggedId);
     if (!dragged) return false;
 
-    const draggedDef = this.blockDefinitions[dragged.type];
+    const draggedDef = this.blockPlugins[dragged.type];
     if (!draggedDef) return false;
 
     // Can't drag if not draggable
@@ -1610,7 +1641,7 @@ export class TemplateEditor {
     const target = this.findBlock(targetId);
     if (!target) return false;
 
-    const targetDef = this.blockDefinitions[target.type];
+    const targetDef = this.blockPlugins[target.type];
     if (!targetDef) return false;
 
     // Can't drop inside own descendants (would create cycle)
@@ -1658,7 +1689,7 @@ export class TemplateEditor {
       return allowedParents === null || allowedParents.includes("root");
     }
 
-    const targetParentDef = this.blockDefinitions[targetParent.type];
+    const targetParentDef = this.blockPlugins[targetParent.type];
     if (!targetParentDef) return false;
 
     // Parent must accept dragged as child

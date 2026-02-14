@@ -1,81 +1,81 @@
 import { describe, it, expect } from "vitest";
 import {
-  textBlockDefinition,
-  containerBlockDefinition,
-  conditionalBlockDefinition,
-  loopBlockDefinition,
-  columnsBlockDefinition,
-  tableBlockDefinition,
-  pageBreakBlockDefinition,
-  pageHeaderBlockDefinition,
-  pageFooterBlockDefinition,
-} from "../blocks/definitions";
+  textBlockPlugin,
+  containerBlockPlugin,
+  conditionalBlockPlugin,
+  loopBlockPlugin,
+  columnsBlockPlugin,
+  tableBlockPlugin,
+  pageBreakBlockPlugin,
+  pageHeaderBlockPlugin,
+  pageFooterBlockPlugin,
+} from "../blocks/plugins";
 import { TemplateEditor } from "../editor";
-import type { BlockDefinition } from "../types";
+import type { BlockPlugin } from "../types";
 
-describe("render hints in default block definitions", () => {
-  const definitions = [
-    { def: textBlockDefinition, label: "Text", category: "Content" },
-    { def: containerBlockDefinition, label: "Container", category: "Layout" },
+describe("render hints in default block plugins", () => {
+  const plugins = [
+    { plugin: textBlockPlugin, label: "Text", category: "Content" },
+    { plugin: containerBlockPlugin, label: "Container", category: "Layout" },
     {
-      def: conditionalBlockDefinition,
+      plugin: conditionalBlockPlugin,
       label: "Conditional",
       category: "Logic",
     },
-    { def: loopBlockDefinition, label: "Loop", category: "Logic" },
-    { def: columnsBlockDefinition, label: "Columns", category: "Layout" },
-    { def: tableBlockDefinition, label: "Table", category: "Layout" },
-    { def: pageBreakBlockDefinition, label: "Page Break", category: "Layout" },
+    { plugin: loopBlockPlugin, label: "Loop", category: "Logic" },
+    { plugin: columnsBlockPlugin, label: "Columns", category: "Layout" },
+    { plugin: tableBlockPlugin, label: "Table", category: "Layout" },
+    { plugin: pageBreakBlockPlugin, label: "Page Break", category: "Layout" },
     {
-      def: pageHeaderBlockDefinition,
+      plugin: pageHeaderBlockPlugin,
       label: "Page Header",
       category: "Layout",
     },
     {
-      def: pageFooterBlockDefinition,
+      plugin: pageFooterBlockPlugin,
       label: "Page Footer",
       category: "Layout",
     },
   ];
 
-  for (const { def, label, category } of definitions) {
-    it(`${def.type} should have label "${label}"`, () => {
-      expect(def.label).toBe(label);
+  for (const { plugin, label, category } of plugins) {
+    it(`${plugin.type} should have label "${label}"`, () => {
+      expect(plugin.label).toBe(label);
     });
 
-    it(`${def.type} should have a non-empty icon`, () => {
-      expect(def.icon).toBeTruthy();
-      expect(typeof def.icon).toBe("string");
+    it(`${plugin.type} should have a non-empty icon`, () => {
+      expect(plugin.icon).toBeTruthy();
+      expect(typeof plugin.icon).toBe("string");
     });
 
-    it(`${def.type} should have category "${category}"`, () => {
-      expect(def.category).toBe(category);
+    it(`${plugin.type} should have category "${category}"`, () => {
+      expect(plugin.category).toBe(category);
     });
   }
 
-  it("all 9 default block definitions should have render hints", () => {
-    const defaultDefinitions: Record<string, BlockDefinition> = {
-      text: textBlockDefinition,
-      container: containerBlockDefinition,
-      conditional: conditionalBlockDefinition,
-      loop: loopBlockDefinition,
-      columns: columnsBlockDefinition,
-      table: tableBlockDefinition,
-      pagebreak: pageBreakBlockDefinition,
-      pageheader: pageHeaderBlockDefinition,
-      pagefooter: pageFooterBlockDefinition,
+  it("all 9 default block plugins should have render hints", () => {
+    const defaultPlugins: Record<string, BlockPlugin> = {
+      text: textBlockPlugin,
+      container: containerBlockPlugin,
+      conditional: conditionalBlockPlugin,
+      loop: loopBlockPlugin,
+      columns: columnsBlockPlugin,
+      table: tableBlockPlugin,
+      pagebreak: pageBreakBlockPlugin,
+      pageheader: pageHeaderBlockPlugin,
+      pagefooter: pageFooterBlockPlugin,
     };
-    for (const [type, def] of Object.entries(defaultDefinitions)) {
-      expect(def.label, `${type} missing label`).toBeTruthy();
-      expect(def.icon, `${type} missing icon`).toBeTruthy();
-      expect(def.category, `${type} missing category`).toBeTruthy();
+    for (const [type, plugin] of Object.entries(defaultPlugins)) {
+      expect(plugin.label, `${type} missing label`).toBeTruthy();
+      expect(plugin.icon, `${type} missing icon`).toBeTruthy();
+      expect(plugin.category, `${type} missing category`).toBeTruthy();
     }
   });
 });
 
-describe("custom block definition without hints", () => {
+describe("custom block plugin without hints", () => {
   it("should be accepted without error", () => {
-    const customDef: BlockDefinition = {
+    const customPlugin: BlockPlugin = {
       type: "custom",
       create: (id) => ({ id, type: "custom" as "text", content: null }),
       validate: () => ({ valid: true, errors: [] }),
@@ -90,14 +90,7 @@ describe("custom block definition without hints", () => {
     };
 
     const editor = new TemplateEditor({
-      plugins: [
-        {
-          type: customDef.type,
-          create: customDef.create,
-          validate: customDef.validate,
-          constraints: customDef.constraints,
-        },
-      ],
+      plugins: [customPlugin],
     });
 
     // Should not throw

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { TemplateEditor } from "../editor";
-import { blockDefinitionToPlugin } from "../blocks/plugins";
+import { textBlockPlugin } from "../blocks/plugins";
 import type { Template, Block } from "../types";
 
 describe("TemplateEditor", () => {
@@ -1160,15 +1160,11 @@ describe("TemplateEditor", () => {
       }).toThrow("allowedParentTypes");
     });
 
-    it("should adapt block definitions to plugin contracts", () => {
-      const editor = new TemplateEditor();
-      const definition = editor.getBlockDefinition("text");
-
-      expect(definition).toBeDefined();
-      const plugin = blockDefinitionToPlugin(definition!);
-      expect(plugin.type).toBe("text");
-      expect(plugin.capabilities).toEqual({ html: true, pdf: true });
-      expect(plugin.toolbar).toEqual({
+    it("should expose built-in block plugins with correct structure", () => {
+      // Test that the built-in text block plugin has the expected structure
+      expect(textBlockPlugin.type).toBe("text");
+      expect(textBlockPlugin.capabilities).toEqual({ html: true, pdf: true });
+      expect(textBlockPlugin.toolbar).toEqual({
         visible: true,
         order: 0,
         group: "Content",
@@ -1176,8 +1172,14 @@ describe("TemplateEditor", () => {
         icon: "text",
       });
       expect(
-        plugin.dropContainers?.({ id: "x", type: "text" } as unknown as Block),
+        textBlockPlugin.dropContainers?.({ id: "x", type: "text" } as unknown as Block),
       ).toEqual([]);
+
+      // Verify editor can retrieve the plugin
+      const editor = new TemplateEditor();
+      const retrievedPlugin = editor.getBlockDefinition("text");
+      expect(retrievedPlugin).toBeDefined();
+      expect(retrievedPlugin!.type).toBe("text");
     });
 
     it("should expose block catalog entries from plugin toolbar metadata", () => {

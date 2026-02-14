@@ -16,21 +16,22 @@ export type { EditorStore } from "./store.js";
 // Undo manager
 export { UndoManager } from "./undo.js";
 
-// Block definitions
+// Block plugins
 export {
-  defaultBlockDefinitions,
-  textBlockDefinition,
-  containerBlockDefinition,
-  conditionalBlockDefinition,
-  loopBlockDefinition,
-  columnsBlockDefinition,
-  tableBlockDefinition,
-  pageBreakBlockDefinition,
-  pageHeaderBlockDefinition,
-  pageFooterBlockDefinition,
-  blockHelpers,
-  blockDefinitionToPlugin,
-  blockDefinitionsToPlugins,
+  defaultBlockPlugins,
+  textBlockPlugin,
+  containerBlockPlugin,
+  conditionalBlockPlugin,
+  loopBlockPlugin,
+  columnsBlockPlugin,
+  tableBlockPlugin,
+  pageBreakBlockPlugin,
+  pageHeaderBlockPlugin,
+  pageFooterBlockPlugin,
+  generateId,
+  createColumn,
+  createCell,
+  createRow,
 } from "./blocks/index.js";
 
 // Types
