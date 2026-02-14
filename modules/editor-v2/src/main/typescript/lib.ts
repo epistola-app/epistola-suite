@@ -5,38 +5,99 @@
  *
  * Public API:
  *   mountEditor(options)  → EditorInstance
- *   unmountEditor(instance)
  */
 
+import './ui/EpistolaEditor.js'
+import type { EpistolaEditor } from './ui/EpistolaEditor.js'
+import type { TemplateDocument } from './types/model.js'
+import { createDefaultRegistry } from './engine/registry.js'
+import { nanoid } from 'nanoid'
+import type { NodeId, SlotId } from './types/model.js'
+
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js'
+export { EditorEngine } from './engine/EditorEngine.js'
+export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js'
 
 // ---------------------------------------------------------------------------
-// Public mount API (matches V1 contract shape)
+// Public mount API
 // ---------------------------------------------------------------------------
 
 export interface EditorOptions {
   /** DOM element to mount the editor into */
   container: HTMLElement
   /** Initial template document (node/slot model) */
-  template?: import('./types/model.js').TemplateDocument
+  template?: TemplateDocument
   /** Callback when the template is saved */
-  onSave?: (template: import('./types/model.js').TemplateDocument) => Promise<void>
+  onSave?: (template: TemplateDocument) => Promise<void>
 }
 
 export interface EditorInstance {
   /** Tear down the editor and clean up */
   unmount(): void
   /** Get the current template document */
-  getTemplate(): import('./types/model.js').TemplateDocument
+  getTemplate(): TemplateDocument
   /** Replace the template document */
-  setTemplate(template: import('./types/model.js').TemplateDocument): void
+  setTemplate(template: TemplateDocument): void
+}
+
+/**
+ * Create an empty template document with a root container.
+ */
+export function createEmptyDocument(): TemplateDocument {
+  const rootId = nanoid() as NodeId
+  const rootSlotId = nanoid() as SlotId
+
+  return {
+    modelVersion: 1,
+    root: rootId,
+    nodes: {
+      [rootId]: {
+        id: rootId,
+        type: 'root',
+        slots: [rootSlotId],
+      },
+    },
+    slots: {
+      [rootSlotId]: {
+        id: rootSlotId,
+        nodeId: rootId,
+        name: 'children',
+        children: [],
+      },
+    },
+    themeRef: { type: 'inherit' },
+  }
 }
 
 /**
  * Mount the editor into a DOM element.
- * Placeholder — will be implemented in Phase 2 (UI).
  */
-export function mountEditor(_options: EditorOptions): EditorInstance {
-  // TODO: Phase 2 — create <epistola-editor> element, wire engine, mount
-  throw new Error('Editor V2 mount not yet implemented. See Phase 2 in the plan.')
+export function mountEditor(options: EditorOptions): EditorInstance {
+  const { container, template } = options
+  const doc = template ?? createEmptyDocument()
+
+  // Create the custom element
+  const editorEl = document.createElement('epistola-editor') as EpistolaEditor
+  editorEl.style.height = '100%'
+  editorEl.style.width = '100%'
+  editorEl.style.display = 'block'
+
+  // Initialize the engine
+  editorEl.initEngine(doc, createDefaultRegistry())
+
+  // Mount into the container
+  container.innerHTML = ''
+  container.appendChild(editorEl)
+
+  return {
+    unmount() {
+      editorEl.remove()
+    },
+    getTemplate() {
+      return editorEl.engine!.doc
+    },
+    setTemplate(newDoc: TemplateDocument) {
+      editorEl.engine!.replaceDocument(newDoc)
+    },
+  }
 }
