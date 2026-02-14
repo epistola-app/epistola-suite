@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/theme.schema.json",
+  "title": "Theme",
+  "description": "Theme definition providing default styles, page settings, and named block style presets.",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Theme identifier (slug format)."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable theme name."
+    },
+    "documentStyles": {
+      "$ref": "template-shared.schema.json#/$defs/DocumentStyles",
+      "description": "Default document-level styles inherited by all templates using this theme."
+    },
+    "pageSettings": {
+      "$ref": "template-shared.schema.json#/$defs/PageSettings",
+      "description": "Default page settings inherited by templates using this theme."
+    },
+    "blockStylePresets": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/BlockStylePreset"
+      },
+      "description": "Named block style presets (like CSS classes). Key is the preset name."
+    }
+  },
+  "required": ["id", "name"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "BlockStylePreset": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for the preset."
+        },
+        "styles": {
+          "type": "object",
+          "description": "CSS-like style properties for this preset."
+        },
+        "applicableTo": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Node types this preset can be applied to. Empty or absent means all types."
+        }
+      },
+      "required": ["label", "styles"],
+      "additionalProperties": false
+    }
+  }
+}

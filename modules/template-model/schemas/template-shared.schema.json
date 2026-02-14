@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/template-shared.schema.json",
+  "title": "Template Shared Definitions",
+  "description": "Shared type definitions used across template-related schemas.",
+
+  "$defs": {
+    "NodeId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for a node within a document."
+    },
+
+    "SlotId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for a slot within a document."
+    },
+
+    "PageFormat": {
+      "type": "string",
+      "enum": ["A4", "Letter", "Custom"]
+    },
+
+    "Orientation": {
+      "type": "string",
+      "enum": ["portrait", "landscape"]
+    },
+
+    "TextAlign": {
+      "type": "string",
+      "enum": ["left", "center", "right", "justify"]
+    },
+
+    "Margins": {
+      "type": "object",
+      "properties": {
+        "top": { "type": "number", "minimum": 0 },
+        "right": { "type": "number", "minimum": 0 },
+        "bottom": { "type": "number", "minimum": 0 },
+        "left": { "type": "number", "minimum": 0 }
+      },
+      "required": ["top", "right", "bottom", "left"],
+      "additionalProperties": false
+    },
+
+    "PageSettings": {
+      "type": "object",
+      "properties": {
+        "format": { "$ref": "#/$defs/PageFormat" },
+        "orientation": { "$ref": "#/$defs/Orientation" },
+        "margins": { "$ref": "#/$defs/Margins" }
+      },
+      "required": ["format", "orientation", "margins"],
+      "additionalProperties": false
+    },
+
+    "DocumentStyles": {
+      "type": "object",
+      "properties": {
+        "fontFamily": { "type": "string" },
+        "fontSize": { "type": "string" },
+        "fontWeight": { "type": "string" },
+        "color": { "type": "string" },
+        "lineHeight": { "type": "string" },
+        "letterSpacing": { "type": "string" },
+        "textAlign": { "$ref": "#/$defs/TextAlign" },
+        "backgroundColor": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "ExpressionLanguage": {
+      "type": "string",
+      "enum": ["jsonata", "javascript", "simple_path"]
+    },
+
+    "Expression": {
+      "type": "object",
+      "properties": {
+        "raw": { "type": "string" },
+        "language": { "$ref": "#/$defs/ExpressionLanguage" }
+      },
+      "required": ["raw", "language"],
+      "additionalProperties": false
+    },
+
+    "ThemeRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "inherit" }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "override" },
+            "themeId": { "type": "string", "minLength": 1 }
+          },
+          "required": ["type", "themeId"],
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "BorderStyle": {
+      "type": "string",
+      "enum": ["none", "all", "horizontal", "vertical"]
+    }
+  }
+}
