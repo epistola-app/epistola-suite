@@ -54,6 +54,27 @@ export function resolveDropOnEmptySlot(slotId: SlotId): DropLocation {
 }
 
 /**
+ * Resolve a "make-child" drop into a node's first slot, appending at the end.
+ *
+ * Used by tree DnD when the user drops onto the center of a container node,
+ * indicating they want to move the dragged item inside that node.
+ *
+ * @param nodeId - the container node to drop into
+ * @param doc - the current document
+ * @returns the first slot with index at end, or null if the node has no slots
+ */
+export function resolveDropInsideNode(nodeId: NodeId, doc: TemplateDocument): DropLocation | null {
+  const node = doc.nodes[nodeId]
+  if (!node || node.slots.length === 0) return null
+
+  const firstSlotId = node.slots[0]
+  const firstSlot = doc.slots[firstSlotId]
+  if (!firstSlot) return null
+
+  return { targetSlotId: firstSlotId, index: firstSlot.children.length }
+}
+
+/**
  * Check whether a drag source can be dropped at a given location.
  *
  * Validates:

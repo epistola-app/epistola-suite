@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere } from './drop-logic.js'
+import { resolveDropOnBlockEdge, resolveDropOnEmptySlot, resolveDropInsideNode, canDropHere } from './drop-logic.js'
 import type { DragData } from './types.js'
 import { buildIndexes } from '../engine/indexes.js'
 import {
@@ -77,6 +77,79 @@ describe('resolveDropOnEmptySlot', () => {
   it('returns index 0 for any slot', () => {
     const id = slotId('some-slot')
     expect(resolveDropOnEmptySlot(id)).toEqual({ targetSlotId: id, index: 0 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// resolveDropInsideNode
+// ---------------------------------------------------------------------------
+
+describe('resolveDropInsideNode', () => {
+  it('returns first slot with index at end for container with children', () => {
+    const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren()
+
+    // Add a child to the container slot so we can verify append index
+    const childId = nodeId('child-in-container')
+    doc.nodes[childId] = { id: childId, type: 'text', slots: [], props: { content: null } }
+    doc.slots[containerSlotId].children.push(childId)
+
+    const result = resolveDropInsideNode(containerNodeId, doc)
+
+    expect(result).toEqual({ targetSlotId: containerSlotId, index: 1 })
+  })
+
+  it('returns first slot with index 0 for empty container', () => {
+    const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren()
+
+    const result = resolveDropInsideNode(containerNodeId, doc)
+
+    expect(result).toEqual({ targetSlotId: containerSlotId, index: 0 })
+  })
+
+  it('returns null for leaf node (no slots)', () => {
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+
+    const result = resolveDropInsideNode(textNodeId, doc)
+
+    expect(result).toBeNull()
+  })
+
+  it('returns null for unknown node', () => {
+    const { doc } = createTestDocumentWithChildren()
+
+    const result = resolveDropInsideNode('nonexistent' as NodeId, doc)
+
+    expect(result).toBeNull()
+  })
+
+  it('returns first slot when node has multiple slots', () => {
+    const rootId = nodeId('root')
+    const rSlotId = slotId('root-slot')
+    const columnsId = nodeId('columns')
+    const slot1Id = slotId('col-slot-1')
+    const slot2Id = slotId('col-slot-2')
+    const childId = nodeId('child-text')
+
+    const doc: TemplateDocument = {
+      modelVersion: 1,
+      root: rootId,
+      nodes: {
+        [rootId]: { id: rootId, type: 'root', slots: [rSlotId] },
+        [columnsId]: { id: columnsId, type: 'columns', slots: [slot1Id, slot2Id] },
+        [childId]: { id: childId, type: 'text', slots: [], props: { content: null } },
+      },
+      slots: {
+        [rSlotId]: { id: rSlotId, nodeId: rootId, name: 'children', children: [columnsId] },
+        [slot1Id]: { id: slot1Id, nodeId: columnsId, name: 'column-1', children: [childId] },
+        [slot2Id]: { id: slot2Id, nodeId: columnsId, name: 'column-2', children: [] },
+      },
+      themeRef: { type: 'inherit' },
+    }
+
+    const result = resolveDropInsideNode(columnsId, doc)
+
+    // Should resolve to first slot, appended after existing child
+    expect(result).toEqual({ targetSlotId: slot1Id, index: 1 })
   })
 })
 

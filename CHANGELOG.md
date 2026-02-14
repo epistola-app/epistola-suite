@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: Tree panel drag-and-drop**: Blocks can now be reordered and moved directly in the structure tree panel
+  - Drag tree nodes above/below to reorder within the same slot
+  - Drag onto a container node center to move a block inside it (make-child)
+  - Cross-panel DnD: drag from tree to canvas, palette to tree — all panels share the same `DragData` protocol
+  - Visual indicators: blue reorder lines (top/bottom), blue highlight for make-child targets
+  - Root node cannot be dragged; leaf nodes block make-child zone
+  - Reparent support for moving blocks to different nesting levels
+  - 5 new unit tests for `resolveDropInsideNode()` function
 - **Editor V2: Drag-and-drop block positioning**: Blocks can now be dragged to insert or reorder using `@atlaskit/pragmatic-drag-and-drop`
   - Palette items are drag sources — drag from palette to insert a new block at a specific position in the canvas
   - Canvas blocks are drag sources — drag by the block header to reorder within or across slots

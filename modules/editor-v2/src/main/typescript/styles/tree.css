@@ -13,6 +13,7 @@
   }
 
   .tree-node-label {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--ep-space-1-5);
