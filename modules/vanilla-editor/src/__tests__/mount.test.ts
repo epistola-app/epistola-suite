@@ -55,53 +55,20 @@ describe("mountEditorApp", () => {
     ).toThrow("Container not found");
   });
 
-  it("renders add-block toolbar from registered plugin metadata", () => {
+  it("renders add-block toolbar from built-in block metadata", () => {
     const mounted = mountEditorApp({
       container,
       template: EMPTY_TEMPLATE,
-      plugins: [
-        {
-          type: "custom-banner",
-          create: (id) => ({ id, type: "custom-banner", content: null }) as any,
-          validate: () => ({ valid: true, errors: [] }),
-          constraints: {
-            canHaveChildren: false,
-            allowedChildTypes: [],
-            canBeDragged: true,
-            canBeNested: true,
-            allowedParentTypes: ["root"],
-          },
-          toolbar: {
-            visible: true,
-            label: "Banner",
-            group: "Custom",
-            order: 1,
-          },
-        } as any,
-        {
-          type: "internal-cell",
-          create: (id) => ({ id, type: "internal-cell", children: [] }) as any,
-          validate: () => ({ valid: true, errors: [] }),
-          constraints: {
-            canHaveChildren: true,
-            allowedChildTypes: null,
-            canBeDragged: false,
-            canBeNested: true,
-            allowedParentTypes: null,
-          },
-          toolbar: false,
-        } as any,
-      ] as any,
     });
 
     const toolbar = container.querySelector(
       '[data-editor-app-target="pluginToolbar"]',
     );
-    expect(toolbar?.textContent).toContain("Banner");
-    expect(toolbar?.textContent).not.toContain("internal-cell");
+    expect(toolbar?.textContent).toContain("Text");
+    expect(toolbar?.textContent).toContain("Container");
     expect(
       container.querySelector(
-        '[data-editor-app-target="pluginToolbar"] [data-block-type="custom-banner"]',
+        '[data-editor-app-target="pluginToolbar"] [data-block-type="text"]',
       ),
     ).not.toBeNull();
 

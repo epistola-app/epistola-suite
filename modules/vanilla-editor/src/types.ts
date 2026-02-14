@@ -8,7 +8,6 @@
 import type {
   TemplateEditor,
   Template,
-  BlockPlugin,
   ThemeSummary,
   DataExample,
   JsonSchema,
@@ -46,7 +45,6 @@ export interface MountEditorAppConfig {
   schema?: JsonSchema | null;
   debug?: boolean;
   ui?: EditorAppUiConfig;
-  plugins?: BlockPlugin[];
   rendererPlugins?: BlockRendererPlugin[];
   dndMode?: "native" | "fallback";
 }

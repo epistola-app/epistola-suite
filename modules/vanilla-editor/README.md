@@ -62,7 +62,6 @@ mounted.destroy();
 - `schema?`
 - `debug?`
 - `ui?` (`showThemeSelector`, `showDataExampleSelector`, `showPreview`, labels)
-- `plugins?`: headless block plugins for this instance
 - `rendererPlugins?`: UI renderer plugins for this instance
 
 ## Plugin-Driven Toolbar
@@ -75,7 +74,7 @@ To hide internal blocks (for example structural-only blocks), set:
 toolbar: false
 ```
 
-Or customize visibility/group/order/label/icon via plugin `toolbar` config.
+Or customize visibility/group/order/label/icon via block definition `toolbar` config.
 
 ## Renderer Plugins (Per-Instance)
 

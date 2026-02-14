@@ -22,7 +22,7 @@
 import { TemplateEditor } from "@epistola/headless-editor";
 import type {
   Template,
-  BlockPlugin,
+  BlockType,
   ThemeSummary,
   DataExample,
   JsonSchema,
@@ -38,7 +38,7 @@ import { EditorController } from "./controllers/editor-controller.js";
 import { installHotkeys } from "./hotkeys.js";
 
 type ToolbarCatalogItem = {
-  type: string;
+  type: BlockType;
   label: string;
   group: string;
   order: number;
@@ -48,8 +48,8 @@ type ToolbarCatalogItem = {
 
 type CatalogCapableEditor = TemplateEditor & {
   getBlockCatalog?: () => ToolbarCatalogItem[];
-  getBlockTypes?: () => string[];
-  getBlockDefinition?: (type: string) =>
+  getBlockTypes?: () => BlockType[];
+  getBlockDefinition?: (type: BlockType) =>
     | {
         label?: string;
         icon?: string;
@@ -68,7 +68,6 @@ interface CoreMountConfig {
   dataExamples?: DataExample[];
   schema?: JsonSchema | null;
   debug?: boolean;
-  plugins?: BlockPlugin[];
   rendererPlugins?: BlockRendererPlugin[];
   dndMode?: "native" | "fallback";
 }
@@ -118,7 +117,6 @@ function mountEditor(config: CoreMountConfig): MountedEditor {
   // Create headless editor
   const editor = new TemplateEditor({
     template: config.template,
-    plugins: config.plugins,
   });
 
   // Configure themes
@@ -226,7 +224,6 @@ export function mountEditorApp(config: MountEditorAppConfig): MountedEditor {
     dataExamples: config.dataExamples,
     schema: config.schema,
     debug: config.debug,
-    plugins: config.plugins,
     rendererPlugins: config.rendererPlugins,
     dndMode: config.dndMode,
   });
@@ -243,7 +240,7 @@ export function mountEditorApp(config: MountEditorAppConfig): MountedEditor {
     saveHandler: config.onSave,
   });
   (shell as HTMLElement & { __veEditor?: TemplateEditor }).__veEditor = editor;
-  renderPluginToolbar(host, editor, config.plugins);
+  renderPluginToolbar(host, editor);
   setupShellModals(host, editor);
 
   const previewButton = host.querySelector<HTMLButtonElement>(
@@ -682,7 +679,6 @@ function escapeHtml(value: string): string {
 function renderPluginToolbar(
   host: HTMLElement,
   editor: TemplateEditor,
-  configuredPlugins?: BlockPlugin[],
 ): void {
   const container = host.querySelector<HTMLElement>(
     '[data-editor-app-target="pluginToolbar"]',
@@ -693,7 +689,7 @@ function renderPluginToolbar(
   const catalog =
     catalogProvider && catalogProvider.length > 0
       ? catalogProvider
-      : buildToolbarCatalogFallback(editor, configuredPlugins);
+      : buildToolbarCatalogFallback(editor);
   const visibleCatalog = catalog.filter(
     (item) => item.visible && item.addableAtRoot,
   );
@@ -724,43 +720,19 @@ function renderPluginToolbar(
 
 function buildToolbarCatalogFallback(
   editor: TemplateEditor,
-  configuredPlugins?: BlockPlugin[],
 ): ToolbarCatalogItem[] {
   const api = editor as CatalogCapableEditor;
   const types = api.getBlockTypes?.() ?? [];
 
-  const pluginMap = new Map(
-    (configuredPlugins ?? []).map((plugin) => [plugin.type, plugin]),
-  );
-
   const entries: ToolbarCatalogItem[] = types.map((type) => {
     const definition = api.getBlockDefinition?.(type);
-    const plugin = pluginMap.get(type) as
-      | (BlockPlugin & {
-          toolbar?:
-            | boolean
-            | {
-                visible?: boolean;
-                order?: number;
-                group?: string;
-                label?: string;
-              };
-        })
-      | undefined;
-
-    const toolbarRaw = plugin?.toolbar;
-    const toolbar =
-      toolbarRaw && typeof toolbarRaw === "object" ? toolbarRaw : undefined;
-
-    const visible = toolbarRaw === false ? false : toolbar?.visible !== false;
 
     return {
-      type,
-      label: toolbar?.label ?? plugin?.label ?? definition?.label ?? type,
-      group:
-        toolbar?.group ?? plugin?.category ?? definition?.category ?? "Blocks",
-      order: toolbar?.order ?? 0,
-      visible,
+      type: type as BlockType,
+      label: definition?.label ?? type,
+      group: definition?.category ?? "Blocks",
+      order: 0,
+      visible: true,
       addableAtRoot:
         definition?.constraints.allowedParentTypes === null ||
         (definition?.constraints.allowedParentTypes?.includes("root") ?? true),

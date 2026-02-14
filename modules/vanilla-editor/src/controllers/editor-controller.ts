@@ -23,17 +23,7 @@
 
 import { Controller } from "@hotwired/stimulus";
 import { html, render as renderHtml } from "uhtml";
-import type {
-  TemplateEditor,
-  Template,
-  ThemeSummary,
-  DataExample,
-  Block,
-  BlockDefinition,
-  PageHeaderBlock,
-  PageFooterBlock,
-  BlockType,
-} from "@epistola/headless-editor";
+import type { TemplateEditor, Template } from "@epistola/headless-editor";
 import { getEditorForElement, getRuntimeForElement } from "../mount.js";
 
 export class EditorController extends Controller {
@@ -198,9 +188,17 @@ export class EditorController extends Controller {
 
     const target = event.currentTarget as HTMLElement;
     const blockType = target.dataset.blockType;
-    if (!blockType) return;
+    if (!blockType) {
+      console.error("Missing data-block-type on add block action target");
+      return;
+    }
+    const availableTypes = editor.getBlockTypes();
+    if (!availableTypes.includes(blockType as (typeof availableTypes)[number])) {
+      console.error(`Unsupported built-in block type: ${blockType}`);
+      return;
+    }
 
-    editor.addBlock(blockType);
+    editor.addBlock(blockType as (typeof availableTypes)[number]);
   }
 
   /** Add a text block inside the currently selected container. */

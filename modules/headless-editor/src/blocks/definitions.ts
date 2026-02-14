@@ -1,4 +1,4 @@
-import type { BlockPlugin, Block, TextBlock, ContainerBlock, ConditionalBlock, LoopBlock, ColumnsBlock, TableBlock, PageBreakBlock, PageHeaderBlock, PageFooterBlock, Column, TableRow, TableCell } from "../types.js";
+import type { BlockDefinition, Block, TextBlock, ContainerBlock, ConditionalBlock, LoopBlock, ColumnsBlock, TableBlock, PageBreakBlock, PageHeaderBlock, PageFooterBlock, Column, TableRow, TableCell } from "../types.js";
 
 function generateId(): string {
   return `block-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -27,30 +27,7 @@ function createRow(cellCount: number, isHeader = false): TableRow {
   };
 }
 
-function defaultDropContainers(type: string, block: any): string[] {
-  switch (type) {
-    case "container":
-    case "conditional":
-    case "loop":
-    case "pageheader":
-    case "pagefooter":
-      return [block.id];
-    case "columns":
-      return Array.isArray(block.columns)
-        ? block.columns.map((column: { id: string }) => column.id)
-        : [];
-    case "table":
-      return Array.isArray(block.rows)
-        ? block.rows.flatMap((row: { cells: { id: string }[] }) =>
-            row.cells.map((cell) => cell.id),
-          )
-        : [];
-    default:
-      return [];
-  }
-}
-
-export const textBlockPlugin: BlockPlugin = {
+export const textBlockDefinition: BlockDefinition = {
   type: "text",
   label: "Text",
   icon: "text",
@@ -89,7 +66,7 @@ export const textBlockPlugin: BlockPlugin = {
   dropContainers: () => [],
 };
 
-export const containerBlockPlugin: BlockPlugin = {
+export const containerBlockDefinition: BlockDefinition = {
   type: "container",
   label: "Container",
   icon: "container",
@@ -125,7 +102,7 @@ export const containerBlockPlugin: BlockPlugin = {
   dropContainers: (block) => [block.id],
 };
 
-export const conditionalBlockPlugin: BlockPlugin = {
+export const conditionalBlockDefinition: BlockDefinition = {
   type: "conditional",
   label: "Conditional",
   icon: "conditional",
@@ -169,7 +146,7 @@ export const conditionalBlockPlugin: BlockPlugin = {
   dropContainers: (block) => [block.id],
 };
 
-export const loopBlockPlugin: BlockPlugin = {
+export const loopBlockDefinition: BlockDefinition = {
   type: "loop",
   label: "Loop",
   icon: "loop",
@@ -216,7 +193,7 @@ export const loopBlockPlugin: BlockPlugin = {
   dropContainers: (block) => [block.id],
 };
 
-export const columnsBlockPlugin: BlockPlugin = {
+export const columnsBlockDefinition: BlockDefinition = {
   type: "columns",
   label: "Columns",
   icon: "columns",
@@ -268,7 +245,7 @@ export const columnsBlockPlugin: BlockPlugin = {
       : [],
 };
 
-export const tableBlockPlugin: BlockPlugin = {
+export const tableBlockDefinition: BlockDefinition = {
   type: "table",
   label: "Table",
   icon: "table",
@@ -321,7 +298,7 @@ export const tableBlockPlugin: BlockPlugin = {
       : [],
 };
 
-export const pageBreakBlockPlugin: BlockPlugin = {
+export const pageBreakBlockDefinition: BlockDefinition = {
   type: "pagebreak",
   label: "Page Break",
   icon: "pagebreak",
@@ -347,7 +324,7 @@ export const pageBreakBlockPlugin: BlockPlugin = {
   dropContainers: () => [],
 };
 
-export const pageHeaderBlockPlugin: BlockPlugin = {
+export const pageHeaderBlockDefinition: BlockDefinition = {
   type: "pageheader",
   label: "Page Header",
   icon: "pageheader",
@@ -383,7 +360,7 @@ export const pageHeaderBlockPlugin: BlockPlugin = {
   dropContainers: (block) => [block.id],
 };
 
-export const pageFooterBlockPlugin: BlockPlugin = {
+export const pageFooterBlockDefinition: BlockDefinition = {
   type: "pagefooter",
   label: "Page Footer",
   icon: "pagefooter",
@@ -419,16 +396,16 @@ export const pageFooterBlockPlugin: BlockPlugin = {
   dropContainers: (block) => [block.id],
 };
 
-export const defaultBlockPlugins: BlockPlugin[] = [
-  textBlockPlugin,
-  containerBlockPlugin,
-  conditionalBlockPlugin,
-  loopBlockPlugin,
-  columnsBlockPlugin,
-  tableBlockPlugin,
-  pageBreakBlockPlugin,
-  pageHeaderBlockPlugin,
-  pageFooterBlockPlugin,
+export const defaultBlockDefinitions: BlockDefinition[] = [
+  textBlockDefinition,
+  containerBlockDefinition,
+  conditionalBlockDefinition,
+  loopBlockDefinition,
+  columnsBlockDefinition,
+  tableBlockDefinition,
+  pageBreakBlockDefinition,
+  pageHeaderBlockDefinition,
+  pageFooterBlockDefinition,
 ];
 
 export {

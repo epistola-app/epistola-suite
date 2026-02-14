@@ -27,6 +27,7 @@
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
 
 ### Changed
+- **Headless/vanilla block registry simplified for MVP**: Replaced runtime block plugin registration with built-in block definitions, removed plugin registry APIs, and aligned tests/docs/types around the built-in catalog and drop-container behavior.
 - **Nested style inheritance now matches editor and PDF generation**: Implemented hierarchical style cascade resolution across headless-editor, vanilla-editor, and Kotlin PDF generation.
   - Cascade order is now explicit and consistent: `document -> ancestors -> block`
   - Inheritable keys include typography/alignment and `backgroundColor`

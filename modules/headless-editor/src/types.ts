@@ -144,11 +144,52 @@ export interface Expression {
 // ============================================================================
 
 /**
+ * Built-in block types shipped by headless editor.
+ */
+export type BuiltInBlockType =
+  | "text"
+  | "container"
+  | "conditional"
+  | "loop"
+  | "columns"
+  | "table"
+  | "pagebreak"
+  | "pageheader"
+  | "pagefooter";
+
+/**
+ * Runtime block discriminator.
+ */
+export type BlockType = BuiltInBlockType;
+
+/**
+ * Runtime list of built-in block types.
+ */
+export const BUILTIN_BLOCK_TYPES: ReadonlySet<BuiltInBlockType> = new Set([
+  "text",
+  "container",
+  "conditional",
+  "loop",
+  "columns",
+  "table",
+  "pagebreak",
+  "pageheader",
+  "pagefooter",
+]);
+
+/**
+ * Type guard for narrowing arbitrary strings to supported block types.
+ */
+export function isBuiltInBlockType(value: string): value is BuiltInBlockType {
+  return BUILTIN_BLOCK_TYPES.has(value as BuiltInBlockType);
+}
+
+/**
  * Base block interface - all blocks extend this
  */
 export interface BaseBlock {
   id: string;
-  type: string;
+  type: BlockType;
   styles?: CSSStyles;
 }
 
@@ -179,8 +220,10 @@ export interface ContainerBlock extends BaseBlock {
 export interface ConditionalBlock extends BaseBlock {
   type: "conditional";
   condition: Expression;
-  inverse?: boolean; // if true, shows content when condition is FALSE
-  children: Block[]; // blocks shown when condition matches (or inverse matches)
+  /** If true, render children when condition evaluates to false. */
+  inverse?: boolean;
+  /** Blocks rendered when condition (or inverse condition) matches. */
+  children: Block[];
 }
 
 /**
@@ -199,7 +242,8 @@ export interface LoopBlock extends BaseBlock {
  */
 export interface Column {
   id: string;
-  size: number; // ratio/weight for flexbox (e.g., 1, 2, 3)
+  /** Relative column width weight (for example: 1, 2, 3). */
+  size: number;
   children: Block[];
 }
 
@@ -210,7 +254,8 @@ export interface Column {
 export interface ColumnsBlock extends BaseBlock {
   type: "columns";
   columns: Column[];
-  gap?: number; // spacing between columns in pixels
+  /** Horizontal spacing between columns, in pixels. */
+  gap?: number;
 }
 
 /**
@@ -219,7 +264,9 @@ export interface ColumnsBlock extends BaseBlock {
 export interface TableCell {
   id: string;
   children: Block[];
+  /** Number of columns this cell spans in rendering. */
   colspan?: number;
+  /** Number of rows this cell spans in rendering. */
   rowspan?: number;
   styles?: CSSStyles;
 }
@@ -230,6 +277,7 @@ export interface TableCell {
 export interface TableRow {
   id: string;
   cells: TableCell[];
+  /** Marks this row as a header row. */
   isHeader?: boolean;
 }
 
@@ -240,7 +288,9 @@ export interface TableRow {
 export interface TableBlock extends BaseBlock {
   type: "table";
   rows: TableRow[];
-  columnWidths?: number[]; // ratio-based widths for each column
+  /** Relative widths for each column (for example: [2, 1, 1]). */
+  columnWidths?: number[];
+  /** Border rendering strategy for table output. */
   borderStyle?: "none" | "all" | "horizontal" | "vertical";
 }
 
@@ -280,11 +330,6 @@ export type Block =
   | PageBreakBlock
   | PageHeaderBlock
   | PageFooterBlock;
-
-/**
- * Block type string literals
- */
-export type BlockType = Block["type"];
 
 // ============================================================================
 // Theme Types
@@ -347,62 +392,54 @@ export interface Template {
  * Block constraints - block declares its own rules
  */
 export interface BlockConstraints {
-  // As a container
+  /** Whether this block can contain child blocks. */
   canHaveChildren: boolean;
-  allowedChildTypes: string[] | null; // null = any, [] = none
+  /**
+   * Child types this block accepts.
+   * - `null`: accepts any child block type
+   * - `[]`: accepts no children
+   */
+  allowedChildTypes: BlockType[] | null;
   maxChildren?: number;
 
-  // As a draggable item
+  /** Whether this block itself can be dragged. */
   canBeDragged: boolean;
+  /** Whether this block can be nested under another block. */
   canBeNested: boolean;
-  allowedParentTypes: string[] | null; // null = any, ['root'] = only root
+  /**
+   * Parent types this block can be nested inside.
+   * Use `"root"` to allow top-level placement explicitly.
+   * - `null`: unrestricted
+   */
+  allowedParentTypes: (BlockType | "root")[] | null;
 }
 
 /**
  * Validation result
  */
-export interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-}
+
+export type ValidResult = {
+  readonly valid: true;
+};
+
+export type InvalidResult = {
+  readonly valid: false;
+  readonly errors: string[];
+};
+
+export type ValidationResult = ValidResult | InvalidResult;
 
 /**
- * Block definition - describes what a block can do (logic only, no UI).
- * Includes optional render hints for UI presentation.
- */
-export interface BlockDefinition {
-  type: string;
-
-  /** Create a new block with defaults */
-  create: (id: string) => Block;
-
-  /** Validate block structure */
-  validate: (block: Block) => ValidationResult;
-
-  /** Block declares its own constraints */
-  constraints: BlockConstraints;
-
-  /** Human-readable display name (e.g., "Text", "Conditional") */
-  label?: string;
-
-  /** Icon identifier string for UI rendering (e.g., "text", "columns") */
-  icon?: string;
-
-  /** Grouping category for toolbar organization (e.g., "Content", "Layout", "Logic") */
-  category?: string;
-}
-
-/**
- * Output capability metadata declared by a block plugin.
+ * Output capability metadata declared by a block definition.
  * Used by hosts to determine whether a block participates in a generation path.
  */
-export interface BlockPluginCapabilities {
+export interface BlockCapabilities {
   html?: boolean;
   pdf?: boolean;
 }
 
 /**
- * Toolbar metadata declared by a block plugin.
+ * Toolbar metadata declared by a block definition.
  */
 export interface BlockToolbarConfig {
   visible?: boolean;
@@ -416,7 +453,7 @@ export interface BlockToolbarConfig {
  * Catalog item exposed for editor toolbars.
  */
 export interface BlockCatalogItem {
-  type: string;
+  type: BlockType;
   label: string;
   icon?: string;
   group: string;
@@ -426,19 +463,25 @@ export interface BlockCatalogItem {
 }
 
 /**
- * Block plugin contract used for registration in headless editor.
- * Mirrors block definition behavior and adds explicit capability metadata.
+ * Extended block definition metadata used by built-in blocks.
  */
-export interface BlockPlugin {
-  type: string;
+export interface BlockDefinition {
+  /** Built-in block type identifier. */
+  type: BuiltInBlockType;
+  /** Factory for creating a new block instance with defaults. */
   create: (id: string) => Block;
+  /** Runtime validation for a block instance. */
   validate: (block: Block) => ValidationResult;
+  /** Structure and placement rules for this block. */
   constraints: BlockConstraints;
+  /** Optional resolver that declares drop container IDs owned by this block. */
   dropContainers?: (block: Block) => string[];
   label?: string;
   icon?: string;
   category?: string;
-  capabilities?: BlockPluginCapabilities;
+  /** Optional generation capabilities metadata (HTML/PDF participation). */
+  capabilities?: BlockCapabilities;
+  /** Toolbar behavior for block picker presentation. */
   toolbar?: boolean | BlockToolbarConfig;
 }
 
@@ -614,7 +657,6 @@ export interface EditorCallbacks {
  */
 export interface EditorConfig {
   template?: Template;
-  plugins?: BlockPlugin[];
   callbacks?: EditorCallbacks;
 }
 

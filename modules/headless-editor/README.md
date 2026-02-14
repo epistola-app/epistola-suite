@@ -46,39 +46,9 @@ const current = editor.getTemplate();
 - Resolved style cascade: `document -> ancestors -> block`
 - `DragDropPort`: validation + execution contract used by UI adapters
 
-## Plugin-Based Blocks
+## Built-In Blocks
 
-Custom blocks are registered via `plugins` in `EditorConfig`.
-
-```ts
-import type { BlockPlugin } from "@epistola/headless-editor";
-
-const imagePlugin: BlockPlugin = {
-  type: "image",
-  create: (id) => ({ id, type: "image", src: "", alt: "", styles: {} }) as any,
-  validate: () => ({ valid: true, errors: [] }),
-  constraints: {
-    canHaveChildren: false,
-    allowedChildTypes: [],
-    canBeDragged: true,
-    canBeNested: true,
-    allowedParentTypes: ["root", "container", "column", "cell"],
-  },
-  toolbar: {
-    visible: true,
-    group: "Content",
-    order: 20,
-    label: "Image",
-    icon: "image",
-  },
-  capabilities: {
-    html: true,
-    pdf: false,
-  },
-};
-
-const editor = new TemplateEditor({ plugins: [imagePlugin] });
-```
+For MVP, block definitions are hardcoded in headless editor and available via the editor registry APIs.
 
 ### Toolbar Catalog
 
@@ -89,7 +59,7 @@ const catalog = editor.getBlockCatalog();
 // [{ type, label, group, order, visible, addableAtRoot, ... }]
 ```
 
-Use this to build plugin-driven add buttons.
+Use this to build add buttons from built-in metadata.
 
 ## Style Cascade Utilities
 

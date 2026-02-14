@@ -8,7 +8,7 @@
 
 import { computed } from "nanostores";
 import { createEditorStore, BlockTree, type EditorStore } from "./store.js";
-import { defaultBlockPlugins } from "./blocks/plugins.js";
+import { defaultBlockDefinitions } from "./blocks/definitions.js";
 import { UndoManager } from "./undo.js";
 import {
   resolveBlockStylesWithAncestors,
@@ -29,8 +29,7 @@ import type {
   Template,
   Block,
   BlockDefinition,
-  BlockPlugin,
-  BlockPluginCapabilities,
+  BlockType,
   EditorConfig,
   EditorCallbacks,
   EditorState,
@@ -42,7 +41,6 @@ import type {
   TableBlock,
   ConditionalBlock,
   LoopBlock,
-  TextBlock,
   TipTapContent,
   DataExample,
   JsonObject,
@@ -72,8 +70,7 @@ function generateId(): string {
  */
 export class TemplateEditor {
   private store: EditorStore;
-  private blockPlugins: Record<string, BlockPlugin>;
-  private blockPluginCapabilities: Record<string, BlockPluginCapabilities>;
+  private blockDefinitions: Record<string, BlockDefinition>;
   private blockToolbarConfig: Record<string, BlockToolbarConfig>;
   private blockDropContainerResolvers: Record<
     string,
@@ -99,49 +96,40 @@ export class TemplateEditor {
     };
 
     this.store = createEditorStore(initialTemplate);
-    this.blockPlugins = Object.fromEntries(
-      defaultBlockPlugins.map((plugin) => [plugin.type, plugin]),
-    );
-    this.blockPluginCapabilities = Object.fromEntries(
-      defaultBlockPlugins.map((plugin) => [
-        plugin.type,
-        plugin.capabilities ?? { html: true, pdf: true },
+    this.blockDefinitions = Object.fromEntries(
+      defaultBlockDefinitions.map((definition) => [
+        definition.type,
+        definition,
       ]),
     );
     this.blockToolbarConfig = Object.fromEntries(
-      defaultBlockPlugins.map((plugin) => [
-        plugin.type,
-        typeof plugin.toolbar === "boolean"
+      defaultBlockDefinitions.map((definition) => [
+        definition.type,
+        typeof definition.toolbar === "boolean"
           ? {
-              visible: plugin.toolbar,
+              visible: definition.toolbar,
               order: 0,
-              group: plugin.category ?? "Blocks",
-              label: plugin.label ?? plugin.type,
-              icon: plugin.icon,
+              group: definition.category ?? "Blocks",
+              label: definition.label ?? definition.type,
+              icon: definition.icon,
             }
-          : (plugin.toolbar ?? {
+          : (definition.toolbar ?? {
               visible: true,
               order: 0,
-              group: plugin.category ?? "Blocks",
-              label: plugin.label ?? plugin.type,
-              icon: plugin.icon,
+              group: definition.category ?? "Blocks",
+              label: definition.label ?? definition.type,
+              icon: definition.icon,
             }),
       ]),
     );
     this.blockDropContainerResolvers = Object.fromEntries(
-      defaultBlockPlugins.map((plugin) => [
-        plugin.type,
-        plugin.dropContainers ?? (() => []),
+      defaultBlockDefinitions.map((definition) => [
+        definition.type,
+        definition.dropContainers ?? (() => []),
       ]),
     );
     this.callbacks = config.callbacks ?? {};
     this.undoManager = new UndoManager();
-
-    if (config.plugins && config.plugins.length > 0) {
-      for (const plugin of config.plugins) {
-        this.registerBlockPlugin(plugin);
-      }
-    }
 
     // Derived store: dirty when template differs from last saved state
     this.$isDirty = computed(
@@ -951,11 +939,11 @@ export class TemplateEditor {
    * Returns the created block, or null if creation failed
    */
   addBlock(
-    type: string,
+    type: BlockType,
     parentId: string | null = null,
     index: number = -1,
   ): Block | null {
-    const definition = this.blockPlugins[type];
+    const definition = this.blockDefinitions[type];
     if (!definition) {
       this.callbacks.onError?.(new Error(`Unknown block type: ${type}`));
       return null;
@@ -1008,7 +996,7 @@ export class TemplateEditor {
    */
   private validateParentForChild(
     parentId: string,
-    childType: string,
+    childType: BlockType,
   ): ValidationResult {
     const template = this.store.getTemplate();
     const errors: string[] = [];
@@ -1016,7 +1004,7 @@ export class TemplateEditor {
     // Check if parent is a regular block with children
     const parent = BlockTree.findBlock(template.blocks, parentId);
     if (parent) {
-      const parentDef = this.blockPlugins[parent.type];
+      const parentDef = this.blockDefinitions[parent.type];
       if (!parentDef) {
         errors.push(`Unknown parent block type: ${parent.type}`);
         return { valid: false, errors };
@@ -1037,7 +1025,7 @@ export class TemplateEditor {
         return { valid: false, errors };
       }
 
-      const childDef = this.blockPlugins[childType];
+      const childDef = this.blockDefinitions[childType];
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
@@ -1049,14 +1037,14 @@ export class TemplateEditor {
         return { valid: false, errors };
       }
 
-      return { valid: true, errors: [] };
+      return { valid: true };
     }
 
     // Check if parent is a column
     const columnResult = BlockTree.findColumn(template.blocks, parentId);
     if (columnResult) {
       // Columns can accept any block type
-      const childDef = this.blockPlugins[childType];
+      const childDef = this.blockDefinitions[childType];
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
@@ -1065,14 +1053,14 @@ export class TemplateEditor {
         errors.push(`Block type ${childType} cannot be nested in a column`);
         return { valid: false, errors };
       }
-      return { valid: true, errors: [] };
+      return { valid: true };
     }
 
     // Check if parent is a table cell
     const cellResult = BlockTree.findCell(template.blocks, parentId);
     if (cellResult) {
       // Cells can accept any block type
-      const childDef = this.blockPlugins[childType];
+      const childDef = this.blockDefinitions[childType];
       if (
         childDef &&
         childDef.constraints.allowedParentTypes !== null &&
@@ -1081,7 +1069,7 @@ export class TemplateEditor {
         errors.push(`Block type ${childType} cannot be nested in a table cell`);
         return { valid: false, errors };
       }
-      return { valid: true, errors: [] };
+      return { valid: true };
     }
 
     errors.push(`Parent not found: ${parentId}`);
@@ -1276,93 +1264,7 @@ export class TemplateEditor {
   // BLOCK REGISTRY
   // =========================================================================
 
-  /**
-   * Register a custom block type (legacy API, use registerBlockPlugin instead)
-   * @deprecated Use registerBlockPlugin with BlockPlugin instead
-   */
-  registerBlock(definition: BlockDefinition): void {
-    this.validateBlockDefinition(definition);
-    // Convert BlockDefinition to BlockPlugin
-    this.blockPlugins[definition.type] = {
-      type: definition.type,
-      create: definition.create,
-      validate: definition.validate,
-      constraints: definition.constraints,
-      label: definition.label,
-      icon: definition.icon,
-      category: definition.category,
-      capabilities: { html: true, pdf: true },
-      toolbar: {
-        visible: true,
-        order: 0,
-        group: definition.category ?? "Blocks",
-        label: definition.label ?? definition.type,
-        icon: definition.icon,
-      },
-      dropContainers: (block) => this.getDefaultDropContainers(block),
-    };
-    this.blockPluginCapabilities[definition.type] = { html: true, pdf: true };
-    this.blockDropContainerResolvers[definition.type] = (block) =>
-      this.getDefaultDropContainers(block);
-    this.blockToolbarConfig[definition.type] = {
-      visible: true,
-      order: 0,
-      group: definition.category ?? "Blocks",
-      label: definition.label ?? definition.type,
-      icon: definition.icon,
-    };
-  }
-
-  /**
-   * Register a block plugin with runtime contract validation.
-   */
-  registerBlockPlugin(plugin: BlockPlugin): void {
-    this.validateBlockPlugin(plugin);
-    this.blockPlugins[plugin.type] = {
-      type: plugin.type,
-      create: plugin.create,
-      validate: plugin.validate,
-      constraints: plugin.constraints,
-      label: plugin.label,
-      icon: plugin.icon,
-      category: plugin.category,
-    };
-    this.blockPluginCapabilities[plugin.type] = {
-      html: plugin.capabilities?.html ?? true,
-      pdf: plugin.capabilities?.pdf ?? true,
-    };
-    this.blockDropContainerResolvers[plugin.type] =
-      plugin.dropContainers ??
-      ((block) => this.getDefaultDropContainers(block));
-
-    const baseToolbar: BlockToolbarConfig = {
-      visible: true,
-      order: 0,
-      group: plugin.category ?? "Blocks",
-      label: plugin.label ?? plugin.type,
-      icon: plugin.icon,
-    };
-
-    if (plugin.toolbar === false) {
-      this.blockToolbarConfig[plugin.type] = { ...baseToolbar, visible: false };
-    } else if (plugin.toolbar === true || plugin.toolbar === undefined) {
-      this.blockToolbarConfig[plugin.type] = baseToolbar;
-    } else {
-      this.blockToolbarConfig[plugin.type] = {
-        ...baseToolbar,
-        ...plugin.toolbar,
-      };
-    }
-  }
-
-  /**
-   * Get registered block plugin capabilities metadata for a block type.
-   */
-  getBlockPluginCapabilities(
-    type: string,
-  ): BlockPluginCapabilities | undefined {
-    return this.blockPluginCapabilities[type];
-  }
+  // Built-in block definitions are hardcoded for MVP.
 
   /**
    * Collect declared drop container IDs for the current template.
@@ -1374,9 +1276,7 @@ export class TemplateEditor {
     const collect = (blocks: Block[]) => {
       for (const block of blocks) {
         const resolver = this.blockDropContainerResolvers[block.type];
-        const containerIds = resolver
-          ? resolver(block)
-          : this.getDefaultDropContainers(block);
+        const containerIds = resolver ? resolver(block) : [];
         for (const id of containerIds) {
           ids.add(id);
         }
@@ -1408,15 +1308,15 @@ export class TemplateEditor {
   /**
    * Get block definition
    */
-  getBlockDefinition(type: string): BlockDefinition | undefined {
-    return this.blockPlugins[type];
+  getBlockDefinition(type: BlockType): BlockDefinition | undefined {
+    return this.blockDefinitions[type];
   }
 
   /**
    * Get all registered block types
    */
-  getBlockTypes(): string[] {
-    return Object.keys(this.blockPlugins);
+  getBlockTypes(): BlockType[] {
+    return Object.keys(this.blockDefinitions) as BlockType[];
   }
 
   /**
@@ -1424,13 +1324,14 @@ export class TemplateEditor {
    */
   getBlockCatalog(): BlockCatalogItem[] {
     const entries: BlockCatalogItem[] = Object.entries(
-      this.blockPlugins,
+      this.blockDefinitions,
     ).map(([type, definition]) => {
+      const blockType = type as BlockType;
       const toolbar = this.blockToolbarConfig[type] ?? {
         visible: true,
         order: 0,
         group: definition.category ?? "Blocks",
-        label: definition.label ?? type,
+        label: definition.label ?? blockType,
         icon: definition.icon,
       };
 
@@ -1440,8 +1341,8 @@ export class TemplateEditor {
         constraints.allowedParentTypes.includes("root");
 
       return {
-        type,
-        label: toolbar.label ?? definition.label ?? type,
+        type: blockType,
+        label: toolbar.label ?? definition.label ?? blockType,
         icon: toolbar.icon ?? definition.icon,
         group: toolbar.group ?? definition.category ?? "Blocks",
         order: toolbar.order ?? 0,
@@ -1470,14 +1371,16 @@ export class TemplateEditor {
 
     const validateBlocks = (blocks: Block[]) => {
       for (const block of blocks) {
-        const definition = this.blockPlugins[block.type];
+        const definition = this.blockDefinitions[block.type];
         if (!definition) {
           errors.push(`Unknown block type: ${block.type}`);
           continue;
         }
 
         const result = definition.validate(block);
-        errors.push(...result.errors);
+        if (!result.valid) {
+          errors.push(...result.errors);
+        }
 
         if ("children" in block && Array.isArray(block.children)) {
           validateBlocks(block.children);
@@ -1605,7 +1508,7 @@ export class TemplateEditor {
     const block = this.findBlock(blockId);
     if (!block) return false;
 
-    const definition = this.blockPlugins[block.type];
+    const definition = this.blockDefinitions[block.type];
     if (!definition) return false;
 
     return definition.constraints.canBeDragged;
@@ -1623,7 +1526,7 @@ export class TemplateEditor {
     const dragged = this.findBlock(draggedId);
     if (!dragged) return false;
 
-    const draggedDef = this.blockPlugins[dragged.type];
+    const draggedDef = this.blockDefinitions[dragged.type];
     if (!draggedDef) return false;
 
     // Can't drag if not draggable
@@ -1641,7 +1544,7 @@ export class TemplateEditor {
     const target = this.findBlock(targetId);
     if (!target) return false;
 
-    const targetDef = this.blockPlugins[target.type];
+    const targetDef = this.blockDefinitions[target.type];
     if (!targetDef) return false;
 
     // Can't drop inside own descendants (would create cycle)
@@ -1689,7 +1592,7 @@ export class TemplateEditor {
       return allowedParents === null || allowedParents.includes("root");
     }
 
-    const targetParentDef = this.blockPlugins[targetParent.type];
+    const targetParentDef = this.blockDefinitions[targetParent.type];
     if (!targetParentDef) return false;
 
     // Parent must accept dragged as child
@@ -1906,123 +1809,5 @@ export class TemplateEditor {
     }
 
     return false;
-  }
-
-  private validateBlockDefinition(definition: BlockDefinition): void {
-    if (!definition || typeof definition !== "object") {
-      throw new Error("Block definition must be an object");
-    }
-    if (!definition.type || typeof definition.type !== "string") {
-      throw new Error("Block definition requires a non-empty string type");
-    }
-    if (typeof definition.create !== "function") {
-      throw new Error(
-        `Block definition '${definition.type}' requires a create(id) function`,
-      );
-    }
-    if (typeof definition.validate !== "function") {
-      throw new Error(
-        `Block definition '${definition.type}' requires a validate(block) function`,
-      );
-    }
-    if (!definition.constraints || typeof definition.constraints !== "object") {
-      throw new Error(
-        `Block definition '${definition.type}' requires constraints`,
-      );
-    }
-  }
-
-  private validateBlockPlugin(plugin: BlockPlugin): void {
-    if (!plugin || typeof plugin !== "object") {
-      throw new Error("Block plugin must be an object");
-    }
-    if (!plugin.type || typeof plugin.type !== "string") {
-      throw new Error("Block plugin requires a non-empty string type");
-    }
-    if (typeof plugin.create !== "function") {
-      throw new Error(`Block plugin '${plugin.type}' is missing create(id)`);
-    }
-    if (typeof plugin.validate !== "function") {
-      throw new Error(
-        `Block plugin '${plugin.type}' is missing validate(block)`,
-      );
-    }
-    if (!plugin.constraints || typeof plugin.constraints !== "object") {
-      throw new Error(`Block plugin '${plugin.type}' is missing constraints`);
-    }
-
-    const constraints = plugin.constraints;
-    if (typeof constraints.canHaveChildren !== "boolean") {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid constraints.canHaveChildren (expected boolean)`,
-      );
-    }
-    if (typeof constraints.canBeDragged !== "boolean") {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid constraints.canBeDragged (expected boolean)`,
-      );
-    }
-    if (typeof constraints.canBeNested !== "boolean") {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid constraints.canBeNested (expected boolean)`,
-      );
-    }
-    if (
-      constraints.allowedChildTypes !== null &&
-      !Array.isArray(constraints.allowedChildTypes)
-    ) {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid constraints.allowedChildTypes (expected array or null)`,
-      );
-    }
-    if (
-      constraints.allowedParentTypes !== null &&
-      !Array.isArray(constraints.allowedParentTypes)
-    ) {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid constraints.allowedParentTypes (expected array or null)`,
-      );
-    }
-    if (
-      plugin.dropContainers !== undefined &&
-      typeof plugin.dropContainers !== "function"
-    ) {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid dropContainers (expected function)`,
-      );
-    }
-
-    if (
-      plugin.toolbar !== undefined &&
-      typeof plugin.toolbar !== "boolean" &&
-      typeof plugin.toolbar !== "object"
-    ) {
-      throw new Error(
-        `Block plugin '${plugin.type}' has invalid toolbar (expected boolean or object)`,
-      );
-    }
-  }
-
-  private getDefaultDropContainers(block: Block): string[] {
-    switch (block.type) {
-      case "container":
-      case "conditional":
-      case "loop":
-      case "pageheader":
-      case "pagefooter":
-        return [block.id];
-      case "columns": {
-        const columnsBlock = block as ColumnsBlock;
-        return columnsBlock.columns.map((column) => column.id);
-      }
-      case "table": {
-        const tableBlock = block as TableBlock;
-        return tableBlock.rows.flatMap((row) =>
-          row.cells.map((cell) => cell.id),
-        );
-      }
-      default:
-        return [];
-    }
   }
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { TemplateEditor } from "../editor";
-import { textBlockPlugin } from "../blocks/plugins";
+import { textBlockDefinition } from "../blocks/definitions";
 import type { Template, Block } from "../types";
 
 describe("TemplateEditor", () => {
@@ -17,7 +17,7 @@ describe("TemplateEditor", () => {
       const template: Template = {
         id: "custom-1",
         name: "Custom Template",
-        blocks: [{ id: "block-1", type: "text", content: "Hello" }],
+        blocks: [{ id: "block-1", type: "text", content: null }],
       };
       const editor = new TemplateEditor({ template });
 
@@ -36,26 +36,6 @@ describe("TemplateEditor", () => {
       expect(editor.getTemplate().name).toBe("Untitled");
     });
 
-    it("should register plugins provided via config", () => {
-      const editor = new TemplateEditor({
-        plugins: [
-          {
-            type: "plugin-block",
-            create: (id) => ({ id, type: "plugin-block" }) as unknown as Block,
-            validate: () => ({ valid: true, errors: [] }),
-            constraints: {
-              canHaveChildren: false,
-              allowedChildTypes: [],
-              canBeDragged: true,
-              canBeNested: true,
-              allowedParentTypes: null,
-            },
-          },
-        ],
-      });
-
-      expect(editor.getBlockTypes()).toContain("plugin-block");
-    });
   });
 
   describe("addBlock", () => {
@@ -161,6 +141,7 @@ describe("TemplateEditor", () => {
     it("should add block to a column", () => {
       const editor = new TemplateEditor();
       const columns = editor.addBlock("columns")! as {
+        id: string;
         columns: { id: string }[];
       };
       const columnId = columns.columns[0].id;
@@ -188,10 +169,14 @@ describe("TemplateEditor", () => {
       const editor = new TemplateEditor();
       const block = editor.addBlock("text")!;
 
-      editor.updateBlock(block.id, { content: "Updated" });
+      editor.updateBlock(block.id, {
+        content: { type: "doc", content: [{ type: "text", text: "Updated" }] },
+      });
 
-      const updated = editor.findBlock(block.id) as { content: string };
-      expect(updated.content).toBe("Updated");
+      const updated = editor.findBlock(block.id) as {
+        content: Record<string, unknown>;
+      };
+      expect(updated.content.type).toBe("doc");
     });
 
     it("should update styles on a block", () => {
@@ -350,7 +335,7 @@ describe("TemplateEditor", () => {
       const newTemplate: Template = {
         id: "new-1",
         name: "New Template",
-        blocks: [{ id: "b-1", type: "text", content: "Hello" }],
+        blocks: [{ id: "b-1", type: "text", content: null }],
       };
 
       editor.setTemplate(newTemplate);
@@ -496,7 +481,7 @@ describe("TemplateEditor", () => {
       editor.setTemplate({
         id: "test",
         name: "Test",
-        blocks: [{ id: "bad-1", type: "unknown_type", content: "" } as Block],
+        blocks: [{ id: "bad-1", type: "unknown_type", content: null } as unknown as Block],
       });
 
       const result = editor.validateTemplate();
@@ -531,7 +516,7 @@ describe("TemplateEditor", () => {
       const template: Template = {
         id: "imported",
         name: "Imported Template",
-        blocks: [{ id: "block-1", type: "text", content: "Imported" }],
+        blocks: [{ id: "block-1", type: "text", content: null }],
       };
 
       editor.importJSON(JSON.stringify(template));
@@ -812,6 +797,7 @@ describe("TemplateEditor", () => {
       const editor = new TemplateEditor();
       const container = editor.addBlock("container")!;
       const columns = editor.addBlock("columns")! as {
+        id: string;
         columns: { id: string }[];
       };
       const table = editor.addBlock("table")! as {
@@ -824,26 +810,12 @@ describe("TemplateEditor", () => {
       expect(containers).toContain(table.rows[0].cells[0].id);
     });
 
-    it("returns plugin-declared drop containers for custom blocks", () => {
+    it("returns drop containers declared by built-in definitions", () => {
       const editor = new TemplateEditor();
-      editor.registerBlockPlugin({
-        type: "plugin-container",
-        create: (id) =>
-          ({ id, type: "plugin-container", children: [] }) as unknown as Block,
-        validate: () => ({ valid: true, errors: [] }),
-        constraints: {
-          canHaveChildren: true,
-          allowedChildTypes: null,
-          canBeDragged: true,
-          canBeNested: true,
-          allowedParentTypes: null,
-        },
-        dropContainers: (block) => [block.id],
-      });
+      const header = editor.addBlock("pageheader")!;
 
-      const custom = editor.addBlock("plugin-container")!;
       const containers = editor.getDropContainerIds();
-      expect(containers).toContain(custom.id);
+      expect(containers).toContain(header.id);
     });
   });
 
@@ -898,6 +870,7 @@ describe("TemplateEditor", () => {
     it("should remove a column", () => {
       const editor = new TemplateEditor();
       const columns = editor.addBlock("columns")! as {
+        id: string;
         columns: { id: string }[];
       };
       const columnToRemove = columns.columns[0].id;
@@ -915,6 +888,7 @@ describe("TemplateEditor", () => {
       const onError = vi.fn();
       const editor = new TemplateEditor({ callbacks: { onError } });
       const columns = editor.addBlock("columns")! as {
+        id: string;
         columns: { id: string }[];
       };
 
@@ -987,7 +961,10 @@ describe("TemplateEditor", () => {
 
     it("should remove a row from table", () => {
       const editor = new TemplateEditor();
-      const table = editor.addBlock("table")! as { rows: { id: string }[] };
+      const table = editor.addBlock("table")! as {
+        id: string;
+        rows: { id: string }[];
+      };
       const rowToRemove = table.rows[1].id;
 
       editor.removeRow(table.id, rowToRemove);
@@ -1000,7 +977,10 @@ describe("TemplateEditor", () => {
     it("should reject removing last row", () => {
       const onError = vi.fn();
       const editor = new TemplateEditor({ callbacks: { onError } });
-      const table = editor.addBlock("table")! as { rows: { id: string }[] };
+      const table = editor.addBlock("table")! as {
+        id: string;
+        rows: { id: string }[];
+      };
 
       // Remove rows until one left
       editor.removeRow(table.id, table.rows[2].id);
@@ -1026,7 +1006,7 @@ describe("TemplateEditor", () => {
   });
 
   describe("block registry", () => {
-    it("should list all block types", () => {
+    it("should list all built-in block types", () => {
       const editor = new TemplateEditor();
       const types = editor.getBlockTypes();
 
@@ -1043,128 +1023,16 @@ describe("TemplateEditor", () => {
 
     it("should get block definition", () => {
       const editor = new TemplateEditor();
-      const def = editor.getBlockDefinition("text");
+      const definition = editor.getBlockDefinition("text");
 
-      expect(def).toBeDefined();
-      expect(def?.type).toBe("text");
+      expect(definition).toBeDefined();
+      expect(definition?.type).toBe("text");
     });
 
-    it("should return undefined for unknown block definition", () => {
-      const editor = new TemplateEditor();
-
-      expect(editor.getBlockDefinition("unknown")).toBeUndefined();
-    });
-
-    it("should register a custom block type", () => {
-      const editor = new TemplateEditor();
-
-      editor.registerBlock({
-        type: "custom-banner",
-        create: (id) =>
-          ({ id, type: "custom-banner" as const, content: "Banner" }) as Block,
-        validate: () => ({ valid: true, errors: [] }),
-        constraints: {
-          canHaveChildren: false,
-          allowedChildTypes: [],
-          canBeDragged: true,
-          canBeNested: true,
-          allowedParentTypes: null,
-        },
-      });
-
-      expect(editor.getBlockTypes()).toContain("custom-banner");
-      expect(editor.getBlockDefinition("custom-banner")).toBeDefined();
-    });
-
-    it("registers custom blocks through plugin config while keeping built-ins", () => {
-      const editor = new TemplateEditor({
-        plugins: [
-          {
-            type: "myblock",
-            create: (id) => ({ id, type: "myblock" }) as unknown as Block,
-            validate: () => ({ valid: true, errors: [] }),
-            constraints: {
-              canHaveChildren: false,
-              allowedChildTypes: [],
-              canBeDragged: true,
-              canBeNested: true,
-              allowedParentTypes: null,
-            },
-          },
-        ],
-      });
-
-      expect(editor.getBlockTypes()).toContain("myblock");
-      expect(editor.getBlockTypes()).toContain("text");
-    });
-
-    it("should register block plugins with capabilities metadata", () => {
-      const editor = new TemplateEditor();
-
-      editor.registerBlockPlugin({
-        type: "custom-banner",
-        create: (id) =>
-          ({
-            id,
-            type: "custom-banner",
-            content: "Banner",
-          }) as unknown as Block,
-        validate: () => ({ valid: true, errors: [] }),
-        constraints: {
-          canHaveChildren: false,
-          allowedChildTypes: [],
-          canBeDragged: true,
-          canBeNested: true,
-          allowedParentTypes: null,
-        },
-        capabilities: {
-          html: true,
-          pdf: false,
-        },
-      });
-
-      expect(editor.getBlockTypes()).toContain("custom-banner");
-      expect(editor.getBlockPluginCapabilities("custom-banner")).toEqual({
-        html: true,
-        pdf: false,
-      });
-    });
-
-    it("should expose default generation capabilities for built-in blocks", () => {
-      const editor = new TemplateEditor();
-      expect(editor.getBlockPluginCapabilities("text")).toEqual({
-        html: true,
-        pdf: true,
-      });
-    });
-
-    it("should reject invalid block plugins with descriptive errors", () => {
-      const editor = new TemplateEditor();
-
-      expect(() => {
-        editor.registerBlockPlugin({
-          type: "invalid-plugin",
-          create: ((id: string) => ({
-            id,
-            type: "invalid-plugin",
-          })) as unknown as (id: string) => Block,
-          validate: () => ({ valid: true, errors: [] }),
-          constraints: {
-            canHaveChildren: true,
-            allowedChildTypes: [] as string[],
-            canBeDragged: true,
-            canBeNested: true,
-            allowedParentTypes: "root" as unknown as string[],
-          },
-        });
-      }).toThrow("allowedParentTypes");
-    });
-
-    it("should expose built-in block plugins with correct structure", () => {
-      // Test that the built-in text block plugin has the expected structure
-      expect(textBlockPlugin.type).toBe("text");
-      expect(textBlockPlugin.capabilities).toEqual({ html: true, pdf: true });
-      expect(textBlockPlugin.toolbar).toEqual({
+    it("should expose built-in block definitions with metadata", () => {
+      expect(textBlockDefinition.type).toBe("text");
+      expect(textBlockDefinition.capabilities).toEqual({ html: true, pdf: true });
+      expect(textBlockDefinition.toolbar).toEqual({
         visible: true,
         order: 0,
         group: "Content",
@@ -1172,77 +1040,24 @@ describe("TemplateEditor", () => {
         icon: "text",
       });
       expect(
-        textBlockPlugin.dropContainers?.({ id: "x", type: "text" } as unknown as Block),
+        textBlockDefinition.dropContainers?.({ id: "x", type: "text" } as unknown as Block),
       ).toEqual([]);
-
-      // Verify editor can retrieve the plugin
-      const editor = new TemplateEditor();
-      const retrievedPlugin = editor.getBlockDefinition("text");
-      expect(retrievedPlugin).toBeDefined();
-      expect(retrievedPlugin!.type).toBe("text");
     });
 
-    it("should expose block catalog entries from plugin toolbar metadata", () => {
+    it("should expose catalog entries from built-in toolbar metadata", () => {
       const editor = new TemplateEditor();
-
-      editor.registerBlockPlugin({
-        type: "custom-banner",
-        create: (id) =>
-          ({ id, type: "custom-banner", content: null }) as unknown as Block,
-        validate: () => ({ valid: true, errors: [] }),
-        constraints: {
-          canHaveChildren: false,
-          allowedChildTypes: [],
-          canBeDragged: true,
-          canBeNested: true,
-          allowedParentTypes: ["root"],
-        },
-        toolbar: {
-          visible: true,
-          group: "Custom",
-          order: 2,
-          label: "Banner",
-          icon: "banner",
-        },
-      });
-
       const catalog = editor.getBlockCatalog();
-      const banner = catalog.find((item) => item.type === "custom-banner");
+      const textEntry = catalog.find((item) => item.type === "text");
 
-      expect(banner).toEqual({
-        type: "custom-banner",
-        label: "Banner",
-        icon: "banner",
-        group: "Custom",
-        order: 2,
+      expect(textEntry).toEqual({
+        type: "text",
+        label: "Text",
+        icon: "text",
+        group: "Content",
+        order: 0,
         visible: true,
         addableAtRoot: true,
       });
-    });
-
-    it("should hide plugins from toolbar catalog when toolbar is false", () => {
-      const editor = new TemplateEditor();
-
-      editor.registerBlockPlugin({
-        type: "internal-cell",
-        create: (id) =>
-          ({ id, type: "internal-cell", children: [] }) as unknown as Block,
-        validate: () => ({ valid: true, errors: [] }),
-        constraints: {
-          canHaveChildren: true,
-          allowedChildTypes: null,
-          canBeDragged: false,
-          canBeNested: true,
-          allowedParentTypes: null,
-        },
-        toolbar: false,
-      });
-
-      const catalog = editor.getBlockCatalog();
-      const internalCell = catalog.find(
-        (item) => item.type === "internal-cell",
-      );
-      expect(internalCell?.visible).toBe(false);
     });
   });
 
@@ -1267,7 +1082,7 @@ describe("TemplateEditor", () => {
     });
   });
 
-  describe("pluginization parity", () => {
+  describe("built-in block parity", () => {
     it("preserves add/move/delete/undo-redo behavior for built-in blocks", () => {
       const editor = new TemplateEditor();
       const text = editor.addBlock("text")!;

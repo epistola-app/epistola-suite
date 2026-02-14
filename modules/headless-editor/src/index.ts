@@ -16,18 +16,18 @@ export type { EditorStore } from "./store.js";
 // Undo manager
 export { UndoManager } from "./undo.js";
 
-// Block plugins
+// Built-in block definitions
 export {
-  defaultBlockPlugins,
-  textBlockPlugin,
-  containerBlockPlugin,
-  conditionalBlockPlugin,
-  loopBlockPlugin,
-  columnsBlockPlugin,
-  tableBlockPlugin,
-  pageBreakBlockPlugin,
-  pageHeaderBlockPlugin,
-  pageFooterBlockPlugin,
+  defaultBlockDefinitions,
+  textBlockDefinition,
+  containerBlockDefinition,
+  conditionalBlockDefinition,
+  loopBlockDefinition,
+  columnsBlockDefinition,
+  tableBlockDefinition,
+  pageBreakBlockDefinition,
+  pageHeaderBlockDefinition,
+  pageFooterBlockDefinition,
   generateId,
   createColumn,
   createCell,
@@ -57,6 +57,7 @@ export type {
   PageHeaderBlock,
   PageFooterBlock,
   Block,
+  BuiltInBlockType,
   BlockType,
   // Template types
   PageSettings,
@@ -66,8 +67,7 @@ export type {
   BlockConstraints,
   ValidationResult,
   BlockDefinition,
-  BlockPlugin,
-  BlockPluginCapabilities,
+  BlockCapabilities,
   BlockToolbarConfig,
   BlockCatalogItem,
   // Drag & drop types
@@ -95,7 +95,12 @@ export type {
 } from "./types.js";
 
 // Constants
-export { DEFAULT_TEST_DATA, DEFAULT_PREVIEW_OVERRIDES } from "./types.js";
+export {
+  DEFAULT_TEST_DATA,
+  DEFAULT_PREVIEW_OVERRIDES,
+  BUILTIN_BLOCK_TYPES,
+  isBuiltInBlockType,
+} from "./types.js";
 
 // Expression evaluator
 export type {

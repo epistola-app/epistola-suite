@@ -25,11 +25,6 @@ import {
   formatExpressionPreviewValue,
 } from "./expression-editor.js";
 
-interface TextBlockValues {
-  blockId: string;
-  content: string;
-}
-
 interface SuggestionRange {
   from: number;
   to: number;
