@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: Style editing and theme resolution** (Phase 3):
+  - **Open DocumentStyles data model**: `DocumentStyles` changed from a closed interface with 8 hardcoded properties to `Record<string, unknown>`, matching block styles and letting the style-registry drive available properties
+  - **PageSettings gains backgroundColor**: Moved from document styles (it's a page property, not an inheritable text style)
+  - **Margins documented as mm**: Schema descriptions now explicitly state the unit
+  - **Style registry** (`engine/style-registry.ts`): Defines all style properties with groups (typography, spacing, background, borders), input types, options, units, and inheritable flags
+  - **Style resolver** (`engine/styles.ts`): Pure functions implementing the full cascade: theme doc styles → template overrides → preset → inline. Only inheritable properties cascade to child nodes.
+  - **Engine integration**: `EditorEngine` accepts optional `Theme` and `StyleRegistry`, computes resolved styles on every state change, exposes `getResolvedNodeStyles(nodeId)`, `resolvedDocStyles`, `resolvedPageSettings`, and `setTheme()`
+  - **Inspector style UI**: Registry-driven style property editing grouped by category, with specialized inputs for unit values (number + unit dropdown), colors (native picker + text), spacing (4-value grid), and selects
+  - **Style preset dropdown**: Upgraded from plain text to a dropdown populated from `theme.blockStylePresets`, filtered by `applicableTo`
+  - **Document-level inspector**: When no node is selected, shows inheritable document styles and page settings (format, orientation, margins in mm, background color)
+  - **Canvas style rendering**: Resolved styles applied as inline CSS on block content areas via Lit's `styleMap`; page background color applied to canvas container
+  - **Input components** (`ui/inputs/style-inputs.ts`): Reusable UnitInput, ColorInput, SpacingInput, SelectInput with CSS value parsing/formatting
+  - **22 new tests** for style resolver functions covering cascade, inheritance, page settings, and preset resolution (total: 100 tests)
+
 - **Editor V2: Tree panel drag-and-drop**: Blocks can now be reordered and moved directly in the structure tree panel
   - Drag tree nodes above/below to reorder within the same slot
   - Drag onto a container node center to move a block inside it (make-child)

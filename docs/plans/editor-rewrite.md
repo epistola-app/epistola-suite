@@ -6,9 +6,9 @@
 |-------|--------|-------|
 | **0. Foundation** | **Mostly done** | Schemas, types, scaffold complete. Kotlin data classes pending. |
 | **1. Headless Engine** | **Done** | All commands, undo/redo, registry, 45 tests passing. |
-| **2. Minimal UI** | **Partially done** | Shell, tree, canvas, palette, inspector, toolbar render. DnD not started. |
+| **2. Minimal UI** | **Done** | Shell, tree, canvas, palette, inspector, toolbar, DnD (canvas + tree). |
 | **2.x Design System** | **Done** | Shared `modules/design-system/` extracted (not in original plan). |
-| **3. Styles + Themes** | Not started | |
+| **3. Styles + Themes** | **Done** | Style registry, resolver, engine integration, inspector UI, canvas rendering. |
 | **4. Rich Text** | Not started | |
 | **5. Preview** | Not started | |
 | **6. Save + Publish** | Not started | |
