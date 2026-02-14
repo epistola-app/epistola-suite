@@ -7,6 +7,7 @@
  *   mountEditor(options)  → EditorInstance
  */
 
+import './editor.css'
 import './ui/EpistolaEditor.js'
 import type { EpistolaEditor } from './ui/EpistolaEditor.js'
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js'
