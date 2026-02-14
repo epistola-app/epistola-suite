@@ -1,0 +1,43 @@
+/*
+ * Editor Tree Panel
+ */
+
+@layer components {
+  .epistola-tree {
+    padding: var(--ep-space-2);
+  }
+
+  .tree-node {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tree-node-label {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-700);
+
+    &:hover {
+      background: var(--ep-gray-100);
+    }
+
+    &.selected {
+      background: var(--ep-blue-100);
+      color: var(--ep-blue-800);
+      font-weight: 500;
+    }
+  }
+
+  .tree-node-icon {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+
+    &.root {
+      font-weight: 700;
+    }
+  }
+}

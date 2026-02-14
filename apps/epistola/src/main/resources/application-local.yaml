@@ -7,6 +7,11 @@ spring:
   batch:
     job:
       enabled: true # enabled for async document generation
+  web:
+    resources:
+      static-locations:
+        - file:modules/  # Serves design-system CSS from filesystem for live editing
+        - classpath:/static/
   devtools:
     restart:
       enabled: true

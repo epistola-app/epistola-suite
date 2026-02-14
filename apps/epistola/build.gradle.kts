@@ -123,8 +123,15 @@ val copySbomToResources by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("resources/main/META-INF/sbom"))
 }
 
+// Copy design-system CSS to static resources so Spring Boot serves them at /design-system/*
+val copyDesignSystem by tasks.registering(Copy::class) {
+    from(rootProject.file("modules/design-system"))
+    include("*.css")
+    into(layout.buildDirectory.dir("resources/main/static/design-system"))
+}
+
 tasks.processResources {
-    dependsOn(copySbomToResources)
+    dependsOn(copySbomToResources, copyDesignSystem)
 }
 
 // Convenience task for generating SBOM standalone

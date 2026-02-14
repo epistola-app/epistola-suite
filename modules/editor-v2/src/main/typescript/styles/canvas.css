@@ -1,0 +1,124 @@
+/*
+ * Editor Canvas
+ */
+
+@layer components {
+  .epistola-canvas {
+    padding: var(--ep-space-6);
+  }
+
+  .canvas-page {
+    max-width: 48rem;
+    margin-inline: auto;
+    background: var(--ep-white);
+    border: var(--ep-border);
+    border-radius: var(--ep-radius-lg);
+    box-shadow: var(--ep-shadow-sm);
+    min-height: 24rem;
+    padding: var(--ep-space-4);
+  }
+
+  .canvas-slot {
+    /* non-empty slot: no extra styles */
+  }
+
+  .canvas-slot.empty {
+    min-height: 3rem;
+    border: 1px dashed var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .canvas-slot-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-block {
+    position: relative;
+    margin-block: var(--ep-space-1);
+    border-radius: var(--ep-radius-sm);
+    transition: box-shadow 150ms ease;
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--ep-gray-300);
+    }
+
+    &.selected {
+      box-shadow: 0 0 0 1px var(--ep-white), 0 0 0 3px var(--ep-blue-500);
+    }
+  }
+
+  .canvas-block-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    background: var(--ep-gray-50);
+    border-radius: var(--ep-radius-sm) var(--ep-radius-sm) 0 0;
+    border: var(--ep-border);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .canvas-block-label {
+    font-weight: 500;
+  }
+
+  .canvas-block-id {
+    color: var(--ep-gray-300);
+    margin-left: auto;
+    font-family: var(--ep-font-mono);
+    font-size: 10px;
+  }
+
+  .canvas-block-content {
+    padding: var(--ep-space-2);
+    border: var(--ep-border);
+    border-top: none;
+    border-radius: 0 0 var(--ep-radius-sm) var(--ep-radius-sm);
+
+    &.text-type {
+      min-height: 2rem;
+    }
+  }
+
+  .canvas-leaf-text {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-600);
+    font-style: italic;
+  }
+
+  .canvas-pagebreak {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding-block: var(--ep-space-1);
+  }
+
+  .canvas-pagebreak-line {
+    flex: 1;
+    border-top: 1px dashed var(--ep-gray-400);
+  }
+
+  .canvas-pagebreak-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-leaf-default {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-columns {
+    display: flex;
+    gap: var(--ep-space-2);
+  }
+
+  .canvas-column {
+    flex: 1;
+  }
+}

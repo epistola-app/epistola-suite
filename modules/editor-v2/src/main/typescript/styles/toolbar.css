@@ -1,0 +1,46 @@
+/*
+ * Editor Toolbar
+ */
+
+@layer components {
+  .epistola-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-4);
+    border-bottom: var(--ep-border);
+    background: var(--ep-white);
+  }
+
+  .toolbar-title {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    margin-left: var(--ep-space-4);
+  }
+
+  .toolbar-btn {
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-300);
+    color: var(--ep-gray-700);
+    background: var(--ep-white);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-gray-100);
+    }
+
+    &:disabled {
+      border-color: var(--ep-gray-100);
+      color: var(--ep-gray-300);
+      cursor: not-allowed;
+    }
+  }
+}

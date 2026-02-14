@@ -1,0 +1,43 @@
+/*
+ * Editor Palette Panel
+ */
+
+@layer components {
+  .epistola-palette {
+    padding: var(--ep-space-2);
+  }
+
+  .palette-category {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .palette-category-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-weight: 500;
+  }
+
+  .palette-item {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    width: 100%;
+    text-align: left;
+    padding: var(--ep-space-1-5) var(--ep-space-2);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-700);
+
+    &:hover {
+      background: var(--ep-gray-100);
+    }
+  }
+
+  .palette-item-icon {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    width: 1rem;
+    text-align: center;
+  }
+}

@@ -54,7 +54,7 @@ export class EpistolaInspector extends LitElement {
           <label class="inspector-field-label">Style Preset</label>
           <input
             type="text"
-            class="inspector-input"
+            class="ep-input"
             .value=${node.stylePreset ?? ''}
             @change=${(e: Event) => this._handleStylePreset(e)}
             placeholder="None"
@@ -64,7 +64,7 @@ export class EpistolaInspector extends LitElement {
         <!-- Delete -->
         <div class="inspector-delete-section">
           <button
-            class="inspector-delete-btn"
+            class="ep-btn-danger"
             @click=${this._handleDelete}
           >
             Delete Block
@@ -94,7 +94,7 @@ export class EpistolaInspector extends LitElement {
             <label class="inspector-field-label">${field.label}</label>
             <input
               type="text"
-              class="inspector-input"
+              class="ep-input"
               .value=${String(value ?? '')}
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
             />
@@ -106,7 +106,7 @@ export class EpistolaInspector extends LitElement {
             <label class="inspector-field-label">${field.label}</label>
             <input
               type="number"
-              class="inspector-input"
+              class="ep-input"
               .value=${String(value ?? 0)}
               @change=${(e: Event) => this._handlePropChange(field.key, Number((e.target as HTMLInputElement).value))}
             />
@@ -117,7 +117,7 @@ export class EpistolaInspector extends LitElement {
           <div class="inspector-checkbox-field">
             <input
               type="checkbox"
-              class="inspector-checkbox"
+              class="ep-checkbox"
               .checked=${Boolean(value)}
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).checked)}
             />
@@ -129,7 +129,7 @@ export class EpistolaInspector extends LitElement {
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
             <select
-              class="inspector-select"
+              class="ep-select"
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLSelectElement).value)}
             >
               ${(field.options ?? []).map(opt => html`
@@ -144,7 +144,7 @@ export class EpistolaInspector extends LitElement {
             <label class="inspector-field-label">${field.label}</label>
             <input
               type="text"
-              class="inspector-input mono"
+              class="ep-input mono"
               .value=${String(value ?? '')}
               @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
               placeholder="Expression..."

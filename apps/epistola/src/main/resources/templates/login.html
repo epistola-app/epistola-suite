@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${param.popup != null} ? 'Log In - Epistola' : 'Login - Epistola Suite'">Login - Epistola Suite</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <th:block th:replace="~{fragments/styles :: styles}" />
     <style>
         .login-container {
             max-width: 400px;

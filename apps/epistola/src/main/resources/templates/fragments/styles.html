@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!--
+        Shared CSS includes: design system tokens, base resets, shared components, and app styles.
+        Include this fragment in all templates that need styling.
+    -->
+    <th:block th:fragment="styles">
+        <link rel="stylesheet" th:href="@{/design-system/tokens.css}">
+        <link rel="stylesheet" th:href="@{/design-system/base.css}">
+        <link rel="stylesheet" th:href="@{/design-system/components.css}">
+        <link rel="stylesheet" th:href="@{/css/main.css}">
+    </th:block>
+</head>
+</html>

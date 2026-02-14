@@ -1,0 +1,90 @@
+/*
+ * Epistola Design System — Shared Components
+ *
+ * Reusable UI patterns used across the editor and main app.
+ * These are intentionally generic (not scoped to a specific panel).
+ */
+
+@layer components {
+
+  /* -- Panel patterns -------------------------------------------------------- */
+
+  .panel-heading {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    margin-bottom: var(--ep-space-1);
+  }
+
+  .panel-empty {
+    padding: var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-400);
+  }
+
+  .panel-error {
+    padding: var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-red-400);
+  }
+
+  /* -- Form controls --------------------------------------------------------- */
+
+  .ep-input {
+    width: 100%;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-sm);
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-white);
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px var(--ep-blue-500);
+      border-color: var(--ep-blue-500);
+    }
+
+    &.mono {
+      font-family: var(--ep-font-mono);
+    }
+  }
+
+  .ep-select {
+    width: 100%;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-sm);
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-white);
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px var(--ep-blue-500);
+      border-color: var(--ep-blue-500);
+    }
+  }
+
+  .ep-checkbox {
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-300);
+  }
+
+  /* -- Buttons --------------------------------------------------------------- */
+
+  .ep-btn-danger {
+    width: 100%;
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    background: var(--ep-red-50);
+    color: var(--ep-red-600);
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-sm);
+
+    &:hover {
+      background: var(--ep-red-100);
+    }
+  }
+}

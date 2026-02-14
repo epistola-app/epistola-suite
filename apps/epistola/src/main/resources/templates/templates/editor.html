@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <!-- Import map must be before any module scripts -->
     <th:block th:replace="~{fragments/importmap :: importmap}" />
-    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <th:block th:replace="~{fragments/styles :: styles}" />
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
     <style>
         /* Page layout for editor */

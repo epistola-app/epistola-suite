@@ -1,0 +1,56 @@
+/*
+ * Editor Layout — shell grid and panel sizing
+ */
+
+@layer layout {
+  .epistola-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--ep-white);
+    color: var(--ep-gray-900);
+  }
+
+  .editor-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--ep-gray-500);
+  }
+
+  .editor-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Panel sizing applied to custom element tags */
+  epistola-palette {
+    width: var(--ep-palette-width);
+    border-right: var(--ep-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  epistola-tree {
+    width: var(--ep-tree-width);
+    border-right: var(--ep-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  epistola-canvas {
+    flex: 1;
+    overflow: auto;
+    background: var(--ep-gray-50);
+  }
+
+  epistola-inspector {
+    width: var(--ep-inspector-width);
+    border-left: var(--ep-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+}

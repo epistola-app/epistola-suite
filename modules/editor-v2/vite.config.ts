@@ -6,6 +6,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src/main/typescript'),
+      '@design': path.resolve(__dirname, '../design-system'),
     },
   },
   server: {

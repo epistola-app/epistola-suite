@@ -1,0 +1,28 @@
+/*
+ * Epistola Design System — Base Layer
+ *
+ * Box-sizing reset and element defaults.
+ * Keep this minimal — only universal resets belong here.
+ */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  button {
+    cursor: pointer;
+    font: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  input,
+  select {
+    font: inherit;
+  }
+}

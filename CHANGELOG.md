@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Changed
+- **Design System: Split editor CSS into shared design system + component files**: Extracted the monolithic 550-line `editor.css` into a modular architecture
+  - New `modules/design-system/` with `tokens.css`, `base.css`, and `components.css` — shared between the editor and the main app
+  - Editor-specific styles split into 6 component files under `styles/` (editor-layout, toolbar, tree, canvas, palette, inspector)
+  - `editor.css` is now an import-only entry point with `@layer` ordering
+  - Generic form controls renamed: `.inspector-input` → `.ep-input`, `.inspector-select` → `.ep-select`, `.inspector-checkbox` → `.ep-checkbox`, `.inspector-delete-btn` → `.ep-btn-danger`
+  - Design tokens expanded with additional color palettes (green, yellow), font families, and spacing values
+  - Main app `main.css` rewritten to use `var(--ep-*)` design tokens instead of hardcoded colors
+  - New `fragments/styles.html` Thymeleaf fragment centralizes CSS includes across all 14 templates
+  - Gradle `copyDesignSystem` task copies design-system CSS into Spring Boot static resources
+  - Local dev: `application-local.yaml` serves design-system from filesystem for live editing
+  - Vite `@design` alias enables editor to import shared CSS from the design-system module
+
 - **Editor V2: Replaced Tailwind CSS with vanilla CSS**: Removed Tailwind CSS dependency in favor of hand-written CSS using modern features
   - Uses `@layer` (base, layout, components, states) for cascade control
   - Custom properties (design tokens) for colors, spacing, typography, radii, and panel widths
