@@ -27,11 +27,6 @@
       "enum": ["portrait", "landscape"]
     },
 
-    "TextAlign": {
-      "type": "string",
-      "enum": ["left", "center", "right", "justify"]
-    },
-
     "Margins": {
       "type": "object",
       "description": "Page margins in millimeters.",

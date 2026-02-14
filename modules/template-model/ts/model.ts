@@ -74,8 +74,6 @@ export interface ThemeRefOverride {
 
 export type PageFormat = 'A4' | 'Letter' | 'Custom'
 export type Orientation = 'portrait' | 'landscape'
-export type TextAlign = 'left' | 'center' | 'right' | 'justify'
-
 /** Page margins in millimeters. */
 export interface Margins {
   top: number

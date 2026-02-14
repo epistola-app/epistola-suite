@@ -13,7 +13,6 @@ export type {
   ThemeRefOverride,
   PageFormat,
   Orientation,
-  TextAlign,
   Margins,
   PageSettings,
   DocumentStyles,
