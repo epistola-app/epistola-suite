@@ -22,7 +22,7 @@ import java.io.OutputStream
 class DirectPdfRenderer(
     private val expressionEvaluator: CompositeExpressionEvaluator = CompositeExpressionEvaluator(),
     private val blockRendererRegistry: BlockRendererRegistry = createDefaultRegistry(),
-    private val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.Jsonata,
+    private val defaultExpressionLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
 ) {
 
     /**
@@ -49,7 +49,7 @@ class DirectPdfRenderer(
         // Apply margins from page settings
         val margins = template.pageSettings.margins
         document.setMargins(
-            margins.top.toFloat(),
+            margins.top.toFloat(), // Long (mm)
             margins.right.toFloat(),
             margins.bottom.toFloat(),
             margins.left.toFloat(),
@@ -117,8 +117,8 @@ class DirectPdfRenderer(
         }
 
         return when (orientation) {
-            Orientation.Portrait -> baseSize
-            Orientation.Landscape -> baseSize.rotate()
+            Orientation.portrait -> baseSize
+            Orientation.landscape -> baseSize.rotate()
         }
     }
 

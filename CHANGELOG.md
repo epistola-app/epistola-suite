@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **Kotlin codegen from JSON Schema**: Template model types (PageSettings, Margins, PageFormat, Orientation, Expression, ExpressionLanguage, BorderStyle, etc.) are now generated from JSON Schema using `json-kotlin-schema-codegen`, establishing the schemas as the single source of truth for both TypeScript and Kotlin types
+- **Open DocumentStyles**: `DocumentStyles` changed from a closed data class with 8 named properties to `Map<String, Any>`, matching the JSON Schema open object and letting the style-registry drive available properties
+
+### Removed
+- **TextAlign enum**: Removed from JSON Schema and all backend code. Text alignment is now a plain string value in the open DocumentStyles map
+
+### Changed
+- **Backend: Generated types replace handwritten types**: PageSettings, Margins, Orientation, PageFormat, Expression, ExpressionLanguage, and BorderStyle are now generated from JSON Schema. Enum values use lowercase matching JSON (e.g., `Orientation.portrait` instead of `Orientation.Portrait`). Margins properties changed from `Int` to `Long`. PageSettings/Margins no longer have default parameter values.
 - **Editor V2: Style editing and theme resolution** (Phase 3):
   - **Open DocumentStyles data model**: `DocumentStyles` changed from a closed interface with 8 hardcoded properties to `Record<string, unknown>`, matching block styles and letting the style-registry drive available properties
   - **PageSettings gains backgroundColor**: Moved from document styles (it's a page property, not an inheritable text style)

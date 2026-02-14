@@ -50,7 +50,7 @@ class TableBlockRenderer : BlockRenderer {
         )
 
         // Border style
-        val borderStyle = block.borderStyle ?: BorderStyle.All
+        val borderStyle = block.borderStyle ?: BorderStyle.all
         val borderColor = ColorConstants.GRAY
         val borderWidth = 0.5f
 
@@ -101,22 +101,22 @@ class TableBlockRenderer : BlockRenderer {
         val solidBorder = SolidBorder(borderColor, borderWidth)
 
         when (borderStyle) {
-            BorderStyle.All -> {
+            BorderStyle.all -> {
                 cell.setBorder(solidBorder)
             }
-            BorderStyle.Horizontal -> {
+            BorderStyle.horizontal -> {
                 cell.setBorderTop(solidBorder)
                 cell.setBorderBottom(solidBorder)
                 cell.setBorderLeft(Border.NO_BORDER)
                 cell.setBorderRight(Border.NO_BORDER)
             }
-            BorderStyle.Vertical -> {
+            BorderStyle.vertical -> {
                 cell.setBorderTop(Border.NO_BORDER)
                 cell.setBorderBottom(Border.NO_BORDER)
                 cell.setBorderLeft(solidBorder)
                 cell.setBorderRight(solidBorder)
             }
-            BorderStyle.None -> {
+            BorderStyle.none -> {
                 cell.setBorder(Border.NO_BORDER)
             }
         }

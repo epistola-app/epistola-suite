@@ -6,8 +6,8 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.validate
-import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.Margins
+import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
 import app.epistola.template.model.PageSettings
 import org.jdbi.v3.core.Jdbi
@@ -58,14 +58,15 @@ class CreateTenantHandler(
         }
         val themeSlug = "$prefix$suffix"
         val themeId = ThemeId.of(themeSlug)
-        val documentStyles = DocumentStyles(
-            fontFamily = "Helvetica, Arial, sans-serif",
-            fontSize = "11pt",
-            color = "#333333",
-            lineHeight = "1.5",
+        val documentStyles = mapOf(
+            "fontFamily" to "Helvetica, Arial, sans-serif",
+            "fontSize" to "11pt",
+            "color" to "#333333",
+            "lineHeight" to "1.5",
         )
         val pageSettings = PageSettings(
             format = PageFormat.A4,
+            orientation = Orientation.portrait,
             margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
         )
 

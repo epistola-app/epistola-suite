@@ -19,7 +19,11 @@ class DirectPdfRendererTest {
         val template = TemplateModel(
             id = "test",
             name = "Test Template",
-            pageSettings = PageSettings(),
+            pageSettings = PageSettings(
+                format = PageFormat.A4,
+                orientation = Orientation.portrait,
+                margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+            ),
             blocks = emptyList(),
         )
 
@@ -37,7 +41,11 @@ class DirectPdfRendererTest {
         val template = TemplateModel(
             id = "test",
             name = "Test Template",
-            pageSettings = PageSettings(),
+            pageSettings = PageSettings(
+                format = PageFormat.A4,
+                orientation = Orientation.portrait,
+                margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+            ),
             blocks = listOf(
                 TextBlock(
                     id = "text1",
@@ -69,7 +77,11 @@ class DirectPdfRendererTest {
         val template = TemplateModel(
             id = "test",
             name = "Test Template",
-            pageSettings = PageSettings(),
+            pageSettings = PageSettings(
+                format = PageFormat.A4,
+                orientation = Orientation.portrait,
+                margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+            ),
             blocks = listOf(
                 TextBlock(
                     id = "text1",
@@ -105,7 +117,7 @@ class DirectPdfRendererTest {
             name = "Test Template",
             pageSettings = PageSettings(
                 format = PageFormat.Letter,
-                orientation = Orientation.Landscape,
+                orientation = Orientation.landscape,
                 margins = Margins(top = 30, right = 25, bottom = 30, left = 25),
             ),
             blocks = emptyList(),
@@ -123,7 +135,11 @@ class DirectPdfRendererTest {
         val template = TemplateModel(
             id = "test",
             name = "Test Template",
-            pageSettings = PageSettings(),
+            pageSettings = PageSettings(
+                format = PageFormat.A4,
+                orientation = Orientation.portrait,
+                margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+            ),
             blocks = listOf(
                 TextBlock(
                     id = "text1",

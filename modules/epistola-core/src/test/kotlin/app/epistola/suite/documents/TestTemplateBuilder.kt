@@ -1,6 +1,5 @@
 package app.epistola.suite.documents
 
-import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.Margins
 import app.epistola.suite.templates.model.Orientation
 import app.epistola.suite.templates.model.PageFormat
@@ -26,10 +25,10 @@ object TestTemplateBuilder {
         version = 1,
         pageSettings = PageSettings(
             format = PageFormat.A4,
-            orientation = Orientation.Portrait,
+            orientation = Orientation.portrait,
             margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
         ),
         blocks = emptyList(),
-        documentStyles = DocumentStyles(),
+        documentStyles = emptyMap(),
     )
 }

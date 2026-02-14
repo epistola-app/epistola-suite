@@ -9,7 +9,6 @@ typealias PageFormat = app.epistola.template.model.PageFormat
 typealias Orientation = app.epistola.template.model.Orientation
 typealias Margins = app.epistola.template.model.Margins
 typealias DocumentStyles = app.epistola.template.model.DocumentStyles
-typealias TextAlign = app.epistola.template.model.TextAlign
 typealias Block = app.epistola.template.model.Block
 typealias TextBlock = app.epistola.template.model.TextBlock
 typealias ContainerBlock = app.epistola.template.model.ContainerBlock

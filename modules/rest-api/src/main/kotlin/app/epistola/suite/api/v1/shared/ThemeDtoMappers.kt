@@ -9,7 +9,6 @@ import app.epistola.suite.templates.model.Margins
 import app.epistola.suite.templates.model.Orientation
 import app.epistola.suite.templates.model.PageFormat
 import app.epistola.suite.templates.model.PageSettings
-import app.epistola.suite.templates.model.TextAlign
 import app.epistola.suite.themes.Theme
 import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
@@ -29,23 +28,23 @@ internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
     lastModified = lastModified,
 )
 
+// TODO: Update epistola-contract to use open map DocumentStyles and remove TextAlign enum
 internal fun DocumentStyles.toDto() = DocumentStylesDto(
-    fontFamily = fontFamily,
-    fontSize = fontSize,
-    fontWeight = fontWeight,
-    color = color,
-    lineHeight = lineHeight,
-    letterSpacing = letterSpacing,
-    textAlign = textAlign?.toDto(),
-    backgroundColor = backgroundColor,
+    fontFamily = this["fontFamily"] as? String,
+    fontSize = this["fontSize"] as? String,
+    fontWeight = this["fontWeight"] as? String,
+    color = this["color"] as? String,
+    lineHeight = this["lineHeight"] as? String,
+    letterSpacing = this["letterSpacing"] as? String,
+    textAlign = (this["textAlign"] as? String)?.let { align ->
+        try {
+            DocumentStylesDto.TextAlign.valueOf(align.uppercase())
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    },
+    backgroundColor = this["backgroundColor"] as? String,
 )
-
-internal fun TextAlign.toDto(): DocumentStylesDto.TextAlign = when (this) {
-    TextAlign.Left -> DocumentStylesDto.TextAlign.LEFT
-    TextAlign.Center -> DocumentStylesDto.TextAlign.CENTER
-    TextAlign.Right -> DocumentStylesDto.TextAlign.RIGHT
-    TextAlign.Justify -> DocumentStylesDto.TextAlign.JUSTIFY
-}
 
 internal fun PageSettings.toDto() = PageSettingsDto(
     format = format.toDto(),
@@ -60,41 +59,38 @@ internal fun PageFormat.toDto(): PageSettingsDto.Format = when (this) {
 }
 
 internal fun Orientation.toDto(): PageSettingsDto.Orientation = when (this) {
-    Orientation.Portrait -> PageSettingsDto.Orientation.PORTRAIT
-    Orientation.Landscape -> PageSettingsDto.Orientation.LANDSCAPE
+    Orientation.portrait -> PageSettingsDto.Orientation.PORTRAIT
+    Orientation.landscape -> PageSettingsDto.Orientation.LANDSCAPE
 }
 
 internal fun Margins.toDto() = MarginsDto(
-    top = top,
-    right = right,
-    bottom = bottom,
-    left = left,
+    top = top.toInt(),
+    right = right.toInt(),
+    bottom = bottom.toInt(),
+    left = left.toInt(),
 )
 
 // From DTO to domain
 
-internal fun DocumentStylesDto?.toDomain() = DocumentStyles(
-    fontFamily = this?.fontFamily,
-    fontSize = this?.fontSize,
-    fontWeight = this?.fontWeight,
-    color = this?.color,
-    lineHeight = this?.lineHeight,
-    letterSpacing = this?.letterSpacing,
-    textAlign = this?.textAlign?.toDomain(),
-    backgroundColor = this?.backgroundColor,
-)
-
-internal fun DocumentStylesDto.TextAlign.toDomain(): TextAlign = when (this) {
-    DocumentStylesDto.TextAlign.LEFT -> TextAlign.Left
-    DocumentStylesDto.TextAlign.CENTER -> TextAlign.Center
-    DocumentStylesDto.TextAlign.RIGHT -> TextAlign.Right
-    DocumentStylesDto.TextAlign.JUSTIFY -> TextAlign.Justify
+// TODO: Update epistola-contract to use open map DocumentStyles and remove TextAlign enum
+internal fun DocumentStylesDto?.toDomain(): DocumentStyles {
+    if (this == null) return emptyMap()
+    return buildMap {
+        fontFamily?.let { put("fontFamily", it) }
+        fontSize?.let { put("fontSize", it) }
+        fontWeight?.let { put("fontWeight", it) }
+        color?.let { put("color", it) }
+        lineHeight?.let { put("lineHeight", it) }
+        letterSpacing?.let { put("letterSpacing", it) }
+        textAlign?.let { put("textAlign", it.name.lowercase()) }
+        backgroundColor?.let { put("backgroundColor", it) }
+    }
 }
 
 internal fun PageSettingsDto.toDomain() = PageSettings(
     format = format?.toDomain() ?: PageFormat.A4,
-    orientation = orientation?.toDomain() ?: Orientation.Portrait,
-    margins = margins?.toDomain() ?: Margins(),
+    orientation = orientation?.toDomain() ?: Orientation.portrait,
+    margins = margins?.toDomain() ?: Margins(top = 20, right = 20, bottom = 20, left = 20),
 )
 
 internal fun PageSettingsDto.Format.toDomain(): PageFormat = when (this) {
@@ -104,15 +100,15 @@ internal fun PageSettingsDto.Format.toDomain(): PageFormat = when (this) {
 }
 
 internal fun PageSettingsDto.Orientation.toDomain(): Orientation = when (this) {
-    PageSettingsDto.Orientation.PORTRAIT -> Orientation.Portrait
-    PageSettingsDto.Orientation.LANDSCAPE -> Orientation.Landscape
+    PageSettingsDto.Orientation.PORTRAIT -> Orientation.portrait
+    PageSettingsDto.Orientation.LANDSCAPE -> Orientation.landscape
 }
 
 internal fun MarginsDto.toDomain() = Margins(
-    top = top ?: 20,
-    right = right ?: 20,
-    bottom = bottom ?: 20,
-    left = left ?: 20,
+    top = top?.toLong() ?: 20L,
+    right = right?.toLong() ?: 20L,
+    bottom = bottom?.toLong() ?: 20L,
+    left = left?.toLong() ?: 20L,
 )
 
 // Helper to convert ObjectNode map to Map<String, Any> map

@@ -8,7 +8,6 @@ import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
@@ -105,11 +104,11 @@ class DemoLoader(
                 tenantId = tenantId,
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
-                documentStyles = DocumentStyles(
-                    fontFamily = "Helvetica, Arial, sans-serif",
-                    fontSize = "11pt",
-                    color = "#333333",
-                    lineHeight = "1.5",
+                documentStyles = mapOf(
+                    "fontFamily" to "Helvetica, Arial, sans-serif",
+                    "fontSize" to "11pt",
+                    "color" to "#333333",
+                    "lineHeight" to "1.5",
                 ),
                 blockStylePresets = mapOf(
                     "heading1" to mapOf(
@@ -143,11 +142,11 @@ class DemoLoader(
                 tenantId = tenantId,
                 name = "Modern",
                 description = "Contemporary design with bold accents",
-                documentStyles = DocumentStyles(
-                    fontFamily = "Inter, system-ui, sans-serif",
-                    fontSize = "10pt",
-                    color = "#1f2937",
-                    lineHeight = "1.6",
+                documentStyles = mapOf(
+                    "fontFamily" to "Inter, system-ui, sans-serif",
+                    "fontSize" to "10pt",
+                    "color" to "#1f2937",
+                    "lineHeight" to "1.6",
                 ),
                 blockStylePresets = mapOf(
                     "heading1" to mapOf(
@@ -237,7 +236,7 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "3.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "4.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"

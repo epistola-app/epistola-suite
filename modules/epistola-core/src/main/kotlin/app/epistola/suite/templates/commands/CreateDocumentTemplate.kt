@@ -8,6 +8,8 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.Margins
+import app.epistola.suite.templates.model.Orientation
+import app.epistola.suite.templates.model.PageFormat
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.templates.model.TemplateModel
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -80,7 +82,11 @@ class CreateDocumentTemplateHandler(
                 id = UUID.randomUUID().toString(),
                 name = command.name,
                 version = 1,
-                pageSettings = PageSettings(margins = Margins()),
+                pageSettings = PageSettings(
+                    format = PageFormat.A4,
+                    orientation = Orientation.portrait,
+                    margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+                ),
                 blocks = emptyList(),
             )
             val templateModelJson = objectMapper.writeValueAsString(templateModel)

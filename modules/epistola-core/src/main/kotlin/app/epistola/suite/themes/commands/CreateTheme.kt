@@ -18,7 +18,7 @@ data class CreateTheme(
     val tenantId: TenantId,
     val name: String,
     val description: String? = null,
-    val documentStyles: DocumentStyles = DocumentStyles(),
+    val documentStyles: DocumentStyles = emptyMap(),
     val pageSettings: PageSettings? = null,
     val blockStylePresets: Map<String, Map<String, Any>>? = null,
 ) : Command<Theme> {

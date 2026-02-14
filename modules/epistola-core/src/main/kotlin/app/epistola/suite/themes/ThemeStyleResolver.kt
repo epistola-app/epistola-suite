@@ -123,16 +123,7 @@ class ThemeStyleResolver(
      * Merges theme and template document styles.
      * Template styles override theme styles where both are defined.
      */
-    private fun mergeDocumentStyles(themeStyles: DocumentStyles, templateStyles: DocumentStyles): DocumentStyles = DocumentStyles(
-        fontFamily = templateStyles.fontFamily ?: themeStyles.fontFamily,
-        fontSize = templateStyles.fontSize ?: themeStyles.fontSize,
-        fontWeight = templateStyles.fontWeight ?: themeStyles.fontWeight,
-        color = templateStyles.color ?: themeStyles.color,
-        lineHeight = templateStyles.lineHeight ?: themeStyles.lineHeight,
-        letterSpacing = templateStyles.letterSpacing ?: themeStyles.letterSpacing,
-        textAlign = templateStyles.textAlign ?: themeStyles.textAlign,
-        backgroundColor = templateStyles.backgroundColor ?: themeStyles.backgroundColor,
-    )
+    private fun mergeDocumentStyles(themeStyles: DocumentStyles, templateStyles: DocumentStyles): DocumentStyles = themeStyles + templateStyles
 
     companion object {
         /**

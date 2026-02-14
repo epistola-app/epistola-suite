@@ -94,8 +94,8 @@ class CompositeExpressionEvaluator(
     }
 
     private fun getEvaluator(language: ExpressionLanguage): ExpressionEvaluator = when (language) {
-        ExpressionLanguage.Jsonata -> jsonataEvaluator
-        ExpressionLanguage.JavaScript -> javaScriptEvaluator
-        ExpressionLanguage.SimplePath -> simplePathEvaluator
+        ExpressionLanguage.jsonata -> jsonataEvaluator
+        ExpressionLanguage.javascript -> javaScriptEvaluator
+        ExpressionLanguage.simple_path -> simplePathEvaluator
     }
 }
