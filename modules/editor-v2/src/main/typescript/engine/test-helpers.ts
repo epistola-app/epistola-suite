@@ -1,7 +1,7 @@
 /**
  * Test helpers for creating minimal TemplateDocuments.
  */
-import type { TemplateDocument, NodeId, SlotId } from '../types/model.js'
+import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import { createDefaultRegistry, type ComponentRegistry } from './registry.js'
 
 let counter = 0

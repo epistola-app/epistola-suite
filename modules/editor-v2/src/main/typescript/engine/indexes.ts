@@ -5,7 +5,7 @@
  * traversing the entire node/slot graph.
  */
 
-import type { NodeId, SlotId, TemplateDocument } from '../types/model.js'
+import type { NodeId, SlotId, TemplateDocument } from '../types/index.js'
 
 /**
  * Derived indexes for fast lookups into the document graph.

@@ -5,7 +5,7 @@
  * undo/redo, and change notification. Framework-agnostic.
  */
 
-import type { TemplateDocument, NodeId, SlotId } from '../types/model.js'
+import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
 import { type Command, type CommandResult, applyCommand } from './commands.js'
 import { UndoStack } from './undo.js'

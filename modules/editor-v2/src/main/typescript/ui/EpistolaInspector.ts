@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import type { TemplateDocument, NodeId, Node } from '../types/model.js'
+import type { TemplateDocument, NodeId, Node } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
 

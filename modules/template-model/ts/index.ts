@@ -1,7 +1,3 @@
-/**
- * Re-export all model types from the shared @epistola/template-model package.
- * This is the single import point for all type references within editor-v2.
- */
 export type {
   NodeId,
   SlotId,
@@ -19,4 +15,4 @@ export type {
   DocumentStyles,
   ExpressionLanguage,
   Expression,
-} from '@epistola/template-model'
+} from './model.js'

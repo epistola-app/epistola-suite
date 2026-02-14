@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
-import type { TemplateDocument, NodeId, SlotId } from '../types/model.js'
+import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 
 @customElement('epistola-tree')

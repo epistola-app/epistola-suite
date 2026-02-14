@@ -1,12 +1,11 @@
 /**
- * Core data model for the Editor V2 node/slot graph.
+ * TypeScript types for the Epistola template document model.
  *
- * This is the authoritative TypeScript definition. JSON Schemas in
- * modules/template-model/schemas/ are the canonical source; these types
- * will eventually be generated from those schemas via json-schema-to-typescript.
+ * These are the authoritative TS types used by the editor and other
+ * frontend code. They match the JSON Schemas in ../schemas/ 1:1.
  *
- * Until the generation pipeline is wired up (Phase 0.3), we maintain
- * these hand-written types that match the schema 1:1.
+ * NodeId and SlotId use branded types to prevent accidentally mixing
+ * them up at the type level (the runtime representation is plain string).
  */
 
 // ---------------------------------------------------------------------------

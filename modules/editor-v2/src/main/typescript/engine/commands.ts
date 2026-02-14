@@ -7,7 +7,7 @@
  *  3. Returns an inverse Command for undo
  */
 
-import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/model.js'
+import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js'
 import type { DocumentIndexes } from './indexes.js'
 import { isAncestor } from './indexes.js'
 import type { ComponentRegistry } from './registry.js'

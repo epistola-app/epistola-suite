@@ -9,10 +9,9 @@
 
 import './ui/EpistolaEditor.js'
 import type { EpistolaEditor } from './ui/EpistolaEditor.js'
-import type { TemplateDocument } from './types/model.js'
+import type { TemplateDocument, NodeId, SlotId } from './types/index.js'
 import { createDefaultRegistry } from './engine/registry.js'
 import { nanoid } from 'nanoid'
-import type { NodeId, SlotId } from './types/model.js'
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js'
 export { EditorEngine } from './engine/EditorEngine.js'

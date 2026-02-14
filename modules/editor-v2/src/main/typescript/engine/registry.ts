@@ -4,7 +4,7 @@
  * Used by: command validation, block palette, inspector, DnD.
  */
 
-import type { NodeId, SlotId, Node, Slot } from '../types/model.js'
+import type { NodeId, SlotId, Node, Slot } from '../types/index.js'
 import { nanoid } from 'nanoid'
 
 // ---------------------------------------------------------------------------

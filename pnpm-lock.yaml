@@ -234,6 +234,9 @@ importers:
 
   modules/editor-v2:
     dependencies:
+      '@epistola/template-model':
+        specifier: workspace:*
+        version: link:../template-model
       lit:
         specifier: ^3.3.0
         version: 3.3.2

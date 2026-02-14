@@ -11,7 +11,7 @@ import {
   slotId,
   resetCounter,
 } from './test-helpers.js'
-import type { NodeId, SlotId, TemplateDocument, Node, Slot } from '../types/model.js'
+import type { NodeId, SlotId, TemplateDocument, Node, Slot } from '../types/index.js'
 
 beforeEach(() => {
   resetCounter()
