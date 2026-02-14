@@ -1,11 +1,27 @@
 package app.epistola.template.model
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 
 /**
- * Template model structure matching the frontend editor's Template type.
+ * Document-level style overrides as an open map.
+ * The style-registry drives which properties are available — this type
+ * does not constrain them at the Kotlin level.
+ *
+ * Defined manually because the JSON Schema `{ "type": "object" }` with no
+ * properties cannot be expressed by the codegen tool as a Map type.
+ */
+typealias DocumentStyles = Map<String, Any>
+
+// ---------------------------------------------------------------------------
+// V1 Template Model (block-based, recursive)
+//
+// These types have no JSON Schema — they use complex Jackson polymorphism
+// annotations and will remain handwritten until the V1 editor is removed.
+// ---------------------------------------------------------------------------
+
+/**
+ * Template model structure matching the V1 frontend editor's Template type.
  * This is the visual layout structure stored in the database as JSON.
  *
  * @param themeId Optional reference to a Theme entity. When set, the template inherits
@@ -18,60 +34,8 @@ data class TemplateModel(
     val themeId: String? = null,
     val pageSettings: PageSettings,
     val blocks: List<Block> = emptyList(),
-    val documentStyles: DocumentStyles = DocumentStyles(),
+    val documentStyles: DocumentStyles = emptyMap(),
 )
-
-data class PageSettings(
-    val format: PageFormat = PageFormat.A4,
-    val orientation: Orientation = Orientation.Portrait,
-    val margins: Margins = Margins(),
-)
-
-enum class PageFormat {
-    A4,
-    Letter,
-    Custom,
-}
-
-enum class Orientation {
-    @JsonProperty("portrait")
-    Portrait,
-
-    @JsonProperty("landscape")
-    Landscape,
-}
-
-data class Margins(
-    val top: Int = 20,
-    val right: Int = 20,
-    val bottom: Int = 20,
-    val left: Int = 20,
-)
-
-data class DocumentStyles(
-    val fontFamily: String? = null,
-    val fontSize: String? = null,
-    val fontWeight: String? = null,
-    val color: String? = null,
-    val lineHeight: String? = null,
-    val letterSpacing: String? = null,
-    val textAlign: TextAlign? = null,
-    val backgroundColor: String? = null,
-)
-
-enum class TextAlign {
-    @JsonProperty("left")
-    Left,
-
-    @JsonProperty("center")
-    Center,
-
-    @JsonProperty("right")
-    Right,
-
-    @JsonProperty("justify")
-    Justify,
-}
 
 /**
  * Base class for all block types in a template.
@@ -170,20 +134,6 @@ data class TableBlock(
     override val type: String = "table"
 }
 
-enum class BorderStyle {
-    @JsonProperty("none")
-    None,
-
-    @JsonProperty("all")
-    All,
-
-    @JsonProperty("horizontal")
-    Horizontal,
-
-    @JsonProperty("vertical")
-    Vertical,
-}
-
 data class TableRow(
     val id: String,
     val cells: List<TableCell> = emptyList(),
@@ -223,32 +173,3 @@ data class PageFooterBlock(
 ) : Block() {
     override val type: String = "pagefooter"
 }
-
-/**
- * Expression language for template expressions.
- *
- * - JSONata: Concise syntax purpose-built for JSON transformation (recommended for most users)
- * - JavaScript: Full JS power for advanced use cases
- * - SimplePath: Lightweight path-only evaluation (fastest, no operations)
- */
-enum class ExpressionLanguage {
-    @JsonProperty("jsonata")
-    Jsonata,
-
-    @JsonProperty("javascript")
-    JavaScript,
-
-    @JsonProperty("simple_path")
-    SimplePath,
-}
-
-/**
- * An expression that can be evaluated against input data.
- *
- * @param raw The expression string
- * @param language The expression language (defaults to JSONata)
- */
-data class Expression(
-    val raw: String,
-    val language: ExpressionLanguage = ExpressionLanguage.Jsonata,
-)
