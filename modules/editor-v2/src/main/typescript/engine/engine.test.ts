@@ -924,7 +924,7 @@ describe('ComponentRegistry', () => {
       category: 'layout',
       slots: [{ name: 'children' }],
       allowedChildren: { mode: 'allowlist', types: ['text'] },
-      stylePolicy: { mode: 'all' },
+      applicableStyles: 'all',
       inspector: [],
     })
 
@@ -940,7 +940,7 @@ describe('ComponentRegistry', () => {
       category: 'layout',
       slots: [{ name: 'children' }],
       allowedChildren: { mode: 'denylist', types: ['pagebreak'] },
-      stylePolicy: { mode: 'all' },
+      applicableStyles: 'all',
       inspector: [],
     })
 

@@ -264,9 +264,11 @@ export class EpistolaCanvas extends LitElement {
     const def = this.engine!.registry.get(node.type)
     const label = def?.label ?? node.type
 
-    // Resolve styles through the full cascade for visual preview
+    // Resolve styles through the full cascade, filtered by component's applicable styles
     const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId)
-    const contentStyle = toStyleMap(resolvedStyles)
+    const applicableStyles = def?.applicableStyles
+    const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles)
+    const contentStyle = toStyleMap(filteredStyles)
 
     return html`
       <div
@@ -346,6 +348,20 @@ export class EpistolaCanvas extends LitElement {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Filter a resolved styles object to only include properties the component supports. */
+function filterByApplicableStyles(
+  styles: Record<string, unknown>,
+  applicableStyles: 'all' | string[] | undefined,
+): Record<string, unknown> {
+  if (!applicableStyles || applicableStyles === 'all') return styles
+  if (applicableStyles.length === 0) return {}
+  const result: Record<string, unknown> = {}
+  for (const key of applicableStyles) {
+    if (key in styles) result[key] = styles[key]
+  }
+  return result
+}
 
 /** Convert a camelCase key to kebab-case CSS property name. */
 function camelToKebab(key: string): string {

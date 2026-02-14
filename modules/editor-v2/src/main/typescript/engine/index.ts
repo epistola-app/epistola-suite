@@ -28,7 +28,6 @@ export {
   type ComponentDefinition,
   type ComponentCategory,
   type AllowedChildren,
-  type StylePolicy,
   type SlotTemplate,
   type InspectorField,
 } from './registry.js'

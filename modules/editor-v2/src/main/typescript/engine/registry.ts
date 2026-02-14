@@ -19,11 +19,6 @@ export type AllowedChildren =
   | { mode: 'denylist'; types: string[] }
   | { mode: 'none' }
 
-export type StylePolicy =
-  | { mode: 'all' }
-  | { mode: 'allowlist'; properties: string[] }
-  | { mode: 'none' }
-
 export interface SlotTemplate {
   name: string
   dynamic?: boolean
@@ -44,7 +39,12 @@ export interface ComponentDefinition {
   category: ComponentCategory
   slots: SlotTemplate[]
   allowedChildren: AllowedChildren
-  stylePolicy: StylePolicy
+  /**
+   * Which style property keys this component supports.
+   * - `'all'` = every property in the style registry
+   * - `string[]` = explicit allowlist of property keys (empty = no styles)
+   */
+  applicableStyles: 'all' | string[]
   inspector: InspectorField[]
   defaultProps?: Record<string, unknown>
 }
@@ -140,6 +140,13 @@ export class ComponentRegistry {
 // Built-in component definitions
 // ---------------------------------------------------------------------------
 
+/** Layout-oriented style properties (spacing + background + borders, no typography). */
+const LAYOUT_STYLES = [
+  'padding', 'margin',
+  'backgroundColor',
+  'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
+]
+
 export function createDefaultRegistry(): ComponentRegistry {
   const registry = new ComponentRegistry()
 
@@ -150,7 +157,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'layout',
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'denylist', types: ['root'] },
-    stylePolicy: { mode: 'none' },
+    applicableStyles: [],
     inspector: [],
   })
 
@@ -161,7 +168,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'content',
     slots: [],
     allowedChildren: { mode: 'none' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [],
     defaultProps: { content: null },
   })
@@ -173,7 +180,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'layout',
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [],
   })
 
@@ -184,7 +191,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'layout',
     slots: [{ name: 'column-{i}', dynamic: true }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: LAYOUT_STYLES,
     inspector: [
       { key: 'gap', label: 'Gap', type: 'number', defaultValue: 0 },
     ],
@@ -198,7 +205,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'layout',
     slots: [{ name: 'cell-{r}-{c}', dynamic: true }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: LAYOUT_STYLES,
     inspector: [
       {
         key: 'borderStyle',
@@ -227,7 +234,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'logic',
     slots: [{ name: 'body' }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: LAYOUT_STYLES,
     inspector: [
       { key: 'condition.raw', label: 'Condition', type: 'expression' },
       { key: 'inverse', label: 'Inverse (else)', type: 'boolean', defaultValue: false },
@@ -245,7 +252,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'logic',
     slots: [{ name: 'body' }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: LAYOUT_STYLES,
     inspector: [
       { key: 'expression.raw', label: 'Expression', type: 'expression' },
       { key: 'itemAlias', label: 'Item Alias', type: 'text', defaultValue: 'item' },
@@ -265,7 +272,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'page',
     slots: [],
     allowedChildren: { mode: 'none' },
-    stylePolicy: { mode: 'none' },
+    applicableStyles: [],
     inspector: [],
   })
 
@@ -276,7 +283,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'page',
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [],
   })
 
@@ -287,7 +294,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     category: 'page',
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
-    stylePolicy: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [],
   })
 

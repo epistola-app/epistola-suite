@@ -37,6 +37,7 @@
   - 14 new unit tests for drop logic (resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere)
 
 ### Changed
+- **Editor V2: Replace StylePolicy with applicableStyles**: Each component now declares which style property keys it supports via `applicableStyles: 'all' | string[]` instead of the old `StylePolicy` discriminated union. This makes components the authority over their own styles — groups remain a UI concern for inspector organization only. Layout components (columns, table, conditional, loop) now only support layout styles (spacing, background, borders) while content components (text, container, pageheader, pagefooter) support all styles. Canvas rendering also filters resolved styles through `applicableStyles`.
 - **Editor V2: Improved architecture separation**: Extracted shared logic from UI components into headless modules
   - New `dnd/drop-handler.ts`: shared drop execution (InsertNode/MoveNode dispatch) used by canvas and tree panels
   - Moved `getNodeDepth()` and `findAncestorAtLevel()` from `EpistolaTree` into `engine/indexes.ts` as pure functions

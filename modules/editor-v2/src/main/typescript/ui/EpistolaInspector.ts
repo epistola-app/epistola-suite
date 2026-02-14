@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
-import type { ComponentDefinition, InspectorField, StylePolicy } from '../engine/registry.js'
+import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
 import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
 import { getNestedValue, setNestedValue } from '../engine/props.js'
@@ -54,14 +54,14 @@ export class EpistolaInspector extends LitElement {
         }
 
         <!-- Style preset -->
-        ${this._shouldShowStyles(def?.stylePolicy)
+        ${this._hasStyles(def?.applicableStyles)
           ? this._renderStylePresetSection(node)
           : nothing
         }
 
         <!-- Style properties -->
-        ${this._shouldShowStyles(def?.stylePolicy)
-          ? this._renderNodeStyleGroups(node, def?.stylePolicy)
+        ${this._hasStyles(def?.applicableStyles)
+          ? this._renderNodeStyleGroups(node, def?.applicableStyles)
           : nothing
         }
 
@@ -192,9 +192,10 @@ export class EpistolaInspector extends LitElement {
   // Node style editing
   // -----------------------------------------------------------------------
 
-  private _shouldShowStyles(stylePolicy: StylePolicy | undefined): boolean {
-    if (!stylePolicy) return false
-    return stylePolicy.mode !== 'none'
+  private _hasStyles(applicableStyles: 'all' | string[] | undefined): boolean {
+    if (!applicableStyles) return false
+    if (applicableStyles === 'all') return true
+    return applicableStyles.length > 0
   }
 
   private _renderStylePresetSection(node: Node): unknown {
@@ -256,7 +257,7 @@ export class EpistolaInspector extends LitElement {
     })
   }
 
-  private _renderNodeStyleGroups(node: Node, stylePolicy: StylePolicy | undefined): unknown {
+  private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined): unknown {
     if (!this.engine) return nothing
 
     const groups = this.engine.styleRegistry.groups
@@ -266,7 +267,7 @@ export class EpistolaInspector extends LitElement {
       <div class="inspector-section">
         <div class="inspector-section-label">Styles</div>
         ${groups.map(group => {
-          const filteredProps = this._filterProperties(group.properties, stylePolicy)
+          const filteredProps = this._filterProperties(group.properties, applicableStyles)
           if (filteredProps.length === 0) return nothing
 
           return html`
@@ -284,11 +285,10 @@ export class EpistolaInspector extends LitElement {
     `
   }
 
-  private _filterProperties(properties: StyleProperty[], policy: StylePolicy | undefined): StyleProperty[] {
-    if (!policy || policy.mode === 'all') return properties
-    if (policy.mode === 'none') return []
-    // allowlist
-    return properties.filter(p => policy.properties.includes(p.key))
+  private _filterProperties(properties: StyleProperty[], applicableStyles: 'all' | string[] | undefined): StyleProperty[] {
+    if (!applicableStyles || applicableStyles === 'all') return properties
+    if (applicableStyles.length === 0) return []
+    return properties.filter(p => applicableStyles.includes(p.key))
   }
 
   private _renderStyleProperty(
