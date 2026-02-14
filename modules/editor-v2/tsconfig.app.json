@@ -32,5 +32,6 @@
       "@/*": ["./src/main/typescript/*"]
     }
   },
-  "include": ["src/main/typescript"]
+  "include": ["src/main/typescript"],
+  "exclude": ["src/main/typescript/**/*.test.ts", "src/main/typescript/**/test-helpers.ts"]
 }
