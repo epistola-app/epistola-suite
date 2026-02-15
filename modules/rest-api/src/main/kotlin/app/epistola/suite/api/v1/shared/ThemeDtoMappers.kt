@@ -10,6 +10,7 @@ import app.epistola.suite.templates.model.Orientation
 import app.epistola.suite.templates.model.PageFormat
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePreset
+import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -111,7 +112,11 @@ internal fun MarginsDto.toDomain() = Margins(
     left = left?.toLong() ?: 20L,
 )
 
-// Helper to convert ObjectNode map to Map<String, BlockStylePreset>
-internal fun Map<String, ObjectNode>?.toDomainPresets(objectMapper: ObjectMapper): Map<String, BlockStylePreset>? = this?.mapValues { (_, value) ->
-    objectMapper.convertValue(value, BlockStylePreset::class.java)
+// Helper to convert ObjectNode map to BlockStylePresets
+internal fun Map<String, ObjectNode>?.toDomainPresets(objectMapper: ObjectMapper): BlockStylePresets? = this?.let {
+    BlockStylePresets(
+        it.mapValues { (_, value) ->
+            objectMapper.convertValue(value, BlockStylePreset::class.java)
+        },
+    )
 }

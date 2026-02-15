@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service
 data class ResolvedStyles(
     val documentStyles: DocumentStyles,
     val pageSettings: PageSettings?,
-    val blockStylePresets: Map<String, BlockStylePreset>,
+    val blockStylePresets: BlockStylePresets,
 )
 
 /**
@@ -95,13 +95,13 @@ class ThemeStyleResolver(
             ResolvedStyles(
                 documentStyles = mergeDocumentStyles(theme.documentStyles, templateDocumentStyles),
                 pageSettings = theme.pageSettings, // Theme page settings as fallback
-                blockStylePresets = theme.blockStylePresets ?: emptyMap(),
+                blockStylePresets = theme.blockStylePresets ?: BlockStylePresets.EMPTY,
             )
         } else {
             ResolvedStyles(
                 documentStyles = templateDocumentStyles,
                 pageSettings = null,
-                blockStylePresets = emptyMap(),
+                blockStylePresets = BlockStylePresets.EMPTY,
             )
         }
     }
@@ -142,7 +142,7 @@ class ThemeStyleResolver(
          * @return Merged styles map with inline styles taking precedence
          */
         fun resolveBlockStyles(
-            blockStylePresets: Map<String, BlockStylePreset>,
+            blockStylePresets: BlockStylePresets,
             presetName: String?,
             inlineStyles: Map<String, Any>?,
         ): Map<String, Any>? {

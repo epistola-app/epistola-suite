@@ -35,6 +35,9 @@
   - 5 new Lucide icons: eye, eye-off, loader-2, alert-circle, refresh-cw
 - **Editor V2: Resolved expression values in chips**: Expression chips now show the resolved value from the currently selected data example (e.g., "John Doe" instead of `{{customer.name}}`). Falls back to showing the raw expression when no data example is selected, the expression evaluates to undefined/null/empty, or the result is a non-displayable type (object/array). Uses JSONata for full expression evaluation support including aggregations, string concatenation, and conditionals. Hovering a resolved chip shows the expression path in a tooltip. Switching data examples refreshes all chips asynchronously with a generation counter to prevent stale results.
 
+### Fixed
+- **Preview PDF generation**: Fixed `ClassCastException` (LinkedHashMap cannot be cast to BlockStylePreset) when previewing templates with a theme that has block style presets. Root cause was Java type erasure in JDBI's `@Json` deserialization of `Map<String, BlockStylePreset>`. Introduced `BlockStylePresets` wrapper type with explicit Jackson serializers, following the same pattern as `DataExamples`.
+
 ### Changed (Breaking)
 - **Block style presets format**: Changed `blockStylePresets` from flat `Map<String, Map<String, Any>>` to typed `Map<String, BlockStylePreset>` where `BlockStylePreset` has `{label, styles, applicableTo}` fields. This aligns the Kotlin backend with the TypeScript template-model type. Existing preset data in the database needs to be migrated to the new nested structure.
 - **Complete editor rewrite from v1 to v2**: Replaced the entire editor stack (React + TipTap + Zustand → Lit + ProseMirror + headless engine) and data model (flat `blocks[]` → normalized node/slot graph). This is a full-stack change:

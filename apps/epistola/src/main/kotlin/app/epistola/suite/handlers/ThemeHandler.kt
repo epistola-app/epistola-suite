@@ -33,7 +33,7 @@ data class UpdateThemeRequest(
     val documentStyles: DocumentStyles? = null,
     val pageSettings: PageSettings? = null,
     val clearPageSettings: Boolean = false,
-    val blockStylePresets: Map<String, BlockStylePreset>? = null,
+    val blockStylePresets: BlockStylePresets? = null,
     val clearBlockStylePresets: Boolean = false,
 )
 
