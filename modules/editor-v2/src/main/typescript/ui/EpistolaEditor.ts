@@ -5,6 +5,7 @@ import { EditorEngine } from '../engine/EditorEngine.js'
 import { createDefaultRegistry } from '../engine/registry.js'
 import type { ComponentRegistry } from '../engine/registry.js'
 import type { FetchPreviewFn } from './preview-service.js'
+import { SaveService, type SaveState, type SaveFn } from './save-service.js'
 import { EpistolaResizeHandle } from './EpistolaResizeHandle.js'
 
 import './EpistolaSidebar.js'
@@ -31,12 +32,16 @@ export class EpistolaEditor extends LitElement {
   private _engine?: EditorEngine
   private _unsubEngine?: () => void
   private _unsubSelection?: () => void
+  private _saveService?: SaveService
   private _onKeydown = this._handleKeydown.bind(this)
+  private _onBeforeUnload = this._handleBeforeUnload.bind(this)
 
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn
+  @property({ attribute: false }) onSave?: SaveFn
   @state() private _doc?: TemplateDocument
   @state() private _selectedNodeId: NodeId | null = null
   @state() private _previewOpen = false
+  @state() private _saveState: SaveState = { status: 'idle' }
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open'
 
@@ -52,9 +57,11 @@ export class EpistolaEditor extends LitElement {
     registry?: ComponentRegistry,
     options?: { dataModel?: object; dataExamples?: object[] },
   ): void {
-    // Clean up previous engine
+    // Clean up previous engine and save service
     this._unsubEngine?.()
     this._unsubSelection?.()
+    this._saveService?.dispose()
+    this._saveService = undefined
 
     const reg = registry ?? createDefaultRegistry()
     this._engine = new EditorEngine(doc, reg, {
@@ -65,17 +72,31 @@ export class EpistolaEditor extends LitElement {
 
     this._unsubEngine = this._engine.events.on('doc:change', ({ doc }) => {
       this._doc = doc
+      // Notify save service of changes
+      if (this._saveService) {
+        this._saveService.markDirty()
+        this._saveService.scheduleAutoSave(doc)
+      }
     })
 
     this._unsubSelection = this._engine.events.on('selection:change', ({ nodeId }) => {
       this._selectedNodeId = nodeId
     })
+
+    // Create save service if onSave callback is provided
+    if (this.onSave) {
+      this._saveService = new SaveService(this.onSave, (state) => {
+        this._saveState = state
+      })
+    }
   }
 
   override connectedCallback(): void {
     super.connectedCallback()
     this.addEventListener('keydown', this._onKeydown)
     this.addEventListener('toggle-preview', this._handleTogglePreview)
+    this.addEventListener('force-save', this._handleForceSave)
+    window.addEventListener('beforeunload', this._onBeforeUnload)
 
     // Restore preview open state from localStorage
     try {
@@ -88,22 +109,28 @@ export class EpistolaEditor extends LitElement {
   override disconnectedCallback(): void {
     this.removeEventListener('keydown', this._onKeydown)
     this.removeEventListener('toggle-preview', this._handleTogglePreview)
+    this.removeEventListener('force-save', this._handleForceSave)
+    window.removeEventListener('beforeunload', this._onBeforeUnload)
     super.disconnectedCallback()
     this._unsubEngine?.()
     this._unsubSelection?.()
+    this._saveService?.dispose()
   }
 
   /**
-   * Global keyboard handler for undo/redo. The engine processes entries
-   * from its undo stack — TextChange entries delegate to ProseMirror's
-   * native history, Command entries are applied directly.
+   * Global keyboard handler for undo/redo and save.
    */
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
     const mod = e.metaKey || e.ctrlKey
     if (!mod) return
 
-    if (e.key === 'z' && !e.shiftKey) {
+    if (e.key === 's') {
+      e.preventDefault()
+      if (this._saveService && this._doc) {
+        this._saveService.forceSave(this._doc)
+      }
+    } else if (e.key === 'z' && !e.shiftKey) {
       e.preventDefault()
       this._engine.undo()
     } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
@@ -121,12 +148,28 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
+  private _handleForceSave = () => {
+    if (this._saveService && this._doc) {
+      this._saveService.forceSave(this._doc)
+    }
+  }
+
+  /**
+   * Warn users about unsaved changes when closing/navigating away.
+   */
+  private _handleBeforeUnload(e: BeforeUnloadEvent): void {
+    if (this._saveService?.isDirtyOrSaving) {
+      e.preventDefault()
+    }
+  }
+
   override render() {
     if (!this._engine || !this._doc) {
       return html`<div class="editor-empty">No template loaded</div>`
     }
 
     const hasPreview = !!this.fetchPreview
+    const hasSave = !!this.onSave
     const showPreview = hasPreview && this._previewOpen
     const previewWidth = showPreview ? EpistolaResizeHandle.getPersistedWidth() : undefined
 
@@ -137,6 +180,8 @@ export class EpistolaEditor extends LitElement {
           .engine=${this._engine}
           .previewOpen=${this._previewOpen}
           .hasPreview=${hasPreview}
+          .hasSave=${hasSave}
+          .saveState=${this._saveState}
         ></epistola-toolbar>
 
         <!-- Main layout: sidebar | canvas | [resize-handle | preview] -->

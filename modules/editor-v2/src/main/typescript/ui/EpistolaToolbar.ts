@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
+import type { SaveState } from './save-service.js'
 import { icon } from './icons.js'
 
 @customElement('epistola-toolbar')
@@ -12,6 +13,8 @@ export class EpistolaToolbar extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
   @property({ type: Boolean }) previewOpen = false
   @property({ type: Boolean }) hasPreview = false
+  @property({ type: Boolean }) hasSave = false
+  @property({ attribute: false }) saveState?: SaveState
 
   @state() private _currentExampleIndex = 0
 
@@ -62,6 +65,10 @@ export class EpistolaToolbar extends LitElement {
     this.requestUpdate()
   }
 
+  private _handleForceSave() {
+    this.dispatchEvent(new CustomEvent('force-save', { bubbles: true, composed: true }))
+  }
+
   private _handleTogglePreview() {
     this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }))
   }
@@ -103,6 +110,8 @@ export class EpistolaToolbar extends LitElement {
           </button>
         </div>
 
+        ${this.hasSave ? this._renderSaveButton() : nothing}
+
         ${this.hasPreview
           ? html`
               <div class="toolbar-separator"></div>
@@ -118,6 +127,60 @@ export class EpistolaToolbar extends LitElement {
 
         ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
       </div>
+    `
+  }
+
+  private _renderSaveButton() {
+    const status = this.saveState?.status ?? 'idle'
+    const isError = status === 'error'
+    const errorMsg = isError ? (this.saveState as { status: 'error'; message: string }).message : ''
+
+    // Determine button attributes based on state
+    const disabled = status === 'idle' || status === 'saving' || status === 'saved'
+    const cssClass = `toolbar-btn ${status === 'saving' ? 'saving' : ''} ${status === 'saved' ? 'saved' : ''} ${isError ? 'save-error' : ''}`
+
+    let iconName: 'save' | 'check' | 'loader-2' | 'triangle-alert'
+    let label: string
+    let title: string
+
+    switch (status) {
+      case 'idle':
+        iconName = 'check'
+        label = 'Saved'
+        title = 'All changes saved'
+        break
+      case 'dirty':
+        iconName = 'save'
+        label = 'Save'
+        title = 'Save (Ctrl+S)'
+        break
+      case 'saving':
+        iconName = 'loader-2'
+        label = 'Saving...'
+        title = 'Saving changes...'
+        break
+      case 'saved':
+        iconName = 'check'
+        label = 'Saved'
+        title = 'All changes saved'
+        break
+      case 'error':
+        iconName = 'triangle-alert'
+        label = 'Save'
+        title = `Save failed: ${errorMsg}. Click to retry.`
+        break
+    }
+
+    return html`
+      <div class="toolbar-separator"></div>
+      <button
+        class=${cssClass}
+        ?disabled=${disabled}
+        @click=${this._handleForceSave}
+        title=${title}
+      >
+        ${icon(iconName)} ${label}
+      </button>
     `
   }
 

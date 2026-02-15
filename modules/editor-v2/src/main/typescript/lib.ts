@@ -80,7 +80,7 @@ export function createEmptyDocument(): TemplateDocument {
  * Mount the editor into a DOM element.
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataModel, dataExamples, onFetchPreview } = options
+  const { container, template, dataModel, dataExamples, onFetchPreview, onSave } = options
   const doc = template ?? createEmptyDocument()
 
   // Create the custom element
@@ -95,6 +95,11 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   // Wire up preview callback if provided
   if (onFetchPreview) {
     editorEl.fetchPreview = onFetchPreview
+  }
+
+  // Wire up save callback if provided
+  if (onSave) {
+    editorEl.onSave = onSave
   }
 
   // Mount into the container
