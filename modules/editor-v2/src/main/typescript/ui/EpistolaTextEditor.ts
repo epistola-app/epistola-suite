@@ -149,6 +149,18 @@ export class EpistolaTextEditor extends LitElement implements UndoHandler {
           this._flushContent()
           return false
         },
+        // Block the history plugin's beforeinput handler for undo/redo.
+        // The engine owns undo/redo via the strategy pattern — without this,
+        // the browser fires beforeinput(historyUndo) AND our keydown handler
+        // routes through engine.undo(), causing a double undo per keystroke.
+        beforeinput: (_view: EditorView, e: Event) => {
+          const inputType = (e as InputEvent).inputType
+          if (inputType === 'historyUndo' || inputType === 'historyRedo') {
+            e.preventDefault()
+            return true
+          }
+          return false
+        },
       },
     })
 
