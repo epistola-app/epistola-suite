@@ -255,6 +255,9 @@ importers:
       '@floating-ui/dom':
         specifier: ^1.7.5
         version: 1.7.5
+      jsonata:
+        specifier: ^2.0.5
+        version: 2.1.0
       lit:
         specifier: ^3.3.0
         version: 3.3.2

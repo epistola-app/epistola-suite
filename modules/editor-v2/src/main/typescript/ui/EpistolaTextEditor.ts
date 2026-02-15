@@ -57,6 +57,7 @@ export class EpistolaTextEditor extends LitElement {
   private _pmContainer: HTMLDivElement | null = null
   private _lastContentJson: string = ''
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private _unsubExample: (() => void) | null = null
 
   /** The TextChangeOps for this PM view. Used to identify our session on the undo stack. */
   private _ops: TextChangeOps | null = null
@@ -73,6 +74,13 @@ export class EpistolaTextEditor extends LitElement {
     this._pmContainer = this.querySelector('.prosemirror-container')
     if (!this._pmContainer) return
     this._createProseMirror()
+
+    // Refresh expression chips when the data example changes
+    if (this.engine) {
+      this._unsubExample = this.engine.events.on('example:change', () => {
+        ExpressionNodeView.refreshAll()
+      })
+    }
   }
 
   override updated(changed: Map<string, unknown>): void {
@@ -98,6 +106,10 @@ export class EpistolaTextEditor extends LitElement {
       this._dispatchContentToEngine(this._pmView.state.doc)
     }
 
+    // Unsubscribe from example changes
+    this._unsubExample?.()
+    this._unsubExample = null
+
     // Cache PM EditorState for history preservation across delete/undo cycles
     if (this._pmView && this.engine && this.nodeId) {
       this.engine.cachePmState(this.nodeId, this._pmView.state)
@@ -120,8 +132,16 @@ export class EpistolaTextEditor extends LitElement {
       ? extractFieldPaths(this.engine.dataModel)
       : []
 
+    const engine = this.engine
+    const getExampleData = engine
+      ? () => {
+          const example = engine.currentExample as Record<string, unknown> | undefined
+          return example?.data as Record<string, unknown> | undefined
+        }
+      : undefined
+
     const plugins = createPlugins(epistolaSchema, {
-      expressionNodeViewOptions: { fieldPaths },
+      expressionNodeViewOptions: { fieldPaths, getExampleData },
     })
 
     // Check for cached PM state (preserved across delete/undo cycles)
@@ -150,7 +170,7 @@ export class EpistolaTextEditor extends LitElement {
       state: editorState,
       nodeViews: {
         expression: (node, view, getPos) =>
-          new ExpressionNodeView(node, view, getPos, { fieldPaths }),
+          new ExpressionNodeView(node, view, getPos, { fieldPaths, getExampleData }),
       },
       dispatchTransaction: (tr) => {
         if (!this._pmView) return
