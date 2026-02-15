@@ -6,7 +6,7 @@ import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
 import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
 import { getNestedValue, setNestedValue } from '../engine/props.js'
-import { isValidExpression, validateArrayResult } from '../engine/resolve-expression.js'
+import { isValidExpression, validateArrayResult, validateBooleanResult } from '../engine/resolve-expression.js'
 import { openExpressionDialog } from './expression-dialog.js'
 import {
   renderUnitInput,
@@ -658,20 +658,27 @@ export class EpistolaInspector extends LitElement {
 
     // For loop expressions, highlight array-type fields
     const isLoopExpr = node.type === 'loop' && key === 'expression.raw'
+    const isConditionalExpr = node.type === 'conditional' && key === 'condition.raw'
     const placeholder = isLoopExpr
       ? 'e.g. items'
-      : node.type === 'conditional'
+      : isConditionalExpr
         ? 'e.g. customer.active'
         : 'e.g. customer.name'
+
+    const resultValidator = isLoopExpr
+      ? validateArrayResult
+      : isConditionalExpr
+        ? validateBooleanResult
+        : undefined
 
     openExpressionDialog({
       initialValue: currentValue,
       fieldPaths: this.engine.fieldPaths,
       getExampleData: () => this.engine?.getExampleData(),
-      label: node.type === 'loop' ? 'Loop Expression' : 'Condition',
+      label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',
       placeholder,
       fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,
-      resultValidator: isLoopExpr ? validateArrayResult : undefined,
+      resultValidator,
     }).then(({ value }) => {
       if (value !== null) {
         this._handlePropChange(key, value)

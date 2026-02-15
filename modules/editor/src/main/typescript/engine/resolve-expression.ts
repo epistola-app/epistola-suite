@@ -118,6 +118,21 @@ export function validateArrayResult(value: unknown): string | null {
 }
 
 /**
+ * Validates that an evaluated expression result is a boolean.
+ * Intended as a `resultValidator` for conditional expression dialogs.
+ *
+ * Returns an error message if the value is not a boolean, null if valid.
+ * `undefined` results (missing path) are not flagged since the expression
+ * may be valid with different data.
+ */
+export function validateBooleanResult(value: unknown): string | null {
+  if (value === undefined) return null
+  if (typeof value === 'boolean') return null
+  const type = value === null ? 'null' : typeof value
+  return `Condition must evaluate to a boolean, got ${type}: ${formatForPreview(value)}`
+}
+
+/**
  * Synchronous parse-only check. Returns `true` if the expression is
  * syntactically valid JSONata (does NOT evaluate it).
  *

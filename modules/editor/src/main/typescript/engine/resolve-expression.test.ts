@@ -6,6 +6,7 @@ import {
   formatForPreview,
   isValidExpression,
   validateArrayResult,
+  validateBooleanResult,
 } from './resolve-expression.js'
 
 // ---------------------------------------------------------------------------
@@ -324,6 +325,54 @@ describe('validateArrayResult', () => {
   it('returns error for an object (single-result filter)', () => {
     const result = validateArrayResult({ name: 'item' })
     expect(result).toContain('must evaluate to an array')
+    expect(result).toContain('object')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// validateBooleanResult
+// ---------------------------------------------------------------------------
+
+describe('validateBooleanResult', () => {
+  it('returns null for true', () => {
+    expect(validateBooleanResult(true)).toBeNull()
+  })
+
+  it('returns null for false', () => {
+    expect(validateBooleanResult(false)).toBeNull()
+  })
+
+  it('returns null for undefined (missing path)', () => {
+    expect(validateBooleanResult(undefined)).toBeNull()
+  })
+
+  it('returns error for a string', () => {
+    const result = validateBooleanResult('yes')
+    expect(result).toContain('must evaluate to a boolean')
+    expect(result).toContain('string')
+  })
+
+  it('returns error for a number', () => {
+    const result = validateBooleanResult(1)
+    expect(result).toContain('must evaluate to a boolean')
+    expect(result).toContain('number')
+  })
+
+  it('returns error for null', () => {
+    const result = validateBooleanResult(null)
+    expect(result).toContain('must evaluate to a boolean')
+    expect(result).toContain('null')
+  })
+
+  it('returns error for an array', () => {
+    const result = validateBooleanResult([1, 2])
+    expect(result).toContain('must evaluate to a boolean')
+    expect(result).toContain('object')
+  })
+
+  it('returns error for an object', () => {
+    const result = validateBooleanResult({ active: true })
+    expect(result).toContain('must evaluate to a boolean')
     expect(result).toContain('object')
   })
 })
