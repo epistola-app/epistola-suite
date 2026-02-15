@@ -26,7 +26,7 @@ data class PreviewContext(
 
 /**
  * Internal row representation for JDBI mapping.
- * JDBI's Jackson plugin handles JSONB -> TemplateModel conversion via @Json annotation.
+ * JDBI's Jackson plugin handles JSONB -> TemplateDocument conversion via @Json annotation.
  */
 private data class PreviewContextRow(
     @Json val draftTemplateModel: TemplateDocument?,

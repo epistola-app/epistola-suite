@@ -15,7 +15,7 @@ import java.time.OffsetDateTime
  * - Optional page settings (format, orientation, margins)
  * - Named block style presets (like CSS classes for blocks)
  *
- * Templates reference a theme via themeId in TemplateModel. Style cascade order:
+ * Templates reference a theme via themeRef in TemplateDocument. Style cascade order:
  * 1. Theme document styles (lowest priority)
  * 2. Template document styles (override theme)
  * 3. Theme block preset (when block has stylePreset)
