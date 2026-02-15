@@ -198,6 +198,12 @@
       template: createEmptyDocument(),
       dataModel,
       dataExamples,
+      onSave: async (doc) => {
+        // Stub: simulate a 500ms server round-trip, then succeed
+        console.log('[onSave] Saving template document...', doc)
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        console.log('[onSave] Save complete.')
+      },
       onFetchPreview: async (doc, data, signal) => {
         // Stub: simulate a 300ms server round-trip, then return a minimal PDF
         await new Promise((resolve, reject) => {

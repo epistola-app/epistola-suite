@@ -11,7 +11,7 @@
 | **3. Styles + Themes** | **Done** | Style registry, resolver, engine integration, inspector UI, canvas rendering. |
 | **4. Rich Text** | **Done** | ProseMirror integration, expression chips, bubble menu, input rules. |
 | **5. Preview** | **Done** | PDF preview panel with resize, toggle, debounced fetch, stub callback. |
-| **6. Save + Publish** | Not started | |
+| **6. Save + Autosave** | **Done** | SaveService, autosave (3s debounce), Ctrl+S, dirty tracking, beforeunload. |
 | **7. Backend Adaptation** | Not started | |
 | **8. Cleanup** | Not started | |
 

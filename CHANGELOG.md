@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: Save + Autosave** (Phase 6): Automatic and manual save functionality for the template editor
+  - **SaveService**: Pure TypeScript class managing save lifecycle with state machine (idle → dirty → saving → saved → idle). 3-second debounced autosave coalesces rapid changes, concurrent save prevention queues pending documents, saved state auto-transitions to idle after 2 seconds. 19 unit tests cover all transitions.
+  - **Ctrl+S**: Keyboard shortcut for immediate save, bypasses autosave debounce
+  - **Save button**: Toolbar button between undo/redo and preview with state-dependent rendering — idle (checkmark), dirty (save icon, enabled), saving (spinner animation), saved (green checkmark), error (red warning, click to retry with tooltip)
+  - **Dirty tracking**: First keystroke immediately transitions to dirty state for instant UI feedback
+  - **beforeunload warning**: Browser warns when closing/navigating away with unsaved changes
+  - **EditorOptions.onSave**: Callback pattern where the host page owns the HTTP request and the editor owns autosave/debounce/state lifecycle
+  - 2 new Lucide icons: check, triangle-alert
 - **Editor V2: PDF preview panel** (Phase 5): Resizable panel next to the canvas that displays server-rendered PDF previews
   - **PreviewService**: Pure TypeScript class managing debounced fetch scheduling, AbortController for in-flight cancellation, blob URL lifecycle (creation/revocation), and a state machine (idle → loading → success/error). 12 unit tests cover all transitions.
   - **EpistolaPreview**: Lit component subscribing to `doc:change` and `example:change` events, rendering an iframe with blob URL on success, or loading/error/idle placeholder states with retry button
