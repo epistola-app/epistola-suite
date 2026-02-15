@@ -1,18 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${tenant.name} + ' - Epistola'">Tenant - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
-        <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo; <span th:text="${tenant.name}">Tenant</span>
-        </nav>
-
+    <th:block th:fragment="content">
         <div class="tenant-header">
             <h1 th:text="${tenant.name}">Tenant Name</h1>
             <span class="tenant-id" th:text="'ID: ' + ${tenant.id}">ID: tenant-id</span>
@@ -84,8 +73,6 @@
                 </div>
             </a>
         </div>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>

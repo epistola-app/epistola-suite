@@ -46,8 +46,10 @@ class ThemeHandler(
         val tenant = GetTenant(id = TenantId.of(tenantId)).query()
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
-            "themes/list",
+            "layout/shell",
             mapOf(
+                "contentView" to "themes/list",
+                "pageTitle" to "Themes - Epistola",
                 "tenantId" to tenantId,
                 "tenant" to tenant,
                 "themes" to themes,
@@ -150,8 +152,10 @@ class ThemeHandler(
         )
 
         return ServerResponse.ok().render(
-            "themes/detail",
+            "layout/shell",
             mapOf(
+                "contentView" to "themes/detail",
+                "pageTitle" to "${theme.name} - Epistola",
                 "tenantId" to tenantId,
                 "theme" to theme,
                 "themeJson" to themeJson,

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Epistola'">Epistola</title>
+    <th:block th:replace="~{fragments/styles :: styles}" />
+    <link rel="stylesheet" th:href="@{/css/shell.css}">
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
+</head>
+<body class="app-shell" hx-boost="true">
+
+    <th:block th:replace="~{layout/nav :: nav}" />
+
+    <main id="main-content" class="main-content">
+        <div th:replace="~{__${contentView}__ :: content}">Page content</div>
+    </main>
+
+    <th:block th:replace="~{fragments/footer :: footer}" />
+</body>
+</html>

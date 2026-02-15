@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+    <nav th:fragment="nav" id="app-nav" class="app-nav">
+        <div class="app-nav-left">
+            <a th:href="@{/tenants/{id}(id=${tenantId})}" class="app-nav-logo" title="Tenant home">
+                <th:block th:replace="~{fragments/icon :: icon(name='mail', class='ep-icon')}" />
+                <span>Epistola</span>
+            </a>
+
+            <div class="app-nav-links">
+                <a th:href="@{/tenants/{id}/templates(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'templates'} ? ' active' : ''">
+                    Templates
+                </a>
+                <a th:href="@{/tenants/{id}/themes(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'themes'} ? ' active' : ''">
+                    Themes
+                </a>
+                <a th:href="@{/tenants/{id}/environments(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'environments'} ? ' active' : ''">
+                    Environments
+                </a>
+                <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
+                    Load Tests
+                </a>
+            </div>
+        </div>
+
+        <div class="app-nav-right">
+            <a th:href="@{/}" class="app-nav-tenant" title="Switch tenant">
+                <th:block th:replace="~{fragments/icon :: icon(name='building-2', class='ep-icon ep-icon-sm')}" />
+                <span th:text="${tenantName} ?: 'Tenant'">Tenant</span>
+            </a>
+
+            <div class="app-nav-user" sec:authorize="isAuthenticated()">
+                <span class="app-nav-username" sec:authentication="name">user</span>
+                <span class="app-nav-separator">|</span>
+                <a th:href="@{/api-docs/index.html}" class="app-nav-link-sm" hx-boost="false">API Docs</a>
+                <span class="app-nav-separator">|</span>
+                <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
+                    <button type="submit" class="app-nav-link-sm app-nav-logout">Logout</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Mobile hamburger toggle -->
+        <button class="app-nav-hamburger" onclick="this.closest('.app-nav').classList.toggle('nav-open')" aria-label="Toggle navigation">
+            <th:block th:replace="~{fragments/icon :: icon(name='menu', class='ep-icon')}" />
+        </button>
+    </nav>
+</body>
+</html>

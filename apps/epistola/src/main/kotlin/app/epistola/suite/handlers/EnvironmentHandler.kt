@@ -24,8 +24,10 @@ class EnvironmentHandler {
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val environments = ListEnvironments(tenantId = tenantId).query()
         return ServerResponse.ok().render(
-            "environments/list",
+            "layout/shell",
             mapOf(
+                "contentView" to "environments/list",
+                "pageTitle" to "Environments - Epistola",
                 "tenant" to tenant,
                 "tenantId" to tenantId.value,
                 "environments" to environments,

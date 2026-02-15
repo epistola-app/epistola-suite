@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- **Unified App Shell with Top Navigation Bar**: Replaced standalone page navigation with a persistent top nav bar for all tenant-scoped pages
+  - **App shell layout**: New `layout/shell.html` master template with nav bar, content slot, and footer. All tenant-scoped pages now render within the shell.
+  - **Navigation bar**: Persistent top bar with Epistola logo, section links (Templates, Themes, Environments, Load Tests), tenant switcher, and user menu. Active section highlighted based on URL.
+  - **HTMX content swapping**: `hx-boost` on the shell body enables seamless SPA-like navigation between sections without full page reloads. Browser history, back/forward navigation work correctly.
+  - **ShellModelInterceptor**: Automatically populates `activeNavSection` and `tenantName` for all tenant-scoped requests rendering through the shell.
+  - **Responsive design**: Nav bar collapses to hamburger menu on mobile viewports.
+  - **Standalone pages preserved**: Login, tenant list (landing), and template/theme editors retain their own full-page layouts.
 - **Editor V2: Columns, Conditional & Loop editor components**: Rich editing UX for layout and logic components
   - **Columns layout editor**: Inspector shows column count (+/- buttons, min 1, max 6), per-column relative size inputs, and gap control. Canvas renders columns with dynamic flex sizing and gap from props. `AddColumnSlot` and `RemoveColumnSlot` commands with full undo/redo support including child subtree preservation.
   - **Reusable expression dialog**: Extracted the expression dialog from inline expression chips into a standalone `openExpressionDialog()` function, enabling reuse from both ProseMirror node views and inspector fields. Includes field path autocomplete with filtering, instant JSONata validation, debounced live preview, and quick reference panel.

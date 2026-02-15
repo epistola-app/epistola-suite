@@ -1,18 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${theme.name + ' - Epistola'}">Theme - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-    <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
-</head>
 <body>
-    <main class="regular">
+    <th:block th:fragment="content">
+        <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
+
         <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo;
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
             <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo;
             <span th:text="${theme.name}">Theme Name</span>
         </nav>
@@ -31,59 +23,57 @@
         <p class="text-muted" style="margin-top: 1rem;">
             Last modified: <span th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></span>
         </p>
-    </main>
 
-    <th:block th:replace="~{fragments/footer :: footer}" />
+        <script th:inline="javascript">
+            /*<![CDATA[*/
+            window.THEME_EDITOR_CONFIG = /*[[${themeJson}]]*/ {};
+            window.TENANT_ID = /*[[${tenantId}]]*/ '';
+            window.THEME_ID = /*[[${theme.id}]]*/ '';
 
-    <script th:inline="javascript">
-        /*<![CDATA[*/
-        window.THEME_EDITOR_CONFIG = /*[[${themeJson}]]*/ {};
-        window.TENANT_ID = /*[[${tenantId}]]*/ '';
-        window.THEME_ID = /*[[${theme.id}]]*/ '';
+            window.getCsrfToken = function() {
+                const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+                return match ? decodeURIComponent(match[1]) : '';
+            };
+            /*]]>*/
+        </script>
+        <script type="module">
+            import { mountThemeEditor } from '/editor/theme-editor.js';
 
-        window.getCsrfToken = function() {
-            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-            return match ? decodeURIComponent(match[1]) : '';
-        };
-        /*]]>*/
-    </script>
-    <script type="module">
-        import { mountThemeEditor } from '/editor/theme-editor.js';
+            const container = document.getElementById('theme-editor-container');
+            const tenantId = window.TENANT_ID;
+            const themeId = window.THEME_ID;
+            const themeData = window.THEME_EDITOR_CONFIG;
 
-        const container = document.getElementById('theme-editor-container');
-        const tenantId = window.TENANT_ID;
-        const themeId = window.THEME_ID;
-        const themeData = window.THEME_EDITOR_CONFIG;
+            mountThemeEditor({
+                container: container,
+                theme: themeData,
+                onSave: async (payload) => {
+                    const response = await fetch('/tenants/' + tenantId + '/themes/' + themeId, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-XSRF-TOKEN': window.getCsrfToken(),
+                        },
+                        body: JSON.stringify(payload),
+                    });
 
-        mountThemeEditor({
-            container: container,
-            theme: themeData,
-            onSave: async (payload) => {
-                const response = await fetch('/tenants/' + tenantId + '/themes/' + themeId, {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-XSRF-TOKEN': window.getCsrfToken(),
-                    },
-                    body: JSON.stringify(payload),
-                });
+                    if (!response.ok) {
+                        const text = await response.text().catch(() => response.statusText);
+                        throw new Error('Failed to save theme: ' + text);
+                    }
 
-                if (!response.ok) {
-                    const text = await response.text().catch(() => response.statusText);
-                    throw new Error('Failed to save theme: ' + text);
-                }
-
-                // Update page title if name changed
-                const result = await response.json();
-                if (result.name) {
-                    document.title = result.name + ' - Epistola';
-                    const h1 = document.querySelector('.page-header h1');
-                    if (h1) h1.textContent = result.name;
-                    const breadcrumbName = document.querySelector('.breadcrumb > span:last-child');
-                    if (breadcrumbName) breadcrumbName.textContent = result.name;
-                }
-            },
-        });
-    </script>
+                    // Update page title if name changed
+                    const result = await response.json();
+                    if (result.name) {
+                        document.title = result.name + ' - Epistola';
+                        const h1 = document.querySelector('.page-header h1');
+                        if (h1) h1.textContent = result.name;
+                        const breadcrumbName = document.querySelector('.breadcrumb > span:last-child');
+                        if (breadcrumbName) breadcrumbName.textContent = result.name;
+                    }
+                },
+            });
+        </script>
+    </th:block>
 </body>
 </html>

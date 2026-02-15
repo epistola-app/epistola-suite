@@ -40,8 +40,11 @@ class TenantHandler {
         val environmentCount = ListEnvironments(tenantId).query().size
 
         return ServerResponse.ok().render(
-            "tenants/home",
+            "layout/shell",
             mapOf(
+                "contentView" to "tenants/home",
+                "pageTitle" to "${tenant.name} - Epistola",
+                "tenantId" to tenantId.value,
                 "tenant" to tenant,
                 "templateCount" to templateCount,
                 "themeCount" to themeCount,

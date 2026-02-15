@@ -1,18 +1,11 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${template.name + ' - Epistola'}">Template - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-    <script th:src="@{/js/pdf-preview.js}"></script>
-</head>
 <body>
-    <main class="regular">
+    <th:block th:fragment="content">
+        <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
+        <script th:src="@{/js/pdf-preview.js}"></script>
+
         <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo;
             <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
             <span th:text="${template.name}">Template Name</span>
         </nav>
@@ -115,7 +108,7 @@
                             </td>
                             <td class="actions">
                                 <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                   class="btn btn-sm btn-outline">Edit</a>
+                                   class="btn btn-sm btn-outline" hx-boost="false">Edit</a>
                                 <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                    class="btn btn-sm btn-outline">Versions</a>
                                 <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
@@ -345,7 +338,7 @@
                                 <!-- Draft actions -->
                                 <th:block th:if="${version.status.name() == 'DRAFT'}">
                                     <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
-                                       class="btn btn-sm btn-primary">Edit</a>
+                                       class="btn btn-sm btn-primary" hx-boost="false">Edit</a>
                                     <button type="button"
                                             class="btn btn-sm btn-outline"
                                             th:data-tenant-id="${tenantId}"
@@ -412,8 +405,6 @@
                 </form>
             </div>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>

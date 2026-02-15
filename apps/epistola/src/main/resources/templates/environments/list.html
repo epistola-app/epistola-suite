@@ -1,20 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Environments - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
-        <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo;
-            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
-            <span>Environments</span>
-        </nav>
-
+    <th:block th:fragment="content">
         <h1>Environments</h1>
 
         <div id="create-form" th:fragment="create-form">
@@ -90,8 +77,6 @@
                 </tbody>
             </table>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>

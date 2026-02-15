@@ -106,8 +106,10 @@ class DocumentTemplateHandler(
         val tenantId = request.pathVariable("tenantId")
         val templates = ListTemplateSummaries(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
-            "templates/list",
+            "layout/shell",
             mapOf(
+                "contentView" to "templates/list",
+                "pageTitle" to "Document Templates - Epistola",
                 "tenantId" to tenantId,
                 "templates" to templates,
             ),
@@ -432,8 +434,10 @@ class DocumentTemplateHandler(
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
 
         return ServerResponse.ok().render(
-            "templates/detail",
+            "layout/shell",
             mapOf(
+                "contentView" to "templates/detail",
+                "pageTitle" to "${template.name} - Epistola",
                 "tenantId" to tenantId,
                 "template" to template,
                 "variants" to variants,
@@ -484,8 +488,10 @@ class DocumentTemplateHandler(
             )
 
         return ServerResponse.ok().render(
-            "templates/detail",
+            "layout/shell",
             mapOf(
+                "contentView" to "templates/detail",
+                "pageTitle" to "${template.name} - Epistola",
                 "tenantId" to tenantId,
                 "template" to template,
                 "variants" to variants,

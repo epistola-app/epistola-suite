@@ -1,0 +1,299 @@
+/*
+ * App Shell Styles
+ *
+ * Styles for the unified app shell: top navigation bar, layout grid, responsive behavior.
+ * Uses design tokens from the shared design system (tokens.css).
+ */
+
+/* ── App shell layout ────────────────────────────────────────────────── */
+
+.app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 0;
+}
+
+/* ── Top navigation bar ──────────────────────────────────────────────── */
+
+.app-nav {
+    height: 48px;
+    border-bottom: 1px solid var(--ep-border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--ep-space-6);
+    background: var(--ep-white);
+    position: sticky;
+    top: 0;
+    z-index: var(--ep-z-sticky, 40);
+    flex-shrink: 0;
+}
+
+.app-nav-left {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-6);
+    height: 100%;
+}
+
+.app-nav-right {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-4);
+}
+
+/* Logo */
+.app-nav-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    text-decoration: none;
+    color: var(--ep-foreground);
+    font-weight: 600;
+    font-size: var(--ep-text-sm);
+    white-space: nowrap;
+}
+
+.app-nav-logo:hover {
+    color: var(--ep-foreground);
+    text-decoration: none;
+}
+
+/* Navigation links */
+.app-nav-links {
+    display: flex;
+    gap: var(--ep-space-1);
+    height: 100%;
+    align-items: center;
+}
+
+.app-nav-link {
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-muted-foreground);
+    text-decoration: none;
+    border-radius: var(--ep-radius-md);
+    transition: var(--ep-transition-colors);
+    white-space: nowrap;
+}
+
+.app-nav-link:hover {
+    color: var(--ep-foreground);
+    background: var(--ep-muted);
+    text-decoration: none;
+}
+
+.app-nav-link.active {
+    color: var(--ep-foreground);
+    background: var(--ep-muted);
+}
+
+/* Tenant switcher */
+.app-nav-tenant {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
+    text-decoration: none;
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-md);
+    transition: var(--ep-transition-colors);
+    white-space: nowrap;
+}
+
+.app-nav-tenant:hover {
+    color: var(--ep-foreground);
+    border-color: var(--ep-gray-300);
+    text-decoration: none;
+}
+
+/* User section */
+.app-nav-user {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+}
+
+.app-nav-username {
+    font-weight: 500;
+}
+
+.app-nav-separator {
+    color: var(--ep-border-color);
+}
+
+.app-nav-link-sm {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    text-decoration: none;
+    transition: color var(--ep-transition-fast);
+}
+
+.app-nav-link-sm:hover {
+    color: var(--ep-foreground);
+    text-decoration: underline;
+}
+
+.app-nav-logout {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Hamburger menu (hidden on desktop) */
+.app-nav-hamburger {
+    display: none;
+    background: none;
+    border: none;
+    padding: var(--ep-space-1);
+    cursor: pointer;
+    color: var(--ep-muted-foreground);
+}
+
+.app-nav-hamburger:hover {
+    color: var(--ep-foreground);
+}
+
+/* ── Main content area ───────────────────────────────────────────────── */
+
+.main-content {
+    flex: 1;
+    max-width: 56rem;
+    margin: var(--ep-space-8) auto;
+    padding: 0 var(--ep-space-6);
+    width: 100%;
+}
+
+.main-content h1 {
+    margin-bottom: var(--ep-space-6);
+}
+
+.main-content h2 {
+    margin-bottom: var(--ep-space-4);
+    font-size: var(--ep-text-xl);
+}
+
+.main-content section {
+    margin-bottom: var(--ep-space-8);
+}
+
+/* Tables within the shell content */
+.main-content table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    overflow: hidden;
+    font-size: var(--ep-text-sm);
+}
+
+.main-content th,
+.main-content td {
+    padding: var(--ep-space-3) var(--ep-space-4);
+    text-align: left;
+}
+
+.main-content th {
+    background-color: var(--ep-gray-50);
+    font-weight: 500;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    text-transform: uppercase;
+    letter-spacing: var(--ep-tracking-wider);
+    border-bottom: 1px solid var(--ep-border-color);
+}
+
+.main-content td {
+    border-bottom: 1px solid var(--ep-border-color);
+}
+
+.main-content tbody tr:hover {
+    background-color: var(--ep-muted);
+}
+
+.main-content tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.main-content .empty-message {
+    text-align: center;
+    color: var(--ep-muted-foreground);
+    padding: var(--ep-space-8);
+}
+
+/* ── HTMX swap indicator ─────────────────────────────────────────────── */
+
+.htmx-request .main-content {
+    opacity: 0.6;
+    transition: opacity 200ms;
+}
+
+/* ── Responsive: mobile navigation ───────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .app-nav {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: 48px;
+        padding: 0 var(--ep-space-4);
+    }
+
+    .app-nav-left {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .app-nav-links {
+        display: none;
+    }
+
+    .app-nav-right {
+        display: none;
+    }
+
+    .app-nav-hamburger {
+        display: block;
+    }
+
+    /* When nav is open */
+    .app-nav.nav-open {
+        padding-bottom: var(--ep-space-3);
+    }
+
+    .app-nav.nav-open .app-nav-links {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: var(--ep-space-1);
+        padding-top: var(--ep-space-2);
+        order: 3;
+    }
+
+    .app-nav.nav-open .app-nav-links .app-nav-link {
+        width: 100%;
+        padding: var(--ep-space-2) var(--ep-space-3);
+    }
+
+    .app-nav.nav-open .app-nav-right {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        padding-top: var(--ep-space-2);
+        border-top: 1px solid var(--ep-border-color);
+        order: 4;
+    }
+
+    .main-content {
+        margin: var(--ep-space-4) auto;
+        padding: 0 var(--ep-space-4);
+    }
+}

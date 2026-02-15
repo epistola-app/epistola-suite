@@ -1,14 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Start Load Test - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
+    <th:block th:fragment="content">
         <h1>Start New Load Test</h1>
         <p class="subtitle">Configure and run a load test for tenant <strong th:text="${tenantId}"></strong></p>
 
@@ -96,8 +89,6 @@
                 </ul>
             </div>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>

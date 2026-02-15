@@ -1,14 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Load Test Details - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
+    <th:block th:fragment="content">
         <h1>Load Test Details</h1>
         <p class="subtitle">
             Test <strong th:text="${run.id}"></strong> for tenant <strong th:text="${tenantId}"></strong>
@@ -206,8 +199,6 @@
             </form>
             <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-outline">Back to List</a>
         </div>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>

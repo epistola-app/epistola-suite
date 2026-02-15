@@ -1,18 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Templates - Epistola</title>
-    <th:block th:replace="~{fragments/styles :: styles}" />
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
-        <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo; Templates
-        </nav>
-
+    <th:block th:fragment="content">
         <div class="page-header">
             <h1>Document Templates</h1>
             <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="btn btn-sm btn-outline">Manage Themes</a>
@@ -89,8 +78,6 @@
                 </tbody>
             </table>
         </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>
