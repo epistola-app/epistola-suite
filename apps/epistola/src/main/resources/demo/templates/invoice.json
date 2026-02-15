@@ -311,10 +311,12 @@
     }
   ],
   "templateModel": {
-    "id": "invoice-template-v1",
-    "name": "Invoice Template",
-    "version": 1,
-    "pageSettings": {
+    "modelVersion": 1,
+    "root": "n-root",
+    "themeRef": {
+      "type": "inherit"
+    },
+    "pageSettingsOverride": {
       "format": "A4",
       "orientation": "portrait",
       "margins": {
@@ -324,921 +326,1065 @@
         "left": 40
       }
     },
-    "documentStyles": {
+    "documentStylesOverride": {
       "fontFamily": "Helvetica",
       "fontSize": "10pt",
       "color": "#333333",
       "lineHeight": "1.4"
     },
-    "blocks": [
-      {
+    "nodes": {
+      "n-root": {
+        "id": "n-root",
+        "type": "root",
+        "slots": ["s-root-children"]
+      },
+
+      "n-header": {
+        "id": "n-header",
         "type": "container",
-        "id": "header",
+        "slots": ["s-header-children"],
         "styles": {
           "marginBottom": "30px",
           "paddingBottom": "20px",
           "borderBottom": "2px solid #2563eb"
+        }
+      },
+      "n-header-columns": {
+        "id": "n-header-columns",
+        "type": "columns",
+        "slots": ["s-header-col-0", "s-header-col-1"],
+        "props": {
+          "gap": 20
+        }
+      },
+
+      "n-vendor-name": {
+        "id": "n-vendor-name",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "16pt",
+          "fontWeight": "bold",
+          "color": "#1e40af",
+          "marginBottom": "8px"
         },
-        "children": [
-          {
-            "type": "columns",
-            "id": "header-columns",
-            "gap": 20,
-            "columns": [
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
               {
-                "id": "vendor-col",
-                "size": 1,
-                "children": [
+                "type": "paragraph",
+                "content": [
                   {
-                    "type": "text",
-                    "id": "vendor-name",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "vendor.name",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    "styles": {
-                      "fontSize": "16pt",
-                      "fontWeight": "bold",
-                      "color": "#1e40af",
-                      "marginBottom": "8px"
-                    }
-                  },
-                  {
-                    "type": "text",
-                    "id": "vendor-address",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "vendor.address",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "vendor.zipCode",
-                                "isNew": false
-                              }
-                            },
-                            {
-                              "type": "text",
-                              "text": " "
-                            },
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "vendor.city",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "vendor.country",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    "styles": {
-                      "fontSize": "9pt",
-                      "color": "#666666",
-                      "lineHeight": "1.5"
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "invoice-details-col",
-                "size": 1,
-                "children": [
-                  {
-                    "type": "text",
-                    "id": "invoice-title",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "INVOICE"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    "styles": {
-                      "fontSize": "24pt",
-                      "fontWeight": "bold",
-                      "color": "#1e40af",
-                      "textAlign": "right",
-                      "marginBottom": "10px"
-                    }
-                  },
-                  {
-                    "type": "text",
-                    "id": "invoice-metadata",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Invoice #: "
-                            },
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "invoiceNumber",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Date: "
-                            },
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "invoiceDate",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        },
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Due Date: "
-                            },
-                            {
-                              "type": "expression",
-                              "attrs": {
-                                "expression": "dueDate",
-                                "isNew": false
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    "styles": {
-                      "fontSize": "9pt",
-                      "textAlign": "right",
-                      "lineHeight": "1.6"
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.name",
+                      "isNew": false
                     }
                   }
                 ]
               }
             ]
           }
-        ]
+        }
       },
-      {
+      "n-vendor-address": {
+        "id": "n-vendor-address",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "9pt",
+          "color": "#666666",
+          "lineHeight": "1.5"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.address",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.zipCode",
+                      "isNew": false
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.city",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.country",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-invoice-title": {
+        "id": "n-invoice-title",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "24pt",
+          "fontWeight": "bold",
+          "color": "#1e40af",
+          "textAlign": "right",
+          "marginBottom": "10px"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "INVOICE"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-invoice-metadata": {
+        "id": "n-invoice-metadata",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "9pt",
+          "textAlign": "right",
+          "lineHeight": "1.6"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Invoice #: "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "invoiceNumber",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Date: "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "invoiceDate",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Due Date: "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "dueDate",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-customer-section": {
+        "id": "n-customer-section",
         "type": "container",
-        "id": "customer-section",
+        "slots": ["s-customer-children"],
         "styles": {
           "marginBottom": "30px",
           "padding": "15px",
           "backgroundColor": "#f8fafc",
           "borderRadius": "4px"
-        },
-        "children": [
-          {
-            "type": "text",
-            "id": "bill-to-label",
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "Bill To:"
-                    }
-                  ]
-                }
-              ]
-            },
-            "styles": {
-              "fontSize": "11pt",
-              "fontWeight": "bold",
-              "color": "#1e40af",
-              "marginBottom": "8px"
-            }
-          },
-          {
-            "type": "text",
-            "id": "customer-details",
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "customer.name",
-                        "isNew": false
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "customer.address",
-                        "isNew": false
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "customer.zipCode",
-                        "isNew": false
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "text": " "
-                    },
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "customer.city",
-                        "isNew": false
-                      }
-                    }
-                  ]
-                },
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "customer.country",
-                        "isNew": false
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "styles": {
-              "fontSize": "10pt",
-              "lineHeight": "1.5"
-            }
-          }
-        ]
+        }
       },
-      {
+      "n-bill-to-label": {
+        "id": "n-bill-to-label",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "11pt",
+          "fontWeight": "bold",
+          "color": "#1e40af",
+          "marginBottom": "8px"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Bill To:"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-customer-details": {
+        "id": "n-customer-details",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "10pt",
+          "lineHeight": "1.5"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "customer.name",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "customer.address",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "customer.zipCode",
+                      "isNew": false
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "text": " "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "customer.city",
+                      "isNew": false
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "customer.country",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-line-items-table": {
+        "id": "n-line-items-table",
         "type": "table",
-        "id": "line-items-table",
-        "borderStyle": "all",
-        "columnWidths": [
-          50,
-          10,
-          15,
-          15
+        "slots": [
+          "s-lit-cell-0-0", "s-lit-cell-0-1", "s-lit-cell-0-2", "s-lit-cell-0-3"
         ],
         "styles": {
           "marginBottom": "20px"
         },
-        "rows": [
-          {
-            "id": "table-header",
-            "isHeader": true,
-            "cells": [
-              {
-                "id": "header-description",
-                "styles": {
-                  "fontWeight": "bold",
-                  "backgroundColor": "#2563eb",
-                  "color": "#ffffff",
-                  "padding": "8px"
-                },
-                "children": [
-                  {
-                    "type": "text",
-                    "id": "header-desc-text",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Description"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "header-quantity",
-                "styles": {
-                  "fontWeight": "bold",
-                  "backgroundColor": "#2563eb",
-                  "color": "#ffffff",
-                  "padding": "8px",
-                  "textAlign": "right"
-                },
-                "children": [
-                  {
-                    "type": "text",
-                    "id": "header-qty-text",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Qty"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "header-unit-price",
-                "styles": {
-                  "fontWeight": "bold",
-                  "backgroundColor": "#2563eb",
-                  "color": "#ffffff",
-                  "padding": "8px",
-                  "textAlign": "right"
-                },
-                "children": [
-                  {
-                    "type": "text",
-                    "id": "header-unit-text",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Unit Price"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                ]
-              },
-              {
-                "id": "header-total",
-                "styles": {
-                  "fontWeight": "bold",
-                  "backgroundColor": "#2563eb",
-                  "color": "#ffffff",
-                  "padding": "8px",
-                  "textAlign": "right"
-                },
-                "children": [
-                  {
-                    "type": "text",
-                    "id": "header-total-text",
-                    "content": {
-                      "type": "doc",
-                      "content": [
-                        {
-                          "type": "paragraph",
-                          "content": [
-                            {
-                              "type": "text",
-                              "text": "Total"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "props": {
+          "columnWidths": [50, 10, 15, 15],
+          "borderStyle": "all",
+          "rows": [
+            { "isHeader": true }
+          ]
+        }
       },
-      {
-        "type": "loop",
-        "id": "items-loop",
-        "expression": {
-          "raw": "items"
+      "n-header-desc-text": {
+        "id": "n-header-desc-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontWeight": "bold",
+          "backgroundColor": "#2563eb",
+          "color": "#ffffff",
+          "padding": "8px"
         },
-        "itemAlias": "item",
-        "indexAlias": "index",
-        "children": [
-          {
-            "type": "table",
-            "id": "item-row-table",
-            "borderStyle": "horizontal",
-            "columnWidths": [
-              50,
-              10,
-              15,
-              15
-            ],
-            "rows": [
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
               {
-                "id": "item-row",
-                "cells": [
+                "type": "paragraph",
+                "content": [
                   {
-                    "id": "item-description",
-                    "styles": {
-                      "padding": "8px"
-                    },
-                    "children": [
-                      {
-                        "type": "text",
-                        "id": "item-desc-text",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "item.description",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "id": "item-quantity",
-                    "styles": {
-                      "padding": "8px",
-                      "textAlign": "right"
-                    },
-                    "children": [
-                      {
-                        "type": "text",
-                        "id": "item-qty-text",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "item.quantity",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "id": "item-unit-price",
-                    "styles": {
-                      "padding": "8px",
-                      "textAlign": "right"
-                    },
-                    "children": [
-                      {
-                        "type": "text",
-                        "id": "item-unit-text",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "text",
-                                  "text": "$"
-                                },
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "item.unitPrice",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "id": "item-total",
-                    "styles": {
-                      "padding": "8px",
-                      "textAlign": "right",
-                      "fontWeight": "600"
-                    },
-                    "children": [
-                      {
-                        "type": "text",
-                        "id": "item-total-text",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "text",
-                                  "text": "$"
-                                },
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "item.total",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    ]
+                    "type": "text",
+                    "text": "Description"
                   }
                 ]
               }
             ]
           }
-        ]
+        }
       },
-      {
+      "n-header-qty-text": {
+        "id": "n-header-qty-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontWeight": "bold",
+          "backgroundColor": "#2563eb",
+          "color": "#ffffff",
+          "padding": "8px",
+          "textAlign": "right"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Qty"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-header-unit-text": {
+        "id": "n-header-unit-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontWeight": "bold",
+          "backgroundColor": "#2563eb",
+          "color": "#ffffff",
+          "padding": "8px",
+          "textAlign": "right"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Unit Price"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-header-total-text": {
+        "id": "n-header-total-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontWeight": "bold",
+          "backgroundColor": "#2563eb",
+          "color": "#ffffff",
+          "padding": "8px",
+          "textAlign": "right"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Total"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-items-loop": {
+        "id": "n-items-loop",
+        "type": "loop",
+        "slots": ["s-items-loop-children"],
+        "props": {
+          "expression": {
+            "raw": "items"
+          },
+          "itemAlias": "item",
+          "indexAlias": "index"
+        }
+      },
+      "n-item-row-table": {
+        "id": "n-item-row-table",
+        "type": "table",
+        "slots": [
+          "s-irt-cell-0-0", "s-irt-cell-0-1", "s-irt-cell-0-2", "s-irt-cell-0-3"
+        ],
+        "props": {
+          "columnWidths": [50, 10, 15, 15],
+          "borderStyle": "horizontal",
+          "rows": [
+            { "isHeader": false }
+          ]
+        }
+      },
+      "n-item-desc-text": {
+        "id": "n-item-desc-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "padding": "8px"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "item.description",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-item-qty-text": {
+        "id": "n-item-qty-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "padding": "8px",
+          "textAlign": "right"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "item.quantity",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-item-unit-text": {
+        "id": "n-item-unit-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "padding": "8px",
+          "textAlign": "right"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "$"
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "item.unitPrice",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-item-total-text": {
+        "id": "n-item-total-text",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "padding": "8px",
+          "textAlign": "right",
+          "fontWeight": "600"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "$"
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "item.total",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-totals-section": {
+        "id": "n-totals-section",
         "type": "container",
-        "id": "totals-section",
+        "slots": ["s-totals-children"],
         "styles": {
           "marginTop": "20px",
           "marginBottom": "30px"
+        }
+      },
+      "n-totals-columns": {
+        "id": "n-totals-columns",
+        "type": "columns",
+        "slots": ["s-totals-col-0", "s-totals-col-1"],
+        "props": {
+          "gap": 20
+        }
+      },
+      "n-totals-box": {
+        "id": "n-totals-box",
+        "type": "container",
+        "slots": ["s-totals-box-children"],
+        "styles": {
+          "padding": "15px",
+          "backgroundColor": "#f8fafc",
+          "borderRadius": "4px"
+        }
+      },
+      "n-subtotal-line": {
+        "id": "n-subtotal-line",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "marginBottom": "8px",
+          "fontSize": "10pt"
         },
-        "children": [
-          {
-            "type": "columns",
-            "id": "totals-columns",
-            "gap": 20,
-            "columns": [
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
               {
-                "id": "spacer-col",
-                "size": 2,
-                "children": []
-              },
-              {
-                "id": "totals-col",
-                "size": 1,
-                "children": [
+                "type": "paragraph",
+                "content": [
                   {
-                    "type": "container",
-                    "id": "totals-box",
-                    "styles": {
-                      "padding": "15px",
-                      "backgroundColor": "#f8fafc",
-                      "borderRadius": "4px"
-                    },
-                    "children": [
-                      {
-                        "type": "text",
-                        "id": "subtotal-line",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "text",
-                                  "text": "Subtotal:"
-                                },
-                                {
-                                  "type": "hardBreak"
-                                },
-                                {
-                                  "type": "text",
-                                  "text": "$"
-                                },
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "subtotal",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "styles": {
-                          "marginBottom": "8px",
-                          "fontSize": "10pt"
-                        }
-                      },
-                      {
-                        "type": "text",
-                        "id": "tax-line",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "text",
-                                  "text": "Tax ("
-                                },
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "taxRate * 100",
-                                    "language": "jsonata",
-                                    "isNew": false
-                                  }
-                                },
-                                {
-                                  "type": "text",
-                                  "text": "%):"
-                                },
-                                {
-                                  "type": "hardBreak"
-                                },
-                                {
-                                  "type": "text",
-                                  "text": "$"
-                                },
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "taxAmount",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "styles": {
-                          "marginBottom": "12px",
-                          "paddingBottom": "12px",
-                          "borderBottom": "1px solid #cbd5e1",
-                          "fontSize": "10pt"
-                        }
-                      },
-                      {
-                        "type": "text",
-                        "id": "total-line",
-                        "content": {
-                          "type": "doc",
-                          "content": [
-                            {
-                              "type": "paragraph",
-                              "content": [
-                                {
-                                  "type": "text",
-                                  "text": "TOTAL:"
-                                },
-                                {
-                                  "type": "hardBreak"
-                                },
-                                {
-                                  "type": "text",
-                                  "text": "$"
-                                },
-                                {
-                                  "type": "expression",
-                                  "attrs": {
-                                    "expression": "total",
-                                    "isNew": false
-                                  }
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        "styles": {
-                          "fontSize": "14pt",
-                          "fontWeight": "bold",
-                          "color": "#1e40af"
-                        }
-                      }
-                    ]
+                    "type": "text",
+                    "text": "Subtotal:"
+                  },
+                  {
+                    "type": "hardBreak"
+                  },
+                  {
+                    "type": "text",
+                    "text": "$"
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "subtotal",
+                      "isNew": false
+                    }
                   }
                 ]
               }
             ]
           }
-        ]
+        }
       },
-      {
-        "type": "conditional",
-        "id": "notes-conditional",
-        "condition": {
-          "language": "jsonata",
-          "raw": "$exists(notes)"
+      "n-tax-line": {
+        "id": "n-tax-line",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "marginBottom": "12px",
+          "paddingBottom": "12px",
+          "borderBottom": "1px solid #cbd5e1",
+          "fontSize": "10pt"
         },
-        "children": [
-          {
-            "type": "container",
-            "id": "notes-section",
-            "styles": {
-              "marginTop": "30px",
-              "paddingTop": "20px",
-              "borderTop": "1px solid #cbd5e1"
-            },
-            "children": [
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
               {
-                "type": "text",
-                "id": "notes-label",
-                "content": {
-                  "type": "doc",
-                  "content": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "text",
-                          "text": "Notes:"
-                        }
-                      ]
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Tax ("
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "taxRate * 100",
+                      "language": "jsonata",
+                      "isNew": false
                     }
-                  ]
-                },
-                "styles": {
-                  "fontSize": "10pt",
-                  "fontWeight": "bold",
-                  "marginBottom": "8px"
-                }
-              },
-              {
-                "type": "text",
-                "id": "notes-content",
-                "content": {
-                  "type": "doc",
-                  "content": [
-                    {
-                      "type": "paragraph",
-                      "content": [
-                        {
-                          "type": "expression",
-                          "attrs": {
-                            "expression": "notes",
-                            "isNew": false
-                          }
-                        }
-                      ]
+                  },
+                  {
+                    "type": "text",
+                    "text": "%):"
+                  },
+                  {
+                    "type": "hardBreak"
+                  },
+                  {
+                    "type": "text",
+                    "text": "$"
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "taxAmount",
+                      "isNew": false
                     }
-                  ]
-                },
-                "styles": {
-                  "fontSize": "9pt",
-                  "color": "#666666",
-                  "fontStyle": "italic"
-                }
+                  }
+                ]
               }
             ]
           }
-        ]
+        }
       },
-      {
+      "n-total-line": {
+        "id": "n-total-line",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "14pt",
+          "fontWeight": "bold",
+          "color": "#1e40af"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "TOTAL:"
+                  },
+                  {
+                    "type": "hardBreak"
+                  },
+                  {
+                    "type": "text",
+                    "text": "$"
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "total",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-notes-conditional": {
+        "id": "n-notes-conditional",
+        "type": "conditional",
+        "slots": ["s-notes-cond-children"],
+        "props": {
+          "condition": {
+            "raw": "$exists(notes)",
+            "language": "jsonata"
+          }
+        }
+      },
+      "n-notes-section": {
+        "id": "n-notes-section",
         "type": "container",
-        "id": "footer",
+        "slots": ["s-notes-children"],
+        "styles": {
+          "marginTop": "30px",
+          "paddingTop": "20px",
+          "borderTop": "1px solid #cbd5e1"
+        }
+      },
+      "n-notes-label": {
+        "id": "n-notes-label",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "10pt",
+          "fontWeight": "bold",
+          "marginBottom": "8px"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Notes:"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-notes-content": {
+        "id": "n-notes-content",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "9pt",
+          "color": "#666666",
+          "fontStyle": "italic"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "notes",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
+      "n-footer": {
+        "id": "n-footer",
+        "type": "container",
+        "slots": ["s-footer-children"],
         "styles": {
           "marginTop": "40px",
           "paddingTop": "20px",
           "borderTop": "2px solid #e5e7eb",
           "textAlign": "center"
+        }
+      },
+      "n-footer-contact": {
+        "id": "n-footer-contact",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "8pt",
+          "color": "#9ca3af",
+          "lineHeight": "1.6"
         },
-        "children": [
-          {
-            "type": "text",
-            "id": "footer-contact",
-            "content": {
-              "type": "doc",
-              "content": [
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "vendor.email",
-                        "isNew": false
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "text": " \u2022 "
-                    },
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "vendor.phone",
-                        "isNew": false
-                      }
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.email",
+                      "isNew": false
                     }
-                  ]
-                },
-                {
-                  "type": "paragraph",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "Tax ID: "
-                    },
-                    {
-                      "type": "expression",
-                      "attrs": {
-                        "expression": "vendor.taxId",
-                        "isNew": false
-                      }
+                  },
+                  {
+                    "type": "text",
+                    "text": " \u2022 "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.phone",
+                      "isNew": false
                     }
-                  ]
-                }
-              ]
-            },
-            "styles": {
-              "fontSize": "8pt",
-              "color": "#9ca3af",
-              "lineHeight": "1.6"
-            }
+                  }
+                ]
+              },
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Tax ID: "
+                  },
+                  {
+                    "type": "expression",
+                    "attrs": {
+                      "expression": "vendor.taxId",
+                      "isNew": false
+                    }
+                  }
+                ]
+              }
+            ]
           }
-        ]
+        }
       }
-    ]
+    },
+
+    "slots": {
+      "s-root-children": {
+        "id": "s-root-children",
+        "nodeId": "n-root",
+        "name": "children",
+        "children": [
+          "n-header",
+          "n-customer-section",
+          "n-line-items-table",
+          "n-items-loop",
+          "n-totals-section",
+          "n-notes-conditional",
+          "n-footer"
+        ]
+      },
+
+      "s-header-children": {
+        "id": "s-header-children",
+        "nodeId": "n-header",
+        "name": "children",
+        "children": ["n-header-columns"]
+      },
+      "s-header-col-0": {
+        "id": "s-header-col-0",
+        "nodeId": "n-header-columns",
+        "name": "column-0",
+        "children": ["n-vendor-name", "n-vendor-address"]
+      },
+      "s-header-col-1": {
+        "id": "s-header-col-1",
+        "nodeId": "n-header-columns",
+        "name": "column-1",
+        "children": ["n-invoice-title", "n-invoice-metadata"]
+      },
+
+      "s-customer-children": {
+        "id": "s-customer-children",
+        "nodeId": "n-customer-section",
+        "name": "children",
+        "children": ["n-bill-to-label", "n-customer-details"]
+      },
+
+      "s-lit-cell-0-0": {
+        "id": "s-lit-cell-0-0",
+        "nodeId": "n-line-items-table",
+        "name": "cell-0-0",
+        "children": ["n-header-desc-text"]
+      },
+      "s-lit-cell-0-1": {
+        "id": "s-lit-cell-0-1",
+        "nodeId": "n-line-items-table",
+        "name": "cell-0-1",
+        "children": ["n-header-qty-text"]
+      },
+      "s-lit-cell-0-2": {
+        "id": "s-lit-cell-0-2",
+        "nodeId": "n-line-items-table",
+        "name": "cell-0-2",
+        "children": ["n-header-unit-text"]
+      },
+      "s-lit-cell-0-3": {
+        "id": "s-lit-cell-0-3",
+        "nodeId": "n-line-items-table",
+        "name": "cell-0-3",
+        "children": ["n-header-total-text"]
+      },
+
+      "s-items-loop-children": {
+        "id": "s-items-loop-children",
+        "nodeId": "n-items-loop",
+        "name": "children",
+        "children": ["n-item-row-table"]
+      },
+      "s-irt-cell-0-0": {
+        "id": "s-irt-cell-0-0",
+        "nodeId": "n-item-row-table",
+        "name": "cell-0-0",
+        "children": ["n-item-desc-text"]
+      },
+      "s-irt-cell-0-1": {
+        "id": "s-irt-cell-0-1",
+        "nodeId": "n-item-row-table",
+        "name": "cell-0-1",
+        "children": ["n-item-qty-text"]
+      },
+      "s-irt-cell-0-2": {
+        "id": "s-irt-cell-0-2",
+        "nodeId": "n-item-row-table",
+        "name": "cell-0-2",
+        "children": ["n-item-unit-text"]
+      },
+      "s-irt-cell-0-3": {
+        "id": "s-irt-cell-0-3",
+        "nodeId": "n-item-row-table",
+        "name": "cell-0-3",
+        "children": ["n-item-total-text"]
+      },
+
+      "s-totals-children": {
+        "id": "s-totals-children",
+        "nodeId": "n-totals-section",
+        "name": "children",
+        "children": ["n-totals-columns"]
+      },
+      "s-totals-col-0": {
+        "id": "s-totals-col-0",
+        "nodeId": "n-totals-columns",
+        "name": "column-0",
+        "children": []
+      },
+      "s-totals-col-1": {
+        "id": "s-totals-col-1",
+        "nodeId": "n-totals-columns",
+        "name": "column-1",
+        "children": ["n-totals-box"]
+      },
+      "s-totals-box-children": {
+        "id": "s-totals-box-children",
+        "nodeId": "n-totals-box",
+        "name": "children",
+        "children": ["n-subtotal-line", "n-tax-line", "n-total-line"]
+      },
+
+      "s-notes-cond-children": {
+        "id": "s-notes-cond-children",
+        "nodeId": "n-notes-conditional",
+        "name": "children",
+        "children": ["n-notes-section"]
+      },
+      "s-notes-children": {
+        "id": "s-notes-children",
+        "nodeId": "n-notes-section",
+        "name": "children",
+        "children": ["n-notes-label", "n-notes-content"]
+      },
+
+      "s-footer-children": {
+        "id": "s-footer-children",
+        "nodeId": "n-footer",
+        "name": "children",
+        "children": ["n-footer-contact"]
+      }
+    }
   }
 }
