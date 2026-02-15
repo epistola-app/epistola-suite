@@ -24,6 +24,23 @@ import {
 } from './styles.js'
 
 // ---------------------------------------------------------------------------
+// UndoHandler — strategy interface for pluggable undo/redo
+// ---------------------------------------------------------------------------
+
+/**
+ * Components that own their own undo history (e.g. ProseMirror text editor)
+ * implement this interface and register on the engine via setActiveUndoHandler.
+ *
+ * When the engine's undo()/redo() is called it delegates to the active handler
+ * first. If the handler returns true it consumed the action; otherwise the
+ * engine falls through to its own UndoStack.
+ */
+export interface UndoHandler {
+  tryUndo(): boolean
+  tryRedo(): boolean
+}
+
+// ---------------------------------------------------------------------------
 // Listener type (deprecated — use events.on('doc:change') instead)
 // ---------------------------------------------------------------------------
 
@@ -45,6 +62,8 @@ export class EditorEngine {
   private _resolvedDocStyles!: Record<string, unknown>
   private _inheritableKeys: Set<string>
   private _resolvedPageSettings!: PageSettings
+
+  private _activeUndoHandler: UndoHandler | null = null
 
   private _dataModel: object | undefined
   private _dataExamples: object[] | undefined
@@ -260,7 +279,17 @@ export class EditorEngine {
   // Undo / redo
   // -----------------------------------------------------------------------
 
+  /**
+   * Register a component as the active undo handler. While active, the
+   * engine delegates undo/redo to this handler first. Pass null to clear.
+   */
+  setActiveUndoHandler(handler: UndoHandler | null): void {
+    this._activeUndoHandler = handler
+  }
+
   undo(): boolean {
+    if (this._activeUndoHandler?.tryUndo()) return true
+
     const command = this._undoStack.undo()
     if (!command) return false
 
@@ -279,6 +308,8 @@ export class EditorEngine {
   }
 
   redo(): boolean {
+    if (this._activeUndoHandler?.tryRedo()) return true
+
     const command = this._undoStack.redo()
     if (!command) return false
 

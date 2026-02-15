@@ -79,17 +79,14 @@ export class EpistolaEditor extends LitElement {
   }
 
   /**
-   * Global keyboard handler for engine-level undo/redo.
-   * Only fires when the event is NOT coming from a ProseMirror editor
-   * (PM handles its own Cmd+Z via the history plugin).
+   * Global keyboard handler for undo/redo. The engine delegates to the
+   * active UndoHandler (e.g. ProseMirror) if one is registered, otherwise
+   * falls through to the engine's own UndoStack.
    */
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
     const mod = e.metaKey || e.ctrlKey
     if (!mod) return
-
-    // Skip if focus is inside a ProseMirror editor — PM handles its own undo
-    if ((e.target as HTMLElement)?.closest('.ProseMirror')) return
 
     if (e.key === 'z' && !e.shiftKey) {
       e.preventDefault()

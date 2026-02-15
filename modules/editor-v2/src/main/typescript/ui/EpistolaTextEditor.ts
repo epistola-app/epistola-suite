@@ -17,18 +17,20 @@ import { customElement, property } from 'lit/decorators.js'
 import { styleMap } from 'lit/directives/style-map.js'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
+import { undo, redo } from 'prosemirror-history'
 import { Node as ProsemirrorNode } from 'prosemirror-model'
 import { epistolaSchema } from '../prosemirror/schema.js'
 import { createPlugins } from '../prosemirror/plugins.js'
 import { ExpressionNodeView } from '../prosemirror/ExpressionNodeView.js'
 import { extractFieldPaths } from '../engine/schema-paths.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
+import type { UndoHandler } from '../engine/EditorEngine.js'
 import type { NodeId } from '../types/index.js'
 
 const DEBOUNCE_MS = 300
 
 @customElement('epistola-text-editor')
-export class EpistolaTextEditor extends LitElement {
+export class EpistolaTextEditor extends LitElement implements UndoHandler {
   override createRenderRoot() {
     return this
   }
@@ -48,6 +50,20 @@ export class EpistolaTextEditor extends LitElement {
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null
   private _contentBeforeEditing: unknown = null
   private _hasPendingFlush = false
+
+  // ---------------------------------------------------------------------------
+  // UndoHandler — called by engine.undo()/redo() when this editor has focus
+  // ---------------------------------------------------------------------------
+
+  tryUndo(): boolean {
+    if (!this._pmView) return false
+    return undo(this._pmView.state, this._pmView.dispatch)
+  }
+
+  tryRedo(): boolean {
+    if (!this._pmView) return false
+    return redo(this._pmView.state, this._pmView.dispatch)
+  }
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -123,9 +139,13 @@ export class EpistolaTextEditor extends LitElement {
           if (this.nodeId && this.engine?.selectedNodeId !== this.nodeId) {
             this.engine?.selectNode(this.nodeId)
           }
+          // Register as the active undo handler so engine.undo() delegates to PM
+          this.engine?.setActiveUndoHandler(this)
           return false
         },
         blur: () => {
+          // Unregister so engine.undo() falls through to its own stack
+          this.engine?.setActiveUndoHandler(null)
           this._flushContent()
           return false
         },
@@ -209,14 +229,18 @@ export class EpistolaTextEditor extends LitElement {
       const jsonStr = JSON.stringify(json)
       this._dispatchContentSilent(json, jsonStr)
 
-      // Push a single coalesced undo entry that restores content-before-editing
-      const snapshotBefore = this._contentBeforeEditing
-      const nodeId = this.nodeId
-      this.engine.pushUndoEntry({
-        type: 'UpdateNodeProps',
-        nodeId,
-        props: { content: snapshotBefore != null ? structuredClone(snapshotBefore) : null },
-      })
+      // Only push a coalesced undo entry if the content actually changed
+      // (e.g. user PM-undid everything back to original → no useless entry)
+      const beforeJson = JSON.stringify(this._contentBeforeEditing)
+      if (beforeJson !== jsonStr) {
+        const snapshotBefore = this._contentBeforeEditing
+        const nodeId = this.nodeId
+        this.engine.pushUndoEntry({
+          type: 'UpdateNodeProps',
+          nodeId,
+          props: { content: snapshotBefore != null ? structuredClone(snapshotBefore) : null },
+        })
+      }
     }
 
     this._contentBeforeEditing = null

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { EditorEngine } from './EditorEngine.js'
+import { EditorEngine, type UndoHandler } from './EditorEngine.js'
 import { buildIndexes, getNodeDepth, findAncestorAtLevel } from './indexes.js'
 import { getNestedValue, setNestedValue } from './props.js'
 import type { Command, InsertNode, MoveNode } from './commands.js'
@@ -1307,5 +1307,154 @@ describe('Data examples', () => {
 
     expect(engine.dataExamples).toBeUndefined()
     expect(engine.currentExample).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// UndoHandler strategy (pluggable undo/redo delegation)
+// ---------------------------------------------------------------------------
+
+describe('UndoHandler strategy', () => {
+  function createMockHandler(undoResult: boolean, redoResult: boolean): UndoHandler & { undoCalls: number; redoCalls: number } {
+    return {
+      undoCalls: 0,
+      redoCalls: 0,
+      tryUndo() {
+        this.undoCalls++
+        return undoResult
+      },
+      tryRedo() {
+        this.redoCalls++
+        return redoResult
+      },
+    }
+  }
+
+  it('delegates undo to active handler when it returns true', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Put something on the engine undo stack
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+    expect(engine.canUndo).toBe(true)
+
+    const handler = createMockHandler(true, true)
+    engine.setActiveUndoHandler(handler)
+
+    const result = engine.undo()
+
+    expect(result).toBe(true)
+    expect(handler.undoCalls).toBe(1)
+    // Engine stack should NOT have been touched — node still present
+    expect(engine.doc.nodes[node.id]).toBeDefined()
+    expect(engine.canUndo).toBe(true)
+  })
+
+  it('falls through to engine stack when handler returns false', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+
+    const handler = createMockHandler(false, false)
+    engine.setActiveUndoHandler(handler)
+
+    const result = engine.undo()
+
+    expect(result).toBe(true)
+    expect(handler.undoCalls).toBe(1)
+    // Engine stack WAS used — node removed
+    expect(engine.doc.nodes[node.id]).toBeUndefined()
+  })
+
+  it('uses engine stack directly when no handler is set', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+
+    // No handler registered
+    engine.setActiveUndoHandler(null)
+
+    const result = engine.undo()
+
+    expect(result).toBe(true)
+    expect(engine.doc.nodes[node.id]).toBeUndefined()
+  })
+
+  it('delegates redo to active handler when it returns true', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Create redo history
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+    engine.undo()
+    expect(engine.canRedo).toBe(true)
+
+    const handler = createMockHandler(true, true)
+    engine.setActiveUndoHandler(handler)
+
+    const result = engine.redo()
+
+    expect(result).toBe(true)
+    expect(handler.redoCalls).toBe(1)
+    // Engine redo stack should NOT have been touched — node still absent
+    expect(engine.doc.nodes[node.id]).toBeUndefined()
+    expect(engine.canRedo).toBe(true)
+  })
+
+  it('falls through to engine redo when handler returns false', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+    engine.undo()
+
+    const handler = createMockHandler(false, false)
+    engine.setActiveUndoHandler(handler)
+
+    const result = engine.redo()
+
+    expect(result).toBe(true)
+    expect(handler.redoCalls).toBe(1)
+    // Engine redo WAS used — node restored
+    expect(engine.doc.nodes[node.id]).toBeDefined()
+  })
+
+  it('clearing handler with null restores direct engine behavior', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    const handler = createMockHandler(true, true)
+    engine.setActiveUndoHandler(handler)
+
+    // Now clear it
+    engine.setActiveUndoHandler(null)
+
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+
+    engine.undo()
+
+    // Handler should not have been called
+    expect(handler.undoCalls).toBe(0)
+    expect(engine.doc.nodes[node.id]).toBeUndefined()
   })
 })

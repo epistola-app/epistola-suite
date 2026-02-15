@@ -5,7 +5,7 @@
  * gap/drop cursor, and bubble menu.
  */
 
-import { history, undo, redo } from 'prosemirror-history'
+import { history } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
 import { baseKeymap } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
@@ -49,7 +49,6 @@ function markKeymap(schema: Schema) {
 export function createPlugins(schema: Schema, _options: PluginOptions): Plugin[] {
   return [
     history(),
-    keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
     markKeymap(schema),
     keymap(baseKeymap),
     epistolaInputRules(schema),

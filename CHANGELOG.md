@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **Editor V2: Unified undo via strategy pattern**: Undo/redo now flows through a single path — `engine.undo()`/`engine.redo()`. Components that own their own undo history (e.g. ProseMirror) register as an `UndoHandler` on the engine via `setActiveUndoHandler()`. The engine delegates to the active handler first; if it returns false (or none is registered), falls through to the engine's own `UndoStack`. Removes DOM traversal (`.closest('.ProseMirror')`) from the root keydown handler and ProseMirror's built-in undo/redo keybindings. Guards flush against redundant undo entries when PM-undo restores original content.
+
+### Changed
 - **Editor V2: EventEmitter, debounce, and dual undo stack**:
   - **Typed EventEmitter** (`engine/events.ts`): Replaced 3 ad-hoc listener Sets in `EditorEngine` with a single typed `EventEmitter<EngineEvents>` supporting `doc:change`, `selection:change`, and `example:change` events. Old `subscribe()`, `onSelectionChange()`, and `onExampleChange()` methods are preserved as deprecated wrappers for backward compatibility.
   - **Conditional index rebuild**: Added `structureChanged` flag to `CommandOk`. Structural commands (InsertNode, RemoveNode, MoveNode) trigger index rebuild; property/style commands skip it for better keystroke performance.
