@@ -1089,7 +1089,7 @@ describe('structureChanged flag', () => {
 })
 
 // ---------------------------------------------------------------------------
-// skipUndo + pushUndoEntry
+// skipUndo + pushTextChange
 // ---------------------------------------------------------------------------
 
 describe('skipUndo option', () => {

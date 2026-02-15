@@ -1,4 +1,4 @@
-export { EditorEngine, type EngineListener, type UndoHandler } from './EditorEngine.js'
+export { EditorEngine, type EngineListener } from './EditorEngine.js'
 export { EventEmitter, type EngineEvents } from './events.js'
 export {
   type Command,
@@ -22,7 +22,7 @@ export {
   getNodeDepth,
   findAncestorAtLevel,
 } from './indexes.js'
-export { UndoStack } from './undo.js'
+export { UndoStack, type UndoEntry, type TextChangeEntry, type TextChangeOps, isTextChange } from './undo.js'
 export {
   ComponentRegistry,
   createDefaultRegistry,

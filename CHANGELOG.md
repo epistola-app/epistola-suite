@@ -16,7 +16,7 @@
   - **Editor-v2 icons**: Undo/redo toolbar buttons, palette block type icons, tree node type icons — all using inline Lucide SVGs
 
 ### Changed
-- **Editor V2: Unified undo via strategy pattern**: Undo/redo now flows through a single path — `engine.undo()`/`engine.redo()`. Components that own their own undo history (e.g. ProseMirror) register as an `UndoHandler` on the engine via `setActiveUndoHandler()`. The engine delegates to the active handler first; if it returns false (or none is registered), falls through to the engine's own `UndoStack`. Removes DOM traversal (`.closest('.ProseMirror')`) from the root keydown handler and ProseMirror's built-in undo/redo keybindings. Guards flush against redundant undo entries when PM-undo restores original content.
+- **Editor V2: TextChange as first-class undo entry**: Replaced the `UndoHandler` strategy pattern with `TextChangeEntry` on the engine's undo stack. Text editing sessions now delegate undo/redo to ProseMirror's native history using `undoDepth()` as session boundaries. Character-level undo works even after blurring the text block (PM history persists). Snapshot fallback handles destroyed PM views. Removes focus/blur handler registration, `_hasPendingFlush`/`_isSyncing` guards, coalesced undo entries, and the `beforeinput` interception for strategy-based double-undo prevention.
 
 ### Changed
 - **Editor V2: EventEmitter, debounce, and dual undo stack**:
