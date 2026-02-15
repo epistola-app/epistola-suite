@@ -6,6 +6,7 @@
     <title th:text="${theme.name + ' - Epistola'}">Theme - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
     <th:block th:replace="~{fragments/htmx :: htmx}" />
+    <link rel="stylesheet" th:href="@{/editor/theme-editor.css}">
 </head>
 <body>
     <main class="regular">
@@ -25,118 +26,63 @@
             </form>
         </div>
 
-        <!-- Basic Info Section -->
-        <section>
-            <h2>Basic Information</h2>
-            <div class="form-section">
-                <div class="form-group">
-                    <label for="theme-name">Name</label>
-                    <input type="text" id="theme-name" class="ep-input" th:value="${theme.name}" placeholder="Theme name">
-                </div>
-                <div class="form-group">
-                    <label for="theme-description">Description</label>
-                    <textarea id="theme-description" class="ep-textarea" rows="2" placeholder="Theme description" th:text="${theme.description}"></textarea>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="window.themeEditor.saveBasicInfo()">Save Basic Info</button>
-            </div>
-        </section>
+        <div id="theme-editor-container"></div>
 
-        <!-- Document Styles Section -->
-        <section>
-            <h2>Document Styles</h2>
-            <p class="text-muted">
-                Default styles applied to all templates using this theme. Template-level styles will override these.
-            </p>
-            <div class="form-section">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="doc-fontFamily">Font Family</label>
-                        <input type="text" id="doc-fontFamily" class="ep-input" th:value="${theme.documentStyles?.fontFamily}" placeholder="e.g., Arial, Helvetica, sans-serif">
-                    </div>
-                    <div class="form-group">
-                        <label for="doc-fontSize">Font Size</label>
-                        <input type="text" id="doc-fontSize" class="ep-input" th:value="${theme.documentStyles?.fontSize}" placeholder="e.g., 12pt">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="doc-fontWeight">Font Weight</label>
-                        <select id="doc-fontWeight" class="ep-select">
-                            <option value="" th:selected="${theme.documentStyles?.fontWeight == null}">Default</option>
-                            <option value="normal" th:selected="${theme.documentStyles?.fontWeight == 'normal'}">Normal</option>
-                            <option value="bold" th:selected="${theme.documentStyles?.fontWeight == 'bold'}">Bold</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="doc-color">Text Color</label>
-                        <input type="text" id="doc-color" class="ep-input" th:value="${theme.documentStyles?.color}" placeholder="e.g., #333333">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="doc-lineHeight">Line Height</label>
-                        <input type="text" id="doc-lineHeight" class="ep-input" th:value="${theme.documentStyles?.lineHeight}" placeholder="e.g., 1.5">
-                    </div>
-                    <div class="form-group">
-                        <label for="doc-letterSpacing">Letter Spacing</label>
-                        <input type="text" id="doc-letterSpacing" class="ep-input" th:value="${theme.documentStyles?.letterSpacing}" placeholder="e.g., 0.02em">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="doc-textAlign">Text Align</label>
-                        <select id="doc-textAlign" class="ep-select">
-                            <option value="" th:selected="${theme.documentStyles?.textAlign == null}">Default</option>
-                            <option value="left" th:selected="${theme.documentStyles?.textAlign == 'left'}">Left</option>
-                            <option value="center" th:selected="${theme.documentStyles?.textAlign == 'center'}">Center</option>
-                            <option value="right" th:selected="${theme.documentStyles?.textAlign == 'right'}">Right</option>
-                            <option value="justify" th:selected="${theme.documentStyles?.textAlign == 'justify'}">Justify</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="doc-backgroundColor">Background Color</label>
-                        <input type="text" id="doc-backgroundColor" class="ep-input" th:value="${theme.documentStyles?.backgroundColor}" placeholder="e.g., #ffffff">
-                    </div>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="window.themeEditor.saveDocumentStyles()">Save Document Styles</button>
-            </div>
-        </section>
-
-        <!-- Block Style Presets Section -->
-        <section>
-            <h2>Block Style Presets</h2>
-            <p class="text-muted">
-                Named style collections that blocks can reference using the <code>stylePreset</code> property.
-                Similar to CSS classes, blocks can inherit these styles and override specific properties.
-            </p>
-            <div id="presets-container">
-                <!-- Presets will be rendered dynamically -->
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-outline" onclick="window.themeEditor.addPreset()">Add Preset</button>
-                <button type="button" class="btn btn-primary" onclick="window.themeEditor.savePresets()">Save Presets</button>
-            </div>
-        </section>
-
-        <p class="text-muted">
+        <p class="text-muted" style="margin-top: 1rem;">
             Last modified: <span th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></span>
         </p>
     </main>
 
     <th:block th:replace="~{fragments/footer :: footer}" />
 
-    <!-- Initialize theme editor with context data -->
     <script th:inline="javascript">
-        window.THEME_EDITOR_CONFIG = {
-            tenantId: [[${tenantId}]],
-            themeId: [[${theme.id}]],
-            initialPresets: [[${theme.blockStylePresets}]] || {}
+        /*<![CDATA[*/
+        window.THEME_EDITOR_CONFIG = /*[[${themeJson}]]*/ {};
+        window.TENANT_ID = /*[[${tenantId}]]*/ '';
+        window.THEME_ID = /*[[${theme.id}]]*/ '';
+
+        window.getCsrfToken = function() {
+            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : '';
         };
+        /*]]>*/
     </script>
     <script type="module">
-        import { initThemeEditor } from '/js/modules/theme-editor.js';
-        document.addEventListener('DOMContentLoaded', () => {
-            initThemeEditor(window.THEME_EDITOR_CONFIG);
+        import { mountThemeEditor } from '/editor/theme-editor.js';
+
+        const container = document.getElementById('theme-editor-container');
+        const tenantId = window.TENANT_ID;
+        const themeId = window.THEME_ID;
+        const themeData = window.THEME_EDITOR_CONFIG;
+
+        mountThemeEditor({
+            container: container,
+            theme: themeData,
+            onSave: async (payload) => {
+                const response = await fetch('/tenants/' + tenantId + '/themes/' + themeId, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': window.getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    const text = await response.text().catch(() => response.statusText);
+                    throw new Error('Failed to save theme: ' + text);
+                }
+
+                // Update page title if name changed
+                const result = await response.json();
+                if (result.name) {
+                    document.title = result.name + ' - Epistola';
+                    const h1 = document.querySelector('.page-header h1');
+                    if (h1) h1.textContent = result.name;
+                    const breadcrumbName = document.querySelector('.breadcrumb > span:last-child');
+                    if (breadcrumbName) breadcrumbName.textContent = result.name;
+                }
+            },
         });
     </script>
 </body>

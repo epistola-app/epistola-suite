@@ -139,11 +139,22 @@ class ThemeHandler(
         val theme = GetTheme(tenantId = TenantId.of(tenantId), id = themeId).query()
             ?: return ServerResponse.notFound().build()
 
+        // Serialize theme data as JSON for the Lit component
+        val themeJson = mapOf(
+            "id" to theme.id.value,
+            "name" to theme.name,
+            "description" to theme.description,
+            "documentStyles" to theme.documentStyles,
+            "pageSettings" to theme.pageSettings,
+            "blockStylePresets" to (theme.blockStylePresets ?: emptyMap()),
+        )
+
         return ServerResponse.ok().render(
             "themes/detail",
             mapOf(
                 "tenantId" to tenantId,
                 "theme" to theme,
+                "themeJson" to themeJson,
             ),
         )
     }
