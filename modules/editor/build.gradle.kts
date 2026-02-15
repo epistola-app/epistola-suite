@@ -38,10 +38,10 @@ val verifyFrontendBuild by tasks.registering {
 val copyDistToResources by tasks.registering(Copy::class) {
     dependsOn(verifyFrontendBuild)
     from("dist")
-    into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor-v2"))
+    into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
 
     outputs.upToDateWhen {
-        layout.buildDirectory.dir("resources/main/META-INF/resources/editor-v2").get().asFile.exists()
+        layout.buildDirectory.dir("resources/main/META-INF/resources/editor").get().asFile.exists()
     }
 }
 

@@ -1,7 +1,7 @@
 /**
- * @module @epistola/editor-v2
+ * @module @epistola/editor
  *
- * Epistola Template Editor V2 — Lit-based editor with headless engine.
+ * Epistola Template Editor — Lit-based editor with headless engine.
  *
  * Public API:
  *   mountEditor(options)  → EditorInstance

@@ -30,7 +30,7 @@ importers:
         specifier: ^0.564.0
         version: 0.564.0
 
-  modules/editor-v2:
+  modules/editor:
     dependencies:
       '@atlaskit/pragmatic-drag-and-drop':
         specifier: ^1.7.7

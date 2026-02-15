@@ -1,6 +1,6 @@
 /**
  * Re-export all model types from the shared @epistola/template-model package.
- * This is the single import point for all type references within editor-v2.
+ * This is the single import point for all type references within the editor.
  */
 export type {
   NodeId,

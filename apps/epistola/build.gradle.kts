@@ -27,7 +27,7 @@ dependencies {
     implementation(project(":modules:rest-api"))
 
     // UI/Frontend modules
-    implementation(project(":modules:editor-v2"))
+    implementation(project(":modules:editor"))
     implementation(project(":modules:schema-manager"))
 
     // Spring Boot - UI layer concerns

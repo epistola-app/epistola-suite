@@ -20,13 +20,13 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/main/typescript/lib.ts'),
-      name: 'TemplateEditorV2',
-      fileName: 'template-editor-v2',
+      name: 'TemplateEditor',
+      fileName: 'template-editor',
       formats: ['es'],
     },
     rollupOptions: {
       output: {
-        assetFileNames: 'template-editor-v2.[ext]',
+        assetFileNames: 'template-editor.[ext]',
       },
     },
   },

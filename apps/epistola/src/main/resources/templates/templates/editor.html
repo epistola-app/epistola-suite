@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <link rel="stylesheet" th:href="@{/editor-v2/template-editor-v2.css}">
+    <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
     <style>
         .editor-container {
             overflow: hidden;
@@ -40,7 +40,7 @@
         /*]]>*/
     </script>
     <script type="module">
-        import { mountEditor } from '/editor-v2/template-editor-v2.js';
+        import { mountEditor } from '/editor/template-editor.js';
 
         const container = document.getElementById('editor-container');
         const tenantId = window.TENANT_ID;
