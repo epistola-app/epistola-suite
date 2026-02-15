@@ -1,5 +1,8 @@
 /*
  * Drag-and-Drop Visual Feedback
+ *
+ * Drop indicators, slot highlights, drag source dimming.
+ * Tokens auto-update from the enhanced design system.
  */
 
 @layer states {
