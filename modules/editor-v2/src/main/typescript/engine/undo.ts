@@ -1,15 +1,57 @@
 /**
- * UndoStack — manages undo/redo command history.
+ * UndoStack — manages undo/redo history for the editor engine.
  *
- * Each entry is a Command that, when dispatched, reverses the
- * corresponding forward operation.
+ * Supports two kinds of entries:
+ *  - Command: a structural inverse command (InsertNode, RemoveNode, etc.)
+ *  - TextChangeEntry: a reference to a ProseMirror editing session that
+ *    delegates undo/redo to ProseMirror's native history via undoDepth()
  */
 
 import type { Command } from './commands.js'
+import type { NodeId } from '../types/index.js'
+
+// ---------------------------------------------------------------------------
+// TextChangeEntry — first-class undo entry for ProseMirror editing sessions
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal interface for the ProseMirror EditorView that TextChangeEntry needs.
+ * Using an interface avoids importing the full ProseMirror dependency.
+ */
+export interface PmViewRef {
+  readonly state: { readonly doc: { toJSON(): unknown } }
+  readonly dom: { readonly isConnected: boolean }
+  dispatch: (...args: unknown[]) => void
+}
+
+export interface TextChangeEntry {
+  readonly type: 'TextChange'
+  readonly nodeId: NodeId
+  /** Reference to the PM view. Null if PM was destroyed. */
+  pmView: PmViewRef | null
+  /** Snapshot of the content before this editing session (for fallback undo). */
+  readonly contentBefore: unknown
+  /** Snapshot of the content after this editing session (for fallback redo). Captured lazily on first undo. */
+  contentAfter?: unknown
+  /** PM undoDepth at the start of this session — don't undo past this. */
+  readonly undoDepthAtStart: number
+  /** PM undoDepth at the end of this session — redo target. Set lazily on first undo. */
+  undoDepthAtEnd?: number
+}
+
+export type UndoEntry = Command | TextChangeEntry
+
+export function isTextChange(entry: UndoEntry): entry is TextChangeEntry {
+  return (entry as TextChangeEntry).type === 'TextChange'
+}
+
+// ---------------------------------------------------------------------------
+// UndoStack
+// ---------------------------------------------------------------------------
 
 export class UndoStack {
-  private _undoStack: Command[] = []
-  private _redoStack: Command[] = []
+  private _undoStack: UndoEntry[] = []
+  private _redoStack: UndoEntry[] = []
   private readonly _maxDepth: number
 
   constructor(maxDepth = 100) {
@@ -17,34 +59,58 @@ export class UndoStack {
   }
 
   /**
-   * Push an inverse command onto the undo stack.
+   * Push an entry onto the undo stack.
    * Clears the redo stack (new action invalidates redo history).
    */
-  push(inverse: Command): void {
-    this._undoStack.push(inverse)
+  push(entry: UndoEntry): void {
+    this._undoStack.push(entry)
     this._redoStack = []
     this._trim()
   }
 
   /** Push onto undo stack without clearing redo (used by redo). */
-  pushUndo(inverse: Command): void {
-    this._undoStack.push(inverse)
+  pushUndo(entry: UndoEntry): void {
+    this._undoStack.push(entry)
     this._trim()
   }
 
   /** Push onto redo stack (used by undo). */
-  pushRedo(inverse: Command): void {
-    this._redoStack.push(inverse)
+  pushRedo(entry: UndoEntry): void {
+    this._redoStack.push(entry)
   }
 
-  /** Pop the most recent undo command. */
-  undo(): Command | undefined {
+  /** Pop the most recent undo entry. */
+  popUndo(): UndoEntry | undefined {
     return this._undoStack.pop()
   }
 
-  /** Pop the most recent redo command. */
-  redo(): Command | undefined {
+  /** Pop the most recent redo entry. */
+  popRedo(): UndoEntry | undefined {
     return this._redoStack.pop()
+  }
+
+  /** Peek at the top of the undo stack without popping. */
+  peekUndo(): UndoEntry | undefined {
+    return this._undoStack[this._undoStack.length - 1]
+  }
+
+  /** Peek at the top of the redo stack without popping. */
+  peekRedo(): UndoEntry | undefined {
+    return this._redoStack[this._redoStack.length - 1]
+  }
+
+  /**
+   * @deprecated Use popUndo() instead.
+   */
+  undo(): UndoEntry | undefined {
+    return this.popUndo()
+  }
+
+  /**
+   * @deprecated Use popRedo() instead.
+   */
+  redo(): UndoEntry | undefined {
+    return this.popRedo()
   }
 
   get canUndo(): boolean {
