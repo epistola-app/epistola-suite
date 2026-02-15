@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Load Test Details - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body>
     <main class="regular">
@@ -44,9 +44,9 @@
                     <td>
                         <span class="badge"
                               th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
-                                                run.status.name() == 'RUNNING' ? 'badge-info' :
-                                                run.status.name() == 'FAILED' ? 'badge-error' :
-                                                run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-default'}"
+                                                run.status.name() == 'RUNNING' ? 'badge-primary' :
+                                                run.status.name() == 'FAILED' ? 'badge-destructive' :
+                                                run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
                               th:text="${run.status}">
                         </span>
                     </td>
@@ -202,9 +202,9 @@
                   th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
                   method="post"
                   style="display: inline;">
-                <button type="submit" class="btn btn-warning">Cancel Test</button>
+                <button type="submit" class="btn btn-destructive">Cancel Test</button>
             </form>
-            <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-secondary">Back to List</a>
+            <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-outline">Back to List</a>
         </div>
     </main>
 

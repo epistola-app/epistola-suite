@@ -33,7 +33,7 @@
                                th:value="${formData?.name}">
                         <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
                     </div>
-                    <button type="submit">Create Tenant</button>
+                    <button type="submit" class="btn btn-primary">Create Tenant</button>
                 </form>
             </section>
         </div>
@@ -64,7 +64,7 @@
                             </td>
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
-                                <a th:href="@{/tenants/{id}(id=${tenant.id})}" class="btn btn-small">Open</a>
+                                <a th:href="@{/tenants/{id}(id=${tenant.id})}" class="btn btn-sm btn-outline">Open</a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(tenants)}">

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Start Load Test - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body>
     <main class="regular">
@@ -79,20 +79,22 @@
 
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Start Load Test</button>
-                    <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-secondary">Cancel</a>
+                    <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-outline">Cancel</a>
                 </div>
             </form>
         </section>
 
-        <section class="info-box">
-            <h3>Load Test Information</h3>
-            <ul>
-                <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
-                <li><strong>Batch Submission:</strong> All documents are submitted as a single batch for efficient processing</li>
-                <li><strong>Metrics Collected:</strong> Response times (avg, min, max, p50, p95, p99), requests/sec, success rate</li>
-                <li><strong>Document Retention:</strong> Generated documents follow standard retention policy (30 days by default)</li>
-                <li><strong>Version vs Environment:</strong> Specify either a version ID or an environment, not both</li>
-            </ul>
+        <section class="info-box alert alert-info">
+            <div>
+                <h3>Load Test Information</h3>
+                <ul>
+                    <li><strong>Target Count:</strong> Number of documents to generate in the test</li>
+                    <li><strong>Batch Submission:</strong> All documents are submitted as a single batch for efficient processing</li>
+                    <li><strong>Metrics Collected:</strong> Response times (avg, min, max, p50, p95, p99), requests/sec, success rate</li>
+                    <li><strong>Document Retention:</strong> Generated documents follow standard retention policy (30 days by default)</li>
+                    <li><strong>Version vs Environment:</strong> Specify either a version ID or an environment, not both</li>
+                </ul>
+            </div>
         </section>
     </main>
 

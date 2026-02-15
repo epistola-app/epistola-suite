@@ -5,36 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Successful - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <style>
-        .success-container {
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 2rem;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        .success-icon {
-            font-size: 3rem;
-            color: #28a745;
-            margin-bottom: 1rem;
-        }
-        .success-message {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-        .close-notice {
-            color: #666;
-            font-size: 0.875rem;
-        }
-    </style>
 </head>
 <body>
-    <div class="success-container">
-        <div class="success-icon">&#10003;</div>
-        <p class="success-message">Login successful!</p>
-        <p class="close-notice">This window will close automatically...</p>
+    <div class="login-container">
+        <div class="login-card" style="text-align: center;">
+            <div style="color: var(--ep-green-600); margin-bottom: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='check-circle', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <p style="font-weight: 500; margin-bottom: var(--ep-space-2);">Login successful!</p>
+            <p class="close-notice" style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
+                This window will close automatically...
+            </p>
+        </div>
     </div>
 
     <script>

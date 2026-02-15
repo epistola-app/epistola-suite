@@ -15,7 +15,7 @@
 
         <div class="page-header">
             <h1>Document Templates</h1>
-            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="btn btn-secondary">Manage Themes</a>
+            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="btn btn-sm btn-outline">Manage Themes</a>
         </div>
 
         <div id="create-form" th:fragment="create-form">
@@ -48,7 +48,7 @@
                                   th:text="${formData?.schema}"></textarea>
                         <span class="form-error" th:if="${errors?.containsKey('schema')}" th:text="${errors.schema}"></span>
                     </div>
-                    <button type="submit">Create Template</button>
+                    <button type="submit" class="btn btn-primary">Create Template</button>
                 </form>
             </section>
         </div>
@@ -79,7 +79,7 @@
                             <td th:text="${template.variantCount}"></td>
                             <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
-                                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">View</a>
+                                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-sm btn-outline">View</a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(templates)}">

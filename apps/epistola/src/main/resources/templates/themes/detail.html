@@ -21,7 +21,7 @@
             <form th:action="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
                   method="post"
                   onsubmit="return confirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.')">
-                <button type="submit" class="btn btn-danger btn-small">Delete Theme</button>
+                <button type="submit" class="btn btn-sm btn-destructive">Delete Theme</button>
             </form>
         </div>
 
@@ -31,37 +31,37 @@
             <div class="form-section">
                 <div class="form-group">
                     <label for="theme-name">Name</label>
-                    <input type="text" id="theme-name" th:value="${theme.name}" placeholder="Theme name">
+                    <input type="text" id="theme-name" class="ep-input" th:value="${theme.name}" placeholder="Theme name">
                 </div>
                 <div class="form-group">
                     <label for="theme-description">Description</label>
-                    <textarea id="theme-description" rows="2" placeholder="Theme description" th:text="${theme.description}"></textarea>
+                    <textarea id="theme-description" class="ep-textarea" rows="2" placeholder="Theme description" th:text="${theme.description}"></textarea>
                 </div>
-                <button type="button" class="btn" onclick="window.themeEditor.saveBasicInfo()">Save Basic Info</button>
+                <button type="button" class="btn btn-primary" onclick="window.themeEditor.saveBasicInfo()">Save Basic Info</button>
             </div>
         </section>
 
         <!-- Document Styles Section -->
-        <section style="margin-top: 2rem;">
+        <section>
             <h2>Document Styles</h2>
-            <p class="text-muted" style="margin-bottom: 1rem;">
+            <p class="text-muted">
                 Default styles applied to all templates using this theme. Template-level styles will override these.
             </p>
             <div class="form-section">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="doc-fontFamily">Font Family</label>
-                        <input type="text" id="doc-fontFamily" th:value="${theme.documentStyles?.fontFamily}" placeholder="e.g., Arial, Helvetica, sans-serif">
+                        <input type="text" id="doc-fontFamily" class="ep-input" th:value="${theme.documentStyles?.fontFamily}" placeholder="e.g., Arial, Helvetica, sans-serif">
                     </div>
                     <div class="form-group">
                         <label for="doc-fontSize">Font Size</label>
-                        <input type="text" id="doc-fontSize" th:value="${theme.documentStyles?.fontSize}" placeholder="e.g., 12pt">
+                        <input type="text" id="doc-fontSize" class="ep-input" th:value="${theme.documentStyles?.fontSize}" placeholder="e.g., 12pt">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="doc-fontWeight">Font Weight</label>
-                        <select id="doc-fontWeight">
+                        <select id="doc-fontWeight" class="ep-select">
                             <option value="" th:selected="${theme.documentStyles?.fontWeight == null}">Default</option>
                             <option value="normal" th:selected="${theme.documentStyles?.fontWeight == 'normal'}">Normal</option>
                             <option value="bold" th:selected="${theme.documentStyles?.fontWeight == 'bold'}">Bold</option>
@@ -69,23 +69,23 @@
                     </div>
                     <div class="form-group">
                         <label for="doc-color">Text Color</label>
-                        <input type="text" id="doc-color" th:value="${theme.documentStyles?.color}" placeholder="e.g., #333333">
+                        <input type="text" id="doc-color" class="ep-input" th:value="${theme.documentStyles?.color}" placeholder="e.g., #333333">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="doc-lineHeight">Line Height</label>
-                        <input type="text" id="doc-lineHeight" th:value="${theme.documentStyles?.lineHeight}" placeholder="e.g., 1.5">
+                        <input type="text" id="doc-lineHeight" class="ep-input" th:value="${theme.documentStyles?.lineHeight}" placeholder="e.g., 1.5">
                     </div>
                     <div class="form-group">
                         <label for="doc-letterSpacing">Letter Spacing</label>
-                        <input type="text" id="doc-letterSpacing" th:value="${theme.documentStyles?.letterSpacing}" placeholder="e.g., 0.02em">
+                        <input type="text" id="doc-letterSpacing" class="ep-input" th:value="${theme.documentStyles?.letterSpacing}" placeholder="e.g., 0.02em">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="doc-textAlign">Text Align</label>
-                        <select id="doc-textAlign">
+                        <select id="doc-textAlign" class="ep-select">
                             <option value="" th:selected="${theme.documentStyles?.textAlign == null}">Default</option>
                             <option value="left" th:selected="${theme.documentStyles?.textAlign == 'left'}">Left</option>
                             <option value="center" th:selected="${theme.documentStyles?.textAlign == 'center'}">Center</option>
@@ -95,30 +95,30 @@
                     </div>
                     <div class="form-group">
                         <label for="doc-backgroundColor">Background Color</label>
-                        <input type="text" id="doc-backgroundColor" th:value="${theme.documentStyles?.backgroundColor}" placeholder="e.g., #ffffff">
+                        <input type="text" id="doc-backgroundColor" class="ep-input" th:value="${theme.documentStyles?.backgroundColor}" placeholder="e.g., #ffffff">
                     </div>
                 </div>
-                <button type="button" class="btn" onclick="window.themeEditor.saveDocumentStyles()">Save Document Styles</button>
+                <button type="button" class="btn btn-primary" onclick="window.themeEditor.saveDocumentStyles()">Save Document Styles</button>
             </div>
         </section>
 
         <!-- Block Style Presets Section -->
-        <section style="margin-top: 2rem;">
+        <section>
             <h2>Block Style Presets</h2>
-            <p class="text-muted" style="margin-bottom: 1rem;">
+            <p class="text-muted">
                 Named style collections that blocks can reference using the <code>stylePreset</code> property.
                 Similar to CSS classes, blocks can inherit these styles and override specific properties.
             </p>
             <div id="presets-container">
                 <!-- Presets will be rendered dynamically -->
             </div>
-            <div style="margin-top: 1rem;">
-                <button type="button" class="btn btn-secondary" onclick="window.themeEditor.addPreset()">Add Preset</button>
-                <button type="button" class="btn" onclick="window.themeEditor.savePresets()">Save Presets</button>
+            <div class="form-actions">
+                <button type="button" class="btn btn-outline" onclick="window.themeEditor.addPreset()">Add Preset</button>
+                <button type="button" class="btn btn-primary" onclick="window.themeEditor.savePresets()">Save Presets</button>
             </div>
         </section>
 
-        <p class="text-muted" style="margin-top: 2rem;">
+        <p class="text-muted">
             Last modified: <span th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></span>
         </p>
     </main>
@@ -139,39 +139,5 @@
             initThemeEditor(window.THEME_EDITOR_CONFIG);
         });
     </script>
-
-    <style>
-        .form-row {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .form-row .form-group {
-            flex: 1;
-            min-width: 200px;
-        }
-        .preset-item {
-            background: #f9fafb;
-            padding: 1rem;
-            border-radius: 0.5rem;
-        }
-        .preset-styles {
-            font-family: monospace;
-            font-size: 0.875rem;
-        }
-        code {
-            background: #e5e7eb;
-            padding: 0.125rem 0.25rem;
-            border-radius: 0.25rem;
-            font-size: 0.875rem;
-        }
-        .text-truncate {
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            display: inline-block;
-        }
-    </style>
 </body>
 </html>

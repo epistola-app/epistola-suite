@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Load Tests - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body>
     <main class="regular">
@@ -21,7 +21,7 @@
             <a th:href="@{/tenants/{id}/load-tests/new(id=${tenantId})}" class="btn btn-primary">
                 Start New Load Test
             </a>
-            <a th:href="@{/tenants/{id}(id=${tenantId})}" class="btn btn-secondary">
+            <a th:href="@{/tenants/{id}(id=${tenantId})}" class="btn btn-outline">
                 Back to Tenant
             </a>
         </div>
@@ -51,9 +51,9 @@
                         <td>
                             <span class="badge"
                                   th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
-                                                    run.status.name() == 'RUNNING' ? 'badge-info' :
-                                                    run.status.name() == 'FAILED' ? 'badge-error' :
-                                                    run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-default'}"
+                                                    run.status.name() == 'RUNNING' ? 'badge-primary' :
+                                                    run.status.name() == 'FAILED' ? 'badge-destructive' :
+                                                    run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
                                   th:text="${run.status}">
                             </span>
                         </td>
@@ -77,7 +77,7 @@
                         </td>
                         <td class="actions">
                             <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-                               class="btn btn-small">View Details</a>
+                               class="btn btn-sm btn-outline">View Details</a>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(runs)}">

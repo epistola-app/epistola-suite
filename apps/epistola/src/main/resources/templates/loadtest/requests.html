@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Load Test Request Log - Epistola</title>
     <th:block th:replace="~{fragments/styles :: styles}" />
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <th:block th:replace="~{fragments/htmx :: htmx}" />
 </head>
 <body>
     <main class="regular">
@@ -36,7 +36,7 @@
                         </td>
                         <td>
                             <span class="badge"
-                                  th:classappend="${request.success} ? 'badge-success' : 'badge-error'"
+                                  th:classappend="${request.success} ? 'badge-success' : 'badge-destructive'"
                                   th:text="${request.success} ? 'SUCCESS' : 'FAILED'">
                             </span>
                         </td>
@@ -55,7 +55,7 @@
             <div class="pagination" th:if="${!#lists.isEmpty(requests)}">
                 <a th:if="${offset > 0}"
                    th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset - limit},limit=${limit})}"
-                   class="btn btn-small">
+                   class="btn btn-sm btn-outline">
                     Previous
                 </a>
                 <span class="pagination-info">
@@ -64,7 +64,7 @@
                 </span>
                 <a th:if="${#lists.size(requests) == limit}"
                    th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset + limit},limit=${limit})}"
-                   class="btn btn-small">
+                   class="btn btn-sm btn-outline">
                     Next
                 </a>
             </div>
@@ -72,7 +72,7 @@
 
         <div class="actions-bar">
             <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-               class="btn btn-secondary">Back to Test Details</a>
+               class="btn btn-outline">Back to Test Details</a>
         </div>
     </main>
 
