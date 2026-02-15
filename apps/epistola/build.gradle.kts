@@ -27,7 +27,6 @@ dependencies {
     implementation(project(":modules:rest-api"))
 
     // UI/Frontend modules
-    implementation(project(":modules:vendor"))
     implementation(project(":modules:editor-v2"))
     implementation(project(":modules:schema-manager"))
 
