@@ -4,7 +4,7 @@
  * Light DOM (no Shadow DOM) so global CSS applies to ProseMirror content.
  *
  * Undo integration:
- * - On first doc-changing PM transaction, pushes a TextChangeEntry onto the
+ * - On first doc-changing PM transaction, pushes a TextChange onto the
  *   engine's undo stack with ops that delegate to PM's native history.
  * - The engine calls ops.undo()/redo() to walk PM's history one step at a time,
  *   using undoDepth() as the session boundary.
@@ -15,6 +15,12 @@
  *   with skipUndo (PM handles character-level undo natively via TextChange).
  * - External changes (engine undo snapshot, inspector edit) → replace PM state.
  * - JSON equality comparison prevents unnecessary PM state replacement.
+ *
+ * PM state preservation (Phase 2):
+ * - On disconnect, caches PM EditorState in the engine so that if the block
+ *   is restored via undo, character-level undo history is preserved.
+ * - On connect, checks for a cached state and restores it if available.
+ * - Revives ops on TextChange entries so they delegate to PM again.
  */
 
 import { LitElement, html } from 'lit'
@@ -29,7 +35,8 @@ import { createPlugins } from '../prosemirror/plugins.js'
 import { ExpressionNodeView } from '../prosemirror/ExpressionNodeView.js'
 import { extractFieldPaths } from '../engine/schema-paths.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
-import { isTextChange, type TextChangeOps } from '../engine/undo.js'
+import { TextChange } from '../engine/text-change.js'
+import type { TextChangeOps } from '../engine/undo.js'
 import type { NodeId } from '../types/index.js'
 
 const DEBOUNCE_MS = 300
@@ -90,6 +97,12 @@ export class EpistolaTextEditor extends LitElement {
     if (this._hasPendingEdits && this._pmView) {
       this._dispatchContentToEngine(this._pmView.state.doc)
     }
+
+    // Cache PM EditorState for history preservation across delete/undo cycles
+    if (this._pmView && this.engine && this.nodeId) {
+      this.engine.cachePmState(this.nodeId, this._pmView.state)
+    }
+
     // Invalidate ops so TextChange entries fall back to snapshot restore
     this._ops = null
     this._destroyProseMirror()
@@ -111,8 +124,27 @@ export class EpistolaTextEditor extends LitElement {
       expressionNodeViewOptions: { fieldPaths },
     })
 
-    const doc = this._parseContent(this.content)
-    const editorState = EditorState.create({ doc, plugins })
+    // Check for cached PM state (preserved across delete/undo cycles)
+    const cached = this.nodeId ? this.engine?.getCachedPmState(this.nodeId) : undefined
+    let editorState: EditorState
+
+    if (cached) {
+      // Verify the cached state's doc matches the current engine content
+      const cachedState = cached as EditorState
+      const cachedJson = JSON.stringify(cachedState.doc.toJSON())
+      const engineJson = JSON.stringify(this.content)
+      if (cachedJson === engineJson) {
+        // Content matches — restore PM state with history intact
+        editorState = cachedState
+      } else {
+        // Content diverged — create fresh state
+        const doc = this._parseContent(this.content)
+        editorState = EditorState.create({ doc, plugins })
+      }
+    } else {
+      const doc = this._parseContent(this.content)
+      editorState = EditorState.create({ doc, plugins })
+    }
 
     this._pmView = new EditorView(this._pmContainer, {
       state: editorState,
@@ -156,6 +188,11 @@ export class EpistolaTextEditor extends LitElement {
 
     this._lastContentJson = JSON.stringify(this._pmView.state.doc.toJSON())
     this._ops = this._createOps()
+
+    // Revive TextChange entries that reference this nodeId
+    if (this.nodeId && this.engine) {
+      this.engine.reviveTextChangeOps(this.nodeId, this._ops)
+    }
   }
 
   /** Create TextChangeOps that close over this component's PM view. */
@@ -200,7 +237,7 @@ export class EpistolaTextEditor extends LitElement {
    */
   private _isCurrentSessionOnStack(): boolean {
     const top = this.engine?.peekUndo()
-    if (!top || !isTextChange(top)) return false
+    if (!top || !(top instanceof TextChange)) return false
     return top.ops === this._ops
   }
 
@@ -214,13 +251,12 @@ export class EpistolaTextEditor extends LitElement {
 
     // Push TextChange entry on first change of a new editing session
     if (!this._isCurrentSessionOnStack()) {
-      this.engine.pushTextChange({
-        type: 'TextChange',
+      this.engine.pushTextChange(new TextChange({
         nodeId: this.nodeId,
         ops: this._ops,
         contentBefore: this.content, // current engine content = "before" snapshot
         undoDepthAtStart: undoDepth(this._pmView.state) - 1, // depth was just incremented by this transaction
-      })
+      }))
     }
 
     this._scheduleContentDispatch(pmDoc)

@@ -10,7 +10,11 @@ import type { Theme } from '@epistola/template-model/generated/theme.js'
 import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
 import { type Command, type CommandResult, applyCommand } from './commands.js'
-import { UndoStack, type TextChangeEntry, isTextChange } from './undo.js'
+import { UndoStack } from './undo.js'
+import type { Change, ChangeContext } from './change.js'
+import { CommandChange } from './command-change.js'
+import { TextChange } from './text-change.js'
+import type { TextChangeOps } from './undo.js'
 import type { ComponentRegistry } from './registry.js'
 import { deepFreeze } from './freeze.js'
 import { defaultStyleRegistry } from './style-registry.js'
@@ -50,6 +54,12 @@ export class EditorEngine {
   private _dataExamples: object[] | undefined
   private _currentExampleIndex: number = 0
 
+  /** PM EditorState cache for preserving history across delete/undo cycles. */
+  private _pmStateCache = new Map<NodeId, unknown>()
+
+  /** ChangeContext instance shared with all Change implementations. */
+  private _changeCtx: ChangeContext
+
   constructor(
     doc: TemplateDocument,
     registry: ComponentRegistry,
@@ -65,6 +75,26 @@ export class EditorEngine {
     this._dataModel = options?.dataModel
     this._dataExamples = options?.dataExamples
     this._recomputeStyles()
+
+    // Build the ChangeContext that Change implementations use
+    this._changeCtx = {
+      stack: this._undoStack,
+      applySilent: (command: Command) => this._dispatchSilent(command),
+      syncContent: (nodeId: NodeId, content: unknown) => {
+        this.dispatch(
+          { type: 'UpdateNodeProps', nodeId, props: { content } },
+          { skipUndo: true },
+        )
+      },
+      applySnapshot: (nodeId: NodeId, content: unknown) => {
+        this.dispatch(
+          { type: 'UpdateNodeProps', nodeId, props: { content: content != null ? structuredClone(content) : null } },
+          { skipUndo: true },
+        )
+      },
+      undo: () => this.undo(),
+      redo: () => this.redo(),
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -220,7 +250,7 @@ export class EditorEngine {
       this._recomputeStyles()
 
       if (!options?.skipUndo && result.inverse) {
-        this._undoStack.push(result.inverse)
+        this._undoStack.push(new CommandChange(result.inverse))
       }
 
       this._notify()
@@ -234,18 +264,18 @@ export class EditorEngine {
    * on the first doc-changing PM transaction of a new editing session.
    * Clears the redo stack (new action invalidates redo history).
    */
-  pushTextChange(entry: TextChangeEntry): void {
+  pushTextChange(entry: TextChange): void {
     this._undoStack.push(entry)
   }
 
   /** Peek at the top of the undo stack (used by text editor to check current session). */
-  peekUndo(): import('./undo.js').UndoEntry | undefined {
+  peekUndo(): Change | undefined {
     return this._undoStack.peekUndo()
   }
 
   /**
    * Dispatch a command without recording it in the undo stack.
-   * Used internally by undo/redo.
+   * Used internally by undo/redo via ChangeContext.
    */
   private _dispatchSilent(command: Command): CommandResult {
     const result = applyCommand(this._doc, this._indexes, command, this.registry)
@@ -267,135 +297,15 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
 
   undo(): boolean {
-    const entry = this._undoStack.peekUndo()
-    if (!entry) return false
-
-    if (isTextChange(entry)) {
-      return this._undoTextChange(entry)
-    }
-
-    // Command entry — pop and apply inverse
-    this._undoStack.popUndo()
-    const result = this._dispatchSilent(entry)
-    if (!result.ok) return false
-
-    if (result.inverse) {
-      this._undoStack.pushRedo(result.inverse)
-    }
-    return true
+    const change = this._undoStack.peekUndo()
+    if (!change) return false
+    return change.undoStep(this._changeCtx)
   }
 
   redo(): boolean {
-    const entry = this._undoStack.peekRedo()
-    if (!entry) return false
-
-    if (isTextChange(entry)) {
-      return this._redoTextChange(entry)
-    }
-
-    // Command entry — pop and apply inverse
-    this._undoStack.popRedo()
-    const result = this._dispatchSilent(entry)
-    if (!result.ok) return false
-
-    if (result.inverse) {
-      this._undoStack.pushUndo(result.inverse)
-    }
-    return true
-  }
-
-  private _undoTextChange(entry: TextChangeEntry): boolean {
-    const ops = entry.ops
-
-    if (ops && ops.isAlive()) {
-      // Lazily capture end-of-session state on first undo
-      if (entry.undoDepthAtEnd === undefined) {
-        entry.undoDepthAtEnd = ops.undoDepth()
-        entry.contentAfter = ops.getContent()
-      }
-
-      if (ops.undoDepth() > entry.undoDepthAtStart) {
-        ops.undo()
-        this._syncTextContent(entry.nodeId, ops.getContent())
-
-        // If session is now exhausted, move entry to redo stack immediately
-        if (ops.undoDepth() <= entry.undoDepthAtStart) {
-          this._undoStack.popUndo()
-          this._undoStack.pushRedo(entry)
-        }
-        return true
-      }
-
-      // Session already exhausted (entry still on undo stack from prior state)
-    } else {
-      // PM destroyed — apply contentBefore via snapshot restore
-      this._undoStack.popUndo()
-      this._applyContentSnapshot(entry.nodeId, entry.contentBefore)
-      this._undoStack.pushRedo(entry)
-      return true
-    }
-
-    // Fall through: session exhausted without performing an undo step
-    this._undoStack.popUndo()
-    this._undoStack.pushRedo(entry)
-    return this.undo()
-  }
-
-  private _redoTextChange(entry: TextChangeEntry): boolean {
-    const ops = entry.ops
-
-    if (ops && ops.isAlive()) {
-      if (entry.undoDepthAtEnd !== undefined && ops.undoDepth() < entry.undoDepthAtEnd) {
-        ops.redo()
-        this._syncTextContent(entry.nodeId, ops.getContent())
-
-        // If session is fully redone, move entry to undo stack immediately
-        if (ops.undoDepth() >= entry.undoDepthAtEnd) {
-          this._moveRedoToUndo(entry)
-        }
-        return true
-      }
-
-      // Session already fully redone
-      this._moveRedoToUndo(entry)
-      return this.redo()
-    }
-
-    // PM destroyed — apply contentAfter via snapshot restore
-    this._undoStack.popRedo()
-    if (entry.contentAfter !== undefined) {
-      this._applyContentSnapshot(entry.nodeId, entry.contentAfter)
-    }
-    this._moveRedoToUndo(entry)
-    return true
-  }
-
-  /**
-   * Move a TextChange entry from redo to undo stack, resetting the
-   * end-of-session markers so they'll be re-captured if the user
-   * continues typing in the same session.
-   */
-  private _moveRedoToUndo(entry: TextChangeEntry): void {
-    this._undoStack.popRedo()
-    entry.undoDepthAtEnd = undefined
-    entry.contentAfter = undefined
-    this._undoStack.pushUndo(entry)
-  }
-
-  /** Sync text content from PM to engine without creating undo entries. */
-  private _syncTextContent(nodeId: NodeId, content: unknown): void {
-    this.dispatch(
-      { type: 'UpdateNodeProps', nodeId, props: { content } },
-      { skipUndo: true },
-    )
-  }
-
-  /** Apply a content snapshot (fallback when PM is destroyed). */
-  private _applyContentSnapshot(nodeId: NodeId, content: unknown): void {
-    this.dispatch(
-      { type: 'UpdateNodeProps', nodeId, props: { content: content != null ? structuredClone(content) : null } },
-      { skipUndo: true },
-    )
+    const change = this._undoStack.peekRedo()
+    if (!change) return false
+    return change.redoStep(this._changeCtx)
   }
 
   get canUndo(): boolean {
@@ -407,6 +317,39 @@ export class EditorEngine {
   }
 
   // -----------------------------------------------------------------------
+  // PM state cache (Phase 2: preserve history across delete/undo)
+  // -----------------------------------------------------------------------
+
+  /** Cache a PM EditorState when a text block is disconnected. */
+  cachePmState(nodeId: NodeId, state: unknown): void {
+    this._pmStateCache.set(nodeId, state)
+  }
+
+  /** Retrieve and consume a cached PM EditorState (one-time use). */
+  getCachedPmState(nodeId: NodeId): unknown | undefined {
+    const state = this._pmStateCache.get(nodeId)
+    if (state) this._pmStateCache.delete(nodeId)
+    return state
+  }
+
+  /**
+   * Revive TextChange entries that reference a given nodeId by reconnecting
+   * their ops. Called when a text editor reconnects after a delete/undo cycle.
+   */
+  reviveTextChangeOps(nodeId: NodeId, ops: TextChangeOps): void {
+    for (const entry of this._undoStack.undoEntries()) {
+      if (entry instanceof TextChange && entry.nodeId === nodeId && entry.ops === null) {
+        entry.ops = ops
+      }
+    }
+    for (const entry of this._undoStack.redoEntries()) {
+      if (entry instanceof TextChange && entry.nodeId === nodeId && entry.ops === null) {
+        entry.ops = ops
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
   // Replace document (e.g., loading a new template)
   // -----------------------------------------------------------------------
 
@@ -415,6 +358,7 @@ export class EditorEngine {
     this._indexes = buildIndexes(this._doc)
     this._recomputeStyles()
     this._undoStack.clear()
+    this._pmStateCache.clear()
     this._selectedNodeId = null
     this._notify()
   }

@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- **Editor V2: Unified Change interface for undo/redo**: Extracted all undo/redo logic from EditorEngine into self-contained Change classes (`CommandChange`, `TextChange`). Engine's `undo()` and `redo()` are now type-agnostic two-liners that delegate to `Change.undoStep()`/`redoStep()`. Eliminates ~60 lines of type-branching code from EditorEngine. `TextChangeEntry` interface replaced by `TextChange` class. `UndoEntry` union type replaced by `Change` interface.
+- **Editor V2: PM state preservation across block deletion**: When a text block is deleted, its ProseMirror EditorState is cached by the engine. If the user undoes the deletion, the cached state is restored — preserving character-level undo history. TextChange entries are revived with fresh ops when the PM view reconnects. Content divergence check prevents stale state restoration.
+
+### Changed
 - **Editor V2: Merged palette, tree, and inspector into tabbed sidebar**: Combined the three separate tool panels (palette, tree, inspector) into a single left-side `<epistola-sidebar>` component with tabs (Blocks, Structure, Inspector/Document). This reduces horizontal space usage and simplifies the layout from `palette | tree | canvas | inspector` to `sidebar | canvas`. Inspector tab label dynamically shows "Document" when no node is selected. Only the active panel is rendered in the DOM, ensuring proper DnD lifecycle management.
 
 ### Changed

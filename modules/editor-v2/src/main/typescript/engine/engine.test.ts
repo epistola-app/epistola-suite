@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { EditorEngine } from './EditorEngine.js'
-import { type TextChangeEntry, type TextChangeOps, isTextChange } from './undo.js'
+import type { TextChangeOps } from './undo.js'
+import { TextChange } from './text-change.js'
+import { CommandChange } from './command-change.js'
 import { buildIndexes, getNodeDepth, findAncestorAtLevel } from './indexes.js'
 import { getNestedValue, setNestedValue } from './props.js'
 import type { Command, InsertNode, MoveNode } from './commands.js'
@@ -1143,7 +1145,7 @@ describe('pushTextChange', () => {
 
     expect(engine.canUndo).toBe(false)
 
-    engine.pushTextChange(createTextChangeEntry(textNodeId))
+    engine.pushTextChange(createTextChange(textNodeId))
 
     expect(engine.canUndo).toBe(true)
   })
@@ -1161,7 +1163,7 @@ describe('pushTextChange', () => {
     expect(engine.canRedo).toBe(true)
 
     // pushTextChange should clear redo
-    engine.pushTextChange(createTextChangeEntry(node.id))
+    engine.pushTextChange(createTextChange(node.id))
 
     expect(engine.canRedo).toBe(false)
   })
@@ -1171,12 +1173,12 @@ describe('pushTextChange', () => {
     const { doc, textNodeId } = createTestDocumentWithChildren()
     const engine = new EditorEngine(doc, registry)
 
-    const entry = createTextChangeEntry(textNodeId)
+    const entry = createTextChange(textNodeId)
     engine.pushTextChange(entry)
 
     const peeked = engine.peekUndo()
     expect(peeked).toBe(entry)
-    expect(isTextChange(peeked!)).toBe(true)
+    expect(peeked).toBeInstanceOf(TextChange)
   })
 })
 
@@ -1290,6 +1292,48 @@ describe('Data examples', () => {
 })
 
 // ---------------------------------------------------------------------------
+// CommandChange undo/redo
+// ---------------------------------------------------------------------------
+
+describe('CommandChange', () => {
+  it('undo dispatches the stored inverse and pushes result inverse to redo', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert a node — this pushes a CommandChange onto the undo stack
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+    expect(engine.doc.nodes[node.id]).toBeDefined()
+
+    // Undo — CommandChange.undoStep applies RemoveNode inverse
+    engine.undo()
+    expect(engine.doc.nodes[node.id]).toBeUndefined()
+
+    // Redo — CommandChange.redoStep applies InsertNode inverse
+    engine.redo()
+    expect(engine.doc.nodes[node.id]).toBeDefined()
+  })
+
+  it('wraps command inverse in dispatch', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // The peekUndo entry should be a CommandChange after dispatch
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: textNodeId,
+      props: { content: { type: 'doc', content: [] } },
+    })
+
+    const top = engine.peekUndo()
+    expect(top).toBeInstanceOf(CommandChange)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // TextChange undo/redo (first-class ProseMirror editing sessions)
 // ---------------------------------------------------------------------------
 
@@ -1319,19 +1363,18 @@ function createMockOps(initialDepth: number, steps: number): TextChangeOps & { d
   return mock
 }
 
-function createTextChangeEntry(
-  nodeId: string,
+function createTextChange(
+  nId: string,
   ops?: TextChangeOps | null,
   undoDepthAtStart = 0,
   contentBefore: unknown = null,
-): TextChangeEntry {
-  return {
-    type: 'TextChange' as const,
-    nodeId,
+): TextChange {
+  return new TextChange({
+    nodeId: nId,
     ops: ops ?? null,
     contentBefore,
     undoDepthAtStart,
-  }
+  })
 }
 
 describe('TextChange undo/redo', () => {
@@ -1341,7 +1384,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const ops = createMockOps(0, 3) // 3 undo steps available
-    engine.pushTextChange(createTextChangeEntry(textNodeId, ops, 0, null))
+    engine.pushTextChange(createTextChange(textNodeId, ops, 0, null))
 
     // First undo: depth 3 → 2
     expect(engine.undo()).toBe(true)
@@ -1365,7 +1408,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const ops = createMockOps(0, 3)
-    engine.pushTextChange(createTextChangeEntry(textNodeId, ops, 0, null))
+    engine.pushTextChange(createTextChange(textNodeId, ops, 0, null))
 
     // Undo all 3 steps
     engine.undo()
@@ -1401,7 +1444,7 @@ describe('TextChange undo/redo', () => {
 
     // Then a TextChange session with 1 step
     const ops = createMockOps(0, 1)
-    engine.pushTextChange(createTextChangeEntry(node.id, ops, 0, null))
+    engine.pushTextChange(createTextChange(node.id, ops, 0, null))
 
     // First undo: PM step (depth 1 → 0)
     expect(engine.undo()).toBe(true)
@@ -1419,7 +1462,7 @@ describe('TextChange undo/redo', () => {
     const originalContent = engine.doc.nodes[textNodeId].props.content
 
     // Push TextChange with null ops (PM destroyed)
-    engine.pushTextChange(createTextChangeEntry(textNodeId, null, 0, originalContent))
+    engine.pushTextChange(createTextChange(textNodeId, null, 0, originalContent))
 
     // Make a change so we have something to undo to
     engine.dispatch(
@@ -1438,7 +1481,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const contentAfter = { type: 'doc', content: [{ type: 'paragraph' }] }
-    const entry = createTextChangeEntry(textNodeId, null, 0, null)
+    const entry = createTextChange(textNodeId, null, 0, null)
     entry.contentAfter = contentAfter
 
     engine.pushTextChange(entry)
@@ -1457,7 +1500,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const ops = createMockOps(0, 3)
-    const entry = createTextChangeEntry(textNodeId, ops, 0, null)
+    const entry = createTextChange(textNodeId, ops, 0, null)
     engine.pushTextChange(entry)
 
     // Undo one step successfully
@@ -1485,7 +1528,7 @@ describe('TextChange undo/redo', () => {
 
     // Session 1: 2 PM steps (depth 0→2)
     const ops1 = createMockOps(0, 2)
-    engine.pushTextChange(createTextChangeEntry(node.id, ops1, 0, null))
+    engine.pushTextChange(createTextChange(node.id, ops1, 0, null))
 
     // Structural change between sessions
     engine.dispatch({
@@ -1496,7 +1539,7 @@ describe('TextChange undo/redo', () => {
 
     // Session 2: 3 PM steps (depth 2→5 — different ops, same node)
     const ops2 = createMockOps(2, 3)
-    engine.pushTextChange(createTextChangeEntry(node.id, ops2, 2, null))
+    engine.pushTextChange(createTextChange(node.id, ops2, 2, null))
 
     // Undo session 2: 3 steps
     engine.undo() // depth 5→4
@@ -1524,7 +1567,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const ops = createMockOps(0, 3)
-    const entry = createTextChangeEntry(textNodeId, ops, 0, null)
+    const entry = createTextChange(textNodeId, ops, 0, null)
     engine.pushTextChange(entry)
 
     expect(entry.undoDepthAtEnd).toBeUndefined()
@@ -1540,7 +1583,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const ops = createMockOps(0, 2)
-    engine.pushTextChange(createTextChangeEntry(textNodeId, ops, 0, null))
+    engine.pushTextChange(createTextChange(textNodeId, ops, 0, null))
 
     engine.undo()
 
@@ -1554,7 +1597,7 @@ describe('TextChange undo/redo', () => {
     const engine = new EditorEngine(doc, registry)
 
     const ops = createMockOps(0, 2)
-    engine.pushTextChange(createTextChangeEntry(textNodeId, ops, 0, null))
+    engine.pushTextChange(createTextChange(textNodeId, ops, 0, null))
 
     // Undo all
     engine.undo()
@@ -1575,7 +1618,7 @@ describe('TextChange undo/redo', () => {
 
     // Session: 3 PM steps (simulating typing "hel")
     const ops = createMockOps(0, 3)
-    const entry = createTextChangeEntry(textNodeId, ops, 0, null)
+    const entry = createTextChange(textNodeId, ops, 0, null)
     engine.pushTextChange(entry)
 
     // Full undo: depth 3→0
@@ -1615,5 +1658,123 @@ describe('TextChange undo/redo', () => {
     engine.redo() // 4→5, entry moved to undo
     expect(ops.depth).toBe(5)
     expect(engine.canRedo).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PM state cache (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('PM state cache', () => {
+  it('cachePmState stores and getCachedPmState retrieves (one-time)', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const mockState = { doc: { toJSON: () => ({}) } }
+    engine.cachePmState(textNodeId, mockState)
+
+    // First retrieval returns the cached state
+    expect(engine.getCachedPmState(textNodeId)).toBe(mockState)
+
+    // Second retrieval returns undefined (consumed)
+    expect(engine.getCachedPmState(textNodeId)).toBeUndefined()
+  })
+
+  it('replaceDocument clears the cache', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    engine.cachePmState(textNodeId, { some: 'state' })
+    engine.replaceDocument(createTestDocument())
+
+    expect(engine.getCachedPmState(textNodeId)).toBeUndefined()
+  })
+
+  it('getCachedPmState returns undefined for uncached nodeId', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+
+    expect(engine.getCachedPmState('uncached' as NodeId)).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Ops revival (Phase 2)
+// ---------------------------------------------------------------------------
+
+describe('reviveTextChangeOps', () => {
+  it('reconnects ops for TextChange entries with null ops on undo stack', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // Push a TextChange with null ops (simulating PM destroyed)
+    const entry = createTextChange(textNodeId, null, 0, null)
+    engine.pushTextChange(entry)
+
+    expect(entry.ops).toBeNull()
+
+    // Revive with new ops
+    const newOps = createMockOps(0, 1)
+    engine.reviveTextChangeOps(textNodeId, newOps)
+
+    expect(entry.ops).toBe(newOps)
+  })
+
+  it('reconnects ops for TextChange entries on redo stack', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // Push a TextChange with working ops and undo it fully to move to redo
+    const ops = createMockOps(0, 1)
+    const entry = createTextChange(textNodeId, ops, 0, null)
+    engine.pushTextChange(entry)
+    engine.undo() // depth 1→0, entry to redo
+
+    // Now destroy ops
+    entry.ops = null
+
+    // Revive with new ops
+    const newOps = createMockOps(0, 1)
+    engine.reviveTextChangeOps(textNodeId, newOps)
+
+    expect(entry.ops).toBe(newOps)
+  })
+
+  it('does not affect entries for different nodeIds', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId, containerNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const entry1 = createTextChange(textNodeId, null, 0, null)
+    const entry2 = createTextChange(containerNodeId, null, 0, null)
+    engine.pushTextChange(entry1)
+    engine.pushTextChange(entry2)
+
+    const newOps = createMockOps(0, 1)
+    engine.reviveTextChangeOps(textNodeId, newOps)
+
+    expect(entry1.ops).toBe(newOps)
+    expect(entry2.ops).toBeNull() // untouched — different nodeId
+  })
+
+  it('does not overwrite live ops', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const existingOps = createMockOps(0, 1)
+    const entry = createTextChange(textNodeId, existingOps, 0, null)
+    engine.pushTextChange(entry)
+
+    const newOps = createMockOps(0, 2)
+    engine.reviveTextChangeOps(textNodeId, newOps)
+
+    // Should not overwrite because existing ops is not null
+    expect(entry.ops).toBe(existingOps)
   })
 })

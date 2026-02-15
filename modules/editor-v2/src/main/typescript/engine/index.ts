@@ -22,7 +22,10 @@ export {
   getNodeDepth,
   findAncestorAtLevel,
 } from './indexes.js'
-export { UndoStack, type UndoEntry, type TextChangeEntry, type TextChangeOps, isTextChange } from './undo.js'
+export { type Change, type ChangeContext, type ChangeStackOps } from './change.js'
+export { CommandChange } from './command-change.js'
+export { TextChange } from './text-change.js'
+export { UndoStack, type TextChangeOps } from './undo.js'
 export {
   ComponentRegistry,
   createDefaultRegistry,
