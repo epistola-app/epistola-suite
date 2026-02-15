@@ -3,6 +3,19 @@
 ## [Unreleased]
 
 ### Changed
+- **Comprehensive UI redesign with shadcn/ui-inspired design system**: Unified visual language across the entire application (main app and editor-v2) targeting modern, polished aesthetics
+  - **Design system**: Enhanced tokens with complete color palettes (blue 50-900, amber, purple, green), semantic aliases, 5-level shadows, ring-based focus system, transition tokens, Inter font
+  - **Base resets**: Antialiased rendering, global focus-visible ring, improved heading/link/paragraph defaults
+  - **Component classes**: Full library of CSS components — buttons (primary/secondary/outline/ghost/destructive), cards, badges, form controls, tables, alerts, icons, layout helpers
+  - **Lucide icons**: SVG sprite with 31 icons for Thymeleaf templates, inline SVG helper for Lit components
+  - **Main app styles**: Complete rewrite using design tokens — wider max-width, ring-based focus, card-like tables, sticky footer, backdrop-filter dialogs, navigation cards with icon circles
+  - **Template updates**: Removed all inline style blocks, replaced emoji with Lucide SVG icons, applied component classes across all 15 templates
+  - **Editor-v2 layout**: Figma-like panel dividers using 1px background gap trick, subtle toolbar shadow with separator dividers
+  - **Editor-v2 panels**: Uppercase category labels in palette, icon circles with hover lift, tree selected state with inset accent border, gradient block headers, shadow-md page rendering
+  - **Editor-v2 rich text**: Expression chips with pill radius and shadow, bubble menu with shadow-lg, expression dialog with backdrop blur
+  - **Editor-v2 icons**: Undo/redo toolbar buttons, palette block type icons, tree node type icons — all using inline Lucide SVGs
+
+### Changed
 - **Editor V2: Unified undo via strategy pattern**: Undo/redo now flows through a single path — `engine.undo()`/`engine.redo()`. Components that own their own undo history (e.g. ProseMirror) register as an `UndoHandler` on the engine via `setActiveUndoHandler()`. The engine delegates to the active handler first; if it returns false (or none is registered), falls through to the engine's own `UndoStack`. Removes DOM traversal (`.closest('.ProseMirror')`) from the root keydown handler and ProseMirror's built-in undo/redo keybindings. Guards flush against redundant undo entries when PM-undo restores original content.
 
 ### Changed
