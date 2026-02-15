@@ -306,7 +306,7 @@ export class EpistolaCanvas extends LitElement {
 
     // For container nodes, render their slot children
     if (node.type === 'columns') {
-      return this._renderColumnsLayout(node.slots)
+      return this._renderColumnsLayout(node)
     }
 
     return html`
@@ -347,14 +347,22 @@ export class EpistolaCanvas extends LitElement {
     }
   }
 
-  private _renderColumnsLayout(slotIds: SlotId[]): unknown {
+  private _renderColumnsLayout(node: import('../types/index.js').Node): unknown {
+    const props = node.props ?? {}
+    const columnSizes = (props.columnSizes as number[] | undefined) ?? []
+    const gap = (props.gap as number | undefined) ?? 0
+    const gapStyle = gap > 0 ? `${gap}pt` : '0'
+
     return html`
-      <div class="canvas-columns">
-        ${slotIds.map(slotId => html`
-          <div class="canvas-column">
-            ${this._renderSlot(slotId)}
-          </div>
-        `)}
+      <div class="canvas-columns" style="gap: ${gapStyle}">
+        ${node.slots.map((slotId, i) => {
+          const flex = columnSizes[i] ?? 1
+          return html`
+            <div class="canvas-column" style="flex: ${flex}">
+              ${this._renderSlot(slotId)}
+            </div>
+          `
+        })}
       </div>
     `
   }

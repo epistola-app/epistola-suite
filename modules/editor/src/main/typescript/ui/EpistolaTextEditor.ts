@@ -33,7 +33,6 @@ import { Node as ProsemirrorNode } from 'prosemirror-model'
 import { epistolaSchema } from '../prosemirror/schema.js'
 import { createPlugins } from '../prosemirror/plugins.js'
 import { ExpressionNodeView } from '../prosemirror/ExpressionNodeView.js'
-import { extractFieldPaths } from '../engine/schema-paths.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import { TextChange } from '../engine/text-change.js'
 import type { TextChangeOps } from '../engine/undo.js'
@@ -130,22 +129,11 @@ export class EpistolaTextEditor extends LitElement {
   private _createProseMirror(): void {
     if (!this._pmContainer) return
 
-    const fieldPaths = this.engine?.dataModel
-      ? extractFieldPaths(this.engine.dataModel)
-      : []
+    const fieldPaths = this.engine?.fieldPaths ?? []
 
     const engine = this.engine
     const getExampleData = engine
-      ? () => {
-          const example = engine.currentExample as Record<string, unknown> | undefined
-          if (!example) return undefined
-          // Backend DataExample format: { id: string, name: string, data: {...} }
-          // Dev/flat format: data properties at top level (no id/data wrapper)
-          if (typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null) {
-            return example.data as Record<string, unknown>
-          }
-          return example
-        }
+      ? () => engine.getExampleData()
       : undefined
 
     const plugins = createPlugins(epistolaSchema, {

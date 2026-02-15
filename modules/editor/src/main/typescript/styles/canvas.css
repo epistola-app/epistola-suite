@@ -120,10 +120,10 @@
 
   .canvas-columns {
     display: flex;
-    gap: var(--ep-space-2);
+    /* gap and column flex are set inline from node props */
   }
 
   .canvas-column {
-    flex: 1;
+    min-width: 0; /* prevent overflow from long content */
   }
 }
