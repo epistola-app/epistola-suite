@@ -136,7 +136,13 @@ export class EpistolaTextEditor extends LitElement {
     const getExampleData = engine
       ? () => {
           const example = engine.currentExample as Record<string, unknown> | undefined
-          return example?.data as Record<string, unknown> | undefined
+          if (!example) return undefined
+          // Backend DataExample format: { id: string, name: string, data: {...} }
+          // Dev/flat format: data properties at top level (no id/data wrapper)
+          if (typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null) {
+            return example.data as Record<string, unknown>
+          }
+          return example
         }
       : undefined
 
