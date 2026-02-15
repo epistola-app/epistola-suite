@@ -49,10 +49,10 @@ class DirectPdfRenderer(
         // Apply margins from page settings
         val margins = template.pageSettings.margins
         document.setMargins(
-            margins.top.toFloat(),
-            margins.right.toFloat(),
-            margins.bottom.toFloat(),
-            margins.left.toFloat(),
+            mmToPt(margins.top),
+            mmToPt(margins.right),
+            mmToPt(margins.bottom),
+            mmToPt(margins.left),
         )
 
         // Create render context with resolved styles
@@ -123,6 +123,8 @@ class DirectPdfRenderer(
             Orientation.Landscape -> baseSize.rotate()
         }
     }
+
+    private fun mmToPt(valueMm: Int): Float = valueMm.toFloat() * 2.83465f
 
     companion object {
         /**

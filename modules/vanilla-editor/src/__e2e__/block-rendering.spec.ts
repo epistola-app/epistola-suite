@@ -48,7 +48,10 @@ test.describe("Document Styles - UI", () => {
   }) => {
     await openDocumentStyles(page);
 
-    await page.fill("#ve-doc-font-family", "Georgia, serif");
+    await page.selectOption(
+      "#ve-doc-font-family",
+      "Times-Roman",
+    );
     await page.fill("#ve-doc-font-size-value", "18");
     await page.selectOption("#ve-doc-font-size-unit", "px");
     await page.selectOption("#ve-doc-font-weight", "600");
@@ -66,7 +69,7 @@ test.describe("Document Styles - UI", () => {
     await openDocumentStyles(page);
 
     await expect(page.locator("#ve-doc-font-family")).toHaveValue(
-      "Georgia, serif",
+      "Times-Roman",
     );
     await expect(page.locator("#ve-doc-font-size-value")).toHaveValue("18");
     await expect(page.locator("#ve-doc-font-size-unit")).toHaveValue("px");
@@ -195,7 +198,10 @@ test.describe("Document Styles - UI", () => {
   }) => {
     await openDocumentStyles(page);
 
-    await page.fill("#ve-doc-font-family", "Georgia, serif");
+    await page.selectOption(
+      "#ve-doc-font-family",
+      "Times-Roman",
+    );
     await page.fill("#ve-doc-font-size-value", "16");
     await page.selectOption("#ve-doc-font-size-unit", "px");
     await ensureDocumentColorsVisible(page);
@@ -205,7 +211,7 @@ test.describe("Document Styles - UI", () => {
     await openBlockStyles(page);
     await openDocumentStyles(page);
     await expect(page.locator("#ve-doc-font-family")).toHaveValue(
-      "Georgia, serif",
+      "Times-Roman",
     );
     await expect(page.locator("#ve-doc-font-size-value")).toHaveValue("16");
     await expect(page.locator("#ve-doc-font-size-unit")).toHaveValue("px");
@@ -241,26 +247,32 @@ test.describe("Block Styles - UI", () => {
 
     await openBlockStyles(page);
 
-    await page.fill("#ve-block-font-size", "20px");
-    await page.selectOption("#ve-block-font-weight", "700");
-    await page.fill("#ve-block-color", "#225577");
-    await page.selectOption("#ve-block-text-align", "center");
-    await page.fill("#ve-block-padding", "12px");
-    await page.fill("#ve-block-margin", "4px");
-    await page.fill("#ve-block-bg-color", "#ffeecc");
-    await page.fill("#ve-block-border-radius", "6px");
+    await page.fill("#ve-block-style-font-size", "20px");
+    await page.selectOption("#ve-block-style-font-weight", "700");
+    await page.fill("#ve-block-style-color", "#225577");
+    await page.selectOption("#ve-block-style-text-align", "center");
+    await page.fill("#ve-block-style-padding", "10px 12px");
+    await page.fill("#ve-block-style-padding-top", "12px");
+    await page.fill("#ve-block-style-margin-top", "4px");
+    await page.fill("#ve-block-style-background-color", "#ffeecc");
+    await page.fill("#ve-block-style-border-top", "2px dashed #445566");
+    await page.fill("#ve-block-style-border-radius", "6px");
     await waitForSidebarDebounce(page);
 
     await openDocumentStyles(page);
     await openBlockStyles(page);
-    await expect(page.locator("#ve-block-font-size")).toHaveValue("20px");
-    await expect(page.locator("#ve-block-font-weight")).toHaveValue("700");
-    await expect(page.locator("#ve-block-color")).toHaveValue("#225577");
-    await expect(page.locator("#ve-block-text-align")).toHaveValue("center");
-    await expect(page.locator("#ve-block-padding")).toHaveValue("12px");
-    await expect(page.locator("#ve-block-margin")).toHaveValue("4px");
-    await expect(page.locator("#ve-block-bg-color")).toHaveValue("#ffeecc");
-    await expect(page.locator("#ve-block-border-radius")).toHaveValue("6px");
+    await expect(page.locator("#ve-block-style-font-size")).toHaveValue("20px");
+    await expect(page.locator("#ve-block-style-font-weight")).toHaveValue("700");
+    await expect(page.locator("#ve-block-style-color")).toHaveValue("#225577");
+    await expect(page.locator("#ve-block-style-text-align")).toHaveValue("center");
+    await expect(page.locator("#ve-block-style-padding")).toHaveValue("10px 12px");
+    await expect(page.locator("#ve-block-style-padding-top")).toHaveValue("12px");
+    await expect(page.locator("#ve-block-style-margin-top")).toHaveValue("4px");
+    await expect(page.locator("#ve-block-style-background-color")).toHaveValue("#ffeecc");
+    await expect(page.locator("#ve-block-style-border-top")).toHaveValue(
+      "2px dashed #445566",
+    );
+    await expect(page.locator("#ve-block-style-border-radius")).toHaveValue("6px");
   });
 
   test("block styles modal applies styles to selected text block content", async ({
@@ -272,10 +284,10 @@ test.describe("Block Styles - UI", () => {
     await appHelpers.selectBlock(block);
 
     await openBlockStyles(page);
-    await page.fill("#ve-block-font-size", "20px");
-    await page.fill("#ve-block-color", "#224466");
-    await page.fill("#ve-block-padding", "12px");
-    await page.fill("#ve-block-bg-color", "#ffeecc");
+    await page.fill("#ve-block-style-font-size", "20px");
+    await page.fill("#ve-block-style-color", "#224466");
+    await page.fill("#ve-block-style-padding-top", "12px");
+    await page.fill("#ve-block-style-background-color", "#ffeecc");
     await waitForSidebarDebounce(page);
 
     const blockContent = block.locator(".block-content");
@@ -320,7 +332,7 @@ test.describe("Block Styles - UI", () => {
     await appHelpers.selectBlock(block);
 
     await openBlockStyles(page);
-    await page.fill("#ve-block-color", "#111111");
+    await page.fill("#ve-block-style-color", "#111111");
     await waitForSidebarDebounce(page);
 
     const textEditor = block.locator(".text-block-editor");
@@ -352,21 +364,21 @@ test.describe("Block Styles - UI", () => {
     await appHelpers.selectBlock(block);
 
     await openBlockStyles(page);
-    await page.fill("#ve-block-color", "#111111");
-    await page.fill("#ve-block-padding", "12px");
+    await page.fill("#ve-block-style-color", "#111111");
+    await page.fill("#ve-block-style-padding-top", "12px");
     await waitForSidebarDebounce(page);
 
     await openDocumentStyles(page);
     await openBlockStyles(page);
     await page.click('[data-editor-app-action="clear-block-styles"]');
-    await expect(page.locator("#ve-block-color")).toHaveValue("");
-    await expect(page.locator("#ve-block-padding")).toHaveValue("");
+    await expect(page.locator("#ve-block-style-color")).toHaveValue("#000000");
+    await expect(page.locator("#ve-block-style-padding-top")).toHaveValue("");
     await waitForSidebarDebounce(page);
 
     await openDocumentStyles(page);
     await openBlockStyles(page);
-    await expect(page.locator("#ve-block-color")).toHaveValue("");
-    await expect(page.locator("#ve-block-padding")).toHaveValue("");
+    await expect(page.locator("#ve-block-style-color")).toHaveValue("#000000");
+    await expect(page.locator("#ve-block-style-padding-top")).toHaveValue("");
     await waitForSidebarDebounce(page);
 
     const textEditor = block.locator(".text-block-editor");
@@ -488,8 +500,8 @@ test.describe("Block Rendering - Container Blocks", () => {
     await appHelpers.selectBlock(container);
 
     await openBlockStyles(page);
-    await page.fill("#ve-block-font-size", "2rem");
-    await page.fill("#ve-block-bg-color", "#ffeecc");
+    await page.fill("#ve-block-style-font-size", "2rem");
+    await page.fill("#ve-block-style-background-color", "#ffeecc");
     await waitForSidebarDebounce(page);
 
     await appHelpers.addBlockToContainer(container);

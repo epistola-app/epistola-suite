@@ -18,7 +18,7 @@ class TextBlockRenderer : BlockRenderer {
 
         val div = Div()
 
-        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+        val resolvedStyles = StyleApplicator.resolveElementStyles(
             context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
@@ -29,7 +29,14 @@ class TextBlockRenderer : BlockRenderer {
 
         // Convert TipTap content to iText elements
         val content = block.content
-        val elements = context.tipTapConverter.convert(content, context.data, context.loopContext, context.fontCache)
+        val lineHeight = resolvedStyles["lineHeight"]?.toString()
+        val elements = context.tipTapConverter.convert(
+            content,
+            context.data,
+            context.loopContext,
+            context.fontCache,
+            lineHeight,
+        )
 
         for (element in elements) {
             div.add(element)

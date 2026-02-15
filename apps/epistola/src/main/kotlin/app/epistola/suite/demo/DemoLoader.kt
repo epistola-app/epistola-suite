@@ -106,7 +106,7 @@ class DemoLoader(
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
                 documentStyles = DocumentStyles(
-                    fontFamily = "Helvetica, Arial, sans-serif",
+                    fontFamily = "Helvetica",
                     fontSize = "11pt",
                     color = "#333333",
                     lineHeight = "1.5",
@@ -144,7 +144,7 @@ class DemoLoader(
                 name = "Modern",
                 description = "Contemporary design with bold accents",
                 documentStyles = DocumentStyles(
-                    fontFamily = "Inter, system-ui, sans-serif",
+                    fontFamily = "Helvetica",
                     fontSize = "10pt",
                     color = "#1f2937",
                     lineHeight = "1.6",

@@ -2,7 +2,17 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.TextAlign
+import com.itextpdf.layout.borders.DashedBorder
+import com.itextpdf.layout.borders.SolidBorder
+import com.itextpdf.layout.element.Div
+import com.itextpdf.layout.properties.LineHeight
+import com.itextpdf.layout.properties.OverflowPropertyValue
+import com.itextpdf.layout.properties.OverflowWrapPropertyValue
+import com.itextpdf.layout.properties.Property
+import com.itextpdf.layout.properties.UnitValue
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -146,5 +156,192 @@ class StyleApplicatorTest {
         )
 
         assertEquals("1.6", resolved["lineHeight"])
+    }
+
+    @Test
+    fun `rem spacing values are applied to block element margins`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf("marginTop" to "2rem"),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        val marginTop = div.getProperty<Any>(Property.MARGIN_TOP)
+        assertNotNull(marginTop)
+        val marginTopPoints = when (marginTop) {
+            is Number -> marginTop.toFloat()
+            is UnitValue -> marginTop.value
+            else -> error("Unexpected margin type: ${marginTop::class}")
+        }
+        assertEquals(24f, marginTopPoints, 0.001f)
+    }
+
+    @Test
+    fun `document styles apply line height and font family`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = null,
+            documentStyles = DocumentStyles(
+                fontFamily = "Times-Roman",
+                lineHeight = "1.8",
+            ),
+            fontCache = FontCache(),
+        )
+
+        val lineHeight = div.getProperty<Any>(Property.LINE_HEIGHT)
+        val font = div.getProperty<Any>(Property.FONT)
+
+        assertNotNull(lineHeight)
+        assertNotNull(font)
+        assertTrue(lineHeight is LineHeight)
+        assertTrue((lineHeight as LineHeight).isMultipliedValue)
+        assertEquals(1.8f, lineHeight.value, 0.001f)
+    }
+
+    @Test
+    fun `block styles apply borders opacity and dimensions`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf(
+                "borderStyle" to "dashed",
+                "borderWidth" to "2px",
+                "borderColor" to "#112233",
+                "borderRadius" to "6px",
+                "opacity" to "50%",
+                "width" to "75%",
+                "minHeight" to "2rem",
+            ),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        val border = div.getProperty<Any>(Property.BORDER_TOP)
+        val opacity = div.getProperty<Any>(Property.OPACITY)
+        val width = div.getProperty<Any>(Property.WIDTH)
+        val minHeight = div.getProperty<Any>(Property.MIN_HEIGHT)
+        val topLeftRadius = div.getProperty<Any>(Property.BORDER_TOP_LEFT_RADIUS)
+
+        assertNotNull(border)
+        assertNotNull(opacity)
+        assertNotNull(width)
+        assertNotNull(minHeight)
+        assertNotNull(topLeftRadius)
+
+        assertTrue(border is DashedBorder)
+        assertEquals(0.5f, opacity as Float, 0.001f)
+        assertTrue(width is UnitValue)
+        assertTrue((width as UnitValue).isPercentValue)
+        assertEquals(75f, width.value, 0.001f)
+        assertTrue(minHeight is UnitValue)
+        assertEquals(24f, (minHeight as UnitValue).value, 0.001f)
+    }
+
+    @Test
+    fun `block styles apply overflow white-space and word break`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf(
+                "overflow" to "fit",
+                "whiteSpace" to "nowrap",
+                "wordBreak" to "break-all",
+            ),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        assertEquals(OverflowPropertyValue.FIT, div.getProperty<Any>(Property.OVERFLOW_X))
+        assertEquals(OverflowPropertyValue.FIT, div.getProperty<Any>(Property.OVERFLOW_Y))
+        assertEquals(true, div.getProperty<Any>(Property.NO_SOFT_WRAP_INLINE))
+        assertEquals(
+            OverflowWrapPropertyValue.ANYWHERE,
+            div.getProperty<Any>(Property.OVERFLOW_WRAP),
+        )
+    }
+
+    @Test
+    fun `unsupported font family names are ignored in strict mode`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf("fontFamily" to "Georgia, serif"),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        assertNull(div.getProperty<Any>(Property.FONT))
+    }
+
+    @Test
+    fun `legacy overflow aliases are ignored in strict mode`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf("overflow" to "auto"),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        assertNull(div.getProperty<Any>(Property.OVERFLOW_X))
+        assertNull(div.getProperty<Any>(Property.OVERFLOW_Y))
+    }
+
+    @Test
+    fun `padding shorthand is expanded to individual sides`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf("padding" to "8px 12px"),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        val top = div.getProperty<Any>(Property.PADDING_TOP)
+        val right = div.getProperty<Any>(Property.PADDING_RIGHT)
+        val bottom = div.getProperty<Any>(Property.PADDING_BOTTOM)
+        val left = div.getProperty<Any>(Property.PADDING_LEFT)
+
+        assertNotNull(top)
+        assertNotNull(right)
+        assertNotNull(bottom)
+        assertNotNull(left)
+        assertEquals(6f, (top as UnitValue).value, 0.001f)
+        assertEquals(9f, (right as UnitValue).value, 0.001f)
+        assertEquals(6f, (bottom as UnitValue).value, 0.001f)
+        assertEquals(9f, (left as UnitValue).value, 0.001f)
+    }
+
+    @Test
+    fun `border shorthand applies and side border overrides`() {
+        val div = Div()
+
+        StyleApplicator.applyStyles(
+            element = div,
+            blockStyles = mapOf(
+                "border" to "1px solid #112233",
+                "borderTop" to "2px dashed #445566",
+            ),
+            documentStyles = null,
+            fontCache = FontCache(),
+        )
+
+        val top = div.getProperty<Any>(Property.BORDER_TOP)
+        val right = div.getProperty<Any>(Property.BORDER_RIGHT)
+
+        assertNotNull(top)
+        assertNotNull(right)
+        assertTrue(top is DashedBorder)
+        assertTrue(right is SolidBorder)
     }
 }

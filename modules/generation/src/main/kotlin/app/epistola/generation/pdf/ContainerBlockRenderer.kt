@@ -18,7 +18,13 @@ class ContainerBlockRenderer : BlockRenderer {
 
         val div = Div()
 
-        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+        val resolvedStyles = StyleApplicator.resolveElementStyles(
+            context.inheritedStyles,
+            block.stylePreset,
+            context.blockStylePresets,
+            block.styles,
+        )
+        val childInheritedStyles = StyleApplicator.resolveInheritedStyles(
             context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
@@ -27,7 +33,7 @@ class ContainerBlockRenderer : BlockRenderer {
 
         StyleApplicator.applyResolvedStyles(div, resolvedStyles, context.fontCache)
 
-        val childContext = context.copy(inheritedStyles = resolvedStyles)
+        val childContext = context.copy(inheritedStyles = childInheritedStyles)
 
         // Render children
         val childElements = blockRenderers.renderBlocks(block.children, childContext)

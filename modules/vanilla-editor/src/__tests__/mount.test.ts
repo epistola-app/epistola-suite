@@ -157,7 +157,7 @@ describe("mountEditorApp", () => {
 
     const fontFamily = container.querySelector(
       "#ve-doc-font-family",
-    ) as HTMLInputElement;
+    ) as HTMLSelectElement;
     const fontSizeValue = container.querySelector(
       "#ve-doc-font-size-value",
     ) as HTMLInputElement;
@@ -165,7 +165,7 @@ describe("mountEditorApp", () => {
       "#ve-doc-font-size-unit",
     ) as HTMLSelectElement;
 
-    fontFamily.value = "Georgia, serif";
+    fontFamily.value = "Times-Roman";
     fontFamily.dispatchEvent(new Event("input", { bubbles: true }));
     fontSizeValue.value = "18";
     fontSizeValue.dispatchEvent(new Event("input", { bubbles: true }));
@@ -174,7 +174,7 @@ describe("mountEditorApp", () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     expect(mounted.getTemplate().documentStyles?.fontFamily).toBe(
-      "Georgia, serif",
+      "Times-Roman",
     );
     expect(mounted.getTemplate().documentStyles?.fontSize).toBe("18px");
 
@@ -190,21 +190,35 @@ describe("mountEditorApp", () => {
     mounted.getEditor().selectBlock(block.id);
 
     const color = container.querySelector(
-      "#ve-block-color",
+      "#ve-block-style-color",
     ) as HTMLInputElement;
-    const padding = container.querySelector(
-      "#ve-block-padding",
+    const paddingTop = container.querySelector(
+      "#ve-block-style-padding-top",
     ) as HTMLInputElement;
 
     color.value = "#112233";
     color.dispatchEvent(new Event("input", { bubbles: true }));
-    padding.value = "12px";
-    padding.dispatchEvent(new Event("input", { bubbles: true }));
+    paddingTop.value = "12px";
+    paddingTop.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     const updated = mounted.getEditor().findBlock(block.id) as any;
     expect(updated.styles.color).toBe("#112233");
-    expect(updated.styles.padding).toBe("12px");
+    expect(updated.styles.paddingTop).toBe("12px");
+
+    mounted.destroy();
+  });
+
+  it("renders configurable block style fields", () => {
+    const mounted = mountEditorApp({
+      container,
+      template: EMPTY_TEMPLATE,
+    });
+
+    const blockFields = container.querySelectorAll(
+      '[id^="ve-block-style-"]',
+    );
+    expect(blockFields.length).toBeGreaterThan(20);
 
     mounted.destroy();
   });

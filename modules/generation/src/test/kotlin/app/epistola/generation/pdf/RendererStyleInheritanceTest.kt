@@ -13,7 +13,10 @@ import app.epistola.template.model.TableRow
 import app.epistola.template.model.TextBlock
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
+import com.itextpdf.layout.properties.Property
+import com.itextpdf.layout.properties.UnitValue
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -78,6 +81,50 @@ class RendererStyleInheritanceTest {
         assertEquals("2rem", childContext.inheritedStyles["fontSize"])
         assertEquals("#333333", childContext.inheritedStyles["color"])
         assertEquals("#ffeecc", childContext.inheritedStyles["backgroundColor"])
+    }
+
+    @Test
+    fun `container renderer applies non inheritable styles on current element only`() {
+        val capture = CapturingRenderer()
+        val registry = BlockRendererRegistry(
+            mapOf(
+                "container" to ContainerBlockRenderer(),
+                "text" to capture,
+            ),
+        )
+
+        val container = ContainerBlock(
+            id = "container-1",
+            styles = mapOf(
+                "paddingTop" to "2rem",
+                "marginBottom" to "12px",
+            ),
+            children = listOf(TextBlock(id = "text-1")),
+        )
+
+        val elements = registry.render(container, createContext())
+        val renderedContainer = elements.single() as Div
+        val paddingTop = renderedContainer.getProperty<Any>(Property.PADDING_TOP)
+        val marginBottom = renderedContainer.getProperty<Any>(Property.MARGIN_BOTTOM)
+
+        assertNotNull(paddingTop)
+        assertNotNull(marginBottom)
+
+        val paddingTopPoints = when (paddingTop) {
+            is Number -> paddingTop.toFloat()
+            is UnitValue -> paddingTop.value
+            else -> error("Unexpected padding type: ${paddingTop::class}")
+        }
+        val marginBottomPoints = when (marginBottom) {
+            is Number -> marginBottom.toFloat()
+            is UnitValue -> marginBottom.value
+            else -> error("Unexpected margin type: ${marginBottom::class}")
+        }
+
+        assertEquals(24f, paddingTopPoints, 0.001f)
+        assertEquals(9f, marginBottomPoints, 0.001f)
+        assertNull(capture.contexts.single().inheritedStyles["paddingTop"])
+        assertNull(capture.contexts.single().inheritedStyles["marginBottom"])
     }
 
     @Test

@@ -30,7 +30,13 @@ class ColumnsBlockRenderer : BlockRenderer {
         val table = Table(columnWidths)
         table.useAllAvailableWidth()
 
-        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+        val resolvedStyles = StyleApplicator.resolveElementStyles(
+            context.inheritedStyles,
+            block.stylePreset,
+            context.blockStylePresets,
+            block.styles,
+        )
+        val childInheritedStyles = StyleApplicator.resolveInheritedStyles(
             context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
@@ -39,7 +45,7 @@ class ColumnsBlockRenderer : BlockRenderer {
 
         StyleApplicator.applyResolvedStyles(table, resolvedStyles, context.fontCache)
 
-        val childContext = context.copy(inheritedStyles = resolvedStyles)
+        val childContext = context.copy(inheritedStyles = childInheritedStyles)
 
         // Gap between columns (simulated via cell padding)
         val gap = block.gap?.toFloat() ?: 8f

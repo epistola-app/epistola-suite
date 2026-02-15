@@ -23,6 +23,7 @@ import { TemplateEditor } from "@epistola/headless-editor";
 import type {
   Template,
   BlockType,
+  CSSStyles,
   ThemeSummary,
   DataExample,
   JsonSchema,
@@ -82,6 +83,343 @@ type PreviewPayload = {
   blob?: Blob;
   html?: string;
 };
+
+type BlockStyleOption = {
+  value: string;
+  label: string;
+};
+
+type BlockStyleFieldConfig = {
+  key: keyof CSSStyles & string;
+  label: string;
+  group: "Typography" | "Spacing" | "Colors" | "Borders" | "Layout";
+  control?: "text" | "select" | "color";
+  placeholder?: string;
+  options?: BlockStyleOption[];
+};
+
+const BLOCK_STYLE_FIELDS: readonly BlockStyleFieldConfig[] = [
+  {
+    key: "fontFamily",
+    label: "Font Family",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "Helvetica", label: "sans-serif (Helvetica)" },
+      { value: "Times-Roman", label: "serif (Times-Roman)" },
+      { value: "Courier", label: "monospace (Courier)" },
+    ],
+  },
+  {
+    key: "fontSize",
+    label: "Font Size",
+    group: "Typography",
+    placeholder: "e.g., 16px",
+  },
+  {
+    key: "fontWeight",
+    label: "Font Weight",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "normal", label: "Normal" },
+      { value: "500", label: "500" },
+      { value: "600", label: "600" },
+      { value: "700", label: "700" },
+      { value: "bold", label: "Bold" },
+    ],
+  },
+  {
+    key: "fontStyle",
+    label: "Font Style",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "normal", label: "Normal" },
+      { value: "italic", label: "Italic" },
+      { value: "oblique", label: "Oblique" },
+    ],
+  },
+  {
+    key: "lineHeight",
+    label: "Line Height",
+    group: "Typography",
+    placeholder: "e.g., 1.5",
+  },
+  {
+    key: "letterSpacing",
+    label: "Letter Spacing",
+    group: "Typography",
+    placeholder: "e.g., 0.02em",
+  },
+  {
+    key: "textAlign",
+    label: "Text Align",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "left", label: "Left" },
+      { value: "center", label: "Center" },
+      { value: "right", label: "Right" },
+      { value: "justify", label: "Justify" },
+    ],
+  },
+  {
+    key: "textDecoration",
+    label: "Text Decoration",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "none", label: "None" },
+      { value: "underline", label: "Underline" },
+      { value: "line-through", label: "Line Through" },
+    ],
+  },
+  {
+    key: "whiteSpace",
+    label: "White Space",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "normal", label: "Normal" },
+      { value: "nowrap", label: "No Wrap" },
+    ],
+  },
+  {
+    key: "wordBreak",
+    label: "Word Break",
+    group: "Typography",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "normal", label: "Normal" },
+      { value: "break-word", label: "Break Word" },
+      { value: "break-all", label: "Break All" },
+    ],
+  },
+  {
+    key: "padding",
+    label: "Padding",
+    group: "Spacing",
+    placeholder: "e.g., 12px 8px",
+  },
+  {
+    key: "paddingTop",
+    label: "Padding Top",
+    group: "Spacing",
+    placeholder: "e.g., 12px",
+  },
+  {
+    key: "paddingRight",
+    label: "Padding Right",
+    group: "Spacing",
+    placeholder: "e.g., 12px",
+  },
+  {
+    key: "paddingBottom",
+    label: "Padding Bottom",
+    group: "Spacing",
+    placeholder: "e.g., 12px",
+  },
+  {
+    key: "paddingLeft",
+    label: "Padding Left",
+    group: "Spacing",
+    placeholder: "e.g., 12px",
+  },
+  {
+    key: "marginTop",
+    label: "Margin Top",
+    group: "Spacing",
+    placeholder: "e.g., 8px",
+  },
+  {
+    key: "marginRight",
+    label: "Margin Right",
+    group: "Spacing",
+    placeholder: "e.g., 8px",
+  },
+  {
+    key: "marginBottom",
+    label: "Margin Bottom",
+    group: "Spacing",
+    placeholder: "e.g., 8px",
+  },
+  {
+    key: "marginLeft",
+    label: "Margin Left",
+    group: "Spacing",
+    placeholder: "e.g., 8px",
+  },
+  {
+    key: "color",
+    label: "Text Color",
+    group: "Colors",
+    control: "color",
+  },
+  {
+    key: "backgroundColor",
+    label: "Background Color",
+    group: "Colors",
+    control: "color",
+  },
+  {
+    key: "opacity",
+    label: "Opacity",
+    group: "Colors",
+    placeholder: "e.g., 0.85",
+  },
+  {
+    key: "borderWidth",
+    label: "Border Width",
+    group: "Borders",
+    placeholder: "e.g., 1px",
+  },
+  {
+    key: "borderStyle",
+    label: "Border Style",
+    group: "Borders",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "none", label: "None" },
+      { value: "solid", label: "Solid" },
+      { value: "dashed", label: "Dashed" },
+      { value: "dotted", label: "Dotted" },
+      { value: "double", label: "Double" },
+    ],
+  },
+  {
+    key: "borderColor",
+    label: "Border Color",
+    group: "Borders",
+    control: "color",
+  },
+  {
+    key: "border",
+    label: "Border",
+    group: "Borders",
+    placeholder: "e.g., 1px solid #cccccc",
+  },
+  {
+    key: "borderTop",
+    label: "Border Top",
+    group: "Borders",
+    placeholder: "e.g., 2px solid #2563eb",
+  },
+  {
+    key: "borderRight",
+    label: "Border Right",
+    group: "Borders",
+    placeholder: "e.g., 1px solid #cccccc",
+  },
+  {
+    key: "borderBottom",
+    label: "Border Bottom",
+    group: "Borders",
+    placeholder: "e.g., 1px solid #cccccc",
+  },
+  {
+    key: "borderLeft",
+    label: "Border Left",
+    group: "Borders",
+    placeholder: "e.g., 3px solid #2563eb",
+  },
+  {
+    key: "borderRadius",
+    label: "Border Radius",
+    group: "Borders",
+    placeholder: "e.g., 6px",
+  },
+  {
+    key: "width",
+    label: "Width",
+    group: "Layout",
+    placeholder: "e.g., 100%",
+  },
+  {
+    key: "minWidth",
+    label: "Min Width",
+    group: "Layout",
+    placeholder: "e.g., 240px",
+  },
+  {
+    key: "maxWidth",
+    label: "Max Width",
+    group: "Layout",
+    placeholder: "e.g., 720px",
+  },
+  {
+    key: "height",
+    label: "Height",
+    group: "Layout",
+    placeholder: "e.g., auto",
+  },
+  {
+    key: "minHeight",
+    label: "Min Height",
+    group: "Layout",
+    placeholder: "e.g., 40px",
+  },
+  {
+    key: "maxHeight",
+    label: "Max Height",
+    group: "Layout",
+    placeholder: "e.g., 320px",
+  },
+  {
+    key: "overflow",
+    label: "Overflow",
+    group: "Layout",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "visible", label: "Visible" },
+      { value: "hidden", label: "Hidden" },
+      { value: "fit", label: "Fit" },
+    ],
+  },
+  {
+    key: "overflowX",
+    label: "Overflow X",
+    group: "Layout",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "visible", label: "Visible" },
+      { value: "hidden", label: "Hidden" },
+      { value: "fit", label: "Fit" },
+    ],
+  },
+  {
+    key: "overflowY",
+    label: "Overflow Y",
+    group: "Layout",
+    control: "select",
+    options: [
+      { value: "", label: "Default" },
+      { value: "visible", label: "Visible" },
+      { value: "hidden", label: "Hidden" },
+      { value: "fit", label: "Fit" },
+    ],
+  },
+] as const;
+
+const BLOCK_STYLE_GROUP_ORDER: readonly BlockStyleFieldConfig["group"][] = [
+  "Typography",
+  "Spacing",
+  "Colors",
+  "Borders",
+  "Layout",
+];
+
+const COLOR_INPUT_DEFAULT = "#000000";
 
 const runtimeByShell = new WeakMap<HTMLElement, AppRuntime>();
 
@@ -559,7 +897,12 @@ function buildEditorAppShell(config: MountEditorAppConfig): string {
               <div class="ve-style-group-body">
                 <div class="mb-2">
                   <label class="form-label" for="ve-doc-font-family">Font Family</label>
-                  <input id="ve-doc-font-family" class="form-control form-control-sm" placeholder="e.g., Inter, Arial, sans-serif" />
+                  <select id="ve-doc-font-family" class="form-select form-select-sm">
+                    <option value="">Default</option>
+                    <option value="Helvetica">sans-serif (Helvetica)</option>
+                    <option value="Times-Roman">serif (Times-Roman)</option>
+                    <option value="Courier">monospace (Courier)</option>
+                  </select>
                 </div>
                 <div class="row g-2 mb-2">
                   <div class="col-8">
@@ -612,11 +955,17 @@ function buildEditorAppShell(config: MountEditorAppConfig): string {
                 <div class="row g-2 mb-2">
                   <div class="col-6">
                     <label class="form-label" for="ve-doc-color">Text Color</label>
-                    <input id="ve-doc-color" class="form-control form-control-sm" placeholder="#000000" />
+                    <div class="input-group input-group-sm">
+                      <input id="ve-doc-color" type="color" class="form-control form-control-color" value="${COLOR_INPUT_DEFAULT}" data-ve-color-empty="true" />
+                      <button type="button" class="btn btn-outline-secondary" data-ve-color-clear-for="ve-doc-color">Clear</button>
+                    </div>
                   </div>
                   <div class="col-6">
                     <label class="form-label" for="ve-doc-bg-color">Background Color</label>
-                    <input id="ve-doc-bg-color" class="form-control form-control-sm" placeholder="#ffffff" />
+                    <div class="input-group input-group-sm">
+                      <input id="ve-doc-bg-color" type="color" class="form-control form-control-color" value="${COLOR_INPUT_DEFAULT}" data-ve-color-empty="true" />
+                      <button type="button" class="btn btn-outline-secondary" data-ve-color-clear-for="ve-doc-bg-color">Clear</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -626,47 +975,8 @@ function buildEditorAppShell(config: MountEditorAppConfig): string {
           <section class="ve-style-panel" data-editor-app-panel="block">
             <p class="text-muted small mb-2" data-editor-app-target="noBlockSelected">No Block Selected</p>
             <fieldset class="ve-block-style-fields" data-editor-app-target="blockStyleFields">
-              <div class="mb-2">
-                <label class="form-label" for="ve-block-font-size">Font Size</label>
-                <input id="ve-block-font-size" class="form-control form-control-sm" placeholder="e.g., 16px" />
-              </div>
-              <div class="mb-2">
-                <label class="form-label" for="ve-block-font-weight">Font Weight</label>
-                <select id="ve-block-font-weight" class="form-select form-select-sm">
-                  <option value="">Default</option><option value="normal">Normal</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="bold">Bold</option>
-                </select>
-              </div>
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label" for="ve-block-color">Text Color</label>
-                  <input id="ve-block-color" class="form-control form-control-sm" placeholder="#000000" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label" for="ve-block-bg-color">Background Color</label>
-                  <input id="ve-block-bg-color" class="form-control form-control-sm" placeholder="#ffffff" />
-                </div>
-              </div>
-              <div class="mb-2">
-                <label class="form-label" for="ve-block-text-align">Text Align</label>
-                <select id="ve-block-text-align" class="form-select form-select-sm">
-                  <option value="">Default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option>
-                </select>
-              </div>
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label" for="ve-block-padding">Padding</label>
-                  <input id="ve-block-padding" class="form-control form-control-sm" placeholder="e.g., 12px" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label" for="ve-block-margin">Margin</label>
-                  <input id="ve-block-margin" class="form-control form-control-sm" placeholder="e.g., 8px" />
-                </div>
-              </div>
-              <div class="mb-2">
-                <label class="form-label" for="ve-block-border-radius">Border Radius</label>
-                <input id="ve-block-border-radius" class="form-control form-control-sm" placeholder="e.g., 6px" />
-              </div>
-              <button type="button" class="btn btn-sm btn-outline-danger" data-editor-app-action="clear-block-styles">Clear</button>
+              ${buildBlockStyleGroupsMarkup()}
+              <button type="button" class="btn btn-sm btn-outline-danger mt-2" data-editor-app-action="clear-block-styles">Clear</button>
             </fieldset>
           </section>
         </aside>
@@ -685,6 +995,118 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function toDomIdSegment(property: string): string {
+  return property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+}
+
+function getBlockStyleFieldId(key: string): string {
+  return `ve-block-style-${toDomIdSegment(key)}`;
+}
+
+function isHexColorValue(value: string): boolean {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value.trim());
+}
+
+function normalizeHexColorValue(value: string): string {
+  const trimmed = value.trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(trimmed)) return trimmed;
+  if (!/^#[0-9a-f]{3}$/.test(trimmed)) return COLOR_INPUT_DEFAULT;
+  const [, r, g, b] = trimmed;
+  return `#${r}${r}${g}${g}${b}${b}`;
+}
+
+function isColorInput(
+  input: HTMLInputElement | HTMLSelectElement,
+): input is HTMLInputElement {
+  return input instanceof HTMLInputElement && input.type === "color";
+}
+
+function setColorInputState(
+  input: HTMLInputElement,
+  rawColor: string | null | undefined,
+): void {
+  const color = rawColor ? rawColor.trim() : "";
+  if (isHexColorValue(color)) {
+    input.value = normalizeHexColorValue(color);
+    input.dataset.veColorEmpty = "false";
+    return;
+  }
+
+  input.value = COLOR_INPUT_DEFAULT;
+  input.dataset.veColorEmpty = "true";
+}
+
+function getColorInputStyleValue(input: HTMLInputElement): string | undefined {
+  if (input.dataset.veColorEmpty === "true") return undefined;
+  return input.value.trim() || undefined;
+}
+
+function buildBlockStyleFieldMarkup(field: BlockStyleFieldConfig): string {
+  const id = getBlockStyleFieldId(field.key);
+  const control = field.control ?? "text";
+  if (control === "color") {
+    return `
+      <div class="mb-2">
+        <label class="form-label" for="${id}">${escapeHtml(field.label)}</label>
+        <div class="input-group input-group-sm">
+          <input id="${id}" type="color" class="form-control form-control-color" value="${COLOR_INPUT_DEFAULT}" data-ve-color-empty="true" />
+          <button type="button" class="btn btn-outline-secondary" data-ve-color-clear-for="${id}">Clear</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (control === "select") {
+    const options = (field.options ?? [])
+      .map(
+        (option) =>
+          `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`,
+      )
+      .join("");
+
+    return `
+      <div class="mb-2">
+        <label class="form-label" for="${id}">${escapeHtml(field.label)}</label>
+        <select id="${id}" class="form-select form-select-sm">${options}</select>
+      </div>
+    `;
+  }
+
+  const placeholder = field.placeholder
+    ? ` placeholder="${escapeHtml(field.placeholder)}"`
+    : "";
+
+  return `
+    <div class="mb-2">
+      <label class="form-label" for="${id}">${escapeHtml(field.label)}</label>
+      <input id="${id}" class="form-control form-control-sm"${placeholder} />
+    </div>
+  `;
+}
+
+function buildBlockStyleGroupsMarkup(): string {
+  const grouped = new Map<BlockStyleFieldConfig["group"], BlockStyleFieldConfig[]>();
+  for (const group of BLOCK_STYLE_GROUP_ORDER) {
+    grouped.set(group, []);
+  }
+  for (const field of BLOCK_STYLE_FIELDS) {
+    grouped.get(field.group)?.push(field);
+  }
+
+  return BLOCK_STYLE_GROUP_ORDER.map((group, index) => {
+    const fields = grouped.get(group) ?? [];
+    if (fields.length === 0) return "";
+    const fieldsMarkup = fields.map((field) => buildBlockStyleFieldMarkup(field)).join("");
+
+    return `
+      <details class="ve-style-group" ${index < 4 ? "open" : ""}>
+        <summary>${escapeHtml(group)}</summary>
+        <div class="ve-style-group-body">${fieldsMarkup}</div>
+      </details>
+    `;
+  }).join("");
 }
 
 function renderPluginToolbar(
@@ -852,7 +1274,7 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     host.querySelector<HTMLInputElement>("#ve-margin-bottom");
   const marginLeft = host.querySelector<HTMLInputElement>("#ve-margin-left");
 
-  const docFontFamily = host.querySelector<HTMLInputElement>(
+  const docFontFamily = host.querySelector<HTMLSelectElement>(
     "#ve-doc-font-family",
   );
   const docFontSizeValue = host.querySelector<HTMLInputElement>(
@@ -878,24 +1300,17 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     "#ve-doc-letter-spacing-unit",
   );
 
-  const blockFontSize = host.querySelector<HTMLInputElement>(
-    "#ve-block-font-size",
-  );
-  const blockFontWeight = host.querySelector<HTMLSelectElement>(
-    "#ve-block-font-weight",
-  );
-  const blockColor = host.querySelector<HTMLInputElement>("#ve-block-color");
-  const blockTextAlign = host.querySelector<HTMLSelectElement>(
-    "#ve-block-text-align",
-  );
-  const blockPadding =
-    host.querySelector<HTMLInputElement>("#ve-block-padding");
-  const blockMargin = host.querySelector<HTMLInputElement>("#ve-block-margin");
-  const blockBgColor =
-    host.querySelector<HTMLInputElement>("#ve-block-bg-color");
-  const blockBorderRadius = host.querySelector<HTMLInputElement>(
-    "#ve-block-border-radius",
-  );
+  const blockStyleInputs = new Map<
+    BlockStyleFieldConfig["key"],
+    HTMLInputElement | HTMLSelectElement
+  >();
+  for (const field of BLOCK_STYLE_FIELDS) {
+    const input = host.querySelector<HTMLInputElement | HTMLSelectElement>(
+      `#${getBlockStyleFieldId(field.key)}`,
+    );
+    if (!input) return;
+    blockStyleInputs.set(field.key, input);
+  }
 
   if (
     !pageFormat ||
@@ -913,15 +1328,7 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     !docLineHeight ||
     !docTextAlign ||
     !docLetterSpacingValue ||
-    !docLetterSpacingUnit ||
-    !blockFontSize ||
-    !blockFontWeight ||
-    !blockColor ||
-    !blockTextAlign ||
-    !blockPadding ||
-    !blockMargin ||
-    !blockBgColor ||
-    !blockBorderRadius
+    !docLetterSpacingUnit
   ) {
     return;
   }
@@ -958,8 +1365,8 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     docFontSizeValue.value = parsedFontSize.value || "12";
     docFontSizeUnit.value = parsedFontSize.unit;
     docFontWeight.value = styles.fontWeight ?? "";
-    docColor.value = styles.color ?? "";
-    docBgColor.value = styles.backgroundColor ?? "";
+    setColorInputState(docColor, styles.color ?? null);
+    setColorInputState(docBgColor, styles.backgroundColor ?? null);
     docLineHeight.value = styles.lineHeight ?? "1.5";
     docTextAlign.value = styles.textAlign ?? "";
     docLetterSpacingValue.value = parsedLetterSpacing.value;
@@ -967,14 +1374,13 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
   };
 
   const clearBlockInputs = (): void => {
-    blockFontSize.value = "";
-    blockFontWeight.value = "";
-    blockColor.value = "";
-    blockTextAlign.value = "";
-    blockPadding.value = "";
-    blockMargin.value = "";
-    blockBgColor.value = "";
-    blockBorderRadius.value = "";
+    for (const input of blockStyleInputs.values()) {
+      if (isColorInput(input)) {
+        setColorInputState(input, null);
+      } else {
+        input.value = "";
+      }
+    }
   };
 
   const syncBlockInputs = (): void => {
@@ -990,14 +1396,21 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     blockStyleFields.disabled = false;
 
     const styles = selected.styles ?? {};
-    blockFontSize.value = String(styles.fontSize ?? "");
-    blockFontWeight.value = String(styles.fontWeight ?? "");
-    blockColor.value = String(styles.color ?? "");
-    blockTextAlign.value = String(styles.textAlign ?? "");
-    blockPadding.value = String(styles.padding ?? "");
-    blockMargin.value = String(styles.margin ?? "");
-    blockBgColor.value = String(styles.backgroundColor ?? "");
-    blockBorderRadius.value = String(styles.borderRadius ?? "");
+    for (const field of BLOCK_STYLE_FIELDS) {
+      const input = blockStyleInputs.get(field.key);
+      if (!input) continue;
+
+      const value = styles[field.key as keyof typeof styles];
+
+      if (isColorInput(input)) {
+        setColorInputState(
+          input,
+          value === undefined || value === null ? null : String(value),
+        );
+      } else {
+        input.value = value === undefined || value === null ? "" : String(value);
+      }
+    }
   };
 
   const applyPageSettings = (): void => {
@@ -1020,10 +1433,12 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     const fontSize = composeValueWithUnit(docFontSizeValue.value, docFontSizeUnit.value);
     if (fontSize) styles.fontSize = fontSize;
     if (docFontWeight.value) styles.fontWeight = docFontWeight.value;
-    if (docColor.value.trim() && docColor.value.trim() !== "#000000") {
-      styles.color = docColor.value.trim();
+    const docTextColor = getColorInputStyleValue(docColor);
+    if (docTextColor && docTextColor !== "#000000") {
+      styles.color = docTextColor;
     }
-    if (docBgColor.value.trim()) styles.backgroundColor = docBgColor.value.trim();
+    const docBackgroundColor = getColorInputStyleValue(docBgColor);
+    if (docBackgroundColor) styles.backgroundColor = docBackgroundColor;
     if (docLineHeight.value.trim()) styles.lineHeight = docLineHeight.value.trim();
     if (docTextAlign.value) styles.textAlign = docTextAlign.value;
     const letterSpacing = composeValueWithUnit(
@@ -1033,14 +1448,7 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     );
     if (letterSpacing) styles.letterSpacing = letterSpacing;
 
-    const styleEditor = editor as TemplateEditor & {
-      setDocumentStyles?: (styles: Record<string, string>) => void;
-    };
-    if (typeof styleEditor.setDocumentStyles === "function") {
-      styleEditor.setDocumentStyles(styles);
-      return;
-    }
-    editor.updateDocumentStyles(styles);
+    editor.setDocumentStyles(styles);
   };
 
   const applyBlockStyles = (expectedBlockId: string | null): void => {
@@ -1048,19 +1456,19 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     const selected = editor.getSelectedBlock();
     if (!selected || selected.id !== expectedBlockId) return;
 
-    const currentStyles = { ...(selected.styles ?? {}) };
-    const nextStyles: Record<string, string | number | undefined> = {
-      ...currentStyles,
-    };
+    const nextStyles: Record<string, string | number | undefined> = {};
 
-    nextStyles.fontSize = blockFontSize.value.trim() || undefined;
-    nextStyles.fontWeight = blockFontWeight.value || undefined;
-    nextStyles.color = blockColor.value.trim() || undefined;
-    nextStyles.textAlign = blockTextAlign.value || undefined;
-    nextStyles.padding = blockPadding.value.trim() || undefined;
-    nextStyles.margin = blockMargin.value.trim() || undefined;
-    nextStyles.backgroundColor = blockBgColor.value.trim() || undefined;
-    nextStyles.borderRadius = blockBorderRadius.value.trim() || undefined;
+    for (const field of BLOCK_STYLE_FIELDS) {
+      const input = blockStyleInputs.get(field.key);
+      if (!input) continue;
+      if (isColorInput(input)) {
+        nextStyles[field.key] = getColorInputStyleValue(input);
+        continue;
+      }
+
+      const rawValue = input.value.trim();
+      nextStyles[field.key] = rawValue || undefined;
+    }
 
     const normalized = Object.fromEntries(
       Object.entries(nextStyles).filter(([, value]) => value !== undefined),
@@ -1139,6 +1547,31 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     debounce("block", () => applyBlockStyles(selectedId), selectedId);
   };
 
+  for (const input of [docColor, docBgColor]) {
+    const markTouched = () => {
+      input.dataset.veColorEmpty = "false";
+    };
+    input.addEventListener("input", markTouched);
+    input.addEventListener("change", markTouched);
+  }
+
+  host
+    .querySelectorAll<HTMLButtonElement>("[data-ve-color-clear-for]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        const inputId = button.getAttribute("data-ve-color-clear-for");
+        if (!inputId) return;
+        const input = host.querySelector<HTMLInputElement>(`#${inputId}`);
+        if (!input || input.type !== "color") return;
+        setColorInputState(input, null);
+        if (inputId.startsWith("ve-doc-")) {
+          onDocInput();
+          return;
+        }
+        onBlockInput();
+      });
+    });
+
   for (const input of [
     pageFormat,
     pageOrientation,
@@ -1169,16 +1602,14 @@ function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
     input.addEventListener("blur", flushTimers);
   }
 
-  for (const input of [
-    blockFontSize,
-    blockFontWeight,
-    blockColor,
-    blockTextAlign,
-    blockPadding,
-    blockMargin,
-    blockBgColor,
-    blockBorderRadius,
-  ]) {
+  for (const input of blockStyleInputs.values()) {
+    if (isColorInput(input)) {
+      const markTouched = () => {
+        input.dataset.veColorEmpty = "false";
+      };
+      input.addEventListener("input", markTouched);
+      input.addEventListener("change", markTouched);
+    }
     input.addEventListener("input", onBlockInput);
     input.addEventListener("change", onBlockInput);
     input.addEventListener("blur", flushTimers);

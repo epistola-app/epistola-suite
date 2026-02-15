@@ -39,7 +39,13 @@ class TableBlockRenderer : BlockRenderer {
         val table = Table(columnWidths)
         table.useAllAvailableWidth()
 
-        val resolvedStyles = StyleApplicator.resolveInheritedStyles(
+        val resolvedStyles = StyleApplicator.resolveElementStyles(
+            context.inheritedStyles,
+            block.stylePreset,
+            context.blockStylePresets,
+            block.styles,
+        )
+        val childInheritedStyles = StyleApplicator.resolveInheritedStyles(
             context.inheritedStyles,
             block.stylePreset,
             context.blockStylePresets,
@@ -63,12 +69,18 @@ class TableBlockRenderer : BlockRenderer {
                 cell.setPadding(8f)
 
                 val cellResolvedStyles = StyleApplicator.resolveInheritedStyles(
-                    resolvedStyles,
+                    childInheritedStyles,
                     null,
                     emptyMap(),
                     tableCell.styles,
                 )
-                StyleApplicator.applyResolvedStyles(cell, cellResolvedStyles, context.fontCache)
+                val cellElementStyles = StyleApplicator.resolveElementStyles(
+                    childInheritedStyles,
+                    null,
+                    emptyMap(),
+                    tableCell.styles,
+                )
+                StyleApplicator.applyResolvedStyles(cell, cellElementStyles, context.fontCache)
 
                 // Apply border based on border style
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)

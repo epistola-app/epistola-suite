@@ -5,6 +5,9 @@
 ### Fixed
 - **Text block selection from TipTap click**: Clicking inside a text editor now selects its wrapping block.
 - **Collapsed styles sidebar toggle usability**: Toggle remains visible and clickable after collapsing.
+- **PDF text line-height parity**: Line-height from document/block styles is now applied to rendered TipTap paragraphs in PDF output (multiplied and fixed leading).
+- **PDF non-inheritable style application**: Margin/padding and other non-inheritable styles now apply to the current rendered block element instead of being dropped by inheritance filtering.
+- **PDF page margin unit mismatch**: Page margins from template settings are now converted from millimeters to points before applying to iText documents.
 - **Vanilla block-rendering E2E selectors updated for sidebar flow**
   - Replaced modal-style open/save expectations with document/block tab navigation and autosave timing in Playwright specs.
   - Updated document color assertions to account for collapsed details sections and persisted template state behavior.
@@ -38,6 +41,11 @@
   - Added selection-aware tab switching, no-selection Block placeholder, and wrapper-click deselection.
   - Added collapsible styles sidebar and CSS variable layout controls
     (default: 15% sidebar / 50% editor / 35% preview).
+- **Strict editor/PDF style contract enforced**
+  - Removed implicit legacy fallbacks in style application paths and aligned supported style keys between sidebar controls and Kotlin PDF rendering.
+  - Document and block font-family options now use explicit iText Base14 mappings (`Helvetica`, `Times-Roman`, `Courier`) with descriptive labels in the UI.
+  - Added first-class shorthand support for `padding` and `border` plus side border keys (`borderTop`, `borderRight`, `borderBottom`, `borderLeft`) in both sidebar and PDF generation.
+  - Existing border width/style/color/radius behavior is preserved and composed with shorthand/side overrides deterministically.
 - **Headless document styles support full replacement updates**
   - Added `setDocumentStyles` to replace existing style keys when sidebar fields are cleared.
 - **TemplateEditor internals decomposed into focused services**: Refactored the headless editor core by splitting the monolithic `editor.ts` into dedicated services for state repository, block registry, block operations, drag-drop, expression evaluation, style management, and template IO.

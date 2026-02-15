@@ -39,13 +39,14 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?> = emptyMap(),
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String? = null,
     ): kotlin.collections.List<IBlockElement> {
         if (content == null) return emptyList()
 
         @Suppress("UNCHECKED_CAST")
         val nodes = content["content"] as? kotlin.collections.List<Map<String, Any>> ?: return emptyList()
 
-        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache) }
+        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache, lineHeight) }
     }
 
     private fun convertNode(
@@ -53,14 +54,15 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String?,
     ): IBlockElement? {
         val type = node["type"] as? String ?: return null
 
         return when (type) {
-            "paragraph" -> convertParagraph(node, data, loopContext, fontCache)
-            "heading" -> convertHeading(node, data, loopContext, fontCache)
-            "bulletList" -> convertBulletList(node, data, loopContext, fontCache)
-            "orderedList" -> convertOrderedList(node, data, loopContext, fontCache)
+            "paragraph" -> convertParagraph(node, data, loopContext, fontCache, lineHeight)
+            "heading" -> convertHeading(node, data, loopContext, fontCache, lineHeight)
+            "bulletList" -> convertBulletList(node, data, loopContext, fontCache, lineHeight)
+            "orderedList" -> convertOrderedList(node, data, loopContext, fontCache, lineHeight)
             else -> null
         }
     }
@@ -70,9 +72,11 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String?,
     ): Paragraph {
         val paragraph = Paragraph()
         paragraph.setMarginBottom(12f) // ~1em
+        applyLineHeight(paragraph, lineHeight)
 
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
@@ -88,6 +92,7 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String?,
     ): Paragraph {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
@@ -105,6 +110,7 @@ class TipTapConverter(
             else -> 12f
         }
         paragraph.setFontSize(fontSize)
+        applyLineHeight(paragraph, lineHeight)
 
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
@@ -120,6 +126,7 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String?,
     ): List {
         val list = List()
         list.setMarginBottom(12f)
@@ -130,7 +137,7 @@ class TipTapConverter(
 
         for (item in items) {
             if (item["type"] == "listItem") {
-                val listItem = convertListItem(item, data, loopContext, fontCache)
+                val listItem = convertListItem(item, data, loopContext, fontCache, lineHeight)
                 list.add(listItem)
             }
         }
@@ -143,6 +150,7 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String?,
     ): List {
         val list = List(ListNumberingType.DECIMAL)
         list.setMarginBottom(12f)
@@ -153,7 +161,7 @@ class TipTapConverter(
 
         for (item in items) {
             if (item["type"] == "listItem") {
-                val listItem = convertListItem(item, data, loopContext, fontCache)
+                val listItem = convertListItem(item, data, loopContext, fontCache, lineHeight)
                 list.add(listItem)
             }
         }
@@ -166,6 +174,7 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        lineHeight: String?,
     ): ListItem {
         val listItem = ListItem()
 
@@ -179,6 +188,7 @@ class TipTapConverter(
                 val paragraphContent = child["content"] as? kotlin.collections.List<Map<String, Any>>
                 if (paragraphContent != null) {
                     val paragraph = Paragraph()
+                    applyLineHeight(paragraph, lineHeight)
                     addInlineContent(paragraph, paragraphContent, data, loopContext, fontCache)
                     listItem.add(paragraph)
                 }
@@ -240,6 +250,52 @@ class TipTapConverter(
                     paragraph.add(Text(app.epistola.generation.expression.ExpressionEvaluator.valueToString(value)))
                 }
             }
+        }
+    }
+
+    private fun applyLineHeight(paragraph: Paragraph, lineHeight: String?) {
+        val normalized = lineHeight?.trim()?.lowercase() ?: return
+        if (normalized.isEmpty() || normalized == "normal") return
+
+        if (normalized.endsWith("%")) {
+            normalized.removeSuffix("%").toFloatOrNull()?.let { percent ->
+                if (percent > 0f) paragraph.setMultipliedLeading(percent / 100f)
+            }
+            return
+        }
+
+        if (hasCssUnit(normalized)) {
+            parseSizeToPoints(normalized)?.let { size ->
+                if (size > 0f) paragraph.setFixedLeading(size)
+            }
+            return
+        }
+
+        normalized.toFloatOrNull()?.let { multiplier ->
+            if (multiplier > 0f) paragraph.setMultipliedLeading(multiplier)
+        }
+    }
+
+    private fun hasCssUnit(value: String): Boolean {
+        val normalized = value.trim().lowercase()
+        return normalized.endsWith("px") ||
+            normalized.endsWith("pt") ||
+            normalized.endsWith("mm") ||
+            normalized.endsWith("cm") ||
+            normalized.endsWith("rem") ||
+            normalized.endsWith("em")
+    }
+
+    private fun parseSizeToPoints(size: String): Float? {
+        val normalized = size.trim().lowercase()
+        return when {
+            normalized.endsWith("px") -> normalized.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
+            normalized.endsWith("pt") -> normalized.removeSuffix("pt").toFloatOrNull()
+            normalized.endsWith("mm") -> normalized.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f }
+            normalized.endsWith("cm") -> normalized.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
+            normalized.endsWith("rem") -> normalized.removeSuffix("rem").toFloatOrNull()?.let { it * 12f }
+            normalized.endsWith("em") -> normalized.removeSuffix("em").toFloatOrNull()?.let { it * 12f }
+            else -> null
         }
     }
 

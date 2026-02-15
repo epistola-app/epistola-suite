@@ -3,10 +3,13 @@ package app.epistola.generation
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.generation.pdf.FontCache
+import com.itextpdf.layout.properties.Leading
+import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.Paragraph
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class TipTapConverterTest {
@@ -572,5 +575,63 @@ class TipTapConverterTest {
         val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `applies multiplied line height to converted paragraphs`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "Line height test"),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(
+            content = content,
+            data = emptyMap(),
+            fontCache = fontCache,
+            lineHeight = "1.7",
+        )
+
+        val paragraph = result[0] as Paragraph
+        val leading = paragraph.getProperty<Any>(Property.LEADING)
+        assertNotNull(leading)
+        assertTrue(leading is Leading)
+        assertEquals(Leading.MULTIPLIED, leading.type)
+        assertEquals(1.7f, leading.value)
+    }
+
+    @Test
+    fun `applies fixed line height from css units to converted paragraphs`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf("type" to "text", "text" to "Line height test"),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(
+            content = content,
+            data = emptyMap(),
+            fontCache = fontCache,
+            lineHeight = "24px",
+        )
+
+        val paragraph = result[0] as Paragraph
+        val leading = paragraph.getProperty<Any>(Property.LEADING)
+        assertNotNull(leading)
+        assertTrue(leading is Leading)
+        assertEquals(Leading.FIXED, leading.type)
+        assertEquals(18f, leading.value)
     }
 }

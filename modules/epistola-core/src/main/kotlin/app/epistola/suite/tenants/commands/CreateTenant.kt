@@ -59,7 +59,7 @@ class CreateTenantHandler(
         val themeSlug = "$prefix$suffix"
         val themeId = ThemeId.of(themeSlug)
         val documentStyles = DocumentStyles(
-            fontFamily = "Helvetica, Arial, sans-serif",
+            fontFamily = "Helvetica",
             fontSize = "11pt",
             color = "#333333",
             lineHeight = "1.5",

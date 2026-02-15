@@ -2,8 +2,20 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.TextAlign
+import com.itextpdf.kernel.colors.Color
+import com.itextpdf.kernel.colors.ColorConstants
+import com.itextpdf.layout.borders.Border
+import com.itextpdf.layout.borders.DashedBorder
+import com.itextpdf.layout.borders.DottedBorder
+import com.itextpdf.layout.borders.DoubleBorder
+import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.element.BlockElement
+import com.itextpdf.layout.properties.BorderRadius
+import com.itextpdf.layout.properties.LineHeight
+import com.itextpdf.layout.properties.OverflowPropertyValue
+import com.itextpdf.layout.properties.OverflowWrapPropertyValue
+import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
 
@@ -173,45 +185,33 @@ object StyleApplicator {
         }
     }
 
+    /**
+     * Resolves styles to apply on the current rendered element.
+     *
+     * Includes inherited parent styles plus full block-level styles
+     * (both inheritable and non-inheritable properties).
+     */
+    fun resolveElementStyles(
+        parentInheritedStyles: Map<String, Any>,
+        presetName: String?,
+        blockStylePresets: Map<String, Map<String, Any>>,
+        inlineStyles: Map<String, Any>?,
+    ): Map<String, Any> {
+        val blockStyles = resolveBlockStyles(blockStylePresets, presetName, inlineStyles) ?: emptyMap()
+        return parentInheritedStyles + blockStyles
+    }
+
     private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles, fontCache: FontCache) {
-        styles.fontFamily?.let { fontFamily ->
-            // iText uses font programs, we'll use a default font
-            // Custom font handling would require font registration
-        }
-
-        styles.fontSize?.let { fontSize ->
-            parseFontSize(fontSize)?.let { element.setFontSize(it) }
-        }
-
-        styles.color?.let { color ->
-            parseColor(color)?.let { element.setFontColor(it) }
-        }
-
-        styles.backgroundColor?.let { color ->
-            parseColor(color)?.let { element.setBackgroundColor(it) }
-        }
-
-        styles.textAlign?.let { align ->
-            element.setTextAlignment(mapTextAlign(align))
-        }
-
-        // Font weight (supports keyword and numeric values)
-        styles.fontWeight?.let { weight ->
-            if (isBoldFontWeight(weight)) {
-                element.setFont(fontCache.bold)
-            }
-        }
-
-        // Letter spacing
-        styles.letterSpacing?.let { spacing ->
-            parseSize(spacing)?.let { element.setCharacterSpacing(it) }
-        }
-
-        // Note: lineHeight is intentionally ignored for now in PDF rendering.
-        // iText leading depends on layout context and cannot be mapped 1:1 from CSS values.
+        applyBlockStyles(element, documentStylesToInheritedMap(styles), fontCache)
     }
 
     private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache) {
+        val fontFamily = styles["fontFamily"] as? String
+        val fontWeight = styles["fontWeight"] as? String
+        val fontStyle = styles["fontStyle"] as? String
+
+        applyFontSelection(element, fontFamily, fontWeight, fontStyle, fontCache)
+
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
             parseFontSize(fontSize)?.let { element.setFontSize(it) }
@@ -232,6 +232,16 @@ object StyleApplicator {
             element.setTextAlignment(parseTextAlign(align))
         }
 
+        // Line height
+        (styles["lineHeight"] as? String)?.let { lineHeight ->
+            parseLineHeight(lineHeight)?.let { element.setProperty(Property.LINE_HEIGHT, it) }
+        }
+
+        // Letter spacing
+        (styles["letterSpacing"] as? String)?.let { spacing ->
+            parseSize(spacing)?.let { element.setCharacterSpacing(it) }
+        }
+
         // Margins
         (styles["marginTop"] as? String)?.let { margin ->
             parseSize(margin)?.let { element.setMarginTop(it) }
@@ -247,6 +257,14 @@ object StyleApplicator {
         }
 
         // Padding
+        (styles["padding"] as? String)?.let { padding ->
+            parseBoxSpacing(padding)?.let {
+                element.setPaddingTop(it.top)
+                element.setPaddingRight(it.right)
+                element.setPaddingBottom(it.bottom)
+                element.setPaddingLeft(it.left)
+            }
+        }
         (styles["paddingTop"] as? String)?.let { padding ->
             parseSize(padding)?.let { element.setPaddingTop(it) }
         }
@@ -260,32 +278,221 @@ object StyleApplicator {
             parseSize(padding)?.let { element.setPaddingLeft(it) }
         }
 
-        // Width
+        // Width / Height constraints
         (styles["width"] as? String)?.let { width ->
-            if (width.endsWith("%")) {
-                width.removeSuffix("%").toFloatOrNull()?.let {
-                    element.setWidth(UnitValue.createPercentValue(it))
-                }
+            parseLength(width)?.let { element.setWidth(it) }
+        }
+        (styles["minWidth"] as? String)?.let { minWidth ->
+            parseLength(minWidth)?.let { element.setMinWidth(it) }
+        }
+        (styles["maxWidth"] as? String)?.let { maxWidth ->
+            parseLength(maxWidth)?.let { element.setMaxWidth(it) }
+        }
+        (styles["height"] as? String)?.let { height ->
+            parseLength(height)?.let { element.setHeight(it) }
+        }
+        (styles["minHeight"] as? String)?.let { minHeight ->
+            parseLength(minHeight)?.let { element.setMinHeight(it) }
+        }
+        (styles["maxHeight"] as? String)?.let { maxHeight ->
+            parseLength(maxHeight)?.let { element.setMaxHeight(it) }
+        }
+
+        // Opacity
+        (styles["opacity"] as? String)?.let { opacity ->
+            parseOpacity(opacity)?.let { element.setOpacity(it) }
+        }
+
+        // Border
+        applyBorderStyles(element, styles)
+
+        // Text decoration
+        (styles["textDecoration"] as? String)?.let { decoration ->
+            val normalized = decoration.trim().lowercase()
+            if (normalized == "none") {
+                element.deleteOwnProperty(Property.UNDERLINE)
             } else {
-                parseSize(width)?.let { element.setWidth(it) }
+                if (normalized.contains("underline")) element.setUnderline()
+                if (normalized.contains("line-through")) element.setLineThrough()
             }
         }
 
-        // Font weight (supports keyword and numeric values)
-        (styles["fontWeight"] as? String)?.let { weight ->
-            if (isBoldFontWeight(weight)) {
-                element.setFont(fontCache.bold)
+        // White space
+        (styles["whiteSpace"] as? String)?.let { whiteSpace ->
+            val disableSoftWrap = whiteSpace.trim().lowercase() == "nowrap"
+            element.setProperty(Property.NO_SOFT_WRAP_INLINE, disableSoftWrap)
+        }
+
+        // Word break / overflow wrap
+        (styles["wordBreak"] as? String)?.let { wordBreak ->
+            parseOverflowWrap(wordBreak)?.let { element.setProperty(Property.OVERFLOW_WRAP, it) }
+        }
+
+        // Overflow
+        (styles["overflow"] as? String)?.let { overflow ->
+            parseOverflow(overflow)?.let {
+                element.setProperty(Property.OVERFLOW_X, it)
+                element.setProperty(Property.OVERFLOW_Y, it)
+            }
+        }
+        (styles["overflowX"] as? String)?.let { overflowX ->
+            parseOverflow(overflowX)?.let { element.setProperty(Property.OVERFLOW_X, it) }
+        }
+        (styles["overflowY"] as? String)?.let { overflowY ->
+            parseOverflow(overflowY)?.let { element.setProperty(Property.OVERFLOW_Y, it) }
+        }
+    }
+
+    private fun <T : BlockElement<T>> applyFontSelection(
+        element: T,
+        fontFamily: String?,
+        fontWeight: String?,
+        fontStyle: String?,
+        fontCache: FontCache,
+    ) {
+        val hasFontIntent = !fontFamily.isNullOrBlank() || !fontWeight.isNullOrBlank() || !fontStyle.isNullOrBlank()
+        if (!hasFontIntent) return
+
+        val isBold = fontWeight?.let { isBoldFontWeight(it) } ?: false
+        val isItalic = fontStyle?.trim()?.lowercase()?.let { it == "italic" || it == "oblique" } ?: false
+        fontCache.resolveFont(fontFamily, isBold, isItalic)?.let { element.setFont(it) }
+    }
+
+    private fun <T : BlockElement<T>> applyBorderStyles(element: T, styles: Map<String, Any>) {
+        val borderStyle = (styles["borderStyle"] as? String)?.trim()?.lowercase()
+        val borderWidth = (styles["borderWidth"] as? String)?.let { parseSize(it) }
+        val borderColor = (styles["borderColor"] as? String)?.let { parseColor(it) }
+        val borderRadius = (styles["borderRadius"] as? String)?.let { parseSize(it) }
+
+        borderRadius?.let { element.setBorderRadius(BorderRadius(it)) }
+
+        val hasBorderConfig = borderStyle != null || borderWidth != null || borderColor != null
+        if (hasBorderConfig) {
+            if (borderStyle == "none") {
+                element.setBorder(Border.NO_BORDER)
+            } else {
+                val width = borderWidth ?: 0.75f
+                val color = borderColor ?: ColorConstants.BLACK
+                val style = borderStyle ?: "solid"
+                createBorder(style, width, color)?.let { element.setBorder(it) }
             }
         }
 
-        // Font style
-        (styles["fontStyle"] as? String)?.let { style ->
-            if (style == "italic") {
-                element.setFont(fontCache.italic)
-            }
+        (styles["border"] as? String)?.let { border ->
+            parseBorderShorthand(border)?.let { element.setBorder(it) }
         }
+        (styles["borderTop"] as? String)?.let { borderTop ->
+            parseBorderShorthand(borderTop)?.let { element.setBorderTop(it) }
+        }
+        (styles["borderRight"] as? String)?.let { borderRight ->
+            parseBorderShorthand(borderRight)?.let { element.setBorderRight(it) }
+        }
+        (styles["borderBottom"] as? String)?.let { borderBottom ->
+            parseBorderShorthand(borderBottom)?.let { element.setBorderBottom(it) }
+        }
+        (styles["borderLeft"] as? String)?.let { borderLeft ->
+            parseBorderShorthand(borderLeft)?.let { element.setBorderLeft(it) }
+        }
+    }
 
-        // Note: lineHeight is intentionally ignored for now in PDF rendering.
+    private data class BoxSpacing(
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+        val left: Float,
+    )
+
+    private fun parseBoxSpacing(value: String): BoxSpacing? {
+        val tokens = value.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (tokens.isEmpty() || tokens.size > 4) return null
+
+        val parsed = tokens.map { parseSize(it) ?: return null }
+        return when (parsed.size) {
+            1 -> BoxSpacing(parsed[0], parsed[0], parsed[0], parsed[0])
+            2 -> BoxSpacing(parsed[0], parsed[1], parsed[0], parsed[1])
+            3 -> BoxSpacing(parsed[0], parsed[1], parsed[2], parsed[1])
+            4 -> BoxSpacing(parsed[0], parsed[1], parsed[2], parsed[3])
+            else -> null
+        }
+    }
+
+    private fun parseBorderShorthand(value: String): Border? {
+        val normalized = value.trim()
+        if (normalized.isEmpty()) return null
+
+        val keyword = normalized.lowercase()
+        if (keyword == "none") return Border.NO_BORDER
+
+        val tokens = normalized.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (tokens.size != 3) return null
+
+        val width = parseSize(tokens[0]) ?: return null
+        val style = tokens[1].lowercase()
+        val color = parseColor(tokens[2]) ?: return null
+        return createBorder(style, width, color)
+    }
+
+    private fun createBorder(style: String, width: Float, color: Color): Border? = when (style) {
+        "solid" -> SolidBorder(color, width)
+        "dashed" -> DashedBorder(color, width)
+        "dotted" -> DottedBorder(color, width)
+        "double" -> DoubleBorder(color, width)
+        else -> null
+    }
+
+    private fun parseLineHeight(value: String): LineHeight? {
+        val normalized = value.trim().lowercase()
+        if (normalized.isEmpty()) return null
+        if (normalized == "normal") return LineHeight.createNormalValue()
+
+        return if (hasCssUnit(normalized)) {
+            parseSize(normalized)?.let { LineHeight.createFixedValue(it) }
+        } else {
+            normalized.toFloatOrNull()?.let { LineHeight.createMultipliedValue(it) }
+        }
+    }
+
+    private fun parseLength(value: String): UnitValue? {
+        val normalized = value.trim().lowercase()
+        if (normalized.endsWith("%")) {
+            return normalized.removeSuffix("%").toFloatOrNull()?.let { UnitValue.createPercentValue(it) }
+        }
+        return parseSize(normalized)?.let { UnitValue.createPointValue(it) }
+    }
+
+    private fun parseOpacity(value: String): Float? {
+        val normalized = value.trim().lowercase()
+        val opacity = if (normalized.endsWith("%")) {
+            normalized.removeSuffix("%").toFloatOrNull()?.div(100f)
+        } else {
+            normalized.toFloatOrNull()
+        }
+        return opacity?.coerceIn(0f, 1f)
+    }
+
+    private fun parseOverflow(value: String): OverflowPropertyValue? = when (value.trim().lowercase()) {
+        "visible" -> OverflowPropertyValue.VISIBLE
+        "hidden" -> OverflowPropertyValue.HIDDEN
+        "fit" -> OverflowPropertyValue.FIT
+        else -> null
+    }
+
+    private fun parseOverflowWrap(value: String): OverflowWrapPropertyValue? = when (value.trim().lowercase()) {
+        "normal" -> OverflowWrapPropertyValue.NORMAL
+        "break-word" -> OverflowWrapPropertyValue.BREAK_WORD
+        "break-all" -> OverflowWrapPropertyValue.ANYWHERE
+        else -> null
+    }
+
+    private fun hasCssUnit(value: String): Boolean {
+        val normalized = value.trim().lowercase()
+        return normalized.endsWith("px") ||
+            normalized.endsWith("pt") ||
+            normalized.endsWith("mm") ||
+            normalized.endsWith("cm") ||
+            normalized.endsWith("rem") ||
+            normalized.endsWith("em") ||
+            normalized.endsWith("%")
     }
 
     private fun normalizeStyleValue(key: String, value: Any): Any {
@@ -298,21 +505,28 @@ object StyleApplicator {
         return value
     }
 
-    private fun parseFontSize(fontSize: String): Float? = when {
-        fontSize.endsWith("px") -> fontSize.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f } // px to pt
-        fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
-        fontSize.endsWith("em") -> fontSize.removeSuffix("em").toFloatOrNull()?.let { it * 12f } // 1em = 12pt
-        fontSize.endsWith("rem") -> fontSize.removeSuffix("rem").toFloatOrNull()?.let { it * 12f }
-        else -> fontSize.toFloatOrNull()
+    private fun parseFontSize(fontSize: String): Float? {
+        val normalized = fontSize.trim().lowercase()
+        return when {
+            normalized.endsWith("px") -> normalized.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f } // px to pt
+            normalized.endsWith("pt") -> normalized.removeSuffix("pt").toFloatOrNull()
+            normalized.endsWith("rem") -> normalized.removeSuffix("rem").toFloatOrNull()?.let { it * 12f }
+            normalized.endsWith("em") -> normalized.removeSuffix("em").toFloatOrNull()?.let { it * 12f } // 1em = 12pt
+            else -> normalized.toFloatOrNull()
+        }
     }
 
-    private fun parseSize(size: String): Float? = when {
-        size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
-        size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
-        size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // mm to pt
-        size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
-        size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * 12f }
-        else -> size.toFloatOrNull()
+    private fun parseSize(size: String): Float? {
+        val normalized = size.trim().lowercase()
+        return when {
+            normalized.endsWith("px") -> normalized.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
+            normalized.endsWith("pt") -> normalized.removeSuffix("pt").toFloatOrNull()
+            normalized.endsWith("mm") -> normalized.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // mm to pt
+            normalized.endsWith("cm") -> normalized.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
+            normalized.endsWith("rem") -> normalized.removeSuffix("rem").toFloatOrNull()?.let { it * 12f }
+            normalized.endsWith("em") -> normalized.removeSuffix("em").toFloatOrNull()?.let { it * 12f }
+            else -> normalized.toFloatOrNull()
+        }
     }
 
     private fun parseColor(color: String): DeviceRgb? = try {
@@ -359,10 +573,4 @@ object StyleApplicator {
         else -> TextAlignment.LEFT
     }
 
-    private fun mapTextAlign(align: TextAlign): TextAlignment = when (align) {
-        TextAlign.Left -> TextAlignment.LEFT
-        TextAlign.Center -> TextAlignment.CENTER
-        TextAlign.Right -> TextAlignment.RIGHT
-        TextAlign.Justify -> TextAlignment.JUSTIFIED
-    }
 }
