@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **Theme Editor Redesign**: Replaced the Thymeleaf form-based theme editor with a Lit web component (`<epistola-theme-editor>`) that provides the same rich style editing controls as the template editor inspector
+  - **Visual style inputs**: Color pickers, unit inputs (px/em/rem/pt), select dropdowns, spacing inputs — all driven by the shared `defaultStyleRegistry`
+  - **Page settings editing**: Format (A4/Letter/Custom), orientation, margins (mm), background color
+  - **Block style presets**: Expandable preset cards with label, key, applicableTo multi-select, and full visual style property editing per preset
+  - **Unified autosave**: 2-second debounce after any change, Ctrl+S for manual save, dirty state tracking, beforeunload warning
+  - **Minimal PATCH payloads**: Only changed fields are sent to the backend
+  - **ThemeEditorState**: Pure TypeScript state management class with 32 unit tests
+  - **Multi-entry Vite build**: Produces both `template-editor.js` and `theme-editor.js` bundles with shared code chunking
 - **Editor V2: Enhanced expression dialog with live preview**: Expression editing dialog now provides real-time feedback and discovery tools
   - **Live preview**: Debounced (250ms) evaluation shows the expression result with green (success) or red (error) background, updates as you type
   - **Instant validation**: Synchronous JSONata parse check on every keystroke gives immediate green/red border feedback without waiting for async evaluation
@@ -28,6 +36,7 @@
 - **Editor V2: Resolved expression values in chips**: Expression chips now show the resolved value from the currently selected data example (e.g., "John Doe" instead of `{{customer.name}}`). Falls back to showing the raw expression when no data example is selected, the expression evaluates to undefined/null/empty, or the result is a non-displayable type (object/array). Uses JSONata for full expression evaluation support including aggregations, string concatenation, and conditionals. Hovering a resolved chip shows the expression path in a tooltip. Switching data examples refreshes all chips asynchronously with a generation counter to prevent stale results.
 
 ### Changed (Breaking)
+- **Block style presets format**: Changed `blockStylePresets` from flat `Map<String, Map<String, Any>>` to typed `Map<String, BlockStylePreset>` where `BlockStylePreset` has `{label, styles, applicableTo}` fields. This aligns the Kotlin backend with the TypeScript template-model type. Existing preset data in the database needs to be migrated to the new nested structure.
 - **Complete editor rewrite from v1 to v2**: Replaced the entire editor stack (React + TipTap + Zustand → Lit + ProseMirror + headless engine) and data model (flat `blocks[]` → normalized node/slot graph). This is a full-stack change:
   - **Data model**: `TemplateModel` replaced by `TemplateDocument` with `nodes: Map<String, Node>` and `slots: Map<String, Slot>`. All domain commands, queries, services, and REST API updated.
   - **PDF generation**: All `BlockRenderer` types replaced by `NodeRenderer` types with `renderNode()`/`renderSlot()` traversal.
