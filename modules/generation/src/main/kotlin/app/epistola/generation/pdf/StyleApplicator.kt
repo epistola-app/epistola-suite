@@ -4,12 +4,12 @@ import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.TextAlign
 import com.itextpdf.kernel.colors.Color
 import com.itextpdf.kernel.colors.ColorConstants
+import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.borders.DashedBorder
 import com.itextpdf.layout.borders.DottedBorder
 import com.itextpdf.layout.borders.DoubleBorder
 import com.itextpdf.layout.borders.SolidBorder
-import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.element.BlockElement
 import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.LineHeight
@@ -572,5 +572,4 @@ object StyleApplicator {
         "justify" -> TextAlignment.JUSTIFIED
         else -> TextAlignment.LEFT
     }
-
 }

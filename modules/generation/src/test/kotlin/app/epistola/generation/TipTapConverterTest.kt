@@ -3,10 +3,10 @@ package app.epistola.generation
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.generation.pdf.FontCache
-import com.itextpdf.layout.properties.Leading
-import com.itextpdf.layout.properties.Property
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.Paragraph
+import com.itextpdf.layout.properties.Leading
+import com.itextpdf.layout.properties.Property
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
