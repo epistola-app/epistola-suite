@@ -1,5 +1,8 @@
 /*
  * Editor Tree Panel
+ *
+ * Selected state with blue-50 background and inset left accent border.
+ * Smooth hover transitions for a Figma-like feel.
  */
 
 @layer components {
@@ -21,24 +24,39 @@
     border-radius: var(--ep-radius-sm);
     font-size: var(--ep-text-sm);
     color: var(--ep-gray-700);
+    transition:
+      background-color var(--ep-transition-fast),
+      color var(--ep-transition-fast),
+      box-shadow var(--ep-transition-fast);
 
     &:hover {
-      background: var(--ep-gray-100);
+      background: var(--ep-gray-50);
     }
 
     &.selected {
-      background: var(--ep-blue-100);
+      background: var(--ep-blue-50);
       color: var(--ep-blue-800);
       font-weight: 500;
+      box-shadow: inset 2px 0 0 var(--ep-blue-500);
     }
   }
 
   .tree-node-icon {
-    font-size: var(--ep-text-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
     color: var(--ep-gray-400);
+    flex-shrink: 0;
+
+    & svg {
+      width: 14px;
+      height: 14px;
+    }
 
     &.root {
-      font-weight: 700;
+      color: var(--ep-gray-600);
     }
   }
 }

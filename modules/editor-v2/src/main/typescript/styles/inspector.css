@@ -1,6 +1,9 @@
 /*
  * Editor Inspector Panel
  *
+ * Section labels uppercase/tracked, compact h-8 inputs,
+ * subtle node-info background, polished delete section.
+ *
  * Uses shared .ep-input, .ep-select, .ep-checkbox, .ep-btn-danger
  * from the design system. Only inspector-specific layout here.
  */
@@ -8,17 +11,19 @@
 @layer components {
   .epistola-inspector {
     padding: var(--ep-space-3);
+    overflow-y: auto;
   }
 
   .inspector-node-info {
     margin-bottom: var(--ep-space-4);
-    padding-bottom: var(--ep-space-3);
-    border-bottom: var(--ep-border);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    background: var(--ep-gray-50);
+    border-radius: var(--ep-radius-sm);
   }
 
   .inspector-node-label {
     font-size: var(--ep-text-sm);
-    font-weight: 500;
+    font-weight: 600;
     color: var(--ep-gray-800);
   }
 
@@ -34,9 +39,11 @@
   }
 
   .inspector-section-label {
-    font-size: var(--ep-text-xs);
-    font-weight: 500;
-    color: var(--ep-gray-600);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ep-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     margin-bottom: var(--ep-space-2);
   }
 
@@ -51,6 +58,20 @@
     margin-bottom: var(--ep-space-0-5);
   }
 
+  /* Compact inputs for inspector */
+  .epistola-inspector .ep-input,
+  .epistola-inspector .ep-select,
+  .epistola-inspector .ep-textarea {
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .epistola-inspector .ep-textarea {
+    height: auto;
+    min-height: var(--ep-h-8);
+  }
+
   .inspector-checkbox-field {
     display: flex;
     align-items: center;
@@ -61,7 +82,7 @@
   .inspector-delete-section {
     margin-top: var(--ep-space-6);
     padding-top: var(--ep-space-3);
-    border-top: var(--ep-border);
+    border-top: 1px solid var(--ep-gray-200);
   }
 
   .inspector-unsupported {
@@ -75,7 +96,7 @@
   }
 
   .inspector-style-group-label {
-    font-size: var(--ep-text-xs);
+    font-size: 11px;
     font-weight: 600;
     color: var(--ep-gray-400);
     text-transform: uppercase;
@@ -110,7 +131,7 @@
     width: 32px;
     height: 28px;
     padding: 1px;
-    border: var(--ep-border);
+    border: 1px solid var(--ep-gray-200);
     border-radius: var(--ep-radius-sm);
     cursor: pointer;
     flex-shrink: 0;
@@ -168,10 +189,5 @@
 
   .inspector-margin-field .style-spacing-number {
     text-align: center;
-  }
-
-  /* Scrollable inspector when content overflows */
-  .epistola-inspector {
-    overflow-y: auto;
   }
 }

@@ -13,6 +13,7 @@ import { getNodeDepth, findAncestorAtLevel } from '../engine/indexes.js'
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, resolveDropInsideNode, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
+import { icon, type IconName, ICONS } from './icons.js'
 
 const INDENT_PER_LEVEL = 16
 
@@ -195,6 +196,13 @@ export class EpistolaTree extends LitElement {
     }
   }
 
+  private _nodeIcon(iconName?: string) {
+    if (iconName && iconName in ICONS) {
+      return icon(iconName as IconName, 14)
+    }
+    return html`<span style="font-size: 10px">&gt;</span>`
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -232,7 +240,7 @@ export class EpistolaTree extends LitElement {
           data-node-id=${nodeId}
           @click=${() => this._handleSelect(nodeId)}
         >
-          <span class="tree-node-icon ${isRoot ? 'root' : ''}">${isRoot ? '/' : '>'}</span>
+          <span class="tree-node-icon ${isRoot ? 'root' : ''}">${this._nodeIcon(def?.icon)}</span>
           <span>${label}</span>
         </div>
 

@@ -4,6 +4,7 @@ import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, ComponentCategory } from '../engine/registry.js'
 import type { DragData } from '../dnd/types.js'
+import { icon, type IconName, ICONS } from './icons.js'
 
 const CATEGORY_ORDER: ComponentCategory[] = ['content', 'layout', 'logic', 'page']
 const CATEGORY_LABELS: Record<ComponentCategory, string> = {
@@ -78,6 +79,13 @@ export class EpistolaPalette extends LitElement {
     return () => cleanups.forEach(fn => fn())
   }
 
+  private _renderIcon(def: ComponentDefinition) {
+    if (def.icon && def.icon in ICONS) {
+      return icon(def.icon as IconName, 14)
+    }
+    return html`<span style="font-size: 11px; color: var(--ep-gray-400)">+</span>`
+  }
+
   override render() {
     if (!this.engine) {
       return html`<div class="panel-empty">No engine</div>`
@@ -116,7 +124,7 @@ export class EpistolaPalette extends LitElement {
                   @click=${() => this._handleInsert(def.type)}
                   title="Click to insert ${def.label}"
                 >
-                  <span class="palette-item-icon">+</span>
+                  <span class="palette-item-icon">${this._renderIcon(def)}</span>
                   <span>${def.label}</span>
                 </button>
               `)}
