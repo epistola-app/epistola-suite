@@ -21,17 +21,20 @@ export default defineConfig({
     origin: 'http://localhost:5174',
   },
   build: {
-    rollupOptions: {
-      input: {
+    minify: 'esbuild',
+    lib: {
+      entry: {
         'template-editor': resolve(__dirname, 'src/main/typescript/lib.ts'),
         'theme-editor': resolve(__dirname, 'src/main/typescript/theme-editor-lib.ts'),
       },
+      formats: ['es'],
+    },
+    rollupOptions: {
       output: {
-        entryFileNames: '[name].js',
         assetFileNames: '[name].[ext]',
       },
-      preserveEntrySignatures: 'exports-only',
     },
+    cssCodeSplit: true,
   },
   test: {
     globals: true,
