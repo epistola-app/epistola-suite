@@ -21,15 +21,14 @@ export default defineConfig({
     origin: 'http://localhost:5174',
   },
   build: {
-    lib: {
-      entry: resolve(__dirname, 'src/main/typescript/lib.ts'),
-      name: 'TemplateEditor',
-      fileName: 'template-editor',
-      formats: ['es'],
-    },
     rollupOptions: {
+      input: {
+        'template-editor': resolve(__dirname, 'src/main/typescript/lib.ts'),
+        'theme-editor': resolve(__dirname, 'src/main/typescript/theme-editor-lib.ts'),
+      },
       output: {
-        assetFileNames: 'template-editor.[ext]',
+        entryFileNames: '[name].js',
+        assetFileNames: '[name].[ext]',
       },
     },
   },
