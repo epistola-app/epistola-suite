@@ -1774,7 +1774,50 @@ describe('reviveTextChangeOps', () => {
     const newOps = createMockOps(0, 2)
     engine.reviveTextChangeOps(textNodeId, newOps)
 
-    // Should not overwrite because existing ops is not null
+    // Should not overwrite because existing ops is alive
     expect(entry.ops).toBe(existingOps)
+  })
+
+  it('revives dead ops (isAlive false) with new ops', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // Simulate a move: ops exist but PM view was destroyed
+    const deadOps = createMockOps(0, 1)
+    deadOps._alive = false
+    const entry = createTextChange(textNodeId, deadOps, 0, null)
+    engine.pushTextChange(entry)
+
+    expect(entry.ops).toBe(deadOps)
+    expect(entry.ops!.isAlive()).toBe(false)
+
+    const newOps = createMockOps(0, 1)
+    engine.reviveTextChangeOps(textNodeId, newOps)
+
+    expect(entry.ops).toBe(newOps)
+  })
+
+  it('revives dead ops on redo stack after move + undo', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // Simulate: type "hello", then move text (PM destroyed), then undo text
+    const ops = createMockOps(0, 1)
+    const entry = createTextChange(textNodeId, ops, 0, null)
+    engine.pushTextChange(entry)
+
+    // Undo moves entry to redo stack
+    engine.undo()
+
+    // Simulate PM destruction after move
+    ops._alive = false
+
+    // Revive should fix dead ops on redo stack
+    const newOps = createMockOps(0, 1)
+    engine.reviveTextChangeOps(textNodeId, newOps)
+
+    expect(entry.ops).toBe(newOps)
   })
 })

@@ -115,7 +115,9 @@ export class EpistolaTextEditor extends LitElement {
       this.engine.cachePmState(this.nodeId, this._pmView.state)
     }
 
-    // Invalidate ops so TextChange entries fall back to snapshot restore
+    // Clear local ops ref. TextChange entries still hold the old ops object,
+    // but isAlive() will return false after _destroyProseMirror nullifies _pmView.
+    // reviveTextChangeOps reconnects them when a new editor mounts for this nodeId.
     this._ops = null
     this._destroyProseMirror()
     super.disconnectedCallback()

@@ -338,12 +338,12 @@ export class EditorEngine {
    */
   reviveTextChangeOps(nodeId: NodeId, ops: TextChangeOps): void {
     for (const entry of this._undoStack.undoEntries()) {
-      if (entry instanceof TextChange && entry.nodeId === nodeId && entry.ops === null) {
+      if (entry instanceof TextChange && entry.nodeId === nodeId && (!entry.ops || !entry.ops.isAlive())) {
         entry.ops = ops
       }
     }
     for (const entry of this._undoStack.redoEntries()) {
-      if (entry instanceof TextChange && entry.nodeId === nodeId && entry.ops === null) {
+      if (entry instanceof TextChange && entry.nodeId === nodeId && (!entry.ops || !entry.ops.isAlive())) {
         entry.ops = ops
       }
     }
