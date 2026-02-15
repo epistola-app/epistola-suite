@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: Columns, Conditional & Loop editor components**: Rich editing UX for layout and logic components
+  - **Columns layout editor**: Inspector shows column count (+/- buttons, min 1, max 6), per-column relative size inputs, and gap control. Canvas renders columns with dynamic flex sizing and gap from props. `AddColumnSlot` and `RemoveColumnSlot` commands with full undo/redo support including child subtree preservation.
+  - **Reusable expression dialog**: Extracted the expression dialog from inline expression chips into a standalone `openExpressionDialog()` function, enabling reuse from both ProseMirror node views and inspector fields. Includes field path autocomplete with filtering, instant JSONata validation, debounced live preview, and quick reference panel.
+  - **Inspector expression triggers**: Conditional and loop expression fields now use clickable trigger buttons (instead of plain text inputs) showing the current expression with valid/invalid/empty state indication. Click opens the full expression dialog with field paths and live preview. Loop expressions highlight array-type fields.
+  - **Engine helpers**: `EditorEngine.fieldPaths` (cached lazy getter) and `EditorEngine.getExampleData()` centralize data model extraction logic previously duplicated across components.
+  - **Data model alignment**: Columns `defaultProps` changed from `columns: [{size:1},{size:1}]` to `columnSizes: [1, 1]` to match the backend `ColumnsNodeRenderer` expectations. `createInitialSlots` hook added to `ComponentDefinition` for components whose slot count is derived from props.
 - **Project overview documentation**: New `docs/epistola.md` providing a high-level orientation for developers and AI assistants — what Epistola is, use cases, implemented features, technology stack, and architecture overview
 - **Theme Editor Redesign**: Replaced the Thymeleaf form-based theme editor with a Lit web component (`<epistola-theme-editor>`) that provides the same rich style editing controls as the template editor inspector
   - **Visual style inputs**: Color pickers, unit inputs (px/em/rem/pt), select dropdowns, spacing inputs — all driven by the shared `defaultStyleRegistry`
