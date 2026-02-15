@@ -10,6 +10,8 @@ export class EpistolaToolbar extends LitElement {
   }
 
   @property({ attribute: false }) engine?: EditorEngine
+  @property({ type: Boolean }) previewOpen = false
+  @property({ type: Boolean }) hasPreview = false
 
   @state() private _currentExampleIndex = 0
 
@@ -60,6 +62,10 @@ export class EpistolaToolbar extends LitElement {
     this.requestUpdate()
   }
 
+  private _handleTogglePreview() {
+    this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }))
+  }
+
   private _handleExampleChange(e: Event) {
     const select = e.target as HTMLSelectElement
     const index = parseInt(select.value, 10)
@@ -96,6 +102,19 @@ export class EpistolaToolbar extends LitElement {
             ${icon('redo-2')} Redo
           </button>
         </div>
+
+        ${this.hasPreview
+          ? html`
+              <div class="toolbar-separator"></div>
+              <button
+                class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
+                @click=${this._handleTogglePreview}
+                title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
+              >
+                ${this.previewOpen ? icon('eye-off') : icon('eye')} Preview
+              </button>
+            `
+          : nothing}
 
         ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
       </div>

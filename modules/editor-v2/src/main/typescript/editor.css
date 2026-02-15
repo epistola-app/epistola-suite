@@ -19,6 +19,7 @@
 @import './styles/sidebar.css';
 @import './styles/tree.css';
 @import './styles/canvas.css';
+@import './styles/preview.css';
 @import './styles/palette.css';
 @import './styles/inspector.css';
 @import './styles/dnd.css';

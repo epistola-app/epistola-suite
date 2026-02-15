@@ -76,6 +76,18 @@
       color: var(--ep-gray-300);
       cursor: not-allowed;
     }
+
+    &.active {
+      color: var(--ep-blue-600);
+      background: var(--ep-blue-50, #eff6ff);
+      border-color: var(--ep-blue-200, #bfdbfe);
+
+      &:hover {
+        background: var(--ep-blue-100, #dbeafe);
+        border-color: var(--ep-blue-300, #93c5fd);
+        color: var(--ep-blue-700, #1d4ed8);
+      }
+    }
   }
 
   .toolbar-example-selector {

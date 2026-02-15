@@ -11,6 +11,7 @@ import './editor.css'
 import './ui/EpistolaEditor.js'
 import type { EpistolaEditor } from './ui/EpistolaEditor.js'
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js'
+import type { FetchPreviewFn } from './ui/preview-service.js'
 import { createDefaultRegistry } from './engine/registry.js'
 import { nanoid } from 'nanoid'
 
@@ -33,6 +34,8 @@ export interface EditorOptions {
   dataModel?: object
   /** Example data objects for previewing expressions */
   dataExamples?: object[]
+  /** Callback to fetch a PDF preview. Host page owns the HTTP call; editor owns debounce/abort. */
+  onFetchPreview?: FetchPreviewFn
 }
 
 export interface EditorInstance {
@@ -77,7 +80,7 @@ export function createEmptyDocument(): TemplateDocument {
  * Mount the editor into a DOM element.
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataModel, dataExamples } = options
+  const { container, template, dataModel, dataExamples, onFetchPreview } = options
   const doc = template ?? createEmptyDocument()
 
   // Create the custom element
@@ -88,6 +91,11 @@ export function mountEditor(options: EditorOptions): EditorInstance {
 
   // Initialize the engine with data model context
   editorEl.initEngine(doc, createDefaultRegistry(), { dataModel, dataExamples })
+
+  // Wire up preview callback if provided
+  if (onFetchPreview) {
+    editorEl.fetchPreview = onFetchPreview
+  }
 
   // Mount into the container
   container.innerHTML = ''
