@@ -5,6 +5,9 @@
 ### Fixed
 - **Text block selection from TipTap click**: Clicking inside a text editor now selects its wrapping block.
 - **Collapsed styles sidebar toggle usability**: Toggle remains visible and clickable after collapsing.
+- **Vanilla block-rendering E2E selectors updated for sidebar flow**
+  - Replaced modal-style open/save expectations with document/block tab navigation and autosave timing in Playwright specs.
+  - Updated document color assertions to account for collapsed details sections and persisted template state behavior.
 - **Expression authoring parity in headless + vanilla editors**: Improved completion, preview, and inline chip editing flows without React-coupled dependencies.
   - Headless expression utilities now expose cursor-aware completion APIs, richer method catalogs, and shared scope-aware evaluation context builders.
   - Vanilla conditional/loop expression editor now uses shared headless completion/context logic with explicit preview error rendering and block-type warnings.

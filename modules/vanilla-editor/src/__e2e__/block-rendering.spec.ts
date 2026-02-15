@@ -7,19 +7,52 @@
 import { test, expect } from "./fixtures.js";
 import { BLOCK_TYPES, SELECTORS } from "./config.js";
 
+const DOCUMENT_TAB = '[data-editor-app-tab="document"]';
+const BLOCK_TAB = '[data-editor-app-tab="block"]';
+const DOCUMENT_PANEL = '[data-editor-app-panel="document"]';
+const BLOCK_PANEL = '[data-editor-app-panel="block"]';
+
+async function openDocumentStyles(page: import("@playwright/test").Page) {
+  await page.click(DOCUMENT_TAB);
+  await expect(page.locator(DOCUMENT_PANEL)).toBeVisible();
+}
+
+async function openBlockStyles(page: import("@playwright/test").Page) {
+  await page.click(BLOCK_TAB);
+  await expect(page.locator(BLOCK_PANEL)).toBeVisible();
+}
+
+async function waitForSidebarDebounce(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  await page.waitForTimeout(350);
+}
+
+async function ensureDocumentColorsVisible(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  const colorInput = page.locator("#ve-doc-color");
+  if (await colorInput.isVisible()) return;
+
+  await page
+    .locator(`${DOCUMENT_PANEL} details > summary`)
+    .filter({ hasText: "Colors" })
+    .first()
+    .click();
+  await expect(colorInput).toBeVisible();
+}
+
 test.describe("Document Styles - UI", () => {
   test("document styles modal roundtrip preserves values and units", async ({
     page,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
 
     await page.fill("#ve-doc-font-family", "Georgia, serif");
     await page.fill("#ve-doc-font-size-value", "18");
     await page.selectOption("#ve-doc-font-size-unit", "px");
     await page.selectOption("#ve-doc-font-weight", "600");
+    await ensureDocumentColorsVisible(page);
     await page.fill("#ve-doc-color", "#123456");
     await page.fill("#ve-doc-line-height", "1.7");
     await page.fill("#ve-doc-letter-spacing-value", "0.5");
@@ -27,12 +60,10 @@ test.describe("Document Styles - UI", () => {
     await page.selectOption("#ve-doc-text-align", "right");
     await page.fill("#ve-doc-bg-color", "#f0f0f0");
 
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
+    await openDocumentStyles(page);
 
     await expect(page.locator("#ve-doc-font-family")).toHaveValue(
       "Georgia, serif",
@@ -54,15 +85,13 @@ test.describe("Document Styles - UI", () => {
     page,
     appHelpers,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
 
     await page.fill("#ve-doc-font-size-value", "18");
     await page.selectOption("#ve-doc-font-size-unit", "px");
+    await ensureDocumentColorsVisible(page);
     await page.fill("#ve-doc-color", "#123456");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
     await appHelpers.addTextBlock();
     const block = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
@@ -85,21 +114,16 @@ test.describe("Document Styles - UI", () => {
   test("document styles modal preserves font and letter spacing units across save/reopen", async ({
     page,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
 
     await page.fill("#ve-doc-font-size-value", "120");
     await page.selectOption("#ve-doc-font-size-unit", "%");
     await page.fill("#ve-doc-letter-spacing-value", "2");
     await page.selectOption("#ve-doc-letter-spacing-unit", "px");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
+    await openDocumentStyles(page);
     await expect(page.locator("#ve-doc-font-size-value")).toHaveValue("120");
     await expect(page.locator("#ve-doc-font-size-unit")).toHaveValue("%");
     await expect(page.locator("#ve-doc-letter-spacing-value")).toHaveValue("2");
@@ -109,12 +133,10 @@ test.describe("Document Styles - UI", () => {
     await page.selectOption("#ve-doc-font-size-unit", "pt");
     await page.fill("#ve-doc-letter-spacing-value", "0.2");
     await page.selectOption("#ve-doc-letter-spacing-unit", "em");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
+    await openDocumentStyles(page);
     await expect(page.locator("#ve-doc-font-size-value")).toHaveValue("11");
     await expect(page.locator("#ve-doc-font-size-unit")).toHaveValue("pt");
     await expect(page.locator("#ve-doc-letter-spacing-value")).toHaveValue(
@@ -127,16 +149,13 @@ test.describe("Document Styles - UI", () => {
     page,
     appHelpers,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
 
     await page.selectOption("#ve-doc-font-weight", "600");
     await page.selectOption("#ve-doc-text-align", "right");
     await page.fill("#ve-doc-letter-spacing-value", "1");
     await page.selectOption("#ve-doc-letter-spacing-unit", "px");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
     await appHelpers.addTextBlock();
     const block = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
@@ -160,45 +179,54 @@ test.describe("Document Styles - UI", () => {
   test("document styles modal saves background color value", async ({
     page,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
 
+    await ensureDocumentColorsVisible(page);
     await page.fill("#ve-doc-bg-color", "#f0f0f0");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
+    await openDocumentStyles(page);
     await expect(page.locator("#ve-doc-bg-color")).toHaveValue("#f0f0f0");
   });
 
   test("document styles does not persist default #000000 text color", async ({
     page,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
 
     await page.fill("#ve-doc-font-family", "Georgia, serif");
     await page.fill("#ve-doc-font-size-value", "16");
     await page.selectOption("#ve-doc-font-size-unit", "px");
+    await ensureDocumentColorsVisible(page);
     await page.fill("#ve-doc-color", "#000000");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
+    await openDocumentStyles(page);
     await expect(page.locator("#ve-doc-font-family")).toHaveValue(
       "Georgia, serif",
     );
     await expect(page.locator("#ve-doc-font-size-value")).toHaveValue("16");
     await expect(page.locator("#ve-doc-font-size-unit")).toHaveValue("px");
-    await expect(page.locator("#ve-doc-color")).not.toHaveValue("#000000");
+
+    const persistedColor = await page.evaluate(async () => {
+      const shell = document.querySelector('[data-editor-app-shell="true"]');
+      if (!shell) return null;
+
+      const loadModule = new Function("path", "return import(path)") as (
+        path: string,
+      ) => Promise<{
+        getEditorForElement?: (
+          element: Element,
+        ) => { getTemplate: () => { documentStyles?: { color?: string } } };
+      }>;
+      const mod = await loadModule("/vanilla-editor/vanilla-editor.js");
+      const editor = mod.getEditorForElement?.(shell);
+      return editor?.getTemplate().documentStyles?.color ?? null;
+    });
+
+    expect(persistedColor).toBeNull();
   });
 });
 
@@ -211,10 +239,7 @@ test.describe("Block Styles - UI", () => {
     const block = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
     await appHelpers.selectBlock(block);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
 
     await page.fill("#ve-block-font-size", "20px");
     await page.selectOption("#ve-block-font-weight", "700");
@@ -224,12 +249,10 @@ test.describe("Block Styles - UI", () => {
     await page.fill("#ve-block-margin", "4px");
     await page.fill("#ve-block-bg-color", "#ffeecc");
     await page.fill("#ve-block-border-radius", "6px");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
+    await openBlockStyles(page);
     await expect(page.locator("#ve-block-font-size")).toHaveValue("20px");
     await expect(page.locator("#ve-block-font-weight")).toHaveValue("700");
     await expect(page.locator("#ve-block-color")).toHaveValue("#225577");
@@ -248,15 +271,12 @@ test.describe("Block Styles - UI", () => {
     const block = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
     await appHelpers.selectBlock(block);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
     await page.fill("#ve-block-font-size", "20px");
     await page.fill("#ve-block-color", "#224466");
     await page.fill("#ve-block-padding", "12px");
     await page.fill("#ve-block-bg-color", "#ffeecc");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
     const blockContent = block.locator(".block-content");
     const textEditor = block.locator(".text-block-editor");
@@ -288,25 +308,20 @@ test.describe("Block Styles - UI", () => {
     page,
     appHelpers,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
     await page.fill("#ve-doc-font-size-value", "18");
     await page.selectOption("#ve-doc-font-size-unit", "px");
+    await ensureDocumentColorsVisible(page);
     await page.fill("#ve-doc-color", "#333333");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
     await appHelpers.addTextBlock();
     const block = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
     await appHelpers.selectBlock(block);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
     await page.fill("#ve-block-color", "#111111");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
     const textEditor = block.locator(".text-block-editor");
     await expect(textEditor).toBeVisible();
@@ -327,41 +342,32 @@ test.describe("Block Styles - UI", () => {
     page,
     appHelpers,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
+    await ensureDocumentColorsVisible(page);
     await page.fill("#ve-doc-color", "#333333");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
     await appHelpers.addTextBlock();
     const block = appHelpers.getBlockByType(BLOCK_TYPES.text).last();
     await appHelpers.selectBlock(block);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
     await page.fill("#ve-block-color", "#111111");
     await page.fill("#ve-block-padding", "12px");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
+    await openBlockStyles(page);
     await page.click('[data-editor-app-action="clear-block-styles"]');
     await expect(page.locator("#ve-block-color")).toHaveValue("");
     await expect(page.locator("#ve-block-padding")).toHaveValue("");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
+    await openBlockStyles(page);
     await expect(page.locator("#ve-block-color")).toHaveValue("");
     await expect(page.locator("#ve-block-padding")).toHaveValue("");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
     const textEditor = block.locator(".text-block-editor");
     await expect(textEditor).toBeVisible();
@@ -472,25 +478,19 @@ test.describe("Block Rendering - Container Blocks", () => {
     page,
     appHelpers,
   }) => {
-    await page.click('[data-editor-app-action="open-document-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="document-styles"]'),
-    ).toBeVisible();
+    await openDocumentStyles(page);
     await page.fill("#ve-doc-font-size-value", "4");
     await page.selectOption("#ve-doc-font-size-unit", "rem");
-    await page.click('[data-editor-app-action="save-document-styles"]');
+    await waitForSidebarDebounce(page);
 
     await appHelpers.addContainerBlock();
     const container = appHelpers.getBlockByType(BLOCK_TYPES.container).last();
     await appHelpers.selectBlock(container);
 
-    await page.click('[data-editor-app-action="open-block-styles"]');
-    await expect(
-      page.locator('[data-editor-app-modal="block-styles"]'),
-    ).toBeVisible();
+    await openBlockStyles(page);
     await page.fill("#ve-block-font-size", "2rem");
     await page.fill("#ve-block-bg-color", "#ffeecc");
-    await page.click('[data-editor-app-action="save-block-styles"]');
+    await waitForSidebarDebounce(page);
 
     await appHelpers.addBlockToContainer(container);
     const nestedText = container
