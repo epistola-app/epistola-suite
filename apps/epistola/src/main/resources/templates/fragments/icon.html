@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+        Lucide icon fragment. Renders an SVG <use> element referencing the design-system sprite.
+
+        Usage:
+            <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon')}" />
+            <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-lg')}" />
+    -->
+    <svg th:fragment="icon(name, class)"
+         th:class="${class} ?: 'ep-icon'"
+         th:attr="aria-hidden='true'">
+        <use th:href="@{/design-system/icons.svg#icon-__${name}__}" />
+    </svg>
+</body>
+</html>
