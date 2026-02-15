@@ -2,10 +2,13 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <!--
-        Shared CSS includes: design system tokens, base resets, shared components, and app styles.
+        Shared CSS includes: Inter font, design system tokens, base resets, shared components, and app styles.
         Include this fragment in all templates that need styling.
     -->
     <th:block th:fragment="styles">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
         <link rel="stylesheet" th:href="@{/design-system/tokens.css}">
         <link rel="stylesheet" th:href="@{/design-system/base.css}">
         <link rel="stylesheet" th:href="@{/design-system/components.css}">

@@ -3,45 +3,49 @@
  *
  * Uses design tokens from the shared design system (tokens.css).
  * Loaded after tokens.css, base.css, and components.css.
+ *
+ * All colors, radii, shadows, transitions must use --ep-* tokens.
  */
 
+/* ── Body & page structure ────────────────────────────────────────────── */
+
 body {
-    font-family: var(--ep-font-sans);
-    line-height: 1.6;
-    color: var(--ep-gray-800);
-    background-color: var(--ep-gray-100);
-    margin: 0;
-    padding-bottom: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 0;
 }
 
 /* Scoped styles for regular pages (not editor) */
 main.regular {
-    max-width: 900px;
+    flex: 1;
+    max-width: 56rem;
     margin: var(--ep-space-8) auto;
-    padding: 0 var(--ep-space-4);
+    padding: 0 var(--ep-space-6);
+    width: 100%;
 }
 
 main.regular h1 {
     margin-bottom: var(--ep-space-6);
-    color: var(--ep-gray-900);
 }
 
 main.regular h2 {
     margin-bottom: var(--ep-space-4);
-    color: var(--ep-gray-800);
-    font-size: var(--ep-text-lg);
+    font-size: var(--ep-text-xl);
 }
 
 main.regular section {
     margin-bottom: var(--ep-space-8);
 }
 
-/* Form styles */
+/* ── Form styles ──────────────────────────────────────────────────────── */
+
 .form-section {
-    background-color: var(--ep-white);
+    background-color: var(--ep-card);
     padding: var(--ep-space-6);
-    border-radius: var(--ep-radius-sm);
-    box-shadow: var(--ep-shadow-md);
+    border-radius: var(--ep-radius-lg);
+    border: 1px solid var(--ep-border-color);
+    box-shadow: var(--ep-shadow-sm);
 }
 
 .form-group {
@@ -50,57 +54,116 @@ main.regular section {
 
 .form-group label {
     display: block;
-    margin-bottom: var(--ep-space-1);
+    margin-bottom: var(--ep-space-1-5);
+    font-size: var(--ep-text-sm);
     font-weight: 500;
-    color: var(--ep-gray-600);
+    color: var(--ep-foreground);
 }
 
 .form-group input,
-.form-group textarea {
+.form-group textarea,
+.form-group select {
     width: 100%;
-    padding: var(--ep-space-2) var(--ep-space-3);
-    font-size: var(--ep-text-base);
-    border: 1px solid var(--ep-gray-300);
-    border-radius: var(--ep-radius-sm);
-    font-family: inherit;
+    height: var(--ep-h-9);
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-foreground);
+    border: 1px solid var(--ep-input-border);
+    border-radius: var(--ep-radius-md);
+    background-color: var(--ep-white);
+    transition: var(--ep-transition-colors);
 }
 
 .form-group input:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group select:focus {
     outline: none;
-    border-color: var(--ep-blue-500);
-    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
+    border-color: var(--ep-ring-color);
+    box-shadow: var(--ep-ring);
 }
 
 .form-group textarea {
+    height: auto;
+    min-height: 5rem;
     resize: vertical;
-    min-height: 80px;
+    line-height: var(--ep-leading-normal);
 }
 
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: var(--ep-muted-foreground);
+}
+
+/* Form validation error states */
+.form-group.error input,
+.form-group.error textarea,
+.form-group.error select {
+    border-color: var(--ep-destructive);
+}
+
+.form-group.error input:focus,
+.form-group.error textarea:focus,
+.form-group.error select:focus {
+    border-color: var(--ep-destructive);
+    box-shadow: 0 0 0 var(--ep-ring-offset) var(--ep-white), 0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-red-500);
+}
+
+.form-error {
+    display: block;
+    font-size: var(--ep-text-sm);
+    color: var(--ep-destructive);
+    margin-top: var(--ep-space-1);
+}
+
+.form-hint {
+    display: block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    margin-top: var(--ep-space-1);
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--ep-space-3);
+    margin-top: var(--ep-space-6);
+}
+
+/* Submit button (uses .btn .btn-primary when available, this is for plain submit) */
 button[type="submit"] {
-    padding: var(--ep-space-2) var(--ep-space-6);
-    font-size: var(--ep-text-base);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--ep-h-9);
+    padding: 0 var(--ep-space-6);
+    font-size: var(--ep-text-sm);
     font-weight: 500;
-    color: var(--ep-white);
-    background-color: var(--ep-blue-600);
+    color: var(--ep-primary-foreground);
+    background-color: var(--ep-primary);
     border: none;
-    border-radius: var(--ep-radius-sm);
+    border-radius: var(--ep-radius-md);
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--ep-transition-base);
 }
 
 button[type="submit"]:hover {
     background-color: var(--ep-blue-700);
 }
 
-/* Table styles (scoped to regular pages) */
+button[type="submit"]:focus-visible {
+    outline: none;
+    box-shadow: var(--ep-ring);
+}
+
+/* ── Table styles (scoped to regular pages) ───────────────────────────── */
+
 main.regular table {
     width: 100%;
     border-collapse: collapse;
-    background-color: var(--ep-white);
-    box-shadow: var(--ep-shadow-md);
-    border-radius: var(--ep-radius-sm);
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
     overflow: hidden;
+    font-size: var(--ep-text-sm);
 }
 
 main.regular th,
@@ -111,17 +174,20 @@ main.regular td {
 
 main.regular th {
     background-color: var(--ep-gray-50);
-    font-weight: 600;
-    color: var(--ep-gray-600);
-    border-bottom: 2px solid var(--ep-gray-200);
+    font-weight: 500;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    text-transform: uppercase;
+    letter-spacing: var(--ep-tracking-wider);
+    border-bottom: 1px solid var(--ep-border-color);
 }
 
 main.regular td {
-    border-bottom: 1px solid var(--ep-gray-200);
+    border-bottom: 1px solid var(--ep-border-color);
 }
 
 main.regular tbody tr:hover {
-    background-color: var(--ep-gray-50);
+    background-color: var(--ep-muted);
 }
 
 main.regular tbody tr:last-child td {
@@ -130,40 +196,20 @@ main.regular tbody tr:last-child td {
 
 main.regular .empty-message {
     text-align: center;
-    color: var(--ep-gray-500);
-    font-style: italic;
+    color: var(--ep-muted-foreground);
+    padding: var(--ep-space-8);
 }
 
-/* Form validation error styles */
-.form-group.error input,
-.form-group.error textarea {
-    border-color: var(--ep-red-600);
-}
+/* ── Footer ───────────────────────────────────────────────────────────── */
 
-.form-group.error input:focus,
-.form-group.error textarea:focus {
-    border-color: var(--ep-red-600);
-    box-shadow: 0 0 0 2px rgb(220 38 38 / 0.2);
-}
-
-.form-error {
-    display: block;
-    font-size: var(--ep-text-sm);
-    color: var(--ep-red-600);
-    margin-top: var(--ep-space-1);
-}
-
-/* Footer styles */
 .app-footer {
-    position: fixed;
+    position: sticky;
     bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: var(--ep-gray-50);
-    border-top: 1px solid var(--ep-gray-200);
+    background-color: var(--ep-white);
+    border-top: 1px solid var(--ep-border-color);
     padding: var(--ep-space-2) var(--ep-space-4);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
+    color: var(--ep-muted-foreground);
     text-align: center;
 }
 
@@ -173,16 +219,17 @@ main.regular .empty-message {
 
 .app-footer .separator {
     margin: 0 var(--ep-space-2);
-    color: var(--ep-gray-200);
+    color: var(--ep-border-color);
 }
 
 .app-footer a {
-    color: var(--ep-gray-500);
+    color: var(--ep-muted-foreground);
     text-decoration: none;
+    transition: color var(--ep-transition-fast);
 }
 
 .app-footer a:hover {
-    color: var(--ep-gray-600);
+    color: var(--ep-foreground);
     text-decoration: underline;
 }
 
@@ -191,53 +238,75 @@ main.regular .empty-message {
     border: none;
     padding: 0;
     font: inherit;
-    color: var(--ep-gray-500);
+    color: var(--ep-muted-foreground);
     cursor: pointer;
     text-decoration: none;
+    transition: color var(--ep-transition-fast);
 }
 
 .app-footer .link-button:hover {
-    color: var(--ep-gray-600);
+    color: var(--ep-foreground);
     text-decoration: underline;
 }
 
-/* Status badges */
-.badge {
-    display: inline-block;
-    padding: var(--ep-space-1) var(--ep-space-3);
-    border-radius: var(--ep-radius-sm);
-    font-size: var(--ep-text-xs);
-    font-weight: 500;
-    white-space: nowrap;
-}
+/* ── Status badges ────────────────────────────────────────────────────── */
 
+/* Legacy badge variants mapped to new naming */
 .badge-draft {
     background-color: var(--ep-blue-100);
     color: var(--ep-blue-800);
-    border: 1px solid var(--ep-blue-100);
+    border-color: var(--ep-blue-200);
 }
 
 .badge-published {
     background-color: var(--ep-green-100);
     color: var(--ep-green-800);
-    border: 1px solid var(--ep-green-100);
+    border-color: var(--ep-green-100);
 }
 
 .badge-archived {
-    background-color: var(--ep-gray-200);
+    background-color: var(--ep-gray-100);
     color: var(--ep-gray-600);
-    border: 1px solid var(--ep-gray-200);
+    border-color: var(--ep-border-color);
 }
 
-/* Variant tags */
-.tag {
-    display: inline-block;
-    padding: 0.2rem var(--ep-space-2);
-    margin: 0.1rem;
+/* Load test status badges */
+.badge-success {
+    background-color: var(--ep-green-100);
+    color: var(--ep-green-800);
+}
+
+.badge-info {
     background-color: var(--ep-blue-100);
     color: var(--ep-blue-800);
-    border-radius: 3px;
-    font-size: 0.8rem;
+}
+
+.badge-error {
+    background-color: var(--ep-red-100);
+    color: var(--ep-red-700);
+}
+
+.badge-warning {
+    background-color: var(--ep-amber-100);
+    color: var(--ep-amber-800);
+}
+
+.badge-default {
+    background-color: var(--ep-gray-100);
+    color: var(--ep-gray-600);
+}
+
+/* ── Variant tags ─────────────────────────────────────────────────────── */
+
+.tag {
+    display: inline-block;
+    padding: 0.125rem var(--ep-space-2);
+    margin: 0.125rem;
+    background-color: var(--ep-blue-100);
+    color: var(--ep-blue-800);
+    border-radius: var(--ep-radius-full);
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
 }
 
 .tags {
@@ -246,83 +315,63 @@ main.regular .empty-message {
     gap: var(--ep-space-1);
 }
 
-/* Button classes */
-.btn {
-    display: inline-block;
-    padding: var(--ep-space-2) var(--ep-space-4);
-    background-color: var(--ep-blue-600);
-    color: var(--ep-white);
-    text-decoration: none;
-    border-radius: var(--ep-radius-sm);
-    cursor: pointer;
-    border: none;
-    font-size: var(--ep-text-base);
-    font-family: inherit;
-    transition: background-color 0.15s ease;
-}
+/* ── Button classes ───────────────────────────────────────────────────── */
 
-.btn:hover {
-    background-color: var(--ep-blue-700);
-    color: var(--ep-white);
-}
-
+/* Legacy .btn-small mapped to .btn-sm behavior */
 .btn-small {
-    padding: var(--ep-space-1-5) var(--ep-space-3);
-    font-size: var(--ep-text-sm);
-}
-
-.btn-secondary {
-    background-color: var(--ep-gray-500);
-}
-
-.btn-secondary:hover {
-    background-color: var(--ep-gray-600);
+    height: var(--ep-h-8);
+    padding: 0 var(--ep-space-3);
+    font-size: var(--ep-text-xs);
+    border-radius: var(--ep-radius-sm);
 }
 
 .btn-danger {
-    background-color: var(--ep-red-600);
+    background-color: var(--ep-destructive);
+    color: var(--ep-destructive-foreground);
 }
 
 .btn-danger:hover {
     background-color: var(--ep-red-700);
+    color: var(--ep-destructive-foreground);
 }
 
-/* Action buttons in tables */
+.btn-warning {
+    background-color: var(--ep-amber-500);
+    color: var(--ep-white);
+}
+
+.btn-warning:hover {
+    background-color: var(--ep-amber-600);
+}
+
+/* ── Action buttons in tables ─────────────────────────────────────────── */
+
 .actions {
     display: flex;
     gap: var(--ep-space-2);
     align-items: center;
 }
 
-/* Page header with actions */
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--ep-space-6);
-}
+/* ── Breadcrumb navigation ────────────────────────────────────────────── */
 
-.page-header h1 {
-    margin: 0;
-}
-
-/* Breadcrumb navigation */
 .breadcrumb {
     margin-bottom: var(--ep-space-4);
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-500);
+    color: var(--ep-muted-foreground);
 }
 
 .breadcrumb a {
-    color: var(--ep-blue-600);
+    color: var(--ep-primary);
     text-decoration: none;
+    transition: color var(--ep-transition-fast);
 }
 
 .breadcrumb a:hover {
     text-decoration: underline;
 }
 
-/* Inline form (for create variant) */
+/* ── Inline form (for create variant) ─────────────────────────────────── */
+
 .inline-form {
     display: flex;
     gap: var(--ep-space-2);
@@ -339,7 +388,8 @@ main.regular .empty-message {
     width: 100%;
 }
 
-/* Section headers */
+/* ── Section headers ──────────────────────────────────────────────────── */
+
 .section-header {
     display: flex;
     justify-content: space-between;
@@ -351,28 +401,30 @@ main.regular .empty-message {
     margin: 0;
 }
 
-/* Muted text for empty states or secondary info */
+/* ── Muted/centered text utilities ────────────────────────────────────── */
+
 .text-muted {
-    color: var(--ep-gray-500);
+    color: var(--ep-muted-foreground);
 }
 
-/* Center text alignment */
 .text-center {
     text-align: center;
 }
 
-/* Session expiry dialogs */
+/* ── Session expiry dialogs ───────────────────────────────────────────── */
+
 .session-dialog {
     border: none;
-    border-radius: var(--ep-radius-lg);
-    box-shadow: 0 4px 20px rgb(0 0 0 / 0.15);
+    border-radius: var(--ep-radius-xl);
+    box-shadow: var(--ep-shadow-xl);
     padding: 0;
     max-width: 400px;
     width: 90%;
 }
 
 .session-dialog::backdrop {
-    background-color: rgb(0 0 0 / 0.5);
+    background-color: rgb(0 0 0 / 0.4);
+    backdrop-filter: blur(4px);
 }
 
 .session-dialog-content {
@@ -382,13 +434,13 @@ main.regular .empty-message {
 .session-dialog h2 {
     margin: 0 0 var(--ep-space-4) 0;
     font-size: var(--ep-text-lg);
-    color: var(--ep-gray-900);
 }
 
 .session-dialog p {
     margin: var(--ep-space-3) 0;
-    color: var(--ep-gray-600);
-    line-height: 1.5;
+    color: var(--ep-muted-foreground);
+    line-height: var(--ep-leading-normal);
+    font-size: var(--ep-text-sm);
 }
 
 .session-dialog-actions {
@@ -399,14 +451,70 @@ main.regular .empty-message {
 }
 
 .session-dialog-expired h2 {
-    color: var(--ep-red-600);
+    color: var(--ep-destructive);
 }
 
-.btn-primary {
-    background-color: var(--ep-blue-600);
+/* ── Navigation cards (tenant home) ───────────────────────────────────── */
+
+.nav-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--ep-space-4);
 }
 
-/* Load test metrics grid */
+.nav-card {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-4);
+    padding: var(--ep-space-5);
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    text-decoration: none;
+    color: var(--ep-foreground);
+    transition: border-color var(--ep-transition-base),
+                box-shadow var(--ep-transition-base),
+                transform var(--ep-transition-base);
+}
+
+.nav-card:hover {
+    border-color: var(--ep-gray-300);
+    box-shadow: var(--ep-shadow-md);
+    transform: translateY(-1px);
+    text-decoration: none;
+    color: var(--ep-foreground);
+}
+
+.nav-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--ep-radius-lg);
+    background-color: var(--ep-blue-50);
+    color: var(--ep-primary);
+    flex-shrink: 0;
+}
+
+.nav-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-card-title {
+    font-weight: 600;
+    font-size: var(--ep-text-sm);
+    margin-bottom: var(--ep-space-0-5);
+}
+
+.nav-card-description {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+}
+
+/* ── Load test metrics grid ───────────────────────────────────────────── */
+
 .metrics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -415,67 +523,71 @@ main.regular .empty-message {
 }
 
 .metric-card {
-    background-color: var(--ep-white);
-    padding: 1.25rem;
+    background-color: var(--ep-card);
+    padding: var(--ep-space-5);
     border-radius: var(--ep-radius-lg);
-    box-shadow: var(--ep-shadow-md);
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-border-color);
 }
 
 .metric-label {
-    font-size: var(--ep-text-sm);
-    color: var(--ep-gray-500);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
     font-weight: 500;
     margin-bottom: var(--ep-space-2);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: var(--ep-tracking-wider);
 }
 
 .metric-value {
-    font-size: var(--ep-text-xl);
+    font-size: var(--ep-text-2xl);
     font-weight: 600;
-    color: var(--ep-gray-900);
-    line-height: 1.2;
+    color: var(--ep-foreground);
+    line-height: var(--ep-leading-tight);
 }
 
-/* Progress bar */
+/* ── Progress bar ─────────────────────────────────────────────────────── */
+
 .progress-container {
     width: 100%;
-    height: 24px;
-    background-color: var(--ep-gray-200);
-    border-radius: var(--ep-radius-sm);
+    height: 0.5rem;
+    background-color: var(--ep-muted);
+    border-radius: var(--ep-radius-full);
     overflow: hidden;
     margin: var(--ep-space-4) 0;
 }
 
 .progress-bar {
     height: 100%;
-    background-color: var(--ep-blue-600);
+    background-color: var(--ep-primary);
+    border-radius: var(--ep-radius-full);
     transition: width 0.3s ease;
 }
 
-/* Error summary table */
+/* ── Error summary table ──────────────────────────────────────────────── */
+
 .error-summary {
     margin-top: var(--ep-space-8);
 }
 
 .error-summary h3 {
     margin-bottom: var(--ep-space-4);
-    color: var(--ep-red-600);
+    color: var(--ep-destructive);
 }
 
 .error-summary table {
-    background-color: var(--ep-white);
+    background-color: var(--ep-card);
 }
 
-/* Action bar */
+/* ── Action bar ───────────────────────────────────────────────────────── */
+
 .actions-bar {
     display: flex;
     gap: var(--ep-space-3);
     margin-top: var(--ep-space-8);
 }
 
-/* Key-value table (for configuration) */
+/* ── Key-value table (for configuration) ──────────────────────────────── */
+
 .key-value-table {
     width: 100%;
 }
@@ -485,24 +597,26 @@ main.regular .empty-message {
     width: 200px;
     padding-right: var(--ep-space-4);
     font-weight: 600;
-    color: var(--ep-gray-600);
+    color: var(--ep-muted-foreground);
     vertical-align: top;
 }
 
 .key-value-table td {
-    color: var(--ep-gray-900);
+    color: var(--ep-foreground);
 }
 
-/* Info box */
+/* ── Info box ─────────────────────────────────────────────────────────── */
+
 .info-box {
-    background-color: var(--ep-blue-100);
-    border: 1px solid var(--ep-blue-100);
-    border-radius: var(--ep-radius-sm);
+    background-color: var(--ep-blue-50);
+    border: 1px solid var(--ep-blue-200);
+    border-radius: var(--ep-radius-lg);
     padding: var(--ep-space-4) var(--ep-space-6);
 }
 
 .info-box h3 {
     margin-top: 0;
+    margin-bottom: var(--ep-space-2);
     color: var(--ep-blue-800);
 }
 
@@ -513,13 +627,17 @@ main.regular .empty-message {
 
 .info-box li {
     margin-bottom: var(--ep-space-2);
+    font-size: var(--ep-text-sm);
+    color: var(--ep-blue-800);
 }
 
-/* Alert messages */
+/* ── Alert messages ───────────────────────────────────────────────────── */
+
 .alert {
     padding: var(--ep-space-4) var(--ep-space-6);
-    border-radius: var(--ep-radius-sm);
+    border-radius: var(--ep-radius-lg);
     margin-bottom: var(--ep-space-6);
+    font-size: var(--ep-text-sm);
 }
 
 .alert-error {
@@ -528,41 +646,149 @@ main.regular .empty-message {
     color: var(--ep-red-700);
 }
 
-/* Subtitle */
+/* ── Subtitle ─────────────────────────────────────────────────────────── */
+
 .subtitle {
-    color: var(--ep-gray-500);
-    margin-top: -0.5rem;
+    color: var(--ep-muted-foreground);
+    margin-top: calc(-1 * var(--ep-space-2));
     margin-bottom: var(--ep-space-6);
-}
-
-/* Form hint */
-.form-hint {
-    display: block;
     font-size: var(--ep-text-sm);
-    color: var(--ep-gray-500);
-    margin-top: var(--ep-space-1);
 }
 
-/* Form actions */
-.form-actions {
+/* ── Pagination ───────────────────────────────────────────────────────── */
+
+.pagination {
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: var(--ep-space-3);
     margin-top: var(--ep-space-6);
 }
 
-/* Select styling */
-.form-group select {
-    width: 100%;
-    padding: var(--ep-space-2) var(--ep-space-3);
-    font-size: var(--ep-text-base);
-    border: 1px solid var(--ep-gray-300);
-    border-radius: var(--ep-radius-sm);
-    font-family: inherit;
-    background-color: var(--ep-white);
+.pagination-info {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
 }
 
-.form-group select:focus {
-    outline: none;
-    border-color: var(--ep-blue-500);
-    box-shadow: 0 0 0 2px rgb(59 130 246 / 0.2);
+/* ── Login page ───────────────────────────────────────────────────────── */
+
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--ep-space-4);
+}
+
+.login-card {
+    width: 100%;
+    max-width: 24rem;
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-xl);
+    box-shadow: var(--ep-shadow-lg);
+    padding: var(--ep-space-8);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: var(--ep-space-8);
+}
+
+.login-header h1 {
+    font-size: var(--ep-text-2xl);
+    margin-bottom: var(--ep-space-2);
+}
+
+.login-header p {
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-sm);
+}
+
+.login-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-4);
+    margin: var(--ep-space-6) 0;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+}
+
+.login-divider::before,
+.login-divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid var(--ep-border-color);
+}
+
+/* ── Tenant home ──────────────────────────────────────────────────────── */
+
+.tenant-header {
+    margin-bottom: var(--ep-space-8);
+}
+
+.tenant-header h1 {
+    margin-bottom: var(--ep-space-1);
+}
+
+.tenant-header .tenant-id {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
+    font-family: var(--ep-font-mono);
+}
+
+/* ── Row error highlight (load test requests) ─────────────────────────── */
+
+.row-error {
+    background-color: var(--ep-red-50);
+}
+
+.error-type {
+    display: block;
+    font-weight: 500;
+    color: var(--ep-destructive);
+    font-size: var(--ep-text-xs);
+}
+
+.error-message {
+    display: block;
+    color: var(--ep-muted-foreground);
+    font-size: var(--ep-text-xs);
+    margin-top: var(--ep-space-0-5);
+}
+
+/* ── Text truncation ──────────────────────────────────────────────────── */
+
+.text-truncate {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+/* ── Preset items (theme detail) ──────────────────────────────────────── */
+
+.preset-item {
+    background: var(--ep-muted);
+    padding: var(--ep-space-4);
+    border-radius: var(--ep-radius-md);
+}
+
+.preset-styles {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-sm);
+}
+
+/* ── Form row (multi-column layout) ───────────────────────────────────── */
+
+.form-row {
+    display: flex;
+    gap: var(--ep-space-4);
+    flex-wrap: wrap;
+}
+
+.form-row .form-group {
+    flex: 1;
+    min-width: 200px;
 }
