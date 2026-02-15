@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
+import app.epistola.suite.themes.BlockStylePreset
 import app.epistola.suite.themes.Theme
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -20,7 +21,7 @@ data class CreateTheme(
     val description: String? = null,
     val documentStyles: DocumentStyles = emptyMap(),
     val pageSettings: PageSettings? = null,
-    val blockStylePresets: Map<String, Map<String, Any>>? = null,
+    val blockStylePresets: Map<String, BlockStylePreset>? = null,
 ) : Command<Theme> {
     init {
         validate("name", name.isNotBlank()) { "Name is required" }

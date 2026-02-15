@@ -80,7 +80,7 @@ class GenerationService(
             document = templateModel,
             data = data,
             outputStream = outputStream,
-            blockStylePresets = resolvedStyles.blockStylePresets,
+            blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
             resolvedDocumentStyles = resolvedStyles.documentStyles,
         )
     }

@@ -8,6 +8,7 @@ import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DocumentStyles
+import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.themes.commands.CreateTheme
@@ -30,7 +31,9 @@ data class UpdateThemeRequest(
     val description: String? = null,
     val clearDescription: Boolean = false,
     val documentStyles: DocumentStyles? = null,
-    val blockStylePresets: Map<String, Map<String, Any>>? = null,
+    val pageSettings: PageSettings? = null,
+    val clearPageSettings: Boolean = false,
+    val blockStylePresets: Map<String, BlockStylePreset>? = null,
     val clearBlockStylePresets: Boolean = false,
 )
 
@@ -161,6 +164,8 @@ class ThemeHandler(
             description = updateRequest.description,
             clearDescription = updateRequest.clearDescription,
             documentStyles = updateRequest.documentStyles,
+            pageSettings = updateRequest.pageSettings,
+            clearPageSettings = updateRequest.clearPageSettings,
             blockStylePresets = updateRequest.blockStylePresets,
             clearBlockStylePresets = updateRequest.clearBlockStylePresets,
         ).execute()
@@ -174,6 +179,7 @@ class ThemeHandler(
                     "name" to theme.name,
                     "description" to theme.description,
                     "documentStyles" to theme.documentStyles,
+                    "pageSettings" to theme.pageSettings,
                     "blockStylePresets" to theme.blockStylePresets,
                     "lastModified" to theme.lastModified,
                 ),

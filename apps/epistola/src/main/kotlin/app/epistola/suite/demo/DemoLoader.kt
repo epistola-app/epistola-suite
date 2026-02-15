@@ -13,6 +13,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.ListTenants
+import app.epistola.suite.themes.BlockStylePreset
 import app.epistola.suite.themes.commands.CreateTheme
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
@@ -111,24 +112,35 @@ class DemoLoader(
                     "lineHeight" to "1.5",
                 ),
                 blockStylePresets = mapOf(
-                    "heading1" to mapOf(
-                        "fontSize" to "24pt",
-                        "fontWeight" to "bold",
-                        "color" to "#1a1a1a",
-                        "marginBottom" to "16px",
+                    "heading1" to BlockStylePreset(
+                        label = "Heading 1",
+                        styles = mapOf(
+                            "fontSize" to "24pt",
+                            "fontWeight" to "bold",
+                            "color" to "#1a1a1a",
+                            "marginBottom" to "16px",
+                        ),
+                        applicableTo = listOf("text", "container"),
                     ),
-                    "heading2" to mapOf(
-                        "fontSize" to "18pt",
-                        "fontWeight" to "bold",
-                        "color" to "#2a2a2a",
-                        "marginBottom" to "12px",
+                    "heading2" to BlockStylePreset(
+                        label = "Heading 2",
+                        styles = mapOf(
+                            "fontSize" to "18pt",
+                            "fontWeight" to "bold",
+                            "color" to "#2a2a2a",
+                            "marginBottom" to "12px",
+                        ),
+                        applicableTo = listOf("text", "container"),
                     ),
-                    "quote" to mapOf(
-                        "fontStyle" to "italic",
-                        "color" to "#666666",
-                        "marginLeft" to "20px",
-                        "borderLeft" to "3px solid #cccccc",
-                        "paddingLeft" to "12px",
+                    "quote" to BlockStylePreset(
+                        label = "Quote",
+                        styles = mapOf(
+                            "fontStyle" to "italic",
+                            "color" to "#666666",
+                            "marginLeft" to "20px",
+                            "borderLeft" to "3px solid #cccccc",
+                            "paddingLeft" to "12px",
+                        ),
                     ),
                 ),
             ),
@@ -149,22 +161,33 @@ class DemoLoader(
                     "lineHeight" to "1.6",
                 ),
                 blockStylePresets = mapOf(
-                    "heading1" to mapOf(
-                        "fontSize" to "28pt",
-                        "fontWeight" to "700",
-                        "color" to "#111827",
-                        "marginBottom" to "20px",
+                    "heading1" to BlockStylePreset(
+                        label = "Heading 1",
+                        styles = mapOf(
+                            "fontSize" to "28pt",
+                            "fontWeight" to "700",
+                            "color" to "#111827",
+                            "marginBottom" to "20px",
+                        ),
+                        applicableTo = listOf("text", "container"),
                     ),
-                    "heading2" to mapOf(
-                        "fontSize" to "20pt",
-                        "fontWeight" to "600",
-                        "color" to "#374151",
-                        "marginBottom" to "14px",
+                    "heading2" to BlockStylePreset(
+                        label = "Heading 2",
+                        styles = mapOf(
+                            "fontSize" to "20pt",
+                            "fontWeight" to "600",
+                            "color" to "#374151",
+                            "marginBottom" to "14px",
+                        ),
+                        applicableTo = listOf("text", "container"),
                     ),
-                    "accent" to mapOf(
-                        "backgroundColor" to "#f3f4f6",
-                        "padding" to "16px",
-                        "borderRadius" to "8px",
+                    "accent" to BlockStylePreset(
+                        label = "Accent Box",
+                        styles = mapOf(
+                            "backgroundColor" to "#f3f4f6",
+                            "padding" to "16px",
+                            "borderRadius" to "8px",
+                        ),
                     ),
                 ),
             ),

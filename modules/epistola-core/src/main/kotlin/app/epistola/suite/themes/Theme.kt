@@ -8,6 +8,19 @@ import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
 /**
+ * A named block style preset (like a CSS class for blocks).
+ *
+ * @param label Human-readable label for the preset
+ * @param styles CSS-like style properties for this preset
+ * @param applicableTo Node types this preset can be applied to (empty/null means all types)
+ */
+data class BlockStylePreset(
+    val label: String,
+    val styles: Map<String, Any>,
+    val applicableTo: List<String>? = null,
+)
+
+/**
  * A theme defines reusable styling that can be applied across multiple templates.
  *
  * Themes provide:
@@ -28,7 +41,7 @@ data class Theme(
     val description: String?,
     @Json val documentStyles: DocumentStyles,
     @Json val pageSettings: PageSettings?,
-    @Json val blockStylePresets: Map<String, Map<String, Any>>?,
+    @Json val blockStylePresets: Map<String, BlockStylePreset>?,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
 )

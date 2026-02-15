@@ -6,6 +6,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
+import app.epistola.suite.themes.BlockStylePreset
 import app.epistola.suite.themes.Theme
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -25,7 +26,7 @@ data class UpdateTheme(
     val documentStyles: DocumentStyles? = null,
     val pageSettings: PageSettings? = null,
     val clearPageSettings: Boolean = false,
-    val blockStylePresets: Map<String, Map<String, Any>>? = null,
+    val blockStylePresets: Map<String, BlockStylePreset>? = null,
     val clearBlockStylePresets: Boolean = false,
 ) : Command<Theme?> {
     init {
