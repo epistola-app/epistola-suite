@@ -6,7 +6,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.json.Json
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component
  */
 data class PreviewContext(
     /** The draft's template model, null if no draft exists */
-    val draftTemplateModel: TemplateModel?,
+    val draftTemplateModel: TemplateDocument?,
     /** The parent template's default theme ID for theme cascade */
     val templateThemeId: ThemeId?,
     /** The tenant's default theme ID for ultimate fallback in theme cascade */
@@ -29,7 +29,7 @@ data class PreviewContext(
  * JDBI's Jackson plugin handles JSONB -> TemplateModel conversion via @Json annotation.
  */
 private data class PreviewContextRow(
-    @Json val draftTemplateModel: TemplateModel?,
+    @Json val draftTemplateModel: TemplateDocument?,
     val templateThemeId: String?,
     val tenantDefaultThemeId: String?,
 )

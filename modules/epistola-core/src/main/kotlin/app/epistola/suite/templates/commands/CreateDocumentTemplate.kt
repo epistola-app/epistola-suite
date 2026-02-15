@@ -7,20 +7,18 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
-import app.epistola.suite.templates.model.Margins
-import app.epistola.suite.templates.model.Orientation
-import app.epistola.suite.templates.model.PageFormat
-import app.epistola.suite.templates.model.PageSettings
-import app.epistola.suite.templates.model.TemplateModel
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.SchemaValidationResult
 import app.epistola.suite.validation.ValidationException
 import app.epistola.suite.validation.validate
+import app.epistola.template.model.ThemeRef
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
-import java.util.UUID
 
 data class CreateDocumentTemplate(
     val id: TemplateId,
@@ -77,17 +75,28 @@ class CreateDocumentTemplateHandler(
                 .bind("templateId", template.id)
                 .execute()
 
-            // 3. Create draft version with default TemplateModel (version ID = 1)
-            val templateModel = TemplateModel(
-                id = UUID.randomUUID().toString(),
-                name = command.name,
-                version = 1,
-                pageSettings = PageSettings(
-                    format = PageFormat.A4,
-                    orientation = Orientation.portrait,
-                    margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+            // 3. Create draft version with default TemplateDocument (version ID = 1)
+            val rootId = "root-${variantId.value}"
+            val slotId = "slot-${variantId.value}"
+            val templateModel = TemplateDocument(
+                modelVersion = 1,
+                root = rootId,
+                nodes = mapOf(
+                    rootId to Node(
+                        id = rootId,
+                        type = "root",
+                        slots = listOf(slotId),
+                    ),
                 ),
-                blocks = emptyList(),
+                slots = mapOf(
+                    slotId to Slot(
+                        id = slotId,
+                        nodeId = rootId,
+                        name = "children",
+                        children = emptyList(),
+                    ),
+                ),
+                themeRef = ThemeRef.Inherit,
             )
             val templateModelJson = objectMapper.writeValueAsString(templateModel)
             val versionId = VersionId.of(1) // First version is always 1

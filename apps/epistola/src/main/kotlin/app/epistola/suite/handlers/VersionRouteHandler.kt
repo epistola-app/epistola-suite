@@ -63,7 +63,7 @@ class VersionRouteHandler(
         val templateModelJson = jsonNode.get("templateModel")
         val templateModel = objectMapper.treeToValue(
             templateModelJson,
-            app.epistola.suite.templates.model.TemplateModel::class.java,
+            app.epistola.suite.templates.model.TemplateDocument::class.java,
         )
 
         // Execute update command

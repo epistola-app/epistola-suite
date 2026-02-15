@@ -6,7 +6,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
-import app.epistola.suite.templates.model.TemplateModel
+import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -21,7 +21,7 @@ data class UpdateDraft(
     val tenantId: TenantId,
     val templateId: TemplateId,
     val variantId: VariantId,
-    val templateModel: TemplateModel,
+    val templateModel: TemplateDocument,
 ) : Command<TemplateVersion?>
 
 @Component

@@ -77,21 +77,28 @@ class CreateVariantHandler(
         variant
     }
 
-    private fun createDefaultTemplateModel(templateName: String, variantId: VariantId): Map<String, Any> = mapOf(
-        "id" to "template-${variantId.value}",
-        "name" to templateName,
-        "version" to 1,
-        "pageSettings" to mapOf(
-            "format" to "A4",
-            "orientation" to "portrait",
-            "margins" to mapOf(
-                "top" to 20,
-                "right" to 20,
-                "bottom" to 20,
-                "left" to 20,
+    private fun createDefaultTemplateModel(templateName: String, variantId: VariantId): Map<String, Any> {
+        val rootId = "root-${variantId.value}"
+        val slotId = "slot-${variantId.value}"
+        return mapOf(
+            "modelVersion" to 1,
+            "root" to rootId,
+            "nodes" to mapOf(
+                rootId to mapOf(
+                    "id" to rootId,
+                    "type" to "root",
+                    "slots" to listOf(slotId),
+                ),
             ),
-        ),
-        "documentStyles" to mapOf<String, Any>(),
-        "blocks" to emptyList<Any>(),
-    )
+            "slots" to mapOf(
+                slotId to mapOf(
+                    "id" to slotId,
+                    "nodeId" to rootId,
+                    "name" to "children",
+                    "children" to emptyList<String>(),
+                ),
+            ),
+            "themeRef" to mapOf("type" to "inherit"),
+        )
+    }
 }

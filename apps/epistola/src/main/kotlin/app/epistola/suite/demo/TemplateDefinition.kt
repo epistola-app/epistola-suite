@@ -1,7 +1,7 @@
 package app.epistola.suite.demo
 
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
 import tools.jackson.databind.node.ObjectNode
 
 /**
@@ -24,6 +24,6 @@ data class TemplateDefinition(
     /** Example data sets for previewing the template */
     val dataExamples: List<DataExample>,
 
-    /** Visual layout including blocks, styles, and page settings */
-    val templateModel: TemplateModel,
+    /** Visual layout as a node/slot graph document */
+    val templateModel: TemplateDocument,
 )

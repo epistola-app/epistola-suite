@@ -6,7 +6,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -27,7 +27,7 @@ data class ThemeSummary(
 data class EditorContext(
     val templateName: String,
     val variantTags: Map<String, String>,
-    val templateModel: TemplateModel,
+    val templateModel: TemplateDocument,
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
     val themes: List<ThemeSummary>,
@@ -148,7 +148,7 @@ class GetEditorContextHandler(
         val templateModel = row["draft_template_model"]?.let { raw ->
             val json = raw.toString()
             if (json.isNotBlank()) {
-                objectMapper.readValue(json, TemplateModel::class.java)
+                objectMapper.readValue(json, TemplateDocument::class.java)
             } else {
                 null
             }

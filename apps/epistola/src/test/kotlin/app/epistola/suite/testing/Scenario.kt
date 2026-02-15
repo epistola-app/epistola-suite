@@ -12,7 +12,7 @@ import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.templates.model.TemplateModel
+import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
@@ -201,7 +201,7 @@ class ScenarioBuilder {
             tenantId: TenantId,
             templateId: TemplateId,
             variantId: VariantId,
-            templateModel: TemplateModel,
+            templateModel: TemplateDocument,
         ): TemplateVersion = capturedMediator.send(
             UpdateDraft(
                 tenantId = tenantId,

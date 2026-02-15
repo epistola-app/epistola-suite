@@ -4,7 +4,8 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.PageSettings
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRefOverride
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Service
@@ -27,7 +28,7 @@ data class ResolvedStyles(
  * 4. Block inline styles (highest priority)
  *
  * Theme selection cascade:
- * 1. Variant-level theme (TemplateModel.themeId) - highest priority
+ * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
  * 2. Template-level default theme (DocumentTemplate.themeId) - fallback
  * 3. Tenant default theme (Tenant.defaultThemeId) - ultimate fallback
  */
@@ -37,66 +38,68 @@ class ThemeStyleResolver(
 ) {
     /**
      * Resolves document-level styles by merging theme styles with template styles.
-     * Uses the variant-level theme from TemplateModel if set, otherwise no theme.
+     * Uses the variant-level theme from TemplateDocument's themeRef if set, otherwise no theme.
      *
      * @param tenantId The tenant ID for theme lookup
-     * @param templateModel The template model containing themeId and template-level styles
+     * @param templateModel The template document containing themeRef and template-level styles
      * @return Resolved styles combining theme and template settings
      */
-    fun resolveStyles(tenantId: TenantId, templateModel: TemplateModel): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, tenantDefaultThemeId = null, templateModel = templateModel)
+    fun resolveStyles(tenantId: TenantId, templateModel: TemplateDocument): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, tenantDefaultThemeId = null, templateModel = templateModel)
 
     /**
      * Resolves document-level styles with support for template-level and tenant-level default themes.
-     * Variant-level theme (in TemplateModel) overrides template-level default theme,
+     * Variant-level theme (in TemplateDocument's themeRef) overrides template-level default theme,
      * which overrides tenant-level default theme.
      *
      * @param tenantId The tenant ID for theme lookup
      * @param templateDefaultThemeId The default theme from DocumentTemplate (may be null)
-     * @param templateModel The template model containing optional themeId override and styles
+     * @param templateModel The template document containing optional themeRef override and styles
      * @return Resolved styles combining theme and template settings
      */
     fun resolveStyles(
         tenantId: TenantId,
         templateDefaultThemeId: ThemeId?,
-        templateModel: TemplateModel,
+        templateModel: TemplateDocument,
     ): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId, tenantDefaultThemeId = null, templateModel)
 
     /**
      * Resolves document-level styles with full theme cascade support.
      *
      * Theme cascade order:
-     * 1. Variant-level theme (TemplateModel.themeId) - highest priority
+     * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
      * 2. Template-level default theme (templateDefaultThemeId) - fallback
      * 3. Tenant default theme (tenantDefaultThemeId) - ultimate fallback
      *
      * @param tenantId The tenant ID for theme lookup
      * @param templateDefaultThemeId The default theme from DocumentTemplate (may be null)
      * @param tenantDefaultThemeId The default theme from Tenant (may be null)
-     * @param templateModel The template model containing optional themeId override and styles
+     * @param templateModel The template document containing optional themeRef override and styles
      * @return Resolved styles combining theme and template settings
      */
     fun resolveStyles(
         tenantId: TenantId,
         templateDefaultThemeId: ThemeId?,
         tenantDefaultThemeId: ThemeId?,
-        templateModel: TemplateModel,
+        templateModel: TemplateDocument,
     ): ResolvedStyles {
         // Theme cascade: variant-level > template-level > tenant-level
-        val effectiveThemeId = templateModel.themeId?.let { ThemeId.of(it) }
-            ?: templateDefaultThemeId
-            ?: tenantDefaultThemeId
+        val effectiveThemeId = when (val ref = templateModel.themeRef) {
+            is ThemeRefOverride -> ThemeId.of(ref.themeId)
+            else -> null
+        } ?: templateDefaultThemeId ?: tenantDefaultThemeId
 
         val theme = effectiveThemeId?.let { getTheme(tenantId, it) }
+        val templateDocumentStyles = templateModel.documentStylesOverride ?: emptyMap()
 
         return if (theme != null) {
             ResolvedStyles(
-                documentStyles = mergeDocumentStyles(theme.documentStyles, templateModel.documentStyles),
+                documentStyles = mergeDocumentStyles(theme.documentStyles, templateDocumentStyles),
                 pageSettings = theme.pageSettings, // Theme page settings as fallback
                 blockStylePresets = theme.blockStylePresets ?: emptyMap(),
             )
         } else {
             ResolvedStyles(
-                documentStyles = templateModel.documentStyles,
+                documentStyles = templateDocumentStyles,
                 pageSettings = null,
                 blockStylePresets = emptyMap(),
             )

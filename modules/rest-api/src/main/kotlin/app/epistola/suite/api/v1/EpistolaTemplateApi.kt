@@ -275,7 +275,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateModel::class.java)
+            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
         val draft = UpdateDraft(
             tenantId = TenantId.of(tenantId),
@@ -411,7 +411,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateModel::class.java)
+            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
         val version = UpdateVersion(
             tenantId = TenantId.of(tenantId),

@@ -1094,15 +1094,15 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 val body = """{
                     "data": {"name": "John Doe"},
                     "templateModel": {
-                        "id": "test",
-                        "name": "Test",
-                        "version": 1,
-                        "pageSettings": {
-                            "format": "A4",
-                            "orientation": "portrait",
-                            "margins": {"top": 20, "right": 20, "bottom": 20, "left": 20}
+                        "modelVersion": 1,
+                        "root": "root-1",
+                        "nodes": {
+                            "root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]}
                         },
-                        "blocks": []
+                        "slots": {
+                            "slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": []}
+                        },
+                        "themeRef": {"type": "inherit"}
                     }
                 }"""
                 val request = HttpEntity(body, headers)
@@ -1137,19 +1137,19 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             whenever {
                 val headers = HttpHeaders()
                 headers.contentType = MediaType.APPLICATION_JSON
-                // Provide a minimal template model since drafts are created without one
+                // Provide a minimal v2 template document since drafts are created without one
                 val body = """{
                     "data": {"anything": "goes"},
                     "templateModel": {
-                        "id": "test",
-                        "name": "Test",
-                        "version": 1,
-                        "pageSettings": {
-                            "format": "A4",
-                            "orientation": "portrait",
-                            "margins": {"top": 20, "right": 20, "bottom": 20, "left": 20}
+                        "modelVersion": 1,
+                        "root": "root-1",
+                        "nodes": {
+                            "root-1": {"id": "root-1", "type": "root", "slots": ["slot-1"]}
                         },
-                        "blocks": []
+                        "slots": {
+                            "slot-1": {"id": "slot-1", "nodeId": "root-1", "name": "children", "children": []}
+                        },
+                        "themeRef": {"type": "inherit"}
                     }
                 }"""
                 val request = HttpEntity(body, headers)

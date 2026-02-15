@@ -9,7 +9,8 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ThemeStyleResolver
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
+import app.epistola.template.model.ThemeRefOverride
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -35,10 +36,10 @@ class GenerationService(
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
 ) {
     /**
-     * Renders a PDF from a template model and data context.
+     * Renders a PDF from a template document and data context.
      *
      * Theme resolution cascade:
-     * 1. Variant-level theme (TemplateModel.themeId) - highest priority
+     * 1. Variant-level theme (TemplateDocument.themeRef override) - highest priority
      * 2. Template-level default theme (templateDefaultThemeId parameter) - fallback
      * 3. Tenant default theme (tenantDefaultThemeId parameter) - ultimate fallback
      *
@@ -47,7 +48,7 @@ class GenerationService(
      * - Theme block style presets are made available for blocks with stylePreset
      *
      * @param tenantId The tenant ID (required for theme lookup)
-     * @param templateModel The template model (either from live editor or pre-fetched draft)
+     * @param templateModel The template document (either from live editor or pre-fetched draft)
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      * @param templateDefaultThemeId Optional default theme from DocumentTemplate (variant can override)
@@ -55,12 +56,18 @@ class GenerationService(
      */
     fun renderPdf(
         tenantId: TenantId,
-        templateModel: TemplateModel,
+        templateModel: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
         templateDefaultThemeId: ThemeId? = null,
         tenantDefaultThemeId: ThemeId? = null,
     ) {
+        // Extract variant-level theme from the document's themeRef
+        val variantThemeId = when (val ref = templateModel.themeRef) {
+            is ThemeRefOverride -> ThemeId.of(ref.themeId)
+            else -> null
+        }
+
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
             tenantId,
@@ -70,7 +77,7 @@ class GenerationService(
         )
 
         pdfRenderer.render(
-            template = templateModel,
+            document = templateModel,
             data = data,
             outputStream = outputStream,
             blockStylePresets = resolvedStyles.blockStylePresets,
@@ -82,26 +89,26 @@ class GenerationService(
      * Renders a PDF without theme resolution.
      * Use this for previews where theme lookup is not needed or tenant context is unavailable.
      *
-     * @param templateModel The template model
+     * @param templateModel The template document
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      */
     fun renderPdfWithoutTheme(
-        templateModel: TemplateModel,
+        templateModel: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
     ) {
-        pdfRenderer.render(templateModel, data, outputStream)
+        pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream)
     }
 
     /**
-     * Converts a Map representation of a template model to a TemplateModel instance.
-     * Use this when receiving template model from the editor as JSON.
+     * Converts a Map representation of a template document to a TemplateDocument instance.
+     * Use this when receiving template document from the editor as JSON.
      *
-     * @param templateModelMap The template model as a Map
-     * @return The converted TemplateModel
+     * @param templateModelMap The template document as a Map
+     * @return The converted TemplateDocument
      */
-    fun convertTemplateModel(templateModelMap: Map<String, Any?>): TemplateModel = objectMapper.convertValue(templateModelMap, TemplateModel::class.java)
+    fun convertTemplateModel(templateModelMap: Map<String, Any?>): TemplateDocument = objectMapper.convertValue(templateModelMap, TemplateDocument::class.java)
 
     /**
      * Validates data against the template's schema without generating a PDF.
