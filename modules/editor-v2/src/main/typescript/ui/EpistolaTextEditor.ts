@@ -76,8 +76,11 @@ export class EpistolaTextEditor extends LitElement implements UndoHandler {
   }
 
   override updated(changed: Map<string, unknown>): void {
-    // Sync external content changes (e.g., engine undo)
-    if (changed.has('content') && this._pmView && !this._isSyncing) {
+    // Sync external content changes (e.g., engine undo).
+    // Skip while an editing session is active (_hasPendingFlush) — the user's
+    // typing takes precedence over any re-render echoes, and running
+    // _syncFromExternal during editing would wipe ProseMirror's undo history.
+    if (changed.has('content') && this._pmView && !this._isSyncing && !this._hasPendingFlush) {
       this._syncFromExternal()
     }
 
@@ -183,7 +186,16 @@ export class EpistolaTextEditor extends LitElement implements UndoHandler {
   private _scheduleContentDispatch(pmDoc: ProsemirrorNode): void {
     const json = pmDoc.toJSON()
     const jsonStr = JSON.stringify(json)
-    if (jsonStr === this._lastContentJson) return
+    if (jsonStr === this._lastContentJson) {
+      // Content matches last synced state — clear any stale debounce timer
+      // that might still hold older content (e.g., user PM-undid back to the
+      // last-synced state while a newer debounce was pending).
+      if (this._debounceTimer !== null) {
+        clearTimeout(this._debounceTimer)
+        this._debounceTimer = null
+      }
+      return
+    }
 
     // Capture snapshot on first change of editing session
     if (!this._hasPendingFlush) {
