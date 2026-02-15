@@ -4,9 +4,10 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
+import app.epistola.template.model.TemplateDocument
 
 /**
- * Context passed to block renderers during PDF generation.
+ * Context passed to node renderers during PDF generation.
  */
 data class RenderContext(
     val data: Map<String, Any?>,
@@ -20,4 +21,6 @@ data class RenderContext(
     val fontCache: FontCache,
     /** Block style presets from theme (named style collections like CSS classes) */
     val blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
+    /** The template document being rendered (for node/slot lookups) */
+    val document: TemplateDocument,
 )
