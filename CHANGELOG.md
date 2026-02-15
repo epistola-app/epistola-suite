@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Project overview documentation**: New `docs/epistola.md` providing a high-level orientation for developers and AI assistants — what Epistola is, use cases, implemented features, technology stack, and architecture overview
 - **Theme Editor Redesign**: Replaced the Thymeleaf form-based theme editor with a Lit web component (`<epistola-theme-editor>`) that provides the same rich style editing controls as the template editor inspector
   - **Visual style inputs**: Color pickers, unit inputs (px/em/rem/pt), select dropdowns, spacing inputs — all driven by the shared `defaultStyleRegistry`
   - **Page settings editing**: Format (A4/Letter/Custom), orientation, margins (mm), background color
