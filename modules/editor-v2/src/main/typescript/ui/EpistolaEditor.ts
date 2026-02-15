@@ -79,9 +79,9 @@ export class EpistolaEditor extends LitElement {
   }
 
   /**
-   * Global keyboard handler for undo/redo. The engine delegates to the
-   * active UndoHandler (e.g. ProseMirror) if one is registered, otherwise
-   * falls through to the engine's own UndoStack.
+   * Global keyboard handler for undo/redo. The engine processes entries
+   * from its undo stack — TextChange entries delegate to ProseMirror's
+   * native history, Command entries are applied directly.
    */
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
