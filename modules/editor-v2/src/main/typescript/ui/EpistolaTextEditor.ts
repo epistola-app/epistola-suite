@@ -297,18 +297,7 @@ export class EpistolaTextEditor extends LitElement {
    * Purely a sync mechanism — no undo logic.
    */
   private _scheduleContentDispatch(pmDoc: ProsemirrorNode): void {
-    const json = pmDoc.toJSON()
-    const jsonStr = JSON.stringify(json)
-    if (jsonStr === this._lastContentJson) {
-      // Content matches last synced state — clear any stale debounce timer
-      this._cancelDebounce()
-      this._hasPendingEdits = false
-      return
-    }
-
     this._hasPendingEdits = true
-
-    // Reset debounce timer
     this._cancelDebounce()
     this._debounceTimer = setTimeout(() => {
       this._debounceTimer = null
