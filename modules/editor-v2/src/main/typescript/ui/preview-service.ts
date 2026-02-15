@@ -39,11 +39,15 @@ export class PreviewService {
   private _currentBlobUrl: string | null = null
   private _disposed = false
 
-  constructor(
-    private readonly _fetchFn: FetchPreviewFn,
-    private readonly _onChange: OnStateChange,
-    private readonly _debounceMs: number = 500,
-  ) {}
+  readonly _fetchFn: FetchPreviewFn
+  readonly _onChange: OnStateChange
+  readonly _debounceMs: number
+
+  constructor(fetchFn: FetchPreviewFn, onChange: OnStateChange, debounceMs: number = 500) {
+    this._fetchFn = fetchFn
+    this._onChange = onChange
+    this._debounceMs = debounceMs
+  }
 
   get state(): PreviewState {
     return this._state
