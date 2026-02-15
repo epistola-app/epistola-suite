@@ -211,8 +211,6 @@ class DocumentTemplateHandler(
                 "templateModel" to context.templateModel,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
-                "themes" to context.themes,
-                "defaultTheme" to context.defaultTheme,
                 "appVersion" to (buildProperties?.version ?: "dev"),
                 "appName" to (buildProperties?.name ?: "Epistola"),
             ),
