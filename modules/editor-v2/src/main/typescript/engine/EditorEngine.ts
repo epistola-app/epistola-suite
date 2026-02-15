@@ -10,7 +10,7 @@ import type { Theme } from '@epistola/template-model/generated/theme.js'
 import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
 import { type Command, type CommandResult, applyCommand } from './commands.js'
-import { UndoStack } from './undo.js'
+import { UndoStack, type TextChangeEntry, isTextChange } from './undo.js'
 import type { ComponentRegistry } from './registry.js'
 import { deepFreeze } from './freeze.js'
 import { defaultStyleRegistry } from './style-registry.js'
@@ -22,23 +22,6 @@ import {
   resolvePageSettings,
   resolvePresetStyles,
 } from './styles.js'
-
-// ---------------------------------------------------------------------------
-// UndoHandler — strategy interface for pluggable undo/redo
-// ---------------------------------------------------------------------------
-
-/**
- * Components that own their own undo history (e.g. ProseMirror text editor)
- * implement this interface and register on the engine via setActiveUndoHandler.
- *
- * When the engine's undo()/redo() is called it delegates to the active handler
- * first. If the handler returns true it consumed the action; otherwise the
- * engine falls through to its own UndoStack.
- */
-export interface UndoHandler {
-  tryUndo(): boolean
-  tryRedo(): boolean
-}
 
 // ---------------------------------------------------------------------------
 // Listener type (deprecated — use events.on('doc:change') instead)
@@ -62,8 +45,6 @@ export class EditorEngine {
   private _resolvedDocStyles!: Record<string, unknown>
   private _inheritableKeys: Set<string>
   private _resolvedPageSettings!: PageSettings
-
-  private _activeUndoHandler: UndoHandler | null = null
 
   private _dataModel: object | undefined
   private _dataExamples: object[] | undefined
@@ -249,11 +230,17 @@ export class EditorEngine {
   }
 
   /**
-   * Push an external undo entry (e.g. coalesced undo from ProseMirror).
-   * Clears the redo stack, same as a normal dispatch.
+   * Push a TextChange entry onto the undo stack. Called by the text editor
+   * on the first doc-changing PM transaction of a new editing session.
+   * Clears the redo stack (new action invalidates redo history).
    */
-  pushUndoEntry(inverse: Command): void {
-    this._undoStack.push(inverse)
+  pushTextChange(entry: TextChangeEntry): void {
+    this._undoStack.push(entry)
+  }
+
+  /** Peek at the top of the undo stack (used by text editor to check current session). */
+  peekUndo(): import('./undo.js').UndoEntry | undefined {
+    return this._undoStack.peekUndo()
   }
 
   /**
@@ -279,50 +266,126 @@ export class EditorEngine {
   // Undo / redo
   // -----------------------------------------------------------------------
 
-  /**
-   * Register a component as the active undo handler. While active, the
-   * engine delegates undo/redo to this handler first. Pass null to clear.
-   */
-  setActiveUndoHandler(handler: UndoHandler | null): void {
-    this._activeUndoHandler = handler
-  }
-
   undo(): boolean {
-    if (this._activeUndoHandler?.tryUndo()) return true
+    const entry = this._undoStack.peekUndo()
+    if (!entry) return false
 
-    const command = this._undoStack.undo()
-    if (!command) return false
-
-    const result = this._dispatchSilent(command)
-    if (!result.ok) {
-      // If the inverse command fails, we can't undo — discard it
-      return false
+    if (isTextChange(entry)) {
+      return this._undoTextChange(entry)
     }
 
-    // Push the inverse of the inverse (i.e., the redo command)
+    // Command entry — pop and apply inverse
+    this._undoStack.popUndo()
+    const result = this._dispatchSilent(entry)
+    if (!result.ok) return false
+
     if (result.inverse) {
       this._undoStack.pushRedo(result.inverse)
     }
-
     return true
   }
 
   redo(): boolean {
-    if (this._activeUndoHandler?.tryRedo()) return true
+    const entry = this._undoStack.peekRedo()
+    if (!entry) return false
 
-    const command = this._undoStack.redo()
-    if (!command) return false
-
-    const result = this._dispatchSilent(command)
-    if (!result.ok) {
-      return false
+    if (isTextChange(entry)) {
+      return this._redoTextChange(entry)
     }
+
+    // Command entry — pop and apply inverse
+    this._undoStack.popRedo()
+    const result = this._dispatchSilent(entry)
+    if (!result.ok) return false
 
     if (result.inverse) {
       this._undoStack.pushUndo(result.inverse)
     }
-
     return true
+  }
+
+  private _undoTextChange(entry: TextChangeEntry): boolean {
+    const ops = entry.ops
+
+    if (ops && ops.isAlive()) {
+      // Lazily capture end-of-session state on first undo
+      if (entry.undoDepthAtEnd === undefined) {
+        entry.undoDepthAtEnd = ops.undoDepth()
+        entry.contentAfter = ops.getContent()
+      }
+
+      if (ops.undoDepth() > entry.undoDepthAtStart) {
+        ops.undo()
+        this._syncTextContent(entry.nodeId, ops.getContent())
+
+        // If session is now exhausted, move entry to redo stack immediately
+        if (ops.undoDepth() <= entry.undoDepthAtStart) {
+          this._undoStack.popUndo()
+          this._undoStack.pushRedo(entry)
+        }
+        return true
+      }
+
+      // Session already exhausted (entry still on undo stack from prior state)
+    } else {
+      // PM destroyed — apply contentBefore via snapshot restore
+      this._undoStack.popUndo()
+      this._applyContentSnapshot(entry.nodeId, entry.contentBefore)
+      this._undoStack.pushRedo(entry)
+      return true
+    }
+
+    // Fall through: session exhausted without performing an undo step
+    this._undoStack.popUndo()
+    this._undoStack.pushRedo(entry)
+    return this.undo()
+  }
+
+  private _redoTextChange(entry: TextChangeEntry): boolean {
+    const ops = entry.ops
+
+    if (ops && ops.isAlive()) {
+      if (entry.undoDepthAtEnd !== undefined && ops.undoDepth() < entry.undoDepthAtEnd) {
+        ops.redo()
+        this._syncTextContent(entry.nodeId, ops.getContent())
+
+        // If session is fully redone, move entry to undo stack immediately
+        if (ops.undoDepth() >= entry.undoDepthAtEnd) {
+          this._undoStack.popRedo()
+          this._undoStack.pushUndo(entry)
+        }
+        return true
+      }
+
+      // Session already fully redone
+      this._undoStack.popRedo()
+      this._undoStack.pushUndo(entry)
+      return this.redo()
+    }
+
+    // PM destroyed — apply contentAfter via snapshot restore
+    this._undoStack.popRedo()
+    if (entry.contentAfter !== undefined) {
+      this._applyContentSnapshot(entry.nodeId, entry.contentAfter)
+    }
+    this._undoStack.pushUndo(entry)
+    return true
+  }
+
+  /** Sync text content from PM to engine without creating undo entries. */
+  private _syncTextContent(nodeId: NodeId, content: unknown): void {
+    this.dispatch(
+      { type: 'UpdateNodeProps', nodeId, props: { content } },
+      { skipUndo: true },
+    )
+  }
+
+  /** Apply a content snapshot (fallback when PM is destroyed). */
+  private _applyContentSnapshot(nodeId: NodeId, content: unknown): void {
+    this.dispatch(
+      { type: 'UpdateNodeProps', nodeId, props: { content: content != null ? structuredClone(content) : null } },
+      { skipUndo: true },
+    )
   }
 
   get canUndo(): boolean {

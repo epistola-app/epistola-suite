@@ -15,20 +15,27 @@ import type { NodeId } from '../types/index.js'
 // ---------------------------------------------------------------------------
 
 /**
- * Minimal interface for the ProseMirror EditorView that TextChangeEntry needs.
- * Using an interface avoids importing the full ProseMirror dependency.
+ * Callbacks into ProseMirror, created by the text editor component.
+ * Keeps the engine decoupled from ProseMirror internals.
  */
-export interface PmViewRef {
-  readonly state: { readonly doc: { toJSON(): unknown } }
-  readonly dom: { readonly isConnected: boolean }
-  dispatch: (...args: unknown[]) => void
+export interface TextChangeOps {
+  /** Whether the PM view is still alive (connected to DOM). */
+  isAlive(): boolean
+  /** Current PM undo depth. */
+  undoDepth(): number
+  /** Execute one PM undo step. Returns true if successful. */
+  undo(): boolean
+  /** Execute one PM redo step. Returns true if successful. */
+  redo(): boolean
+  /** Get current PM doc content as JSON. */
+  getContent(): unknown
 }
 
 export interface TextChangeEntry {
   readonly type: 'TextChange'
   readonly nodeId: NodeId
-  /** Reference to the PM view. Null if PM was destroyed. */
-  pmView: PmViewRef | null
+  /** Callbacks into ProseMirror. Null if PM was destroyed and ops invalidated. */
+  ops: TextChangeOps | null
   /** Snapshot of the content before this editing session (for fallback undo). */
   readonly contentBefore: unknown
   /** Snapshot of the content after this editing session (for fallback redo). Captured lazily on first undo. */
