@@ -522,8 +522,8 @@ function applyAddColumnSlot(
     props: { ...props, columnSizes: newColumnSizes },
   }
 
-  const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode }
-  const newSlots = { ...doc.slots, [newSlot.id]: newSlot }
+  const newNodes: Record<NodeId, Node> = { ...doc.nodes, [cmd.nodeId]: newNode }
+  const newSlots: Record<SlotId, Slot> = { ...doc.slots, [newSlot.id]: newSlot }
 
   // Restore any child nodes/slots from undo
   if (cmd._restoreNodes) {

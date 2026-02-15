@@ -5,7 +5,7 @@
  * - The resolved value from the current data example (e.g., "John Doe")
  * - The raw expression as fallback (e.g., `{{customer.name}}`)
  *
- * Click opens a `<dialog>` with an `<input>` and a list of available field paths.
+ * Click opens the shared expression dialog.
  *
  * - Enter → save expression
  * - Escape → cancel (delete if isNew, else close)
@@ -18,31 +18,13 @@ import type { FieldPath } from '../engine/schema-paths.js'
 import {
   evaluateExpression,
   formatResolvedValue,
-  tryEvaluateExpression,
-  formatForPreview,
-  isValidExpression,
 } from '../engine/resolve-expression.js'
+import { openExpressionDialog } from '../ui/expression-dialog.js'
 
 export interface ExpressionNodeViewOptions {
   fieldPaths: FieldPath[]
   getExampleData?: () => Record<string, unknown> | undefined
 }
-
-/** Common JSONata patterns for the quick reference panel. */
-const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
-  { code: 'customer.name', desc: 'Access a field' },
-  { code: 'address.line1 & ", " & address.city', desc: 'Concatenate strings' },
-  { code: 'age >= 18 ? "Adult" : "Minor"', desc: 'Conditional' },
-  { code: '$sum(items.price)', desc: 'Sum numbers' },
-  { code: '$count(items)', desc: 'Count array items' },
-  { code: '$join(tags, ", ")', desc: 'Join array to string' },
-  { code: '$uppercase(name)', desc: 'Uppercase text' },
-  { code: '$lowercase(name)', desc: 'Lowercase text' },
-  { code: '$now()', desc: 'Current timestamp' },
-  { code: '$substring(name, 0, 10)', desc: 'Substring' },
-  { code: 'items[price > 100]', desc: 'Filter array' },
-  { code: '$number(value)', desc: 'Convert to number' },
-]
 
 export class ExpressionNodeView implements NodeView {
   /** All live instances, for bulk refresh when data example changes. */
@@ -59,18 +41,12 @@ export class ExpressionNodeView implements NodeView {
   private _node: ProsemirrorNode
   private _view: EditorView
   private _getPos: () => number | undefined
-  private _dialog: HTMLDialogElement | null = null
+  private _dialogOpen = false
   private _fieldPaths: FieldPath[]
   private _getExampleData: (() => Record<string, unknown> | undefined) | undefined
 
   /** Monotonic counter to discard stale async resolution results. */
   private _displayGeneration = 0
-
-  /** Timer for debounced preview updates in the dialog. */
-  private _previewTimer: ReturnType<typeof setTimeout> | null = null
-
-  /** Monotonic counter to discard stale async preview results. */
-  private _previewGeneration = 0
 
   constructor(
     node: ProsemirrorNode,
@@ -116,9 +92,6 @@ export class ExpressionNodeView implements NodeView {
   destroy(): void {
     ExpressionNodeView._instances.delete(this)
     this._displayGeneration++ // invalidate any in-flight async resolution
-    this._previewGeneration++ // invalidate any in-flight preview
-    this._cancelPreviewTimer()
-    this._closeDialog()
   }
 
   // Prevent ProseMirror from handling events inside the chip
@@ -178,198 +151,26 @@ export class ExpressionNodeView implements NodeView {
   // ---------------------------------------------------------------------------
 
   private _openDialog(): void {
-    if (this._dialog) return
-
-    const dialog = document.createElement('dialog')
-    dialog.className = 'expression-dialog'
+    if (this._dialogOpen) return
+    this._dialogOpen = true
 
     const expr = this._node.attrs.expression as string
 
-    dialog.innerHTML = `
-      <form method="dialog" class="expression-dialog-form">
-        <label class="expression-dialog-label">Expression</label>
-        <input
-          type="text"
-          class="expression-dialog-input"
-          value="${this._escapeAttr(expr)}"
-          placeholder="e.g. customer.name"
-          autocomplete="off"
-        />
-        <div class="expression-dialog-preview" style="display:none"></div>
-        <div class="expression-dialog-paths"></div>
-        <details class="expression-dialog-reference">
-          <summary class="expression-dialog-ref-summary">JSONata Quick Reference</summary>
-          <div class="expression-dialog-ref-list"></div>
-        </details>
-        <div class="expression-dialog-actions">
-          <button type="button" class="expression-dialog-btn cancel">Cancel</button>
-          <button type="submit" class="expression-dialog-btn save">Save</button>
-        </div>
-      </form>
-    `
-
-    const input = dialog.querySelector<HTMLInputElement>('.expression-dialog-input')!
-    const cancelBtn = dialog.querySelector('.cancel')!
-    const pathsContainer = dialog.querySelector<HTMLElement>('.expression-dialog-paths')!
-    const previewEl = dialog.querySelector<HTMLElement>('.expression-dialog-preview')!
-    const refList = dialog.querySelector<HTMLElement>('.expression-dialog-ref-list')!
-
-    // Render field paths with filter
-    this._renderFieldPaths(pathsContainer, input)
-
-    // Render quick reference
-    this._renderQuickReference(refList, input)
-
-    // --- Instant validation + debounced preview on input ---
-    const applyValidation = () => {
-      const val = input.value.trim()
-      input.classList.remove('valid', 'invalid')
-      if (val) {
-        input.classList.add(isValidExpression(val) ? 'valid' : 'invalid')
+    openExpressionDialog({
+      initialValue: expr,
+      fieldPaths: this._fieldPaths,
+      getExampleData: this._getExampleData,
+      label: 'Expression',
+      placeholder: 'e.g. customer.name',
+    }).then(({ value }) => {
+      this._dialogOpen = false
+      if (value !== null) {
+        this._updateAttrs({ expression: value, isNew: false })
+      } else if (this._node.attrs.isNew) {
+        this._deleteNode()
       }
-    }
-
-    const schedulePreview = () => {
-      this._cancelPreviewTimer()
-      const val = input.value.trim()
-      if (!val) {
-        previewEl.style.display = 'none'
-        return
-      }
-      this._previewTimer = setTimeout(() => {
-        this._updatePreview(val, previewEl)
-      }, 250)
-    }
-
-    input.addEventListener('input', () => {
-      applyValidation()
-      schedulePreview()
+      this._view.focus()
     })
-
-    // Cancel
-    cancelBtn.addEventListener('click', () => this._handleCancel())
-
-    // Escape
-    dialog.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        this._handleCancel()
-      }
-    })
-
-    // Submit
-    dialog.querySelector('form')!.addEventListener('submit', (e) => {
-      e.preventDefault()
-      this._handleSave(input.value)
-    })
-
-    // Close on backdrop click
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) {
-        this._handleCancel()
-      }
-    })
-
-    document.body.appendChild(dialog)
-    dialog.showModal()
-    this._dialog = dialog
-
-    // Focus and select input content
-    input.focus()
-    input.select()
-
-    // Run initial validation + preview if there's an existing expression
-    if (expr) {
-      applyValidation()
-      this._updatePreview(expr, previewEl)
-    }
-  }
-
-  private _renderFieldPaths(container: HTMLElement, input: HTMLInputElement): void {
-    if (this._fieldPaths.length === 0) return
-
-    const header = document.createElement('div')
-    header.className = 'expression-dialog-paths-header'
-
-    const headerLabel = document.createElement('span')
-    headerLabel.textContent = 'Available fields'
-
-    const filterInput = document.createElement('input')
-    filterInput.type = 'text'
-    filterInput.className = 'expression-dialog-filter'
-    filterInput.placeholder = 'Filter...'
-
-    header.appendChild(headerLabel)
-    header.appendChild(filterInput)
-    container.appendChild(header)
-
-    const list = document.createElement('ul')
-    list.className = 'expression-dialog-paths-list'
-
-    const items: { li: HTMLLIElement; path: string }[] = []
-
-    for (const fp of this._fieldPaths) {
-      const li = document.createElement('li')
-      li.className = 'expression-dialog-path-item'
-
-      const pathSpan = document.createElement('span')
-      pathSpan.className = 'expression-dialog-path-name'
-      pathSpan.textContent = fp.path
-
-      const typeSpan = document.createElement('span')
-      typeSpan.className = 'expression-dialog-path-type'
-      typeSpan.textContent = fp.type
-
-      li.appendChild(pathSpan)
-      li.appendChild(typeSpan)
-
-      li.addEventListener('click', () => {
-        input.value = fp.path
-        input.dispatchEvent(new Event('input', { bubbles: true }))
-        input.focus()
-      })
-
-      list.appendChild(li)
-      items.push({ li, path: fp.path })
-    }
-
-    // Filter field paths on typing
-    filterInput.addEventListener('input', () => {
-      const query = filterInput.value.toLowerCase()
-      for (const item of items) {
-        item.li.style.display = item.path.toLowerCase().includes(query) ? '' : 'none'
-      }
-    })
-
-    container.appendChild(list)
-  }
-
-  private _handleSave(value: string): void {
-    const trimmed = value.trim()
-    if (trimmed) {
-      this._updateAttrs({ expression: trimmed, isNew: false })
-    } else {
-      this._deleteNode()
-    }
-    this._closeDialog()
-  }
-
-  private _handleCancel(): void {
-    if (this._node.attrs.isNew) {
-      this._deleteNode()
-    }
-    this._closeDialog()
-  }
-
-  private _closeDialog(): void {
-    this._cancelPreviewTimer()
-    this._previewGeneration++ // discard any in-flight preview results
-    if (this._dialog) {
-      this._dialog.close()
-      this._dialog.remove()
-      this._dialog = null
-    }
-    this._view.focus()
   }
 
   // ---------------------------------------------------------------------------
@@ -391,78 +192,5 @@ export class ExpressionNodeView implements NodeView {
     if (pos == null) return
     const tr = this._view.state.tr.delete(pos, pos + this._node.nodeSize)
     this._view.dispatch(tr)
-  }
-
-  // ---------------------------------------------------------------------------
-  // Preview
-  // ---------------------------------------------------------------------------
-
-  private _updatePreview(expression: string, previewEl: HTMLElement): void {
-    const data = this._getExampleData?.()
-    if (!data) {
-      previewEl.style.display = ''
-      previewEl.className = 'expression-dialog-preview no-data'
-      previewEl.textContent = 'No data example selected'
-      return
-    }
-
-    const generation = ++this._previewGeneration
-    tryEvaluateExpression(expression, data).then((result) => {
-      if (generation !== this._previewGeneration) return // stale
-
-      previewEl.style.display = ''
-      if (result.ok) {
-        previewEl.className = 'expression-dialog-preview success'
-        previewEl.textContent = `Preview: ${formatForPreview(result.value)}`
-      } else {
-        previewEl.className = 'expression-dialog-preview error'
-        previewEl.textContent = result.error
-      }
-    })
-  }
-
-  private _cancelPreviewTimer(): void {
-    if (this._previewTimer !== null) {
-      clearTimeout(this._previewTimer)
-      this._previewTimer = null
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Quick reference
-  // ---------------------------------------------------------------------------
-
-  private _renderQuickReference(container: HTMLElement, input: HTMLInputElement): void {
-    for (const entry of JSONATA_QUICK_REFERENCE) {
-      const row = document.createElement('div')
-      row.className = 'expression-dialog-ref-row'
-
-      const code = document.createElement('code')
-      code.className = 'expression-dialog-ref-code'
-      code.textContent = entry.code
-
-      const desc = document.createElement('span')
-      desc.className = 'expression-dialog-ref-desc'
-      desc.textContent = entry.desc
-
-      row.appendChild(code)
-      row.appendChild(desc)
-
-      row.addEventListener('click', () => {
-        input.value = entry.code
-        input.dispatchEvent(new Event('input', { bubbles: true }))
-        input.focus()
-      })
-
-      container.appendChild(row)
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Utilities
-  // ---------------------------------------------------------------------------
-
-  private _escapeAttr(str: string): string {
-    return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   }
 }
