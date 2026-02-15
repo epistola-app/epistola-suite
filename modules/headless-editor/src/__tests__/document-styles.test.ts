@@ -184,6 +184,39 @@ describe("Document Styles", () => {
     });
   });
 
+  describe("setDocumentStyles", () => {
+    it("replaces previous document style keys", () => {
+      const editor = new TemplateEditor();
+
+      editor.updateDocumentStyles({
+        fontFamily: "Arial",
+        color: "#333",
+        lineHeight: "1.5",
+      });
+      editor.setDocumentStyles({ fontFamily: "Georgia" });
+
+      expect(editor.getTemplate().documentStyles).toEqual({
+        fontFamily: "Georgia",
+      });
+    });
+
+    it("supports undo after replacing document styles", () => {
+      const editor = new TemplateEditor();
+
+      editor.updateDocumentStyles({
+        fontFamily: "Arial",
+        color: "#333",
+      });
+      editor.setDocumentStyles({ fontSize: "14px" });
+      editor.undo();
+
+      expect(editor.getTemplate().documentStyles).toEqual({
+        fontFamily: "Arial",
+        color: "#333",
+      });
+    });
+  });
+
   describe("resolved styles API", () => {
     it("should return resolved document styles", () => {
       const editor = new TemplateEditor();

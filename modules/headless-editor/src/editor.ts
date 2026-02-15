@@ -319,6 +319,10 @@ export class TemplateEditor {
     this.templateStyleService.updateDocumentStyles(styles);
   }
 
+  setDocumentStyles(styles: DocumentStyles): void {
+    this.templateStyleService.setDocumentStyles(styles);
+  }
+
   getResolvedDocumentStyles(): CSSStyles {
     return this.templateStyleService.getResolvedDocumentStyles();
   }

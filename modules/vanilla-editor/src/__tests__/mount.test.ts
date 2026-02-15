@@ -34,13 +34,13 @@ describe("mountEditorApp", () => {
       container.querySelector('[data-editor-target="blockContainer"]'),
     ).not.toBeNull();
     expect(
-      container.querySelector('[data-editor-app-modal="page-settings"]'),
+      container.querySelector('[data-editor-app-target="styleSidebar"]'),
     ).not.toBeNull();
     expect(
-      container.querySelector('[data-editor-app-modal="document-styles"]'),
+      container.querySelector('[data-editor-app-panel="document"]'),
     ).not.toBeNull();
     expect(
-      container.querySelector('[data-editor-app-modal="block-styles"]'),
+      container.querySelector('[data-editor-app-panel="block"]'),
     ).not.toBeNull();
 
     mounted.destroy();
@@ -118,17 +118,12 @@ describe("mountEditorApp", () => {
     mounted.destroy();
   });
 
-  it("saves page settings from app shell modal", () => {
+  it("autosaves page settings from sidebar", async () => {
     const mounted = mountEditorApp({
       container,
       template: EMPTY_TEMPLATE,
     });
 
-    (
-      container.querySelector(
-        '[data-editor-app-action="open-page-settings"]',
-      ) as HTMLButtonElement
-    ).click();
     const format = container.querySelector(
       "#ve-page-format",
     ) as HTMLSelectElement;
@@ -140,14 +135,12 @@ describe("mountEditorApp", () => {
     ) as HTMLInputElement;
 
     format.value = "Letter";
+    format.dispatchEvent(new Event("change", { bubbles: true }));
     orientation.value = "landscape";
+    orientation.dispatchEvent(new Event("change", { bubbles: true }));
     marginTop.value = "12";
-
-    (
-      container.querySelector(
-        '[data-editor-app-action="save-page-settings"]',
-      ) as HTMLButtonElement
-    ).click();
+    marginTop.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     expect(mounted.getTemplate().pageSettings?.format).toBe("Letter");
     expect(mounted.getTemplate().pageSettings?.orientation).toBe("landscape");
@@ -156,17 +149,12 @@ describe("mountEditorApp", () => {
     mounted.destroy();
   });
 
-  it("saves document styles from app shell modal", () => {
+  it("autosaves document styles from sidebar", async () => {
     const mounted = mountEditorApp({
       container,
       template: EMPTY_TEMPLATE,
     });
 
-    (
-      container.querySelector(
-        '[data-editor-app-action="open-document-styles"]',
-      ) as HTMLButtonElement
-    ).click();
     const fontFamily = container.querySelector(
       "#ve-doc-font-family",
     ) as HTMLInputElement;
@@ -178,14 +166,12 @@ describe("mountEditorApp", () => {
     ) as HTMLSelectElement;
 
     fontFamily.value = "Georgia, serif";
+    fontFamily.dispatchEvent(new Event("input", { bubbles: true }));
     fontSizeValue.value = "18";
+    fontSizeValue.dispatchEvent(new Event("input", { bubbles: true }));
     fontSizeUnit.value = "px";
-
-    (
-      container.querySelector(
-        '[data-editor-app-action="save-document-styles"]',
-      ) as HTMLButtonElement
-    ).click();
+    fontSizeUnit.dispatchEvent(new Event("change", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     expect(mounted.getTemplate().documentStyles?.fontFamily).toBe(
       "Georgia, serif",
@@ -195,7 +181,7 @@ describe("mountEditorApp", () => {
     mounted.destroy();
   });
 
-  it("saves block styles from app shell modal for selected block", () => {
+  it("autosaves block styles from sidebar for selected block", async () => {
     const mounted = mountEditorApp({
       container,
       template: EMPTY_TEMPLATE,
@@ -203,11 +189,6 @@ describe("mountEditorApp", () => {
     const block = mounted.getEditor().addBlock("text")!;
     mounted.getEditor().selectBlock(block.id);
 
-    (
-      container.querySelector(
-        '[data-editor-app-action="open-block-styles"]',
-      ) as HTMLButtonElement
-    ).click();
     const color = container.querySelector(
       "#ve-block-color",
     ) as HTMLInputElement;
@@ -216,17 +197,115 @@ describe("mountEditorApp", () => {
     ) as HTMLInputElement;
 
     color.value = "#112233";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
     padding.value = "12px";
-
-    (
-      container.querySelector(
-        '[data-editor-app-action="save-block-styles"]',
-      ) as HTMLButtonElement
-    ).click();
+    padding.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     const updated = mounted.getEditor().findBlock(block.id) as any;
     expect(updated.styles.color).toBe("#112233");
     expect(updated.styles.padding).toBe("12px");
+
+    mounted.destroy();
+  });
+
+  it("shows 'No Block Selected' when block tab is opened manually", () => {
+    const mounted = mountEditorApp({
+      container,
+      template: EMPTY_TEMPLATE,
+    });
+
+    (
+      container.querySelector(
+        '[data-editor-app-tab="block"]',
+      ) as HTMLButtonElement
+    ).click();
+
+    const message = container.querySelector(
+      '[data-editor-app-target="noBlockSelected"]',
+    ) as HTMLElement;
+    expect(message.textContent).toContain("No Block Selected");
+
+    mounted.destroy();
+  });
+
+  it("auto switches sidebar tab based on selection", () => {
+    const mounted = mountEditorApp({
+      container,
+      template: EMPTY_TEMPLATE,
+    });
+    const editor = mounted.getEditor();
+    const block = editor.addBlock("text");
+    expect(block).not.toBeNull();
+
+    const pageTab = container.querySelector(
+      '[data-editor-app-tab="document"]',
+    ) as HTMLButtonElement;
+    const blockTab = container.querySelector(
+      '[data-editor-app-tab="block"]',
+    ) as HTMLButtonElement;
+
+    editor.selectBlock(block!.id);
+    expect(blockTab.classList.contains("is-active")).toBe(true);
+
+    editor.selectBlock(null);
+    expect(pageTab.classList.contains("is-active")).toBe(true);
+
+    mounted.destroy();
+  });
+
+  it("selects text block when clicking inside tiptap editor", async () => {
+    const mounted = mountEditorApp({
+      container,
+      template: EMPTY_TEMPLATE,
+    });
+    const editor = mounted.getEditor();
+    const block = editor.addBlock("text");
+    expect(block).not.toBeNull();
+
+    await Promise.resolve();
+
+    const textEditor = container.querySelector(
+      `[data-block-id="${block!.id}"] .text-block-editor`,
+    ) as HTMLElement | null;
+    expect(textEditor).not.toBeNull();
+
+    textEditor!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(editor.getState().selectedBlockId).toBe(block!.id);
+
+    mounted.destroy();
+  });
+
+  it("toggles styles sidebar collapsed state", () => {
+    const mounted = mountEditorApp({
+      container,
+      template: EMPTY_TEMPLATE,
+    });
+
+    const main = container.querySelector(".ve-app-main") as HTMLElement;
+    const sidebar = container.querySelector(
+      '[data-editor-app-target="styleSidebar"]',
+    ) as HTMLElement;
+    const toggleButton = container.querySelector(
+      '[data-editor-app-action="toggle-style-sidebar"]',
+    ) as HTMLButtonElement;
+
+    expect(main.classList.contains("ve-sidebar-collapsed")).toBe(false);
+    expect(sidebar.classList.contains("is-collapsed")).toBe(false);
+    expect(toggleButton.getAttribute("aria-expanded")).toBe("true");
+
+    toggleButton.click();
+
+    expect(main.classList.contains("ve-sidebar-collapsed")).toBe(true);
+    expect(sidebar.classList.contains("is-collapsed")).toBe(true);
+    expect(toggleButton.getAttribute("aria-expanded")).toBe("false");
+
+    toggleButton.click();
+
+    expect(main.classList.contains("ve-sidebar-collapsed")).toBe(false);
+    expect(sidebar.classList.contains("is-collapsed")).toBe(false);
+    expect(toggleButton.getAttribute("aria-expanded")).toBe("true");
 
     mounted.destroy();
   });

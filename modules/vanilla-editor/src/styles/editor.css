@@ -368,6 +368,11 @@
   --ve-toolbar-height: 3.5rem;
   --ve-toolbar-margin-bottom: 1rem;
   --ve-shell-gap: 0.75rem;
+  --ve-sidebar-no-preview: 15%;
+  --ve-editor-no-preview: 85%;
+  --ve-sidebar-with-preview: 15%;
+  --ve-editor-with-preview: 50%;
+  --ve-preview-with-preview: 35%;
   display: flex;
   flex-direction: column;
   gap: var(--ve-shell-gap);
@@ -394,7 +399,6 @@
 
 .ve-app-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 44%);
   gap: 0.75rem;
   height: calc(
     100% - var(--ve-toolbar-height) - var(--ve-toolbar-margin-bottom) -
@@ -406,6 +410,147 @@
   );
   min-height: 0;
   overflow: hidden;
+}
+
+.ve-app-main.ve-with-preview {
+  grid-template-columns:
+    minmax(280px, var(--ve-sidebar-with-preview))
+    minmax(0, var(--ve-editor-with-preview))
+    minmax(320px, var(--ve-preview-with-preview));
+}
+
+.ve-app-main.ve-no-preview {
+  grid-template-columns:
+    minmax(280px, var(--ve-sidebar-no-preview))
+    minmax(0, var(--ve-editor-no-preview));
+}
+
+.ve-style-sidebar {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 0.75rem;
+}
+
+.ve-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ve-sidebar-toggle {
+  flex: 0 0 auto;
+}
+
+.ve-sidebar-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.ve-style-section,
+.ve-style-group {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+}
+
+.ve-style-section + .ve-style-section,
+.ve-style-group + .ve-style-group {
+  margin-top: 0.5rem;
+}
+
+.ve-style-section > summary,
+.ve-style-group > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.5rem 0.625rem;
+  color: #334155;
+}
+
+.ve-style-section > summary::-webkit-details-marker,
+.ve-style-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ve-style-section-body,
+.ve-style-group-body {
+  padding: 0 0.625rem 0.625rem;
+}
+
+.ve-style-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.ve-style-tab.is-active {
+  --bs-btn-bg: #0f766e;
+  --bs-btn-color: #ffffff;
+  --bs-btn-border-color: #0f766e;
+  --bs-btn-hover-bg: #115e59;
+  --bs-btn-hover-border-color: #115e59;
+}
+
+.ve-style-panel {
+  display: none;
+  margin-top: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  padding: 0.625rem;
+}
+
+.ve-style-panel.is-active {
+  display: block;
+}
+
+.ve-app-main.ve-sidebar-collapsed.ve-with-preview {
+  grid-template-columns: 3rem minmax(0, 62%) minmax(320px, 35%);
+}
+
+.ve-app-main.ve-sidebar-collapsed.ve-no-preview {
+  grid-template-columns: 3rem minmax(0, 97%);
+}
+
+.ve-style-sidebar.is-collapsed {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.5rem;
+}
+
+.ve-style-sidebar.is-collapsed .ve-sidebar-header {
+  width: 100%;
+  justify-content: center;
+}
+
+.ve-style-sidebar.is-collapsed .ve-sidebar-title {
+  display: none;
+}
+
+.ve-style-sidebar.is-collapsed .ve-sidebar-toggle {
+  width: 2rem;
+}
+
+.ve-style-sidebar.is-collapsed .ve-style-section,
+.ve-style-sidebar.is-collapsed .ve-style-tabs,
+.ve-style-sidebar.is-collapsed .ve-style-panel {
+  display: none;
+}
+
+.ve-block-style-fields[disabled] {
+  opacity: 0.5;
 }
 
 .ve-editor-pane,
@@ -454,9 +599,10 @@
 }
 
 @media (max-width: 1100px) {
-  .ve-app-main {
+  .ve-app-main.ve-with-preview,
+  .ve-app-main.ve-no-preview {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .ve-preview-pane .card-body {

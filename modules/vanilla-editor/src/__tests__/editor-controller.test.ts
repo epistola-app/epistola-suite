@@ -11,7 +11,6 @@ describe("EditorController", () => {
       "themeSelect",
       "dataExampleSelect",
       "blockContainer",
-      "blockStylesBtn",
     ]);
   });
 

@@ -186,6 +186,8 @@ export class TextBlockController extends Controller {
   }
 
   private handleEditorClick(event: Event): void {
+    this.getEditor()?.selectBlock(this.blockIdValue);
+
     const target = event.target as HTMLElement | null;
     const chipEl = target?.closest(".expression-chip") as HTMLElement | null;
     if (!chipEl || !this.tiptap) return;

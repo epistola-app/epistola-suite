@@ -18,7 +18,6 @@
  * - `themeSelect` — theme selector dropdown
  * - `dataExampleSelect` — data example selector dropdown
  * - `blockContainer` — the block rendering container
- * - `blockStylesBtn` — block styles button (disabled when nothing selected)
  */
 
 import { Controller } from "@hotwired/stimulus";
@@ -35,7 +34,6 @@ export class EditorController extends Controller {
     "themeSelect",
     "dataExampleSelect",
     "blockContainer",
-    "blockStylesBtn",
   ];
   static values = {
     dirty: Boolean,
@@ -57,8 +55,6 @@ export class EditorController extends Controller {
   declare readonly hasDataExampleSelectTarget: boolean;
   declare readonly blockContainerTarget: HTMLElement;
   declare readonly hasBlockContainerTarget: boolean;
-  declare readonly blockStylesBtnTarget: HTMLButtonElement;
-  declare readonly hasBlockStylesBtnTarget: boolean;
 
   declare dirtyValue: boolean;
   declare canUndoValue: boolean;
@@ -118,16 +114,6 @@ export class EditorController extends Controller {
       if (selectedId) {
         this.dataExampleSelectTarget.value = selectedId;
       }
-    }
-
-    // Block styles button: enable/disable based on selection
-    if (this.hasBlockStylesBtnTarget) {
-      const updateBlockStylesBtn = () => {
-        const state = editor.getState();
-        this.blockStylesBtnTarget.disabled = !state.selectedBlockId;
-      };
-      this.unsubscribers.push(editor.subscribe(updateBlockStylesBtn));
-      updateBlockStylesBtn();
     }
 
     // Unsaved changes warning

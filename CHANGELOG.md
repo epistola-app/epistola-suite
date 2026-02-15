@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Fixed
+- **Text block selection from TipTap click**: Clicking inside a text editor now selects its wrapping block.
+- **Collapsed styles sidebar toggle usability**: Toggle remains visible and clickable after collapsing.
 - **Expression authoring parity in headless + vanilla editors**: Improved completion, preview, and inline chip editing flows without React-coupled dependencies.
   - Headless expression utilities now expose cursor-aware completion APIs, richer method catalogs, and shared scope-aware evaluation context builders.
   - Vanilla conditional/loop expression editor now uses shared headless completion/context logic with explicit preview error rendering and block-type warnings.
@@ -27,6 +29,14 @@
 - **Inverse checkbox removed**: Removed broken conditional block inverse toggle UI (logic retained in headless editor)
 
 ### Changed
+- **Vanilla editor styles workflow moved to persistent sidebar**
+  - Replaced page/document/block modals with left sidebar editing and debounced autosave.
+  - Page Styles is now the top expandable section; tabs switch between Document and Block styles.
+  - Added selection-aware tab switching, no-selection Block placeholder, and wrapper-click deselection.
+  - Added collapsible styles sidebar and CSS variable layout controls
+    (default: 15% sidebar / 50% editor / 35% preview).
+- **Headless document styles support full replacement updates**
+  - Added `setDocumentStyles` to replace existing style keys when sidebar fields are cleared.
 - **TemplateEditor internals decomposed into focused services**: Refactored the headless editor core by splitting the monolithic `editor.ts` into dedicated services for state repository, block registry, block operations, drag-drop, expression evaluation, style management, and template IO.
   - Kept the public `TemplateEditor` API behavior stable while reducing `editor.ts` complexity and centralizing nanostore access behind `EditorStateRepository`.
   - Preserved existing block operations, validation shape, and drag-drop semantics; headless and vanilla typechecks/tests continue to pass.

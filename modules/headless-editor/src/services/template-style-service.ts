@@ -89,6 +89,16 @@ export class TemplateStyleService {
     });
   }
 
+  setDocumentStyles(styles: DocumentStyles): void {
+    this.recordMutation();
+
+    const current = this.stateRepository.getTemplate();
+    this.stateRepository.setTemplate({
+      ...current,
+      documentStyles: { ...styles },
+    });
+  }
+
   getResolvedDocumentStyles(): CSSStyles {
     const current = this.stateRepository.getTemplate();
     return resolveDocumentStyles(current.documentStyles);

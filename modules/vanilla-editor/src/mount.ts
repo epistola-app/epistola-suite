@@ -241,7 +241,7 @@ export function mountEditorApp(config: MountEditorAppConfig): MountedEditor {
   });
   (shell as HTMLElement & { __veEditor?: TemplateEditor }).__veEditor = editor;
   renderPluginToolbar(host, editor);
-  setupShellModals(host, editor);
+  setupShellSidebar(host, editor);
 
   const previewButton = host.querySelector<HTMLButtonElement>(
     '[data-editor-app-action="preview"]',
@@ -480,16 +480,6 @@ function buildEditorAppShell(config: MountEditorAppConfig): string {
           Add to selected
         </button>
         <span class="vr"></span>
-        <button class="btn btn-sm btn-outline-secondary" data-editor-app-action="open-page-settings">
-          Page Settings
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" data-editor-app-action="open-document-styles">
-          Document Styles
-        </button>
-        <button class="btn btn-sm btn-outline-secondary" data-editor-app-action="open-block-styles" data-editor-target="blockStylesBtn" disabled>
-          Block Styles
-        </button>
-        <span class="vr"></span>
         <button class="btn btn-sm btn-outline-secondary" data-action="editor#undo" data-editor-target="undoBtn" disabled>Undo</button>
         <button class="btn btn-sm btn-outline-secondary" data-action="editor#redo" data-editor-target="redoBtn" disabled>Redo</button>
         <button class="btn btn-sm btn-outline-primary" data-action="editor#save" data-editor-target="saveBtn">${saveLabel}</button>
@@ -498,171 +488,192 @@ function buildEditorAppShell(config: MountEditorAppConfig): string {
         ${dataExampleSelect}
         ${previewButton}
       </div>
-      <div class="ve-app-main">
+      <div class="ve-app-main ${showPreview ? "ve-with-preview" : "ve-no-preview"}">
+        <aside class="ve-style-sidebar" data-editor-app-target="styleSidebar">
+          <div class="ve-sidebar-header mb-2">
+            <h6 class="ve-sidebar-title mb-0">Styles</h6>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary ve-sidebar-toggle"
+              data-editor-app-action="toggle-style-sidebar"
+              aria-expanded="true"
+              title="Collapse styles sidebar"
+            >
+              <i class="bi bi-layout-sidebar-inset"></i>
+            </button>
+          </div>
+
+          <details class="ve-style-section" open>
+            <summary>Page Styles</summary>
+            <div class="ve-style-section-body">
+              <details class="ve-style-group" open>
+                <summary>Layout</summary>
+                <div class="ve-style-group-body">
+                  <div class="row g-2 mb-2">
+                    <div class="col-6">
+                      <label class="form-label" for="ve-page-format">Format</label>
+                      <select id="ve-page-format" class="form-select form-select-sm">
+                        <option value="A4">A4</option>
+                        <option value="Letter">Letter</option>
+                      </select>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label" for="ve-page-orientation">Orientation</label>
+                      <select id="ve-page-orientation" class="form-select form-select-sm">
+                        <option value="portrait">Portrait</option>
+                        <option value="landscape">Landscape</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="row g-2 mb-2">
+                    <div class="col-3">
+                      <label class="form-label" for="ve-margin-top">Top</label>
+                      <input id="ve-margin-top" class="form-control form-control-sm" type="number" min="0" value="20" />
+                    </div>
+                    <div class="col-3">
+                      <label class="form-label" for="ve-margin-right">Right</label>
+                      <input id="ve-margin-right" class="form-control form-control-sm" type="number" min="0" value="20" />
+                    </div>
+                    <div class="col-3">
+                      <label class="form-label" for="ve-margin-bottom">Bottom</label>
+                      <input id="ve-margin-bottom" class="form-control form-control-sm" type="number" min="0" value="20" />
+                    </div>
+                    <div class="col-3">
+                      <label class="form-label" for="ve-margin-left">Left</label>
+                      <input id="ve-margin-left" class="form-control form-control-sm" type="number" min="0" value="20" />
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </details>
+
+          <div class="ve-style-tabs mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary ve-style-tab is-active" data-editor-app-tab="document">Document Styles</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary ve-style-tab" data-editor-app-tab="block">Block Styles</button>
+          </div>
+
+          <section class="ve-style-panel is-active" data-editor-app-panel="document">
+            <details class="ve-style-group" open>
+              <summary>Typography</summary>
+              <div class="ve-style-group-body">
+                <div class="mb-2">
+                  <label class="form-label" for="ve-doc-font-family">Font Family</label>
+                  <input id="ve-doc-font-family" class="form-control form-control-sm" placeholder="e.g., Inter, Arial, sans-serif" />
+                </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-8">
+                    <label class="form-label" for="ve-doc-font-size-value">Font Size</label>
+                    <input id="ve-doc-font-size-value" class="form-control form-control-sm" type="number" min="1" step="0.1" value="12" />
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label" for="ve-doc-font-size-unit">Unit</label>
+                    <select id="ve-doc-font-size-unit" class="form-select form-select-sm">
+                      <option value="pt">pt</option><option value="px">px</option><option value="em">em</option><option value="rem">rem</option><option value="%">%</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label" for="ve-doc-font-weight">Font Weight</label>
+                  <select id="ve-doc-font-weight" class="form-select form-select-sm">
+                    <option value="">Default</option><option value="normal">Normal</option><option value="500">500</option><option value="600">600</option><option value="bold">Bold</option>
+                  </select>
+                </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="form-label" for="ve-doc-line-height">Line Height</label>
+                    <input id="ve-doc-line-height" class="form-control form-control-sm" type="number" min="0.8" step="0.1" value="1.5" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label" for="ve-doc-text-align">Text Align</label>
+                    <select id="ve-doc-text-align" class="form-select form-select-sm">
+                      <option value="">Default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row g-2 mb-2">
+                  <div class="col-8">
+                    <label class="form-label" for="ve-doc-letter-spacing-value">Letter Spacing</label>
+                    <input id="ve-doc-letter-spacing-value" class="form-control form-control-sm" type="number" step="0.1" />
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label" for="ve-doc-letter-spacing-unit">Unit</label>
+                    <select id="ve-doc-letter-spacing-unit" class="form-select form-select-sm">
+                      <option value="px">px</option><option value="em">em</option><option value="rem">rem</option><option value="%">%</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <details class="ve-style-group">
+              <summary>Colors</summary>
+              <div class="ve-style-group-body">
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="form-label" for="ve-doc-color">Text Color</label>
+                    <input id="ve-doc-color" class="form-control form-control-sm" placeholder="#000000" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label" for="ve-doc-bg-color">Background Color</label>
+                    <input id="ve-doc-bg-color" class="form-control form-control-sm" placeholder="#ffffff" />
+                  </div>
+                </div>
+              </div>
+            </details>
+          </section>
+
+          <section class="ve-style-panel" data-editor-app-panel="block">
+            <p class="text-muted small mb-2" data-editor-app-target="noBlockSelected">No Block Selected</p>
+            <fieldset class="ve-block-style-fields" data-editor-app-target="blockStyleFields">
+              <div class="mb-2">
+                <label class="form-label" for="ve-block-font-size">Font Size</label>
+                <input id="ve-block-font-size" class="form-control form-control-sm" placeholder="e.g., 16px" />
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="ve-block-font-weight">Font Weight</label>
+                <select id="ve-block-font-weight" class="form-select form-select-sm">
+                  <option value="">Default</option><option value="normal">Normal</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="bold">Bold</option>
+                </select>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="form-label" for="ve-block-color">Text Color</label>
+                  <input id="ve-block-color" class="form-control form-control-sm" placeholder="#000000" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label" for="ve-block-bg-color">Background Color</label>
+                  <input id="ve-block-bg-color" class="form-control form-control-sm" placeholder="#ffffff" />
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="ve-block-text-align">Text Align</label>
+                <select id="ve-block-text-align" class="form-select form-select-sm">
+                  <option value="">Default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option>
+                </select>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="form-label" for="ve-block-padding">Padding</label>
+                  <input id="ve-block-padding" class="form-control form-control-sm" placeholder="e.g., 12px" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label" for="ve-block-margin">Margin</label>
+                  <input id="ve-block-margin" class="form-control form-control-sm" placeholder="e.g., 8px" />
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label" for="ve-block-border-radius">Border Radius</label>
+                <input id="ve-block-border-radius" class="form-control form-control-sm" placeholder="e.g., 6px" />
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-editor-app-action="clear-block-styles">Clear</button>
+            </fieldset>
+          </section>
+        </aside>
+
         <div class="ve-editor-pane" data-editor-target="blockContainer"></div>
         ${previewPane}
       </div>
-
-      <dialog data-editor-app-modal="page-settings" class="ve-modal">
-        <form method="dialog" class="ve-modal-content">
-          <h5 class="mb-3">Page Settings</h5>
-          <div class="row g-2">
-            <div class="col-6">
-              <label class="form-label" for="ve-page-format">Format</label>
-              <select id="ve-page-format" class="form-select form-select-sm">
-                <option value="A4">A4</option>
-                <option value="Letter">Letter</option>
-              </select>
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="ve-page-orientation">Orientation</label>
-              <select id="ve-page-orientation" class="form-select form-select-sm">
-                <option value="portrait">Portrait</option>
-                <option value="landscape">Landscape</option>
-              </select>
-            </div>
-            <div class="col-3">
-              <label class="form-label" for="ve-margin-top">Top</label>
-              <input id="ve-margin-top" class="form-control form-control-sm" type="number" min="0" value="20" />
-            </div>
-            <div class="col-3">
-              <label class="form-label" for="ve-margin-right">Right</label>
-              <input id="ve-margin-right" class="form-control form-control-sm" type="number" min="0" value="20" />
-            </div>
-            <div class="col-3">
-              <label class="form-label" for="ve-margin-bottom">Bottom</label>
-              <input id="ve-margin-bottom" class="form-control form-control-sm" type="number" min="0" value="20" />
-            </div>
-            <div class="col-3">
-              <label class="form-label" for="ve-margin-left">Left</label>
-              <input id="ve-margin-left" class="form-control form-control-sm" type="number" min="0" value="20" />
-            </div>
-          </div>
-          <div class="d-flex justify-content-end gap-2 mt-3">
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-editor-app-action="close-page-settings">Cancel</button>
-            <button type="button" class="btn btn-sm btn-primary" data-editor-app-action="save-page-settings">Save</button>
-          </div>
-        </form>
-      </dialog>
-
-      <dialog data-editor-app-modal="document-styles" class="ve-modal">
-        <form method="dialog" class="ve-modal-content">
-          <h5 class="mb-3">Document Styles</h5>
-          <div class="mb-2">
-            <label class="form-label" for="ve-doc-font-family">Font Family</label>
-            <input id="ve-doc-font-family" class="form-control form-control-sm" placeholder="e.g., Inter, Arial, sans-serif" />
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-8">
-              <label class="form-label" for="ve-doc-font-size-value">Font Size</label>
-              <input id="ve-doc-font-size-value" class="form-control form-control-sm" type="number" min="1" step="0.1" value="12" />
-            </div>
-            <div class="col-4">
-              <label class="form-label" for="ve-doc-font-size-unit">Unit</label>
-              <select id="ve-doc-font-size-unit" class="form-select form-select-sm">
-                <option value="pt">pt</option><option value="px">px</option><option value="em">em</option><option value="rem">rem</option><option value="%">%</option>
-              </select>
-            </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="ve-doc-font-weight">Font Weight</label>
-            <select id="ve-doc-font-weight" class="form-select form-select-sm">
-              <option value="">Default</option><option value="normal">Normal</option><option value="500">500</option><option value="600">600</option><option value="bold">Bold</option>
-            </select>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label" for="ve-doc-color">Text Color</label>
-              <input id="ve-doc-color" class="form-control form-control-sm" placeholder="#000000" />
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="ve-doc-bg-color">Background Color</label>
-              <input id="ve-doc-bg-color" class="form-control form-control-sm" placeholder="#ffffff" />
-            </div>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label" for="ve-doc-line-height">Line Height</label>
-              <input id="ve-doc-line-height" class="form-control form-control-sm" type="number" min="0.8" step="0.1" value="1.5" />
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="ve-doc-text-align">Text Align</label>
-              <select id="ve-doc-text-align" class="form-select form-select-sm">
-                <option value="">Default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option>
-              </select>
-            </div>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-8">
-              <label class="form-label" for="ve-doc-letter-spacing-value">Letter Spacing</label>
-              <input id="ve-doc-letter-spacing-value" class="form-control form-control-sm" type="number" step="0.1" />
-            </div>
-            <div class="col-4">
-              <label class="form-label" for="ve-doc-letter-spacing-unit">Unit</label>
-              <select id="ve-doc-letter-spacing-unit" class="form-select form-select-sm">
-                <option value="px">px</option><option value="em">em</option><option value="rem">rem</option><option value="%">%</option>
-              </select>
-            </div>
-          </div>
-          <div class="d-flex justify-content-end gap-2 mt-3">
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-editor-app-action="close-document-styles">Cancel</button>
-            <button type="button" class="btn btn-sm btn-primary" data-editor-app-action="save-document-styles">Save</button>
-          </div>
-        </form>
-      </dialog>
-
-      <dialog data-editor-app-modal="block-styles" class="ve-modal">
-        <form method="dialog" class="ve-modal-content">
-          <h5 class="mb-3">Block Styles</h5>
-          <div class="mb-2">
-            <label class="form-label" for="ve-block-font-size">Font Size</label>
-            <input id="ve-block-font-size" class="form-control form-control-sm" placeholder="e.g., 16px" />
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="ve-block-font-weight">Font Weight</label>
-            <select id="ve-block-font-weight" class="form-select form-select-sm">
-              <option value="">Default</option><option value="normal">Normal</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="bold">Bold</option>
-            </select>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label" for="ve-block-color">Text Color</label>
-              <input id="ve-block-color" class="form-control form-control-sm" placeholder="#000000" />
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="ve-block-bg-color">Background Color</label>
-              <input id="ve-block-bg-color" class="form-control form-control-sm" placeholder="#ffffff" />
-            </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="ve-block-text-align">Text Align</label>
-            <select id="ve-block-text-align" class="form-select form-select-sm">
-              <option value="">Default</option><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option><option value="justify">Justify</option>
-            </select>
-          </div>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label" for="ve-block-padding">Padding</label>
-              <input id="ve-block-padding" class="form-control form-control-sm" placeholder="e.g., 12px" />
-            </div>
-            <div class="col-6">
-              <label class="form-label" for="ve-block-margin">Margin</label>
-              <input id="ve-block-margin" class="form-control form-control-sm" placeholder="e.g., 8px" />
-            </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="ve-block-border-radius">Border Radius</label>
-            <input id="ve-block-border-radius" class="form-control form-control-sm" placeholder="e.g., 6px" />
-          </div>
-          <div class="d-flex justify-content-between mt-3">
-            <button type="button" class="btn btn-sm btn-outline-danger" data-editor-app-action="clear-block-styles">Clear</button>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-secondary" data-editor-app-action="close-block-styles">Cancel</button>
-              <button type="button" class="btn btn-sm btn-primary" data-editor-app-action="save-block-styles">Save</button>
-            </div>
-          </div>
-        </form>
-      </dialog>
     </div>
   `;
 }
@@ -776,36 +787,60 @@ function composeValueWithUnit(
   return `${numeric}${unit}`;
 }
 
-function showDialog(dialog: HTMLDialogElement): void {
-  if (typeof dialog.showModal === "function") {
-    dialog.showModal();
-  } else {
-    dialog.setAttribute("open", "open");
+function setupShellSidebar(host: HTMLElement, editor: TemplateEditor): void {
+  const appMain = host.querySelector<HTMLElement>(".ve-app-main");
+  const styleSidebar = host.querySelector<HTMLElement>(
+    '[data-editor-app-target="styleSidebar"]',
+  );
+  const toggleSidebarButton = host.querySelector<HTMLButtonElement>(
+    '[data-editor-app-action="toggle-style-sidebar"]',
+  );
+  const documentTabButton = host.querySelector<HTMLButtonElement>(
+    '[data-editor-app-tab="document"]',
+  );
+  const blockTabButton = host.querySelector<HTMLButtonElement>(
+    '[data-editor-app-tab="block"]',
+  );
+  const documentPanel = host.querySelector<HTMLElement>(
+    '[data-editor-app-panel="document"]',
+  );
+  const blockPanel = host.querySelector<HTMLElement>(
+    '[data-editor-app-panel="block"]',
+  );
+  const noBlockSelected = host.querySelector<HTMLElement>(
+    '[data-editor-app-target="noBlockSelected"]',
+  );
+  const blockStyleFields = host.querySelector<HTMLFieldSetElement>(
+    '[data-editor-app-target="blockStyleFields"]',
+  );
+  const blockContainer = host.querySelector<HTMLElement>(
+    '[data-editor-target="blockContainer"]',
+  );
+  if (
+    !documentTabButton ||
+    !blockTabButton ||
+    !documentPanel ||
+    !blockPanel ||
+    !noBlockSelected ||
+    !blockStyleFields ||
+    !blockContainer ||
+    !appMain ||
+    !styleSidebar ||
+    !toggleSidebarButton
+  ) {
+    return;
   }
-}
 
-function closeDialog(dialog: HTMLDialogElement): void {
-  if (typeof dialog.close === "function") {
-    dialog.close();
-  } else {
-    dialog.removeAttribute("open");
-  }
-}
+  const toggleSidebar = (): void => {
+    const collapsed = appMain.classList.toggle("ve-sidebar-collapsed");
+    styleSidebar.classList.toggle("is-collapsed", collapsed);
+    toggleSidebarButton.setAttribute("aria-expanded", String(!collapsed));
+    toggleSidebarButton.title = collapsed
+      ? "Expand styles sidebar"
+      : "Collapse styles sidebar";
+  };
 
-function setupShellModals(host: HTMLElement, editor: TemplateEditor): void {
-  const pageDialog = host.querySelector<HTMLDialogElement>(
-    '[data-editor-app-modal="page-settings"]',
-  );
-  const docDialog = host.querySelector<HTMLDialogElement>(
-    '[data-editor-app-modal="document-styles"]',
-  );
-  const blockDialog = host.querySelector<HTMLDialogElement>(
-    '[data-editor-app-modal="block-styles"]',
-  );
-  if (!pageDialog || !docDialog || !blockDialog) return;
-
-  const byAction = (action: string) =>
-    host.querySelector<HTMLElement>(`[data-editor-app-action="${action}"]`);
+  toggleSidebarButton.addEventListener("click", toggleSidebar);
 
   const pageFormat = host.querySelector<HTMLSelectElement>("#ve-page-format");
   const pageOrientation = host.querySelector<HTMLSelectElement>(
@@ -816,34 +851,6 @@ function setupShellModals(host: HTMLElement, editor: TemplateEditor): void {
   const marginBottom =
     host.querySelector<HTMLInputElement>("#ve-margin-bottom");
   const marginLeft = host.querySelector<HTMLInputElement>("#ve-margin-left");
-
-  byAction("open-page-settings")?.addEventListener("click", () => {
-    const page = editor.getTemplate().pageSettings;
-    pageFormat!.value = page?.format ?? "A4";
-    pageOrientation!.value = page?.orientation ?? "portrait";
-    marginTop!.value = String(page?.margins?.top ?? 20);
-    marginRight!.value = String(page?.margins?.right ?? 20);
-    marginBottom!.value = String(page?.margins?.bottom ?? 20);
-    marginLeft!.value = String(page?.margins?.left ?? 20);
-    showDialog(pageDialog);
-  });
-  byAction("close-page-settings")?.addEventListener("click", () =>
-    closeDialog(pageDialog),
-  );
-  byAction("save-page-settings")?.addEventListener("click", () => {
-    editor.updatePageSettings({
-      format: (pageFormat?.value as "A4" | "Letter" | "Custom") ?? "A4",
-      orientation:
-        (pageOrientation?.value as "portrait" | "landscape") ?? "portrait",
-      margins: {
-        top: Number(marginTop?.value || 20),
-        right: Number(marginRight?.value || 20),
-        bottom: Number(marginBottom?.value || 20),
-        left: Number(marginLeft?.value || 20),
-      },
-    });
-    closeDialog(pageDialog);
-  });
 
   const docFontFamily = host.querySelector<HTMLInputElement>(
     "#ve-doc-font-family",
@@ -871,55 +878,6 @@ function setupShellModals(host: HTMLElement, editor: TemplateEditor): void {
     "#ve-doc-letter-spacing-unit",
   );
 
-  byAction("open-document-styles")?.addEventListener("click", () => {
-    const styles = editor.getTemplate().documentStyles ?? {};
-    const parsedFontSize = parseValueWithUnit(styles.fontSize, "pt");
-    const parsedLetterSpacing = parseValueWithUnit(styles.letterSpacing, "px");
-
-    docFontFamily!.value = styles.fontFamily ?? "";
-    docFontSizeValue!.value = parsedFontSize.value || "12";
-    docFontSizeUnit!.value = parsedFontSize.unit;
-    docFontWeight!.value = styles.fontWeight ?? "";
-    docColor!.value = styles.color ?? "#000000";
-    docBgColor!.value = styles.backgroundColor ?? "";
-    docLineHeight!.value = styles.lineHeight ?? "1.5";
-    docTextAlign!.value = styles.textAlign ?? "";
-    docLetterSpacingValue!.value = parsedLetterSpacing.value;
-    docLetterSpacingUnit!.value = parsedLetterSpacing.unit;
-
-    showDialog(docDialog);
-  });
-  byAction("close-document-styles")?.addEventListener("click", () =>
-    closeDialog(docDialog),
-  );
-  byAction("save-document-styles")?.addEventListener("click", () => {
-    const styles: Record<string, string> = {};
-    if (docFontFamily?.value.trim())
-      styles.fontFamily = docFontFamily.value.trim();
-    const fontSize = composeValueWithUnit(
-      docFontSizeValue?.value ?? "",
-      docFontSizeUnit?.value ?? "pt",
-    );
-    if (fontSize) styles.fontSize = fontSize;
-    if (docFontWeight?.value) styles.fontWeight = docFontWeight.value;
-    if (docColor?.value.trim() && docColor.value.trim() !== "#000000")
-      styles.color = docColor.value.trim();
-    if (docBgColor?.value.trim())
-      styles.backgroundColor = docBgColor.value.trim();
-    if (docLineHeight?.value.trim())
-      styles.lineHeight = docLineHeight.value.trim();
-    if (docTextAlign?.value) styles.textAlign = docTextAlign.value;
-    const letterSpacing = composeValueWithUnit(
-      docLetterSpacingValue?.value ?? "",
-      docLetterSpacingUnit?.value ?? "px",
-      true,
-    );
-    if (letterSpacing) styles.letterSpacing = letterSpacing;
-
-    editor.updateDocumentStyles(styles);
-    closeDialog(docDialog);
-  });
-
   const blockFontSize = host.querySelector<HTMLInputElement>(
     "#ve-block-font-size",
   );
@@ -939,55 +897,314 @@ function setupShellModals(host: HTMLElement, editor: TemplateEditor): void {
     "#ve-block-border-radius",
   );
 
-  byAction("open-block-styles")?.addEventListener("click", () => {
+  if (
+    !pageFormat ||
+    !pageOrientation ||
+    !marginTop ||
+    !marginRight ||
+    !marginBottom ||
+    !marginLeft ||
+    !docFontFamily ||
+    !docFontSizeValue ||
+    !docFontSizeUnit ||
+    !docFontWeight ||
+    !docColor ||
+    !docBgColor ||
+    !docLineHeight ||
+    !docTextAlign ||
+    !docLetterSpacingValue ||
+    !docLetterSpacingUnit ||
+    !blockFontSize ||
+    !blockFontWeight ||
+    !blockColor ||
+    !blockTextAlign ||
+    !blockPadding ||
+    !blockMargin ||
+    !blockBgColor ||
+    !blockBorderRadius
+  ) {
+    return;
+  }
+
+  type StyleTab = "document" | "block";
+  let pageTimer: ReturnType<typeof setTimeout> | null = null;
+  let docTimer: ReturnType<typeof setTimeout> | null = null;
+  let blockTimer: ReturnType<typeof setTimeout> | null = null;
+  let pendingBlockId: string | null = null;
+
+  const setActiveTab = (tab: StyleTab): void => {
+    documentTabButton.classList.toggle("is-active", tab === "document");
+    blockTabButton.classList.toggle("is-active", tab === "block");
+    documentPanel.classList.toggle("is-active", tab === "document");
+    blockPanel.classList.toggle("is-active", tab === "block");
+  };
+
+  const syncPageInputs = (): void => {
+    const page = editor.getTemplate().pageSettings;
+    pageFormat.value = page?.format ?? "A4";
+    pageOrientation.value = page?.orientation ?? "portrait";
+    marginTop.value = String(page?.margins?.top ?? 20);
+    marginRight.value = String(page?.margins?.right ?? 20);
+    marginBottom.value = String(page?.margins?.bottom ?? 20);
+    marginLeft.value = String(page?.margins?.left ?? 20);
+  };
+
+  const syncDocumentInputs = (): void => {
+    const styles = editor.getTemplate().documentStyles ?? {};
+    const parsedFontSize = parseValueWithUnit(styles.fontSize, "pt");
+    const parsedLetterSpacing = parseValueWithUnit(styles.letterSpacing, "px");
+
+    docFontFamily.value = styles.fontFamily ?? "";
+    docFontSizeValue.value = parsedFontSize.value || "12";
+    docFontSizeUnit.value = parsedFontSize.unit;
+    docFontWeight.value = styles.fontWeight ?? "";
+    docColor.value = styles.color ?? "";
+    docBgColor.value = styles.backgroundColor ?? "";
+    docLineHeight.value = styles.lineHeight ?? "1.5";
+    docTextAlign.value = styles.textAlign ?? "";
+    docLetterSpacingValue.value = parsedLetterSpacing.value;
+    docLetterSpacingUnit.value = parsedLetterSpacing.unit;
+  };
+
+  const clearBlockInputs = (): void => {
+    blockFontSize.value = "";
+    blockFontWeight.value = "";
+    blockColor.value = "";
+    blockTextAlign.value = "";
+    blockPadding.value = "";
+    blockMargin.value = "";
+    blockBgColor.value = "";
+    blockBorderRadius.value = "";
+  };
+
+  const syncBlockInputs = (): void => {
     const selected = editor.getSelectedBlock();
-    if (!selected) return;
+    if (!selected) {
+      noBlockSelected.style.display = "block";
+      blockStyleFields.disabled = true;
+      clearBlockInputs();
+      return;
+    }
+
+    noBlockSelected.style.display = "none";
+    blockStyleFields.disabled = false;
+
     const styles = selected.styles ?? {};
+    blockFontSize.value = String(styles.fontSize ?? "");
+    blockFontWeight.value = String(styles.fontWeight ?? "");
+    blockColor.value = String(styles.color ?? "");
+    blockTextAlign.value = String(styles.textAlign ?? "");
+    blockPadding.value = String(styles.padding ?? "");
+    blockMargin.value = String(styles.margin ?? "");
+    blockBgColor.value = String(styles.backgroundColor ?? "");
+    blockBorderRadius.value = String(styles.borderRadius ?? "");
+  };
 
-    blockFontSize!.value = String(styles.fontSize ?? "");
-    blockFontWeight!.value = String(styles.fontWeight ?? "");
-    blockColor!.value = String(styles.color ?? "");
-    blockTextAlign!.value = String(styles.textAlign ?? "");
-    blockPadding!.value = String(styles.padding ?? "");
-    blockMargin!.value = String(styles.margin ?? "");
-    blockBgColor!.value = String(styles.backgroundColor ?? "");
-    blockBorderRadius!.value = String(styles.borderRadius ?? "");
+  const applyPageSettings = (): void => {
+    editor.updatePageSettings({
+      format: (pageFormat.value as "A4" | "Letter" | "Custom") ?? "A4",
+      orientation:
+        (pageOrientation.value as "portrait" | "landscape") ?? "portrait",
+      margins: {
+        top: Number(marginTop.value || 20),
+        right: Number(marginRight.value || 20),
+        bottom: Number(marginBottom.value || 20),
+        left: Number(marginLeft.value || 20),
+      },
+    });
+  };
 
-    showDialog(blockDialog);
-  });
-  byAction("close-block-styles")?.addEventListener("click", () =>
-    closeDialog(blockDialog),
-  );
-  byAction("clear-block-styles")?.addEventListener("click", () => {
-    blockFontSize!.value = "";
-    blockFontWeight!.value = "";
-    blockColor!.value = "";
-    blockTextAlign!.value = "";
-    blockPadding!.value = "";
-    blockMargin!.value = "";
-    blockBgColor!.value = "";
-    blockBorderRadius!.value = "";
-  });
-  byAction("save-block-styles")?.addEventListener("click", () => {
-    const selected = editor.getSelectedBlock();
-    if (!selected) return;
-
+  const applyDocumentStyles = (): void => {
     const styles: Record<string, string> = {};
-    if (blockFontSize?.value.trim())
-      styles.fontSize = blockFontSize.value.trim();
-    if (blockFontWeight?.value) styles.fontWeight = blockFontWeight.value;
-    if (blockColor?.value.trim()) styles.color = blockColor.value.trim();
-    if (blockTextAlign?.value) styles.textAlign = blockTextAlign.value;
-    if (blockPadding?.value.trim()) styles.padding = blockPadding.value.trim();
-    if (blockMargin?.value.trim()) styles.margin = blockMargin.value.trim();
-    if (blockBgColor?.value.trim())
-      styles.backgroundColor = blockBgColor.value.trim();
-    if (blockBorderRadius?.value.trim())
-      styles.borderRadius = blockBorderRadius.value.trim();
+    if (docFontFamily.value.trim()) styles.fontFamily = docFontFamily.value.trim();
+    const fontSize = composeValueWithUnit(docFontSizeValue.value, docFontSizeUnit.value);
+    if (fontSize) styles.fontSize = fontSize;
+    if (docFontWeight.value) styles.fontWeight = docFontWeight.value;
+    if (docColor.value.trim() && docColor.value.trim() !== "#000000") {
+      styles.color = docColor.value.trim();
+    }
+    if (docBgColor.value.trim()) styles.backgroundColor = docBgColor.value.trim();
+    if (docLineHeight.value.trim()) styles.lineHeight = docLineHeight.value.trim();
+    if (docTextAlign.value) styles.textAlign = docTextAlign.value;
+    const letterSpacing = composeValueWithUnit(
+      docLetterSpacingValue.value,
+      docLetterSpacingUnit.value,
+      true,
+    );
+    if (letterSpacing) styles.letterSpacing = letterSpacing;
 
-    editor.updateBlock(selected.id, { styles });
-    closeDialog(blockDialog);
+    const styleEditor = editor as TemplateEditor & {
+      setDocumentStyles?: (styles: Record<string, string>) => void;
+    };
+    if (typeof styleEditor.setDocumentStyles === "function") {
+      styleEditor.setDocumentStyles(styles);
+      return;
+    }
+    editor.updateDocumentStyles(styles);
+  };
+
+  const applyBlockStyles = (expectedBlockId: string | null): void => {
+    if (!expectedBlockId) return;
+    const selected = editor.getSelectedBlock();
+    if (!selected || selected.id !== expectedBlockId) return;
+
+    const currentStyles = { ...(selected.styles ?? {}) };
+    const nextStyles: Record<string, string | number | undefined> = {
+      ...currentStyles,
+    };
+
+    nextStyles.fontSize = blockFontSize.value.trim() || undefined;
+    nextStyles.fontWeight = blockFontWeight.value || undefined;
+    nextStyles.color = blockColor.value.trim() || undefined;
+    nextStyles.textAlign = blockTextAlign.value || undefined;
+    nextStyles.padding = blockPadding.value.trim() || undefined;
+    nextStyles.margin = blockMargin.value.trim() || undefined;
+    nextStyles.backgroundColor = blockBgColor.value.trim() || undefined;
+    nextStyles.borderRadius = blockBorderRadius.value.trim() || undefined;
+
+    const normalized = Object.fromEntries(
+      Object.entries(nextStyles).filter(([, value]) => value !== undefined),
+    );
+    editor.updateBlock(selected.id, { styles: normalized });
+  };
+
+  const debounce = (
+    timerRef: "page" | "doc" | "block",
+    callback: () => void,
+    blockId?: string | null,
+  ): void => {
+    const clearTimer = (timer: ReturnType<typeof setTimeout> | null): null => {
+      if (timer) clearTimeout(timer);
+      return null;
+    };
+
+    if (timerRef === "page") {
+      pageTimer = clearTimer(pageTimer);
+      pageTimer = setTimeout(() => {
+        pageTimer = null;
+        callback();
+      }, 250);
+      return;
+    }
+
+    if (timerRef === "doc") {
+      docTimer = clearTimer(docTimer);
+      docTimer = setTimeout(() => {
+        docTimer = null;
+        callback();
+      }, 250);
+      return;
+    }
+
+    blockTimer = clearTimer(blockTimer);
+    pendingBlockId = blockId ?? null;
+    blockTimer = setTimeout(() => {
+      blockTimer = null;
+      callback();
+    }, 250);
+  };
+
+  const flushTimers = (): void => {
+    if (pageTimer) {
+      clearTimeout(pageTimer);
+      pageTimer = null;
+      applyPageSettings();
+    }
+    if (docTimer) {
+      clearTimeout(docTimer);
+      docTimer = null;
+      applyDocumentStyles();
+    }
+    if (blockTimer) {
+      clearTimeout(blockTimer);
+      blockTimer = null;
+      applyBlockStyles(pendingBlockId);
+      pendingBlockId = null;
+    }
+  };
+
+  documentTabButton.addEventListener("click", () => setActiveTab("document"));
+  blockTabButton.addEventListener("click", () => setActiveTab("block"));
+
+  blockContainer.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-block-id]")) return;
+    editor.selectBlock(null);
   });
+
+  const onPageInput = () => debounce("page", applyPageSettings);
+  const onDocInput = () => debounce("doc", applyDocumentStyles);
+  const onBlockInput = () => {
+    const selectedId = editor.getState().selectedBlockId;
+    debounce("block", () => applyBlockStyles(selectedId), selectedId);
+  };
+
+  for (const input of [
+    pageFormat,
+    pageOrientation,
+    marginTop,
+    marginRight,
+    marginBottom,
+    marginLeft,
+  ]) {
+    input.addEventListener("input", onPageInput);
+    input.addEventListener("change", onPageInput);
+    input.addEventListener("blur", flushTimers);
+  }
+
+  for (const input of [
+    docFontFamily,
+    docFontSizeValue,
+    docFontSizeUnit,
+    docFontWeight,
+    docColor,
+    docBgColor,
+    docLineHeight,
+    docTextAlign,
+    docLetterSpacingValue,
+    docLetterSpacingUnit,
+  ]) {
+    input.addEventListener("input", onDocInput);
+    input.addEventListener("change", onDocInput);
+    input.addEventListener("blur", flushTimers);
+  }
+
+  for (const input of [
+    blockFontSize,
+    blockFontWeight,
+    blockColor,
+    blockTextAlign,
+    blockPadding,
+    blockMargin,
+    blockBgColor,
+    blockBorderRadius,
+  ]) {
+    input.addEventListener("input", onBlockInput);
+    input.addEventListener("change", onBlockInput);
+    input.addEventListener("blur", flushTimers);
+  }
+
+  host
+    .querySelector<HTMLElement>('[data-editor-app-action="clear-block-styles"]')
+    ?.addEventListener("click", () => {
+      clearBlockInputs();
+      const selectedId = editor.getState().selectedBlockId;
+      applyBlockStyles(selectedId);
+    });
+
+  editor.subscribe((state) => {
+    if (state.selectedBlockId) {
+      setActiveTab("block");
+    } else {
+      setActiveTab("document");
+    }
+    syncBlockInputs();
+  });
+
+  syncPageInputs();
+  syncDocumentInputs();
+  syncBlockInputs();
+  setActiveTab(editor.getState().selectedBlockId ? "block" : "document");
 }
 
 /** Resolve a container string or element to an HTMLElement. */
