@@ -99,6 +99,25 @@ export function formatForPreview(value: unknown): string {
 }
 
 /**
+ * Validates that an evaluated expression result is an array.
+ * Intended as a `resultValidator` for loop expression dialogs.
+ *
+ * Returns an error message if the value is not an array, null if valid.
+ * `undefined` results (missing path) are not flagged since the expression
+ * may be valid with different data.
+ *
+ * Note: JSONata unwraps single-result filters (e.g., `items[x=1]` returns
+ * the object directly when only one item matches). We still flag this since
+ * the loop expression should consistently return an array.
+ */
+export function validateArrayResult(value: unknown): string | null {
+  if (value === undefined) return null
+  if (Array.isArray(value)) return null
+  const type = value === null ? 'null' : typeof value
+  return `Loop expression must evaluate to an array, got ${type}: ${formatForPreview(value)}`
+}
+
+/**
  * Synchronous parse-only check. Returns `true` if the expression is
  * syntactically valid JSONata (does NOT evaluate it).
  *

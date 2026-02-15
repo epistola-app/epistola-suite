@@ -5,6 +5,7 @@ import {
   tryEvaluateExpression,
   formatForPreview,
   isValidExpression,
+  validateArrayResult,
 } from './resolve-expression.js'
 
 // ---------------------------------------------------------------------------
@@ -276,5 +277,53 @@ describe('isValidExpression', () => {
 
   it('returns false for whitespace-only expression', () => {
     expect(isValidExpression('   ')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// validateArrayResult
+// ---------------------------------------------------------------------------
+
+describe('validateArrayResult', () => {
+  it('returns null for an array', () => {
+    expect(validateArrayResult([1, 2, 3])).toBeNull()
+  })
+
+  it('returns null for an empty array', () => {
+    expect(validateArrayResult([])).toBeNull()
+  })
+
+  it('returns null for undefined (missing path)', () => {
+    expect(validateArrayResult(undefined)).toBeNull()
+  })
+
+  it('returns error for a string', () => {
+    const result = validateArrayResult('hello')
+    expect(result).toContain('must evaluate to an array')
+    expect(result).toContain('string')
+  })
+
+  it('returns error for a number', () => {
+    const result = validateArrayResult(42)
+    expect(result).toContain('must evaluate to an array')
+    expect(result).toContain('number')
+  })
+
+  it('returns error for a boolean', () => {
+    const result = validateArrayResult(true)
+    expect(result).toContain('must evaluate to an array')
+    expect(result).toContain('boolean')
+  })
+
+  it('returns error for null', () => {
+    const result = validateArrayResult(null)
+    expect(result).toContain('must evaluate to an array')
+    expect(result).toContain('null')
+  })
+
+  it('returns error for an object (single-result filter)', () => {
+    const result = validateArrayResult({ name: 'item' })
+    expect(result).toContain('must evaluate to an array')
+    expect(result).toContain('object')
   })
 })

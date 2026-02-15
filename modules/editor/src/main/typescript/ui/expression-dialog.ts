@@ -43,6 +43,12 @@ export interface ExpressionDialogOptions {
   placeholder?: string
   /** Optional filter to highlight certain field paths (e.g., array fields for loops). */
   fieldPathFilter?: (fp: FieldPath) => boolean
+  /**
+   * Optional validator for the evaluated result.
+   * Return an error message string if the result is invalid, or null if valid.
+   * Called after successful evaluation — not called on parse errors or missing data.
+   */
+  resultValidator?: (value: unknown) => string | null
 }
 
 export interface ExpressionDialogResult {
@@ -63,6 +69,7 @@ export function openExpressionDialog(options: ExpressionDialogOptions): Promise<
       label = 'Expression',
       placeholder = 'e.g. customer.name',
       fieldPathFilter,
+      resultValidator,
     } = options
 
     let previewTimer: ReturnType<typeof setTimeout> | null = null
@@ -130,7 +137,7 @@ export function openExpressionDialog(options: ExpressionDialogOptions): Promise<
         return
       }
       previewTimer = setTimeout(() => {
-        updatePreview(val, previewEl, getExampleData, () => ++previewGeneration, () => previewGeneration)
+        updatePreview(val, previewEl, getExampleData, () => ++previewGeneration, () => previewGeneration, resultValidator)
       }, 250)
     }
 
@@ -180,7 +187,7 @@ export function openExpressionDialog(options: ExpressionDialogOptions): Promise<
     // Initial validation + preview
     if (initialValue) {
       applyValidation()
-      updatePreview(initialValue, previewEl, getExampleData, () => ++previewGeneration, () => previewGeneration)
+      updatePreview(initialValue, previewEl, getExampleData, () => ++previewGeneration, () => previewGeneration, resultValidator)
     }
   })
 }
@@ -290,6 +297,7 @@ function updatePreview(
   getExampleData: (() => Record<string, unknown> | undefined) | undefined,
   incrementGeneration: () => number,
   getGeneration: () => number,
+  resultValidator?: (value: unknown) => string | null,
 ): void {
   const data = getExampleData?.()
   if (!data) {
@@ -305,8 +313,15 @@ function updatePreview(
 
     previewEl.style.display = ''
     if (result.ok) {
-      previewEl.className = 'expression-dialog-preview success'
-      previewEl.textContent = `Preview: ${formatForPreview(result.value)}`
+      // Run result validator if provided (e.g., loop expressions must be arrays)
+      const validationError = resultValidator?.(result.value)
+      if (validationError) {
+        previewEl.className = 'expression-dialog-preview error'
+        previewEl.textContent = validationError
+      } else {
+        previewEl.className = 'expression-dialog-preview success'
+        previewEl.textContent = `Preview: ${formatForPreview(result.value)}`
+      }
     } else {
       previewEl.className = 'expression-dialog-preview error'
       previewEl.textContent = result.error
