@@ -1,7 +1,7 @@
 /*
  * Epistola Design System — Base Layer
  *
- * Box-sizing reset and element defaults.
+ * Box-sizing reset, element defaults, and global focus-visible ring.
  * Keep this minimal — only universal resets belong here.
  */
 
@@ -12,6 +12,39 @@
     box-sizing: border-box;
   }
 
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--ep-font-sans);
+    font-size: var(--ep-text-base);
+    line-height: var(--ep-leading-normal);
+    color: var(--ep-foreground);
+    background-color: var(--ep-background);
+  }
+
+  /* Selection highlight */
+  ::selection {
+    background-color: var(--ep-blue-200);
+    color: var(--ep-blue-900);
+  }
+
+  /* Global focus-visible ring */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--ep-ring);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+  }
+
+  /* Button resets */
   button {
     cursor: pointer;
     font: inherit;
@@ -21,8 +54,59 @@
     margin: 0;
   }
 
+  /* Form control resets */
   input,
-  select {
+  select,
+  textarea {
     font: inherit;
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: var(--ep-tracking-tight);
+    line-height: var(--ep-leading-tight);
+    color: var(--ep-foreground);
+    margin: 0;
+  }
+
+  h1 { font-size: var(--ep-text-3xl); }
+  h2 { font-size: var(--ep-text-2xl); }
+  h3 { font-size: var(--ep-text-xl); }
+  h4 { font-size: var(--ep-text-lg); }
+
+  /* Links */
+  a {
+    color: var(--ep-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  /* Separator */
+  hr {
+    border: none;
+    border-top: 1px solid var(--ep-border-color);
+    margin: var(--ep-space-4) 0;
+  }
+
+  /* Inline code */
+  code {
+    font-family: var(--ep-font-mono);
+    font-size: 0.875em;
+    background-color: var(--ep-muted);
+    padding: 0.125em 0.375em;
+    border-radius: var(--ep-radius-sm);
+  }
+
+  /* Paragraph spacing */
+  p {
+    margin: 0 0 var(--ep-space-4) 0;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
   }
 }
