@@ -354,6 +354,7 @@
         "type": "columns",
         "slots": ["s-header-col-0", "s-header-col-1"],
         "props": {
+          "columnSizes": [1, 1],
           "gap": 20
         }
       },
@@ -951,6 +952,7 @@
         "type": "columns",
         "slots": ["s-totals-col-0", "s-totals-col-1"],
         "props": {
+          "columnSizes": [1, 1],
           "gap": 20
         }
       },
