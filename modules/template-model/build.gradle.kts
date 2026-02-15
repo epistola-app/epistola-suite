@@ -44,9 +44,13 @@ configure<JSONSchemaCodegen> {
 // Remove generated types that need manual definitions:
 // - DocumentStyles: open map type (Map<String, Any>) which the codegen can't express
 // - Expression: needs a default value for `language` (jsonata) which the codegen can't express
+// - TemplateDocument: codegen produces empty inner classes for nodes/slots maps, not Map<String, Node>
+// - ThemeRef: codegen names subtypes A/B instead of Inherit/Override
 val removeGeneratedOverrides by tasks.registering(Delete::class) {
     delete(generatedSrcDir.map { it.file("app/epistola/template/model/DocumentStyles.kt") })
     delete(generatedSrcDir.map { it.file("app/epistola/template/model/Expression.kt") })
+    delete(generatedSrcDir.map { it.file("app/epistola/template/model/TemplateDocument.kt") })
+    delete(generatedSrcDir.map { it.file("app/epistola/template/model/ThemeRef.kt") })
 }
 
 tasks.named("generate") {
