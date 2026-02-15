@@ -55,7 +55,7 @@ class SecurityConfig(
                     // Public endpoints
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
                 if (hasOAuth2) {
                     authorize.requestMatchers("/oauth2/**").permitAll()

@@ -43,10 +43,7 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" required placeholder="Password">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">
-                        <th:block th:replace="~{fragments/icon :: icon(name='log-in', class='ep-icon')}" />
-                        Sign In
-                    </button>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
                 </form>
 
                 <div th:unless="${param.popup != null}" class="alert alert-warning" style="margin-top: var(--ep-space-6);">
