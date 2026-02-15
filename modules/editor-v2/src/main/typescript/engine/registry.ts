@@ -187,7 +187,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register({
     type: 'columns',
     label: 'Columns',
-    icon: 'columns',
+    icon: 'columns-2',
     category: 'layout',
     slots: [{ name: 'column-{i}', dynamic: true }],
     allowedChildren: { mode: 'all' },

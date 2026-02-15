@@ -1,5 +1,8 @@
 /*
  * Editor Layout — shell grid and panel sizing
+ *
+ * Uses a 1px background-color trick on editor-main to create
+ * consistent "borders" between panels without extra elements.
  */
 
 @layer layout {
@@ -9,7 +12,8 @@
     height: 100%;
     width: 100%;
     background: var(--ep-white);
-    color: var(--ep-gray-900);
+    color: var(--ep-foreground);
+    font-family: var(--ep-font-sans);
   }
 
   .editor-empty {
@@ -17,40 +21,43 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: var(--ep-gray-500);
+    color: var(--ep-muted-foreground);
   }
 
   .editor-main {
     display: flex;
     flex: 1;
     overflow: hidden;
+    /* 1px gap trick: gray background shows through as panel dividers */
+    gap: 1px;
+    background: var(--ep-gray-200);
   }
 
   /* Panel sizing applied to custom element tags */
   epistola-palette {
     width: var(--ep-palette-width);
-    border-right: var(--ep-border);
     overflow-y: auto;
     flex-shrink: 0;
+    background: var(--ep-white);
   }
 
   epistola-tree {
     width: var(--ep-tree-width);
-    border-right: var(--ep-border);
     overflow-y: auto;
     flex-shrink: 0;
+    background: var(--ep-white);
   }
 
   epistola-canvas {
     flex: 1;
     overflow: auto;
-    background: var(--ep-gray-50);
+    background: var(--ep-gray-100);
   }
 
   epistola-inspector {
     width: var(--ep-inspector-width);
-    border-left: var(--ep-border);
     overflow-y: auto;
     flex-shrink: 0;
+    background: var(--ep-white);
   }
 }

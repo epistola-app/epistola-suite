@@ -30,6 +30,7 @@ const ICONS = {
   'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   'grip-vertical': '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+  'type': '<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/>',
 } as const satisfies Record<string, string>
 
 /**

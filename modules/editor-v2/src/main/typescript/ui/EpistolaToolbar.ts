@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
+import { icon } from './icons.js'
 
 @customElement('epistola-toolbar')
 export class EpistolaToolbar extends LitElement {
@@ -75,6 +76,8 @@ export class EpistolaToolbar extends LitElement {
       <div class="epistola-toolbar">
         <span class="toolbar-title">Template Editor</span>
 
+        <div class="toolbar-separator"></div>
+
         <div class="toolbar-actions">
           <button
             class="toolbar-btn"
@@ -82,7 +85,7 @@ export class EpistolaToolbar extends LitElement {
             @click=${this._handleUndo}
             title="Undo (Ctrl+Z)"
           >
-            Undo
+            ${icon('undo-2')} Undo
           </button>
           <button
             class="toolbar-btn"
@@ -90,7 +93,7 @@ export class EpistolaToolbar extends LitElement {
             @click=${this._handleRedo}
             title="Redo (Ctrl+Shift+Z)"
           >
-            Redo
+            ${icon('redo-2')} Redo
           </button>
         </div>
 
