@@ -9,8 +9,8 @@
 | **2. Minimal UI** | **Done** | Shell, tree, canvas, palette, inspector, toolbar, DnD (canvas + tree). |
 | **2.x Design System** | **Done** | Shared `modules/design-system/` extracted (not in original plan). |
 | **3. Styles + Themes** | **Done** | Style registry, resolver, engine integration, inspector UI, canvas rendering. |
-| **4. Rich Text** | Not started | |
-| **5. Preview** | Not started | |
+| **4. Rich Text** | **Done** | ProseMirror integration, expression chips, bubble menu, input rules. |
+| **5. Preview** | **Done** | PDF preview panel with resize, toggle, debounced fetch, stub callback. |
 | **6. Save + Publish** | Not started | |
 | **7. Backend Adaptation** | Not started | |
 | **8. Cleanup** | Not started | |
@@ -235,27 +235,32 @@ type ThemeRef =
 - Respect style policy per block type
 - Show inherited vs. overridden indicators
 
-### Phase 4: Rich Text — NOT STARTED
+### Phase 4: Rich Text — DONE ✅
 
-**4.1 — TipTap integration**
-- Mount TipTap (core, no React wrapper) inside text node on canvas
-- Port `ExpressionNode` extension from V1
-- On blur/debounce: dispatch `UpdateNodeProps` with `content: editor.getJSON()`
-- Separate undo stack while TipTap is focused
+**4.1 — ProseMirror integration** ✅
+- Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks
+- Full JSON compatibility with existing backend converter
+- ExpressionNode extension ported as inline chips
+- Debounced content sync with engine, undo delegation
 
-**4.2 — Text toolbar**
-- Formatting: bold, italic, underline, strike, heading, lists, expression insert
+**4.2 — Text toolbar (bubble menu)** ✅
+- Floating bubble menu: bold, italic, underline, strikethrough, headings, lists, expressions
+- Heading input rules (# , ## , ### )
+- Expression editor dialog with field path autocomplete
 
-### Phase 5: Preview — NOT STARTED
+### Phase 5: Preview — DONE ✅
 
-**5.1 — Client-side preview engine**
-- JSONata expression evaluation
-- Conditional show/hide, loop expansion
-- Apply resolved styles, render as HTML
+**5.1 — PreviewService** ✅
+- Pure TS class: debounced scheduling, AbortController management, blob URL lifecycle
+- State machine: idle → loading → success/error
+- 12 unit tests covering all transitions
 
-**5.2 — Preview panel + PDF**
-- `<epistola-preview>`: example selector, HTML preview
-- Backend PDF preview endpoint integration
+**5.2 — Preview panel** ✅
+- `<epistola-preview>`: subscribes to `doc:change` / `example:change`, renders iframe with blob URL
+- `<epistola-resize-handle>`: pointer-drag sets `--ep-preview-width`, persisted to localStorage
+- Toggle button in toolbar, open/close state persisted to localStorage
+- `onFetchPreview` callback in `EditorOptions` — host page owns HTTP, editor owns lifecycle
+- Stub callback wired in `editor.html` (calls backend preview endpoint; real PDF depends on Phase 7)
 
 ### Phase 6: Save + Publish — NOT STARTED
 

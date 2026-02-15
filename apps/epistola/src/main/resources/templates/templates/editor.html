@@ -236,6 +236,34 @@
                     return { success: false };
                 }
             },
+            onFetchPreview: async (doc, data, signal) => {
+                try {
+                    const response = await fetch(
+                        '/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/preview',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/pdf',
+                                'X-XSRF-TOKEN': window.getCsrfToken(),
+                            },
+                            body: JSON.stringify({ templateModel: doc, data: data }),
+                            signal: signal,
+                        }
+                    );
+
+                    if (!response.ok) {
+                        const text = await response.text().catch(() => response.statusText);
+                        throw new Error('Preview failed: ' + text);
+                    }
+
+                    return await response.blob();
+                } catch (error) {
+                    if (error.name === 'AbortError') throw error;
+                    console.error('Preview fetch error:', error);
+                    throw error;
+                }
+            },
             onValidateSchema: async (schema, examples) => {
                 try {
                     const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/validate-schema', {

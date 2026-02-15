@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: PDF preview panel** (Phase 5): Resizable panel next to the canvas that displays server-rendered PDF previews
+  - **PreviewService**: Pure TypeScript class managing debounced fetch scheduling, AbortController for in-flight cancellation, blob URL lifecycle (creation/revocation), and a state machine (idle → loading → success/error). 12 unit tests cover all transitions.
+  - **EpistolaPreview**: Lit component subscribing to `doc:change` and `example:change` events, rendering an iframe with blob URL on success, or loading/error/idle placeholder states with retry button
+  - **EpistolaResizeHandle**: Pointer-event drag handle setting `--ep-preview-width` CSS variable on `.editor-main`, with min 200px / max 800px constraints, persisted to localStorage
+  - **Toolbar toggle**: Eye/eye-off button in toolbar dispatches `toggle-preview` event, open/close state persisted to localStorage
+  - **EditorOptions.onFetchPreview**: Callback pattern where the host page owns the HTTP request (CSRF, URL, format conversion) and the editor owns debounce/abort/blob lifecycle
+  - **Stub callback**: `editor.html` wired with `onFetchPreview` that calls the backend preview endpoint — real PDF rendering depends on Phase 7 backend adaptation
+  - 5 new Lucide icons: eye, eye-off, loader-2, alert-circle, refresh-cw
 - **Editor V2: Resolved expression values in chips**: Expression chips now show the resolved value from the currently selected data example (e.g., "John Doe" instead of `{{customer.name}}`). Falls back to showing the raw expression when no data example is selected, the expression evaluates to undefined/null/empty, or the result is a non-displayable type (object/array). Uses JSONata for full expression evaluation support including aggregations, string concatenation, and conditionals. Hovering a resolved chip shows the expression path in a tooltip. Switching data examples refreshes all chips asynchronously with a generation counter to prevent stale results.
 
 ### Changed
