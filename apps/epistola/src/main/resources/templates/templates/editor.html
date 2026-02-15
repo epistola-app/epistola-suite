@@ -76,7 +76,7 @@
                             'Accept': 'application/pdf',
                             'X-XSRF-TOKEN': window.getCsrfToken(),
                         },
-                        body: JSON.stringify({ templateModel: doc, data: data }),
+                        body: JSON.stringify({ templateModel: doc, data: data?.data ?? data }),
                         signal: signal,
                     }
                 );
