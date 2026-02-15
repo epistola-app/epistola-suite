@@ -29,6 +29,7 @@ export class EpistolaEditor extends LitElement {
   private _engine?: EditorEngine
   private _unsubEngine?: () => void
   private _unsubSelection?: () => void
+  private _onKeydown = this._handleKeydown.bind(this)
 
   @state() private _doc?: TemplateDocument
   @state() private _selectedNodeId: NodeId | null = null
@@ -65,10 +66,38 @@ export class EpistolaEditor extends LitElement {
     })
   }
 
+  override connectedCallback(): void {
+    super.connectedCallback()
+    this.addEventListener('keydown', this._onKeydown)
+  }
+
   override disconnectedCallback(): void {
+    this.removeEventListener('keydown', this._onKeydown)
     super.disconnectedCallback()
     this._unsubEngine?.()
     this._unsubSelection?.()
+  }
+
+  /**
+   * Global keyboard handler for engine-level undo/redo.
+   * Only fires when the event is NOT coming from a ProseMirror editor
+   * (PM handles its own Cmd+Z via the history plugin).
+   */
+  private _handleKeydown(e: KeyboardEvent): void {
+    if (!this._engine) return
+    const mod = e.metaKey || e.ctrlKey
+    if (!mod) return
+
+    // Skip if focus is inside a ProseMirror editor — PM handles its own undo
+    if ((e.target as HTMLElement)?.closest('.ProseMirror')) return
+
+    if (e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      this._engine.undo()
+    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+      e.preventDefault()
+      this._engine.redo()
+    }
   }
 
   override render() {
