@@ -39,8 +39,6 @@ export class EpistolaInspector extends LitElement {
 
     return html`
       <div class="epistola-inspector">
-        <div class="panel-heading">Inspector</div>
-
         <!-- Node info -->
         <div class="inspector-node-info">
           <div class="inspector-node-label">${def?.label ?? node.type}</div>
@@ -87,8 +85,6 @@ export class EpistolaInspector extends LitElement {
 
     return html`
       <div class="epistola-inspector">
-        <div class="panel-heading">Document</div>
-
         <!-- Document styles (inheritable only) -->
         ${this._renderDocumentStyleGroups()}
 

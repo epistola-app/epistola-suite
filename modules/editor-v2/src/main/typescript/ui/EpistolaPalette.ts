@@ -106,8 +106,6 @@ export class EpistolaPalette extends LitElement {
 
     return html`
       <div class="epistola-palette">
-        <div class="panel-heading">Blocks</div>
-
         ${CATEGORY_ORDER.map(cat => {
           const items = grouped.get(cat)
           if (!items || items.length === 0) return ''

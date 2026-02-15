@@ -5,10 +5,8 @@ import { EditorEngine } from '../engine/EditorEngine.js'
 import { createDefaultRegistry } from '../engine/registry.js'
 import type { ComponentRegistry } from '../engine/registry.js'
 
-import './EpistolaTree.js'
+import './EpistolaSidebar.js'
 import './EpistolaCanvas.js'
-import './EpistolaInspector.js'
-import './EpistolaPalette.js'
 import './EpistolaToolbar.js'
 
 /**
@@ -109,33 +107,19 @@ export class EpistolaEditor extends LitElement {
           .engine=${this._engine}
         ></epistola-toolbar>
 
-        <!-- Main layout: palette | tree | canvas | inspector -->
+        <!-- Main layout: sidebar | canvas -->
         <div class="editor-main">
-          <!-- Palette -->
-          <epistola-palette
-            .engine=${this._engine}
-          ></epistola-palette>
-
-          <!-- Tree -->
-          <epistola-tree
+          <epistola-sidebar
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
-          ></epistola-tree>
+          ></epistola-sidebar>
 
-          <!-- Canvas -->
           <epistola-canvas
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
           ></epistola-canvas>
-
-          <!-- Inspector -->
-          <epistola-inspector
-            .engine=${this._engine}
-            .doc=${this._doc}
-            .selectedNodeId=${this._selectedNodeId}
-          ></epistola-inspector>
         </div>
       </div>
     `

@@ -214,7 +214,6 @@ export class EpistolaTree extends LitElement {
 
     return html`
       <div class="epistola-tree">
-        <div class="panel-heading">Structure</div>
         ${this._renderNode(this.doc.root, 0)}
       </div>
     `

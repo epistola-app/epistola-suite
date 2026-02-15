@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **Editor V2: Merged palette, tree, and inspector into tabbed sidebar**: Combined the three separate tool panels (palette, tree, inspector) into a single left-side `<epistola-sidebar>` component with tabs (Blocks, Structure, Inspector/Document). This reduces horizontal space usage and simplifies the layout from `palette | tree | canvas | inspector` to `sidebar | canvas`. Inspector tab label dynamically shows "Document" when no node is selected. Only the active panel is rendered in the DOM, ensuring proper DnD lifecycle management.
+
+### Changed
 - **Comprehensive UI redesign with shadcn/ui-inspired design system**: Unified visual language across the entire application (main app and editor-v2) targeting modern, polished aesthetics
   - **Design system**: Enhanced tokens with complete color palettes (blue 50-900, amber, purple, green), semantic aliases, 5-level shadows, ring-based focus system, transition tokens, Inter font
   - **Base resets**: Antialiased rendering, global focus-visible ring, improved heading/link/paragraph defaults

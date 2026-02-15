@@ -1,0 +1,60 @@
+/*
+ * Editor Sidebar — tabbed container for Blocks, Structure, and Inspector panels
+ *
+ * Single left sidebar replaces three separate panels, saving horizontal space.
+ * Tab bar at the top, scrollable content area below.
+ */
+
+@layer components {
+  epistola-sidebar {
+    width: var(--ep-sidebar-width);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--ep-white);
+  }
+
+  .epistola-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .sidebar-tabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--ep-gray-200);
+  }
+
+  .sidebar-tab {
+    flex: 1;
+    padding: var(--ep-space-2) var(--ep-space-2);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--ep-tracking-wider);
+    color: var(--ep-gray-400);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition:
+      color var(--ep-transition-fast),
+      border-color var(--ep-transition-fast);
+
+    &:hover {
+      color: var(--ep-gray-600);
+    }
+
+    &.active {
+      color: var(--ep-primary);
+      border-bottom-color: var(--ep-primary);
+    }
+  }
+
+  .sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+  }
+}

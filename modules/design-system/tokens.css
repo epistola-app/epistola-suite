@@ -180,8 +180,6 @@
   --ep-z-modal: 50;
   --ep-z-tooltip: 60;
 
-  /* ── Panel widths (editor-specific, kept here for central reference) ── */
-  --ep-palette-width: 12rem;
-  --ep-tree-width: 14rem;
-  --ep-inspector-width: 18rem;
+  /* ── Sidebar width (editor-specific, kept here for central reference) ── */
+  --ep-sidebar-width: 18rem;
 }

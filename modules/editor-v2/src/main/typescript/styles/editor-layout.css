@@ -33,31 +33,9 @@
     background: var(--ep-gray-200);
   }
 
-  /* Panel sizing applied to custom element tags */
-  epistola-palette {
-    width: var(--ep-palette-width);
-    overflow-y: auto;
-    flex-shrink: 0;
-    background: var(--ep-white);
-  }
-
-  epistola-tree {
-    width: var(--ep-tree-width);
-    overflow-y: auto;
-    flex-shrink: 0;
-    background: var(--ep-white);
-  }
-
   epistola-canvas {
     flex: 1;
     overflow: auto;
     background: var(--ep-gray-100);
-  }
-
-  epistola-inspector {
-    width: var(--ep-inspector-width);
-    overflow-y: auto;
-    flex-shrink: 0;
-    background: var(--ep-white);
   }
 }
