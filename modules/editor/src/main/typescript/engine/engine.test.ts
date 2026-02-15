@@ -533,6 +533,248 @@ describe('UpdateNodeStyles', () => {
 })
 
 // ---------------------------------------------------------------------------
+// AddColumnSlot / RemoveColumnSlot
+// ---------------------------------------------------------------------------
+
+describe('AddColumnSlot', () => {
+  it('adds a column slot to a columns node', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert a columns node
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: columnsNode,
+      slots: columnsSlots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    expect(engine.doc.nodes[columnsNode.id].slots).toHaveLength(2)
+    expect(engine.doc.nodes[columnsNode.id].props?.columnSizes).toEqual([1, 1])
+
+    // Add a third column
+    const result = engine.dispatch({
+      type: 'AddColumnSlot',
+      nodeId: columnsNode.id,
+      size: 2,
+    })
+
+    expect(result.ok).toBe(true)
+    const updatedNode = engine.doc.nodes[columnsNode.id]
+    expect(updatedNode.slots).toHaveLength(3)
+    expect(updatedNode.props?.columnSizes).toEqual([1, 1, 2])
+
+    // Verify the new slot exists
+    const newSlotId = updatedNode.slots[2]
+    const newSlot = engine.doc.slots[newSlotId]
+    expect(newSlot).toBeDefined()
+    expect(newSlot.name).toBe('column-2')
+    expect(newSlot.nodeId).toBe(columnsNode.id)
+    expect(newSlot.children).toEqual([])
+  })
+
+  it('rejects adding to non-columns node', () => {
+    const registry = createDefaultRegistry()
+    const { doc, containerNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const result = engine.dispatch({
+      type: 'AddColumnSlot',
+      nodeId: containerNodeId,
+      size: 1,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain('columns')
+  })
+})
+
+describe('RemoveColumnSlot', () => {
+  it('removes the last column slot', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert a columns node (starts with 2 columns)
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: columnsNode,
+      slots: columnsSlots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    // Add a third column
+    engine.dispatch({
+      type: 'AddColumnSlot',
+      nodeId: columnsNode.id,
+      size: 2,
+    })
+    expect(engine.doc.nodes[columnsNode.id].slots).toHaveLength(3)
+
+    // Remove the last column
+    const result = engine.dispatch({
+      type: 'RemoveColumnSlot',
+      nodeId: columnsNode.id,
+    })
+
+    expect(result.ok).toBe(true)
+    const updatedNode = engine.doc.nodes[columnsNode.id]
+    expect(updatedNode.slots).toHaveLength(2)
+    expect(updatedNode.props?.columnSizes).toEqual([1, 1])
+  })
+
+  it('rejects removing the last remaining column', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert a columns node (2 columns)
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: columnsNode,
+      slots: columnsSlots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    // Remove one column (leaving 1)
+    engine.dispatch({ type: 'RemoveColumnSlot', nodeId: columnsNode.id })
+
+    // Try to remove the last one
+    const result = engine.dispatch({ type: 'RemoveColumnSlot', nodeId: columnsNode.id })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain('last column')
+  })
+
+  it('removes children in the removed column slot', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert columns
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: columnsNode,
+      slots: columnsSlots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    // Insert a text node into the second column
+    const secondSlotId = engine.doc.nodes[columnsNode.id].slots[1]
+    const { node: textNode, slots: textSlots } = registry.createNode('text')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: textNode,
+      slots: textSlots,
+      targetSlotId: secondSlotId,
+      index: -1,
+    })
+    expect(engine.doc.nodes[textNode.id]).toBeDefined()
+
+    // Remove the second column
+    const result = engine.dispatch({
+      type: 'RemoveColumnSlot',
+      nodeId: columnsNode.id,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(engine.doc.nodes[textNode.id]).toBeUndefined()
+    expect(engine.doc.slots[secondSlotId]).toBeUndefined()
+  })
+
+  it('undo restores the removed column with its children', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert columns
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: columnsNode,
+      slots: columnsSlots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    // Insert a text node into the second column
+    const secondSlotId = engine.doc.nodes[columnsNode.id].slots[1]
+    const { node: textNode, slots: textSlots } = registry.createNode('text')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: textNode,
+      slots: textSlots,
+      targetSlotId: secondSlotId,
+      index: -1,
+    })
+
+    // Remove the second column
+    engine.dispatch({ type: 'RemoveColumnSlot', nodeId: columnsNode.id })
+    expect(engine.doc.nodes[textNode.id]).toBeUndefined()
+
+    // Undo
+    engine.undo()
+
+    // Column and text node should be restored
+    const restored = engine.doc.nodes[columnsNode.id]
+    expect(restored.slots).toHaveLength(2)
+    expect(restored.props?.columnSizes).toEqual([1, 1])
+    expect(engine.doc.nodes[textNode.id]).toBeDefined()
+    expect(engine.doc.slots[secondSlotId]).toBeDefined()
+    expect(engine.doc.slots[secondSlotId].children).toContain(textNode.id)
+  })
+
+  it('undo/redo cycle for AddColumnSlot', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Insert columns
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns')
+    engine.dispatch({
+      type: 'InsertNode',
+      node: columnsNode,
+      slots: columnsSlots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    // Add a third column
+    engine.dispatch({
+      type: 'AddColumnSlot',
+      nodeId: columnsNode.id,
+      size: 3,
+    })
+    expect(engine.doc.nodes[columnsNode.id].slots).toHaveLength(3)
+
+    // Undo
+    engine.undo()
+    expect(engine.doc.nodes[columnsNode.id].slots).toHaveLength(2)
+    expect(engine.doc.nodes[columnsNode.id].props?.columnSizes).toEqual([1, 1])
+
+    // Redo
+    engine.redo()
+    expect(engine.doc.nodes[columnsNode.id].slots).toHaveLength(3)
+    expect(engine.doc.nodes[columnsNode.id].props?.columnSizes).toEqual([1, 1, 3])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // SetStylePreset
 // ---------------------------------------------------------------------------
 
@@ -968,13 +1210,17 @@ describe('ComponentRegistry', () => {
     expect(slots[0].name).toBe('children')
   })
 
-  it('createNode skips dynamic slots', () => {
+  it('createNode uses createInitialSlots for columns', () => {
     const registry = createDefaultRegistry()
     const { node, slots } = registry.createNode('columns')
 
-    // columns has only a dynamic slot template, so no static slots are created
-    expect(slots).toHaveLength(0)
-    expect(node.slots).toHaveLength(0)
+    // columns now uses createInitialSlots to create 2 slots matching defaultProps.columnSizes
+    expect(slots).toHaveLength(2)
+    expect(node.slots).toHaveLength(2)
+    expect(slots[0].name).toBe('column-0')
+    expect(slots[1].name).toBe('column-1')
+    expect(slots[0].nodeId).toBe(node.id)
+    expect(node.props?.columnSizes).toEqual([1, 1])
   })
 
   it('throws for unknown type', () => {
@@ -1288,6 +1534,87 @@ describe('Data examples', () => {
 
     expect(engine.dataExamples).toBeUndefined()
     expect(engine.currentExample).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// fieldPaths getter
+// ---------------------------------------------------------------------------
+
+describe('fieldPaths', () => {
+  it('extracts field paths from data model', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const dataModel = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+        address: {
+          type: 'object',
+          properties: {
+            city: { type: 'string' },
+          },
+        },
+      },
+    }
+    const engine = new EditorEngine(doc, registry, { dataModel })
+
+    const paths = engine.fieldPaths
+    expect(paths.length).toBeGreaterThan(0)
+    expect(paths.find(p => p.path === 'name')).toBeDefined()
+    expect(paths.find(p => p.path === 'address.city')).toBeDefined()
+  })
+
+  it('returns empty array when no data model', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+
+    expect(engine.fieldPaths).toEqual([])
+  })
+
+  it('caches the result', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const dataModel = { type: 'object', properties: { x: { type: 'string' } } }
+    const engine = new EditorEngine(doc, registry, { dataModel })
+
+    const first = engine.fieldPaths
+    const second = engine.fieldPaths
+    expect(first).toBe(second) // same reference = cached
+  })
+})
+
+// ---------------------------------------------------------------------------
+// getExampleData
+// ---------------------------------------------------------------------------
+
+describe('getExampleData', () => {
+  it('returns undefined when no examples', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+
+    expect(engine.getExampleData()).toBeUndefined()
+  })
+
+  it('unwraps backend DataExample format', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const examples = [{ id: 'ex1', name: 'Test', data: { customer: 'John' } }]
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    expect(engine.getExampleData()).toEqual({ customer: 'John' })
+  })
+
+  it('returns flat format directly', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const examples = [{ customer: 'John', age: 30 }]
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    expect(engine.getExampleData()).toEqual({ customer: 'John', age: 30 })
   })
 })
 

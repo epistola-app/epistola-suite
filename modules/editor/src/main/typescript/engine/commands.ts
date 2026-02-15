@@ -11,6 +11,7 @@ import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/inde
 import type { DocumentIndexes } from './indexes.js'
 import { isAncestor } from './indexes.js'
 import type { ComponentRegistry } from './registry.js'
+import { nanoid } from 'nanoid'
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -25,6 +26,8 @@ export type Command =
   | SetStylePreset
   | UpdateDocumentStyles
   | UpdatePageSettings
+  | AddColumnSlot
+  | RemoveColumnSlot
 
 export interface InsertNode {
   type: 'InsertNode'
@@ -78,6 +81,23 @@ export interface UpdatePageSettings {
   settings: TemplateDocument['pageSettingsOverride']
 }
 
+export interface AddColumnSlot {
+  type: 'AddColumnSlot'
+  nodeId: NodeId
+  size: number
+  /** For undo restoration — the slot to re-add. */
+  _restoreSlot?: Slot
+  /** For undo restoration — child nodes to re-add. */
+  _restoreNodes?: Node[]
+  /** For undo restoration — child slots to re-add (slots owned by restored nodes). */
+  _restoreSlots?: Slot[]
+}
+
+export interface RemoveColumnSlot {
+  type: 'RemoveColumnSlot'
+  nodeId: NodeId
+}
+
 // ---------------------------------------------------------------------------
 // Result
 // ---------------------------------------------------------------------------
@@ -124,6 +144,10 @@ export function applyCommand(
       return applyUpdateDocumentStyles(doc, command)
     case 'UpdatePageSettings':
       return applyUpdatePageSettings(doc, command)
+    case 'AddColumnSlot':
+      return applyAddColumnSlot(doc, command)
+    case 'RemoveColumnSlot':
+      return applyRemoveColumnSlot(doc, indexes, command)
   }
 }
 
@@ -458,6 +482,133 @@ function applyUpdatePageSettings(
     inverse,
     false,
   )
+}
+
+// ---------------------------------------------------------------------------
+// AddColumnSlot
+// ---------------------------------------------------------------------------
+
+function applyAddColumnSlot(
+  doc: TemplateDocument,
+  cmd: AddColumnSlot,
+): CommandResult {
+  const node = doc.nodes[cmd.nodeId]
+  if (!node) return err(`Node ${cmd.nodeId} not found`)
+  if (node.type !== 'columns') return err('AddColumnSlot only applies to columns nodes')
+
+  const props = node.props ?? {}
+  const columnSizes = (props.columnSizes as number[] | undefined) ?? []
+  const newIndex = columnSizes.length
+
+  // Create the new slot (or restore from undo data)
+  let newSlot: Slot
+  if (cmd._restoreSlot) {
+    newSlot = structuredClone(cmd._restoreSlot)
+  } else {
+    newSlot = {
+      id: nanoid() as SlotId,
+      nodeId: cmd.nodeId,
+      name: `column-${newIndex}`,
+      children: [],
+    }
+  }
+
+  const newColumnSizes = [...columnSizes, cmd.size]
+  const newSlotIds = [...node.slots, newSlot.id]
+
+  const newNode = {
+    ...node,
+    slots: newSlotIds,
+    props: { ...props, columnSizes: newColumnSizes },
+  }
+
+  const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode }
+  const newSlots = { ...doc.slots, [newSlot.id]: newSlot }
+
+  // Restore any child nodes/slots from undo
+  if (cmd._restoreNodes) {
+    for (const n of cmd._restoreNodes) newNodes[n.id] = structuredClone(n)
+  }
+  if (cmd._restoreSlots) {
+    for (const s of cmd._restoreSlots) newSlots[s.id] = structuredClone(s)
+  }
+
+  const inverse: RemoveColumnSlot = {
+    type: 'RemoveColumnSlot',
+    nodeId: cmd.nodeId,
+  }
+
+  return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse, true)
+}
+
+// ---------------------------------------------------------------------------
+// RemoveColumnSlot
+// ---------------------------------------------------------------------------
+
+function applyRemoveColumnSlot(
+  doc: TemplateDocument,
+  _indexes: DocumentIndexes,
+  cmd: RemoveColumnSlot,
+): CommandResult {
+  const node = doc.nodes[cmd.nodeId]
+  if (!node) return err(`Node ${cmd.nodeId} not found`)
+  if (node.type !== 'columns') return err('RemoveColumnSlot only applies to columns nodes')
+
+  const props = node.props ?? {}
+  const columnSizes = (props.columnSizes as number[] | undefined) ?? []
+  if (columnSizes.length <= 1) return err('Cannot remove the last column')
+
+  // Remove the last slot
+  const lastSlotId = node.slots[node.slots.length - 1]
+  const lastSlot = doc.slots[lastSlotId]
+  if (!lastSlot) return err(`Last slot ${lastSlotId} not found`)
+
+  // Collect subtree of children in the last slot for undo restoration
+  const removedNodeIds = new Set<NodeId>()
+  const removedSlotIds = new Set<SlotId>()
+  for (const childId of lastSlot.children) {
+    collectSubtree(doc, childId, removedNodeIds, removedSlotIds)
+  }
+
+  const removedNodes: Node[] = []
+  const removedSlots: Slot[] = []
+  for (const id of removedNodeIds) removedNodes.push(doc.nodes[id])
+  for (const id of removedSlotIds) removedSlots.push(doc.slots[id])
+
+  const removedSize = columnSizes[columnSizes.length - 1]
+
+  // Build new document
+  const newNodes: Record<NodeId, Node> = {}
+  for (const [id, n] of Object.entries(doc.nodes)) {
+    if (!removedNodeIds.has(id as NodeId)) newNodes[id as NodeId] = n
+  }
+
+  const newSlots: Record<SlotId, Slot> = {}
+  for (const [id, s] of Object.entries(doc.slots)) {
+    if (id !== lastSlotId && !removedSlotIds.has(id as SlotId)) {
+      newSlots[id as SlotId] = s
+    }
+  }
+
+  const newColumnSizes = columnSizes.slice(0, -1)
+  const newSlotIds = node.slots.slice(0, -1)
+
+  newNodes[cmd.nodeId] = {
+    ...node,
+    slots: newSlotIds,
+    props: { ...props, columnSizes: newColumnSizes },
+  }
+
+  const inverse: AddColumnSlot = {
+    type: 'AddColumnSlot',
+    nodeId: cmd.nodeId,
+    size: removedSize,
+    _restoreSlot: lastSlot,
+    _restoreNodes: removedNodes.length > 0 ? removedNodes : undefined,
+    _restoreSlots: removedSlots.length > 0 ? removedSlots : undefined,
+  }
+
+  return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse, true)
 }
 
 // ---------------------------------------------------------------------------

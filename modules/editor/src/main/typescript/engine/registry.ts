@@ -47,6 +47,12 @@ export interface ComponentDefinition {
   applicableStyles: 'all' | string[]
   inspector: InspectorField[]
   defaultProps?: Record<string, unknown>
+  /**
+   * Optional hook to create initial slots for a node of this type.
+   * Used for components (like columns) whose slot count is derived from
+   * defaultProps at creation time rather than from static slot templates.
+   */
+  createInitialSlots?: (nodeId: NodeId) => Slot[]
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +116,20 @@ export class ComponentRegistry {
   createNode(type: string): { node: Node; slots: Slot[] } {
     const def = this.getOrThrow(type)
     const nodeId = nanoid() as NodeId
+
+    // If the component defines a custom slot initializer, use it
+    if (def.createInitialSlots) {
+      const slots = def.createInitialSlots(nodeId)
+      const slotIds = slots.map(s => s.id)
+      const node: Node = {
+        id: nodeId,
+        type,
+        slots: slotIds,
+        props: def.defaultProps ? structuredClone(def.defaultProps) : undefined,
+      }
+      return { node, slots }
+    }
+
     const slots: Slot[] = []
     const slotIds: SlotId[] = []
 
@@ -195,7 +215,16 @@ export function createDefaultRegistry(): ComponentRegistry {
     inspector: [
       { key: 'gap', label: 'Gap', type: 'number', defaultValue: 0 },
     ],
-    defaultProps: { columns: [{ size: 1 }, { size: 1 }], gap: 0 },
+    defaultProps: { columnSizes: [1, 1], gap: 0 },
+    createInitialSlots: (nodeId: NodeId) => {
+      const sizes = [1, 1] // matches defaultProps.columnSizes
+      return sizes.map((_, i) => ({
+        id: nanoid() as SlotId,
+        nodeId,
+        name: `column-${i}`,
+        children: [],
+      }))
+    },
   })
 
   registry.register({

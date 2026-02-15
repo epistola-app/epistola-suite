@@ -6,6 +6,7 @@
  */
 
 import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js'
+import { type FieldPath, extractFieldPaths } from './schema-paths.js'
 import type { Theme } from '@epistola/template-model/generated/theme.js'
 import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
@@ -53,6 +54,7 @@ export class EditorEngine {
   private _dataModel: object | undefined
   private _dataExamples: object[] | undefined
   private _currentExampleIndex: number = 0
+  private _fieldPathsCache: FieldPath[] | undefined
 
   /** PM EditorState cache for preserving history across delete/undo cycles. */
   private _pmStateCache = new Map<NodeId, unknown>()
@@ -148,6 +150,30 @@ export class EditorEngine {
   /** The currently selected data example, or undefined if none. */
   get currentExample(): object | undefined {
     return this._dataExamples?.[this._currentExampleIndex]
+  }
+
+  /** Extracted field paths from the data model, cached lazily. */
+  get fieldPaths(): FieldPath[] {
+    if (!this._fieldPathsCache) {
+      this._fieldPathsCache = this._dataModel
+        ? extractFieldPaths(this._dataModel)
+        : []
+    }
+    return this._fieldPathsCache
+  }
+
+  /**
+   * Get the current example's data, unwrapping the backend DataExample wrapper
+   * format `{ id, name, data: {...} }` if present.
+   */
+  getExampleData(): Record<string, unknown> | undefined {
+    const example = this.currentExample as Record<string, unknown> | undefined
+    if (!example) return undefined
+    // Backend DataExample format: { id: string, name: string, data: {...} }
+    if (typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null) {
+      return example.data as Record<string, unknown>
+    }
+    return example
   }
 
   /** Switch the active data example by index. Notifies example listeners. */
