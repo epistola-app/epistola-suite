@@ -4,7 +4,10 @@
  * Light DOM (no Shadow DOM) so global CSS applies to ProseMirror content.
  *
  * Content sync:
- * - Internal changes (typing) → dispatch UpdateNodeProps to engine
+ * - Internal changes (typing) → debounced dispatch UpdateNodeProps to engine
+ *   with skipUndo (ProseMirror handles character-level undo natively)
+ * - On blur / deselect → flush pending content and push a single coalesced
+ *   undo entry so engine-level undo reverts the entire editing session
  * - External changes (undo) → replace ProseMirror state
  * - isSyncing flag + JSON equality check prevents loops
  */
@@ -22,6 +25,8 @@ import { extractFieldPaths } from '../engine/schema-paths.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { NodeId } from '../types/index.js'
 
+const DEBOUNCE_MS = 300
+
 @customElement('epistola-text-editor')
 export class EpistolaTextEditor extends LitElement {
   override createRenderRoot() {
@@ -38,6 +43,11 @@ export class EpistolaTextEditor extends LitElement {
   private _pmContainer: HTMLDivElement | null = null
   private _isSyncing = false
   private _lastContentJson: string = ''
+
+  // Debounce + coalesced undo state
+  private _debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private _contentBeforeEditing: unknown = null
+  private _hasPendingFlush = false
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -66,6 +76,7 @@ export class EpistolaTextEditor extends LitElement {
   }
 
   override disconnectedCallback(): void {
+    this._flushContent()
     this._destroyProseMirror()
     super.disconnectedCallback()
   }
@@ -103,7 +114,7 @@ export class EpistolaTextEditor extends LitElement {
         this._pmView.updateState(newState)
 
         if (tr.docChanged && !this._isSyncing) {
-          this._dispatchContentToEngine(newState.doc)
+          this._scheduleContentDispatch(newState.doc)
         }
       },
       handleDOMEvents: {
@@ -112,6 +123,10 @@ export class EpistolaTextEditor extends LitElement {
           if (this.nodeId && this.engine?.selectedNodeId !== this.nodeId) {
             this.engine?.selectNode(this.nodeId)
           }
+          return false
+        },
+        blur: () => {
+          this._flushContent()
           return false
         },
       },
@@ -126,32 +141,105 @@ export class EpistolaTextEditor extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // Content sync
+  // Content sync — debounced dispatch
   // ---------------------------------------------------------------------------
 
-  private _dispatchContentToEngine(doc: ProsemirrorNode): void {
-    if (!this.engine || !this.nodeId) return
-
-    const json = doc.toJSON()
+  /**
+   * Schedule a debounced content dispatch. On first keystroke of a session,
+   * captures the content-before-editing for coalesced undo.
+   */
+  private _scheduleContentDispatch(pmDoc: ProsemirrorNode): void {
+    const json = pmDoc.toJSON()
     const jsonStr = JSON.stringify(json)
-
     if (jsonStr === this._lastContentJson) return
-    this._lastContentJson = jsonStr
 
+    // Capture snapshot on first change of editing session
+    if (!this._hasPendingFlush) {
+      this._contentBeforeEditing = this.content
+      this._hasPendingFlush = true
+    }
+
+    // Reset debounce timer
+    if (this._debounceTimer !== null) {
+      clearTimeout(this._debounceTimer)
+    }
+
+    this._debounceTimer = setTimeout(() => {
+      this._debounceTimer = null
+      this._dispatchContentSilent(json, jsonStr)
+    }, DEBOUNCE_MS)
+  }
+
+  /**
+   * Dispatch content to engine with skipUndo (ProseMirror owns character-level undo).
+   */
+  private _dispatchContentSilent(json: unknown, jsonStr: string): void {
+    if (!this.engine || !this.nodeId) return
+    if (jsonStr === this._lastContentJson) return
+
+    this._lastContentJson = jsonStr
     this._isSyncing = true
-    this.engine.dispatch({
-      type: 'UpdateNodeProps',
-      nodeId: this.nodeId,
-      props: { content: json },
-    })
+    this.engine.dispatch(
+      {
+        type: 'UpdateNodeProps',
+        nodeId: this.nodeId,
+        props: { content: json },
+      },
+      { skipUndo: true },
+    )
     this._isSyncing = false
   }
 
+  /**
+   * Flush any pending debounced content and push a single coalesced undo entry.
+   * Called on blur and disconnectedCallback.
+   */
+  private _flushContent(): void {
+    if (!this._hasPendingFlush) return
+
+    // Cancel pending debounce
+    if (this._debounceTimer !== null) {
+      clearTimeout(this._debounceTimer)
+      this._debounceTimer = null
+    }
+
+    // Dispatch current PM content to engine (if changed)
+    if (this._pmView && this.engine && this.nodeId) {
+      const json = this._pmView.state.doc.toJSON()
+      const jsonStr = JSON.stringify(json)
+      this._dispatchContentSilent(json, jsonStr)
+
+      // Push a single coalesced undo entry that restores content-before-editing
+      const snapshotBefore = this._contentBeforeEditing
+      const nodeId = this.nodeId
+      this.engine.pushUndoEntry({
+        type: 'UpdateNodeProps',
+        nodeId,
+        props: { content: snapshotBefore != null ? structuredClone(snapshotBefore) : null },
+      })
+    }
+
+    this._contentBeforeEditing = null
+    this._hasPendingFlush = false
+  }
+
+  /**
+   * Sync from external changes (engine undo, inspector edit).
+   * Cancels any pending debounce and resets editing state.
+   */
   private _syncFromExternal(): void {
     if (!this._pmView) return
 
     const newJsonStr = JSON.stringify(this.content)
     if (newJsonStr === this._lastContentJson) return
+
+    // Cancel pending debounce — external change takes precedence
+    if (this._debounceTimer !== null) {
+      clearTimeout(this._debounceTimer)
+      this._debounceTimer = null
+    }
+    this._contentBeforeEditing = null
+    this._hasPendingFlush = false
 
     this._isSyncing = true
     try {

@@ -14,6 +14,7 @@ import { UndoStack } from './undo.js'
 import type { ComponentRegistry } from './registry.js'
 import { deepFreeze } from './freeze.js'
 import { defaultStyleRegistry } from './style-registry.js'
+import { EventEmitter, type EngineEvents } from './events.js'
 import {
   getInheritableKeys,
   resolveDocumentStyles,
@@ -23,7 +24,7 @@ import {
 } from './styles.js'
 
 // ---------------------------------------------------------------------------
-// Listener type
+// Listener type (deprecated — use events.on('doc:change') instead)
 // ---------------------------------------------------------------------------
 
 export type EngineListener = (doc: TemplateDocument, indexes: DocumentIndexes) => void
@@ -35,10 +36,9 @@ export type EngineListener = (doc: TemplateDocument, indexes: DocumentIndexes) =
 export class EditorEngine {
   private _doc: TemplateDocument
   private _indexes: DocumentIndexes
-  private _listeners: Set<EngineListener> = new Set()
+  private _events = new EventEmitter<EngineEvents>()
   private _undoStack: UndoStack
   private _selectedNodeId: NodeId | null = null
-  private _selectionListeners: Set<(nodeId: NodeId | null) => void> = new Set()
   readonly registry: ComponentRegistry
   readonly styleRegistry: StyleRegistry
   private _theme: Theme | undefined
@@ -49,7 +49,6 @@ export class EditorEngine {
   private _dataModel: object | undefined
   private _dataExamples: object[] | undefined
   private _currentExampleIndex: number = 0
-  private _exampleListeners: Set<(index: number, example: object | undefined) => void> = new Set()
 
   constructor(
     doc: TemplateDocument,
@@ -66,6 +65,14 @@ export class EditorEngine {
     this._dataModel = options?.dataModel
     this._dataExamples = options?.dataExamples
     this._recomputeStyles()
+  }
+
+  // -----------------------------------------------------------------------
+  // Events
+  // -----------------------------------------------------------------------
+
+  get events(): EventEmitter<EngineEvents> {
+    return this._events
   }
 
   // -----------------------------------------------------------------------
@@ -119,15 +126,15 @@ export class EditorEngine {
     if (!this._dataExamples || index < 0 || index >= this._dataExamples.length) return
     this._currentExampleIndex = index
     const example = this._dataExamples[index]
-    for (const listener of this._exampleListeners) {
-      listener(index, example)
-    }
+    this._events.emit('example:change', { index, example })
   }
 
-  /** Subscribe to data example changes. Returns unsubscribe function. */
+  /**
+   * Subscribe to data example changes. Returns unsubscribe function.
+   * @deprecated Use `engine.events.on('example:change', ...)` instead.
+   */
   onExampleChange(listener: (index: number, example: object | undefined) => void): () => void {
-    this._exampleListeners.add(listener)
-    return () => { this._exampleListeners.delete(listener) }
+    return this._events.on('example:change', ({ index, example }) => listener(index, example))
   }
 
   get resolvedDocStyles(): Record<string, unknown> {
@@ -180,14 +187,15 @@ export class EditorEngine {
   selectNode(nodeId: NodeId | null): void {
     if (this._selectedNodeId === nodeId) return
     this._selectedNodeId = nodeId
-    for (const listener of this._selectionListeners) {
-      listener(nodeId)
-    }
+    this._events.emit('selection:change', { nodeId })
   }
 
+  /**
+   * Subscribe to selection changes. Returns unsubscribe function.
+   * @deprecated Use `engine.events.on('selection:change', ...)` instead.
+   */
   onSelectionChange(listener: (nodeId: NodeId | null) => void): () => void {
-    this._selectionListeners.add(listener)
-    return () => { this._selectionListeners.delete(listener) }
+    return this._events.on('selection:change', ({ nodeId }) => listener(nodeId))
   }
 
   // -----------------------------------------------------------------------
@@ -197,16 +205,21 @@ export class EditorEngine {
   /**
    * Dispatch a command, updating the document state.
    * Returns the result including any inverse command for undo.
+   *
+   * @param options.skipUndo — if true, do not push to undo stack (used by
+   *   external components that manage their own undo, e.g. ProseMirror).
    */
-  dispatch(command: Command): CommandResult {
+  dispatch(command: Command, options?: { skipUndo?: boolean }): CommandResult {
     const result = applyCommand(this._doc, this._indexes, command, this.registry)
 
     if (result.ok) {
       this._doc = deepFreeze(result.doc)
-      this._indexes = buildIndexes(this._doc)
+      if (result.structureChanged) {
+        this._indexes = buildIndexes(this._doc)
+      }
       this._recomputeStyles()
 
-      if (result.inverse) {
+      if (!options?.skipUndo && result.inverse) {
         this._undoStack.push(result.inverse)
       }
 
@@ -214,6 +227,14 @@ export class EditorEngine {
     }
 
     return result
+  }
+
+  /**
+   * Push an external undo entry (e.g. coalesced undo from ProseMirror).
+   * Clears the redo stack, same as a normal dispatch.
+   */
+  pushUndoEntry(inverse: Command): void {
+    this._undoStack.push(inverse)
   }
 
   /**
@@ -225,7 +246,9 @@ export class EditorEngine {
 
     if (result.ok) {
       this._doc = deepFreeze(result.doc)
-      this._indexes = buildIndexes(this._doc)
+      if (result.structureChanged) {
+        this._indexes = buildIndexes(this._doc)
+      }
       this._recomputeStyles()
       this._notify()
     }
@@ -296,14 +319,15 @@ export class EditorEngine {
   // Subscription
   // -----------------------------------------------------------------------
 
+  /**
+   * Subscribe to document changes. Returns unsubscribe function.
+   * @deprecated Use `engine.events.on('doc:change', ...)` instead.
+   */
   subscribe(listener: EngineListener): () => void {
-    this._listeners.add(listener)
-    return () => { this._listeners.delete(listener) }
+    return this._events.on('doc:change', ({ doc, indexes }) => listener(doc, indexes))
   }
 
   private _notify(): void {
-    for (const listener of this._listeners) {
-      listener(this._doc, this._indexes)
-    }
+    this._events.emit('doc:change', { doc: this._doc, indexes: this._indexes })
   }
 }

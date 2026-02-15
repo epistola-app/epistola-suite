@@ -1009,6 +1009,199 @@ describe('Immutability', () => {
 })
 
 // ---------------------------------------------------------------------------
+// structureChanged — conditional index rebuild
+// ---------------------------------------------------------------------------
+
+describe('structureChanged flag', () => {
+  it('rebuilds indexes after InsertNode (new reference)', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    const indexesBefore = engine.indexes
+
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+
+    expect(engine.indexes).not.toBe(indexesBefore)
+  })
+
+  it('skips index rebuild after UpdateNodeProps (same reference)', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const indexesBefore = engine.indexes
+
+    engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: textNodeId,
+      props: { content: { type: 'doc', content: [] } },
+    })
+
+    expect(engine.indexes).toBe(indexesBefore)
+  })
+
+  it('skips index rebuild after UpdateNodeStyles (same reference)', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const indexesBefore = engine.indexes
+
+    engine.dispatch({
+      type: 'UpdateNodeStyles',
+      nodeId: textNodeId,
+      styles: { color: '#ff0000' },
+    })
+
+    expect(engine.indexes).toBe(indexesBefore)
+  })
+
+  it('skips index rebuild after UpdateDocumentStyles (same reference)', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+
+    const indexesBefore = engine.indexes
+
+    engine.dispatch({
+      type: 'UpdateDocumentStyles',
+      styles: { fontFamily: 'Inter' },
+    })
+
+    expect(engine.indexes).toBe(indexesBefore)
+  })
+
+  it('rebuilds indexes after RemoveNode (new reference)', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const indexesBefore = engine.indexes
+
+    engine.dispatch({ type: 'RemoveNode', nodeId: textNodeId })
+
+    expect(engine.indexes).not.toBe(indexesBefore)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// skipUndo + pushUndoEntry
+// ---------------------------------------------------------------------------
+
+describe('skipUndo option', () => {
+  it('does not push to undo stack when skipUndo is true', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    engine.dispatch(
+      {
+        type: 'UpdateNodeProps',
+        nodeId: textNodeId,
+        props: { content: { type: 'doc', content: [] } },
+      },
+      { skipUndo: true },
+    )
+
+    expect(engine.canUndo).toBe(false)
+  })
+
+  it('still updates doc and notifies listeners when skipUndo is true', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    let notified = false
+    engine.subscribe(() => { notified = true })
+
+    const result = engine.dispatch(
+      {
+        type: 'UpdateNodeProps',
+        nodeId: textNodeId,
+        props: { content: { type: 'doc', content: [] } },
+      },
+      { skipUndo: true },
+    )
+
+    expect(result.ok).toBe(true)
+    expect(engine.doc.nodes[textNodeId].props).toEqual({
+      content: { type: 'doc', content: [] },
+    })
+    expect(notified).toBe(true)
+  })
+})
+
+describe('pushUndoEntry', () => {
+  it('makes canUndo true', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    expect(engine.canUndo).toBe(false)
+
+    engine.pushUndoEntry({
+      type: 'UpdateNodeProps',
+      nodeId: textNodeId,
+      props: { content: null },
+    })
+
+    expect(engine.canUndo).toBe(true)
+  })
+
+  it('undo applies the pushed inverse', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // Make a change with skipUndo
+    engine.dispatch(
+      {
+        type: 'UpdateNodeProps',
+        nodeId: textNodeId,
+        props: { content: { type: 'doc', content: [{ type: 'paragraph' }] } },
+      },
+      { skipUndo: true },
+    )
+
+    // Push coalesced inverse
+    engine.pushUndoEntry({
+      type: 'UpdateNodeProps',
+      nodeId: textNodeId,
+      props: { content: null },
+    })
+
+    // Undo should restore original content
+    engine.undo()
+    expect(engine.doc.nodes[textNodeId].props).toEqual({ content: null })
+  })
+
+  it('clears the redo stack', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    // Create redo history
+    const { node, slots } = registry.createNode('text')
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+    engine.undo()
+    expect(engine.canRedo).toBe(true)
+
+    // pushUndoEntry should clear redo
+    engine.pushUndoEntry({
+      type: 'UpdateNodeProps',
+      nodeId: node.id,
+      props: { content: null },
+    })
+
+    expect(engine.canRedo).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Data examples
 // ---------------------------------------------------------------------------
 

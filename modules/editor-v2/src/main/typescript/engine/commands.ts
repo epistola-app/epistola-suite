@@ -88,6 +88,8 @@ export interface CommandOk {
   ok: true
   doc: TemplateDocument
   inverse: Command | null
+  /** Whether the command changed the tree structure (added/removed/moved nodes). */
+  structureChanged: boolean
 }
 
 export interface CommandError {
@@ -173,7 +175,7 @@ function applyInsertNode(
     nodeId: cmd.node.id,
   }
 
-  return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse)
+  return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse, true)
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +242,7 @@ function applyRemoveNode(
     index: indexInParent,
   }
 
-  return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse)
+  return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse, true)
 }
 
 function collectSubtree(
@@ -340,7 +342,7 @@ function applyMoveNode(
     newSlots[cmd.targetSlotId] = { ...targetSlot, children: targetChildren }
   }
 
-  return ok({ ...doc, slots: newSlots }, inverse)
+  return ok({ ...doc, slots: newSlots }, inverse, true)
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +366,7 @@ function applyUpdateNodeProps(
   const newNode = { ...node, props: structuredClone(cmd.props) }
   const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode }
 
-  return ok({ ...doc, nodes: newNodes }, inverse)
+  return ok({ ...doc, nodes: newNodes }, inverse, false)
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +390,7 @@ function applyUpdateNodeStyles(
   const newNode = { ...node, styles: structuredClone(cmd.styles) }
   const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode }
 
-  return ok({ ...doc, nodes: newNodes }, inverse)
+  return ok({ ...doc, nodes: newNodes }, inverse, false)
 }
 
 // ---------------------------------------------------------------------------
@@ -411,7 +413,7 @@ function applySetStylePreset(
   const newNode = { ...node, stylePreset: cmd.stylePreset }
   const newNodes = { ...doc.nodes, [cmd.nodeId]: newNode }
 
-  return ok({ ...doc, nodes: newNodes }, inverse)
+  return ok({ ...doc, nodes: newNodes }, inverse, false)
 }
 
 // ---------------------------------------------------------------------------
@@ -432,6 +434,7 @@ function applyUpdateDocumentStyles(
   return ok(
     { ...doc, documentStylesOverride: cmd.styles ? structuredClone(cmd.styles) : undefined },
     inverse,
+    false,
   )
 }
 
@@ -453,6 +456,7 @@ function applyUpdatePageSettings(
   return ok(
     { ...doc, pageSettingsOverride: cmd.settings ? structuredClone(cmd.settings) : undefined },
     inverse,
+    false,
   )
 }
 
@@ -460,8 +464,8 @@ function applyUpdatePageSettings(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function ok(doc: TemplateDocument, inverse: Command | null): CommandOk {
-  return { ok: true, doc, inverse }
+function ok(doc: TemplateDocument, inverse: Command | null, structureChanged: boolean): CommandOk {
+  return { ok: true, doc, inverse, structureChanged }
 }
 
 function err(error: string): CommandError {

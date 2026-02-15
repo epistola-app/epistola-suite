@@ -56,11 +56,11 @@ export class EpistolaEditor extends LitElement {
     })
     this._doc = this._engine.doc
 
-    this._unsubEngine = this._engine.subscribe((newDoc) => {
-      this._doc = newDoc
+    this._unsubEngine = this._engine.events.on('doc:change', ({ doc }) => {
+      this._doc = doc
     })
 
-    this._unsubSelection = this._engine.onSelectionChange((nodeId) => {
+    this._unsubSelection = this._engine.events.on('selection:change', ({ nodeId }) => {
       this._selectedNodeId = nodeId
     })
   }

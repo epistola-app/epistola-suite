@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- **Editor V2: EventEmitter, debounce, and dual undo stack**:
+  - **Typed EventEmitter** (`engine/events.ts`): Replaced 3 ad-hoc listener Sets in `EditorEngine` with a single typed `EventEmitter<EngineEvents>` supporting `doc:change`, `selection:change`, and `example:change` events. Old `subscribe()`, `onSelectionChange()`, and `onExampleChange()` methods are preserved as deprecated wrappers for backward compatibility.
+  - **Conditional index rebuild**: Added `structureChanged` flag to `CommandOk`. Structural commands (InsertNode, RemoveNode, MoveNode) trigger index rebuild; property/style commands skip it for better keystroke performance.
+  - **skipUndo + pushUndoEntry**: `dispatch()` accepts `{ skipUndo: true }` to skip undo recording. New `pushUndoEntry()` allows external components to push coalesced undo entries.
+  - **Debounced text editing**: `EpistolaTextEditor` now debounces ProseMirror content dispatches (300ms). On blur/deselect, flushes pending content and pushes a single coalesced undo entry restoring the content-before-editing snapshot. ProseMirror handles character-level undo natively; engine undo reverts entire editing sessions.
+  - **Toolbar undo state sync**: Toolbar subscribes to `doc:change` to keep undo/redo button state in sync without manual `requestUpdate()` after each action.
+  - UI components (`EpistolaEditor`, `EpistolaToolbar`) migrated to new `events.on(...)` API.
+
 ### Added
 - **Editor V2: Rich text editing with ProseMirror** (Phase 4):
   - **ProseMirror integration**: Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks, with full JSON compatibility with the existing TipTap-based backend converter

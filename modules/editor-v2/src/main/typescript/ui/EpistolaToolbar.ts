@@ -13,29 +13,39 @@ export class EpistolaToolbar extends LitElement {
   @state() private _currentExampleIndex = 0
 
   private _unsubExample?: () => void
+  private _unsubDoc?: () => void
 
   override connectedCallback(): void {
     super.connectedCallback()
-    this._subscribeToExample()
+    this._subscribeToEngine()
   }
 
   override updated(changed: Map<string, unknown>): void {
     if (changed.has('engine')) {
-      this._unsubExample?.()
-      this._subscribeToExample()
+      this._unsubscribeAll()
+      this._subscribeToEngine()
     }
   }
 
   override disconnectedCallback(): void {
-    this._unsubExample?.()
+    this._unsubscribeAll()
     super.disconnectedCallback()
   }
 
-  private _subscribeToExample(): void {
+  private _unsubscribeAll(): void {
+    this._unsubExample?.()
+    this._unsubDoc?.()
+  }
+
+  private _subscribeToEngine(): void {
     if (!this.engine) return
     this._currentExampleIndex = this.engine.currentExampleIndex
-    this._unsubExample = this.engine.onExampleChange((index) => {
+    this._unsubExample = this.engine.events.on('example:change', ({ index }) => {
       this._currentExampleIndex = index
+    })
+    // Re-render on doc changes so undo/redo button state stays in sync
+    this._unsubDoc = this.engine.events.on('doc:change', () => {
+      this.requestUpdate()
     })
   }
 
