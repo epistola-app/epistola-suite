@@ -9,6 +9,9 @@ export default defineConfig({
       '@design': path.resolve(__dirname, '../design-system'),
     },
   },
+  optimizeDeps: {
+    include: ['jsonata'],
+  },
   server: {
     port: 5174,
     cors: true,
