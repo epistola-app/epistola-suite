@@ -30,6 +30,7 @@ export default defineConfig({
         entryFileNames: '[name].js',
         assetFileNames: '[name].[ext]',
       },
+      preserveEntrySignatures: 'exports-only',
     },
   },
   test: {
