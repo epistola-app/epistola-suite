@@ -12,8 +12,8 @@
 | **4. Rich Text** | **Done** | ProseMirror integration, expression chips, bubble menu, input rules. |
 | **5. Preview** | **Done** | PDF preview panel with resize, toggle, debounced fetch, stub callback. |
 | **6. Save + Autosave** | **Done** | SaveService, autosave (3s debounce), Ctrl+S, dirty tracking, beforeunload. |
-| **7. Backend Adaptation** | Not started | |
-| **8. Cleanup** | Not started | |
+| **7. Backend Adaptation** | **Done** | Domain layer, PDF generation, Thymeleaf page all switched to v2. |
+| **8. Cleanup** | **Done** | V1 editor + vendor module deleted. Editor-v2 renamed to editor. V1 types removed. |
 
 ---
 

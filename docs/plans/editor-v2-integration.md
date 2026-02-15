@@ -1,6 +1,6 @@
 # Editor V2 Integration — Phase 7 + Phase 8
 
-## Status: In Progress
+## Status: Done
 
 ## Context
 
@@ -20,15 +20,15 @@ The v2 editor (Lit + ProseMirror + headless engine) is feature-complete for its 
 | Step | Description | Status |
 |------|-------------|--------|
 | 0 | Create this plan document | Done |
-| 1 | Add v2 TemplateDocument/Node/Slot Kotlin data classes | Pending |
-| 2 | Switch domain layer to TemplateDocument | Pending |
-| 3 | Rewrite PDF generation for node/slot traversal | Pending |
-| 4 | Database migration + DemoLoader + tests | Pending |
-| 5 | Wire v2 editor in Thymeleaf + Gradle build | Pending |
-| 6 | Delete v1 React editor module | Pending |
-| 7 | Bundle vendor deps into schema-manager, delete vendor module | Pending |
-| 8 | Rename editor-v2 to editor | Pending |
-| 9 | Remove v1 model types, update documentation | Pending |
+| 1 | Add v2 TemplateDocument/Node/Slot Kotlin data classes | Done |
+| 2 | Switch domain layer to TemplateDocument | Done |
+| 3 | Rewrite PDF generation for node/slot traversal | Done |
+| 4 | Database migration + DemoLoader + tests | Done |
+| 5 | Wire v2 editor in Thymeleaf + Gradle build | Done |
+| 6 | Delete v1 React editor module | Done |
+| 7 | Bundle vendor deps into schema-manager, delete vendor module | Done |
+| 8 | Rename editor-v2 to editor | Done |
+| 9 | Remove v1 model types, update documentation | Done |
 
 ## Commit Strategy
 
