@@ -351,15 +351,13 @@ export class EditorEngine {
 
         // If session is fully redone, move entry to undo stack immediately
         if (ops.undoDepth() >= entry.undoDepthAtEnd) {
-          this._undoStack.popRedo()
-          this._undoStack.pushUndo(entry)
+          this._moveRedoToUndo(entry)
         }
         return true
       }
 
       // Session already fully redone
-      this._undoStack.popRedo()
-      this._undoStack.pushUndo(entry)
+      this._moveRedoToUndo(entry)
       return this.redo()
     }
 
@@ -368,8 +366,20 @@ export class EditorEngine {
     if (entry.contentAfter !== undefined) {
       this._applyContentSnapshot(entry.nodeId, entry.contentAfter)
     }
-    this._undoStack.pushUndo(entry)
+    this._moveRedoToUndo(entry)
     return true
+  }
+
+  /**
+   * Move a TextChange entry from redo to undo stack, resetting the
+   * end-of-session markers so they'll be re-captured if the user
+   * continues typing in the same session.
+   */
+  private _moveRedoToUndo(entry: TextChangeEntry): void {
+    this._undoStack.popRedo()
+    entry.undoDepthAtEnd = undefined
+    entry.contentAfter = undefined
+    this._undoStack.pushUndo(entry)
   }
 
   /** Sync text content from PM to engine without creating undo entries. */

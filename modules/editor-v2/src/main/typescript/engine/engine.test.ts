@@ -1294,9 +1294,10 @@ describe('Data examples', () => {
 // ---------------------------------------------------------------------------
 
 /** Create mock TextChangeOps simulating a PM editing session with N undo steps. */
-function createMockOps(initialDepth: number, steps: number): TextChangeOps & { depth: number; content: unknown } {
+function createMockOps(initialDepth: number, steps: number): TextChangeOps & { depth: number; maxDepth: number; content: unknown; _alive: boolean } {
   const mock = {
     depth: initialDepth + steps,
+    maxDepth: initialDepth + steps,
     content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello' }] }] },
     _alive: true,
     isAlive() { return mock._alive },
@@ -1308,7 +1309,7 @@ function createMockOps(initialDepth: number, steps: number): TextChangeOps & { d
       return true
     },
     redo() {
-      if (mock.depth >= initialDepth + steps) return false
+      if (mock.depth >= mock.maxDepth) return false
       mock.depth++
       mock.content = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello'.slice(0, mock.depth - initialDepth) }] }] }
       return true
@@ -1565,5 +1566,54 @@ describe('TextChange undo/redo', () => {
 
     // Engine doc should reflect the redo
     expect(engine.doc.nodes[textNodeId].props.content).toEqual(ops.getContent())
+  })
+
+  it('resets undoDepthAtEnd after full redo so continued typing is not lost', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    // Session: 3 PM steps (simulating typing "hel")
+    const ops = createMockOps(0, 3)
+    const entry = createTextChangeEntry(textNodeId, ops, 0, null)
+    engine.pushTextChange(entry)
+
+    // Full undo: depth 3→0
+    engine.undo() // 3→2
+    engine.undo() // 2→1
+    engine.undo() // 1→0, entry moved to redo
+    expect(entry.undoDepthAtEnd).toBe(3)
+
+    // Full redo: depth 0→3, entry moved back to undo
+    engine.redo() // 0→1
+    engine.redo() // 1→2
+    engine.redo() // 2→3, entry moved to undo
+
+    // undoDepthAtEnd should be reset so it can be re-captured
+    expect(entry.undoDepthAtEnd).toBeUndefined()
+
+    // Simulate continued typing: 2 more PM steps (depth 3→5)
+    // In the real editor, _onPmDocChanged sees the same ops on stack
+    // and doesn't push a new TextChange. The PM depth increases as
+    // the user types.
+    ops.depth = 5
+    ops.maxDepth = 5
+
+    // Full undo again: should undo all 5 steps (not just 3)
+    engine.undo() // captures undoDepthAtEnd=5, then 5→4
+    expect(entry.undoDepthAtEnd).toBe(5)
+    engine.undo() // 4→3
+    engine.undo() // 3→2
+    engine.undo() // 2→1
+    engine.undo() // 1→0, entry moved to redo
+
+    // Full redo: should redo all 5 steps
+    engine.redo() // 0→1
+    engine.redo() // 1→2
+    engine.redo() // 2→3
+    engine.redo() // 3→4
+    engine.redo() // 4→5, entry moved to undo
+    expect(ops.depth).toBe(5)
+    expect(engine.canRedo).toBe(false)
   })
 })
