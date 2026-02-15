@@ -15,12 +15,34 @@
 import type { Node as ProsemirrorNode } from 'prosemirror-model'
 import type { EditorView, NodeView } from 'prosemirror-view'
 import type { FieldPath } from '../engine/schema-paths.js'
-import { evaluateExpression, formatResolvedValue } from '../engine/resolve-expression.js'
+import {
+  evaluateExpression,
+  formatResolvedValue,
+  tryEvaluateExpression,
+  formatForPreview,
+  isValidExpression,
+} from '../engine/resolve-expression.js'
 
 export interface ExpressionNodeViewOptions {
   fieldPaths: FieldPath[]
   getExampleData?: () => Record<string, unknown> | undefined
 }
+
+/** Common JSONata patterns for the quick reference panel. */
+const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
+  { code: 'customer.name', desc: 'Access a field' },
+  { code: 'address.line1 & ", " & address.city', desc: 'Concatenate strings' },
+  { code: 'age >= 18 ? "Adult" : "Minor"', desc: 'Conditional' },
+  { code: '$sum(items.price)', desc: 'Sum numbers' },
+  { code: '$count(items)', desc: 'Count array items' },
+  { code: '$join(tags, ", ")', desc: 'Join array to string' },
+  { code: '$uppercase(name)', desc: 'Uppercase text' },
+  { code: '$lowercase(name)', desc: 'Lowercase text' },
+  { code: '$now()', desc: 'Current timestamp' },
+  { code: '$substring(name, 0, 10)', desc: 'Substring' },
+  { code: 'items[price > 100]', desc: 'Filter array' },
+  { code: '$number(value)', desc: 'Convert to number' },
+]
 
 export class ExpressionNodeView implements NodeView {
   /** All live instances, for bulk refresh when data example changes. */
@@ -43,6 +65,12 @@ export class ExpressionNodeView implements NodeView {
 
   /** Monotonic counter to discard stale async resolution results. */
   private _displayGeneration = 0
+
+  /** Timer for debounced preview updates in the dialog. */
+  private _previewTimer: ReturnType<typeof setTimeout> | null = null
+
+  /** Monotonic counter to discard stale async preview results. */
+  private _previewGeneration = 0
 
   constructor(
     node: ProsemirrorNode,
@@ -88,6 +116,8 @@ export class ExpressionNodeView implements NodeView {
   destroy(): void {
     ExpressionNodeView._instances.delete(this)
     this._displayGeneration++ // invalidate any in-flight async resolution
+    this._previewGeneration++ // invalidate any in-flight preview
+    this._cancelPreviewTimer()
     this._closeDialog()
   }
 
@@ -165,7 +195,12 @@ export class ExpressionNodeView implements NodeView {
           placeholder="e.g. customer.name"
           autocomplete="off"
         />
+        <div class="expression-dialog-preview" style="display:none"></div>
         <div class="expression-dialog-paths"></div>
+        <details class="expression-dialog-reference">
+          <summary class="expression-dialog-ref-summary">JSONata Quick Reference</summary>
+          <div class="expression-dialog-ref-list"></div>
+        </details>
         <div class="expression-dialog-actions">
           <button type="button" class="expression-dialog-btn cancel">Cancel</button>
           <button type="submit" class="expression-dialog-btn save">Save</button>
@@ -173,12 +208,43 @@ export class ExpressionNodeView implements NodeView {
       </form>
     `
 
-    const input = dialog.querySelector('input')!
+    const input = dialog.querySelector<HTMLInputElement>('.expression-dialog-input')!
     const cancelBtn = dialog.querySelector('.cancel')!
-    const pathsContainer = dialog.querySelector('.expression-dialog-paths')!
+    const pathsContainer = dialog.querySelector<HTMLElement>('.expression-dialog-paths')!
+    const previewEl = dialog.querySelector<HTMLElement>('.expression-dialog-preview')!
+    const refList = dialog.querySelector<HTMLElement>('.expression-dialog-ref-list')!
 
-    // Render field paths
-    this._renderFieldPaths(pathsContainer as HTMLElement, input)
+    // Render field paths with filter
+    this._renderFieldPaths(pathsContainer, input)
+
+    // Render quick reference
+    this._renderQuickReference(refList, input)
+
+    // --- Instant validation + debounced preview on input ---
+    const applyValidation = () => {
+      const val = input.value.trim()
+      input.classList.remove('valid', 'invalid')
+      if (val) {
+        input.classList.add(isValidExpression(val) ? 'valid' : 'invalid')
+      }
+    }
+
+    const schedulePreview = () => {
+      this._cancelPreviewTimer()
+      const val = input.value.trim()
+      if (!val) {
+        previewEl.style.display = 'none'
+        return
+      }
+      this._previewTimer = setTimeout(() => {
+        this._updatePreview(val, previewEl)
+      }, 250)
+    }
+
+    input.addEventListener('input', () => {
+      applyValidation()
+      schedulePreview()
+    })
 
     // Cancel
     cancelBtn.addEventListener('click', () => this._handleCancel())
@@ -211,6 +277,12 @@ export class ExpressionNodeView implements NodeView {
     // Focus and select input content
     input.focus()
     input.select()
+
+    // Run initial validation + preview if there's an existing expression
+    if (expr) {
+      applyValidation()
+      this._updatePreview(expr, previewEl)
+    }
   }
 
   private _renderFieldPaths(container: HTMLElement, input: HTMLInputElement): void {
@@ -218,11 +290,23 @@ export class ExpressionNodeView implements NodeView {
 
     const header = document.createElement('div')
     header.className = 'expression-dialog-paths-header'
-    header.textContent = 'Available fields'
+
+    const headerLabel = document.createElement('span')
+    headerLabel.textContent = 'Available fields'
+
+    const filterInput = document.createElement('input')
+    filterInput.type = 'text'
+    filterInput.className = 'expression-dialog-filter'
+    filterInput.placeholder = 'Filter...'
+
+    header.appendChild(headerLabel)
+    header.appendChild(filterInput)
     container.appendChild(header)
 
     const list = document.createElement('ul')
     list.className = 'expression-dialog-paths-list'
+
+    const items: { li: HTMLLIElement; path: string }[] = []
 
     for (const fp of this._fieldPaths) {
       const li = document.createElement('li')
@@ -241,11 +325,21 @@ export class ExpressionNodeView implements NodeView {
 
       li.addEventListener('click', () => {
         input.value = fp.path
+        input.dispatchEvent(new Event('input', { bubbles: true }))
         input.focus()
       })
 
       list.appendChild(li)
+      items.push({ li, path: fp.path })
     }
+
+    // Filter field paths on typing
+    filterInput.addEventListener('input', () => {
+      const query = filterInput.value.toLowerCase()
+      for (const item of items) {
+        item.li.style.display = item.path.toLowerCase().includes(query) ? '' : 'none'
+      }
+    })
 
     container.appendChild(list)
   }
@@ -268,6 +362,8 @@ export class ExpressionNodeView implements NodeView {
   }
 
   private _closeDialog(): void {
+    this._cancelPreviewTimer()
+    this._previewGeneration++ // discard any in-flight preview results
     if (this._dialog) {
       this._dialog.close()
       this._dialog.remove()
@@ -295,6 +391,71 @@ export class ExpressionNodeView implements NodeView {
     if (pos == null) return
     const tr = this._view.state.tr.delete(pos, pos + this._node.nodeSize)
     this._view.dispatch(tr)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Preview
+  // ---------------------------------------------------------------------------
+
+  private _updatePreview(expression: string, previewEl: HTMLElement): void {
+    const data = this._getExampleData?.()
+    if (!data) {
+      previewEl.style.display = ''
+      previewEl.className = 'expression-dialog-preview no-data'
+      previewEl.textContent = 'No data example selected'
+      return
+    }
+
+    const generation = ++this._previewGeneration
+    tryEvaluateExpression(expression, data).then((result) => {
+      if (generation !== this._previewGeneration) return // stale
+
+      previewEl.style.display = ''
+      if (result.ok) {
+        previewEl.className = 'expression-dialog-preview success'
+        previewEl.textContent = `Preview: ${formatForPreview(result.value)}`
+      } else {
+        previewEl.className = 'expression-dialog-preview error'
+        previewEl.textContent = result.error
+      }
+    })
+  }
+
+  private _cancelPreviewTimer(): void {
+    if (this._previewTimer !== null) {
+      clearTimeout(this._previewTimer)
+      this._previewTimer = null
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Quick reference
+  // ---------------------------------------------------------------------------
+
+  private _renderQuickReference(container: HTMLElement, input: HTMLInputElement): void {
+    for (const entry of JSONATA_QUICK_REFERENCE) {
+      const row = document.createElement('div')
+      row.className = 'expression-dialog-ref-row'
+
+      const code = document.createElement('code')
+      code.className = 'expression-dialog-ref-code'
+      code.textContent = entry.code
+
+      const desc = document.createElement('span')
+      desc.className = 'expression-dialog-ref-desc'
+      desc.textContent = entry.desc
+
+      row.appendChild(code)
+      row.appendChild(desc)
+
+      row.addEventListener('click', () => {
+        input.value = entry.code
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+        input.focus()
+      })
+
+      container.appendChild(row)
+    }
   }
 
   // ---------------------------------------------------------------------------

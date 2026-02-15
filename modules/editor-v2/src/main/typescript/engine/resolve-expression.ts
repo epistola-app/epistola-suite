@@ -39,3 +39,80 @@ export function formatResolvedValue(value: unknown): string | undefined {
   // Objects and arrays aren't displayable inline
   return undefined
 }
+
+// ---------------------------------------------------------------------------
+// Dialog-oriented helpers
+// ---------------------------------------------------------------------------
+
+/** Discriminated result type for expression evaluation. */
+export type ExpressionResult =
+  | { ok: true; value: unknown }
+  | { ok: false; error: string }
+
+/**
+ * Evaluate a JSONata expression and return a discriminated result.
+ * Unlike `evaluateExpression`, distinguishes parse errors from missing paths
+ * so the dialog can show meaningful feedback.
+ */
+export async function tryEvaluateExpression(
+  expression: string,
+  data: Record<string, unknown>,
+): Promise<ExpressionResult> {
+  const trimmed = expression.trim()
+  if (!trimmed) return { ok: false, error: 'Expression is empty' }
+
+  try {
+    const expr = jsonata(trimmed)
+    const value = await expr.evaluate(data)
+    return { ok: true, value }
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    return { ok: false, error: message }
+  }
+}
+
+const FORMAT_PREVIEW_MAX_LENGTH = 120
+
+/**
+ * Format a value for the dialog preview panel.
+ *
+ * Unlike `formatResolvedValue` (which returns `undefined` for non-inline types),
+ * this always returns a human-readable string — including for objects, arrays,
+ * undefined, null, and empty strings.
+ */
+export function formatForPreview(value: unknown): string {
+  if (value === undefined) return 'undefined'
+  if (value === null) return 'null'
+  if (typeof value === 'string') return value.length === 0 ? '(empty string)' : value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+
+  // Objects and arrays — show truncated JSON
+  try {
+    const json = JSON.stringify(value)
+    if (json.length > FORMAT_PREVIEW_MAX_LENGTH) {
+      return json.slice(0, FORMAT_PREVIEW_MAX_LENGTH) + '…'
+    }
+    return json
+  } catch {
+    return String(value)
+  }
+}
+
+/**
+ * Synchronous parse-only check. Returns `true` if the expression is
+ * syntactically valid JSONata (does NOT evaluate it).
+ *
+ * `jsonata(expr)` is synchronous and only parses — `.evaluate()` is the
+ * async part. This gives instant red/green feedback without waiting for
+ * data evaluation.
+ */
+export function isValidExpression(expression: string): boolean {
+  const trimmed = expression.trim()
+  if (!trimmed) return false
+  try {
+    jsonata(trimmed)
+    return true
+  } catch {
+    return false
+  }
+}

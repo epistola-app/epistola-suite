@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { evaluateExpression, formatResolvedValue } from './resolve-expression.js'
+import {
+  evaluateExpression,
+  formatResolvedValue,
+  tryEvaluateExpression,
+  formatForPreview,
+  isValidExpression,
+} from './resolve-expression.js'
 
 // ---------------------------------------------------------------------------
 // evaluateExpression
@@ -132,5 +138,143 @@ describe('formatResolvedValue', () => {
 
   it('formats a float', () => {
     expect(formatResolvedValue(3.14)).toBe('3.14')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// tryEvaluateExpression
+// ---------------------------------------------------------------------------
+
+describe('tryEvaluateExpression', () => {
+  const data = {
+    customer: { name: 'John Doe', age: 30 },
+    items: [
+      { name: 'Widget', price: 10 },
+      { name: 'Gadget', price: 25 },
+    ],
+  }
+
+  it('returns ok with value for a valid path', async () => {
+    const result = await tryEvaluateExpression('customer.name', data)
+    expect(result).toEqual({ ok: true, value: 'John Doe' })
+  })
+
+  it('returns ok with undefined for a missing path', async () => {
+    const result = await tryEvaluateExpression('customer.nonexistent', data)
+    expect(result).toEqual({ ok: true, value: undefined })
+  })
+
+  it('returns ok with number for aggregation', async () => {
+    const result = await tryEvaluateExpression('$sum(items.price)', data)
+    expect(result).toEqual({ ok: true, value: 35 })
+  })
+
+  it('returns error for syntax error', async () => {
+    const result = await tryEvaluateExpression('{{broken', data)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toBeTruthy()
+    }
+  })
+
+  it('returns error for empty expression', async () => {
+    const result = await tryEvaluateExpression('', data)
+    expect(result).toEqual({ ok: false, error: 'Expression is empty' })
+  })
+
+  it('returns error for whitespace-only expression', async () => {
+    const result = await tryEvaluateExpression('   ', data)
+    expect(result).toEqual({ ok: false, error: 'Expression is empty' })
+  })
+
+  it('returns ok with boolean value', async () => {
+    const result = await tryEvaluateExpression('customer.age > 18', data)
+    expect(result).toEqual({ ok: true, value: true })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatForPreview
+// ---------------------------------------------------------------------------
+
+describe('formatForPreview', () => {
+  it('formats a string', () => {
+    expect(formatForPreview('Hello')).toBe('Hello')
+  })
+
+  it('formats an empty string as "(empty string)"', () => {
+    expect(formatForPreview('')).toBe('(empty string)')
+  })
+
+  it('formats undefined as "undefined"', () => {
+    expect(formatForPreview(undefined)).toBe('undefined')
+  })
+
+  it('formats null as "null"', () => {
+    expect(formatForPreview(null)).toBe('null')
+  })
+
+  it('formats a number', () => {
+    expect(formatForPreview(42)).toBe('42')
+  })
+
+  it('formats a boolean', () => {
+    expect(formatForPreview(true)).toBe('true')
+    expect(formatForPreview(false)).toBe('false')
+  })
+
+  it('formats an object as JSON', () => {
+    expect(formatForPreview({ a: 1, b: 2 })).toBe('{"a":1,"b":2}')
+  })
+
+  it('formats an array as JSON', () => {
+    expect(formatForPreview([1, 2, 3])).toBe('[1,2,3]')
+  })
+
+  it('truncates long JSON with ellipsis', () => {
+    const longArray = Array.from({ length: 100 }, (_, i) => `item-${i}`)
+    const result = formatForPreview(longArray)
+    expect(result.length).toBeLessThanOrEqual(121) // 120 + ellipsis char
+    expect(result.endsWith('…')).toBe(true)
+  })
+
+  it('does not truncate short JSON', () => {
+    const result = formatForPreview({ x: 1 })
+    expect(result).toBe('{"x":1}')
+    expect(result.endsWith('…')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isValidExpression
+// ---------------------------------------------------------------------------
+
+describe('isValidExpression', () => {
+  it('returns true for a simple path', () => {
+    expect(isValidExpression('customer.name')).toBe(true)
+  })
+
+  it('returns true for a function call', () => {
+    expect(isValidExpression('$sum(items.price)')).toBe(true)
+  })
+
+  it('returns true for string concatenation', () => {
+    expect(isValidExpression('first & " " & last')).toBe(true)
+  })
+
+  it('returns true for a conditional', () => {
+    expect(isValidExpression('active ? "Yes" : "No"')).toBe(true)
+  })
+
+  it('returns false for invalid syntax', () => {
+    expect(isValidExpression('{{broken')).toBe(false)
+  })
+
+  it('returns false for empty expression', () => {
+    expect(isValidExpression('')).toBe(false)
+  })
+
+  it('returns false for whitespace-only expression', () => {
+    expect(isValidExpression('   ')).toBe(false)
   })
 })

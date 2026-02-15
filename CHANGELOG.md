@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- **Editor V2: Enhanced expression dialog with live preview**: Expression editing dialog now provides real-time feedback and discovery tools
+  - **Live preview**: Debounced (250ms) evaluation shows the expression result with green (success) or red (error) background, updates as you type
+  - **Instant validation**: Synchronous JSONata parse check on every keystroke gives immediate green/red border feedback without waiting for async evaluation
+  - **Searchable field paths**: Filter input next to "Available fields" narrows the field list with case-insensitive matching
+  - **JSONata quick reference**: Collapsible `<details>` panel with 12 common patterns (path access, concatenation, conditionals, aggregations, string functions, array filtering). Clicking a pattern fills the input and triggers preview.
+  - **New expression helpers**: `tryEvaluateExpression` (discriminated Result type), `formatForPreview` (human-readable for all value types including objects/arrays/null), `isValidExpression` (synchronous parse-only check)
 - **Editor V2: Save + Autosave** (Phase 6): Automatic and manual save functionality for the template editor
   - **SaveService**: Pure TypeScript class managing save lifecycle with state machine (idle → dirty → saving → saved → idle). 3-second debounced autosave coalesces rapid changes, concurrent save prevention queues pending documents, saved state auto-transitions to idle after 2 seconds. 19 unit tests cover all transitions.
   - **Ctrl+S**: Keyboard shortcut for immediate save, bypasses autosave debounce
