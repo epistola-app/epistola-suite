@@ -370,6 +370,32 @@ main.regular .empty-message {
     text-decoration: underline;
 }
 
+/* ── Back link (detail page header) ───────────────────────────────────── */
+
+.back-link {
+    display: inline-block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    text-decoration: none;
+    margin-bottom: var(--ep-space-1);
+    transition: color var(--ep-transition-fast);
+}
+
+.back-link:hover {
+    color: var(--ep-primary);
+}
+
+/* ── Ghost destructive button ────────────────────────────────────────── */
+
+.btn-ghost-destructive {
+    color: var(--ep-muted-foreground);
+}
+
+.btn-ghost-destructive:hover {
+    color: var(--ep-destructive);
+    background-color: var(--ep-red-50);
+}
+
 /* ── Inline form (for create variant) ─────────────────────────────────── */
 
 .inline-form {

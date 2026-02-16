@@ -30,7 +30,7 @@
                         <!-- Draft actions -->
                         <th:block th:if="${version.status.name() == 'DRAFT'}">
                             <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
-                               class="btn btn-sm btn-primary" hx-boost="false">Edit</a>
+                               class="btn btn-sm btn-ghost" hx-boost="false">Edit</a>
                             <button type="button"
                                     class="btn btn-sm btn-ghost"
                                     th:data-tenant-id="${tenantId}"

@@ -5,13 +5,11 @@
         <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
         <script th:src="@{/js/pdf-preview.js}"></script>
 
-        <nav class="breadcrumb">
-            <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}">Templates</a> &raquo;
-            <span th:text="${template.name}">Template Name</span>
-        </nav>
-
         <div class="page-header">
-            <h1 th:text="${template.name}">Template Name</h1>
+            <div>
+                <a th:href="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" class="back-link">&larr; Templates</a>
+                <h1 th:text="${template.name}">Template Name</h1>
+            </div>
         </div>
 
         <!-- Tab Navigation -->
@@ -110,14 +108,14 @@
                                     </td>
                                     <td class="actions">
                                         <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                           class="btn btn-sm btn-primary" hx-boost="false">Editor</a>
+                                           class="btn btn-sm btn-ghost" hx-boost="false">Editor</a>
                                         <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               method="post"
                                               th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               hx-confirm="Are you sure you want to delete this variant?"
                                               hx-target="#variants-section"
                                               hx-swap="outerHTML">
-                                            <button type="submit" class="btn btn-sm btn-destructive">Delete</button>
+                                            <button type="submit" class="btn btn-sm btn-ghost btn-ghost-destructive">Delete</button>
                                         </form>
                                     </td>
                                 </tr>
