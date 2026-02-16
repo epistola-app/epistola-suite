@@ -43,6 +43,16 @@ class PublishToEnvironmentTest : CoreIntegrationTestBase() {
         assertThat(result.version.publishedAt).isNotNull()
         assertThat(result.activation.environmentId).isEqualTo(env.id)
         assertThat(result.activation.versionId).isEqualTo(draft.id)
+
+        // Auto-created draft should exist
+        assertThat(result.newDraft).isNotNull
+        assertThat(result.newDraft!!.status).isEqualTo(VersionStatus.DRAFT)
+        assertThat(result.newDraft!!.id.value).isEqualTo(draft.id.value + 1)
+
+        // Variant should still have a draft
+        val updatedVersions = ListVersions(tenantId = tenant.id, templateId = template.id, variantId = variant.id).query()
+        assertThat(updatedVersions).hasSize(2)
+        assertThat(updatedVersions.any { it.status == VersionStatus.DRAFT }).isTrue()
         Unit
     }
 
@@ -80,6 +90,8 @@ class PublishToEnvironmentTest : CoreIntegrationTestBase() {
         assertThat(secondResult).isNotNull
         assertThat(secondResult!!.version.status).isEqualTo(VersionStatus.PUBLISHED)
         assertThat(secondResult.activation.environmentId).isEqualTo(production.id)
+        // No new draft when re-deploying an already-published version
+        assertThat(secondResult.newDraft).isNull()
 
         // Both activations should exist
         val activations = ListActivations(tenantId = tenant.id, templateId = template.id, variantId = variant.id).query()
@@ -118,6 +130,9 @@ class PublishToEnvironmentTest : CoreIntegrationTestBase() {
         assertThat(first).isNotNull
         assertThat(second).isNotNull
         assertThat(second!!.activation.versionId).isEqualTo(first!!.activation.versionId)
+        // First publish creates a new draft, second doesn't
+        assertThat(first.newDraft).isNotNull
+        assertThat(second.newDraft).isNull()
 
         // Only one activation should exist
         val activations = ListActivations(tenantId = tenant.id, templateId = template.id, variantId = variant.id).query()

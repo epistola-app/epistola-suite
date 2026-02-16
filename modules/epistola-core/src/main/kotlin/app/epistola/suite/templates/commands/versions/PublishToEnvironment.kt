@@ -37,6 +37,7 @@ data class PublishToEnvironment(
 data class PublishToEnvironmentResult(
     val version: TemplateVersion,
     val activation: EnvironmentActivation,
+    val newDraft: TemplateVersion? = null,
 )
 
 @Component
@@ -81,8 +82,9 @@ class PublishToEnvironmentHandler(
             return@inTransaction null
         }
 
-        // 4. If draft, freeze it (update to published)
-        if (version.status.name == "DRAFT") {
+        // 4. If draft, freeze it (update to published) and auto-create a new draft
+        val wasDraft = version.status.name == "DRAFT"
+        if (wasDraft) {
             handle.createUpdate(
                 """
                     UPDATE template_versions
@@ -128,9 +130,43 @@ class PublishToEnvironmentHandler(
             .mapTo<TemplateVersion>()
             .one()
 
+        // 7. Auto-create a new draft if we just froze a draft, so the variant always has an editable version
+        val newDraft = if (wasDraft) {
+            val nextVersionId = handle.createQuery(
+                """
+                    SELECT COALESCE(MAX(id), 0) + 1
+                    FROM template_versions
+                    WHERE tenant_id = :tenantId AND variant_id = :variantId
+                    """,
+            )
+                .bind("tenantId", command.tenantId)
+                .bind("variantId", command.variantId)
+                .mapTo(Int::class.java)
+                .one()
+
+            handle.createQuery(
+                """
+                    INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                    VALUES (:id, :tenantId, :variantId,
+                            (SELECT template_model FROM template_versions WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :publishedId),
+                            'draft', NOW())
+                    RETURNING *
+                    """,
+            )
+                .bind("id", VersionId.of(nextVersionId))
+                .bind("tenantId", command.tenantId)
+                .bind("variantId", command.variantId)
+                .bind("publishedId", command.versionId)
+                .mapTo<TemplateVersion>()
+                .one()
+        } else {
+            null
+        }
+
         PublishToEnvironmentResult(
             version = updatedVersion,
             activation = activation,
+            newDraft = newDraft,
         )
     }
 }

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- **Auto-Draft on Publish**: Publishing a draft version to an environment now automatically creates a new draft (copying the published content), so variants always have an editable version. This removes the need to manually create new drafts after deploying.
 - **Template Detail Page Redesign**: Separated the template detail page into focused tabs — Variants (authoring), Deployments (environment matrix), Data Contract, and Settings
   - **Deployment Matrix**: New dedicated Deployments tab with environment x variant grid for managing deployments. Deploy/undeploy directly from the matrix.
   - **Simplified Variants Tab**: Removed inline nested version tables. Variants table now shows slug, title, attributes, and draft status. Version history moved to a dialog.
