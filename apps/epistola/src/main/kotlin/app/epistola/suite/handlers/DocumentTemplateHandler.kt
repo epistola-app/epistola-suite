@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -204,7 +205,7 @@ class DocumentTemplateHandler(
                 "templateId" to templateId,
                 "variantId" to variantId,
                 "templateName" to context.templateName,
-                "variantTags" to context.variantTags,
+                "variantAttributes" to context.variantAttributes,
                 "templateModel" to context.templateModel,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
@@ -428,6 +429,9 @@ class DocumentTemplateHandler(
         // Load available themes for theme selection
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
 
+        // Load attribute definitions for variant attribute selects
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()
+
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
@@ -437,6 +441,7 @@ class DocumentTemplateHandler(
                 "template" to template,
                 "variants" to variants,
                 "themes" to themes,
+                "attributeDefinitions" to attributeDefinitions,
             ),
         )
     }

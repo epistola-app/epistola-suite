@@ -17,7 +17,7 @@ import tools.jackson.databind.node.ObjectNode
  */
 data class EditorContext(
     val templateName: String,
-    val variantTags: Map<String, String>,
+    val variantAttributes: Map<String, String>,
     val templateModel: TemplateDocument,
     val dataExamples: List<DataExample>,
     val dataModel: ObjectNode?,
@@ -45,7 +45,7 @@ class GetEditorContextHandler(
                 dt.name as template_name,
                 dt.data_model,
                 dt.data_examples,
-                tv.tags as variant_tags,
+                tv.attributes as variant_attributes,
                 ver.template_model as draft_template_model
             FROM document_templates dt
             JOIN template_variants tv ON tv.template_id = dt.id
@@ -77,9 +77,9 @@ class GetEditorContextHandler(
             }
         } ?: emptyList()
 
-        // Parse variant tags
+        // Parse variant attributes
         @Suppress("UNCHECKED_CAST")
-        val variantTags: Map<String, String> = (row["variant_tags"] as? Map<String, String>) ?: emptyMap()
+        val variantAttributes: Map<String, String> = (row["variant_attributes"] as? Map<String, String>) ?: emptyMap()
 
         // Deserialize draft_template_model from JSONB
         val templateModel = row["draft_template_model"]?.let { raw ->
@@ -93,7 +93,7 @@ class GetEditorContextHandler(
 
         EditorContext(
             templateName = row["template_name"] as String,
-            variantTags = variantTags,
+            variantAttributes = variantAttributes,
             templateModel = templateModel,
             dataExamples = dataExamples,
             dataModel = row["data_model"] as? ObjectNode,

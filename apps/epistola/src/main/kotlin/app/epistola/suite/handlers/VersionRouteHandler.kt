@@ -168,7 +168,7 @@ class VersionRouteHandler(
         val variantSummary = VariantSummary(
             id = variant.id,
             title = variant.title,
-            tags = variant.tags,
+            attributes = variant.attributes,
             hasDraft = versions.any { it.status.name == "DRAFT" },
             publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.map { it.id.value }.sorted(),
         )

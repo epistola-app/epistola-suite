@@ -31,7 +31,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
 
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -88,7 +88,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     fun `fails with non-existent version`() {
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
 
         val data = objectMapper.createObjectNode().put("test", "value")
 

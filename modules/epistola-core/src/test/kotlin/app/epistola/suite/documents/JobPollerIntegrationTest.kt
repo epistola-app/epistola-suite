@@ -73,7 +73,7 @@ class JobPollerIntegrationTest {
                 templateId = template.id,
                 title = "Default",
                 description = null,
-                tags = emptyMap(),
+                attributes = emptyMap(),
             ),
         )!!
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")

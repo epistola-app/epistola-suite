@@ -33,7 +33,7 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
         val tenant2 = createTenant("Tenant 2")
 
         val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant1.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
@@ -68,7 +68,7 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
     fun `cannot cancel completed job`() {
         val tenant = createTenant("Test Tenant")
         val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, tags = emptyMap()))!!
+        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )

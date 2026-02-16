@@ -189,7 +189,7 @@ class ScenarioBuilder {
          * @param templateId the template ID
          * @param title optional variant title
          * @param description optional variant description
-         * @param tags optional tags map
+         * @param attributes optional attributes map
          * @return the created [TemplateVariant]
          */
         fun variant(
@@ -197,7 +197,7 @@ class ScenarioBuilder {
             templateId: TemplateId,
             title: String? = null,
             description: String? = null,
-            tags: Map<String, String> = emptyMap(),
+            attributes: Map<String, String> = emptyMap(),
         ): TemplateVariant = capturedMediator.send(
             CreateVariant(
                 id = TestIdHelpers.nextVariantId(),
@@ -205,7 +205,7 @@ class ScenarioBuilder {
                 templateId = templateId,
                 title = title,
                 description = description,
-                tags = tags,
+                attributes = attributes,
             ),
         )!!
 

@@ -196,7 +196,7 @@ class EpistolaTemplateApi(
             templateId = TemplateId.of(templateId),
             title = createVariantRequest.title,
             description = createVariantRequest.description,
-            tags = createVariantRequest.tags ?: emptyMap(),
+            attributes = createVariantRequest.tags ?: emptyMap(),
         ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.status(HttpStatus.CREATED).body(variant.toDto(summary))
@@ -223,7 +223,7 @@ class EpistolaTemplateApi(
         variantId: String,
         updateVariantRequest: UpdateVariantRequest,
     ): ResponseEntity<VariantDto> {
-        val tags = updateVariantRequest.tags
+        val attributes = updateVariantRequest.tags
             ?: return ResponseEntity.badRequest().build()
         val typedTenantId = TenantId.of(tenantId)
         val variant = UpdateVariant(
@@ -231,7 +231,7 @@ class EpistolaTemplateApi(
             templateId = TemplateId.of(templateId),
             variantId = VariantId.of(variantId),
             title = updateVariantRequest.title,
-            tags = tags,
+            attributes = attributes,
         ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.ok(variant.toDto(summary))

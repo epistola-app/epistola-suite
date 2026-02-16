@@ -67,7 +67,7 @@ class CreateDocumentTemplateHandler(
             val variantId = VariantId.of("${command.id}-default")
             handle.createUpdate(
                 """
-                INSERT INTO template_variants (id, template_id, tags, created_at, last_modified)
+                INSERT INTO template_variants (id, template_id, attributes, created_at, last_modified)
                 VALUES (:id, :templateId, '{}'::jsonb, NOW(), NOW())
                 """,
             )

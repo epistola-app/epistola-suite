@@ -13,7 +13,7 @@ data class TemplateVariant(
     val templateId: TemplateId,
     val title: String?,
     val description: String?,
-    @Json val tags: Map<String, String> = emptyMap(),
+    @Json val attributes: Map<String, String> = emptyMap(),
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
 )
@@ -24,7 +24,7 @@ data class TemplateVariant(
 data class VariantSummary(
     val id: VariantId,
     val title: String?,
-    @Json val tags: Map<String, String>,
+    @Json val attributes: Map<String, String>,
     val hasDraft: Boolean,
     @Json val publishedVersions: List<Int>,
 )

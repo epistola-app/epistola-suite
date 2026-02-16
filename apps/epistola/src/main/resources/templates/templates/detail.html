@@ -51,9 +51,17 @@
                                 <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="ep-label" for="tags">Tags (optional, format: key=value, one per line)</label>
-                            <textarea id="tags" name="tags" class="ep-textarea" rows="2" placeholder="locale=en-US&#10;brand=default"></textarea>
+                        <div class="form-row" th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
+                            <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
+                                <label class="ep-label" th:for="'create-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
+                                <select th:id="'create-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
+                                    <option value="">- Not set -</option>
+                                    <option th:if="${!attrDef.allowedValues.isEmpty()}"
+                                            th:each="val : ${attrDef.allowedValues}"
+                                            th:value="${val}"
+                                            th:text="${val}"></option>
+                                </select>
+                            </div>
                         </div>
                         <div class="actions">
                             <button type="submit" class="btn btn-primary">Create Variant</button>
@@ -73,7 +81,7 @@
                                     <th style="width: 2rem;"></th>
                                     <th>ID</th>
                                     <th>Title</th>
-                                    <th>Tags</th>
+                                    <th>Attributes</th>
                                     <th>Published</th>
                                     <th></th>
                                 </tr>
@@ -93,12 +101,12 @@
                                         <span th:unless="${variant.title != null}" class="text-muted">-</span>
                                     </td>
                                     <td>
-                                        <div class="tags" th:if="${!variant.tags.isEmpty()}">
-                                            <span th:each="entry : ${variant.tags}"
+                                        <div class="tags" th:if="${!variant.attributes.isEmpty()}">
+                                            <span th:each="entry : ${variant.attributes}"
                                                   class="badge badge-outline"
                                                   th:text="${entry.key + '=' + entry.value}"></span>
                                         </div>
-                                        <span th:if="${variant.tags.isEmpty()}" class="text-muted">(default)</span>
+                                        <span th:if="${variant.attributes.isEmpty()}" class="text-muted">(default)</span>
                                     </td>
                                     <td>
                                         <th:block th:if="${!variant.publishedVersions.isEmpty()}">
@@ -421,11 +429,18 @@
                     <input type="text" id="edit-variant-title" name="title" class="ep-input"
                            th:value="${variant.title}" placeholder="e.g. English Newsletter">
                 </div>
-                <div class="form-group">
-                    <label class="ep-label" for="edit-variant-tags">Tags (key=value, one per line)</label>
-                    <textarea id="edit-variant-tags" name="tags" class="ep-textarea" rows="3"
-                              placeholder="locale=en&#10;brand=default"
-                              th:text="${variant.tags != null ? #strings.listJoin(variant.tags.entrySet().![key + '=' + value], '&#10;') : ''}"></textarea>
+                <div th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
+                    <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
+                        <label class="ep-label" th:for="'edit-attr_' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
+                        <select th:id="'edit-attr_' + ${attrDef.id}" th:name="'attr_' + ${attrDef.id}" class="ep-select">
+                            <option value="">- Not set -</option>
+                            <option th:if="${!attrDef.allowedValues.isEmpty()}"
+                                    th:each="val : ${attrDef.allowedValues}"
+                                    th:value="${val}"
+                                    th:text="${val}"
+                                    th:selected="${variant.attributes != null and variant.attributes.containsKey(attrDef.id.toString()) and variant.attributes.get(attrDef.id.toString()) == val}"></option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="ep-dialog-footer">

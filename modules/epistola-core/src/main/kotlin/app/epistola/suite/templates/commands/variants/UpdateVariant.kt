@@ -16,7 +16,7 @@ data class UpdateVariant(
     val templateId: TemplateId,
     val variantId: VariantId,
     val title: String?,
-    val tags: Map<String, String>,
+    val attributes: Map<String, String>,
 ) : Command<TemplateVariant?>
 
 @Component
@@ -24,10 +24,14 @@ class UpdateVariantHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
-    override fun handle(command: UpdateVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-        // Verify the variant belongs to a template owned by the tenant
-        val variantExists = handle.createQuery(
-            """
+    override fun handle(command: UpdateVariant): TemplateVariant? {
+        // Validate attributes against the tenant's attribute definitions
+        validateAttributes(command.tenantId, command.attributes)
+
+        return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
+            // Verify the variant belongs to a template owned by the tenant
+            val variantExists = handle.createQuery(
+                """
                 SELECT COUNT(*) > 0
                 FROM template_variants tv
                 JOIN document_templates dt ON tv.template_id = dt.id
@@ -35,32 +39,33 @@ class UpdateVariantHandler(
                   AND tv.template_id = :templateId
                   AND dt.tenant_id = :tenantId
                 """,
-        )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
-            .mapTo<Boolean>()
-            .one()
+            )
+                .bind("variantId", command.variantId)
+                .bind("templateId", command.templateId)
+                .bind("tenantId", command.tenantId)
+                .mapTo<Boolean>()
+                .one()
 
-        if (!variantExists) {
-            return@inTransaction null
-        }
+            if (!variantExists) {
+                return@inTransaction null
+            }
 
-        val tagsJson = objectMapper.writeValueAsString(command.tags)
+            val attributesJson = objectMapper.writeValueAsString(command.attributes)
 
-        handle.createQuery(
-            """
+            handle.createQuery(
+                """
                 UPDATE template_variants
-                SET title = :title, tags = :tags::jsonb, last_modified = NOW()
+                SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
                 WHERE id = :variantId
                 RETURNING *
                 """,
-        )
-            .bind("variantId", command.variantId)
-            .bind("title", command.title)
-            .bind("tags", tagsJson)
-            .mapTo<TemplateVariant>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("variantId", command.variantId)
+                .bind("title", command.title)
+                .bind("attributes", attributesJson)
+                .mapTo<TemplateVariant>()
+                .findOne()
+                .orElse(null)
+        }
     }
 }
