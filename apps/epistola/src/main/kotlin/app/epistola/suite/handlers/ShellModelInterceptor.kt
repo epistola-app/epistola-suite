@@ -30,19 +30,19 @@ class ShellModelInterceptor : HandlerInterceptor {
     ) {
         if (modelAndView == null) return
         val viewName = modelAndView.viewName ?: return
-        if (viewName != "layout/shell") return
 
-        val path = request.requestURI
-
-        // Derive active nav section from URL
-        modelAndView.addObject("activeNavSection", resolveActiveSection(path))
-
-        // Resolve tenant name from tenantId in model
         val tenantId = modelAndView.model["tenantId"]?.toString()
-        if (tenantId != null) {
+
+        // Resolve tenant name for any view that has a tenantId but no tenantName yet
+        if (tenantId != null && modelAndView.model["tenantName"] == null) {
             val tenant = GetTenant(TenantId.of(tenantId)).query()
             modelAndView.addObject("tenantName", tenant?.name ?: tenantId)
         }
+
+        // Shell-specific attributes
+        if (viewName != "layout/shell") return
+        val path = request.requestURI
+        modelAndView.addObject("activeNavSection", resolveActiveSection(path))
     }
 
     private fun resolveActiveSection(path: String): String = when {

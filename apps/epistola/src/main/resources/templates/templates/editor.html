@@ -4,21 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${templateName + ' - Edit - Epistola'}">Edit Template - Epistola</title>
-    <!-- Font Family -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
     <th:block th:replace="~{fragments/styles :: styles}" />
+    <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
     <style>
-        .editor-container {
-            overflow: hidden;
+        .editor-page {
+            display: flex;
+            flex-direction: column;
             height: 100vh;
+            overflow: hidden;
+        }
+        .editor-container {
+            flex: 1;
+            overflow: hidden;
             width: 100%;
         }
     </style>
 </head>
-<body>
+<body class="editor-page">
+    <th:block th:replace="~{layout/nav :: nav}" />
     <div id="editor-container" class="editor-container"></div>
 
     <script th:inline="javascript">
