@@ -49,7 +49,7 @@
                         <!-- Published: show environment badges + publish to more -->
                         <th:block th:if="${version.status.name() == 'PUBLISHED'}">
                             <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
-                                <span th:each="act : ${activationsByVersion[version.id.value]}" class="badge badge-success" style="display: inline-flex; align-items: center; gap: 2px;">
+                                <span th:each="act : ${activationsByVersion[version.id]}" class="badge badge-success" style="display: inline-flex; align-items: center; gap: 2px;">
                                     <span th:text="${act.environmentName}"></span>
                                     <form style="display:inline; margin: 0; padding: 0;"
                                           th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/unpublish/{environmentId}(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id},environmentId=${act.environmentId})}"
@@ -126,7 +126,7 @@
                                   hx-swap="innerHTML"
                                   hx-confirm="Are you sure you want to archive this version?">
                                 <button type="submit" class="btn btn-sm btn-icon btn-ghost"
-                                        th:disabled="${activationsByVersion.containsKey(version.id.value)}"
+                                        th:disabled="${activationsByVersion.containsKey(version.id)}"
                                         title="Archive version">
                                     <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                 </button>
