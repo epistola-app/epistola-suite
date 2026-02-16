@@ -30,51 +30,66 @@
                         <!-- Draft actions -->
                         <th:block th:if="${version.status.name() == 'DRAFT'}">
                             <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
-                               class="btn btn-sm btn-ghost" hx-boost="false">Edit</a>
+                               class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Edit draft">
+                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            </a>
                             <button type="button"
-                                    class="btn btn-sm btn-ghost"
+                                    class="btn btn-sm btn-icon btn-ghost"
                                     th:data-tenant-id="${tenantId}"
                                     th:data-template-id="${templateId}"
                                     th:data-variant-id="${variant.id}"
                                     th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
-                                    onclick="previewPdf(this)">Preview</button>
+                                    onclick="previewPdf(this)"
+                                    title="Preview PDF">
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            </button>
                             <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                   method="post"
                                   th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                   th:hx-target="'#variant-versions-' + ${variant.id}"
                                   hx-swap="innerHTML">
-                                <button type="submit" class="btn btn-sm btn-ghost">Publish</button>
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Publish version">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='check-circle', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </form>
                         </th:block>
 
                         <!-- Published actions -->
                         <th:block th:if="${version.status.name() == 'PUBLISHED'}">
                             <button type="button"
-                                    class="btn btn-sm btn-ghost"
+                                    class="btn btn-sm btn-icon btn-ghost"
                                     th:data-tenant-id="${tenantId}"
                                     th:data-template-id="${templateId}"
                                     th:data-variant-id="${variant.id}"
                                     th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
-                                    onclick="previewPdf(this)">Preview</button>
+                                    onclick="previewPdf(this)"
+                                    title="Preview PDF">
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            </button>
                             <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                   method="post"
                                   th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
                                   th:hx-target="'#variant-versions-' + ${variant.id}"
                                   hx-swap="innerHTML"
                                   hx-confirm="Are you sure you want to archive this version?">
-                                <button type="submit" class="btn btn-sm btn-ghost">Archive</button>
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Archive version">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </form>
                         </th:block>
 
                         <!-- Archived: preview only -->
                         <th:block th:if="${version.status.name() == 'ARCHIVED'}">
                             <button type="button"
-                                    class="btn btn-sm btn-ghost"
+                                    class="btn btn-sm btn-icon btn-ghost"
                                     th:data-tenant-id="${tenantId}"
                                     th:data-template-id="${templateId}"
                                     th:data-variant-id="${variant.id}"
                                     th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
-                                    onclick="previewPdf(this)">Preview</button>
+                                    onclick="previewPdf(this)"
+                                    title="Preview PDF">
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            </button>
                         </th:block>
                     </td>
                 </tr>
