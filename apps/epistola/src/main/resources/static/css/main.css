@@ -966,11 +966,53 @@ a.stat-card:hover {
 
 .variant-detail-row td {
     padding: 0 !important;
-    background: var(--ep-muted);
+    background: var(--ep-gray-50);
+}
+
+.variant-detail-row:hover td {
+    background: var(--ep-gray-50) !important;
 }
 
 .variant-detail-content {
-    padding: var(--ep-space-4) var(--ep-space-6);
+    padding: var(--ep-space-2) var(--ep-space-6) var(--ep-space-3);
+}
+
+/* Compact table for inline versions */
+.variant-detail-content table {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: var(--ep-text-xs);
+}
+
+.variant-detail-content th {
+    background: transparent;
+    padding: var(--ep-space-1) var(--ep-space-3);
+    border-bottom: 1px solid var(--ep-border-color);
+    font-size: var(--ep-text-xs);
+}
+
+.variant-detail-content td {
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    border-bottom: 1px solid var(--ep-gray-100);
+}
+
+.variant-detail-content tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.variant-detail-content tbody tr:hover {
+    background: var(--ep-gray-100);
+}
+
+.variant-detail-content .actions {
+    gap: var(--ep-space-1);
+}
+
+/* Create draft button area inside expanded row */
+.variant-detail-content .versions-footer {
+    padding: var(--ep-space-2) var(--ep-space-3) 0;
 }
 
 /* ── Danger zone ─────────────────────────────────────────────────────── */

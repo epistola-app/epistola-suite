@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <table th:if="${!#lists.isEmpty(versions)}" class="ep-table" style="margin-bottom: 0;">
+        <table th:if="${!#lists.isEmpty(versions)}">
             <thead>
                 <tr>
                     <th>Version</th>
@@ -87,7 +87,7 @@
         </div>
 
         <!-- Create Draft button if no draft exists -->
-        <div th:unless="${variant.hasDraft}" style="padding: var(--ep-space-4) var(--ep-space-6); border-top: 1px solid var(--ep-border-color);">
+        <div th:unless="${variant.hasDraft}" class="versions-footer">
             <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
                   method="post"
                   th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
