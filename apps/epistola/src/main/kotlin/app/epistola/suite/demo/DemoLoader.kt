@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -67,55 +68,57 @@ class DemoLoader(
     }
 
     private fun recreateDemoTenant() {
-        transactionTemplate.executeWithoutResult {
-            // Find and delete existing demo tenant (if exists)
-            val existingTenants = mediator.query(ListTenants())
-            val demoTenant = existingTenants.find { it.name == DEMO_TENANT_NAME }
+        MediatorContext.runWithMediator(mediator) {
+            transactionTemplate.executeWithoutResult {
+                // Find and delete existing demo tenant (if exists)
+                val existingTenants = mediator.query(ListTenants())
+                val demoTenant = existingTenants.find { it.name == DEMO_TENANT_NAME }
 
-            if (demoTenant != null) {
-                log.info("Deleting existing demo tenant (id={})", demoTenant.id)
-                mediator.send(DeleteTenant(id = demoTenant.id))
+                if (demoTenant != null) {
+                    log.info("Deleting existing demo tenant (id={})", demoTenant.id)
+                    mediator.send(DeleteTenant(id = demoTenant.id))
+                }
+
+                // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
+                val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
+                log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
+                log.info("Tenant has default theme: {}", tenant.defaultThemeId)
+
+                // Create additional demo themes
+                val corporateThemeId = createDemoThemes(tenant.id)
+
+                // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
+                if (corporateThemeId != null) {
+                    mediator.send(app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
+                    log.info("Set Corporate theme as tenant default")
+                }
+
+                // Create environments
+                val staging = mediator.send(CreateEnvironment(id = EnvironmentId.of("staging"), tenantId = tenant.id, name = "Staging"))
+                val production = mediator.send(CreateEnvironment(id = EnvironmentId.of("production"), tenantId = tenant.id, name = "Production"))
+                log.info("Created environments: staging, production")
+
+                // Create attribute definitions
+                mediator.send(
+                    CreateAttributeDefinition(
+                        id = AttributeId.of("language"),
+                        tenantId = tenant.id,
+                        displayName = "Language",
+                        allowedValues = listOf("nl", "en"),
+                    ),
+                )
+                log.info("Created attribute definition: language (nl, en)")
+
+                // Load and create templates from JSON definitions
+                val definitions = loadTemplateDefinitions()
+                log.info("Loaded {} template definitions", definitions.size)
+
+                definitions.forEach { definition ->
+                    createTemplateFromDefinition(tenant.id, definition, staging.id, production.id)
+                }
+
+                log.info("Created {} demo templates with environments and variants", definitions.size)
             }
-
-            // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
-            val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
-            log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
-            log.info("Tenant has default theme: {}", tenant.defaultThemeId)
-
-            // Create additional demo themes
-            val corporateThemeId = createDemoThemes(tenant.id)
-
-            // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
-            if (corporateThemeId != null) {
-                mediator.send(app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
-                log.info("Set Corporate theme as tenant default")
-            }
-
-            // Create environments
-            val staging = mediator.send(CreateEnvironment(id = EnvironmentId.of("staging"), tenantId = tenant.id, name = "Staging"))
-            val production = mediator.send(CreateEnvironment(id = EnvironmentId.of("production"), tenantId = tenant.id, name = "Production"))
-            log.info("Created environments: staging, production")
-
-            // Create attribute definitions
-            mediator.send(
-                CreateAttributeDefinition(
-                    id = AttributeId.of("language"),
-                    tenantId = tenant.id,
-                    displayName = "Language",
-                    allowedValues = listOf("nl", "en"),
-                ),
-            )
-            log.info("Created attribute definition: language (nl, en)")
-
-            // Load and create templates from JSON definitions
-            val definitions = loadTemplateDefinitions()
-            log.info("Loaded {} template definitions", definitions.size)
-
-            definitions.forEach { definition ->
-                createTemplateFromDefinition(tenant.id, definition, staging.id, production.id)
-            }
-
-            log.info("Created {} demo templates with environments and variants", definitions.size)
         }
     }
 
