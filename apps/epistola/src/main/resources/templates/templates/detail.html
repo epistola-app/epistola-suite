@@ -12,105 +12,106 @@
 
         <div class="page-header">
             <h1 th:text="${template.name}">Template Name</h1>
-            <form th:action="@{/tenants/{tenantId}/templates/{id}/delete(tenantId=${tenantId},id=${template.id})}"
-                  method="post"
-                  onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.')">
-                <button type="submit" class="btn btn-sm btn-destructive">Delete Template</button>
-            </form>
+            <div class="page-actions">
+                <form th:action="@{/tenants/{tenantId}/templates/{id}/delete(tenantId=${tenantId},id=${template.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to delete this template? This action cannot be undone.')">
+                    <button type="submit" class="btn btn-sm btn-destructive">Delete Template</button>
+                </form>
+            </div>
         </div>
 
         <!-- Default Theme Section -->
-        <section class="form-section" id="theme-section" th:fragment="theme-section">
-            <div class="section-header">
+        <div class="detail-section" id="theme-section" th:fragment="theme-section">
+            <div class="detail-section-header">
                 <h3>Default Theme</h3>
             </div>
-            <p class="text-muted form-hint">
-                Set the default theme for all variants. Individual variants can override this in the editor.
-            </p>
-            <div class="form-row">
-                <div class="form-group">
-                    <select id="theme-select"
-                            name="themeId"
-                            class="ep-select"
-                            onchange="updateTheme(this)">
-                        <option value="">No theme (use variant defaults)</option>
-                        <option th:each="theme : ${themes}"
-                                th:value="${theme.id}"
-                                th:text="${theme.name}"
-                                th:selected="${template.themeId != null and template.themeId.equals(theme.id)}"></option>
-                    </select>
-                    <script th:inline="javascript">
-                        function updateTheme(select) {
-                            const themeId = select.value || null;
-                            const clearThemeId = !select.value;
-                            const url = [[${'/tenants/' + tenantId + '/templates/' + template.id + '/theme'}]];
-                            const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+            <div class="detail-section-body">
+                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                    Set the default theme for all variants. Individual variants can override this in the editor.
+                </p>
+                <div class="form-row">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <select id="theme-select"
+                                name="themeId"
+                                class="ep-select"
+                                onchange="updateTheme(this)">
+                            <option value="">No theme (use variant defaults)</option>
+                            <option th:each="theme : ${themes}"
+                                    th:value="${theme.id}"
+                                    th:text="${theme.name}"
+                                    th:selected="${template.themeId != null and template.themeId.equals(theme.id)}"></option>
+                        </select>
+                        <script th:inline="javascript">
+                            function updateTheme(select) {
+                                const themeId = select.value || null;
+                                const clearThemeId = !select.value;
+                                const url = [[${'/tenants/' + tenantId + '/templates/' + template.id + '/theme'}]];
+                                const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
 
-                            fetch(url, {
-                                method: 'PATCH',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-XSRF-TOKEN': csrfToken
-                                },
-                                body: JSON.stringify({ themeId: themeId, clearThemeId: clearThemeId })
-                            })
-                            .then(response => response.text())
-                            .then(html => {
-                                const section = document.getElementById('theme-section');
-                                section.outerHTML = html;
-                            });
-                        }
-                    </script>
-                </div>
-                <div class="form-group" th:if="${template.themeId != null}">
-                    <span class="text-muted" th:each="theme : ${themes}" th:if="${template.themeId.equals(theme.id)}" th:text="${theme.description}"></span>
+                                fetch(url, {
+                                    method: 'PATCH',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-XSRF-TOKEN': csrfToken
+                                    },
+                                    body: JSON.stringify({ themeId: themeId, clearThemeId: clearThemeId })
+                                })
+                                .then(response => response.text())
+                                .then(html => {
+                                    const section = document.getElementById('theme-section');
+                                    section.outerHTML = html;
+                                });
+                            }
+                        </script>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
 
         <!-- Variants Section -->
-        <section>
-            <div class="section-header">
+        <div class="detail-section">
+            <div class="detail-section-header">
                 <h2>Variants</h2>
             </div>
-
-            <div id="variants-section" th:fragment="variants-section">
-                <table th:if="${!#lists.isEmpty(variants)}">
+            <div class="detail-section-body" id="variants-section" th:fragment="variants-section"
+                 th:classappend="${!#lists.isEmpty(variants)} ? ' no-padding' : ''">
+                <table th:if="${!#lists.isEmpty(variants)}" class="ep-table">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Title</th>
                             <th>Tags</th>
                             <th>Published</th>
-                            <th>Actions</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:each="variant : ${variants}">
-                            <td th:text="${variant.id}"></td>
+                            <td><code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code></td>
                             <td>
                                 <span th:if="${variant.title != null}" th:text="${variant.title}"></span>
-                                <span th:unless="${variant.title != null}" class="text-muted">—</span>
+                                <span th:unless="${variant.title != null}" class="text-muted">-</span>
                             </td>
                             <td>
                                 <div class="tags" th:if="${!variant.tags.isEmpty()}">
                                     <span th:each="entry : ${variant.tags}"
-                                          class="tag"
+                                          class="badge badge-outline"
                                           th:text="${entry.key + '=' + entry.value}"></span>
                                 </div>
                                 <span th:if="${variant.tags.isEmpty()}" class="text-muted">(default)</span>
                             </td>
                             <td>
                                 <th:block th:if="${!variant.publishedVersions.isEmpty()}">
-                                    <span th:each="ver, iterStat : ${variant.publishedVersions}"><span th:text="'v' + ${ver}"></span><th:block th:unless="${iterStat.last}">, </th:block></span>
+                                    <span th:each="ver, iterStat : ${variant.publishedVersions}"><span class="badge badge-success" th:text="'v' + ${ver}"></span> </span>
                                 </th:block>
-                                <span th:if="${variant.publishedVersions.isEmpty()}" class="text-muted">—</span>
+                                <span th:if="${variant.publishedVersions.isEmpty()}" class="text-muted">-</span>
                             </td>
                             <td class="actions">
                                 <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                   class="btn btn-sm btn-outline" hx-boost="false">Edit</a>
+                                   class="btn btn-sm btn-primary" hx-boost="false">Open Editor</a>
                                 <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                   class="btn btn-sm btn-outline">Versions</a>
+                                   class="btn btn-sm btn-ghost">Versions</a>
                                 <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                       method="post"
                                       th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
@@ -124,55 +125,59 @@
                     </tbody>
                 </table>
 
-                <p th:if="${#lists.isEmpty(variants)}" class="text-muted text-center">
-                    No variants yet. Create one below to get started.
-                </p>
+                <div th:if="${#lists.isEmpty(variants)}" class="empty-state" style="padding: var(--ep-space-8);">
+                    <div class="empty-state-title">No variants yet</div>
+                    <div class="empty-state-description">Create a variant to start designing your template.</div>
+                </div>
             </div>
+        </div>
 
-            <div class="form-section">
+        <!-- Create Variant Form -->
+        <div class="detail-section">
+            <div class="detail-section-header">
                 <h3>Create New Variant</h3>
+            </div>
+            <div class="detail-section-body">
                 <form th:action="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
                       method="post"
                       th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants(tenantId=${tenantId},id=${template.id})}"
                       hx-target="#variants-section"
                       hx-swap="outerHTML"
                       hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group">
-                        <label for="slug">Slug (ID)</label>
-                        <input type="text" id="slug" name="slug" required
-                               pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
-                               placeholder="e.g., english-newsletter"
-                               title="Lowercase letters, numbers, and hyphens. Must start with a letter.">
-                        <small class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</small>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="ep-label" for="slug">Slug (ID)</label>
+                            <input type="text" id="slug" name="slug" class="ep-input" required
+                                   pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*"
+                                   placeholder="english-newsletter">
+                            <span class="form-hint">URL-safe identifier (lowercase, hyphens allowed)</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="ep-label" for="title">Title (optional)</label>
+                            <input type="text" id="title" name="title" class="ep-input" placeholder="English Newsletter">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="title">Title (optional)</label>
-                        <input type="text" id="title" name="title" placeholder="e.g., English Newsletter">
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Description (optional)</label>
-                        <textarea id="description" name="description" rows="2" placeholder="Description of this variant"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="tags">Tags (optional, format: key=value, one per line)</label>
-                        <textarea id="tags" name="tags" rows="3" placeholder="locale=en-US&#10;brand=default"></textarea>
+                        <label class="ep-label" for="tags">Tags (optional, format: key=value, one per line)</label>
+                        <textarea id="tags" name="tags" class="ep-textarea" rows="2" placeholder="locale=en-US&#10;brand=default"></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary">Create Variant</button>
                 </form>
             </div>
-        </section>
+        </div>
 
         <!-- Data Contract Section -->
-        <section>
-            <div class="section-header">
+        <div class="detail-section">
+            <div class="detail-section-header">
                 <h2>Data Contract</h2>
             </div>
-            <p class="text-muted">
-                Define the JSON schema and test data examples for this template.
-                These examples can be used when designing variants.
-            </p>
-            <div id="schema-manager-container"></div>
-        </section>
+            <div class="detail-section-body">
+                <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
+                    Define the JSON schema and test data examples for this template.
+                </p>
+                <div id="schema-manager-container"></div>
+            </div>
+        </div>
 
         <script th:inline="javascript">
             const TENANT_ID = [[${tenantId}]];
@@ -183,13 +188,11 @@
         <script type="module">
             import { mountSchemaManager } from '/schema-manager/schema-manager.js';
 
-            // Use variables from inline script
             const tenantId = TENANT_ID;
             const templateId = TEMPLATE_ID;
             const initialSchema = INITIAL_SCHEMA;
             const initialExamples = INITIAL_EXAMPLES;
 
-            // Mount the schema manager
             const manager = mountSchemaManager({
                 container: document.getElementById('schema-manager-container'),
                 templateId: templateId,
@@ -285,7 +288,6 @@
                     },
 
                     onValidateSchema: async (schema, examples) => {
-                        // Client-side validation only for now
                         return { compatible: true, errors: [], migrations: [] };
                     }
                 }
@@ -293,36 +295,33 @@
         </script>
 
         <!-- Versions Section (shown when a variant is selected) -->
-        <section th:if="${selectedVariant != null}">
-            <div class="section-header">
+        <div th:if="${selectedVariant != null}" class="detail-section">
+            <div class="detail-section-header">
                 <h2>
-                    Versions for Variant #<span th:text="${selectedVariant.id}"></span>
-                    <span th:if="${!selectedVariant.tags.isEmpty()}" class="tags">
+                    Versions for <code th:text="${selectedVariant.id}"></code>
+                    <span th:if="${!selectedVariant.tags.isEmpty()}" style="margin-left: var(--ep-space-2);">
                         <span th:each="entry : ${selectedVariant.tags}"
-                              class="tag"
+                              class="badge badge-outline"
                               th:text="${entry.key + '=' + entry.value}"></span>
                     </span>
                 </h2>
                 <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}"
-                   class="btn btn-sm btn-outline">&larr; Back to All Variants</a>
+                   class="btn btn-sm btn-outline">&larr; All Variants</a>
             </div>
-
-            <div id="versions-section" th:fragment="versions-section">
-                <table th:if="${!#lists.isEmpty(versions)}">
+            <div class="detail-section-body no-padding" id="versions-section" th:fragment="versions-section">
+                <table th:if="${!#lists.isEmpty(versions)}" class="ep-table">
                     <thead>
                         <tr>
                             <th>Version</th>
                             <th>Status</th>
                             <th>Created</th>
                             <th>Published</th>
-                            <th>Actions</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:each="version : ${versions}">
-                            <td>
-                                <span th:text="'v' + ${version.id}"></span>
-                            </td>
+                            <td><strong th:text="'v' + ${version.id}"></strong></td>
                             <td>
                                 <span th:if="${version.status.name() == 'DRAFT'}" class="badge badge-primary">Draft</span>
                                 <span th:if="${version.status.name() == 'PUBLISHED'}" class="badge badge-success">Published</span>
@@ -332,7 +331,7 @@
                             <td>
                                 <span th:if="${version.publishedAt != null}"
                                       th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
-                                <span th:unless="${version.publishedAt != null}" class="text-muted">—</span>
+                                <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
                             </td>
                             <td class="actions">
                                 <!-- Draft actions -->
@@ -340,62 +339,63 @@
                                     <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
                                        class="btn btn-sm btn-primary" hx-boost="false">Edit</a>
                                     <button type="button"
-                                            class="btn btn-sm btn-outline"
+                                            class="btn btn-sm btn-ghost"
                                             th:data-tenant-id="${tenantId}"
                                             th:data-template-id="${template.id}"
                                             th:data-variant-id="${selectedVariant.id}"
                                             th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
-                                            onclick="previewPdf(this)">Preview PDF</button>
+                                            onclick="previewPdf(this)">Preview</button>
                                     <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           method="post"
                                           th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           hx-target="#versions-section"
                                           hx-swap="outerHTML">
-                                        <button type="submit" class="btn btn-sm btn-outline">Publish</button>
+                                        <button type="submit" class="btn btn-sm btn-ghost">Publish</button>
                                     </form>
                                 </th:block>
 
                                 <!-- Published actions -->
                                 <th:block th:if="${version.status.name() == 'PUBLISHED'}">
                                     <button type="button"
-                                            class="btn btn-sm btn-outline"
+                                            class="btn btn-sm btn-ghost"
                                             th:data-tenant-id="${tenantId}"
                                             th:data-template-id="${template.id}"
                                             th:data-variant-id="${selectedVariant.id}"
                                             th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
-                                            onclick="previewPdf(this)">Preview PDF</button>
+                                            onclick="previewPdf(this)">Preview</button>
                                     <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           method="post"
                                           th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id},versionId=${version.id})}"
                                           hx-target="#versions-section"
                                           hx-swap="outerHTML"
                                           hx-confirm="Are you sure you want to archive this version?">
-                                        <button type="submit" class="btn btn-sm btn-outline">Archive</button>
+                                        <button type="submit" class="btn btn-sm btn-ghost">Archive</button>
                                     </form>
                                 </th:block>
 
                                 <!-- Archived: preview only -->
                                 <th:block th:if="${version.status.name() == 'ARCHIVED'}">
                                     <button type="button"
-                                            class="btn btn-sm btn-outline"
+                                            class="btn btn-sm btn-ghost"
                                             th:data-tenant-id="${tenantId}"
                                             th:data-template-id="${template.id}"
                                             th:data-variant-id="${selectedVariant.id}"
                                             th:data-test-data="${#lists.isEmpty(template.dataExamples) ? '{}' : template.dataExamples[0].data}"
-                                            onclick="previewPdf(this)">Preview PDF</button>
+                                            onclick="previewPdf(this)">Preview</button>
                                 </th:block>
                             </td>
                         </tr>
                     </tbody>
                 </table>
 
-                <p th:if="${#lists.isEmpty(versions)}" class="text-muted text-center">
-                    No versions yet. Click "Edit" on a variant to create a draft.
-                </p>
+                <div th:if="${#lists.isEmpty(versions)}" class="empty-state" style="padding: var(--ep-space-8);">
+                    <div class="empty-state-title">No versions yet</div>
+                    <div class="empty-state-description">Create a draft to start building this variant.</div>
+                </div>
             </div>
 
             <!-- Create Draft button if no draft exists -->
-            <div th:if="${!selectedVariant.hasDraft}" class="form-actions">
+            <div th:if="${!selectedVariant.hasDraft}" style="padding: var(--ep-space-4) var(--ep-space-6); border-top: 1px solid var(--ep-border-color);">
                 <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
                       method="post"
                       th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${template.id},variantId=${selectedVariant.id})}"
@@ -404,7 +404,7 @@
                     <button type="submit" class="btn btn-primary">Create New Draft</button>
                 </form>
             </div>
-        </section>
+        </div>
     </th:block>
 </body>
 </html>

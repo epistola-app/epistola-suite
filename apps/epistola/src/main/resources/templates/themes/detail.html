@@ -11,18 +11,26 @@
 
         <div class="page-header">
             <h1 th:text="${theme.name}">Theme Name</h1>
-            <form th:action="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
-                  method="post"
-                  onsubmit="return confirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.')">
-                <button type="submit" class="btn btn-sm btn-destructive">Delete Theme</button>
-            </form>
+            <div class="page-actions">
+                <form th:action="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
+                      method="post"
+                      onsubmit="return confirm('Are you sure you want to delete this theme? Templates using this theme will fall back to their own styles.')">
+                    <button type="submit" class="btn btn-sm btn-destructive">Delete Theme</button>
+                </form>
+            </div>
         </div>
 
-        <div id="theme-editor-container"></div>
-
-        <p class="text-muted" style="margin-top: 1rem;">
-            Last modified: <span th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></span>
-        </p>
+        <div class="detail-section">
+            <div class="detail-section-header">
+                <h2>Theme Editor</h2>
+                <span class="text-muted" style="font-size: var(--ep-text-sm);">
+                    Last modified: <span th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></span>
+                </span>
+            </div>
+            <div class="detail-section-body no-padding">
+                <div id="theme-editor-container"></div>
+            </div>
+        </div>
 
         <script th:inline="javascript">
             /*<![CDATA[*/

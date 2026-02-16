@@ -2,13 +2,31 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <h1>Load Test Request Log</h1>
-        <p class="subtitle">
-            Detailed request log for test <strong th:text="${run.id}"></strong>
-        </p>
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
+            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+               th:text="${'Test ' + run.id}">Test</a> &raquo;
+            <span>Request Log</span>
+        </nav>
 
-        <section>
-            <table>
+        <div class="page-header">
+            <h1>Request Log</h1>
+            <div class="page-actions">
+                <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
+                   class="btn btn-outline">Back to Test Details</a>
+            </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(requests)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No request data</div>
+            <div class="empty-state-description">No request log entries are available for this test run.</div>
+        </div>
+
+        <div th:if="${!#lists.isEmpty(requests)}">
+            <table class="ep-table">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -25,7 +43,7 @@
                         <td th:text="${#temporals.format(request.startedAt, 'HH:mm:ss.SSS')}"></td>
                         <td>
                             <span th:if="${request.durationMs != null}" th:text="${request.durationMs}"></span>
-                            <span th:unless="${request.durationMs != null}">-</span>
+                            <span th:unless="${request.durationMs != null}" class="text-muted">-</span>
                         </td>
                         <td>
                             <span class="badge"
@@ -34,24 +52,21 @@
                             </span>
                         </td>
                         <td>
-                            <span th:if="${!request.success and request.errorType != null}" class="error-type" th:text="${request.errorType}"></span>
-                            <span th:if="${!request.success and request.errorMessage != null}" class="error-message" th:text="${request.errorMessage}"></span>
+                            <span th:if="${!request.success and request.errorType != null}" style="font-weight: 500;" th:text="${request.errorType}"></span>
+                            <span th:if="${!request.success and request.errorMessage != null}" class="text-muted" th:text="${request.errorMessage}"></span>
                         </td>
-                    </tr>
-                    <tr th:if="${#lists.isEmpty(requests)}">
-                        <td colspan="5" class="empty-message">No request data available.</td>
                     </tr>
                 </tbody>
             </table>
 
             <!-- Pagination -->
-            <div class="pagination" th:if="${!#lists.isEmpty(requests)}">
+            <div style="display: flex; justify-content: center; align-items: center; gap: var(--ep-space-4); padding: var(--ep-space-4) 0;">
                 <a th:if="${offset > 0}"
                    th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id},offset=${offset - limit},limit=${limit})}"
                    class="btn btn-sm btn-outline">
                     Previous
                 </a>
-                <span class="pagination-info">
+                <span class="text-muted" style="font-size: var(--ep-text-sm);">
                     Showing <strong th:text="${offset + 1}"></strong> -
                     <strong th:text="${offset + #lists.size(requests)}"></strong>
                 </span>
@@ -61,11 +76,6 @@
                     Next
                 </a>
             </div>
-        </section>
-
-        <div class="actions-bar">
-            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-               class="btn btn-outline">Back to Test Details</a>
         </div>
     </th:block>
 </body>

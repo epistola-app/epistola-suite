@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- **Page Redesign: Lists, Detail Pages, Create Forms & Dashboard**: Full redesign of all page content within the app shell using consistent design system patterns
+  - **Tenant Dashboard**: Replaced nav card grid with stat cards showing counts (Templates, Themes, Environments, Load Tests) and quick action links
+  - **List pages**: Consistent structure across Templates, Themes, Environments, and Load Tests with `page-header` (title + search + create button), `ep-table`, and `empty-state` components
+  - **Separate create pages**: Extracted inline create forms to dedicated `/new` pages with breadcrumbs, card-wrapped forms, and proper validation error handling
+  - **Detail page sections**: Template, Theme, Load Test, and Load Test Request detail pages now use `detail-section` card-wrapped sections with headers and description lists
+  - **Load test metrics**: Results displayed as stat cards grid with all performance metrics; error summary in proper `ep-table`; progress bar in card section
+  - **CSS additions**: New styles for `dashboard-stats`, `stat-card`, `quick-links`, `detail-section`, `description-list`, `create-form-card`, `page-actions`
 - **Unified App Shell with Top Navigation Bar**: Replaced standalone page navigation with a persistent top nav bar for all tenant-scoped pages
   - **App shell layout**: New `layout/shell.html` master template with nav bar, content slot, and footer. All tenant-scoped pages now render within the shell.
   - **Navigation bar**: Persistent top bar with Epistola logo, section links (Templates, Themes, Environments, Load Tests), tenant switcher, and user menu. Active section highlighted based on URL.

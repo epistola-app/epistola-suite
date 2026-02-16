@@ -792,3 +792,121 @@ main.regular .empty-message {
     flex: 1;
     min-width: 200px;
 }
+
+/* ── Dashboard stats grid ────────────────────────────────────────────── */
+
+.dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--ep-space-4);
+    margin-bottom: var(--ep-space-8);
+}
+
+.stat-card {
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    padding: var(--ep-space-5);
+    text-decoration: none;
+    color: var(--ep-foreground);
+    transition: border-color var(--ep-transition-base),
+                box-shadow var(--ep-transition-base);
+}
+
+a.stat-card:hover {
+    border-color: var(--ep-gray-300);
+    box-shadow: var(--ep-shadow-md);
+    text-decoration: none;
+    color: var(--ep-foreground);
+}
+
+.stat-card-value {
+    font-size: var(--ep-text-2xl);
+    font-weight: 600;
+    line-height: var(--ep-leading-tight);
+    margin-bottom: var(--ep-space-1);
+}
+
+.stat-card-label {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-muted-foreground);
+}
+
+/* ── Quick links grid ────────────────────────────────────────────────── */
+
+.quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-3);
+}
+
+/* ── Detail sections (card-wrapped) ──────────────────────────────────── */
+
+.detail-section {
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    margin-bottom: var(--ep-space-6);
+}
+
+.detail-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--ep-space-4) var(--ep-space-6);
+    border-bottom: 1px solid var(--ep-border-color);
+}
+
+.detail-section-header h2,
+.detail-section-header h3 {
+    margin: 0;
+    font-size: var(--ep-text-base);
+    font-weight: 600;
+}
+
+.detail-section-body {
+    padding: var(--ep-space-6);
+}
+
+/* No padding when body contains a table directly */
+.detail-section-body.no-padding {
+    padding: 0;
+}
+
+/* ── Description list (key-value metadata) ───────────────────────────── */
+
+.description-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--ep-space-2) var(--ep-space-6);
+    font-size: var(--ep-text-sm);
+}
+
+.description-list dt {
+    font-weight: 500;
+    color: var(--ep-muted-foreground);
+    white-space: nowrap;
+}
+
+.description-list dd {
+    margin: 0;
+    color: var(--ep-foreground);
+}
+
+/* ── Create form pages ───────────────────────────────────────────────── */
+
+.create-form-card {
+    max-width: 32rem;
+}
+
+.create-form-card .card-content .form-group:last-of-type {
+    margin-bottom: 0;
+}
+
+/* ── Page actions (right-aligned button group in page header) ────────── */
+
+.page-actions {
+    display: flex;
+    gap: var(--ep-space-2);
+    align-items: center;
+}

@@ -174,7 +174,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `POST templates with HTMX returns table rows fragment`() = fixture {
+    fun `POST templates redirects to detail page on success`() = fixture {
         lateinit var testTenant: Tenant
 
         given {
@@ -184,7 +184,6 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         whenever {
             val headers = HttpHeaders()
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
-            headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
             formData.add("slug", "htmx-template")
             formData.add("name", "HTMX Template")
@@ -194,10 +193,9 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
 
         then {
             val response = result<org.springframework.http.ResponseEntity<String>>()
+            // TestRestTemplate follows the 303 redirect to the detail page
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("HTMX Template")
-            assertThat(response.body).doesNotContain("<!DOCTYPE html>")
-            assertThat(response.body).doesNotContain("<head>")
 
             val templates = listDocumentTemplatesHandler.handle(
                 ListDocumentTemplates(tenantId = testTenant.id, searchTerm = "HTMX Template"),

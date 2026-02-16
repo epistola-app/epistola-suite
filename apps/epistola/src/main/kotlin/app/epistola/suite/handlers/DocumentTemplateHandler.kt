@@ -4,7 +4,6 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -129,61 +128,60 @@ class DocumentTemplateHandler(
         }
     }
 
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        return ServerResponse.ok().render(
+            "layout/shell",
+            mapOf(
+                "contentView" to "templates/new",
+                "pageTitle" to "New Template - Epistola",
+                "tenantId" to tenantId,
+            ),
+        )
+    }
+
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val slug = request.params().getFirst("slug")?.trim().orEmpty()
         val name = request.params().getFirst("name")?.trim().orEmpty()
         val schema = request.params().getFirst("schema")?.trim()?.takeIf { it.isNotEmpty() }
 
+        fun renderFormWithErrors(errors: Map<String, String>): ServerResponse {
+            val formData = mapOf("slug" to slug, "name" to name, "schema" to (schema ?: ""))
+            return ServerResponse.ok().render(
+                "layout/shell",
+                mapOf(
+                    "contentView" to "templates/new",
+                    "pageTitle" to "New Template - Epistola",
+                    "tenantId" to tenantId,
+                    "formData" to formData,
+                    "errors" to errors,
+                ),
+            )
+        }
+
         // Validate slug format
         val templateId = TemplateId.validateOrNull(slug)
         if (templateId == null) {
-            val formData = mapOf("slug" to slug, "name" to name, "schema" to (schema ?: ""))
-            val errors = mapOf("slug" to "Invalid template ID format. Must be 3-50 lowercase characters, starting with a letter.")
-            return request.htmx {
-                fragment("templates/list", "create-form") {
-                    "tenantId" to tenantId
-                    "formData" to formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/tenants/$tenantId/templates") }
-            }
+            return renderFormWithErrors(
+                mapOf("slug" to "Invalid template ID format. Must be 3-50 lowercase characters, starting with a letter."),
+            )
         }
 
         try {
-            val command = CreateDocumentTemplate(
+            CreateDocumentTemplate(
                 id = templateId,
                 tenantId = TenantId.of(tenantId),
                 name = name,
                 schema = schema,
-            )
-            command.execute()
+            ).execute()
         } catch (e: ValidationException) {
-            val formData = mapOf("slug" to slug, "name" to name, "schema" to (schema ?: ""))
-            val errors = mapOf(e.field to e.message)
-            return request.htmx {
-                fragment("templates/list", "create-form") {
-                    "tenantId" to tenantId
-                    "formData" to formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/tenants/$tenantId/templates") }
-            }
+            return renderFormWithErrors(mapOf(e.field to e.message))
         }
 
-        val templates = ListTemplateSummaries(tenantId = TenantId.of(tenantId)).query()
-        return request.htmx {
-            fragment("templates/list", "rows") {
-                "tenantId" to tenantId
-                "templates" to templates
-            }
-            trigger("templateCreated")
-            onNonHtmx { redirect("/tenants/$tenantId/templates") }
-        }
+        return ServerResponse.status(303)
+            .header("Location", "/tenants/$tenantId/templates/$slug")
+            .build()
     }
 
     fun editor(request: ServerRequest): ServerResponse {

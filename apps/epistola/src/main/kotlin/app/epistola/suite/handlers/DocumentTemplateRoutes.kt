@@ -18,6 +18,7 @@ class DocumentTemplateRoutes(
         "/tenants/{tenantId}/templates".nest {
             GET("", handler::list)
             GET("/search", handler::search)
+            GET("/new", handler::newForm)
             POST("", handler::create)
 
             // Template detail and actions
