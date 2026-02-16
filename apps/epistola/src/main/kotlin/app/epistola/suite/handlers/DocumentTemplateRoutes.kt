@@ -35,9 +35,11 @@ class DocumentTemplateRoutes(
 
             // Variant routes (delegated to VariantRouteHandler)
             POST("/{id}/variants", variantHandler::createVariant)
-            GET("/{id}/variants/{variantId}", handler::variantDetail)
             DELETE("/{id}/variants/{variantId}", variantHandler::deleteVariant)
             POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
+
+            // Variant versions (inline expand)
+            GET("/{id}/variants/{variantId}/versions", versionHandler::listVersions)
 
             // Editor route (with variant)
             GET("/{id}/variants/{variantId}/editor", handler::editor)

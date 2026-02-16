@@ -903,6 +903,86 @@ a.stat-card:hover {
     margin-bottom: 0;
 }
 
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid var(--ep-border-color);
+    margin-bottom: var(--ep-space-6);
+    gap: 0;
+}
+
+.tab-nav-item {
+    padding: var(--ep-space-2) var(--ep-space-4);
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--ep-muted-foreground);
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-size: var(--ep-text-sm);
+}
+
+.tab-nav-item:hover {
+    color: var(--ep-foreground);
+}
+
+.tab-nav-item.active {
+    color: var(--ep-foreground);
+    border-bottom-color: var(--ep-primary);
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+/* ── Expand/collapse toggle ──────────────────────────────────────────── */
+
+.expand-toggle {
+    transition: transform 0.15s ease;
+    display: inline-flex;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: var(--ep-space-1);
+    color: var(--ep-muted-foreground);
+}
+
+.expand-toggle:hover {
+    color: var(--ep-foreground);
+}
+
+.expand-toggle.expanded {
+    transform: rotate(90deg);
+}
+
+/* ── Variant detail row (expanded versions) ──────────────────────────── */
+
+.variant-detail-row td {
+    padding: 0 !important;
+    background: var(--ep-muted);
+}
+
+.variant-detail-content {
+    padding: var(--ep-space-4) var(--ep-space-6);
+}
+
+/* ── Danger zone ─────────────────────────────────────────────────────── */
+
+.danger-zone {
+    border-color: var(--ep-destructive);
+}
+
+.danger-zone .detail-section-header {
+    border-bottom-color: var(--ep-destructive);
+}
+
 /* ── Page actions (right-aligned button group in page header) ────────── */
 
 .page-actions {

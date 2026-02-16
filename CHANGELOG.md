@@ -3,6 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- **Template Detail Page Redesign: Tabs + Inline Expand/Collapse**: Reorganized the template detail page into a 3-tab layout (Variants, Data Contract, Settings) with inline version management
+  - **Tab navigation**: Client-side CSS/JS tabs for Variants, Data Contract, and Settings — all content rendered on page load, no server round-trips for switching
+  - **Inline variant versions**: Each variant row has an expand/collapse chevron that lazy-loads versions via HTMX on first click, with subsequent toggles showing/hiding without re-fetch
+  - **Collapsible create form**: "New Variant" button toggles an inline form with Cancel support, replacing the always-visible form section
+  - **Settings tab**: Groups template details (ID, created/modified dates), theme selection, and delete action into a dedicated settings area with a danger zone section
+  - **Removed separate variant detail page**: Versions are now accessed inline; the `/variants/{variantId}` route has been removed
+  - **New endpoint**: `GET /{id}/variants/{variantId}/versions` returns the versions fragment for lazy loading
+  - **CSS additions**: Tab navigation, expand/collapse toggle, variant detail row, and danger zone styles
 - **Page Redesign: Lists, Detail Pages, Create Forms & Dashboard**: Full redesign of all page content within the app shell using consistent design system patterns
   - **Tenant Dashboard**: Replaced nav card grid with stat cards showing counts (Templates, Themes, Environments, Load Tests) and quick action links
   - **List pages**: Consistent structure across Templates, Themes, Environments, and Load Tests with `page-header` (title + search + create button), `ep-table`, and `empty-state` components

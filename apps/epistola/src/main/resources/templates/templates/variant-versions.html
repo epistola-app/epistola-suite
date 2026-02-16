@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <table th:if="${!#lists.isEmpty(versions)}" class="ep-table" style="margin-bottom: 0;">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Published</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="version : ${versions}">
+                    <td><strong th:text="'v' + ${version.id}"></strong></td>
+                    <td>
+                        <span th:if="${version.status.name() == 'DRAFT'}" class="badge badge-primary">Draft</span>
+                        <span th:if="${version.status.name() == 'PUBLISHED'}" class="badge badge-success">Published</span>
+                        <span th:if="${version.status.name() == 'ARCHIVED'}" class="badge badge-outline">Archived</span>
+                    </td>
+                    <td th:text="${#temporals.format(version.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td>
+                        <span th:if="${version.publishedAt != null}"
+                              th:text="${#temporals.format(version.publishedAt, 'yyyy-MM-dd HH:mm')}"></span>
+                        <span th:unless="${version.publishedAt != null}" class="text-muted">-</span>
+                    </td>
+                    <td class="actions">
+                        <!-- Draft actions -->
+                        <th:block th:if="${version.status.name() == 'DRAFT'}">
+                            <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                               class="btn btn-sm btn-primary" hx-boost="false">Edit</a>
+                            <button type="button"
+                                    class="btn btn-sm btn-ghost"
+                                    th:data-tenant-id="${tenantId}"
+                                    th:data-template-id="${templateId}"
+                                    th:data-variant-id="${variant.id}"
+                                    th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
+                                    onclick="previewPdf(this)">Preview</button>
+                            <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
+                                  method="post"
+                                  th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/publish(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
+                                  th:hx-target="'#variant-versions-' + ${variant.id}"
+                                  hx-swap="innerHTML">
+                                <button type="submit" class="btn btn-sm btn-ghost">Publish</button>
+                            </form>
+                        </th:block>
+
+                        <!-- Published actions -->
+                        <th:block th:if="${version.status.name() == 'PUBLISHED'}">
+                            <button type="button"
+                                    class="btn btn-sm btn-ghost"
+                                    th:data-tenant-id="${tenantId}"
+                                    th:data-template-id="${templateId}"
+                                    th:data-variant-id="${variant.id}"
+                                    th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
+                                    onclick="previewPdf(this)">Preview</button>
+                            <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
+                                  method="post"
+                                  th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions/{versionId}/archive(tenantId=${tenantId},id=${templateId},variantId=${variant.id},versionId=${version.id})}"
+                                  th:hx-target="'#variant-versions-' + ${variant.id}"
+                                  hx-swap="innerHTML"
+                                  hx-confirm="Are you sure you want to archive this version?">
+                                <button type="submit" class="btn btn-sm btn-ghost">Archive</button>
+                            </form>
+                        </th:block>
+
+                        <!-- Archived: preview only -->
+                        <th:block th:if="${version.status.name() == 'ARCHIVED'}">
+                            <button type="button"
+                                    class="btn btn-sm btn-ghost"
+                                    th:data-tenant-id="${tenantId}"
+                                    th:data-template-id="${templateId}"
+                                    th:data-variant-id="${variant.id}"
+                                    th:data-test-data="${#lists.isEmpty(dataExamples) ? '{}' : dataExamples[0].data}"
+                                    onclick="previewPdf(this)">Preview</button>
+                        </th:block>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div th:if="${#lists.isEmpty(versions)}" class="empty-state" style="padding: var(--ep-space-6);">
+            <div class="empty-state-title">No versions yet</div>
+            <div class="empty-state-description">Create a draft to start building this variant.</div>
+        </div>
+
+        <!-- Create Draft button if no draft exists -->
+        <div th:unless="${variant.hasDraft}" style="padding: var(--ep-space-4) var(--ep-space-6); border-top: 1px solid var(--ep-border-color);">
+            <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                  method="post"
+                  th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/draft(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                  th:hx-target="'#variant-versions-' + ${variant.id}"
+                  hx-swap="innerHTML">
+                <button type="submit" class="btn btn-sm btn-primary">+ Create New Draft</button>
+            </form>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -30,6 +30,18 @@ class VersionRouteHandler(
     private val objectMapper: ObjectMapper,
 ) {
 
+    fun listVersions(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
+            ?: return ServerResponse.badRequest().build()
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
+            ?: return ServerResponse.badRequest().build()
+
+        return returnVersionsFragment(request, tenantId, templateId, variantId)
+    }
+
     fun createDraft(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val templateIdStr = request.pathVariable("id")
@@ -153,7 +165,7 @@ class VersionRouteHandler(
             variantId = variantId,
         ).query()
 
-        val selectedVariantSummary = VariantSummary(
+        val variantSummary = VariantSummary(
             id = variant.id,
             title = variant.title,
             tags = variant.tags,
@@ -162,13 +174,14 @@ class VersionRouteHandler(
         )
 
         return request.htmx {
-            fragment("templates/detail", "versions-section") {
+            fragment("templates/variant-versions", "content") {
                 "tenantId" to tenantId
-                "template" to template
-                "selectedVariant" to selectedVariantSummary
+                "templateId" to templateId
+                "variant" to variantSummary
                 "versions" to versions
+                "dataExamples" to template.dataExamples
             }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId/variants/$variantId") }
+            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
         }
     }
 }

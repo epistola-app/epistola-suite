@@ -14,13 +14,10 @@ import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
-import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
-import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
@@ -440,62 +437,6 @@ class DocumentTemplateHandler(
                 "template" to template,
                 "variants" to variants,
                 "themes" to themes,
-                "selectedVariant" to null,
-                "versions" to emptyList<Any>(),
-            ),
-        )
-    }
-
-    fun variantDetail(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
-            ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantId.validateOrNull(variantIdStr)
-            ?: return ServerResponse.badRequest().build()
-
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
-            ?: return ServerResponse.notFound().build()
-
-        val variants = GetVariantSummaries(templateId = templateId).query()
-
-        val variant = GetVariant(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-        ).query() ?: return ServerResponse.notFound().build()
-
-        val versions = ListVersions(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-        ).query()
-
-        // Load available themes for theme selection
-        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
-
-        // Create a variant summary for the selected variant
-        val selectedVariantSummary = variants.find { it.id == variantId }
-            ?: VariantSummary(
-                id = variant.id,
-                title = variant.title,
-                tags = variant.tags,
-                hasDraft = versions.any { it.status.name == "DRAFT" },
-                publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.map { it.id.value }.sorted(),
-            )
-
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "templates/detail",
-                "pageTitle" to "${template.name} - Epistola",
-                "tenantId" to tenantId,
-                "template" to template,
-                "variants" to variants,
-                "themes" to themes,
-                "selectedVariant" to selectedVariantSummary,
-                "versions" to versions,
             ),
         )
     }
