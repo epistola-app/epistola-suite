@@ -10,6 +10,15 @@
   - Merged V12 (variant_attribute_definitions) and V13 (tags→attributes rename) into V3
 
 ### Added
+- **Explicit Default Variant Flag**: Decoupled default variant from empty attributes with an explicit `is_default` boolean column
+  - First variant created for a template is automatically the default
+  - Default variant can now have any attributes (no longer requires empty `{}`)
+  - Database enforces exactly one default per template via partial unique index
+  - New `SetDefaultVariant` command to reassign the default
+  - Deletion of the default variant is blocked (`DefaultVariantDeletionException`) — reassign default first
+  - UI shows "Default" badge, "Set as default" star button for non-defaults, and disables delete for the default
+  - REST API: new `POST .../set-default` endpoint, `isDefault` field on variant DTOs, 409 on default deletion
+  - Variant resolver falls back to `is_default = true` instead of empty attributes
 - **Variant Attribute System**: Structured attribute-based variant management
   - **Attribute Definitions Registry**: Tenant-scoped registry of allowed attribute keys and values (CRUD with UI)
   - **Attribute Validation**: Variant attributes are validated against the registry when creating or updating variants

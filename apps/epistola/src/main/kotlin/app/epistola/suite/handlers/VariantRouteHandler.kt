@@ -9,7 +9,9 @@ import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.variants.DeleteVariant
+import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
@@ -129,6 +131,24 @@ class VariantRouteHandler {
         }
     }
 
+    fun setDefaultVariant(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
+            ?: return ServerResponse.badRequest().build()
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
+            ?: return ServerResponse.badRequest().build()
+
+        SetDefaultVariant(
+            tenantId = TenantId.of(tenantId),
+            templateId = templateId,
+            variantId = variantId,
+        ).execute()
+
+        return renderVariantsSection(request, tenantId, templateId)
+    }
+
     fun deleteVariant(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val templateIdStr = request.pathVariable("id")
@@ -138,12 +158,20 @@ class VariantRouteHandler {
         val variantId = VariantId.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
 
-        DeleteVariant(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-        ).execute()
+        try {
+            DeleteVariant(
+                tenantId = TenantId.of(tenantId),
+                templateId = templateId,
+                variantId = variantId,
+            ).execute()
+        } catch (_: DefaultVariantDeletionException) {
+            // Re-render without deletion — the UI already prevents this, but handle gracefully
+        }
 
+        return renderVariantsSection(request, tenantId, templateId)
+    }
+
+    private fun renderVariantsSection(request: ServerRequest, tenantId: String, templateId: TemplateId): ServerResponse {
         val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()

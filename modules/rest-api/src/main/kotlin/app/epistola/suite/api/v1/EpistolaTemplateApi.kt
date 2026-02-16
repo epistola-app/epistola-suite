@@ -37,6 +37,7 @@ import app.epistola.suite.templates.commands.activations.RemoveActivation
 import app.epistola.suite.templates.commands.activations.SetActivation
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DeleteVariant
+import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.PublishVersion
@@ -252,6 +253,21 @@ class EpistolaTemplateApi(
         } else {
             ResponseEntity.notFound().build()
         }
+    }
+
+    override fun setDefaultVariant(
+        tenantId: String,
+        templateId: String,
+        variantId: String,
+    ): ResponseEntity<VariantDto> {
+        val typedTenantId = TenantId.of(tenantId)
+        val variant = SetDefaultVariant(
+            tenantId = typedTenantId,
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).execute() ?: return ResponseEntity.notFound().build()
+        val summary = getVariantSummary(variant, typedTenantId)
+        return ResponseEntity.ok(variant.toDto(summary))
     }
 
     // ================== Draft operations ==================

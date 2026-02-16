@@ -54,6 +54,7 @@ const ICONS = [
   "settings",
   "layout-template",
   "copy",
+  "star",
 ];
 
 function extractSvgContent(filePath) {

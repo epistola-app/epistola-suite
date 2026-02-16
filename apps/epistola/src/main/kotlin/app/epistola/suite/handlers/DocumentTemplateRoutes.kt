@@ -39,6 +39,7 @@ class DocumentTemplateRoutes(
             PATCH("/{id}/variants/{variantId}", variantHandler::updateVariant)
             DELETE("/{id}/variants/{variantId}", variantHandler::deleteVariant)
             POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
+            POST("/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
 
             // Variant versions (inline expand)
             GET("/{id}/variants/{variantId}/versions", versionHandler::listVersions)

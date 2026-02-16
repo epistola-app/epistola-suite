@@ -169,6 +169,7 @@ class VersionRouteHandler(
             id = variant.id,
             title = variant.title,
             attributes = variant.attributes,
+            isDefault = variant.isDefault,
             hasDraft = versions.any { it.status.name == "DRAFT" },
             publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.map { it.id.value }.sorted(),
         )

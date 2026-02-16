@@ -23,7 +23,7 @@ Each variant has an `attributes` map (`Map<String, String>`) stored as JSONB. Wh
 1. Every attribute key must correspond to an existing attribute definition for the tenant.
 2. If the definition has `allowedValues`, the value must be in that list.
 
-A variant with **empty attributes** (`{}`) is considered the **default variant**. Only one default variant is allowed per template.
+Each template has exactly one **default variant** (marked with `is_default = true`). The default variant acts as the fallback when no variant matches the selection criteria. The first variant created for a template is automatically the default. The default variant can have any attributes — it is not required to have empty attributes.
 
 **Example:** An invoice template might have three variants:
 
@@ -64,7 +64,7 @@ Input: templateId + list of { key, value, required }
        score = (number of optional attribute matches * 10) + total variant attributes
 4. SELECT the variant with the highest score
 5. If tied → AmbiguousVariantResolutionException
-6. If no candidates after step 2 → fall back to the default variant (empty attributes)
+6. If no candidates after step 2 → fall back to the default variant (is_default = true)
 7. If no default variant exists → NoMatchingVariantException
 ```
 
@@ -74,12 +74,12 @@ The scoring formula favours variants that match more optional criteria (`* 10` w
 
 Given these variants on an `invoice` template:
 
-| Variant | Attributes |
-|---------|-----------|
-| `default` | `{}` |
-| `dutch` | `{ "language": "nl" }` |
-| `english` | `{ "language": "en" }` |
-| `english-corporate` | `{ "language": "en", "brand": "corporate" }` |
+| Variant | Attributes | Default |
+|---------|-----------|---------|
+| `default` | `{}` | Yes |
+| `dutch` | `{ "language": "nl" }` | No |
+| `english` | `{ "language": "en" }` | No |
+| `english-corporate` | `{ "language": "en", "brand": "corporate" }` | No |
 
 **Example 1: Required match**
 ```
@@ -99,7 +99,7 @@ Criteria: language=en (required), brand=corporate (optional)
 ```
 Criteria: language=fr (required)
 → Candidates: none match
-→ Result: default variant (empty attributes)
+→ Result: default variant (is_default = true)
 ```
 
 **Example 4: No match, no default**
@@ -150,7 +150,11 @@ Attribute definitions are managed through the UI. The attribute registry is tena
 
 ### `template_variants.attributes`
 
-The `attributes` column (JSONB, formerly `tags`) stores the variant's attribute map as `{"key": "value", ...}`.
+The `attributes` column (JSONB) stores the variant's attribute map as `{"key": "value", ...}`.
+
+### `template_variants.is_default`
+
+Boolean flag indicating the default variant for a template. Enforced by a partial unique index `WHERE is_default = TRUE` to guarantee exactly one default per template. The first variant created for a template is automatically the default.
 
 ## Key Files
 

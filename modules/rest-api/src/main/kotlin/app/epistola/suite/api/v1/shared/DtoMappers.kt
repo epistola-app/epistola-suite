@@ -63,6 +63,7 @@ internal fun VariantSummary.toDto() = VariantSummaryDto(
     id = id.value,
     title = title,
     attributes = attributes,
+    isDefault = isDefault,
     hasDraft = hasDraft,
     publishedVersions = publishedVersions,
 )
@@ -73,6 +74,7 @@ internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
     title = title,
     description = description,
     attributes = attributes,
+    isDefault = isDefault,
     hasDraft = info.hasDraft,
     publishedVersions = info.publishedVersions,
     createdAt = createdAt,

@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
@@ -246,6 +247,46 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                     ),
                 )
 
+                val resolved = variantResolver.resolve(
+                    tenantId = tenant.id,
+                    templateId = template.id,
+                    criteria = VariantSelectionCriteria(
+                        requiredAttributes = mapOf("language" to "dutch"),
+                    ),
+                )
+
+                assertThat(resolved).isEqualTo(defaultVariantId)
+            }
+        }
+
+        @Test
+        fun `default variant with attributes still acts as fallback`() {
+            withMediator {
+                val tenant = createTenant("Test Tenant")
+                setupAttributeDefinitions(tenant.id)
+                val template = mediator.send(
+                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                )
+
+                // Give the auto-created default variant some attributes
+                val defaultVariantId = VariantId.of("${template.id}-default")
+                mediator.send(
+                    SetDefaultVariant(tenantId = tenant.id, templateId = template.id, variantId = defaultVariantId),
+                )
+
+                // Create a non-default variant with different attributes
+                mediator.send(
+                    CreateVariant(
+                        id = TestIdHelpers.nextVariantId(),
+                        tenantId = tenant.id,
+                        templateId = template.id,
+                        title = "French",
+                        description = null,
+                        attributes = mapOf("language" to "french"),
+                    ),
+                )
+
+                // Request dutch which no variant has — should fall back to default (even though it has empty attributes)
                 val resolved = variantResolver.resolve(
                     tenantId = tenant.id,
                     templateId = template.id,

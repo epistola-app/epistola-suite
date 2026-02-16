@@ -49,7 +49,7 @@ class AmbiguousVariantResolutionException(
  * 2. Filter: keep only variants that match ALL required attributes
  * 3. Score remaining variants: (optionalMatches * 10) + totalVariantAttributes
  * 4. Select highest score. If tied: [AmbiguousVariantResolutionException]
- * 5. If no variant passes required filter: fall back to default variant (empty attributes), else error
+ * 5. If no variant passes required filter: fall back to default variant (is_default = true), else error
  */
 @Component
 class VariantResolver {
@@ -74,8 +74,8 @@ class VariantResolver {
         }
 
         if (candidates.isEmpty()) {
-            // Fall back to default variant (one with empty attributes)
-            val defaultVariant = variants.find { it.attributes.isEmpty() }
+            // Fall back to default variant (is_default = true)
+            val defaultVariant = variants.find { it.isDefault }
                 ?: throw NoMatchingVariantException(templateId, criteria)
             return defaultVariant.id
         }

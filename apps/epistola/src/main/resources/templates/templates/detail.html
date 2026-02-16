@@ -101,12 +101,13 @@
                                         <span th:unless="${variant.title != null}" class="text-muted">-</span>
                                     </td>
                                     <td>
+                                        <span th:if="${variant.isDefault}" class="badge badge-default">Default</span>
                                         <div class="tags" th:if="${!variant.attributes.isEmpty()}">
                                             <span th:each="entry : ${variant.attributes}"
                                                   class="badge badge-outline"
                                                   th:text="${entry.key + '=' + entry.value}"></span>
                                         </div>
-                                        <span th:if="${variant.attributes.isEmpty()}" class="text-muted">(default)</span>
+                                        <span th:if="${variant.attributes.isEmpty() and !variant.isDefault}" class="text-muted">-</span>
                                     </td>
                                     <td>
                                         <th:block th:if="${!variant.publishedVersions.isEmpty()}">
@@ -127,7 +128,16 @@
                                                 title="Edit variant">
                                             <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
                                         </button>
-                                        <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                        <form th:unless="${variant.isDefault}"
+                                              th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                              hx-target="#variants-section" hx-swap="outerHTML"
+                                              hx-confirm="Make this the default variant?">
+                                            <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                                                <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                                            </button>
+                                        </form>
+                                        <form th:unless="${variant.isDefault}"
+                                              th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               method="post"
                                               th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               hx-confirm="Are you sure you want to delete this variant?"
@@ -137,6 +147,11 @@
                                                 <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                                             </button>
                                         </form>
+                                        <button th:if="${variant.isDefault}" type="button"
+                                                class="btn btn-sm btn-icon btn-ghost" disabled
+                                                title="Cannot delete the default variant">
+                                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                        </button>
                                     </td>
                                 </tr>
                                 <!-- Expandable detail row for versions -->

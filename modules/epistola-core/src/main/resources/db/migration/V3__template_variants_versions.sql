@@ -20,6 +20,7 @@ CREATE TABLE template_variants (
     title VARCHAR(255),
     description TEXT,
     attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_id, id),
@@ -27,6 +28,10 @@ CREATE TABLE template_variants (
 );
 
 CREATE INDEX idx_template_variants_template ON template_variants(tenant_id, template_id);
+
+-- Enforce exactly one default variant per template
+CREATE UNIQUE INDEX idx_one_default_variant_per_template
+    ON template_variants (tenant_id, template_id) WHERE is_default = TRUE;
 
 -- Version history with lifecycle states
 -- id is the version number (1-200) per variant, not UUID

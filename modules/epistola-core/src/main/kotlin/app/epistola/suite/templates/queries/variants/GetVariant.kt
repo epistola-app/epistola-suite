@@ -24,7 +24,7 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_id, tv.template_id, tv.title, tv.description, tv.attributes, tv.created_at, tv.last_modified
+                SELECT tv.id, tv.tenant_id, tv.template_id, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.last_modified
                 FROM template_variants tv
                 WHERE tv.id = :variantId
                   AND tv.template_id = :templateId
@@ -56,6 +56,7 @@ class GetVariantSummariesHandler(
                     tv.id,
                     tv.title,
                     tv.attributes,
+                    tv.is_default,
                     EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'draft') as has_draft,
                     COALESCE(
                         (SELECT jsonb_agg(ver.id ORDER BY ver.id)

@@ -3,6 +3,7 @@ package app.epistola.suite.api.v1
 import app.epistola.api.model.FieldError
 import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.themes.LastThemeException
 import app.epistola.suite.themes.ThemeInUseException
@@ -114,6 +115,23 @@ class ApiExceptionHandler {
                 code = "LAST_THEME",
                 message = ex.message ?: "Cannot delete the last theme for a tenant",
                 details = mapOf("themeId" to ex.themeId.value),
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to delete the default variant.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(DefaultVariantDeletionException::class)
+    fun handleDefaultVariantDeletionException(ex: DefaultVariantDeletionException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot delete default variant: {}", ex.variantId)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "DEFAULT_VARIANT_DELETION",
+                message = ex.message ?: "Cannot delete the default variant",
+                details = mapOf("variantId" to ex.variantId.value),
             ),
         )
     }

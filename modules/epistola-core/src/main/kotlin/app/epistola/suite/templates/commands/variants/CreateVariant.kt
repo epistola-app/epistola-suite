@@ -47,10 +47,23 @@ class CreateVariantHandler(
 
             val attributesJson = objectMapper.writeValueAsString(command.attributes)
 
+            // Auto-default: first variant for a template becomes the default
+            val existingCount = handle.createQuery(
+                """
+                SELECT COUNT(*) FROM template_variants
+                WHERE tenant_id = :tenantId AND template_id = :templateId
+                """,
+            )
+                .bind("tenantId", command.tenantId)
+                .bind("templateId", command.templateId)
+                .mapTo<Long>()
+                .one()
+            val isDefault = existingCount == 0L
+
             val variant = handle.createQuery(
                 """
-                INSERT INTO template_variants (id, tenant_id, template_id, title, description, attributes, created_at, last_modified)
-                VALUES (:id, :tenantId, :templateId, :title, :description, :attributes::jsonb, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_id, template_id, title, description, attributes, is_default, created_at, last_modified)
+                VALUES (:id, :tenantId, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW())
                 RETURNING *
                 """,
             )
@@ -60,6 +73,7 @@ class CreateVariantHandler(
                 .bind("title", command.title)
                 .bind("description", command.description)
                 .bind("attributes", attributesJson)
+                .bind("isDefault", isDefault)
                 .mapTo<TemplateVariant>()
                 .one()
 
