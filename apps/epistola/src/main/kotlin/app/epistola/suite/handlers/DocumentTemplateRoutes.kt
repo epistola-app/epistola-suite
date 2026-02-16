@@ -36,8 +36,7 @@ class DocumentTemplateRoutes(
 
             // Deployment matrix routes (delegated to DeploymentMatrixHandler)
             GET("/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
-            POST("/{id}/deployments/deploy", deploymentMatrixHandler::deployToEnvironment)
-            POST("/{id}/deployments/undeploy", deploymentMatrixHandler::removeFromEnvironment)
+            POST("/{id}/deployments", deploymentMatrixHandler::updateDeployment)
 
             // Variant routes (delegated to VariantRouteHandler)
             POST("/{id}/variants", variantHandler::createVariant)

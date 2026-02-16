@@ -34,7 +34,7 @@ class DeploymentMatrixHandler {
         return renderMatrix(request, tenantId, templateId)
     }
 
-    fun deployToEnvironment(request: ServerRequest): ServerResponse {
+    fun updateDeployment(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
@@ -48,44 +48,31 @@ class DeploymentMatrixHandler {
         val environmentIdStr = request.params().getFirst("environmentId")
             ?: return ServerResponse.badRequest().build()
 
-        val versionIdInt = request.params().getFirst("versionId")?.toIntOrNull()
-            ?: return ServerResponse.badRequest().build()
+        val versionIdStr = request.params().getFirst("versionId")
 
-        if (versionIdInt !in VersionId.MIN_VERSION..VersionId.MAX_VERSION) {
-            return ServerResponse.badRequest().build()
+        if (versionIdStr.isNullOrBlank()) {
+            RemoveActivation(
+                tenantId = TenantId.of(tenantId),
+                templateId = templateId,
+                variantId = variantId,
+                environmentId = EnvironmentId.of(environmentIdStr),
+            ).execute()
+        } else {
+            val versionIdInt = versionIdStr.toIntOrNull()
+                ?: return ServerResponse.badRequest().build()
+
+            if (versionIdInt !in VersionId.MIN_VERSION..VersionId.MAX_VERSION) {
+                return ServerResponse.badRequest().build()
+            }
+
+            PublishToEnvironment(
+                tenantId = TenantId.of(tenantId),
+                templateId = templateId,
+                variantId = variantId,
+                versionId = VersionId.of(versionIdInt),
+                environmentId = EnvironmentId.of(environmentIdStr),
+            ).execute()
         }
-
-        PublishToEnvironment(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-            versionId = VersionId.of(versionIdInt),
-            environmentId = EnvironmentId.of(environmentIdStr),
-        ).execute()
-
-        return renderMatrix(request, tenantId, templateId)
-    }
-
-    fun removeFromEnvironment(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
-            ?: return ServerResponse.badRequest().build()
-
-        val variantIdStr = request.params().getFirst("variantId")
-            ?: return ServerResponse.badRequest().build()
-        val variantId = VariantId.validateOrNull(variantIdStr)
-            ?: return ServerResponse.badRequest().build()
-
-        val environmentIdStr = request.params().getFirst("environmentId")
-            ?: return ServerResponse.badRequest().build()
-
-        RemoveActivation(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-            environmentId = EnvironmentId.of(environmentIdStr),
-        ).execute()
 
         return renderMatrix(request, tenantId, templateId)
     }
@@ -100,12 +87,13 @@ class DeploymentMatrixHandler {
         val matrixCells = GetDeploymentMatrix(tenantId = TenantId.of(tenantId), templateId = templateId).query()
         val publishableVersions = ListPublishableVersionsByTemplate(tenantId = TenantId.of(tenantId), templateId = templateId).query()
 
-        // Build lookup: variantId -> environmentId -> cell
-        val matrix = matrixCells.groupBy { it.variantId }
-            .mapValues { (_, cells) -> cells.associateBy { it.environmentId } }
+        // Build lookups keyed by underlying String values, because Thymeleaf/SpringEL
+        // unwraps @JvmInline value classes to their underlying types at runtime.
+        val matrix = matrixCells.groupBy { it.variantId.value }
+            .mapValues { (_, cells) -> cells.associateBy { it.environmentId.value } }
 
         // Build lookup: variantId -> list of publishable versions
-        val versionsByVariant = publishableVersions.groupBy { it.variantId }
+        val versionsByVariant = publishableVersions.groupBy { it.variantId.value }
 
         return request.htmx {
             fragment("templates/deployment-matrix", "deployment-matrix") {

@@ -53,48 +53,29 @@
                                                   th:text="${variant.title}"></span>
                                         </td>
                                         <td th:each="env : ${environments}" class="deployment-matrix-cell">
-                                            <!-- Determine cell state -->
                                             <th:block th:with="
                                                 cell=${matrix.containsKey(variant.id) ? matrix.get(variant.id).getOrDefault(env.id, null) : null},
                                                 versions=${versionsByVariant.getOrDefault(variant.id, {})}"
                                             >
-                                                <!-- Deployed: show version badge + actions -->
-                                                <th:block th:if="${cell != null}">
-                                                    <div class="deployment-cell-active">
-                                                        <span class="badge badge-success" th:text="'v' + ${cell.versionId}"></span>
-                                                        <span class="deployment-cell-actions">
-                                                            <form th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments/undeploy(tenantId=${tenantId},id=${templateId})}"
-                                                                  hx-target="#deployment-matrix" hx-swap="outerHTML"
-                                                                  hx-confirm="Remove this deployment?"
-                                                                  style="display:inline; margin:0;">
-                                                                <input type="hidden" name="variantId" th:value="${variant.id}" />
-                                                                <input type="hidden" name="environmentId" th:value="${env.id}" />
-                                                                <button type="submit" class="btn-badge-remove" title="Undeploy">&times;</button>
-                                                            </form>
-                                                        </span>
-                                                    </div>
+                                                <th:block th:if="${!#lists.isEmpty(versions)}">
+                                                    <form style="display:inline; margin:0;">
+                                                        <input type="hidden" name="variantId" th:value="${variant.id}" />
+                                                        <input type="hidden" name="environmentId" th:value="${env.id}" />
+                                                        <select name="versionId" class="select select-sm" style="font-size: var(--ep-text-xs);"
+                                                                th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments(tenantId=${tenantId},id=${templateId})}"
+                                                                hx-target="#deployment-matrix" hx-swap="outerHTML"
+                                                                hx-trigger="change" hx-include="closest form">
+                                                            <option value="">Not deployed</option>
+                                                            <th:block th:each="ver : ${versions}">
+                                                                <option th:value="${ver.versionId}"
+                                                                        th:selected="${cell != null and cell.versionId == ver.versionId}"
+                                                                        th:text="${'v' + ver.versionId + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
+                                                            </th:block>
+                                                        </select>
+                                                    </form>
                                                 </th:block>
-
-                                                <!-- Not deployed: show deploy button -->
-                                                <th:block th:if="${cell == null}">
-                                                    <th:block th:if="${!#lists.isEmpty(versions)}">
-                                                        <form th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments/deploy(tenantId=${tenantId},id=${templateId})}"
-                                                              hx-target="#deployment-matrix" hx-swap="outerHTML"
-                                                              style="display: inline-flex; gap: 4px; align-items: center;">
-                                                            <input type="hidden" name="variantId" th:value="${variant.id}" />
-                                                            <input type="hidden" name="environmentId" th:value="${env.id}" />
-                                                            <select name="versionId" class="select select-sm" style="font-size: var(--ep-text-xs);">
-                                                                <th:block th:each="ver : ${versions}">
-                                                                    <option th:value="${ver.versionId}"
-                                                                            th:text="${'v' + ver.versionId + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
-                                                                </th:block>
-                                                            </select>
-                                                            <button type="submit" class="btn btn-sm btn-primary" style="font-size: var(--ep-text-xs);">Deploy</button>
-                                                        </form>
-                                                    </th:block>
-                                                    <th:block th:if="${#lists.isEmpty(versions)}">
-                                                        <span class="text-muted">&mdash;</span>
-                                                    </th:block>
+                                                <th:block th:if="${#lists.isEmpty(versions)}">
+                                                    <span class="text-muted">&mdash;</span>
                                                 </th:block>
                                             </th:block>
                                         </td>
