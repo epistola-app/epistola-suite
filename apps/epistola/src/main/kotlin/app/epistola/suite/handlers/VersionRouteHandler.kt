@@ -1,19 +1,24 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.activations.RemoveActivation
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
+import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.versions.ListVersions
 import org.springframework.stereotype.Component
@@ -23,7 +28,7 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Handles version lifecycle routes for document templates.
- * Manages draft creation, publishing, and archiving of template versions.
+ * Manages draft creation, environment-targeted publishing, and archiving of template versions.
  */
 @Component
 class VersionRouteHandler(
@@ -107,11 +112,15 @@ class VersionRouteHandler(
             return ServerResponse.badRequest().build()
         }
 
-        PublishVersion(
+        val environmentIdStr = request.param("environmentId").orElse(null)
+            ?: return ServerResponse.badRequest().build()
+
+        PublishToEnvironment(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             variantId = variantId,
             versionId = VersionId.of(versionIdInt),
+            environmentId = EnvironmentId.of(environmentIdStr),
         ).execute()
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
@@ -132,11 +141,35 @@ class VersionRouteHandler(
             return ServerResponse.badRequest().build()
         }
 
-        ArchiveVersion(
+        try {
+            ArchiveVersion(
+                tenantId = TenantId.of(tenantId),
+                templateId = templateId,
+                variantId = variantId,
+                versionId = VersionId.of(versionIdInt),
+            ).execute()
+        } catch (_: VersionStillActiveException) {
+            return returnVersionsFragment(request, tenantId, templateId, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
+        }
+
+        return returnVersionsFragment(request, tenantId, templateId, variantId)
+    }
+
+    fun unpublishFromEnvironment(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        val templateIdStr = request.pathVariable("id")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
+            ?: return ServerResponse.badRequest().build()
+        val variantIdStr = request.pathVariable("variantId")
+        val variantId = VariantId.validateOrNull(variantIdStr)
+            ?: return ServerResponse.badRequest().build()
+        val environmentIdStr = request.pathVariable("environmentId")
+
+        RemoveActivation(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             variantId = variantId,
-            versionId = VersionId.of(versionIdInt),
+            environmentId = EnvironmentId.of(environmentIdStr),
         ).execute()
 
         return returnVersionsFragment(request, tenantId, templateId, variantId)
@@ -147,6 +180,7 @@ class VersionRouteHandler(
         tenantId: String,
         templateId: TemplateId,
         variantId: VariantId,
+        error: String? = null,
     ): ServerResponse {
         val template = GetDocumentTemplate(
             tenantId = TenantId.of(tenantId),
@@ -165,6 +199,18 @@ class VersionRouteHandler(
             variantId = variantId,
         ).query()
 
+        val environments = ListEnvironments(
+            tenantId = TenantId.of(tenantId),
+        ).query()
+
+        val activations = ListActivations(
+            tenantId = TenantId.of(tenantId),
+            templateId = templateId,
+            variantId = variantId,
+        ).query()
+
+        val activationsByVersion = activations.groupBy { it.versionId.value }
+
         val variantSummary = VariantSummary(
             id = variant.id,
             title = variant.title,
@@ -181,6 +227,11 @@ class VersionRouteHandler(
                 "variant" to variantSummary
                 "versions" to versions
                 "dataExamples" to template.dataExamples
+                "environments" to environments
+                "activationsByVersion" to activationsByVersion
+                if (error != null) {
+                    "error" to error
+                }
             }
             onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
         }

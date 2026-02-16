@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -33,6 +34,29 @@ class ArchiveVersionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<ArchiveVersion, TemplateVersion?> {
     override fun handle(command: ArchiveVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
+        // Check if the version is still active in any environment
+        val activeEnvironments = handle.createQuery(
+            """
+                SELECT environment_id
+                FROM environment_activations
+                WHERE tenant_id = :tenantId AND variant_id = :variantId AND version_id = :versionId
+                """,
+        )
+            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId)
+            .bind("versionId", command.versionId)
+            .mapTo<String>()
+            .list()
+            .map { EnvironmentId.of(it) }
+
+        if (activeEnvironments.isNotEmpty()) {
+            throw VersionStillActiveException(
+                versionId = command.versionId,
+                variantId = command.variantId,
+                activeEnvironments = activeEnvironments,
+            )
+        }
+
         // Archive the version (only if it's published and belongs to tenant)
         handle.createQuery(
             """

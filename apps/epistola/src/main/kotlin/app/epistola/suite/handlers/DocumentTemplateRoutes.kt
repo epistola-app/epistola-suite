@@ -57,6 +57,7 @@ class DocumentTemplateRoutes(
             // Version lifecycle (delegated to VersionRouteHandler)
             POST("/{id}/variants/{variantId}/versions/{versionId}/publish", versionHandler::publishVersion)
             POST("/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
+            POST("/{id}/variants/{variantId}/versions/{versionId}/unpublish/{environmentId}", versionHandler::unpublishFromEnvironment)
         }
     }
 }

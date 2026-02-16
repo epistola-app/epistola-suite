@@ -1,17 +1,25 @@
 package app.epistola.suite.demo
 
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.metadata.AppMetadataService
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.variants.CreateVariant
+import app.epistola.suite.templates.commands.variants.UpdateVariant
+import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
-import app.epistola.suite.tenants.commands.SetTenantDefaultTheme
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.BlockStylePreset
 import app.epistola.suite.themes.BlockStylePresets
@@ -79,19 +87,35 @@ class DemoLoader(
 
             // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
             if (corporateThemeId != null) {
-                mediator.send(SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
+                mediator.send(app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
                 log.info("Set Corporate theme as tenant default")
             }
+
+            // Create environments
+            val staging = mediator.send(CreateEnvironment(id = EnvironmentId.of("staging"), tenantId = tenant.id, name = "Staging"))
+            val production = mediator.send(CreateEnvironment(id = EnvironmentId.of("production"), tenantId = tenant.id, name = "Production"))
+            log.info("Created environments: staging, production")
+
+            // Create attribute definitions
+            mediator.send(
+                CreateAttributeDefinition(
+                    id = AttributeId.of("language"),
+                    tenantId = tenant.id,
+                    displayName = "Language",
+                    allowedValues = listOf("nl", "en"),
+                ),
+            )
+            log.info("Created attribute definition: language (nl, en)")
 
             // Load and create templates from JSON definitions
             val definitions = loadTemplateDefinitions()
             log.info("Loaded {} template definitions", definitions.size)
 
             definitions.forEach { definition ->
-                createTemplateFromDefinition(tenant.id, definition)
+                createTemplateFromDefinition(tenant.id, definition, staging.id, production.id)
             }
 
-            log.info("Created {} demo templates", definitions.size)
+            log.info("Created {} demo templates with environments and variants", definitions.size)
         }
     }
 
@@ -202,7 +226,12 @@ class DemoLoader(
         return corporateTheme.id
     }
 
-    private fun createTemplateFromDefinition(tenantId: TenantId, definition: TemplateDefinition) {
+    private fun createTemplateFromDefinition(
+        tenantId: TenantId,
+        definition: TemplateDefinition,
+        stagingId: EnvironmentId,
+        productionId: EnvironmentId,
+    ) {
         // 1. Create template with basic metadata
         val template = mediator.send(
             CreateDocumentTemplate(
@@ -230,7 +259,19 @@ class DemoLoader(
         val defaultVariant = variants.firstOrNull()
             ?: error("No default variant found for template ${template.id}")
 
-        // 4. Update the draft version with visual content
+        // 4. Set language attribute on default variant (Dutch)
+        mediator.send(
+            UpdateVariant(
+                tenantId = tenantId,
+                templateId = template.id,
+                variantId = defaultVariant.id,
+                title = defaultVariant.title,
+                attributes = mapOf("language" to "nl"),
+            ),
+        )
+        log.debug("Set default variant attributes: language=nl")
+
+        // 5. Update the draft version with visual content
         mediator.send(
             UpdateDraft(
                 tenantId = tenantId,
@@ -240,6 +281,69 @@ class DemoLoader(
             ),
         )
         log.debug("Updated draft template model for: {}", template.name)
+
+        // 6. Get the draft version ID for publishing
+        val defaultVersions = mediator.query(ListVersions(tenantId = tenantId, templateId = template.id, variantId = defaultVariant.id))
+        val defaultDraft = defaultVersions.first()
+
+        // 7. Publish default variant to staging and production
+        mediator.send(
+            PublishToEnvironment(
+                tenantId = tenantId,
+                templateId = template.id,
+                variantId = defaultVariant.id,
+                versionId = defaultDraft.id,
+                environmentId = stagingId,
+            ),
+        )
+        mediator.send(
+            PublishToEnvironment(
+                tenantId = tenantId,
+                templateId = template.id,
+                variantId = defaultVariant.id,
+                versionId = defaultDraft.id,
+                environmentId = productionId,
+            ),
+        )
+        log.debug("Published default variant to staging and production")
+
+        // 8. Create English variant
+        val englishVariantId = VariantId.of("${definition.slug}-en")
+        val englishVariant = mediator.send(
+            CreateVariant(
+                id = englishVariantId,
+                tenantId = tenantId,
+                templateId = template.id,
+                title = "${definition.name} (English)",
+                description = "English version",
+                attributes = mapOf("language" to "en"),
+            ),
+        ) ?: error("Failed to create English variant for template ${template.id}")
+
+        // 9. Update English variant draft with template model
+        mediator.send(
+            UpdateDraft(
+                tenantId = tenantId,
+                templateId = template.id,
+                variantId = englishVariant.id,
+                templateModel = definition.templateModel,
+            ),
+        )
+
+        // 10. Get English draft version and publish to staging only
+        val englishVersions = mediator.query(ListVersions(tenantId = tenantId, templateId = template.id, variantId = englishVariant.id))
+        val englishDraft = englishVersions.first()
+
+        mediator.send(
+            PublishToEnvironment(
+                tenantId = tenantId,
+                templateId = template.id,
+                variantId = englishVariant.id,
+                versionId = englishDraft.id,
+                environmentId = stagingId,
+            ),
+        )
+        log.debug("Published English variant to staging")
     }
 
     private fun loadTemplateDefinitions(): List<TemplateDefinition> {
@@ -264,7 +368,7 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "5.0.1" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "6.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"

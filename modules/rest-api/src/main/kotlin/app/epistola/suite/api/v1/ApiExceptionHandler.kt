@@ -4,6 +4,7 @@ import app.epistola.api.model.FieldError
 import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
+import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.themes.LastThemeException
 import app.epistola.suite.themes.ThemeInUseException
@@ -132,6 +133,27 @@ class ApiExceptionHandler {
                 code = "DEFAULT_VARIANT_DELETION",
                 message = ex.message ?: "Cannot delete the default variant",
                 details = mapOf("variantId" to ex.variantId.value),
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to archive a version that is still active in environments.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(VersionStillActiveException::class)
+    fun handleVersionStillActiveException(ex: VersionStillActiveException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot archive version {}: still active in environments", ex.versionId)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "VERSION_STILL_ACTIVE",
+                message = ex.message ?: "Version is still active in one or more environments",
+                details = mapOf(
+                    "versionId" to ex.versionId.value,
+                    "variantId" to ex.variantId.value,
+                    "activeEnvironments" to ex.activeEnvironments.map { it.value },
+                ),
             ),
         )
     }

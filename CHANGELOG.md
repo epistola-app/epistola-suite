@@ -3,6 +3,18 @@
 ## [Unreleased]
 
 ### Changed
+- **Environment-Targeted Publishing**: "Publish to Environment" replaces the separate publish + activate workflow. Publishing now requires a target environment, freezing drafts and activating in a single action.
+- **Archive Guard**: Archiving a version is now blocked if the version is still active in any environment. Remove it from all environments first.
+- **DemoLoader Enhancements**: Demo tenant now includes staging/production environments, language attribute definitions, Dutch/English multi-variant templates, and published versions across environments.
+
+### Removed
+- `SetActivation` command and REST API endpoint — replaced by the publish-to-environment action
+- `PublishVersion` command — replaced by `PublishToEnvironment` which combines publish + activate
+
+### Added
+- `PublishToEnvironment` command: single action that freezes draft content (if needed) and activates in target environment
+- `VersionStillActiveException`: thrown when attempting to archive a version still active in environments
+- UI: environment-targeted publish dropdown in version list, environment badges on published versions, unpublish-from-environment action
 - **Tenant-Scoped Composite Primary Keys**: All tenant-owned entities (`document_templates`, `template_variants`, `environments`, `template_versions`, `environment_activations`) now use composite primary keys `(tenant_id, id)`, allowing different tenants to reuse the same slugs (e.g., both can have a template called "invoice")
   - `TemplateVariant` domain model now includes `tenantId`
   - Removed JOIN-based tenant isolation in favor of direct `tenant_id` columns on each table
