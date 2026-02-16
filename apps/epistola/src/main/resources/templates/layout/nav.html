@@ -30,6 +30,11 @@
                     Load Tests
                 </a>
             </div>
+
+            <!-- Mobile hamburger toggle -->
+            <button class="app-nav-hamburger" onclick="this.closest('.app-nav').classList.toggle('nav-open')" aria-label="Toggle navigation">
+                <th:block th:replace="~{fragments/icon :: icon(name='menu', class='ep-icon')}" />
+            </button>
         </div>
 
         <div class="app-nav-right">
@@ -48,11 +53,6 @@
                 </form>
             </div>
         </div>
-
-        <!-- Mobile hamburger toggle -->
-        <button class="app-nav-hamburger" onclick="this.closest('.app-nav').classList.toggle('nav-open')" aria-label="Toggle navigation">
-            <th:block th:replace="~{fragments/icon :: icon(name='menu', class='ep-icon')}" />
-        </button>
     </nav>
 </body>
 </html>

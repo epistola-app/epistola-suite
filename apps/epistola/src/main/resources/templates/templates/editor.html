@@ -19,10 +19,49 @@
             overflow: hidden;
             width: 100%;
         }
+        .editor-nav {
+            height: 48px;
+            border-bottom: 1px solid var(--ep-border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--ep-space-6);
+            background: var(--ep-white);
+            flex-shrink: 0;
+            gap: var(--ep-space-3);
+        }
+        .editor-nav-back {
+            display: flex;
+            align-items: center;
+            gap: var(--ep-space-2);
+            text-decoration: none;
+            color: var(--ep-foreground);
+            font-weight: 600;
+            font-size: var(--ep-text-sm);
+        }
+        .editor-nav-back:hover {
+            color: var(--ep-primary);
+            text-decoration: none;
+        }
+        .editor-nav-back .ep-icon {
+            color: var(--ep-muted-foreground);
+        }
+        .editor-nav-back:hover .ep-icon {
+            color: var(--ep-primary);
+        }
+        .editor-nav-variant {
+            font-size: var(--ep-text-xs);
+            color: var(--ep-muted-foreground);
+        }
     </style>
 </head>
 <body class="editor-page">
-    <th:block th:replace="~{layout/nav :: nav}" />
+    <nav class="editor-nav">
+        <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${templateId})}" class="editor-nav-back">
+            <th:block th:replace="~{fragments/icon :: icon(name='arrow-left', class='ep-icon ep-icon-sm')}" />
+            <span th:text="${templateName}">Template Name</span>
+        </a>
+        <span class="editor-nav-variant" th:text="'/ ' + ${variantId}"></span>
+    </nav>
     <div id="editor-container" class="editor-container"></div>
 
     <script th:inline="javascript">

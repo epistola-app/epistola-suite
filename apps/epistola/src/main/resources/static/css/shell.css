@@ -248,8 +248,14 @@
     }
 
     .app-nav-left {
+        display: flex;
+        align-items: center;
         width: 100%;
-        justify-content: space-between;
+        min-height: 48px;
+    }
+
+    .app-nav-left .app-nav-logo {
+        flex: 1;
     }
 
     .app-nav-links {
@@ -261,7 +267,7 @@
     }
 
     .app-nav-hamburger {
-        display: block;
+        display: flex;
     }
 
     /* When nav is open */
