@@ -1,5 +1,6 @@
 package app.epistola.suite.common
 
+import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.VariantId
@@ -13,6 +14,7 @@ object TestIdHelpers {
     private val templateIdCounter = AtomicInteger(0)
     private val variantIdCounter = AtomicInteger(0)
     private val environmentIdCounter = AtomicInteger(0)
+    private val attributeIdCounter = AtomicInteger(0)
 
     /**
      * Generates a unique TemplateId for testing purposes.
@@ -33,11 +35,18 @@ object TestIdHelpers {
     fun nextEnvironmentId(): EnvironmentId = EnvironmentId.of("test-env-${environmentIdCounter.incrementAndGet()}")
 
     /**
+     * Generates a unique AttributeId for testing purposes.
+     * Each call returns a different ID in the format: test-attr-{N}
+     */
+    fun nextAttributeId(): AttributeId = AttributeId.of("test-attr-${attributeIdCounter.incrementAndGet()}")
+
+    /**
      * Resets all counters. Use this in test setup if needed.
      */
     fun reset() {
         templateIdCounter.set(0)
         variantIdCounter.set(0)
         environmentIdCounter.set(0)
+        attributeIdCounter.set(0)
     }
 }

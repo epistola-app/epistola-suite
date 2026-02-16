@@ -76,6 +76,39 @@ value class TenantId(override val value: String) : SlugId<TenantId> {
 }
 
 /**
+ * Typed ID for VariantAttributeDefinition entities.
+ * Uses a human-readable slug format (e.g., "language", "brand") instead of UUID.
+ *
+ * Validation rules:
+ * - Length: 3-50 characters
+ * - Characters: lowercase letters (a-z), numbers (0-9), hyphens (-)
+ * - Must start with a letter
+ * - Cannot end with a hyphen
+ * - No consecutive hyphens
+ */
+@JvmInline
+value class AttributeId(override val value: String) : SlugId<AttributeId> {
+    init {
+        require(value.length in 3..50) {
+            "Attribute ID must be 3-50 characters, got ${value.length}"
+        }
+        require(SLUG_PATTERN.matches(value)) {
+            "Attribute ID must match pattern: start with letter, contain only lowercase letters, numbers, and non-consecutive hyphens, and not end with hyphen"
+        }
+    }
+
+    companion object {
+        private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+
+        fun of(value: String): AttributeId = AttributeId(value)
+
+        fun validateOrNull(value: String): AttributeId? = runCatching { AttributeId(value) }.getOrNull()
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Typed ID for DocumentTemplate entities.
  * Uses a human-readable slug format (e.g., "monthly-invoice") instead of UUID.
  *

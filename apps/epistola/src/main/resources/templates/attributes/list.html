@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Attributes</h1>
+            <div class="page-actions">
+                <a th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Attribute
+                </a>
+            </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(attributes)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='tag', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No attributes yet</div>
+            <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
+            <a th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                New Attribute
+            </a>
+        </div>
+
+        <table th:if="${!#lists.isEmpty(attributes)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Display Name</th>
+                    <th>Allowed Values</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="attribute-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="attr : ${attributes}">
+                        <td><code th:text="${attr.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td style="font-weight: 500;" th:text="${attr.displayName}"></td>
+                        <td>
+                            <div class="tags" th:if="${!attr.allowedValues.isEmpty()}">
+                                <span th:each="val : ${attr.allowedValues}"
+                                      class="badge badge-outline"
+                                      th:text="${val}"></span>
+                            </div>
+                            <span th:if="${attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
+                        </td>
+                        <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="actions">
+                            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                    th:hx-get="@{/tenants/{tenantId}/attributes/{attributeId}/edit(tenantId=${tenantId},attributeId=${attr.id})}"
+                                    hx-target="#edit-attribute-dialog-body"
+                                    hx-swap="innerHTML"
+                                    onclick="document.getElementById('edit-attribute-dialog').showModal()"
+                                    title="Edit attribute">
+                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <form th:hx-post="@{/tenants/{tenantId}/attributes/{attributeId}/delete(tenantId=${tenantId},attributeId=${attr.id})}"
+                                  hx-target="#attribute-rows"
+                                  hx-swap="innerHTML"
+                                  hx-confirm="Delete this attribute? Existing variant attributes using this key will not be affected."
+                                  style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete attribute">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
+
+        <!-- Edit attribute dialog -->
+        <dialog id="edit-attribute-dialog" class="ep-dialog">
+            <div id="edit-attribute-dialog-body">
+                <!-- Content loaded via HTMX -->
+            </div>
+        </dialog>
+    </th:block>
+
+    <!-- Fragment: edit attribute form (loaded into dialog via HTMX) -->
+    <th:block th:fragment="edit-attribute-form">
+        <div class="ep-dialog-header">
+            <h3>Edit Attribute: <code th:text="${attribute.id}"></code></h3>
+        </div>
+        <form th:hx-patch="@{/tenants/{tenantId}/attributes/{attributeId}(tenantId=${tenantId},attributeId=${attribute.id})}"
+              hx-target="#attribute-rows"
+              hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('edit-attribute-dialog').close()">
+            <div class="ep-dialog-body">
+                <div class="form-group">
+                    <label class="ep-label" for="edit-attr-displayName">Display Name</label>
+                    <input type="text" id="edit-attr-displayName" name="displayName" class="ep-input"
+                           required th:value="${attribute.displayName}" placeholder="e.g. Language">
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="edit-attr-allowedValues">Allowed Values (one per line, leave empty for any value)</label>
+                    <textarea id="edit-attr-allowedValues" name="allowedValues" class="ep-textarea" rows="4"
+                              placeholder="dutch&#10;english&#10;german"
+                              th:text="${attribute.allowedValues != null ? #strings.listJoin(attribute.allowedValues, '&#10;') : ''}"></textarea>
+                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('edit-attribute-dialog').close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </th:block>
+</body>
+</html>
