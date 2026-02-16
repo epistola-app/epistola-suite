@@ -12,8 +12,7 @@ async function previewPdf(button) {
     const url = `/tenants/${tenantId}/templates/${templateId}/variants/${variantId}/preview`;
 
     // Show loading state
-    const originalText = button.textContent;
-    button.textContent = 'Loading...';
+    const originalContent = button.innerHTML;
     button.disabled = true;
 
     try {
@@ -45,7 +44,7 @@ async function previewPdf(button) {
         console.error('PDF preview failed:', error);
         alert('Failed to generate PDF preview: ' + error.message);
     } finally {
-        button.textContent = originalText;
+        button.innerHTML = originalContent;
         button.disabled = false;
     }
 }
