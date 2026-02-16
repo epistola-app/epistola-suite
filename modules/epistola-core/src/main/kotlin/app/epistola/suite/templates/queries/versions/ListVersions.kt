@@ -25,11 +25,8 @@ class ListVersionsHandler(
             """
                 SELECT ver.id, ver.variant_id, ver.status, ver.created_at, ver.published_at, ver.archived_at
                 FROM template_versions ver
-                JOIN template_variants tv ON ver.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
                 WHERE ver.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
+                  AND ver.tenant_id = :tenantId
                 ORDER BY
                     CASE ver.status WHEN 'draft' THEN 0 ELSE 1 END,
                     ver.id DESC

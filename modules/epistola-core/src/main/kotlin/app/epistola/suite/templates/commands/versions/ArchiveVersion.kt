@@ -33,40 +33,18 @@ class ArchiveVersionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<ArchiveVersion, TemplateVersion?> {
     override fun handle(command: ArchiveVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Verify the version exists, is published, and belongs to tenant
-        val isPublished = handle.createQuery(
-            """
-                SELECT COUNT(*) > 0
-                FROM template_versions ver
-                JOIN template_variants tv ON ver.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE ver.id = :versionId
-                  AND ver.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                  AND ver.status = 'published'
-                """,
-        )
-            .bind("versionId", command.versionId)
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
-            .mapTo<Boolean>()
-            .one()
-
-        if (!isPublished) {
-            return@inTransaction null
-        }
-
-        // Archive the version
+        // Archive the version (only if it's published and belongs to tenant)
         handle.createQuery(
             """
                 UPDATE template_versions
                 SET status = 'archived', archived_at = NOW()
-                WHERE id = :versionId
+                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                  AND status = 'published'
                 RETURNING *
                 """,
         )
+            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId)
             .bind("versionId", command.versionId)
             .mapTo<TemplateVersion>()
             .findOne()

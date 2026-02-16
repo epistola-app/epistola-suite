@@ -50,7 +50,7 @@ class VariantRouteHandler {
             attributes = attributes,
         ).execute()
 
-        val variants = GetVariantSummaries(templateId = templateId).query()
+        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()
@@ -113,7 +113,7 @@ class VariantRouteHandler {
             attributes = attributes,
         ).execute()
 
-        val variants = GetVariantSummaries(templateId = templateId).query()
+        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()
@@ -144,7 +144,7 @@ class VariantRouteHandler {
             variantId = variantId,
         ).execute()
 
-        val variants = GetVariantSummaries(templateId = templateId).query()
+        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()
         val attributeDefinitions = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()

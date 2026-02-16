@@ -67,11 +67,12 @@ class CreateDocumentTemplateHandler(
             val variantId = VariantId.of("${command.id}-default")
             handle.createUpdate(
                 """
-                INSERT INTO template_variants (id, template_id, attributes, created_at, last_modified)
-                VALUES (:id, :templateId, '{}'::jsonb, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_id, template_id, attributes, created_at, last_modified)
+                VALUES (:id, :tenantId, :templateId, '{}'::jsonb, NOW(), NOW())
                 """,
             )
                 .bind("id", variantId)
+                .bind("tenantId", command.tenantId)
                 .bind("templateId", template.id)
                 .execute()
 
@@ -103,11 +104,12 @@ class CreateDocumentTemplateHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
-                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
                 .bind("id", versionId)
+                .bind("tenantId", command.tenantId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
                 .execute()

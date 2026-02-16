@@ -51,23 +51,17 @@ class SetActivationHandler(
             return@inTransaction null
         }
 
-        // Verify variant and version (must be published) belong to tenant's template
+        // Verify variant and version (must be published) belong to tenant
         val versionValid = handle.createQuery(
             """
                 SELECT COUNT(*) > 0
-                FROM template_versions ver
-                JOIN template_variants tv ON ver.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE ver.id = :versionId
-                  AND ver.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                  AND ver.status = 'published'
+                FROM template_versions
+                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                  AND id = :versionId AND status = 'published'
                 """,
         )
             .bind("versionId", command.versionId)
             .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
             .bind("tenantId", command.tenantId)
             .mapTo<Boolean>()
             .one()
@@ -79,13 +73,14 @@ class SetActivationHandler(
         // Upsert the activation
         handle.createQuery(
             """
-                INSERT INTO environment_activations (environment_id, variant_id, version_id, activated_at)
-                VALUES (:environmentId, :variantId, :versionId, NOW())
-                ON CONFLICT (environment_id, variant_id)
+                INSERT INTO environment_activations (tenant_id, environment_id, variant_id, version_id, activated_at)
+                VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
+                ON CONFLICT (tenant_id, environment_id, variant_id)
                 DO UPDATE SET version_id = :versionId, activated_at = NOW()
                 RETURNING *
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("environmentId", command.environmentId)
             .bind("variantId", command.variantId)
             .bind("versionId", command.versionId)

@@ -46,33 +46,13 @@ class RemoveActivationHandler(
             return@inTransaction false
         }
 
-        // Verify variant belongs to tenant's template
-        val variantExists = handle.createQuery(
-            """
-                SELECT COUNT(*) > 0
-                FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE tv.id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                """,
-        )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
-            .mapTo<Boolean>()
-            .one()
-
-        if (!variantExists) {
-            return@inTransaction false
-        }
-
         val rowsDeleted = handle.createUpdate(
             """
                 DELETE FROM environment_activations
-                WHERE environment_id = :environmentId AND variant_id = :variantId
+                WHERE tenant_id = :tenantId AND environment_id = :environmentId AND variant_id = :variantId
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("environmentId", command.environmentId)
             .bind("variantId", command.variantId)
             .execute()

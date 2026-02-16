@@ -27,12 +27,9 @@ class GetVersionHandler(
             """
                 SELECT ver.id, ver.variant_id, ver.template_model, ver.status, ver.created_at, ver.published_at, ver.archived_at
                 FROM template_versions ver
-                JOIN template_variants tv ON ver.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
                 WHERE ver.id = :versionId
                   AND ver.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
+                  AND ver.tenant_id = :tenantId
                 """,
         )
             .bind("versionId", query.versionId)

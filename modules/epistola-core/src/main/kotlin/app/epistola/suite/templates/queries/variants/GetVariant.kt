@@ -24,12 +24,11 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.template_id, tv.title, tv.description, tv.attributes, tv.created_at, tv.last_modified
+                SELECT tv.id, tv.tenant_id, tv.template_id, tv.title, tv.description, tv.attributes, tv.created_at, tv.last_modified
                 FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
                 WHERE tv.id = :variantId
                   AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
+                  AND tv.tenant_id = :tenantId
                 """,
         )
             .bind("variantId", query.variantId)
@@ -42,6 +41,7 @@ class GetVariantHandler(
 }
 
 data class GetVariantSummaries(
+    val tenantId: TenantId,
     val templateId: TemplateId,
 ) : Query<List<VariantSummary>>
 
@@ -56,19 +56,21 @@ class GetVariantSummariesHandler(
                     tv.id,
                     tv.title,
                     tv.attributes,
-                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.variant_id = tv.id AND ver.status = 'draft') as has_draft,
+                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'draft') as has_draft,
                     COALESCE(
                         (SELECT jsonb_agg(ver.id ORDER BY ver.id)
                          FROM template_versions ver
-                         WHERE ver.variant_id = tv.id AND ver.status = 'published'),
+                         WHERE ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'published'),
                         '[]'::jsonb
                     ) as published_versions
                 FROM template_variants tv
                 WHERE tv.template_id = :templateId
+                  AND tv.tenant_id = :tenantId
                 ORDER BY tv.created_at ASC
                 """,
         )
             .bind("templateId", query.templateId)
+            .bind("tenantId", query.tenantId)
             .mapTo<VariantSummary>()
             .list()
     }

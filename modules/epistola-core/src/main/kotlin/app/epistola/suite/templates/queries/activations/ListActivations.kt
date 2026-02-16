@@ -32,13 +32,9 @@ class ListActivationsHandler(
                     ea.version_id,
                     ea.activated_at
                 FROM environment_activations ea
-                JOIN environments e ON ea.environment_id = e.id
-                JOIN template_versions ver ON ea.variant_id = ver.variant_id AND ea.version_id = ver.id
-                JOIN template_variants tv ON ea.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
+                JOIN environments e ON e.tenant_id = ea.tenant_id AND e.id = ea.environment_id
                 WHERE ea.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
+                  AND ea.tenant_id = :tenantId
                 ORDER BY e.name ASC
                 """,
         )

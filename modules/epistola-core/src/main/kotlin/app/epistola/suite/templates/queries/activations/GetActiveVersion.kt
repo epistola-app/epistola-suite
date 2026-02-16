@@ -37,15 +37,10 @@ class GetActiveVersionHandler(
                     ver.published_at,
                     ver.archived_at
                 FROM environment_activations ea
-                JOIN template_versions ver ON ea.variant_id = ver.variant_id AND ea.version_id = ver.id
-                JOIN environments e ON ea.environment_id = e.id
-                JOIN template_variants tv ON ea.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
+                JOIN template_versions ver ON ver.tenant_id = ea.tenant_id AND ver.variant_id = ea.variant_id AND ver.id = ea.version_id
                 WHERE ea.environment_id = :environmentId
                   AND ea.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                  AND e.tenant_id = :tenantId
+                  AND ea.tenant_id = :tenantId
                 """,
         )
             .bind("environmentId", query.environmentId)

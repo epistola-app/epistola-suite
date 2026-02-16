@@ -95,7 +95,7 @@ class EpistolaTemplateApi(
             name = createTemplateRequest.name,
             schema = schemaJson,
         ).execute()
-        val variantSummaries = GetVariantSummaries(templateId = template.id).query()
+        val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = template.id).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -105,7 +105,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<TemplateDto> {
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
             ?: return ResponseEntity.notFound().build()
-        val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
+        val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -126,7 +126,7 @@ class EpistolaTemplateApi(
             dataExamples = dataExamples,
             forceUpdate = updateTemplateRequest.forceUpdate ?: false,
         ).execute() ?: return ResponseEntity.notFound().build()
-        val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
+        val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
     }
 

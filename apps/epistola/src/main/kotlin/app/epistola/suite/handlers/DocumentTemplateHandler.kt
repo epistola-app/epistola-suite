@@ -424,7 +424,7 @@ class DocumentTemplateHandler(
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = id).query()
             ?: return ServerResponse.notFound().build()
 
-        val variants = GetVariantSummaries(templateId = id).query()
+        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = id).query()
 
         // Load available themes for theme selection
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()

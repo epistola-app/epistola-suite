@@ -34,11 +34,8 @@ class UpdateDraftHandler(
         val variantExists = handle.createQuery(
             """
                 SELECT COUNT(*) > 0
-                FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE tv.id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
+                FROM template_variants
+                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                 """,
         )
             .bind("variantId", command.variantId)
@@ -58,10 +55,11 @@ class UpdateDraftHandler(
             """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
-                WHERE variant_id = :variantId
+                WHERE tenant_id = :tenantId AND variant_id = :variantId
                   AND status = 'draft'
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .execute()
@@ -72,10 +70,11 @@ class UpdateDraftHandler(
                 """
                     SELECT *
                     FROM template_versions
-                    WHERE variant_id = :variantId
+                    WHERE tenant_id = :tenantId AND variant_id = :variantId
                       AND status = 'draft'
                     """,
             )
+                .bind("tenantId", command.tenantId)
                 .bind("variantId", command.variantId)
                 .mapTo<TemplateVersion>()
                 .one()
@@ -87,9 +86,10 @@ class UpdateDraftHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE variant_id = :variantId
+                WHERE tenant_id = :tenantId AND variant_id = :variantId
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
             .mapTo(Int::class.java)
             .one()
@@ -103,12 +103,13 @@ class UpdateDraftHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
-                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
             .bind("id", versionId)
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

@@ -33,42 +33,19 @@ class PublishVersionHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<PublishVersion, TemplateVersion?> {
     override fun handle(command: PublishVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Verify the version exists, is a draft, and tenant owns it
-        val exists = handle.createQuery(
-            """
-                SELECT COUNT(*) > 0
-                FROM template_versions ver
-                JOIN template_variants tv ON ver.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE ver.id = :versionId
-                  AND ver.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                  AND ver.status = 'draft'
-                """,
-        )
-            .bind("versionId", command.versionId)
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
-            .mapTo(Boolean::class.java)
-            .one()
-
-        if (!exists) {
-            return@inTransaction null
-        }
-
         // Update the draft to published status (no new record created)
+        // The WHERE clause ensures the version exists, belongs to the tenant, is a draft
         val updated = handle.createUpdate(
             """
                 UPDATE template_versions
                 SET status = 'published',
                     published_at = NOW()
-                WHERE variant_id = :variantId
+                WHERE tenant_id = :tenantId AND variant_id = :variantId
                   AND id = :versionId
                   AND status = 'draft'
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
             .bind("versionId", command.versionId)
             .execute()
@@ -82,10 +59,11 @@ class PublishVersionHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE variant_id = :variantId
+                WHERE tenant_id = :tenantId AND variant_id = :variantId
                   AND id = :versionId
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
             .bind("versionId", command.versionId)
             .mapTo<TemplateVersion>()

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+- **Tenant-Scoped Composite Primary Keys**: All tenant-owned entities (`document_templates`, `template_variants`, `environments`, `template_versions`, `environment_activations`) now use composite primary keys `(tenant_id, id)`, allowing different tenants to reuse the same slugs (e.g., both can have a template called "invoice")
+  - `TemplateVariant` domain model now includes `tenantId`
+  - Removed JOIN-based tenant isolation in favor of direct `tenant_id` columns on each table
+  - Simplified many queries by eliminating multi-table JOINs that existed solely for tenant verification
+  - Merged V12 (variant_attribute_definitions) and V13 (tags→attributes rename) into V3
+
 ### Added
 - **Variant Attribute System**: Structured attribute-based variant management
   - **Attribute Definitions Registry**: Tenant-scoped registry of allowed attribute keys and values (CRUD with UI)

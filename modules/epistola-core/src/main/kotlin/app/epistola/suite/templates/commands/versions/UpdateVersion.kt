@@ -31,41 +31,20 @@ class UpdateVersionHandler(
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateVersion, TemplateVersion?> {
     override fun handle(command: UpdateVersion): TemplateVersion? = jdbi.inTransaction<TemplateVersion?, Exception> { handle ->
-        // Verify ownership and that version is a draft
-        val isDraft = handle.createQuery(
-            """
-                SELECT COUNT(*) > 0
-                FROM template_versions ver
-                JOIN template_variants tv ON ver.variant_id = tv.id
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE ver.id = :versionId
-                  AND ver.variant_id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                  AND ver.status = 'draft'
-                """,
-        )
-            .bind("versionId", command.versionId)
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
-            .mapTo<Boolean>()
-            .one()
-
-        if (!isDraft) {
-            return@inTransaction null
-        }
-
         val templateModelJson = objectMapper.writeValueAsString(command.templateModel)
 
+        // Update the draft (WHERE clause ensures ownership and draft status)
         handle.createQuery(
             """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
-                WHERE id = :versionId AND status = 'draft'
+                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                  AND status = 'draft'
                 RETURNING *
                 """,
         )
+            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId)
             .bind("versionId", command.versionId)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

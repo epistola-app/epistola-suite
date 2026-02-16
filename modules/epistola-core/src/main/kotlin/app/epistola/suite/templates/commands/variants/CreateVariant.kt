@@ -49,12 +49,13 @@ class CreateVariantHandler(
 
             val variant = handle.createQuery(
                 """
-                INSERT INTO template_variants (id, template_id, title, description, attributes, created_at, last_modified)
-                VALUES (:id, :templateId, :title, :description, :attributes::jsonb, NOW(), NOW())
+                INSERT INTO template_variants (id, tenant_id, template_id, title, description, attributes, created_at, last_modified)
+                VALUES (:id, :tenantId, :templateId, :title, :description, :attributes::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
             )
                 .bind("id", command.id)
+                .bind("tenantId", command.tenantId)
                 .bind("templateId", command.templateId)
                 .bind("title", command.title)
                 .bind("description", command.description)
@@ -69,11 +70,12 @@ class CreateVariantHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, variant_id, template_model, status, created_at)
-                VALUES (:id, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
                 .bind("id", versionId)
+                .bind("tenantId", command.tenantId)
                 .bind("variantId", variant.id)
                 .bind("templateModel", templateModelJson)
                 .execute()

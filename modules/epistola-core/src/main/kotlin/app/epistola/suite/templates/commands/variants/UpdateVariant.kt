@@ -29,38 +29,19 @@ class UpdateVariantHandler(
         validateAttributes(command.tenantId, command.attributes)
 
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-            // Verify the variant belongs to a template owned by the tenant
-            val variantExists = handle.createQuery(
-                """
-                SELECT COUNT(*) > 0
-                FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE tv.id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                """,
-            )
-                .bind("variantId", command.variantId)
-                .bind("templateId", command.templateId)
-                .bind("tenantId", command.tenantId)
-                .mapTo<Boolean>()
-                .one()
-
-            if (!variantExists) {
-                return@inTransaction null
-            }
-
             val attributesJson = objectMapper.writeValueAsString(command.attributes)
 
             handle.createQuery(
                 """
                 UPDATE template_variants
                 SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
-                WHERE id = :variantId
+                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                 RETURNING *
                 """,
             )
+                .bind("tenantId", command.tenantId)
                 .bind("variantId", command.variantId)
+                .bind("templateId", command.templateId)
                 .bind("title", command.title)
                 .bind("attributes", attributesJson)
                 .mapTo<TemplateVariant>()
