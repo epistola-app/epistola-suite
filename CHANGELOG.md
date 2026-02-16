@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- **Variant Attribute System**: Structured attribute-based variant management
+  - **Attribute Definitions Registry**: Tenant-scoped registry of allowed attribute keys and values (CRUD with UI)
+  - **Attribute Validation**: Variant attributes are validated against the registry when creating or updating variants
+  - **Attribute-based Variant Resolution**: Auto-select variants based on required/optional attribute criteria with scoring algorithm
+    - Required attributes filter candidates, optional attributes score them
+    - Scoring: `(optionalMatches * 10) + totalVariantAttributes` — most specific variant wins
+    - Falls back to default variant (empty attributes) when no match found
+    - Throws `AmbiguousVariantResolutionException` when multiple variants tie on score
+  - **GenerateDocument/Batch support**: Both commands accept `variantSelectionCriteria` as an alternative to explicit `variantId`
+  - Renamed `tags` to `attributes` throughout the entire codebase (model, commands, queries, handlers, templates, API)
 - **Edit Variant Dialog**: Added ability to edit variant title and tags via a native `<dialog>` element
   - Edit button on each variant row fetches a pre-filled form via HTMX
   - Form submits via HTMX PATCH and refreshes the variants section on success
