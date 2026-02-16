@@ -2,8 +2,12 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
+import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -57,6 +61,31 @@ class TenantIsolationTest : CoreIntegrationTestBase() {
 
         then {
             assertThat(result<DocumentTemplate?>()).isNull()
+        }
+    }
+
+    @Test
+    fun `two tenants can use the same template slug`() {
+        val tenant1 = createTenant("Tenant A")
+        val tenant2 = createTenant("Tenant B")
+        val sharedSlug = TemplateId.of("invoice")
+
+        withMediator {
+            val template1 = CreateDocumentTemplate(id = sharedSlug, tenantId = tenant1.id, name = "Invoice A").execute()
+            val template2 = CreateDocumentTemplate(id = sharedSlug, tenantId = tenant2.id, name = "Invoice B").execute()
+
+            assertThat(template1.id).isEqualTo(sharedSlug)
+            assertThat(template2.id).isEqualTo(sharedSlug)
+
+            // Each tenant sees only their own template
+            val tenant1Templates = ListDocumentTemplates(tenant1.id).query()
+            val tenant2Templates = ListDocumentTemplates(tenant2.id).query()
+
+            assertThat(tenant1Templates).hasSize(1)
+            assertThat(tenant1Templates[0].name).isEqualTo("Invoice A")
+
+            assertThat(tenant2Templates).hasSize(1)
+            assertThat(tenant2Templates[0].name).isEqualTo("Invoice B")
         }
     }
 }
