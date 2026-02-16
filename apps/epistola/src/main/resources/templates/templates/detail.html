@@ -108,19 +108,26 @@
                                     </td>
                                     <td class="actions">
                                         <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                           class="btn btn-sm btn-ghost" hx-boost="false">Editor</a>
-                                        <button type="button" class="btn btn-sm btn-ghost"
+                                           class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
+                                            <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon-sm')}" />
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
                                                 th:hx-get="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                                 hx-target="#edit-variant-dialog-body"
                                                 hx-swap="innerHTML"
-                                                onclick="document.getElementById('edit-variant-dialog').showModal()">Edit</button>
+                                                onclick="document.getElementById('edit-variant-dialog').showModal()"
+                                                title="Edit variant">
+                                            <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon-sm')}" />
+                                        </button>
                                         <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               method="post"
                                               th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               hx-confirm="Are you sure you want to delete this variant?"
                                               hx-target="#variants-section"
                                               hx-swap="outerHTML">
-                                            <button type="submit" class="btn btn-sm btn-ghost btn-ghost-destructive">Delete</button>
+                                            <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete variant">
+                                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon-sm')}" />
+                                            </button>
                                         </form>
                                     </td>
                                 </tr>
