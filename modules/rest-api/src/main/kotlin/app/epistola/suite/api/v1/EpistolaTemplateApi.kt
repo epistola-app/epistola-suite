@@ -230,6 +230,7 @@ class EpistolaTemplateApi(
             tenantId = typedTenantId,
             templateId = TemplateId.of(templateId),
             variantId = VariantId.of(variantId),
+            title = updateVariantRequest.title,
             tags = tags,
         ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)

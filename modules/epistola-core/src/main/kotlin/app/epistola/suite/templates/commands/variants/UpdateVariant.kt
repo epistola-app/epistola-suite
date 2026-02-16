@@ -15,6 +15,7 @@ data class UpdateVariant(
     val tenantId: TenantId,
     val templateId: TemplateId,
     val variantId: VariantId,
+    val title: String?,
     val tags: Map<String, String>,
 ) : Command<TemplateVariant?>
 
@@ -50,12 +51,13 @@ class UpdateVariantHandler(
         handle.createQuery(
             """
                 UPDATE template_variants
-                SET tags = :tags::jsonb, last_modified = NOW()
+                SET title = :title, tags = :tags::jsonb, last_modified = NOW()
                 WHERE id = :variantId
                 RETURNING *
                 """,
         )
             .bind("variantId", command.variantId)
+            .bind("title", command.title)
             .bind("tags", tagsJson)
             .mapTo<TemplateVariant>()
             .findOne()

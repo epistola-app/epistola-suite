@@ -109,6 +109,11 @@
                                     <td class="actions">
                                         <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                            class="btn btn-sm btn-ghost" hx-boost="false">Editor</a>
+                                        <button type="button" class="btn btn-sm btn-ghost"
+                                                th:hx-get="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                                hx-target="#edit-variant-dialog-body"
+                                                hx-swap="innerHTML"
+                                                onclick="document.getElementById('edit-variant-dialog').showModal()">Edit</button>
                                         <form th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                               method="post"
                                               th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
@@ -142,6 +147,13 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Edit variant dialog -->
+            <dialog id="edit-variant-dialog" class="ep-dialog">
+                <div id="edit-variant-dialog-body">
+                    <!-- Content loaded via HTMX -->
+                </div>
+            </dialog>
         </div>
 
         <!-- Tab Panel: Data Contract -->
@@ -385,6 +397,36 @@
                 }
             });
         </script>
+    </th:block>
+
+    <!-- Fragment: edit variant form (loaded into dialog via HTMX) -->
+    <th:block th:fragment="edit-variant-form">
+        <div class="ep-dialog-header">
+            <h3>Edit Variant: <code th:text="${variant.id}"></code></h3>
+        </div>
+        <form th:hx-patch="@{/tenants/{tenantId}/templates/{templateId}/variants/{variantId}(tenantId=${tenantId},templateId=${templateId ?: template.id},variantId=${variant.id})}"
+              hx-target="#variants-section"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) document.getElementById('edit-variant-dialog').close()">
+            <div class="ep-dialog-body">
+                <div class="form-group">
+                    <label class="ep-label" for="edit-variant-title">Title</label>
+                    <input type="text" id="edit-variant-title" name="title" class="ep-input"
+                           th:value="${variant.title}" placeholder="e.g. English Newsletter">
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="edit-variant-tags">Tags (key=value, one per line)</label>
+                    <textarea id="edit-variant-tags" name="tags" class="ep-textarea" rows="3"
+                              placeholder="locale=en&#10;brand=default"
+                              th:text="${variant.tags != null ? #strings.listJoin(variant.tags.entrySet().![key + '=' + value], '&#10;') : ''}"></textarea>
+                </div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('edit-variant-dialog').close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
     </th:block>
 </body>
 </html>

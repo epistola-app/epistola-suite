@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Added
+- **Edit Variant Dialog**: Added ability to edit variant title and tags via a native `<dialog>` element
+  - Edit button on each variant row fetches a pre-filled form via HTMX
+  - Form submits via HTMX PATCH and refreshes the variants section on success
+  - Extended `UpdateVariant` command to support title updates alongside tags
+  - Reusable `.ep-dialog` CSS styles for native HTML dialogs
 - **Template Detail Page Redesign: Tabs + Inline Expand/Collapse**: Reorganized the template detail page into a 3-tab layout (Variants, Data Contract, Settings) with inline version management
   - **Tab navigation**: Client-side CSS/JS tabs for Variants, Data Contract, and Settings — all content rendered on page load, no server round-trips for switching
   - **Inline variant versions**: Each variant row has an expand/collapse chevron that lazy-loads versions via HTMX on first click, with subsequent toggles showing/hiding without re-fetch

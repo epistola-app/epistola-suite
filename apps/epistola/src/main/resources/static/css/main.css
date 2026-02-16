@@ -1051,6 +1051,48 @@ a.stat-card:hover {
     border-bottom-color: var(--ep-destructive);
 }
 
+/* ── Dialog (generic reusable dialog) ────────────────────────────────── */
+
+.ep-dialog {
+    border: none;
+    border-radius: var(--ep-radius-xl);
+    box-shadow: var(--ep-shadow-xl);
+    padding: 0;
+    max-width: 28rem;
+    width: 90%;
+}
+
+.ep-dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+    backdrop-filter: blur(4px);
+}
+
+.ep-dialog-header {
+    padding: var(--ep-space-4) var(--ep-space-6);
+    border-bottom: 1px solid var(--ep-border-color);
+}
+
+.ep-dialog-header h3 {
+    margin: 0;
+    font-size: var(--ep-text-base);
+}
+
+.ep-dialog-body {
+    padding: var(--ep-space-6);
+}
+
+.ep-dialog-body .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.ep-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ep-space-3);
+    padding: var(--ep-space-4) var(--ep-space-6);
+    border-top: 1px solid var(--ep-border-color);
+}
+
 /* ── Page actions (right-aligned button group in page header) ────────── */
 
 .page-actions {
