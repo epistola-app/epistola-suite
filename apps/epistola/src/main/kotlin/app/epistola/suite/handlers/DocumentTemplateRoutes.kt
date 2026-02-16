@@ -12,6 +12,7 @@ class DocumentTemplateRoutes(
     private val variantHandler: VariantRouteHandler,
     private val versionHandler: VersionRouteHandler,
     private val previewHandler: TemplatePreviewHandler,
+    private val deploymentMatrixHandler: DeploymentMatrixHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -33,6 +34,11 @@ class DocumentTemplateRoutes(
             PATCH("/{id}/data-examples/{exampleId}", handler::updateDataExample)
             DELETE("/{id}/data-examples/{exampleId}", handler::deleteDataExample)
 
+            // Deployment matrix routes (delegated to DeploymentMatrixHandler)
+            GET("/{id}/deployments", deploymentMatrixHandler::deploymentMatrix)
+            POST("/{id}/deployments/deploy", deploymentMatrixHandler::deployToEnvironment)
+            POST("/{id}/deployments/undeploy", deploymentMatrixHandler::removeFromEnvironment)
+
             // Variant routes (delegated to VariantRouteHandler)
             POST("/{id}/variants", variantHandler::createVariant)
             GET("/{id}/variants/{variantId}/edit", variantHandler::editVariantForm)
@@ -41,7 +47,7 @@ class DocumentTemplateRoutes(
             POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
             POST("/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
 
-            // Variant versions (inline expand)
+            // Variant version history (loaded into dialog)
             GET("/{id}/variants/{variantId}/versions", versionHandler::listVersions)
 
             // Editor route (with variant)
@@ -55,9 +61,7 @@ class DocumentTemplateRoutes(
             PUT("/{id}/variants/{variantId}/draft", versionHandler::updateDraft)
 
             // Version lifecycle (delegated to VersionRouteHandler)
-            POST("/{id}/variants/{variantId}/versions/{versionId}/publish", versionHandler::publishVersion)
             POST("/{id}/variants/{variantId}/versions/{versionId}/archive", versionHandler::archiveVersion)
-            POST("/{id}/variants/{variantId}/versions/{versionId}/unpublish/{environmentId}", versionHandler::unpublishFromEnvironment)
         }
     }
 }

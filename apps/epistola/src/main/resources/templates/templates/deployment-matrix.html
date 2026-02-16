@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="deployment-matrix">
+        <div id="deployment-matrix">
+
+            <!-- No environments -->
+            <th:block th:if="${#lists.isEmpty(environments)}">
+                <div class="detail-section">
+                    <div class="detail-section-body">
+                        <div class="empty-state" style="padding: var(--ep-space-8);">
+                            <div class="empty-state-title">No environments configured</div>
+                            <div class="empty-state-description">
+                                <a th:href="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}">Create an environment</a>
+                                to start deploying template versions.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+
+            <!-- No variants -->
+            <th:block th:if="${!#lists.isEmpty(environments) and #lists.isEmpty(variants)}">
+                <div class="detail-section">
+                    <div class="detail-section-body">
+                        <div class="empty-state" style="padding: var(--ep-space-8);">
+                            <div class="empty-state-title">No variants yet</div>
+                            <div class="empty-state-description">
+                                Create a variant in the Variants tab to start deploying.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+
+            <!-- Deployment matrix table -->
+            <th:block th:if="${!#lists.isEmpty(environments) and !#lists.isEmpty(variants)}">
+                <div class="detail-section">
+                    <div class="detail-section-body no-padding">
+                        <div style="overflow-x: auto;">
+                            <table class="ep-table deployment-matrix-table">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align: left;">Variant</th>
+                                        <th th:each="env : ${environments}" th:text="${env.name}" style="text-align: center;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="variant : ${variants}">
+                                        <td class="deployment-matrix-variant">
+                                            <code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code>
+                                            <span th:if="${variant.title != null}" class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
+                                                  th:text="${variant.title}"></span>
+                                        </td>
+                                        <td th:each="env : ${environments}" class="deployment-matrix-cell">
+                                            <!-- Determine cell state -->
+                                            <th:block th:with="
+                                                cell=${matrix.containsKey(variant.id) ? matrix.get(variant.id).getOrDefault(env.id, null) : null},
+                                                versions=${versionsByVariant.getOrDefault(variant.id, {})}"
+                                            >
+                                                <!-- Deployed: show version badge + actions -->
+                                                <th:block th:if="${cell != null}">
+                                                    <div class="deployment-cell-active">
+                                                        <span class="badge badge-success" th:text="'v' + ${cell.versionId}"></span>
+                                                        <span class="deployment-cell-actions">
+                                                            <form th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments/undeploy(tenantId=${tenantId},id=${templateId})}"
+                                                                  hx-target="#deployment-matrix" hx-swap="outerHTML"
+                                                                  hx-confirm="Remove this deployment?"
+                                                                  style="display:inline; margin:0;">
+                                                                <input type="hidden" name="variantId" th:value="${variant.id}" />
+                                                                <input type="hidden" name="environmentId" th:value="${env.id}" />
+                                                                <button type="submit" class="btn-badge-remove" title="Undeploy">&times;</button>
+                                                            </form>
+                                                        </span>
+                                                    </div>
+                                                </th:block>
+
+                                                <!-- Not deployed: show deploy button -->
+                                                <th:block th:if="${cell == null}">
+                                                    <th:block th:if="${!#lists.isEmpty(versions)}">
+                                                        <form th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments/deploy(tenantId=${tenantId},id=${templateId})}"
+                                                              hx-target="#deployment-matrix" hx-swap="outerHTML"
+                                                              style="display: inline-flex; gap: 4px; align-items: center;">
+                                                            <input type="hidden" name="variantId" th:value="${variant.id}" />
+                                                            <input type="hidden" name="environmentId" th:value="${env.id}" />
+                                                            <select name="versionId" class="select select-sm" style="font-size: var(--ep-text-xs);">
+                                                                <th:block th:each="ver : ${versions}">
+                                                                    <option th:value="${ver.versionId}"
+                                                                            th:text="${'v' + ver.versionId + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
+                                                                </th:block>
+                                                            </select>
+                                                            <button type="submit" class="btn btn-sm btn-primary" style="font-size: var(--ep-text-xs);">Deploy</button>
+                                                        </form>
+                                                    </th:block>
+                                                    <th:block th:if="${#lists.isEmpty(versions)}">
+                                                        <span class="text-muted">&mdash;</span>
+                                                    </th:block>
+                                                </th:block>
+                                            </th:block>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+
+        </div>
+    </th:block>
+</body>
+</html>

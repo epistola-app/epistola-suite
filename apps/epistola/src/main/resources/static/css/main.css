@@ -968,86 +968,7 @@ a.stat-card:hover {
     display: block;
 }
 
-/* ── Expand/collapse toggle ──────────────────────────────────────────── */
-
-.expand-toggle {
-    transition: transform 0.15s ease;
-    display: inline-flex;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: var(--ep-space-1);
-    color: var(--ep-muted-foreground);
-}
-
-.expand-toggle:hover {
-    color: var(--ep-foreground);
-}
-
-.expand-toggle.expanded {
-    transform: rotate(90deg);
-}
-
-/* ── Variant detail row (expanded versions) ──────────────────────────── */
-
-.variant-detail-row td {
-    padding: 0 !important;
-    background: var(--ep-gray-50);
-}
-
-.variant-detail-row:hover td {
-    background: var(--ep-gray-50) !important;
-}
-
-.variant-detail-content {
-    padding: var(--ep-space-1) var(--ep-space-6) var(--ep-space-2);
-    margin-left: var(--ep-space-6);
-}
-
-/* Compact table for inline versions */
-.variant-detail-content table {
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    font-size: 0.6875rem; /* 11px, between xs and 2xs */
-    color: var(--ep-muted-foreground);
-}
-
-/* Subtle headers — no uppercase, no background, lighter than parent */
-.variant-detail-content th {
-    background: transparent;
-    padding: var(--ep-space-0-5) var(--ep-space-3);
-    border-bottom: 1px solid var(--ep-gray-200);
-    font-size: 0.625rem; /* 10px */
-    font-weight: 400;
-    text-transform: none;
-    letter-spacing: normal;
-    color: var(--ep-gray-400);
-}
-
-.variant-detail-content td {
-    padding: var(--ep-space-1) var(--ep-space-3);
-    border-bottom: 1px solid var(--ep-gray-100);
-}
-
-.variant-detail-content tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.variant-detail-content tbody tr:hover {
-    background: var(--ep-gray-100);
-}
-
-.variant-detail-content .actions {
-    gap: var(--ep-space-1);
-    justify-content: flex-end;
-}
-
-/* Create draft button area inside expanded row */
-.variant-detail-content .versions-footer {
-    padding: var(--ep-space-1) var(--ep-space-3) 0;
-}
+/* (Expand/collapse toggle and variant detail row styles removed — deployment matrix replaces inline versions) */
 
 /* ── Danger zone ─────────────────────────────────────────────────────── */
 
@@ -1099,6 +1020,46 @@ a.stat-card:hover {
     gap: var(--ep-space-3);
     padding: var(--ep-space-4) var(--ep-space-6);
     border-top: 1px solid var(--ep-border-color);
+}
+
+/* ── Wide dialog variant ──────────────────────────────────────────────── */
+
+.ep-dialog-wide {
+    max-width: 40rem;
+}
+
+/* ── Deployment matrix ───────────────────────────────────────────────── */
+
+.deployment-matrix-table th {
+    text-align: center;
+}
+
+.deployment-matrix-table th:first-child {
+    text-align: left;
+}
+
+.deployment-matrix-variant {
+    white-space: nowrap;
+}
+
+.deployment-matrix-cell {
+    text-align: center;
+    min-width: 8rem;
+}
+
+.deployment-cell-active {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+}
+
+.deployment-cell-actions {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.deployment-matrix-cell:hover .deployment-cell-actions {
+    opacity: 1;
 }
 
 /* ── Page actions (right-aligned button group in page header) ────────── */

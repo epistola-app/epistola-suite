@@ -15,6 +15,7 @@
         <!-- Tab Navigation -->
         <div class="tab-nav">
             <button class="tab-nav-item active" data-tab="variants" onclick="switchTab('variants')">Variants</button>
+            <button class="tab-nav-item" data-tab="deployments" onclick="switchTab('deployments')">Deployments</button>
             <button class="tab-nav-item" data-tab="data-contract" onclick="switchTab('data-contract')">Data Contract</button>
             <button class="tab-nav-item" data-tab="settings" onclick="switchTab('settings')">Settings</button>
         </div>
@@ -78,23 +79,15 @@
                         <table class="ep-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 2rem;"></th>
-                                    <th>ID</th>
+                                    <th>Slug</th>
                                     <th>Title</th>
                                     <th>Attributes</th>
-                                    <th>Published</th>
+                                    <th>Status</th>
                                     <th></th>
                                 </tr>
                             </thead>
-                            <tbody th:each="variant : ${variants}">
-                                <tr>
-                                    <td>
-                                        <button class="expand-toggle"
-                                                th:data-variant-id="${variant.id}"
-                                                th:data-versions-url="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                                onclick="toggleVariant(this)"
-                                                title="Show versions">&#9654;</button>
-                                    </td>
+                            <tbody>
+                                <tr th:each="variant : ${variants}">
                                     <td><code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code></td>
                                     <td>
                                         <span th:if="${variant.title != null}" th:text="${variant.title}"></span>
@@ -110,16 +103,21 @@
                                         <span th:if="${variant.attributes.isEmpty() and !variant.isDefault}" class="text-muted">-</span>
                                     </td>
                                     <td>
-                                        <th:block th:if="${!variant.publishedVersions.isEmpty()}">
-                                            <span th:each="ver, iterStat : ${variant.publishedVersions}"><span class="badge badge-success" th:text="'v' + ${ver}"></span> </span>
-                                        </th:block>
-                                        <span th:if="${variant.publishedVersions.isEmpty()}" class="text-muted">-</span>
+                                        <span th:if="${variant.hasDraft}" class="badge badge-primary">Draft</span>
+                                        <span th:unless="${variant.hasDraft}" class="text-muted">No draft</span>
                                     </td>
                                     <td class="actions">
                                         <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                            class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
                                             <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                                         </a>
+                                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                                th:data-variant-id="${variant.id}"
+                                                th:data-versions-url="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                                onclick="openVersionHistory(this)"
+                                                title="Version history">
+                                            <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
+                                        </button>
                                         <button type="button" class="btn btn-sm btn-icon btn-ghost"
                                                 th:hx-get="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                                 hx-target="#edit-variant-dialog-body"
@@ -154,15 +152,6 @@
                                         </button>
                                     </td>
                                 </tr>
-                                <!-- Expandable detail row for versions -->
-                                <tr class="variant-detail-row" th:id="'variant-detail-' + ${variant.id}" style="display: none;">
-                                    <td th:colspan="6">
-                                        <div class="variant-detail-content"
-                                             th:id="'variant-versions-' + ${variant.id}">
-                                            <!-- Versions loaded lazily via HTMX on first expand -->
-                                        </div>
-                                    </td>
-                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -184,6 +173,20 @@
                     <!-- Content loaded via HTMX -->
                 </div>
             </dialog>
+
+            <!-- Version history dialog -->
+            <dialog id="version-history-dialog" class="ep-dialog ep-dialog-wide">
+                <div id="version-history-dialog-body">
+                    <!-- Content loaded via HTMX -->
+                </div>
+            </dialog>
+        </div>
+
+        <!-- Tab Panel: Deployments -->
+        <div id="tab-deployments" class="tab-panel">
+            <div id="deployments-content">
+                <!-- Lazy-loaded via HTMX on first tab switch -->
+            </div>
         </div>
 
         <!-- Tab Panel: Data Contract -->
@@ -271,6 +274,9 @@
             const INITIAL_SCHEMA = [[${template.dataModel}]];
             const INITIAL_EXAMPLES = [[${template.dataExamples}]];
 
+            const deploymentsUrl = [[${'/tenants/' + tenantId + '/templates/' + template.id + '/deployments'}]];
+            let deploymentsLoaded = false;
+
             function updateTheme(select) {
                 const themeId = select.value || null;
                 const clearThemeId = !select.value;
@@ -297,6 +303,12 @@
                 document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
                 document.querySelector('[data-tab="' + tabId + '"]').classList.add('active');
                 document.getElementById('tab-' + tabId).classList.add('active');
+
+                // Lazy-load deployments on first switch
+                if (tabId === 'deployments' && !deploymentsLoaded) {
+                    htmx.ajax('GET', deploymentsUrl, { target: '#deployments-content', swap: 'innerHTML' });
+                    deploymentsLoaded = true;
+                }
             }
 
             function toggleCreateVariantForm() {
@@ -304,19 +316,12 @@
                 form.style.display = form.style.display === 'none' ? 'block' : 'none';
             }
 
-            function toggleVariant(button) {
+            function openVersionHistory(button) {
                 const variantId = button.dataset.variantId;
                 const versionsUrl = button.dataset.versionsUrl;
-                const detailRow = document.getElementById('variant-detail-' + variantId);
-                const isExpanded = detailRow.style.display !== 'none';
-                detailRow.style.display = isExpanded ? 'none' : 'table-row';
-                button.classList.toggle('expanded', !isExpanded);
-                // Lazy load on first expand
-                const container = document.getElementById('variant-versions-' + variantId);
-                if (!isExpanded && !container.dataset.loaded) {
-                    htmx.ajax('GET', versionsUrl, { target: container, swap: 'innerHTML' });
-                    container.dataset.loaded = 'true';
-                }
+                const container = document.getElementById('version-history-dialog-body');
+                htmx.ajax('GET', versionsUrl, { target: container, swap: 'innerHTML' });
+                document.getElementById('version-history-dialog').showModal();
             }
         </script>
         <script type="module">

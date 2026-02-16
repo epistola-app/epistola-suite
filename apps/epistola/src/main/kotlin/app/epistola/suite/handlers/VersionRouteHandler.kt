@@ -1,19 +1,15 @@
 package app.epistola.suite.templates
 
-import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.commands.activations.RemoveActivation
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
 import app.epistola.suite.templates.commands.versions.CreateVersion
-import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.model.VariantSummary
@@ -28,7 +24,8 @@ import tools.jackson.databind.ObjectMapper
 
 /**
  * Handles version lifecycle routes for document templates.
- * Manages draft creation, environment-targeted publishing, and archiving of template versions.
+ * Manages draft creation, archiving of template versions, and version history dialog.
+ * Environment-targeted publishing/unpublishing is handled by [DeploymentMatrixHandler].
  */
 @Component
 class VersionRouteHandler(
@@ -97,35 +94,6 @@ class VersionRouteHandler(
             .body("""{"success": true}""")
     }
 
-    fun publishVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
-            ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantId.validateOrNull(variantIdStr)
-            ?: return ServerResponse.badRequest().build()
-        val versionIdInt = request.pathVariable("versionId").toIntOrNull()
-            ?: return ServerResponse.badRequest().build()
-
-        if (versionIdInt !in VersionId.MIN_VERSION..VersionId.MAX_VERSION) {
-            return ServerResponse.badRequest().build()
-        }
-
-        val environmentIdStr = request.param("environmentId").orElse(null)
-            ?: return ServerResponse.badRequest().build()
-
-        PublishToEnvironment(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-            versionId = VersionId.of(versionIdInt),
-            environmentId = EnvironmentId.of(environmentIdStr),
-        ).execute()
-
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
-    }
-
     fun archiveVersion(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val templateIdStr = request.pathVariable("id")
@@ -155,26 +123,6 @@ class VersionRouteHandler(
         return returnVersionsFragment(request, tenantId, templateId, variantId)
     }
 
-    fun unpublishFromEnvironment(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
-            ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantId.validateOrNull(variantIdStr)
-            ?: return ServerResponse.badRequest().build()
-        val environmentIdStr = request.pathVariable("environmentId")
-
-        RemoveActivation(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-            environmentId = EnvironmentId.of(environmentIdStr),
-        ).execute()
-
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
-    }
-
     private fun returnVersionsFragment(
         request: ServerRequest,
         tenantId: String,
@@ -197,10 +145,6 @@ class VersionRouteHandler(
             tenantId = TenantId.of(tenantId),
             templateId = templateId,
             variantId = variantId,
-        ).query()
-
-        val environments = ListEnvironments(
-            tenantId = TenantId.of(tenantId),
         ).query()
 
         val activations = ListActivations(
@@ -227,7 +171,6 @@ class VersionRouteHandler(
                 "variant" to variantSummary
                 "versions" to versions
                 "dataExamples" to template.dataExamples
-                "environments" to environments
                 "activationsByVersion" to activationsByVersion
                 if (error != null) {
                     "error" to error

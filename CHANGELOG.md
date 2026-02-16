@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Changed
+- **Template Detail Page Redesign**: Separated the template detail page into focused tabs — Variants (authoring), Deployments (environment matrix), Data Contract, and Settings
+  - **Deployment Matrix**: New dedicated Deployments tab with environment x variant grid for managing deployments. Deploy/undeploy directly from the matrix.
+  - **Simplified Variants Tab**: Removed inline nested version tables. Variants table now shows slug, title, attributes, and draft status. Version history moved to a dialog.
+  - **Version History Dialog**: Click the clock icon on any variant to view, archive, and create draft versions in a dialog.
+  - Environment publish/unpublish removed from version rows — use the Deployments tab instead.
 - **Environment-Targeted Publishing**: "Publish to Environment" replaces the separate publish + activate workflow. Publishing now requires a target environment, freezing drafts and activating in a single action.
 - **Archive Guard**: Archiving a version is now blocked if the version is still active in any environment. Remove it from all environments first.
 - **DemoLoader Enhancements**: Demo tenant now includes staging/production environments, language attribute definitions, Dutch/English multi-variant templates, and published versions across environments.
