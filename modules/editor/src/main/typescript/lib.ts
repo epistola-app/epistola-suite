@@ -89,18 +89,17 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   editorEl.style.width = '100%'
   editorEl.style.display = 'block'
 
-  // Initialize the engine with data model context
-  editorEl.initEngine(doc, createDefaultRegistry(), { dataModel, dataExamples })
-
-  // Wire up preview callback if provided
+  // Wire up callbacks before initEngine — initEngine reads these to create
+  // the SaveService and other services during initialization.
   if (onFetchPreview) {
     editorEl.fetchPreview = onFetchPreview
   }
-
-  // Wire up save callback if provided
   if (onSave) {
     editorEl.onSave = onSave
   }
+
+  // Initialize the engine with data model context
+  editorEl.initEngine(doc, createDefaultRegistry(), { dataModel, dataExamples })
 
   // Mount into the container
   container.innerHTML = ''

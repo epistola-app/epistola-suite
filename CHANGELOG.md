@@ -35,6 +35,7 @@
 - **CSS z-index misleading fallback** — Removed incorrect fallback `40` from `var(--ep-z-sticky)` in `shell.css`
 - **Unused variantThemeId in GenerationService** — Removed dead code
 - **Editor deepFreeze disabled during tests** — Removed unnecessary `process.env.NODE_ENV` define from vite.config.ts which caused Vitest v4 to set `import.meta.env.PROD = true` during tests, disabling the immutability guard
+- **Editor save not working** — `mountEditor` set the `onSave` callback after calling `initEngine`, but `initEngine` checks `this.onSave` to create the SaveService. Moved callback assignments before `initEngine` so save/autosave/Ctrl+S all work correctly
 
 ### Removed
 - `SetActivation` command and REST API endpoint — replaced by the publish-to-environment action
