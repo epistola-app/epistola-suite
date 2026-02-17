@@ -1,0 +1,799 @@
+/*
+ * Data Contract Editor Styles
+ *
+ * Visual schema builder, example form editor, migration dialog.
+ * Uses design-system tokens from @design/tokens.css.
+ * All classes prefixed with `dc-` to avoid collisions.
+ */
+
+@layer base, layout, components, states;
+
+/* Design system (shared with main app) */
+@import '@design/tokens.css';
+@import '@design/base.css';
+@import '@design/components.css';
+
+/* Reuse inspector input styles */
+@import '../styles/inspector.css';
+
+/* ============================================================================
+ * Layout
+ * ========================================================================== */
+
+@layer layout {
+  .dc-editor-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+  }
+
+  .dc-tab-content {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+    padding: var(--ep-space-4) 0;
+  }
+}
+
+/* ============================================================================
+ * Components
+ * ========================================================================== */
+
+@layer components {
+
+  /* --------------------------------------------------------------------------
+   * Tabs
+   * ---------------------------------------------------------------------- */
+
+  .dc-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--ep-gray-200);
+  }
+
+  .dc-tab {
+    padding: var(--ep-space-2) var(--ep-space-4);
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-gray-500);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color var(--ep-transition-base), border-color var(--ep-transition-base);
+  }
+
+  .dc-tab:hover {
+    color: var(--ep-gray-700);
+  }
+
+  .dc-tab-active {
+    color: var(--ep-blue-600);
+    border-bottom-color: var(--ep-blue-600);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Sections
+   * ---------------------------------------------------------------------- */
+
+  .dc-section {
+    margin-bottom: var(--ep-space-6);
+  }
+
+  .dc-section-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+    margin: 0 0 var(--ep-space-2) 0;
+  }
+
+  .dc-section-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    margin: 0 0 var(--ep-space-3) 0;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Toolbar
+   * ---------------------------------------------------------------------- */
+
+  .dc-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .dc-confirm-bar {
+    margin-bottom: var(--ep-space-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--ep-space-3);
+  }
+
+  .dc-confirm-actions {
+    display: flex;
+    gap: var(--ep-space-2);
+    flex-shrink: 0;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Field list (schema builder)
+   * ---------------------------------------------------------------------- */
+
+  .dc-field-list {
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-md);
+    margin-bottom: var(--ep-space-3);
+    overflow: hidden;
+  }
+
+  .dc-field-list-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    background: var(--ep-gray-50);
+    border-bottom: 1px solid var(--ep-gray-200);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ep-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .dc-field-list-header-spacer {
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  .dc-field-list-header-name {
+    flex: 2;
+    min-width: 0;
+  }
+
+  .dc-field-list-header-type {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dc-field-list-header-req {
+    width: 50px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Field row
+   * ---------------------------------------------------------------------- */
+
+  .dc-field-row {
+    border-bottom: 1px solid var(--ep-gray-100);
+  }
+
+  .dc-field-row:last-child {
+    border-bottom: none;
+  }
+
+  .dc-field-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-3);
+  }
+
+  .dc-field-expand-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--ep-gray-400);
+    cursor: pointer;
+    font-size: 10px;
+    flex-shrink: 0;
+    border-radius: var(--ep-radius-sm);
+    transition: background var(--ep-transition-base);
+  }
+
+  .dc-field-expand-btn:hover {
+    background: var(--ep-gray-100);
+    color: var(--ep-gray-600);
+  }
+
+  .dc-field-expand-spacer {
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  .dc-field-name-input {
+    flex: 2;
+    min-width: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .dc-field-type-select {
+    flex: 1;
+    min-width: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .dc-field-array-type-select {
+    width: 100px;
+    flex-shrink: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .dc-field-required-label {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .dc-field-required-text {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .dc-field-add-nested-btn {
+    flex-shrink: 0;
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    height: auto;
+  }
+
+  .dc-field-delete-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--ep-gray-400);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    border-radius: var(--ep-radius-sm);
+    transition: color var(--ep-transition-base), background var(--ep-transition-base);
+  }
+
+  .dc-field-delete-btn:hover {
+    color: var(--ep-red-500);
+    background: var(--ep-red-50);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Nested fields
+   * ---------------------------------------------------------------------- */
+
+  .dc-field-nested .dc-field-controls {
+    padding-left: var(--ep-space-8);
+  }
+
+  .dc-field-nested-container {
+    border-top: 1px solid var(--ep-gray-100);
+    background: var(--ep-gray-50);
+  }
+
+  .dc-field-nested-empty {
+    padding: var(--ep-space-2) var(--ep-space-8);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Add field button
+   * ---------------------------------------------------------------------- */
+
+  .dc-add-field-btn {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Status bar (save state)
+   * ---------------------------------------------------------------------- */
+
+  .dc-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--ep-space-3);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-200);
+    background: var(--ep-gray-50);
+    border-radius: var(--ep-radius-sm);
+    margin-top: var(--ep-space-4);
+  }
+
+  .dc-status-success {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-green-700);
+  }
+
+  .dc-status-error {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-500);
+  }
+
+  .dc-save-btn {
+    flex-shrink: 0;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Empty state
+   * ---------------------------------------------------------------------- */
+
+  .dc-empty-state {
+    padding: var(--ep-space-6) var(--ep-space-4);
+    text-align: center;
+    color: var(--ep-gray-400);
+    font-size: var(--ep-text-sm);
+    border: 1px dashed var(--ep-gray-200);
+    border-radius: var(--ep-radius-md);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Validation messages
+   * ---------------------------------------------------------------------- */
+
+  .dc-validation-messages {
+    background: var(--ep-amber-50);
+    border: 1px solid var(--ep-amber-200);
+    border-radius: var(--ep-radius-md);
+    padding: var(--ep-space-3);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .dc-validation-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .dc-validation-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--ep-radius-full);
+    background: var(--ep-amber-500);
+    color: var(--ep-white);
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .dc-validation-title {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-amber-800);
+  }
+
+  .dc-validation-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .dc-validation-item {
+    display: flex;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-1) 0;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-amber-800);
+  }
+
+  .dc-validation-path {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-amber-600);
+    flex-shrink: 0;
+  }
+
+  .dc-validation-message {
+    color: var(--ep-amber-800);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Example form
+   * ---------------------------------------------------------------------- */
+
+  .dc-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-3);
+  }
+
+  .dc-form-empty {
+    padding: var(--ep-space-6) var(--ep-space-4);
+    text-align: center;
+    color: var(--ep-gray-400);
+    font-size: var(--ep-text-sm);
+    border: 1px dashed var(--ep-gray-200);
+    border-radius: var(--ep-radius-md);
+  }
+
+  .dc-form-field {
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .dc-form-field-label {
+    display: block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+    margin-bottom: var(--ep-space-0-5);
+  }
+
+  .dc-form-field-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .dc-form-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-600);
+    cursor: pointer;
+  }
+
+  .dc-required-mark {
+    color: var(--ep-red-500);
+    margin-left: 2px;
+  }
+
+  .dc-form-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  /* Collapsible sections (object fields) */
+  .dc-form-section {
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-md);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .dc-form-section-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    background: var(--ep-gray-50);
+    cursor: pointer;
+    user-select: none;
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+  }
+
+  .dc-form-section-header:hover {
+    background: var(--ep-gray-100);
+  }
+
+  .dc-form-section-type {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    font-weight: 400;
+    margin-left: auto;
+  }
+
+  .dc-form-section-body {
+    padding: var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-200);
+  }
+
+  /* Array items */
+  .dc-array-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .dc-array-item {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+  }
+
+  .dc-array-item-input {
+    flex: 1;
+    min-width: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .dc-array-item-remove {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--ep-gray-400);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    border-radius: var(--ep-radius-sm);
+    transition: color var(--ep-transition-base), background var(--ep-transition-base);
+  }
+
+  .dc-array-item-remove:hover {
+    color: var(--ep-red-500);
+    background: var(--ep-red-50);
+  }
+
+  .dc-array-add-btn {
+    margin-top: var(--ep-space-1);
+  }
+
+  /* Array of objects items */
+  .dc-array-object-item {
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    margin-bottom: var(--ep-space-2);
+    overflow: hidden;
+  }
+
+  .dc-array-object-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--ep-space-1) var(--ep-space-3);
+    background: var(--ep-gray-50);
+    border-bottom: 1px solid var(--ep-gray-100);
+  }
+
+  .dc-array-object-index {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-500);
+  }
+
+  .dc-array-object-item > .dc-form-field,
+  .dc-array-object-item > :not(.dc-array-object-header) .dc-form-field {
+    padding: 0 var(--ep-space-3);
+  }
+
+  .dc-array-object-item > :last-child {
+    padding-bottom: var(--ep-space-2);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Examples section
+   * ---------------------------------------------------------------------- */
+
+  .dc-example-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .dc-example-select {
+    flex: 1;
+    min-width: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+  }
+
+  .dc-example-delete-btn {
+    color: var(--ep-red-500);
+  }
+
+  .dc-example-delete-btn:hover {
+    color: var(--ep-red-700);
+    background: var(--ep-red-50);
+  }
+
+  .dc-example-editor {
+    margin-top: var(--ep-space-3);
+  }
+
+  .dc-example-form-container {
+    margin-top: var(--ep-space-3);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Migration dialog
+   * ---------------------------------------------------------------------- */
+
+  .dc-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 640px;
+    width: 90%;
+    max-height: 80vh;
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-lg);
+    box-shadow: var(--ep-shadow-xl);
+    padding: 0;
+    background: var(--ep-white);
+    overflow: hidden;
+    z-index: var(--ep-z-modal);
+  }
+
+  .dc-dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+
+  .dc-migration-dialog {
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+
+  .dc-migration-header {
+    padding: var(--ep-space-4) var(--ep-space-4) var(--ep-space-2);
+  }
+
+  .dc-migration-title {
+    font-size: var(--ep-text-base);
+    font-weight: 600;
+    color: var(--ep-gray-800);
+    margin: 0 0 var(--ep-space-1) 0;
+  }
+
+  .dc-migration-subtitle {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+    margin: 0;
+  }
+
+  .dc-migration-select-controls {
+    display: flex;
+    gap: var(--ep-space-2);
+    padding: 0 var(--ep-space-4) var(--ep-space-2);
+  }
+
+  .dc-migration-groups {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 var(--ep-space-4);
+  }
+
+  .dc-migration-group {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .dc-migration-group-header {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-600);
+    margin-bottom: var(--ep-space-1);
+    padding-bottom: var(--ep-space-1);
+    border-bottom: 1px solid var(--ep-gray-100);
+  }
+
+  .dc-migration-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+  }
+
+  .dc-migration-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-gray-50);
+  }
+
+  .dc-migration-item-manual {
+    opacity: 0.7;
+  }
+
+  .dc-migration-item-check {
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+
+  .dc-migration-item-icon {
+    color: var(--ep-red-500);
+    font-weight: 700;
+  }
+
+  .dc-migration-item-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dc-migration-item-path {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-1);
+  }
+
+  .dc-migration-item-path code {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-700);
+  }
+
+  .dc-migration-issue-badge {
+    font-size: 10px;
+    padding: 0 var(--ep-space-1-5);
+  }
+
+  .dc-migration-item-conversion {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    font-size: var(--ep-text-xs);
+    font-family: var(--ep-font-mono);
+    color: var(--ep-gray-600);
+  }
+
+  .dc-migration-current {
+    color: var(--ep-red-600);
+  }
+
+  .dc-migration-arrow {
+    color: var(--ep-gray-400);
+  }
+
+  .dc-migration-expected {
+    color: var(--ep-gray-500);
+    font-style: italic;
+  }
+
+  .dc-migration-suggested {
+    color: var(--ep-green-700);
+  }
+
+  .dc-migration-item-info {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .dc-migration-item-info code {
+    font-family: var(--ep-font-mono);
+  }
+
+  .dc-migration-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-3) var(--ep-space-4);
+    border-top: 1px solid var(--ep-gray-200);
+    background: var(--ep-gray-50);
+  }
+
+  .dc-migration-force-save-btn {
+    background: var(--ep-amber-50);
+    color: var(--ep-amber-800);
+    border: 1px solid var(--ep-amber-200);
+  }
+
+  .dc-migration-force-save-btn:hover {
+    background: var(--ep-amber-100);
+    border-color: var(--ep-amber-500);
+  }
+}
