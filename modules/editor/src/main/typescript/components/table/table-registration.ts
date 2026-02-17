@@ -131,9 +131,12 @@ export function createTableDefinition(): ComponentDefinition {
       const handleCellClick = (e: MouseEvent, row: number, col: number) => {
         e.stopPropagation()
 
+        // Read current selection from engine (not the render-time closure) to
+        // handle shift-click correctly even when the canvas hasn't re-rendered.
+        const currentSel = engine.getComponentState<CellSelection>('table:cellSelection')
         let newSel: CellSelection
-        if (e.shiftKey && cellSelection) {
-          newSel = { ...cellSelection, endRow: row, endCol: col }
+        if (e.shiftKey && currentSel) {
+          newSel = { ...currentSel, endRow: row, endCol: col }
         } else {
           newSel = { startRow: row, startCol: col, endRow: row, endCol: col }
         }

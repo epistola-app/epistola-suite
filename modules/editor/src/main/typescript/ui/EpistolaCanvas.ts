@@ -21,6 +21,8 @@ export class EpistolaCanvas extends LitElement {
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
 
   private _dndCleanup: (() => void) | null = null
+  private _unsubComponentState?: () => void
+  private _subscribedEngine?: EditorEngine
 
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation()
@@ -34,11 +36,22 @@ export class EpistolaCanvas extends LitElement {
   override updated() {
     this._dndCleanup?.()
     this._dndCleanup = this._setupDnD()
+
+    // Subscribe to component state changes (e.g. table cell selection) so the
+    // canvas re-renders when state is updated from within renderCanvas hooks.
+    if (this.engine && this.engine !== this._subscribedEngine) {
+      this._unsubComponentState?.()
+      this._subscribedEngine = this.engine
+      this._unsubComponentState = this.engine.events.on('component-state:change', () => {
+        this.requestUpdate()
+      })
+    }
   }
 
   override disconnectedCallback() {
     this._dndCleanup?.()
     this._dndCleanup = null
+    this._unsubComponentState?.()
     super.disconnectedCallback()
   }
 
