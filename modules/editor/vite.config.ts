@@ -9,9 +9,6 @@ export default defineConfig({
       '@design': path.resolve(__dirname, '../design-system'),
     },
   },
-  define: {
-    'process.env.NODE_ENV': JSON.stringify('production'),
-  },
   optimizeDeps: {
     include: ['jsonata'],
   },

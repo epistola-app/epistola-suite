@@ -34,6 +34,7 @@
 - **Dead vendor resource handler** — Removed `/vendor/**` handler from `EditorDevConfig` (vendor module was deleted)
 - **CSS z-index misleading fallback** — Removed incorrect fallback `40` from `var(--ep-z-sticky)` in `shell.css`
 - **Unused variantThemeId in GenerationService** — Removed dead code
+- **Editor deepFreeze disabled during tests** — Removed unnecessary `process.env.NODE_ENV` define from vite.config.ts which caused Vitest v4 to set `import.meta.env.PROD = true` during tests, disabling the immutability guard
 
 ### Removed
 - `SetActivation` command and REST API endpoint — replaced by the publish-to-environment action
