@@ -84,6 +84,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-grafana")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation(libs.playwright)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
