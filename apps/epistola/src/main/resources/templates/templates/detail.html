@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
+        <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
         <script th:src="@{/js/pdf-preview.js}"></script>
 
         <div class="page-header">
@@ -391,14 +391,14 @@
             });
         </script>
         <script type="module">
-            import { mountSchemaManager } from '/schema-manager/schema-manager.js';
+            import { mountDataContractEditor } from '/editor/data-contract-editor.js';
 
             const tenantId = TENANT_ID;
             const templateId = TEMPLATE_ID;
             const initialSchema = INITIAL_SCHEMA;
             const initialExamples = INITIAL_EXAMPLES;
 
-            const manager = mountSchemaManager({
+            const editor = mountDataContractEditor({
                 container: document.getElementById('schema-manager-container'),
                 templateId: templateId,
                 initialSchema: initialSchema,
@@ -490,10 +490,6 @@
                             console.error('Failed to delete example:', error);
                             return { success: false };
                         }
-                    },
-
-                    onValidateSchema: async (schema, examples) => {
-                        return { compatible: true, errors: [], migrations: [] };
                     }
                 }
             });
