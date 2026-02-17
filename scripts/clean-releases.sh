@@ -258,11 +258,11 @@ if [[ $TOTAL_RELEASES -eq 0 ]] && [[ $TOTAL_PACKAGE_VERSIONS -eq 0 ]] && [[ $TOT
 fi
 
 # Determine which releases to delete
-if [[ $DELETE_RELEASES == true ]]; then
+RELEASES_TO_DELETE=()
+RELEASES_TO_KEEP=()
+if [[ $DELETE_RELEASES == true ]] && [[ $TOTAL_RELEASES -gt 0 ]]; then
     if [[ $KEEP_LATEST -gt 0 ]]; then
         if [[ $KEEP_LATEST -ge $TOTAL_RELEASES ]]; then
-            # Keep all releases
-            RELEASES_TO_DELETE=()
             RELEASES_TO_KEEP=("${ALL_RELEASES[@]}")
         else
             RELEASES_TO_DELETE=("${ALL_RELEASES[@]:$KEEP_LATEST}")
@@ -270,18 +270,15 @@ if [[ $DELETE_RELEASES == true ]]; then
         fi
     else
         RELEASES_TO_DELETE=("${ALL_RELEASES[@]}")
-        RELEASES_TO_KEEP=()
     fi
-else
-    RELEASES_TO_DELETE=()
-    RELEASES_TO_KEEP=()
 fi
 
 # Determine which tags to delete
-if [[ $DELETE_TAGS == true ]]; then
+TAGS_TO_DELETE=()
+TAGS_TO_KEEP=()
+if [[ $DELETE_TAGS == true ]] && [[ $TOTAL_TAGS -gt 0 ]]; then
     if [[ $KEEP_LATEST -gt 0 ]]; then
         if [[ $KEEP_LATEST -ge $TOTAL_TAGS ]]; then
-            TAGS_TO_DELETE=()
             TAGS_TO_KEEP=("${ALL_TAGS[@]}")
         else
             TAGS_TO_DELETE=("${ALL_TAGS[@]:$KEEP_LATEST}")
@@ -289,11 +286,7 @@ if [[ $DELETE_TAGS == true ]]; then
         fi
     else
         TAGS_TO_DELETE=("${ALL_TAGS[@]}")
-        TAGS_TO_KEEP=()
     fi
-else
-    TAGS_TO_DELETE=()
-    TAGS_TO_KEEP=()
 fi
 
 TAGS_DELETE_COUNT=${#TAGS_TO_DELETE[@]}
