@@ -86,8 +86,8 @@
 
             <!-- Variant card grid -->
             <div id="variants-section" th:fragment="variants-section">
-                <div th:if="${variantError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-                    <span th:text="${variantError}"></span>
+                <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                    <span th:text="${error}"></span>
                 </div>
                 <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
                     <div th:each="variant : ${variants}"
@@ -153,17 +153,16 @@
                                     <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
-                            <form th:unless="${variant.isDefault}"
-                                  th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                  method="post"
-                                  th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                  hx-confirm="Are you sure you want to delete this variant?"
-                                  hx-target="#variants-section"
-                                  hx-swap="outerHTML">
-                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete variant">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                            </form>
+                            <button th:unless="${variant.isDefault}" type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete variant"
+                                    data-confirm-title="Delete Variant"
+                                    th:attr="data-confirm-message='Delete variant &quot;' + ${variant.title != null ? variant.title : variant.id} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                    data-confirm-target="#variants-section"
+                                    data-confirm-swap="outerHTML"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
                             <button th:if="${variant.isDefault}" type="button"
                                     class="btn btn-sm btn-icon btn-ghost" disabled
                                     title="Cannot delete the default variant">
@@ -186,6 +185,8 @@
                     </div>
                 </div>
             </div>
+
+            <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
             <!-- Edit variant dialog -->
             <dialog id="edit-variant-dialog" class="ep-dialog">

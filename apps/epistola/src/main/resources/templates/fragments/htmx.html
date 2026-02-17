@@ -49,7 +49,7 @@
                 var form = document.createElement('form');
                 form.setAttribute('hx-post', trigger.getAttribute('data-confirm-url'));
                 form.setAttribute('hx-target', trigger.getAttribute('data-confirm-target'));
-                form.setAttribute('hx-swap', 'innerHTML');
+                form.setAttribute('hx-swap', trigger.getAttribute('data-confirm-swap') || 'innerHTML');
 
                 var submitBtn = document.createElement('button');
                 submitBtn.type = 'submit';

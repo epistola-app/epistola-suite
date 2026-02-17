@@ -42,7 +42,6 @@ class DocumentTemplateRoutes(
             POST("/{id}/variants", variantHandler::createVariant)
             GET("/{id}/variants/{variantId}/edit", variantHandler::editVariantForm)
             PATCH("/{id}/variants/{variantId}", variantHandler::updateVariant)
-            DELETE("/{id}/variants/{variantId}", variantHandler::deleteVariant)
             POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
             POST("/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
 

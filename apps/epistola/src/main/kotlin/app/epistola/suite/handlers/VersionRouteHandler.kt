@@ -33,7 +33,7 @@ class VersionRouteHandler(
 ) {
 
     fun listVersions(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
@@ -45,7 +45,7 @@ class VersionRouteHandler(
     }
 
     fun createDraft(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
@@ -54,7 +54,7 @@ class VersionRouteHandler(
             ?: return ServerResponse.badRequest().build()
 
         CreateVersion(
-            tenantId = TenantId.of(tenantId),
+            tenantId = tenantId,
             templateId = templateId,
             variantId = variantId,
         ).execute()
@@ -63,7 +63,7 @@ class VersionRouteHandler(
     }
 
     fun updateDraft(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
@@ -82,7 +82,7 @@ class VersionRouteHandler(
 
         // Execute update command
         UpdateDraft(
-            tenantId = TenantId.of(tenantId),
+            tenantId = tenantId,
             templateId = templateId,
             variantId = variantId,
             templateModel = templateModel,
@@ -91,11 +91,11 @@ class VersionRouteHandler(
         // Return minimal success response (UI doesn't need full DTO)
         return ServerResponse.ok()
             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body("""{"success": true}""")
+            .body(mapOf("success" to true))
     }
 
     fun archiveVersion(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
@@ -111,7 +111,7 @@ class VersionRouteHandler(
 
         try {
             ArchiveVersion(
-                tenantId = TenantId.of(tenantId),
+                tenantId = tenantId,
                 templateId = templateId,
                 variantId = variantId,
                 versionId = VersionId.of(versionIdInt),
@@ -125,30 +125,30 @@ class VersionRouteHandler(
 
     private fun returnVersionsFragment(
         request: ServerRequest,
-        tenantId: String,
+        tenantId: TenantId,
         templateId: TemplateId,
         variantId: VariantId,
         error: String? = null,
     ): ServerResponse {
         val template = GetDocumentTemplate(
-            tenantId = TenantId.of(tenantId),
+            tenantId = tenantId,
             id = templateId,
         ).query() ?: return ServerResponse.notFound().build()
 
         val variant = GetVariant(
-            tenantId = TenantId.of(tenantId),
+            tenantId = tenantId,
             templateId = templateId,
             variantId = variantId,
         ).query() ?: return ServerResponse.notFound().build()
 
         val versions = ListVersions(
-            tenantId = TenantId.of(tenantId),
+            tenantId = tenantId,
             templateId = templateId,
             variantId = variantId,
         ).query()
 
         val activations = ListActivations(
-            tenantId = TenantId.of(tenantId),
+            tenantId = tenantId,
             templateId = templateId,
             variantId = variantId,
         ).query()
@@ -166,7 +166,7 @@ class VersionRouteHandler(
 
         return request.htmx {
             fragment("templates/variant-versions", "content") {
-                "tenantId" to tenantId
+                "tenantId" to tenantId.value
                 "templateId" to templateId
                 "variant" to variantSummary
                 "versions" to versions
@@ -176,7 +176,7 @@ class VersionRouteHandler(
                     "error" to error
                 }
             }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
+            onNonHtmx { redirect("/tenants/${tenantId.value}/templates/$templateId") }
         }
     }
 }

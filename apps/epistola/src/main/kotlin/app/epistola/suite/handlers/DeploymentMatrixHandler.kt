@@ -26,7 +26,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class DeploymentMatrixHandler {
 
     fun deploymentMatrix(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
@@ -35,7 +35,7 @@ class DeploymentMatrixHandler {
     }
 
     fun updateDeployment(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val templateIdStr = request.pathVariable("id")
         val templateId = TemplateId.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
@@ -52,7 +52,7 @@ class DeploymentMatrixHandler {
 
         if (versionIdStr.isNullOrBlank()) {
             RemoveActivation(
-                tenantId = TenantId.of(tenantId),
+                tenantId = tenantId,
                 templateId = templateId,
                 variantId = variantId,
                 environmentId = EnvironmentId.of(environmentIdStr),
@@ -66,7 +66,7 @@ class DeploymentMatrixHandler {
             }
 
             PublishToEnvironment(
-                tenantId = TenantId.of(tenantId),
+                tenantId = tenantId,
                 templateId = templateId,
                 variantId = variantId,
                 versionId = VersionId.of(versionIdInt),
@@ -79,13 +79,13 @@ class DeploymentMatrixHandler {
 
     private fun renderMatrix(
         request: ServerRequest,
-        tenantId: String,
+        tenantId: TenantId,
         templateId: TemplateId,
     ): ServerResponse {
-        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
-        val environments = ListEnvironments(tenantId = TenantId.of(tenantId)).query()
-        val matrixCells = GetDeploymentMatrix(tenantId = TenantId.of(tenantId), templateId = templateId).query()
-        val publishableVersions = ListPublishableVersionsByTemplate(tenantId = TenantId.of(tenantId), templateId = templateId).query()
+        val variants = GetVariantSummaries(tenantId = tenantId, templateId = templateId).query()
+        val environments = ListEnvironments(tenantId = tenantId).query()
+        val matrixCells = GetDeploymentMatrix(tenantId = tenantId, templateId = templateId).query()
+        val publishableVersions = ListPublishableVersionsByTemplate(tenantId = tenantId, templateId = templateId).query()
 
         // Build lookups keyed by underlying String values, because Thymeleaf/SpringEL
         // unwraps @JvmInline value classes to their underlying types at runtime.
@@ -97,14 +97,14 @@ class DeploymentMatrixHandler {
 
         return request.htmx {
             fragment("templates/deployment-matrix", "deployment-matrix") {
-                "tenantId" to tenantId
+                "tenantId" to tenantId.value
                 "templateId" to templateId
                 "variants" to variants
                 "environments" to environments
                 "matrix" to matrix
                 "versionsByVariant" to versionsByVariant
             }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
+            onNonHtmx { redirect("/tenants/${tenantId.value}/templates/$templateId") }
         }
     }
 }
