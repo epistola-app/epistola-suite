@@ -177,7 +177,30 @@ class DocumentGenerationExecutor(
      */
     private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestId, document: Document) {
         jdbi.useTransaction<Exception> { handle ->
-            // 1. Insert document into database
+            // 1. Claim completion — skip if the request was cancelled during processing
+            val expiresAtInterval = "$retentionDays days"
+            val updated = handle.createUpdate(
+                """
+                UPDATE document_generation_requests
+                SET status = 'COMPLETED',
+                    document_id = :documentId,
+                    completed_at = NOW(),
+                    expires_at = NOW() + :expiresAt::interval
+                WHERE id = :requestId
+                  AND status != 'CANCELLED'
+                """,
+            )
+                .bind("requestId", requestId)
+                .bind("documentId", document.id)
+                .bind("expiresAt", expiresAtInterval)
+                .execute()
+
+            if (updated == 0) {
+                logger.info("Request {} was cancelled during processing, skipping document storage", requestId)
+                return@useTransaction
+            }
+
+            // 2. Insert document into database (only if request was not cancelled)
             handle.createUpdate(
                 """
                 INSERT INTO documents (
@@ -207,23 +230,6 @@ class DocumentGenerationExecutor(
                 .execute()
 
             logger.debug("Created document {} for tenant {}", document.id.value, document.tenantId.value)
-
-            // 2. Update generation request with document_id and status
-            val expiresAtInterval = "$retentionDays days"
-            handle.createUpdate(
-                """
-                UPDATE document_generation_requests
-                SET status = 'COMPLETED',
-                    document_id = :documentId,
-                    completed_at = NOW(),
-                    expires_at = NOW() + :expiresAt::interval
-                WHERE id = :requestId
-                """,
-            )
-                .bind("requestId", requestId)
-                .bind("documentId", document.id)
-                .bind("expiresAt", expiresAtInterval)
-                .execute()
         }
     }
 
@@ -233,7 +239,7 @@ class DocumentGenerationExecutor(
     private fun markRequestFailed(requestId: GenerationRequestId, errorMessage: String) {
         val expiresAtInterval = "$retentionDays days"
         jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
+            val updated = handle.createUpdate(
                 """
                 UPDATE document_generation_requests
                 SET status = 'FAILED',
@@ -241,12 +247,17 @@ class DocumentGenerationExecutor(
                     completed_at = NOW(),
                     expires_at = NOW() + :expiresAt::interval
                 WHERE id = :requestId
+                  AND status != 'CANCELLED'
                 """,
             )
                 .bind("requestId", requestId)
                 .bind("errorMessage", errorMessage.take(1000))
                 .bind("expiresAt", expiresAtInterval)
                 .execute()
+
+            if (updated == 0) {
+                logger.info("Request {} was cancelled during processing, not marking as failed", requestId)
+            }
         }
     }
 
