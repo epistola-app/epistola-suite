@@ -1,4 +1,4 @@
--- V5: Document Generation Infrastructure
+-- Document Generation Infrastructure
 --
 -- This migration adds support for asynchronous document generation with a flattened structure.
 --
@@ -30,7 +30,7 @@ CREATE TABLE documents (
     size_bytes BIGINT NOT NULL,
     content BYTEA NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by VARCHAR(255),  -- Future: user ID from Keycloak
+    created_by UUID REFERENCES users(id),
     PRIMARY KEY (id, created_at),
 
     CONSTRAINT chk_documents_filename_not_empty CHECK (LENGTH(filename) > 0),
@@ -151,7 +151,7 @@ COMMENT ON TABLE document_generation_requests IS 'Document generation requests. 
 COMMENT ON TABLE document_generation_batches IS 'Batch metadata. Counts are calculated on-demand for in-progress batches, finalized when batch completes.';
 
 COMMENT ON COLUMN documents.content IS 'PDF content stored as BYTEA. Future: migrate to object storage.';
-COMMENT ON COLUMN documents.created_by IS 'User ID from Keycloak. Not yet implemented.';
+COMMENT ON COLUMN documents.created_by IS 'User who created this document';
 COMMENT ON COLUMN documents.correlation_id IS 'Client-provided ID for tracking documents across systems. Propagated from generation request.';
 
 COMMENT ON COLUMN document_generation_requests.batch_id IS 'Groups related requests together. NULL for single-document requests. Used to track batch progress.';

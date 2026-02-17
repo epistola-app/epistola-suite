@@ -8,9 +8,18 @@ CREATE TABLE document_templates (
     schema JSONB,
     data_model JSONB,
     data_examples JSONB DEFAULT '[]'::jsonb,
+    theme_id VARCHAR(20),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (tenant_id, id)
+    created_by UUID REFERENCES users(id),
+    last_modified_by UUID REFERENCES users(id),
+    PRIMARY KEY (tenant_id, id),
+    FOREIGN KEY (tenant_id, theme_id) REFERENCES themes(tenant_id, id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_document_templates_last_modified ON document_templates(last_modified DESC);
+CREATE INDEX idx_document_templates_theme_id ON document_templates(theme_id) WHERE theme_id IS NOT NULL;
+
+COMMENT ON COLUMN document_templates.theme_id IS 'Default theme for this template. Variants can override via TemplateModel.themeId.';
+COMMENT ON COLUMN document_templates.created_by IS 'User who created this template';
+COMMENT ON COLUMN document_templates.last_modified_by IS 'User who last modified this template';

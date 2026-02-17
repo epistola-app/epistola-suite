@@ -1,7 +1,5 @@
--- V10: Create Spring Session Tables
---
--- These tables are used by Spring Session JDBC to store HTTP sessions in the database.
--- This enables session sharing across multiple application instances.
+-- Spring Session JDBC tables for HTTP session storage.
+-- Enables session sharing across multiple application instances.
 --
 -- Schema based on: https://github.com/spring-projects/spring-session
 

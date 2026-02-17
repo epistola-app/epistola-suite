@@ -8,9 +8,14 @@ CREATE TABLE environments (
     tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    last_modified_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_id, id),
     UNIQUE (tenant_id, name)
 );
+
+COMMENT ON COLUMN environments.created_by IS 'User who created this environment';
+COMMENT ON COLUMN environments.last_modified_by IS 'User who last modified this environment';
 
 -- Template variants (language, brand, audience variations)
 CREATE TABLE template_variants (
@@ -23,6 +28,7 @@ CREATE TABLE template_variants (
     is_default BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     last_modified TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_id, id),
     FOREIGN KEY (tenant_id, template_id) REFERENCES document_templates(tenant_id, id) ON DELETE CASCADE
 );
@@ -32,6 +38,8 @@ CREATE INDEX idx_template_variants_template ON template_variants(tenant_id, temp
 -- Enforce exactly one default variant per template
 CREATE UNIQUE INDEX idx_one_default_variant_per_template
     ON template_variants (tenant_id, template_id) WHERE is_default = TRUE;
+
+COMMENT ON COLUMN template_variants.created_by IS 'User who created this variant';
 
 -- Version history with lifecycle states
 -- id is the version number (1-200) per variant, not UUID
@@ -44,6 +52,7 @@ CREATE TABLE template_versions (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     published_at TIMESTAMP WITH TIME ZONE,
     archived_at TIMESTAMP WITH TIME ZONE,
+    created_by UUID REFERENCES users(id),
     PRIMARY KEY (tenant_id, variant_id, id),
     FOREIGN KEY (tenant_id, variant_id) REFERENCES template_variants(tenant_id, id) ON DELETE CASCADE,
     CHECK (status IN ('draft', 'published', 'archived')),
@@ -57,6 +66,8 @@ CREATE INDEX idx_template_versions_status ON template_versions(status);
 CREATE UNIQUE INDEX idx_one_draft_per_variant
     ON template_versions (tenant_id, variant_id)
     WHERE status = 'draft';
+
+COMMENT ON COLUMN template_versions.created_by IS 'User who created this version';
 
 -- Environment activations (which version is active per environment per variant)
 CREATE TABLE environment_activations (
