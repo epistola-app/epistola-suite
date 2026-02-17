@@ -1,0 +1,200 @@
+/*
+ * Table Component Styles
+ *
+ * Covers: canvas grid, cell selection, inspector controls, insert dialog.
+ */
+
+@layer components {
+
+  /* -----------------------------------------------------------------------
+   * Canvas: Table grid
+   * ----------------------------------------------------------------------- */
+
+  .table-canvas-grid {
+    display: grid;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .table-canvas-cell {
+    min-height: 2rem;
+    padding: var(--ep-space-1-5);
+    position: relative;
+    cursor: default;
+  }
+
+  /* Border variants */
+  .table-canvas-grid.border-all .table-canvas-cell {
+    border: 1px solid var(--ep-gray-300);
+  }
+
+  .table-canvas-grid.border-horizontal .table-canvas-cell {
+    border-top: 1px solid var(--ep-gray-300);
+    border-bottom: 1px solid var(--ep-gray-300);
+    border-left: none;
+    border-right: none;
+  }
+
+  .table-canvas-grid.border-vertical .table-canvas-cell {
+    border-top: none;
+    border-bottom: none;
+    border-left: 1px solid var(--ep-gray-300);
+    border-right: 1px solid var(--ep-gray-300);
+  }
+
+  .table-canvas-grid.border-none .table-canvas-cell {
+    border: 1px dashed var(--ep-gray-200);
+  }
+
+  /* Header cells */
+  .table-canvas-cell.header {
+    background: var(--ep-gray-50);
+    font-weight: 600;
+  }
+
+  /* Cell selection */
+  .table-canvas-cell.cell-selected {
+    outline: 2px solid var(--ep-blue-400);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--ep-blue-100) 30%, transparent);
+  }
+
+  /* Empty table state */
+  .table-canvas-empty {
+    padding: var(--ep-space-4);
+    color: var(--ep-gray-400);
+    font-size: var(--ep-text-xs);
+    text-align: center;
+  }
+
+  /* Slot hint inside table cells */
+  .table-canvas-cell .canvas-slot.empty {
+    min-height: 1.5rem;
+    border-style: dashed;
+    border-color: var(--ep-gray-200);
+  }
+
+  .table-canvas-cell .canvas-slot-hint {
+    font-size: 10px;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Inspector: Merge controls
+   * ----------------------------------------------------------------------- */
+
+  .table-merge-controls {
+    margin-top: var(--ep-space-2);
+  }
+
+  .table-merge-buttons {
+    display: flex;
+    gap: var(--ep-space-1);
+    margin-top: var(--ep-space-1);
+  }
+
+  /* -----------------------------------------------------------------------
+   * Insert Dialog
+   * ----------------------------------------------------------------------- */
+
+  .table-dialog {
+    padding: 0;
+    border: none;
+    border-radius: var(--ep-radius-lg);
+    box-shadow: var(--ep-shadow-lg);
+    max-width: 320px;
+    width: 100%;
+  }
+
+  .table-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .table-dialog-content {
+    padding: var(--ep-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-3);
+  }
+
+  .table-dialog-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+  }
+
+  .table-dialog-grid {
+    display: grid;
+    gap: 2px;
+  }
+
+  .table-dialog-cell {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--ep-gray-300);
+    border-radius: 2px;
+    background: var(--ep-white);
+    cursor: pointer;
+    transition: background-color 100ms ease;
+  }
+
+  .table-dialog-cell:hover,
+  .table-dialog-cell.active {
+    background: var(--ep-blue-100);
+    border-color: var(--ep-blue-300);
+  }
+
+  .table-dialog-size-label {
+    text-align: center;
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-500);
+    font-weight: 500;
+  }
+
+  .table-dialog-inputs {
+    display: flex;
+    gap: var(--ep-space-3);
+  }
+
+  .table-dialog-inputs label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+    flex: 1;
+  }
+
+  .table-dialog-inputs input {
+    width: 100%;
+  }
+
+  .table-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ep-space-2);
+  }
+
+  .table-dialog-btn {
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    cursor: pointer;
+    border: 1px solid var(--ep-gray-300);
+    background: var(--ep-white);
+    color: var(--ep-gray-700);
+  }
+
+  .table-dialog-btn:hover {
+    background: var(--ep-gray-50);
+  }
+
+  .table-dialog-btn.insert {
+    background: var(--ep-blue-500);
+    color: var(--ep-white);
+    border-color: var(--ep-blue-500);
+  }
+
+  .table-dialog-btn.insert:hover {
+    background: var(--ep-blue-600);
+  }
+}

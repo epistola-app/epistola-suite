@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId } from '../types/index.js'
+import type { CellSelection } from '../components/table/table-utils.js'
 import { EditorEngine } from '../engine/EditorEngine.js'
 import { createDefaultRegistry } from '../engine/registry.js'
 import type { ComponentRegistry } from '../engine/registry.js'
@@ -42,6 +43,7 @@ export class EpistolaEditor extends LitElement {
   @state() private _selectedNodeId: NodeId | null = null
   @state() private _previewOpen = false
   @state() private _saveState: SaveState = { status: 'idle' }
+  @state() private _tableCellSelection: CellSelection | null = null
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open'
 
@@ -81,6 +83,8 @@ export class EpistolaEditor extends LitElement {
 
     this._unsubSelection = this._engine.events.on('selection:change', ({ nodeId }) => {
       this._selectedNodeId = nodeId
+      // Clear table cell selection when selecting a different node
+      this._tableCellSelection = null
     })
 
     // Create save service if onSave callback is provided
@@ -91,11 +95,16 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
+  private _onTableCellSelection = ((e: CustomEvent) => {
+    this._tableCellSelection = e.detail.selection
+  }) as EventListener
+
   override connectedCallback(): void {
     super.connectedCallback()
     this.addEventListener('keydown', this._onKeydown)
     this.addEventListener('toggle-preview', this._handleTogglePreview)
     this.addEventListener('force-save', this._handleForceSave)
+    this.addEventListener('table-cell-selection-changed', this._onTableCellSelection)
     window.addEventListener('beforeunload', this._onBeforeUnload)
 
     // Restore preview open state from localStorage
@@ -110,6 +119,7 @@ export class EpistolaEditor extends LitElement {
     this.removeEventListener('keydown', this._onKeydown)
     this.removeEventListener('toggle-preview', this._handleTogglePreview)
     this.removeEventListener('force-save', this._handleForceSave)
+    this.removeEventListener('table-cell-selection-changed', this._onTableCellSelection)
     window.removeEventListener('beforeunload', this._onBeforeUnload)
     super.disconnectedCallback()
     this._unsubEngine?.()
@@ -193,6 +203,7 @@ export class EpistolaEditor extends LitElement {
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
+            .tableCellSelection=${this._tableCellSelection}
           ></epistola-sidebar>
 
           <epistola-canvas

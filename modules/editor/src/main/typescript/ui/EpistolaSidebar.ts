@@ -2,6 +2,7 @@ import { LitElement, html } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
+import type { CellSelection } from '../components/table/table-utils.js'
 
 import './EpistolaPalette.js'
 import './EpistolaTree.js'
@@ -18,6 +19,7 @@ export class EpistolaSidebar extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
+  @property({ attribute: false }) tableCellSelection: CellSelection | null = null
 
   @state() private _activeTab: SidebarTab = 'blocks'
 
@@ -76,6 +78,7 @@ export class EpistolaSidebar extends LitElement {
             .engine=${this.engine}
             .doc=${this.doc}
             .selectedNodeId=${this.selectedNodeId}
+            .tableCellSelection=${this.tableCellSelection}
           ></epistola-inspector>
         `
     }

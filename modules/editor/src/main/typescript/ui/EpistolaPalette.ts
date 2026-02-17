@@ -5,6 +5,7 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, ComponentCategory } from '../engine/registry.js'
 import type { DragData } from '../dnd/types.js'
 import { icon, type IconName, ICONS } from './icons.js'
+import { openTableDialog } from '../components/table/table-dialog.js'
 
 const CATEGORY_ORDER: ComponentCategory[] = ['content', 'layout', 'logic', 'page']
 const CATEGORY_LABELS: Record<ComponentCategory, string> = {
@@ -27,12 +28,38 @@ export class EpistolaPalette extends LitElement {
   private _handleInsert(type: string) {
     if (!this.engine) return
 
+    if (type === 'table') {
+      this._handleInsertTable()
+      return
+    }
+
+    this._insertNode(type)
+  }
+
+  private async _handleInsertTable() {
+    if (!this.engine) return
+    const result = await openTableDialog()
+    if (result.cancelled) return
+
+    const columnWidths = Array(result.columns).fill(
+      Math.round(100 / result.columns),
+    )
+    this._insertNode('table', {
+      rows: result.rows,
+      columns: result.columns,
+      columnWidths,
+    })
+  }
+
+  private _insertNode(type: string, overrideProps?: Record<string, unknown>) {
+    if (!this.engine) return
+
     const doc = this.engine.doc
     const rootNode = doc.nodes[doc.root]
     if (!rootNode || rootNode.slots.length === 0) return
 
     const targetSlotId = rootNode.slots[0]
-    const { node, slots } = this.engine.registry.createNode(type)
+    const { node, slots } = this.engine.registry.createNode(type, overrideProps)
 
     this.engine.dispatch({
       type: 'InsertNode',

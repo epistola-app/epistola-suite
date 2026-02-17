@@ -8,6 +8,8 @@ import type { BlockStylePreset } from '@epistola/template-model/generated/theme.
 import { getNestedValue, setNestedValue } from '../engine/props.js'
 import { isValidExpression, validateArrayResult, validateBooleanResult } from '../engine/resolve-expression.js'
 import { openExpressionDialog } from './expression-dialog.js'
+import '../components/table/TableInspector.js'
+import type { CellSelection } from '../components/table/table-utils.js'
 import {
   renderUnitInput,
   renderColorInput,
@@ -24,6 +26,7 @@ export class EpistolaInspector extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
+  @property({ attribute: false }) tableCellSelection: CellSelection | null = null
 
   override render() {
     if (!this.engine || !this.doc) {
@@ -50,6 +53,16 @@ export class EpistolaInspector extends LitElement {
         <!-- Columns layout editor -->
         ${node.type === 'columns'
           ? this._renderColumnsEditor(node)
+          : nothing
+        }
+
+        <!-- Table layout editor -->
+        ${node.type === 'table'
+          ? html`<table-inspector
+              .node=${node}
+              .engine=${this.engine!}
+              .cellSelection=${this.tableCellSelection}
+            ></table-inspector>`
           : nothing
         }
 

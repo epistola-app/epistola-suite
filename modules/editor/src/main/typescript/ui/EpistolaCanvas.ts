@@ -9,6 +9,7 @@ import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
 import '../ui/EpistolaTextEditor.js'
+import '../components/table/TableCanvasBlock.js'
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -307,6 +308,18 @@ export class EpistolaCanvas extends LitElement {
     // For container nodes, render their slot children
     if (node.type === 'columns') {
       return this._renderColumnsLayout(node)
+    }
+
+    if (node.type === 'table') {
+      return html`
+        <table-canvas-block
+          .node=${node}
+          .doc=${this.doc!}
+          .engine=${this.engine!}
+          .renderSlotCallback=${(slotId: SlotId) => this._renderSlot(slotId)}
+          .selectedNodeId=${this.selectedNodeId}
+        ></table-canvas-block>
+      `
     }
 
     return html`
