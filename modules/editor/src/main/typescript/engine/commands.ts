@@ -12,6 +12,7 @@ import type { DocumentIndexes } from './indexes.js'
 import { isAncestor } from './indexes.js'
 import type { ComponentRegistry } from './registry.js'
 import { nanoid } from 'nanoid'
+import { type TableCommand, applyTableCommand } from '../components/table/table-commands.js'
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -28,6 +29,7 @@ export type Command =
   | UpdatePageSettings
   | AddColumnSlot
   | RemoveColumnSlot
+  | TableCommand
 
 export interface InsertNode {
   type: 'InsertNode'
@@ -150,6 +152,14 @@ export function applyCommand(
       return applyAddColumnSlot(doc, command)
     case 'RemoveColumnSlot':
       return applyRemoveColumnSlot(doc, indexes, command)
+    case 'AddTableRow':
+    case 'RemoveTableRow':
+    case 'AddTableColumn':
+    case 'RemoveTableColumn':
+    case 'MergeTableCells':
+    case 'UnmergeTableCells':
+    case 'SetTableHeaderRows':
+      return applyTableCommand(doc, indexes, command)
   }
 }
 
