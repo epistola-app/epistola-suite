@@ -4,9 +4,12 @@
  * Used by: command validation, block palette, inspector, DnD.
  */
 
-import type { NodeId, SlotId, Node, Slot } from '../types/index.js'
+import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js'
+import type { DocumentIndexes } from './indexes.js'
+import type { CommandResult } from './commands.js'
 import { nanoid } from 'nanoid'
 import { createTableDefinition } from '../components/table/table-registration.js'
+import { createColumnsDefinition } from '../components/columns/columns-registration.js'
 
 // ---------------------------------------------------------------------------
 // Component definition
@@ -57,6 +60,34 @@ export interface ComponentDefinition {
    * @param props — merged props (defaultProps overridden by any overrideProps)
    */
   createInitialSlots?: (nodeId: NodeId, props?: Record<string, unknown>) => Slot[]
+
+  // ---------------------------------------------------------------------------
+  // Extension hooks — let components customise UI without leaking into generics
+  // ---------------------------------------------------------------------------
+
+  /** Custom canvas rendering for complex layout components (e.g. columns, tables). */
+  renderCanvas?: (ctx: {
+    node: Node
+    doc: TemplateDocument
+    engine: unknown       // EditorEngine (typed as unknown to avoid circular imports)
+    renderSlot: (slotId: SlotId) => unknown
+    selectedNodeId: NodeId | null
+  }) => unknown
+
+  /** Custom inspector section rendered above generic props. */
+  renderInspector?: (ctx: { node: Node; engine: unknown }) => unknown
+
+  /** Pre-insert hook for palette (e.g. open a dialog). Returns override props or null to cancel. */
+  onBeforeInsert?: (engine: unknown) => Promise<Record<string, unknown> | null>
+
+  /** Command type strings handled by this component's commandHandler. */
+  commandTypes?: string[]
+  /** Handler for component-specific commands. Returned inverse must use the same type strings. */
+  commandHandler?: (
+    doc: TemplateDocument,
+    indexes: DocumentIndexes,
+    command: unknown,
+  ) => CommandResult
 }
 
 // ---------------------------------------------------------------------------
@@ -215,29 +246,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     inspector: [],
   })
 
-  registry.register({
-    type: 'columns',
-    label: 'Columns',
-    icon: 'columns-2',
-    category: 'layout',
-    slots: [{ name: 'column-{i}', dynamic: true }],
-    allowedChildren: { mode: 'all' },
-    applicableStyles: LAYOUT_STYLES,
-    inspector: [
-      { key: 'gap', label: 'Gap', type: 'number', defaultValue: 0 },
-    ],
-    defaultProps: { columnSizes: [1, 1], gap: 0 },
-    createInitialSlots: (nodeId: NodeId) => {
-      const sizes = [1, 1] // matches defaultProps.columnSizes
-      return sizes.map((_, i) => ({
-        id: nanoid() as SlotId,
-        nodeId,
-        name: `column-${i}`,
-        children: [],
-      }))
-    },
-  })
-
+  registry.register(createColumnsDefinition())
   registry.register(createTableDefinition())
 
   registry.register({

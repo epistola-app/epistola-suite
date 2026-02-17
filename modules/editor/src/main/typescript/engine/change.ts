@@ -6,7 +6,7 @@
  * simply delegate to the top-of-stack Change, eliminating type branching.
  */
 
-import type { Command, CommandResult } from './commands.js'
+import type { AnyCommand, CommandResult } from './commands.js'
 import type { NodeId } from '../types/index.js'
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ export interface ChangeContext {
   readonly stack: ChangeStackOps
 
   /** Apply a command without recording it on the undo stack. Returns the result with inverse. */
-  applySilent(command: Command): CommandResult
+  applySilent(command: AnyCommand): CommandResult
 
   /** Dispatch UpdateNodeProps with skipUndo (for PM content sync). */
   syncContent(nodeId: NodeId, content: unknown): void

@@ -6,7 +6,7 @@
  */
 
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../../types/index.js'
-import type { CommandResult, CommandOk, CommandError } from '../../engine/commands.js'
+import type { CommandResult, CommandOk, CommandError, AnyCommand } from '../../engine/commands.js'
 import type { DocumentIndexes } from '../../engine/indexes.js'
 import {
   cellSlotName,
@@ -96,7 +96,8 @@ export type TableCommand =
 // ---------------------------------------------------------------------------
 
 function ok(doc: TemplateDocument, inverse: TableCommand | null, structureChanged: boolean): CommandOk {
-  return { ok: true, doc, inverse, structureChanged }
+  // Cast needed: TypeScript interfaces lack implicit index signatures required by AnyCommand
+  return { ok: true, doc, inverse: inverse as AnyCommand | null, structureChanged }
 }
 
 function err(error: string): CommandError {

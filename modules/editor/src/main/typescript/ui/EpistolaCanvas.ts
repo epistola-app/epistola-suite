@@ -9,7 +9,6 @@ import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
 import '../ui/EpistolaTextEditor.js'
-import '../components/table/TableCanvasBlock.js'
 
 @customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
@@ -305,23 +304,19 @@ export class EpistolaCanvas extends LitElement {
       return this._renderLeafNode(nodeId)
     }
 
-    // For container nodes, render their slot children
-    if (node.type === 'columns') {
-      return this._renderColumnsLayout(node)
+    // Delegate to component's renderCanvas hook if present
+    const def = this.engine!.registry.get(node.type)
+    if (def?.renderCanvas) {
+      return def.renderCanvas({
+        node,
+        doc,
+        engine: this.engine!,
+        renderSlot: (slotId: SlotId) => this._renderSlot(slotId),
+        selectedNodeId: this.selectedNodeId,
+      })
     }
 
-    if (node.type === 'table') {
-      return html`
-        <table-canvas-block
-          .node=${node}
-          .doc=${this.doc!}
-          .engine=${this.engine!}
-          .renderSlotCallback=${(slotId: SlotId) => this._renderSlot(slotId)}
-          .selectedNodeId=${this.selectedNodeId}
-        ></table-canvas-block>
-      `
-    }
-
+    // Default: render all slots
     return html`
       ${node.slots.map(slotId => this._renderSlot(slotId))}
     `
@@ -360,25 +355,6 @@ export class EpistolaCanvas extends LitElement {
     }
   }
 
-  private _renderColumnsLayout(node: import('../types/index.js').Node): unknown {
-    const props = node.props ?? {}
-    const columnSizes = (props.columnSizes as number[] | undefined) ?? []
-    const gap = (props.gap as number | undefined) ?? 0
-    const gapStyle = gap > 0 ? `${gap}pt` : '0'
-
-    return html`
-      <div class="canvas-columns" style="gap: ${gapStyle}">
-        ${node.slots.map((slotId, i) => {
-          const flex = columnSizes[i] ?? 1
-          return html`
-            <div class="canvas-column" style="flex: ${flex}">
-              ${this._renderSlot(slotId)}
-            </div>
-          `
-        })}
-      </div>
-    `
-  }
 }
 
 // ---------------------------------------------------------------------------

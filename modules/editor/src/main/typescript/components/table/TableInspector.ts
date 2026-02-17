@@ -6,10 +6,13 @@
  * - Per-column width inputs
  * - Header rows number input
  * - Merge/unmerge controls (when cells are selected)
+ *
+ * Cell selection is read from engine.getComponentState('table:cellSelection')
+ * and reactively updated via the 'component-state:change' event.
  */
 
 import { LitElement, html, nothing } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import type { Node } from '../../types/index.js'
 import type { EditorEngine } from '../../engine/EditorEngine.js'
 import {
@@ -29,7 +32,26 @@ export class TableInspector extends LitElement {
 
   @property({ attribute: false }) node!: Node
   @property({ attribute: false }) engine!: EditorEngine
-  @property({ attribute: false }) cellSelection: CellSelection | null = null
+
+  @state() private _cellSelection: CellSelection | null = null
+
+  private _unsubState?: () => void
+
+  override connectedCallback(): void {
+    super.connectedCallback()
+    // Read current cell selection and subscribe to changes
+    this._cellSelection = this.engine.getComponentState<CellSelection>('table:cellSelection') ?? null
+    this._unsubState = this.engine.events.on('component-state:change', ({ key, value }) => {
+      if (key === 'table:cellSelection') {
+        this._cellSelection = (value as CellSelection) ?? null
+      }
+    })
+  }
+
+  override disconnectedCallback(): void {
+    this._unsubState?.()
+    super.disconnectedCallback()
+  }
 
   private get _props() {
     const props = this.node.props ?? {}
@@ -219,10 +241,10 @@ export class TableInspector extends LitElement {
   // -----------------------------------------------------------------------
 
   private _renderMergeControls() {
-    if (!this.cellSelection) return nothing
+    if (!this._cellSelection) return nothing
 
     const { merges } = this._props
-    const sel = normalizeSelection(this.cellSelection)
+    const sel = normalizeSelection(this._cellSelection)
     const isMultiCell = sel.endRow > sel.startRow || sel.endCol > sel.startCol
 
     // Check if anchor cell of selection is a merged cell
