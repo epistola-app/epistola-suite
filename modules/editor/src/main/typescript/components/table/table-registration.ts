@@ -131,6 +131,11 @@ export function createTableDefinition(): ComponentDefinition {
       const handleCellClick = (e: MouseEvent, row: number, col: number) => {
         e.stopPropagation()
 
+        // Select the table node so the inspector shows table controls.
+        // Must happen before setComponentState because the selection:change
+        // listener clears cell selection — we set it again right after.
+        engine.selectNode(node.id)
+
         // Read current selection from engine (not the render-time closure) to
         // handle shift-click correctly even when the canvas hasn't re-rendered.
         const currentSel = engine.getComponentState<CellSelection>('table:cellSelection')
