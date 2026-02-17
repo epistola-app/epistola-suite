@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Test profiles**: JUnit 5 tag-based test categorization with Gradle tasks (`unitTest`, `integrationTest`, `uiTest`) for running test categories independently
 - **Duplicate ID error handling**: Creating entities with duplicate IDs now shows inline form errors instead of silently failing. Applies to tenants, environments, themes, templates, attributes, and variants.
 - **Confirm dialog for delete operations**: Delete buttons on list pages (themes, environments, attributes) now open a confirm dialog that can display error messages when the operation fails (e.g., deleting a theme in use).
 - **Global error safety net**: Unhandled 500 errors from HTMX requests now show a dismissible error banner at the top of the page.

@@ -14,6 +14,7 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.tenants.commands.CreateTenant
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import org.springframework.beans.factory.annotation.Autowired
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit
         "epistola.generation.polling.max-concurrent-jobs=5",
     ],
 )
+@Tag("integration")
 @Timeout(60) // Allow more time for real async processing
 class JobPollerIntegrationTest {
     @Autowired

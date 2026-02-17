@@ -53,6 +53,46 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
             extendsFrom(configurations.getByName("annotationProcessor"))
         }
     }
+
+    pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+        val testTask = tasks.named<Test>("test")
+
+        tasks.register<Test>("unitTest") {
+            description = "Runs unit tests (no Spring context, no Docker required)"
+            group = "verification"
+            testClassesDirs = testTask.get().testClassesDirs
+            classpath = testTask.get().classpath
+            useJUnitPlatform { excludeTags("integration", "ui") }
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            testLogging { events("passed", "skipped", "failed") }
+            filter { isFailOnNoMatchingTests = false }
+        }
+
+        tasks.register<Test>("integrationTest") {
+            description = "Runs integration tests (Spring + Testcontainers, no browser)"
+            group = "verification"
+            testClassesDirs = testTask.get().testClassesDirs
+            classpath = testTask.get().classpath
+            useJUnitPlatform {
+                includeTags("integration")
+                excludeTags("ui")
+            }
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            testLogging { events("passed", "skipped", "failed") }
+            filter { isFailOnNoMatchingTests = false }
+        }
+
+        tasks.register<Test>("uiTest") {
+            description = "Runs UI tests (Playwright + Spring + Testcontainers)"
+            group = "verification"
+            testClassesDirs = testTask.get().testClassesDirs
+            classpath = testTask.get().classpath
+            useJUnitPlatform { includeTags("ui") }
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            testLogging { events("passed", "skipped", "failed") }
+            filter { isFailOnNoMatchingTests = false }
+        }
+    }
 }
 
 // Configure Kover for test coverage — all modules must be listed explicitly for aggregation

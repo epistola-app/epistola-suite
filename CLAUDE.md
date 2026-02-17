@@ -121,6 +121,11 @@ pnpm install && pnpm build && ./gradlew build
 # Run tests only
 ./gradlew test
 
+# Test profiles
+./gradlew unitTest          # Fast unit tests only (no Docker needed)
+./gradlew integrationTest   # Spring + DB tests (Docker required)
+./gradlew uiTest            # Playwright browser tests (Docker required)
+
 # Check code style
 ./gradlew ktlintCheck
 
@@ -194,6 +199,17 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 - Backend: JUnit 5 + Testcontainers
 - Always run `gradle test` before committing
 - All PRs must pass CI checks
+
+### When to Run Which Tests
+
+| Change type | Run |
+|-------------|-----|
+| Pure logic, algorithms, utilities | `./gradlew unitTest` |
+| Business logic, commands, queries, DB | `./gradlew integrationTest` |
+| Thymeleaf templates, HTMX handlers | `./gradlew integrationTest` |
+| UI interaction, JavaScript behavior | `./gradlew uiTest` |
+| Before committing | `./gradlew unitTest integrationTest` (minimum) |
+| Before creating a PR | `./gradlew test` (all) |
 
 ## Key Files
 

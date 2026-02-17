@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Tag
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 
@@ -18,6 +19,7 @@ import org.springframework.boot.test.web.server.LocalServerPort
         "epistola.demo.enabled=false",
     ],
 )
+@Tag("ui")
 abstract class BasePlaywrightTest : BaseIntegrationTest() {
 
     @LocalServerPort

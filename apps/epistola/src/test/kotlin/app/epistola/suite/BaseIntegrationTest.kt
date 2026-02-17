@@ -15,6 +15,7 @@ import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -27,6 +28,7 @@ import org.springframework.test.context.ActiveProfiles
     ],
 )
 @ActiveProfiles("test")
+@Tag("integration")
 abstract class BaseIntegrationTest {
     @Autowired
     protected lateinit var mediator: Mediator
