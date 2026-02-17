@@ -81,6 +81,8 @@ export class EpistolaEditor extends LitElement {
 
     this._unsubSelection = this._engine.events.on('selection:change', ({ nodeId }) => {
       this._selectedNodeId = nodeId
+      // Clear component state when selecting a different node
+      this._engine?.setComponentState('table:cellSelection', null)
     })
 
     // Create save service if onSave callback is provided

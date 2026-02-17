@@ -17,6 +17,7 @@ import { nanoid } from 'nanoid'
 // Command types
 // ---------------------------------------------------------------------------
 
+/** Built-in command types (strongly typed with discriminated union). */
 export type Command =
   | InsertNode
   | RemoveNode
@@ -28,6 +29,15 @@ export type Command =
   | UpdatePageSettings
   | AddColumnSlot
   | RemoveColumnSlot
+
+/**
+ * Any valid command — either a built-in Command or a component-specific
+ * command dispatched via the registry's commandHandler hook.
+ *
+ * The index signature allows object literals with arbitrary properties
+ * to be passed to dispatch() without excess-property errors.
+ */
+export type AnyCommand = Command | { type: string; [key: string]: unknown }
 
 export interface InsertNode {
   type: 'InsertNode'
@@ -109,7 +119,7 @@ export type CommandResult = CommandOk | CommandError
 export interface CommandOk {
   ok: true
   doc: TemplateDocument
-  inverse: Command | null
+  inverse: AnyCommand | null
   /** Whether the command changed the tree structure (added/removed/moved nodes). */
   structureChanged: boolean
 }
@@ -123,7 +133,28 @@ export interface CommandError {
 // Apply
 // ---------------------------------------------------------------------------
 
+const BUILTIN_COMMAND_TYPES: ReadonlySet<string> = new Set([
+  'InsertNode', 'RemoveNode', 'MoveNode', 'UpdateNodeProps', 'UpdateNodeStyles',
+  'SetStylePreset', 'UpdateDocumentStyles', 'UpdatePageSettings', 'AddColumnSlot', 'RemoveColumnSlot',
+])
+
+function isBuiltinCommand(command: AnyCommand): command is Command {
+  return BUILTIN_COMMAND_TYPES.has(command.type)
+}
+
 export function applyCommand(
+  doc: TemplateDocument,
+  indexes: DocumentIndexes,
+  command: AnyCommand,
+  registry: ComponentRegistry,
+): CommandResult {
+  if (isBuiltinCommand(command)) {
+    return applyBuiltinCommand(doc, indexes, command, registry)
+  }
+  return applyComponentCommand(doc, indexes, command, registry)
+}
+
+function applyBuiltinCommand(
   doc: TemplateDocument,
   indexes: DocumentIndexes,
   command: Command,
@@ -151,6 +182,21 @@ export function applyCommand(
     case 'RemoveColumnSlot':
       return applyRemoveColumnSlot(doc, indexes, command)
   }
+}
+
+function applyComponentCommand(
+  doc: TemplateDocument,
+  indexes: DocumentIndexes,
+  command: AnyCommand,
+  registry: ComponentRegistry,
+): CommandResult {
+  const commandType = command.type
+  for (const def of registry.all()) {
+    if (def.commandTypes?.includes(commandType) && def.commandHandler) {
+      return def.commandHandler(doc, indexes, command)
+    }
+  }
+  return { ok: false, error: `Unknown command type: ${commandType}` }
 }
 
 // ---------------------------------------------------------------------------
@@ -625,7 +671,7 @@ function applyRemoveColumnSlot(
 // Helpers
 // ---------------------------------------------------------------------------
 
-function ok(doc: TemplateDocument, inverse: Command | null, structureChanged: boolean): CommandOk {
+function ok(doc: TemplateDocument, inverse: AnyCommand | null, structureChanged: boolean): CommandOk {
   return { ok: true, doc, inverse, structureChanged }
 }
 

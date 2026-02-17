@@ -47,9 +47,9 @@ export class EpistolaInspector extends LitElement {
           <div class="inspector-node-id">${node.id}</div>
         </div>
 
-        <!-- Columns layout editor -->
-        ${node.type === 'columns'
-          ? this._renderColumnsEditor(node)
+        <!-- Component-specific inspector (columns, table, etc.) -->
+        ${def?.renderInspector
+          ? def.renderInspector({ node, engine: this.engine! })
           : nothing
         }
 
@@ -82,108 +82,6 @@ export class EpistolaInspector extends LitElement {
         </div>
       </div>
     `
-  }
-
-  // -----------------------------------------------------------------------
-  // Columns layout editor
-  // -----------------------------------------------------------------------
-
-  private _renderColumnsEditor(node: Node): unknown {
-    if (!this.engine) return nothing
-
-    const props = node.props ?? {}
-    const columnSizes = (props.columnSizes as number[] | undefined) ?? []
-    const gap = (props.gap as number | undefined) ?? 0
-    const count = columnSizes.length
-
-    return html`
-      <div class="inspector-section">
-        <div class="inspector-section-label">Column Layout</div>
-
-        <!-- Column count -->
-        <div class="inspector-field">
-          <label class="inspector-field-label">Columns</label>
-          <div class="inspector-column-count">
-            <button
-              class="inspector-column-btn"
-              ?disabled=${count <= 1}
-              @click=${() => this._handleRemoveColumn(node.id)}
-            >&minus;</button>
-            <span class="inspector-column-count-value">${count}</span>
-            <button
-              class="inspector-column-btn"
-              ?disabled=${count >= 6}
-              @click=${() => this._handleAddColumn(node.id)}
-            >+</button>
-          </div>
-        </div>
-
-        <!-- Per-column sizes -->
-        <div class="inspector-field">
-          <label class="inspector-field-label">Column Sizes</label>
-          <div class="inspector-column-sizes">
-            ${columnSizes.map((size, i) => html`
-              <div class="inspector-column-size">
-                <span class="inspector-column-size-label">${i + 1}</span>
-                <input
-                  type="number"
-                  class="ep-input inspector-column-size-input"
-                  min="1"
-                  .value=${String(size)}
-                  @change=${(e: Event) => this._handleColumnSizeChange(node.id, i, Number((e.target as HTMLInputElement).value))}
-                />
-              </div>
-            `)}
-          </div>
-        </div>
-
-        <!-- Gap -->
-        <div class="inspector-field">
-          <label class="inspector-field-label">Gap (pt)</label>
-          <input
-            type="number"
-            class="ep-input"
-            min="0"
-            .value=${String(gap)}
-            @change=${(e: Event) => this._handlePropChange('gap', Number((e.target as HTMLInputElement).value))}
-          />
-        </div>
-      </div>
-    `
-  }
-
-  private _handleAddColumn(nodeId: NodeId): void {
-    if (!this.engine) return
-    this.engine.dispatch({
-      type: 'AddColumnSlot',
-      nodeId,
-      size: 1,
-    })
-  }
-
-  private _handleRemoveColumn(nodeId: NodeId): void {
-    if (!this.engine) return
-    this.engine.dispatch({
-      type: 'RemoveColumnSlot',
-      nodeId,
-    })
-  }
-
-  private _handleColumnSizeChange(nodeId: NodeId, index: number, size: number): void {
-    if (!this.engine || !this.doc) return
-
-    const node = this.doc.nodes[nodeId]
-    if (!node) return
-
-    const props = node.props ?? {}
-    const columnSizes = [...((props.columnSizes as number[] | undefined) ?? [])]
-    columnSizes[index] = Math.max(1, size)
-
-    this.engine.dispatch({
-      type: 'UpdateNodeProps',
-      nodeId,
-      props: { ...props, columnSizes },
-    })
   }
 
   // -----------------------------------------------------------------------
@@ -656,8 +554,8 @@ export class EpistolaInspector extends LitElement {
   private _openExpressionDialog(key: string, currentValue: string, node: Node): void {
     if (!this.engine || !this.selectedNodeId) return
 
-    // For loop expressions, highlight array-type fields
-    const isLoopExpr = node.type === 'loop' && key === 'expression.raw'
+    // For loop/datatable expressions, highlight array-type fields
+    const isLoopExpr = (node.type === 'loop' || node.type === 'datatable') && key === 'expression.raw'
     const isConditionalExpr = node.type === 'conditional' && key === 'condition.raw'
     const placeholder = isLoopExpr
       ? 'e.g. items'
