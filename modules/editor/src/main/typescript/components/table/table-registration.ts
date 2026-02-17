@@ -94,7 +94,7 @@ export function createTableDefinition(): ComponentDefinition {
       applyTableCommand(doc, indexes, command as TableCommand),
 
     // ----- Canvas hook -----
-    renderCanvas: ({ node, doc, engine: eng, renderSlot }) => {
+    renderCanvas: ({ node, doc, engine: eng, renderSlot, selectedNodeId }) => {
       const engine = eng as EditorEngine
       const props = node.props ?? {}
       const rows = (props.rows as number) ?? 0
@@ -119,8 +119,10 @@ export function createTableDefinition(): ComponentDefinition {
         .map(w => `${((w / total) * 100).toFixed(2)}%`)
         .join(' ')
 
-      // Get cell selection from engine component state
-      const cellSelection = engine.getComponentState<CellSelection>('table:cellSelection')
+      // Only show cell selection for the currently selected table
+      const cellSelection = selectedNodeId === node.id
+        ? engine.getComponentState<CellSelection>('table:cellSelection')
+        : null
       const normSel = cellSelection ? {
         startRow: Math.min(cellSelection.startRow, cellSelection.endRow),
         startCol: Math.min(cellSelection.startCol, cellSelection.endCol),
