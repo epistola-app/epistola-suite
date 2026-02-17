@@ -1,0 +1,185 @@
+/*
+ * Epistola Design System — Design Tokens
+ *
+ * Shared custom properties consumed by all Epistola CSS (editor, main app, etc.).
+ * Import this file first in any entry point.
+ *
+ * Inspired by shadcn/ui design principles: clean, minimal, precise.
+ */
+
+:root {
+  /* ── Colors — gray palette ──────────────────────────────────────────── */
+  --ep-gray-50: #f9fafb;
+  --ep-gray-100: #f3f4f6;
+  --ep-gray-200: #e5e7eb;
+  --ep-gray-300: #d1d5db;
+  --ep-gray-400: #9ca3af;
+  --ep-gray-500: #6b7280;
+  --ep-gray-600: #4b5563;
+  --ep-gray-700: #374151;
+  --ep-gray-800: #1f2937;
+  --ep-gray-900: #111827;
+  --ep-gray-950: #030712;
+
+  /* ── Colors — blue palette ──────────────────────────────────────────── */
+  --ep-blue-50: #eff6ff;
+  --ep-blue-100: #dbeafe;
+  --ep-blue-200: #bfdbfe;
+  --ep-blue-300: #93c5fd;
+  --ep-blue-400: #60a5fa;
+  --ep-blue-500: #3b82f6;
+  --ep-blue-600: #2563eb;
+  --ep-blue-700: #1d4ed8;
+  --ep-blue-800: #1e40af;
+  --ep-blue-900: #1e3a8a;
+
+  /* ── Colors — red palette ───────────────────────────────────────────── */
+  --ep-red-50: #fef2f2;
+  --ep-red-100: #fee2e2;
+  --ep-red-200: #fecaca;
+  --ep-red-400: #f87171;
+  --ep-red-500: #ef4444;
+  --ep-red-600: #dc2626;
+  --ep-red-700: #b91c1c;
+
+  /* ── Colors — green palette ─────────────────────────────────────────── */
+  --ep-green-50: #f0fdf4;
+  --ep-green-100: #dcfce7;
+  --ep-green-500: #22c55e;
+  --ep-green-700: #15803d;
+  --ep-green-800: #166534;
+
+  /* ── Colors — amber palette (replaces yellow) ───────────────────────── */
+  --ep-amber-50: #fffbeb;
+  --ep-amber-100: #fef3c7;
+  --ep-amber-200: #fde68a;
+  --ep-amber-500: #f59e0b;
+  --ep-amber-600: #d97706;
+  --ep-amber-800: #92400e;
+
+  /* ── Colors — purple palette ────────────────────────────────────────── */
+  --ep-purple-50: #faf5ff;
+  --ep-purple-100: #f3e8ff;
+  --ep-purple-200: #e9d5ff;
+  --ep-purple-500: #a855f7;
+  --ep-purple-600: #9333ea;
+
+  /* ── Colors — base ──────────────────────────────────────────────────── */
+  --ep-white: #ffffff;
+  --ep-black: #000000;
+
+  /* ── Deprecation aliases (yellow → amber) ───────────────────────────── */
+  --ep-yellow-100: var(--ep-amber-100);
+  --ep-yellow-800: var(--ep-amber-800);
+
+  /* ── Semantic color aliases ─────────────────────────────────────────── */
+  --ep-background: var(--ep-gray-50);
+  --ep-foreground: var(--ep-gray-900);
+  --ep-card: var(--ep-white);
+  --ep-card-foreground: var(--ep-gray-900);
+  --ep-muted: var(--ep-gray-100);
+  --ep-muted-foreground: var(--ep-gray-500);
+  --ep-accent: var(--ep-gray-100);
+  --ep-accent-foreground: var(--ep-gray-900);
+  --ep-primary: var(--ep-blue-600);
+  --ep-primary-foreground: var(--ep-white);
+  --ep-destructive: var(--ep-red-600);
+  --ep-destructive-foreground: var(--ep-white);
+  --ep-success: var(--ep-green-700);
+  --ep-success-foreground: var(--ep-white);
+  --ep-warning: var(--ep-amber-600);
+  --ep-warning-foreground: var(--ep-white);
+  --ep-border-color: var(--ep-gray-200);
+  --ep-input-border: var(--ep-gray-300);
+  --ep-ring: var(--ep-blue-500);
+
+  /* ── Typography ─────────────────────────────────────────────────────── */
+  --ep-font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ep-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Font sizes */
+  --ep-text-xs: 0.75rem;
+  --ep-text-sm: 0.875rem;
+  --ep-text-base: 1rem;
+  --ep-text-lg: 1.125rem;
+  --ep-text-xl: 1.25rem;
+  --ep-text-2xl: 1.5rem;
+  --ep-text-3xl: 1.875rem;
+
+  /* Line heights */
+  --ep-leading-none: 1;
+  --ep-leading-tight: 1.25;
+  --ep-leading-snug: 1.375;
+  --ep-leading-normal: 1.5;
+  --ep-leading-relaxed: 1.625;
+
+  /* Letter spacing */
+  --ep-tracking-tighter: -0.05em;
+  --ep-tracking-tight: -0.025em;
+  --ep-tracking-normal: 0em;
+  --ep-tracking-wide: 0.025em;
+  --ep-tracking-wider: 0.05em;
+
+  /* ── Spacing scale ──────────────────────────────────────────────────── */
+  --ep-space-0-5: 0.125rem;
+  --ep-space-1: 0.25rem;
+  --ep-space-1-5: 0.375rem;
+  --ep-space-2: 0.5rem;
+  --ep-space-2-5: 0.625rem;
+  --ep-space-3: 0.75rem;
+  --ep-space-4: 1rem;
+  --ep-space-5: 1.25rem;
+  --ep-space-6: 1.5rem;
+  --ep-space-8: 2rem;
+  --ep-space-10: 2.5rem;
+  --ep-space-12: 3rem;
+
+  /* ── Border radii ───────────────────────────────────────────────────── */
+  --ep-radius-sm: 0.375rem;
+  --ep-radius-md: 0.5rem;
+  --ep-radius-lg: 0.75rem;
+  --ep-radius-xl: 1rem;
+  --ep-radius-full: 9999px;
+
+  /* ── Borders ────────────────────────────────────────────────────────── */
+  --ep-border: 1px solid var(--ep-border-color);
+
+  /* ── Shadows (5 levels, multi-layer) ────────────────────────────────── */
+  --ep-shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  --ep-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --ep-shadow-md: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --ep-shadow-lg: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --ep-shadow-xl: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* ── Focus ring ─────────────────────────────────────────────────────── */
+  --ep-ring-width: 2px;
+  --ep-ring-color: var(--ep-blue-500);
+  --ep-ring-offset: 2px;
+  --ep-ring: 0 0 0 var(--ep-ring-offset) var(--ep-white), 0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color);
+
+  /* ── Transitions ────────────────────────────────────────────────────── */
+  --ep-transition-fast: 100ms ease;
+  --ep-transition-base: 150ms ease;
+  --ep-transition-slow: 200ms ease;
+  --ep-transition-colors: color var(--ep-transition-base),
+    background-color var(--ep-transition-base),
+    border-color var(--ep-transition-base),
+    box-shadow var(--ep-transition-base);
+
+  /* ── Component heights ──────────────────────────────────────────────── */
+  --ep-h-8: 2rem;
+  --ep-h-9: 2.25rem;
+  --ep-h-10: 2.5rem;
+  --ep-h-11: 2.75rem;
+  --ep-h-12: 3rem;
+
+  /* ── Z-index scale ──────────────────────────────────────────────────── */
+  --ep-z-dropdown: 10;
+  --ep-z-sticky: 20;
+  --ep-z-overlay: 40;
+  --ep-z-modal: 50;
+  --ep-z-tooltip: 60;
+
+  /* ── Sidebar width (editor-specific, kept here for central reference) ── */
+  --ep-sidebar-width: 18rem;
+}

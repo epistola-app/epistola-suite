@@ -15,7 +15,8 @@ data class UpdateVariant(
     val tenantId: TenantId,
     val templateId: TemplateId,
     val variantId: VariantId,
-    val tags: Map<String, String>,
+    val title: String?,
+    val attributes: Map<String, String>,
 ) : Command<TemplateVariant?>
 
 @Component
@@ -23,42 +24,29 @@ class UpdateVariantHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
-    override fun handle(command: UpdateVariant): TemplateVariant? = jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
-        // Verify the variant belongs to a template owned by the tenant
-        val variantExists = handle.createQuery(
-            """
-                SELECT COUNT(*) > 0
-                FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE tv.id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                """,
-        )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
-            .mapTo<Boolean>()
-            .one()
+    override fun handle(command: UpdateVariant): TemplateVariant? {
+        // Validate attributes against the tenant's attribute definitions
+        validateAttributes(command.tenantId, command.attributes)
 
-        if (!variantExists) {
-            return@inTransaction null
-        }
+        return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
+            val attributesJson = objectMapper.writeValueAsString(command.attributes)
 
-        val tagsJson = objectMapper.writeValueAsString(command.tags)
-
-        handle.createQuery(
-            """
+            handle.createQuery(
+                """
                 UPDATE template_variants
-                SET tags = :tags::jsonb, last_modified = NOW()
-                WHERE id = :variantId
+                SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
+                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                 RETURNING *
                 """,
-        )
-            .bind("variantId", command.variantId)
-            .bind("tags", tagsJson)
-            .mapTo<TemplateVariant>()
-            .findOne()
-            .orElse(null)
+            )
+                .bind("tenantId", command.tenantId)
+                .bind("variantId", command.variantId)
+                .bind("templateId", command.templateId)
+                .bind("title", command.title)
+                .bind("attributes", attributesJson)
+                .mapTo<TemplateVariant>()
+                .findOne()
+                .orElse(null)
+        }
     }
 }

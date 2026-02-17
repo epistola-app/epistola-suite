@@ -36,9 +36,9 @@ CREATE TABLE documents (
     CONSTRAINT chk_documents_filename_not_empty CHECK (LENGTH(filename) > 0),
     CONSTRAINT chk_documents_size_positive CHECK (size_bytes > 0),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    FOREIGN KEY (template_id) REFERENCES document_templates(id) ON DELETE CASCADE,
-    FOREIGN KEY (variant_id) REFERENCES template_variants(id) ON DELETE CASCADE,
-    FOREIGN KEY (variant_id, version_id) REFERENCES template_versions(variant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, template_id) REFERENCES document_templates(tenant_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, variant_id) REFERENCES template_variants(tenant_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, variant_id, version_id) REFERENCES template_versions(tenant_id, variant_id, id) ON DELETE CASCADE
 ) PARTITION BY RANGE (created_at);
 
 -- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
@@ -46,7 +46,7 @@ CREATE TABLE documents (
 
 -- Indexes for document queries
 CREATE INDEX idx_documents_tenant_id ON documents(tenant_id);
-CREATE INDEX idx_documents_template_id ON documents(template_id);
+CREATE INDEX idx_documents_template_id ON documents(tenant_id, template_id);
 CREATE INDEX idx_documents_created_at ON documents(created_at DESC);
 CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id)
     WHERE correlation_id IS NOT NULL;
@@ -87,13 +87,12 @@ CREATE TABLE document_generation_requests (
         OR (version_id IS NULL AND environment_id IS NOT NULL)
     ),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
-    FOREIGN KEY (template_id) REFERENCES document_templates(id) ON DELETE CASCADE,
-    FOREIGN KEY (variant_id) REFERENCES template_variants(id) ON DELETE CASCADE,
-    FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE,
-    -- Foreign key to template_versions when version_id is specified
+    FOREIGN KEY (tenant_id, template_id) REFERENCES document_templates(tenant_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, variant_id) REFERENCES template_variants(tenant_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, environment_id) REFERENCES environments(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_requests_variant_version
-        FOREIGN KEY (variant_id, version_id)
-        REFERENCES template_versions(variant_id, id)
+        FOREIGN KEY (tenant_id, variant_id, version_id)
+        REFERENCES template_versions(tenant_id, variant_id, id)
         ON DELETE CASCADE
 ) PARTITION BY RANGE (created_at);
 
@@ -105,7 +104,7 @@ CREATE INDEX idx_generation_requests_tenant_id ON document_generation_requests(t
 CREATE INDEX idx_generation_requests_status ON document_generation_requests(status);
 CREATE INDEX idx_generation_requests_batch_id ON document_generation_requests(batch_id)
     WHERE batch_id IS NOT NULL;
-CREATE INDEX idx_generation_requests_template_id ON document_generation_requests(template_id);
+CREATE INDEX idx_generation_requests_template_id ON document_generation_requests(tenant_id, template_id);
 CREATE INDEX idx_generation_requests_correlation_id ON document_generation_requests(tenant_id, correlation_id)
     WHERE correlation_id IS NOT NULL;
 CREATE INDEX idx_generation_requests_document_id ON document_generation_requests(document_id)
@@ -159,10 +158,9 @@ COMMENT ON COLUMN document_generation_requests.batch_id IS 'Groups related reque
 COMMENT ON COLUMN document_generation_requests.version_id IS 'Explicit version to use. Mutually exclusive with environment_id.';
 COMMENT ON COLUMN document_generation_requests.environment_id IS 'Environment to determine version from. Mutually exclusive with version_id.';
 COMMENT ON COLUMN document_generation_requests.correlation_id IS 'Client-provided ID for tracking documents across systems.';
-COMMENT ON COLUMN document_generation_requests.document_id IS 'Generated document. Set when request completes successfully.';
+COMMENT ON COLUMN document_generation_requests.document_id IS 'Generated document ID. Note: No FK due to documents table composite PK (id, created_at). Referential integrity enforced at application level.';
 COMMENT ON COLUMN document_generation_requests.claimed_by IS 'Instance identifier (hostname-pid) that claimed this job for processing.';
 COMMENT ON COLUMN document_generation_requests.claimed_at IS 'Timestamp when the job was claimed. Used for stale job recovery.';
-COMMENT ON COLUMN document_generation_requests.document_id IS 'Generated document ID. Note: No FK due to documents table composite PK (id, created_at). Referential integrity enforced at application level.';
 
 COMMENT ON COLUMN document_generation_batches.final_completed_count IS 'Final count of completed requests. Set when batch completes. NULL for in-progress batches.';
 COMMENT ON COLUMN document_generation_batches.final_failed_count IS 'Final count of failed requests. Set when batch completes. NULL for in-progress batches.';

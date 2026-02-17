@@ -1,7 +1,6 @@
 package app.epistola.generation.pdf
 
 import app.epistola.template.model.DocumentStyles
-import app.epistola.template.model.TextAlign
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.element.BlockElement
 import com.itextpdf.layout.properties.TextAlignment
@@ -21,7 +20,7 @@ object StyleApplicator {
         fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyDocumentStyles(element, it) }
+        documentStyles?.let { applyBlockStyles(element, it, fontCache) }
 
         // Apply block-specific styles (override document styles)
         blockStyles?.let { applyBlockStyles(element, it, fontCache) }
@@ -51,7 +50,7 @@ object StyleApplicator {
         fontCache: FontCache,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyDocumentStyles(element, it) }
+        documentStyles?.let { applyBlockStyles(element, it, fontCache) }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
@@ -85,32 +84,6 @@ object StyleApplicator {
             inlineStyles == null -> presetStyles
             else -> presetStyles + inlineStyles // inline styles override preset
         }
-    }
-
-    private fun <T : BlockElement<T>> applyDocumentStyles(element: T, styles: DocumentStyles) {
-        styles.fontFamily?.let { fontFamily ->
-            // iText uses font programs, we'll use a default font
-            // Custom font handling would require font registration
-        }
-
-        styles.fontSize?.let { fontSize ->
-            parseFontSize(fontSize)?.let { element.setFontSize(it) }
-        }
-
-        styles.color?.let { color ->
-            parseColor(color)?.let { element.setFontColor(it) }
-        }
-
-        styles.backgroundColor?.let { color ->
-            parseColor(color)?.let { element.setBackgroundColor(it) }
-        }
-
-        styles.textAlign?.let { align ->
-            element.setTextAlignment(mapTextAlign(align))
-        }
-
-        // Note: lineHeight is handled differently in iText - skipping for now
-        // styles.lineHeight would require setFixedLeading which needs a specific point value
     }
 
     private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache) {
@@ -252,12 +225,5 @@ object StyleApplicator {
         "right" -> TextAlignment.RIGHT
         "justify" -> TextAlignment.JUSTIFIED
         else -> TextAlignment.LEFT
-    }
-
-    private fun mapTextAlign(align: TextAlign): TextAlignment = when (align) {
-        TextAlign.Left -> TextAlignment.LEFT
-        TextAlign.Center -> TextAlignment.CENTER
-        TextAlign.Right -> TextAlignment.RIGHT
-        TextAlign.Justify -> TextAlignment.JUSTIFIED
     }
 }

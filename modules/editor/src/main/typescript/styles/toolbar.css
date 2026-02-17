@@ -1,0 +1,158 @@
+/*
+ * Editor Toolbar
+ *
+ * Subtle bottom shadow instead of hard border, refined button states
+ * with border transitions, separator dividers between action groups.
+ */
+
+@layer components {
+  .epistola-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-1-5) var(--ep-space-4);
+    height: 2.75rem;
+    background: var(--ep-white);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    z-index: var(--ep-z-sticky, 20);
+    position: relative;
+  }
+
+  .toolbar-title {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-800);
+    letter-spacing: var(--ep-tracking-tight);
+  }
+
+  .toolbar-separator {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--ep-gray-200);
+    flex-shrink: 0;
+  }
+
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-0-5);
+    margin-left: var(--ep-space-2);
+  }
+
+  .toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ep-space-1);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid transparent;
+    color: var(--ep-gray-600);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      background-color var(--ep-transition-fast),
+      border-color var(--ep-transition-fast),
+      color var(--ep-transition-fast);
+
+    & svg {
+      flex-shrink: 0;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--ep-gray-100);
+      border-color: var(--ep-gray-200);
+      color: var(--ep-gray-800);
+    }
+
+    &:active:not(:disabled) {
+      background: var(--ep-gray-200);
+    }
+
+    &:disabled {
+      color: var(--ep-gray-300);
+      cursor: not-allowed;
+    }
+
+    &.active {
+      color: var(--ep-blue-600);
+      background: var(--ep-blue-50, #eff6ff);
+      border-color: var(--ep-blue-200, #bfdbfe);
+
+      &:hover {
+        background: var(--ep-blue-100, #dbeafe);
+        border-color: var(--ep-blue-300, #93c5fd);
+        color: var(--ep-blue-700, #1d4ed8);
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Save button states                                                  */
+  /* ------------------------------------------------------------------ */
+
+  .toolbar-btn.saving svg {
+    animation: ep-spin 1s linear infinite;
+  }
+
+  .toolbar-btn.saved {
+    color: var(--ep-green-600, #16a34a);
+
+    &:disabled {
+      color: var(--ep-green-600, #16a34a);
+    }
+  }
+
+  .toolbar-btn.save-error {
+    color: var(--ep-red-600, #dc2626);
+    border-color: var(--ep-red-300, #fca5a5);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-red-50, #fef2f2);
+      border-color: var(--ep-red-400, #f87171);
+      color: var(--ep-red-700, #b91c1c);
+    }
+  }
+
+  .toolbar-example-selector {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    margin-left: auto;
+  }
+
+  .toolbar-example-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-gray-500);
+    white-space: nowrap;
+  }
+
+  .toolbar-example-select {
+    padding: var(--ep-space-1) var(--ep-space-2);
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-gray-200);
+    color: var(--ep-gray-700);
+    background: var(--ep-white);
+    min-width: 10rem;
+    cursor: pointer;
+    transition:
+      border-color var(--ep-transition-fast),
+      box-shadow var(--ep-transition-fast);
+
+    &:hover {
+      border-color: var(--ep-gray-300);
+    }
+
+    &:focus {
+      border-color: var(--ep-blue-500);
+      outline: none;
+      box-shadow: var(--ep-ring);
+    }
+  }
+}

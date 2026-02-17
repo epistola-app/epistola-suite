@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
-import app.epistola.template.model.PageHeaderBlock
+
+import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.Rectangle
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
@@ -15,9 +16,10 @@ import com.itextpdf.layout.element.Image
  * Registered to handle END_PAGE events and draws header content at the top of each page.
  */
 class PageHeaderEventHandler(
-    private val headerBlock: PageHeaderBlock,
+    private val headerNodeId: String,
+    private val document: TemplateDocument,
     private val context: RenderContext,
-    private val blockRenderers: BlockRendererRegistry,
+    private val registry: NodeRendererRegistry,
 ) : AbstractPdfDocumentEventHandler() {
 
     override fun onAcceptedEvent(event: AbstractPdfDocumentEvent) {
@@ -30,7 +32,7 @@ class PageHeaderEventHandler(
         val leftPadding = 36f
         val rightPadding = 36f
         val topPadding = 20f
-        val headerHeight = 60f // pick a height that fits your header
+        val headerHeight = 60f
 
         // Rectangle y is measured from the bottom of the page.
         // So for a header we place it at: top - topPadding - headerHeight
@@ -41,18 +43,22 @@ class PageHeaderEventHandler(
             headerHeight,
         )
 
-        // Draw after normal page content (overlay). Use newContentStreamBefore() if you want it underneath.
+        // Draw after normal page content (overlay)
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
 
-        // ✅ Constrain layout to the header rectangle
+        // Constrain layout to the header rectangle
         val canvas = Canvas(pdfCanvas, headerRect)
 
-        val elements = blockRenderers.renderBlocks(headerBlock.children, context)
-        for (element in elements) {
-            when (element) {
-                is IBlockElement -> canvas.add(element)
-                is Image -> canvas.add(element)
-                is AreaBreak -> Unit
+        // Render the header node's slots
+        val headerNode = document.nodes[headerNodeId]
+        if (headerNode != null) {
+            val elements = registry.renderSlots(headerNode, document, context)
+            for (element in elements) {
+                when (element) {
+                    is IBlockElement -> canvas.add(element)
+                    is Image -> canvas.add(element)
+                    is AreaBreak -> Unit
+                }
             }
         }
 

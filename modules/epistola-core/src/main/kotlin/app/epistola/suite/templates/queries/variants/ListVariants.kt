@@ -21,12 +21,11 @@ class ListVariantsHandler(
     override fun handle(query: ListVariants): List<TemplateVariant> = jdbi.withHandle<List<TemplateVariant>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.template_id, tv.tags, tv.created_at, tv.last_modified
+                SELECT tv.id, tv.tenant_id, tv.template_id, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.last_modified
                 FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
                 WHERE tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
-                ORDER BY tv.created_at ASC
+                  AND tv.tenant_id = :tenantId
+                ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )
             .bind("templateId", query.templateId)

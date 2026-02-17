@@ -1,70 +1,71 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Load Test Details - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-</head>
 <body>
-    <main class="regular">
-        <h1>Load Test Details</h1>
-        <p class="subtitle">
-            Test <strong th:text="${run.id}"></strong> for tenant <strong th:text="${tenantId}"></strong>
-        </p>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/load-tests(tenantId=${tenantId})}">Load Tests</a> &raquo;
+            <span th:text="${'Test ' + run.id}">Test Details</span>
+        </nav>
 
-        <section>
-            <h2>Configuration</h2>
-            <table class="key-value-table">
-                <tr>
-                    <th>Template:</th>
-                    <td>
+        <div class="page-header">
+            <h1>
+                Load Test
+                <span class="badge"
+                      th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
+                                        run.status.name() == 'RUNNING' ? 'badge-primary' :
+                                        run.status.name() == 'FAILED' ? 'badge-destructive' :
+                                        run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
+                      th:text="${run.status}">
+                </span>
+            </h1>
+            <div class="page-actions">
+                <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
+                   class="btn btn-outline"
+                   th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
+                    View Request Log
+                </a>
+                <form th:if="${run.status.name() == 'RUNNING'}"
+                      th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
+                      method="post"
+                      style="display: inline;">
+                    <button type="submit" class="btn btn-destructive">Cancel Test</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Configuration -->
+        <div class="detail-section">
+            <div class="detail-section-header">
+                <h2>Configuration</h2>
+            </div>
+            <div class="detail-section-body">
+                <dl class="description-list">
+                    <dt>Template</dt>
+                    <dd>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <span class="text-muted" th:text="${'(' + run.templateId + ')'}"></span>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Variant:</th>
-                    <td th:text="${run.variantId}"></td>
-                </tr>
-                <tr>
-                    <th>Version:</th>
-                    <td>
+                        <code class="text-muted" th:text="${run.templateId}" style="font-size: var(--ep-text-xs);"></code>
+                    </dd>
+                    <dt>Variant</dt>
+                    <dd th:text="${run.variantId}"></dd>
+                    <dt>Version</dt>
+                    <dd>
                         <span th:if="${run.versionId != null}" th:text="${run.versionId}"></span>
-                        <span th:if="${run.environmentId != null}" th:text="${'Environment: ' + run.environmentId}"></span>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Target Count:</th>
-                    <td th:text="${run.targetCount}"></td>
-                </tr>
-                <tr>
-                    <th>Status:</th>
-                    <td>
-                        <span class="badge"
-                              th:classappend="${run.status.name() == 'COMPLETED' ? 'badge-success' :
-                                                run.status.name() == 'RUNNING' ? 'badge-info' :
-                                                run.status.name() == 'FAILED' ? 'badge-error' :
-                                                run.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-default'}"
-                              th:text="${run.status}">
+                        <span th:if="${run.environmentId != null}">
+                            Environment: <code th:text="${run.environmentId}"></code>
                         </span>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Created:</th>
-                    <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
-                </tr>
-                <tr th:if="${run.startedAt != null}">
-                    <th>Started:</th>
-                    <td th:text="${#temporals.format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
-                </tr>
-                <tr th:if="${run.completedAt != null}">
-                    <th>Completed:</th>
-                    <td th:text="${#temporals.format(run.completedAt, 'yyyy-MM-dd HH:mm:ss')}"></td>
-                </tr>
-            </table>
-        </section>
+                        <span th:if="${run.versionId == null and run.environmentId == null}" class="text-muted">-</span>
+                    </dd>
+                    <dt>Target Count</dt>
+                    <dd th:text="${run.targetCount}"></dd>
+                    <dt>Created</dt>
+                    <dd th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
+                    <dt th:if="${run.startedAt != null}">Started</dt>
+                    <dd th:if="${run.startedAt != null}" th:text="${#temporals.format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
+                    <dt th:if="${run.completedAt != null}">Completed</dt>
+                    <dd th:if="${run.completedAt != null}" th:text="${#temporals.format(run.completedAt, 'yyyy-MM-dd HH:mm:ss')}"></dd>
+                </dl>
+            </div>
+        </div>
 
         <!-- Metrics section (polled for updates when RUNNING) -->
         <div id="metrics-section"
@@ -74,107 +75,110 @@
              hx-swap="outerHTML">
 
             <!-- Progress (shown when RUNNING) -->
-            <section th:if="${run.status.name() == 'RUNNING'}">
-                <h2>Progress</h2>
-                <div class="progress-container">
-                    <div class="progress-bar"
-                         th:style="'width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
-                    </div>
+            <div th:if="${run.status.name() == 'RUNNING'}" class="detail-section">
+                <div class="detail-section-header">
+                    <h2>Progress</h2>
+                    <span class="text-muted" style="font-size: var(--ep-text-sm);">
+                        <strong th:text="${run.completedCount + run.failedCount}"></strong> /
+                        <strong th:text="${run.targetCount}"></strong>
+                        (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
+                    </span>
                 </div>
-                <p class="text-center">
-                    <strong th:text="${run.completedCount + run.failedCount}"></strong> /
-                    <strong th:text="${run.targetCount}"></strong> completed
-                    (<span th:text="${#numbers.formatDecimal((run.completedCount + run.failedCount) * 100.0 / run.targetCount, 1, 1)}"></span>%)
-                </p>
-            </section>
-
-            <!-- Metrics (shown when COMPLETED or FAILED) -->
-            <section th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
-                <h2>Results</h2>
-
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="metric-label">Requests</div>
-                        <div class="metric-value" th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">Success Rate</div>
-                        <div class="metric-value">
-                            <span th:if="${run.successRatePercent != null}"
-                                  th:text="${#numbers.formatDecimal(run.successRatePercent, 1, 1)} + '%'"></span>
-                            <span th:unless="${run.successRatePercent != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">Avg Response Time</div>
-                        <div class="metric-value">
-                            <span th:if="${run.avgResponseTimeMs != null}"
-                                  th:text="${#numbers.formatDecimal(run.avgResponseTimeMs, 1, 0)} + ' ms'"></span>
-                            <span th:unless="${run.avgResponseTimeMs != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">Requests/sec</div>
-                        <div class="metric-value">
-                            <span th:if="${run.requestsPerSecond != null}"
-                                  th:text="${#numbers.formatDecimal(run.requestsPerSecond, 1, 2)}"></span>
-                            <span th:unless="${run.requestsPerSecond != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">p50 (Median)</div>
-                        <div class="metric-value">
-                            <span th:if="${run.p50ResponseTimeMs != null}"
-                                  th:text="${run.p50ResponseTimeMs} + ' ms'"></span>
-                            <span th:unless="${run.p50ResponseTimeMs != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">p95</div>
-                        <div class="metric-value">
-                            <span th:if="${run.p95ResponseTimeMs != null}"
-                                  th:text="${run.p95ResponseTimeMs} + ' ms'"></span>
-                            <span th:unless="${run.p95ResponseTimeMs != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">p99</div>
-                        <div class="metric-value">
-                            <span th:if="${run.p99ResponseTimeMs != null}"
-                                  th:text="${run.p99ResponseTimeMs} + ' ms'"></span>
-                            <span th:unless="${run.p99ResponseTimeMs != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">Min / Max</div>
-                        <div class="metric-value">
-                            <span th:if="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}"
-                                  th:text="${run.minResponseTimeMs + ' / ' + run.maxResponseTimeMs + ' ms'}"></span>
-                            <span th:unless="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}">-</span>
-                        </div>
-                    </div>
-
-                    <div class="metric-card">
-                        <div class="metric-label">Total Duration</div>
-                        <div class="metric-value">
-                            <span th:if="${run.totalDurationMs != null}"
-                                  th:text="${#numbers.formatDecimal(run.totalDurationMs / 1000.0, 1, 2)} + ' sec'"></span>
-                            <span th:unless="${run.totalDurationMs != null}">-</span>
+                <div class="detail-section-body">
+                    <div class="progress-container">
+                        <div class="progress-bar"
+                             th:style="'width: ' + ${(run.completedCount + run.failedCount) * 100.0 / run.targetCount} + '%'">
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Error Summary (if any failures) -->
-                <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="error-summary">
-                    <h3>Error Summary</h3>
-                    <table>
+            <!-- Results (shown when COMPLETED or FAILED) -->
+            <div th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}" class="detail-section">
+                <div class="detail-section-header">
+                    <h2>Results</h2>
+                </div>
+                <div class="detail-section-body">
+                    <div class="dashboard-stats">
+                        <div class="stat-card">
+                            <div class="stat-card-value" th:text="${(run.completedCount + run.failedCount) + ' / ' + run.targetCount}"></div>
+                            <div class="stat-card-label">Requests</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.successRatePercent != null}"
+                                      th:text="${#numbers.formatDecimal(run.successRatePercent, 1, 1)} + '%'"></span>
+                                <span th:unless="${run.successRatePercent != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">Success Rate</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.avgResponseTimeMs != null}"
+                                      th:text="${#numbers.formatDecimal(run.avgResponseTimeMs, 1, 0)} + ' ms'"></span>
+                                <span th:unless="${run.avgResponseTimeMs != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">Avg Response Time</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.requestsPerSecond != null}"
+                                      th:text="${#numbers.formatDecimal(run.requestsPerSecond, 1, 2)}"></span>
+                                <span th:unless="${run.requestsPerSecond != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">Requests/sec</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.p50ResponseTimeMs != null}"
+                                      th:text="${run.p50ResponseTimeMs} + ' ms'"></span>
+                                <span th:unless="${run.p50ResponseTimeMs != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">p50 (Median)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.p95ResponseTimeMs != null}"
+                                      th:text="${run.p95ResponseTimeMs} + ' ms'"></span>
+                                <span th:unless="${run.p95ResponseTimeMs != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">p95</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.p99ResponseTimeMs != null}"
+                                      th:text="${run.p99ResponseTimeMs} + ' ms'"></span>
+                                <span th:unless="${run.p99ResponseTimeMs != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">p99</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}"
+                                      th:text="${run.minResponseTimeMs + ' / ' + run.maxResponseTimeMs + ' ms'}"></span>
+                                <span th:unless="${run.minResponseTimeMs != null and run.maxResponseTimeMs != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">Min / Max</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-value">
+                                <span th:if="${run.totalDurationMs != null}"
+                                      th:text="${#numbers.formatDecimal(run.totalDurationMs / 1000.0, 1, 2)} + ' sec'"></span>
+                                <span th:unless="${run.totalDurationMs != null}">-</span>
+                            </div>
+                            <div class="stat-card-label">Total Duration</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Summary (if any failures) -->
+            <div th:if="${run.failedCount > 0 and run.errorSummary != null}" class="detail-section">
+                <div class="detail-section-header">
+                    <h2>Error Summary</h2>
+                </div>
+                <div class="detail-section-body no-padding">
+                    <table class="ep-table">
                         <thead>
                             <tr>
                                 <th>Error Type</th>
@@ -189,25 +193,8 @@
                         </tbody>
                     </table>
                 </div>
-            </section>
+            </div>
         </div>
-
-        <div class="actions-bar">
-            <a th:href="@{/tenants/{tenantId}/load-tests/{runId}/requests(tenantId=${tenantId},runId=${run.id})}"
-               class="btn btn-primary"
-               th:if="${run.status.name() == 'COMPLETED' or run.status.name() == 'FAILED'}">
-                View Detailed Request Log
-            </a>
-            <form th:if="${run.status.name() == 'RUNNING'}"
-                  th:action="@{/tenants/{tenantId}/load-tests/{runId}/cancel(tenantId=${tenantId},runId=${run.id})}"
-                  method="post"
-                  style="display: inline;">
-                <button type="submit" class="btn btn-warning">Cancel Test</button>
-            </form>
-            <a th:href="@{/tenants/{id}/load-tests(id=${tenantId})}" class="btn btn-secondary">Back to List</a>
-        </div>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+    </th:block>
 </body>
 </html>

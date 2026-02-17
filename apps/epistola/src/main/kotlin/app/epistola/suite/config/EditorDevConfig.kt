@@ -18,10 +18,6 @@ class EditorDevConfig : WebMvcConfigurer {
         registry.addResourceHandler("/editor/**")
             .addResourceLocations("file:$projectRoot/modules/editor/dist/")
             .setCacheControl(CacheControl.noCache())
-
-        registry.addResourceHandler("/vendor/**")
-            .addResourceLocations("file:$projectRoot/modules/vendor/dist/")
-            .setCacheControl(CacheControl.noCache())
     }
 
     private fun findProjectRoot(): String {

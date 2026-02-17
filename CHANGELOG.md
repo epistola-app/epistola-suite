@@ -2,6 +2,289 @@
 
 ## [Unreleased]
 
+### Changed
+- **Pre-1.0 version capping in CI**: Breaking changes (`feat!:`, `BREAKING CHANGE:`) now bump the minor version instead of the major version, keeping releases below `1.0.0` while the project is pre-production. The `mathieudutour/github-tag-action` runs in dry-run mode and a custom script caps the calculated version. A safeguard fails the build if existing tags are >= 1.0.0.
+- **Variants Card Grid**: Replaced the variants table with a responsive card grid. Each card shows title, slug, attribute badges, version status, and action buttons. Default variant is visually distinguished with blue tint and always sorted first.
+  - **Attribute Filtering**: Filter bar with dropdowns for each attribute definition, allowing quick narrowing of variants. Client-side filtering for instant response. Filters persist across HTMX swaps.
+- **Auto-Draft on Publish**: Publishing a draft version to an environment now automatically creates a new draft (copying the published content), so variants always have an editable version. This removes the need to manually create new drafts after deploying.
+- **Template Detail Page Redesign**: Separated the template detail page into focused tabs — Variants (authoring), Deployments (environment matrix), Data Contract, and Settings
+  - **Deployment Matrix**: New dedicated Deployments tab with environment x variant grid for managing deployments. Each cell is a select box that deploys on change or removes the activation when "Not deployed" is selected.
+  - **Simplified Variants Tab**: Removed inline nested version tables. Variants now shown as cards with attributes, draft/published status, and action buttons. Version history moved to a dialog.
+  - **Version History Dialog**: Click the clock icon on any variant to view, archive, and create draft versions in a dialog.
+  - Environment publish/unpublish removed from version rows — use the Deployments tab instead.
+- **Environment-Targeted Publishing**: "Publish to Environment" replaces the separate publish + activate workflow. Publishing now requires a target environment, freezing drafts and activating in a single action.
+- **Archive Guard**: Archiving a version is now blocked if the version is still active in any environment. Remove it from all environments first.
+- **DemoLoader Enhancements**: Demo tenant now includes staging/production environments, language attribute definitions, Dutch/English multi-variant templates, and published versions across environments.
+
+### Fixed
+- **Editor: subtree undo loss** — Undoing a container deletion now correctly restores all descendant nodes and slots, preventing dangling references
+- **ListVariants missing columns** — Added `title` and `description` to the SELECT clause so variant list views display all fields
+- **GetEditorContext unsafe JSONB cast** — Replaced `as? Map` cast with Jackson deserialization for `variant_attributes`, fixing silent data loss
+- **Deployment matrix unstyled dropdowns** — Changed CSS class from `select select-sm` to `ep-select` from the design system; fixed SpEL `{}` syntax error
+- **PDF preview blob URL memory leak** — Blob URLs from `URL.createObjectURL()` are now revoked after 60 seconds
+- **DeleteAttributeDefinition missing validation** — Deletion now checks for variants referencing the attribute and throws `AttributeInUseException` instead of creating orphaned references
+- **UpdateAttributeDefinition allowed values narrowing** — Narrowing allowed values now checks for existing variants using removed values and throws `AllowedValuesInUseException`
+- **VariantResolver scoring tiebreaker** — Changed from `(optionalMatches * 10) + totalAttributes` to `(requiredMatches * 100) + (optionalMatches * 10)` so unrelated attributes no longer influence scoring
+- **Unused templateId in queries** — Five queries (GetDraft, GetVersion, ListVersions, ListActivations, GetActiveVersion) now JOIN to `template_variants` to verify the variant belongs to the specified template
+- **Missing API exception handlers** — Added handlers for `NoMatchingVariantException` (404), `AmbiguousVariantResolutionException` (409), `AttributeInUseException` (409), and `AllowedValuesInUseException` (409)
+- **Missing tenantId in models** — Added `tenantId` to `TemplateVersion`, `VersionSummary`, and `EnvironmentActivation` data classes to match composite PK schema
+- **LIKE pattern injection in template search** — Escaped `%`, `_`, and `\` metacharacters in search terms
+- **Inconsistent getCsrfToken calls** — All calls in `detail.html` now use defensive `typeof` check
+- **Duplicated createDefaultTemplateModel** — Extracted to shared `DefaultTemplateModel.kt`
+- **Dead vendor resource handler** — Removed `/vendor/**` handler from `EditorDevConfig` (vendor module was deleted)
+- **CSS z-index misleading fallback** — Removed incorrect fallback `40` from `var(--ep-z-sticky)` in `shell.css`
+- **Unused variantThemeId in GenerationService** — Removed dead code
+- **Editor deepFreeze disabled during tests** — Removed unnecessary `process.env.NODE_ENV` define from vite.config.ts which caused Vitest v4 to set `import.meta.env.PROD = true` during tests, disabling the immutability guard
+- **Editor save not working** — `mountEditor` set the `onSave` callback after calling `initEngine`, but `initEngine` checks `this.onSave` to create the SaveService. Moved callback assignments before `initEngine` so save/autosave/Ctrl+S all work correctly
+
+### Removed
+- `SetActivation` command and REST API endpoint — replaced by the publish-to-environment action
+- `PublishVersion` command — replaced by `PublishToEnvironment` which combines publish + activate
+
+### Added
+- **Playwright UI Testing**: Added Playwright Java test infrastructure with `BasePlaywrightTest` base class and `VariantCardUiTest` covering card grid rendering, attribute filtering, and HTMX interactions
+- `PublishToEnvironment` command: single action that freezes draft content (if needed) and activates in target environment
+- `VersionStillActiveException`: thrown when attempting to archive a version still active in environments
+- UI: environment-targeted publish dropdown in version list, environment badges on published versions, unpublish-from-environment action
+- **Tenant-Scoped Composite Primary Keys**: All tenant-owned entities (`document_templates`, `template_variants`, `environments`, `template_versions`, `environment_activations`) now use composite primary keys `(tenant_id, id)`, allowing different tenants to reuse the same slugs (e.g., both can have a template called "invoice")
+  - `TemplateVariant` domain model now includes `tenantId`
+  - Removed JOIN-based tenant isolation in favor of direct `tenant_id` columns on each table
+  - Simplified many queries by eliminating multi-table JOINs that existed solely for tenant verification
+  - Merged V12 (variant_attribute_definitions) and V13 (tags→attributes rename) into V3
+
+### Added
+- **Explicit Default Variant Flag**: Decoupled default variant from empty attributes with an explicit `is_default` boolean column
+  - First variant created for a template is automatically the default
+  - Default variant can now have any attributes (no longer requires empty `{}`)
+  - Database enforces exactly one default per template via partial unique index
+  - New `SetDefaultVariant` command to reassign the default
+  - Deletion of the default variant is blocked (`DefaultVariantDeletionException`) — reassign default first
+  - UI shows "Default" badge, "Set as default" star button for non-defaults, and disables delete for the default
+  - REST API: new `POST .../set-default` endpoint, `isDefault` field on variant DTOs, 409 on default deletion
+  - Variant resolver falls back to `is_default = true` instead of empty attributes
+- **Variant Attribute System**: Structured attribute-based variant management
+  - **Attribute Definitions Registry**: Tenant-scoped registry of allowed attribute keys and values (CRUD with UI)
+  - **Attribute Validation**: Variant attributes are validated against the registry when creating or updating variants
+  - **Attribute-based Variant Resolution**: Auto-select variants based on required/optional attribute criteria with scoring algorithm
+    - Required attributes filter candidates, optional attributes score them
+    - Scoring: `(requiredMatches * 100) + (optionalMatches * 10)` — most specific variant wins
+    - Falls back to default variant (empty attributes) when no match found
+    - Throws `AmbiguousVariantResolutionException` when multiple variants tie on score
+  - **GenerateDocument/Batch support**: Both commands accept `variantSelectionCriteria` as an alternative to explicit `variantId`
+  - Renamed `tags` to `attributes` throughout the entire codebase (model, commands, queries, handlers, templates, API)
+- **Edit Variant Dialog**: Added ability to edit variant title and tags via a native `<dialog>` element
+  - Edit button on each variant row fetches a pre-filled form via HTMX
+  - Form submits via HTMX PATCH and refreshes the variants section on success
+  - Extended `UpdateVariant` command to support title updates alongside tags
+  - Reusable `.ep-dialog` CSS styles for native HTML dialogs
+- **Template Detail Page Redesign: Tabs + Inline Expand/Collapse**: Reorganized the template detail page into a 3-tab layout (Variants, Data Contract, Settings) with inline version management
+  - **Tab navigation**: Client-side CSS/JS tabs for Variants, Data Contract, and Settings — all content rendered on page load, no server round-trips for switching
+  - **Inline variant versions**: Each variant row has an expand/collapse chevron that lazy-loads versions via HTMX on first click, with subsequent toggles showing/hiding without re-fetch
+  - **Collapsible create form**: "New Variant" button toggles an inline form with Cancel support, replacing the always-visible form section
+  - **Settings tab**: Groups template details (ID, created/modified dates), theme selection, and delete action into a dedicated settings area with a danger zone section
+  - **Removed separate variant detail page**: Versions are now accessed inline; the `/variants/{variantId}` route has been removed
+  - **New endpoint**: `GET /{id}/variants/{variantId}/versions` returns the versions fragment for lazy loading
+  - **CSS additions**: Tab navigation, expand/collapse toggle, variant detail row, and danger zone styles
+- **Page Redesign: Lists, Detail Pages, Create Forms & Dashboard**: Full redesign of all page content within the app shell using consistent design system patterns
+  - **Tenant Dashboard**: Replaced nav card grid with stat cards showing counts (Templates, Themes, Environments, Load Tests) and quick action links
+  - **List pages**: Consistent structure across Templates, Themes, Environments, and Load Tests with `page-header` (title + search + create button), `ep-table`, and `empty-state` components
+  - **Separate create pages**: Extracted inline create forms to dedicated `/new` pages with breadcrumbs, card-wrapped forms, and proper validation error handling
+  - **Detail page sections**: Template, Theme, Load Test, and Load Test Request detail pages now use `detail-section` card-wrapped sections with headers and description lists
+  - **Load test metrics**: Results displayed as stat cards grid with all performance metrics; error summary in proper `ep-table`; progress bar in card section
+  - **CSS additions**: New styles for `dashboard-stats`, `stat-card`, `quick-links`, `detail-section`, `description-list`, `create-form-card`, `page-actions`
+- **Unified App Shell with Top Navigation Bar**: Replaced standalone page navigation with a persistent top nav bar for all tenant-scoped pages
+  - **App shell layout**: New `layout/shell.html` master template with nav bar, content slot, and footer. All tenant-scoped pages now render within the shell.
+  - **Navigation bar**: Persistent top bar with Epistola logo, section links (Templates, Themes, Environments, Load Tests), tenant switcher, and user menu. Active section highlighted based on URL.
+  - **HTMX content swapping**: `hx-boost` on the shell body enables seamless SPA-like navigation between sections without full page reloads. Browser history, back/forward navigation work correctly.
+  - **ShellModelInterceptor**: Automatically populates `activeNavSection` and `tenantName` for all tenant-scoped requests rendering through the shell.
+  - **Responsive design**: Nav bar collapses to hamburger menu on mobile viewports.
+  - **Standalone pages preserved**: Login, tenant list (landing), and template/theme editors retain their own full-page layouts.
+- **Editor V2: Columns, Conditional & Loop editor components**: Rich editing UX for layout and logic components
+  - **Columns layout editor**: Inspector shows column count (+/- buttons, min 1, max 6), per-column relative size inputs, and gap control. Canvas renders columns with dynamic flex sizing and gap from props. `AddColumnSlot` and `RemoveColumnSlot` commands with full undo/redo support including child subtree preservation.
+  - **Reusable expression dialog**: Extracted the expression dialog from inline expression chips into a standalone `openExpressionDialog()` function, enabling reuse from both ProseMirror node views and inspector fields. Includes field path autocomplete with filtering, instant JSONata validation, debounced live preview, and quick reference panel.
+  - **Inspector expression triggers**: Conditional and loop expression fields now use clickable trigger buttons (instead of plain text inputs) showing the current expression with valid/invalid/empty state indication. Click opens the full expression dialog with field paths and live preview. Loop expressions highlight array-type fields.
+  - **Engine helpers**: `EditorEngine.fieldPaths` (cached lazy getter) and `EditorEngine.getExampleData()` centralize data model extraction logic previously duplicated across components.
+  - **Data model alignment**: Columns `defaultProps` changed from `columns: [{size:1},{size:1}]` to `columnSizes: [1, 1]` to match the backend `ColumnsNodeRenderer` expectations. `createInitialSlots` hook added to `ComponentDefinition` for components whose slot count is derived from props.
+- **Project overview documentation**: New `docs/epistola.md` providing a high-level orientation for developers and AI assistants — what Epistola is, use cases, implemented features, technology stack, and architecture overview
+- **Theme Editor Redesign**: Replaced the Thymeleaf form-based theme editor with a Lit web component (`<epistola-theme-editor>`) that provides the same rich style editing controls as the template editor inspector
+  - **Visual style inputs**: Color pickers, unit inputs (px/em/rem/pt), select dropdowns, spacing inputs — all driven by the shared `defaultStyleRegistry`
+  - **Page settings editing**: Format (A4/Letter/Custom), orientation, margins (mm), background color
+  - **Block style presets**: Expandable preset cards with label, key, applicableTo multi-select, and full visual style property editing per preset
+  - **Unified autosave**: 2-second debounce after any change, Ctrl+S for manual save, dirty state tracking, beforeunload warning
+  - **Minimal PATCH payloads**: Only changed fields are sent to the backend
+  - **ThemeEditorState**: Pure TypeScript state management class with 32 unit tests
+  - **Multi-entry Vite build**: Produces both `template-editor.js` and `theme-editor.js` bundles with shared code chunking
+- **Editor V2: Enhanced expression dialog with live preview**: Expression editing dialog now provides real-time feedback and discovery tools
+  - **Live preview**: Debounced (250ms) evaluation shows the expression result with green (success) or red (error) background, updates as you type
+  - **Instant validation**: Synchronous JSONata parse check on every keystroke gives immediate green/red border feedback without waiting for async evaluation
+  - **Searchable field paths**: Filter input next to "Available fields" narrows the field list with case-insensitive matching
+  - **JSONata quick reference**: Collapsible `<details>` panel with 12 common patterns (path access, concatenation, conditionals, aggregations, string functions, array filtering). Clicking a pattern fills the input and triggers preview.
+  - **New expression helpers**: `tryEvaluateExpression` (discriminated Result type), `formatForPreview` (human-readable for all value types including objects/arrays/null), `isValidExpression` (synchronous parse-only check)
+- **Editor V2: Save + Autosave** (Phase 6): Automatic and manual save functionality for the template editor
+  - **SaveService**: Pure TypeScript class managing save lifecycle with state machine (idle → dirty → saving → saved → idle). 3-second debounced autosave coalesces rapid changes, concurrent save prevention queues pending documents, saved state auto-transitions to idle after 2 seconds. 19 unit tests cover all transitions.
+  - **Ctrl+S**: Keyboard shortcut for immediate save, bypasses autosave debounce
+  - **Save button**: Toolbar button between undo/redo and preview with state-dependent rendering — idle (checkmark), dirty (save icon, enabled), saving (spinner animation), saved (green checkmark), error (red warning, click to retry with tooltip)
+  - **Dirty tracking**: First keystroke immediately transitions to dirty state for instant UI feedback
+  - **beforeunload warning**: Browser warns when closing/navigating away with unsaved changes
+  - **EditorOptions.onSave**: Callback pattern where the host page owns the HTTP request and the editor owns autosave/debounce/state lifecycle
+  - 2 new Lucide icons: check, triangle-alert
+- **Editor V2: PDF preview panel** (Phase 5): Resizable panel next to the canvas that displays server-rendered PDF previews
+  - **PreviewService**: Pure TypeScript class managing debounced fetch scheduling, AbortController for in-flight cancellation, blob URL lifecycle (creation/revocation), and a state machine (idle → loading → success/error). 12 unit tests cover all transitions.
+  - **EpistolaPreview**: Lit component subscribing to `doc:change` and `example:change` events, rendering an iframe with blob URL on success, or loading/error/idle placeholder states with retry button
+  - **EpistolaResizeHandle**: Pointer-event drag handle setting `--ep-preview-width` CSS variable on `.editor-main`, with min 200px / max 800px constraints, persisted to localStorage
+  - **Toolbar toggle**: Eye/eye-off button in toolbar dispatches `toggle-preview` event, open/close state persisted to localStorage
+  - **EditorOptions.onFetchPreview**: Callback pattern where the host page owns the HTTP request (CSRF, URL, format conversion) and the editor owns debounce/abort/blob lifecycle
+  - **Stub callback**: `editor.html` wired with `onFetchPreview` that calls the backend preview endpoint — real PDF rendering depends on Phase 7 backend adaptation
+  - 5 new Lucide icons: eye, eye-off, loader-2, alert-circle, refresh-cw
+- **Editor V2: Resolved expression values in chips**: Expression chips now show the resolved value from the currently selected data example (e.g., "John Doe" instead of `{{customer.name}}`). Falls back to showing the raw expression when no data example is selected, the expression evaluates to undefined/null/empty, or the result is a non-displayable type (object/array). Uses JSONata for full expression evaluation support including aggregations, string concatenation, and conditionals. Hovering a resolved chip shows the expression path in a tooltip. Switching data examples refreshes all chips asynchronously with a generation counter to prevent stale results.
+
+### Fixed
+- **Preview PDF generation**: Fixed `ClassCastException` (LinkedHashMap cannot be cast to BlockStylePreset) when previewing templates with a theme that has block style presets. Root cause was Java type erasure in JDBI's `@Json` deserialization of `Map<String, BlockStylePreset>`. Introduced `BlockStylePresets` wrapper type with explicit Jackson serializers, following the same pattern as `DataExamples`.
+
+### Changed (Breaking)
+- **Block style presets format**: Changed `blockStylePresets` from flat `Map<String, Map<String, Any>>` to typed `Map<String, BlockStylePreset>` where `BlockStylePreset` has `{label, styles, applicableTo}` fields. This aligns the Kotlin backend with the TypeScript template-model type. Existing preset data in the database needs to be migrated to the new nested structure.
+- **Complete editor rewrite from v1 to v2**: Replaced the entire editor stack (React + TipTap + Zustand → Lit + ProseMirror + headless engine) and data model (flat `blocks[]` → normalized node/slot graph). This is a full-stack change:
+  - **Data model**: `TemplateModel` replaced by `TemplateDocument` with `nodes: Map<String, Node>` and `slots: Map<String, Slot>`. All domain commands, queries, services, and REST API updated.
+  - **PDF generation**: All `BlockRenderer` types replaced by `NodeRenderer` types with `renderNode()`/`renderSlot()` traversal.
+  - **Editor**: Thymeleaf page now loads the Lit/ProseMirror editor (`/editor/template-editor.js`). Import map removed.
+  - **Modules deleted**: `modules/editor` (v1 React), `modules/vendor` (React/Radix/Zustand bundles)
+  - **Schema-manager**: Now bundles all dependencies directly (no import map dependency)
+  - **V1 model types removed**: All `Block`, `TextBlock`, `ContainerBlock`, etc. types deleted from `template-model` module
+
+### Changed
+- **Editor V2: Unified Change interface for undo/redo**: Extracted all undo/redo logic from EditorEngine into self-contained Change classes (`CommandChange`, `TextChange`). Engine's `undo()` and `redo()` are now type-agnostic two-liners that delegate to `Change.undoStep()`/`redoStep()`. Eliminates ~60 lines of type-branching code from EditorEngine. `TextChangeEntry` interface replaced by `TextChange` class. `UndoEntry` union type replaced by `Change` interface.
+- **Editor V2: PM state preservation across block deletion**: When a text block is deleted, its ProseMirror EditorState is cached by the engine. If the user undoes the deletion, the cached state is restored — preserving character-level undo history. TextChange entries are revived with fresh ops when the PM view reconnects. Content divergence check prevents stale state restoration.
+
+### Changed
+- **Editor V2: Merged palette, tree, and inspector into tabbed sidebar**: Combined the three separate tool panels (palette, tree, inspector) into a single left-side `<epistola-sidebar>` component with tabs (Blocks, Structure, Inspector/Document). This reduces horizontal space usage and simplifies the layout from `palette | tree | canvas | inspector` to `sidebar | canvas`. Inspector tab label dynamically shows "Document" when no node is selected. Only the active panel is rendered in the DOM, ensuring proper DnD lifecycle management.
+
+### Changed
+- **Comprehensive UI redesign with shadcn/ui-inspired design system**: Unified visual language across the entire application (main app and editor-v2) targeting modern, polished aesthetics
+  - **Design system**: Enhanced tokens with complete color palettes (blue 50-900, amber, purple, green), semantic aliases, 5-level shadows, ring-based focus system, transition tokens, Inter font
+  - **Base resets**: Antialiased rendering, global focus-visible ring, improved heading/link/paragraph defaults
+  - **Component classes**: Full library of CSS components — buttons (primary/secondary/outline/ghost/destructive), cards, badges, form controls, tables, alerts, icons, layout helpers
+  - **Lucide icons**: SVG sprite with 31 icons for Thymeleaf templates, inline SVG helper for Lit components
+  - **Main app styles**: Complete rewrite using design tokens — wider max-width, ring-based focus, card-like tables, sticky footer, backdrop-filter dialogs, navigation cards with icon circles
+  - **Template updates**: Removed all inline style blocks, replaced emoji with Lucide SVG icons, applied component classes across all 15 templates
+  - **Editor-v2 layout**: Figma-like panel dividers using 1px background gap trick, subtle toolbar shadow with separator dividers
+  - **Editor-v2 panels**: Uppercase category labels in palette, icon circles with hover lift, tree selected state with inset accent border, gradient block headers, shadow-md page rendering
+  - **Editor-v2 rich text**: Expression chips with pill radius and shadow, bubble menu with shadow-lg, expression dialog with backdrop blur
+  - **Editor-v2 icons**: Undo/redo toolbar buttons, palette block type icons, tree node type icons — all using inline Lucide SVGs
+
+### Changed
+- **Editor V2: TextChange as first-class undo entry**: Replaced the `UndoHandler` strategy pattern with `TextChangeEntry` on the engine's undo stack. Text editing sessions now delegate undo/redo to ProseMirror's native history using `undoDepth()` as session boundaries. Character-level undo works even after blurring the text block (PM history persists). Snapshot fallback handles destroyed PM views. Removes focus/blur handler registration, `_hasPendingFlush`/`_isSyncing` guards, coalesced undo entries, and the `beforeinput` interception for strategy-based double-undo prevention.
+
+### Changed
+- **Editor V2: EventEmitter, debounce, and dual undo stack**:
+  - **Typed EventEmitter** (`engine/events.ts`): Replaced 3 ad-hoc listener Sets in `EditorEngine` with a single typed `EventEmitter<EngineEvents>` supporting `doc:change`, `selection:change`, and `example:change` events. Old `subscribe()`, `onSelectionChange()`, and `onExampleChange()` methods are preserved as deprecated wrappers for backward compatibility.
+  - **Conditional index rebuild**: Added `structureChanged` flag to `CommandOk`. Structural commands (InsertNode, RemoveNode, MoveNode) trigger index rebuild; property/style commands skip it for better keystroke performance.
+  - **skipUndo + pushUndoEntry**: `dispatch()` accepts `{ skipUndo: true }` to skip undo recording. New `pushUndoEntry()` allows external components to push coalesced undo entries.
+  - **Debounced text editing**: `EpistolaTextEditor` now debounces ProseMirror content dispatches (300ms). On blur/deselect, flushes pending content and pushes a single coalesced undo entry restoring the content-before-editing snapshot. ProseMirror handles character-level undo natively; engine undo reverts entire editing sessions.
+  - **Toolbar undo state sync**: Toolbar subscribes to `doc:change` to keep undo/redo button state in sync without manual `requestUpdate()` after each action.
+  - UI components (`EpistolaEditor`, `EpistolaToolbar`) migrated to new `events.on(...)` API.
+
+### Added
+- **Editor V2: Rich text editing with ProseMirror** (Phase 4):
+  - **ProseMirror integration**: Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks, with full JSON compatibility with the existing TipTap-based backend converter
+  - **Inline formatting**: Bold, italic, underline, strikethrough marks with keyboard shortcuts (Ctrl+B/I/U)
+  - **Block types**: Paragraphs, headings (H1-H3), bullet lists, ordered lists
+  - **Expression chips**: Inline `{{expression}}` nodes rendered as styled pills; type `{{` to insert, click to edit
+  - **Expression editor dialog**: Native `<dialog>` with text input and field path autocomplete from JSON Schema data model
+  - **Floating bubble menu**: Selection-based toolbar with formatting buttons, heading toggles, list wrapping, and expression insertion; positioned with `@floating-ui/dom`
+  - **Heading input rules**: `# `, `## `, `### ` at line start auto-converts to headings
+  - **Schema field path extractor** (`engine/schema-paths.ts`): Walks JSON Schema properties recursively to extract dot-notation field paths for expression autocomplete
+  - **Data model support**: `EditorOptions` accepts `dataModel` and `dataExamples`; `EditorEngine` stores and exposes them for expression UI
+  - **Content sync**: Bidirectional sync between ProseMirror state and EditorEngine using `isSyncing` flag + JSON equality check to prevent loops
+  - **EpistolaTextEditor Lit component**: Light DOM component wrapping ProseMirror with lifecycle management, external content sync (engine undo), and resolved style passthrough
+  - **28 new tests** for ProseMirror schema (roundtrip, marks, lists), input rules (regex matching, handler), and schema-paths (flat, nested, arrays, depth limit)
+
+### Added
+- **Kotlin codegen from JSON Schema**: Template model types (PageSettings, Margins, PageFormat, Orientation, Expression, ExpressionLanguage, BorderStyle, etc.) are now generated from JSON Schema using `json-kotlin-schema-codegen`, establishing the schemas as the single source of truth for both TypeScript and Kotlin types
+- **Open DocumentStyles**: `DocumentStyles` changed from a closed data class with 8 named properties to `Map<String, Any>`, matching the JSON Schema open object and letting the style-registry drive available properties
+
+### Removed
+- **TextAlign enum**: Removed from JSON Schema and all backend code. Text alignment is now a plain string value in the open DocumentStyles map
+
+### Changed
+- **Backend: Generated types replace handwritten types**: PageSettings, Margins, Orientation, PageFormat, Expression, ExpressionLanguage, and BorderStyle are now generated from JSON Schema. Enum values use lowercase matching JSON (e.g., `Orientation.portrait` instead of `Orientation.Portrait`). Margins properties changed from `Int` to `Long`. PageSettings/Margins no longer have default parameter values.
+- **Editor V2: Style editing and theme resolution** (Phase 3):
+  - **Open DocumentStyles data model**: `DocumentStyles` changed from a closed interface with 8 hardcoded properties to `Record<string, unknown>`, matching block styles and letting the style-registry drive available properties
+  - **PageSettings gains backgroundColor**: Moved from document styles (it's a page property, not an inheritable text style)
+  - **Margins documented as mm**: Schema descriptions now explicitly state the unit
+  - **Style registry** (`engine/style-registry.ts`): Defines all style properties with groups (typography, spacing, background, borders), input types, options, units, and inheritable flags
+  - **Style resolver** (`engine/styles.ts`): Pure functions implementing the full cascade: theme doc styles → template overrides → preset → inline. Only inheritable properties cascade to child nodes.
+  - **Engine integration**: `EditorEngine` accepts optional `Theme` and `StyleRegistry`, computes resolved styles on every state change, exposes `getResolvedNodeStyles(nodeId)`, `resolvedDocStyles`, `resolvedPageSettings`, and `setTheme()`
+  - **Inspector style UI**: Registry-driven style property editing grouped by category, with specialized inputs for unit values (number + unit dropdown), colors (native picker + text), spacing (4-value grid), and selects
+  - **Style preset dropdown**: Upgraded from plain text to a dropdown populated from `theme.blockStylePresets`, filtered by `applicableTo`
+  - **Document-level inspector**: When no node is selected, shows inheritable document styles and page settings (format, orientation, margins in mm, background color)
+  - **Canvas style rendering**: Resolved styles applied as inline CSS on block content areas via Lit's `styleMap`; page background color applied to canvas container
+  - **Input components** (`ui/inputs/style-inputs.ts`): Reusable UnitInput, ColorInput, SpacingInput, SelectInput with CSS value parsing/formatting
+  - **22 new tests** for style resolver functions covering cascade, inheritance, page settings, and preset resolution (total: 100 tests)
+
+- **Editor V2: Tree panel drag-and-drop**: Blocks can now be reordered and moved directly in the structure tree panel
+  - Drag tree nodes above/below to reorder within the same slot
+  - Drag onto a container node center to move a block inside it (make-child)
+  - Cross-panel DnD: drag from tree to canvas, palette to tree — all panels share the same `DragData` protocol
+  - Visual indicators: blue reorder lines (top/bottom), blue highlight for make-child targets
+  - Root node cannot be dragged; leaf nodes block make-child zone
+  - Reparent support for moving blocks to different nesting levels
+  - 5 new unit tests for `resolveDropInsideNode()` function
+- **Editor V2: Drag-and-drop block positioning**: Blocks can now be dragged to insert or reorder using `@atlaskit/pragmatic-drag-and-drop`
+  - Palette items are drag sources — drag from palette to insert a new block at a specific position in the canvas
+  - Canvas blocks are drag sources — drag by the block header to reorder within or across slots
+  - Drop indicator line (blue 2px) shows exact insertion point on block edges
+  - Visual feedback: source dimming during drag, empty slot highlighting on hover
+  - Containment validation: drops are rejected if the parent type doesn't allow the child type (e.g. text into text)
+  - Cycle prevention: can't drag a block into its own descendant
+  - Click-to-insert remains as a quick shortcut alongside drag
+  - Tree panel nodes now have `data-node-id` attributes (prep for future tree DnD)
+  - 14 new unit tests for drop logic (resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere)
+
+### Changed
+- **Editor V2: Replace StylePolicy with applicableStyles**: Each component now declares which style property keys it supports via `applicableStyles: 'all' | string[]` instead of the old `StylePolicy` discriminated union. This makes components the authority over their own styles — groups remain a UI concern for inspector organization only. Layout components (columns, table, conditional, loop) now only support layout styles (spacing, background, borders) while content components (text, container, pageheader, pagefooter) support all styles. Canvas rendering also filters resolved styles through `applicableStyles`.
+- **Editor V2: Improved architecture separation**: Extracted shared logic from UI components into headless modules
+  - New `dnd/drop-handler.ts`: shared drop execution (InsertNode/MoveNode dispatch) used by canvas and tree panels
+  - Moved `getNodeDepth()` and `findAncestorAtLevel()` from `EpistolaTree` into `engine/indexes.ts` as pure functions
+  - Added `depthByNodeId` to `DocumentIndexes` for O(1) node depth lookups (computed once via BFS on state change)
+  - New `engine/props.ts`: extracted `getNestedValue`/`setNestedValue` from inspector into shared module
+  - 14 new tests for extracted utilities (depth, ancestors, nested props)
+
+- **Design System: Split editor CSS into shared design system + component files**: Extracted the monolithic 550-line `editor.css` into a modular architecture
+  - New `modules/design-system/` with `tokens.css`, `base.css`, and `components.css` — shared between the editor and the main app
+  - Editor-specific styles split into 6 component files under `styles/` (editor-layout, toolbar, tree, canvas, palette, inspector)
+  - `editor.css` is now an import-only entry point with `@layer` ordering
+  - Generic form controls renamed: `.inspector-input` → `.ep-input`, `.inspector-select` → `.ep-select`, `.inspector-checkbox` → `.ep-checkbox`, `.inspector-delete-btn` → `.ep-btn-danger`
+  - Design tokens expanded with additional color palettes (green, yellow), font families, and spacing values
+  - Main app `main.css` rewritten to use `var(--ep-*)` design tokens instead of hardcoded colors
+  - New `fragments/styles.html` Thymeleaf fragment centralizes CSS includes across all 14 templates
+  - Gradle `copyDesignSystem` task copies design-system CSS into Spring Boot static resources
+  - Local dev: `application-local.yaml` serves design-system from filesystem for live editing
+  - Vite `@design` alias enables editor to import shared CSS from the design-system module
+
+- **Editor V2: Replaced Tailwind CSS with vanilla CSS**: Removed Tailwind CSS dependency in favor of hand-written CSS using modern features
+  - Uses `@layer` (base, layout, components, states) for cascade control
+  - Custom properties (design tokens) for colors, spacing, typography, radii, and panel widths
+  - CSS nesting for component-scoped styles
+  - Semantic class names (`.toolbar-btn`, `.canvas-block`, `.inspector-input`, etc.) replace ~120 Tailwind utility classes
+  - Removed `tailwindcss` and `@tailwindcss/vite` dependencies
+  - CSS output: 7.97 kB (1.77 kB gzipped)
+
+### Added
+- **Editor V2 module (`modules/editor-v2/`)**: New template editor built with Lit web components + headless engine architecture, replacing React + TipTap + Zustand
+  - **Node/slot data model**: Normalized graph (`TemplateDocument` with flat `nodes` and `slots` maps) replaces recursive `blocks[]` with composite IDs. Every insert/move/remove is a uniform slot.children update.
+  - **JSON Schemas**: Draft 2020-12 schemas for `TemplateDocument`, `Theme`, `ComponentManifest`, `StyleRegistry` in `modules/template-model/schemas/`
+  - **Type generation pipeline**: `json-schema-to-typescript` generates TS interfaces from schemas
+  - **Headless engine** (`EditorEngine`): Framework-agnostic state management with deep-freeze immutability, derived indexes for O(1) parent lookups, subscribe/notify pattern
+  - **Command system**: `InsertNode`, `RemoveNode`, `MoveNode`, `UpdateNodeProps`, `UpdateNodeStyles`, `SetStylePreset`, `UpdateDocumentStyles`, `UpdatePageSettings` — each produces an inverse for undo. Validation includes cycle detection, parent-child constraints, duplicate prevention.
+  - **Undo/redo**: `UndoStack` with 100-entry depth, redo clears on new dispatch
+  - **Component registry**: Built-in types (root, text, container, columns, table, conditional, loop, pagebreak, pageheader, pagefooter) with slot templates, allowed children, style policies, inspector config
+  - **Lit UI layer**: `<epistola-editor>` shell with tree, canvas, palette, inspector, and toolbar panels. Light DOM for Tailwind CSS compatibility.
+  - **Bundle size**: 57KB raw / 14KB gzipped (vs ~750KB+ for V1 with all React/Radix dependencies)
+  - **45 engine tests** covering all commands, undo/redo, registry, selection, subscription, and immutability
+
+### Changed
+- **Editor README replaced with architecture documentation**: Replaced Vite boilerplate README with a comprehensive technical specification covering public API, data structures, state management, block system, rich text, expression evaluation, drag & drop, style system, PDF preview, table system, schema/validation, and utility functions. Serves as a rewrite specification with language-agnostic descriptions and collapsible TypeScript reference sections.
+
 ### Fixed
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
 

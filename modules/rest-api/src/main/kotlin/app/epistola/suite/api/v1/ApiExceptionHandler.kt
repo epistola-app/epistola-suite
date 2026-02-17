@@ -2,7 +2,13 @@ package app.epistola.suite.api.v1
 
 import app.epistola.api.model.FieldError
 import app.epistola.api.model.ValidationErrorResponse
+import app.epistola.suite.attributes.commands.AllowedValuesInUseException
+import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
+import app.epistola.suite.templates.commands.versions.VersionStillActiveException
+import app.epistola.suite.templates.services.AmbiguousVariantResolutionException
+import app.epistola.suite.templates.services.NoMatchingVariantException
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.themes.LastThemeException
 import app.epistola.suite.themes.ThemeInUseException
@@ -119,6 +125,44 @@ class ApiExceptionHandler {
     }
 
     /**
+     * Handles attempts to delete the default variant.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(DefaultVariantDeletionException::class)
+    fun handleDefaultVariantDeletionException(ex: DefaultVariantDeletionException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot delete default variant: {}", ex.variantId)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "DEFAULT_VARIANT_DELETION",
+                message = ex.message ?: "Cannot delete the default variant",
+                details = mapOf("variantId" to ex.variantId.value),
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to archive a version that is still active in environments.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(VersionStillActiveException::class)
+    fun handleVersionStillActiveException(ex: VersionStillActiveException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot archive version {}: still active in environments", ex.versionId)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "VERSION_STILL_ACTIVE",
+                message = ex.message ?: "Version is still active in one or more environments",
+                details = mapOf(
+                    "versionId" to ex.versionId.value,
+                    "variantId" to ex.variantId.value,
+                    "activeEnvironments" to ex.activeEnvironments.map { it.value },
+                ),
+            ),
+        )
+    }
+
+    /**
      * Handles data model validation errors (schema validation failures).
      * Returns 422 Unprocessable Entity.
      */
@@ -131,6 +175,86 @@ class ApiExceptionHandler {
                 code = "DATA_MODEL_VALIDATION_ERROR",
                 message = "Data examples failed validation against schema",
                 details = mapOf("validationErrors" to ex.validationErrors),
+            ),
+        )
+    }
+
+    /**
+     * Handles variant resolution failures when no matching variant is found.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(NoMatchingVariantException::class)
+    fun handleNoMatchingVariantException(ex: NoMatchingVariantException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("No matching variant for template {}: {}", ex.templateId, ex.criteria)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "NO_MATCHING_VARIANT",
+                message = ex.message ?: "No matching variant found",
+                details = mapOf(
+                    "templateId" to ex.templateId.value,
+                    "requiredAttributes" to ex.criteria.requiredAttributes,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles ambiguous variant resolution when multiple variants tie on score.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(AmbiguousVariantResolutionException::class)
+    fun handleAmbiguousVariantResolutionException(ex: AmbiguousVariantResolutionException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Ambiguous variant resolution for template {}: {}", ex.templateId, ex.tiedVariantIds)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "AMBIGUOUS_VARIANT",
+                message = ex.message ?: "Ambiguous variant resolution",
+                details = mapOf(
+                    "templateId" to ex.templateId.value,
+                    "tiedVariants" to ex.tiedVariantIds.map { it.value },
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to delete an attribute that is still referenced by variants.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(AttributeInUseException::class)
+    fun handleAttributeInUseException(ex: AttributeInUseException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot delete attribute {}: still in use by {} variant(s)", ex.attributeId, ex.variantCount)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "ATTRIBUTE_IN_USE",
+                message = ex.message ?: "Attribute is in use and cannot be deleted",
+                details = mapOf(
+                    "attributeId" to ex.attributeId.value,
+                    "variantCount" to ex.variantCount,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to narrow allowed values when existing variants use the removed values.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(AllowedValuesInUseException::class)
+    fun handleAllowedValuesInUseException(ex: AllowedValuesInUseException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot narrow allowed values for attribute {}: values {} are in use", ex.attributeId, ex.removedValues)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "ALLOWED_VALUES_IN_USE",
+                message = ex.message ?: "Cannot remove allowed values that are in use by existing variants",
+                details = mapOf(
+                    "attributeId" to ex.attributeId.value,
+                    "valuesInUse" to ex.removedValues,
+                ),
             ),
         )
     }

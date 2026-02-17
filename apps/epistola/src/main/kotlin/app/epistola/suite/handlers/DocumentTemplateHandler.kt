@@ -1,10 +1,10 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -15,13 +15,10 @@ import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDataExample
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.model.DataExample
-import app.epistola.suite.templates.model.VariantSummary
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetEditorContext
 import app.epistola.suite.templates.queries.ListTemplateSummaries
-import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
-import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.DataModelValidationException
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.MigrationSuggestion
@@ -106,8 +103,10 @@ class DocumentTemplateHandler(
         val tenantId = request.pathVariable("tenantId")
         val templates = ListTemplateSummaries(tenantId = TenantId.of(tenantId)).query()
         return ServerResponse.ok().render(
-            "templates/list",
+            "layout/shell",
             mapOf(
+                "contentView" to "templates/list",
+                "pageTitle" to "Document Templates - Epistola",
                 "tenantId" to tenantId,
                 "templates" to templates,
             ),
@@ -127,61 +126,60 @@ class DocumentTemplateHandler(
         }
     }
 
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        return ServerResponse.ok().render(
+            "layout/shell",
+            mapOf(
+                "contentView" to "templates/new",
+                "pageTitle" to "New Template - Epistola",
+                "tenantId" to tenantId,
+            ),
+        )
+    }
+
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val slug = request.params().getFirst("slug")?.trim().orEmpty()
         val name = request.params().getFirst("name")?.trim().orEmpty()
         val schema = request.params().getFirst("schema")?.trim()?.takeIf { it.isNotEmpty() }
 
+        fun renderFormWithErrors(errors: Map<String, String>): ServerResponse {
+            val formData = mapOf("slug" to slug, "name" to name, "schema" to (schema ?: ""))
+            return ServerResponse.ok().render(
+                "layout/shell",
+                mapOf(
+                    "contentView" to "templates/new",
+                    "pageTitle" to "New Template - Epistola",
+                    "tenantId" to tenantId,
+                    "formData" to formData,
+                    "errors" to errors,
+                ),
+            )
+        }
+
         // Validate slug format
         val templateId = TemplateId.validateOrNull(slug)
         if (templateId == null) {
-            val formData = mapOf("slug" to slug, "name" to name, "schema" to (schema ?: ""))
-            val errors = mapOf("slug" to "Invalid template ID format. Must be 3-50 lowercase characters, starting with a letter.")
-            return request.htmx {
-                fragment("templates/list", "create-form") {
-                    "tenantId" to tenantId
-                    "formData" to formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/tenants/$tenantId/templates") }
-            }
+            return renderFormWithErrors(
+                mapOf("slug" to "Invalid template ID format. Must be 3-50 lowercase characters, starting with a letter."),
+            )
         }
 
         try {
-            val command = CreateDocumentTemplate(
+            CreateDocumentTemplate(
                 id = templateId,
                 tenantId = TenantId.of(tenantId),
                 name = name,
                 schema = schema,
-            )
-            command.execute()
+            ).execute()
         } catch (e: ValidationException) {
-            val formData = mapOf("slug" to slug, "name" to name, "schema" to (schema ?: ""))
-            val errors = mapOf(e.field to e.message)
-            return request.htmx {
-                fragment("templates/list", "create-form") {
-                    "tenantId" to tenantId
-                    "formData" to formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/tenants/$tenantId/templates") }
-            }
+            return renderFormWithErrors(mapOf(e.field to e.message))
         }
 
-        val templates = ListTemplateSummaries(tenantId = TenantId.of(tenantId)).query()
-        return request.htmx {
-            fragment("templates/list", "rows") {
-                "tenantId" to tenantId
-                "templates" to templates
-            }
-            trigger("templateCreated")
-            onNonHtmx { redirect("/tenants/$tenantId/templates") }
-        }
+        return ServerResponse.status(303)
+            .header("Location", "/tenants/$tenantId/templates/$slug")
+            .build()
     }
 
     fun editor(request: ServerRequest): ServerResponse {
@@ -207,12 +205,10 @@ class DocumentTemplateHandler(
                 "templateId" to templateId,
                 "variantId" to variantId,
                 "templateName" to context.templateName,
-                "variantTags" to context.variantTags,
+                "variantAttributes" to context.variantAttributes,
                 "templateModel" to context.templateModel,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
-                "themes" to context.themes,
-                "defaultTheme" to context.defaultTheme,
                 "appVersion" to (buildProperties?.version ?: "dev"),
                 "appName" to (buildProperties?.name ?: "Epistola"),
             ),
@@ -428,72 +424,24 @@ class DocumentTemplateHandler(
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = id).query()
             ?: return ServerResponse.notFound().build()
 
-        val variants = GetVariantSummaries(templateId = id).query()
+        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = id).query()
 
         // Load available themes for theme selection
         val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
 
+        // Load attribute definitions for variant attribute selects
+        val attributeDefinitions = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()
+
         return ServerResponse.ok().render(
-            "templates/detail",
+            "layout/shell",
             mapOf(
+                "contentView" to "templates/detail",
+                "pageTitle" to "${template.name} - Epistola",
                 "tenantId" to tenantId,
                 "template" to template,
                 "variants" to variants,
                 "themes" to themes,
-                "selectedVariant" to null,
-                "versions" to emptyList<Any>(),
-            ),
-        )
-    }
-
-    fun variantDetail(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
-            ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantId.validateOrNull(variantIdStr)
-            ?: return ServerResponse.badRequest().build()
-
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
-            ?: return ServerResponse.notFound().build()
-
-        val variants = GetVariantSummaries(templateId = templateId).query()
-
-        val variant = GetVariant(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-        ).query() ?: return ServerResponse.notFound().build()
-
-        val versions = ListVersions(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-        ).query()
-
-        // Load available themes for theme selection
-        val themes = ListThemes(tenantId = TenantId.of(tenantId)).query()
-
-        // Create a variant summary for the selected variant
-        val selectedVariantSummary = variants.find { it.id == variantId }
-            ?: VariantSummary(
-                id = variant.id,
-                title = variant.title,
-                tags = variant.tags,
-                hasDraft = versions.any { it.status.name == "DRAFT" },
-                publishedVersions = versions.filter { it.status.name == "PUBLISHED" }.map { it.id.value }.sorted(),
-            )
-
-        return ServerResponse.ok().render(
-            "templates/detail",
-            mapOf(
-                "tenantId" to tenantId,
-                "template" to template,
-                "variants" to variants,
-                "themes" to themes,
-                "selectedVariant" to selectedVariantSummary,
-                "versions" to versions,
+                "attributeDefinitions" to attributeDefinitions,
             ),
         )
     }

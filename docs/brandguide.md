@@ -38,41 +38,79 @@ Used for text, borders, backgrounds, and disabled states.
 | Gray 700 | `#374151` | `gray-700` | Primary text |
 | Gray 900 | `#1f2937` | `gray-900` | Headers, dark text |
 
+### Additional Neutral Tokens
+
+| Name | Hex | CSS Variable | Usage |
+|------|-----|-------------|-------|
+| Gray 950 | `#030712` | `--ep-gray-950` | Near-black text, darkest background |
+| Black | `#000000` | `--ep-black` | Pure black (overlays, accents) |
+
 ### Semantic Colors
 
 #### Success - Green
-| Name | Hex | Tailwind | Usage |
-|------|-----|----------|-------|
-| Green 100 | `#dcfce7` | `green-100` | Success badge bg |
-| Green 500 | `#22c55e` | `green-500` | Status indicator |
-| Green 700 | `#15803d` | `green-700` | Success badge text |
+| Name | Hex | CSS Variable | Usage |
+|------|-----|-------------|-------|
+| Green 50 | `#f0fdf4` | `--ep-green-50` | Success alert bg |
+| Green 100 | `#dcfce7` | `--ep-green-100` | Success badge bg |
+| Green 500 | `#22c55e` | `--ep-green-500` | Status indicator |
+| Green 700 | `#15803d` | `--ep-green-700` | Success badge text |
+| Green 800 | `#166534` | `--ep-green-800` | Success alert text |
 
-#### Warning - Amber
-| Name | Hex | Tailwind | Usage |
-|------|-----|----------|-------|
-| Amber 50 | `#fffbeb` | `amber-50` | Conditional block bg |
-| Amber 100 | `#fef3c7` | `amber-100` | Conditional drop zone |
-| Amber 200 | `#fde68a` | `amber-200` | Conditional border |
-| Amber 500 | `#f59e0b` | `amber-500` | Active conditional toggle |
-| Amber 600 | `#d97706` | `amber-600` | Conditional text |
+#### Warning - Amber (replaces yellow)
+| Name | Hex | CSS Variable | Usage |
+|------|-----|-------------|-------|
+| Amber 50 | `#fffbeb` | `--ep-amber-50` | Warning alert bg, conditional block bg |
+| Amber 100 | `#fef3c7` | `--ep-amber-100` | Conditional drop zone, warning badge bg |
+| Amber 200 | `#fde68a` | `--ep-amber-200` | Conditional border, warning alert border |
+| Amber 500 | `#f59e0b` | `--ep-amber-500` | Active conditional toggle |
+| Amber 600 | `#d97706` | `--ep-amber-600` | Conditional text, warning semantic |
+| Amber 800 | `#92400e` | `--ep-amber-800` | Warning badge text, warning alert text |
+
+> **Note:** Yellow tokens (`--ep-yellow-*`) are deprecated aliases that map to amber. Use amber directly.
 
 #### Error - Red
-| Name | Hex | Tailwind | Usage |
-|------|-----|----------|-------|
-| Red 50 | `#fef2f2` | `red-50` | Error block bg |
-| Red 200 | `#fecaca` | `red-200` | Error border |
-| Red 400 | `#f87171` | `red-400` | Error input border |
-| Red 500 | `#ef4444` | `red-500` | Delete button, error states |
-| Red 600 | `#dc2626` | `red-600` | Error text |
+| Name | Hex | CSS Variable | Usage |
+|------|-----|-------------|-------|
+| Red 50 | `#fef2f2` | `--ep-red-50` | Error block bg, error alert bg |
+| Red 100 | `#fee2e2` | `--ep-red-100` | Error badge bg |
+| Red 200 | `#fecaca` | `--ep-red-200` | Error border, error alert border |
+| Red 400 | `#f87171` | `--ep-red-400` | Error input border |
+| Red 500 | `#ef4444` | `--ep-red-500` | Delete button, error states |
+| Red 600 | `#dc2626` | `--ep-red-600` | Error text, destructive semantic |
+| Red 700 | `#b91c1c` | `--ep-red-700` | Error badge text, destructive hover |
 
 #### Info - Purple
-| Name | Hex | Tailwind | Usage |
-|------|-----|----------|-------|
-| Purple 50 | `#faf5ff` | `purple-50` | Loop block bg |
-| Purple 100 | `#f3e8ff` | `purple-100` | Loop drop zone |
-| Purple 200 | `#e9d5ff` | `purple-200` | Loop border |
-| Purple 500 | `#a855f7` | `purple-500` | Loop accent |
-| Purple 600 | `#9333ea` | `purple-600` | Loop text |
+| Name | Hex | CSS Variable | Usage |
+|------|-----|-------------|-------|
+| Purple 50 | `#faf5ff` | `--ep-purple-50` | Loop block bg |
+| Purple 100 | `#f3e8ff` | `--ep-purple-100` | Loop drop zone |
+| Purple 200 | `#e9d5ff` | `--ep-purple-200` | Loop border |
+| Purple 500 | `#a855f7` | `--ep-purple-500` | Loop accent |
+| Purple 600 | `#9333ea` | `--ep-purple-600` | Loop text |
+
+### Semantic Aliases
+
+Higher-level design tokens that reference the palette above. Use these in components for consistent theming.
+
+| Alias | CSS Variable | Resolves To | Purpose |
+|-------|-------------|-------------|---------|
+| Background | `--ep-background` | `gray-50` | Page background |
+| Foreground | `--ep-foreground` | `gray-900` | Primary text |
+| Card | `--ep-card` | `white` | Card/panel background |
+| Card Foreground | `--ep-card-foreground` | `gray-900` | Card text |
+| Muted | `--ep-muted` | `gray-100` | Muted background (secondary button bg) |
+| Muted Foreground | `--ep-muted-foreground` | `gray-500` | Muted text (labels, placeholders) |
+| Accent | `--ep-accent` | `gray-100` | Hover/accent background |
+| Accent Foreground | `--ep-accent-foreground` | `gray-900` | Accent text |
+| Primary | `--ep-primary` | `blue-600` | Primary action color |
+| Primary Foreground | `--ep-primary-foreground` | `white` | Text on primary |
+| Destructive | `--ep-destructive` | `red-600` | Destructive action color |
+| Destructive Foreground | `--ep-destructive-foreground` | `white` | Text on destructive |
+| Success | `--ep-success` | `green-700` | Success color |
+| Warning | `--ep-warning` | `amber-600` | Warning color |
+| Border Color | `--ep-border-color` | `gray-200` | Default border |
+| Input Border | `--ep-input-border` | `gray-300` | Form input border |
+| Ring | `--ep-ring` | `blue-500` | Focus ring color |
 
 ---
 
@@ -80,8 +118,11 @@ Used for text, borders, backgrounds, and disabled states.
 
 ### Font Stack
 
+Loaded via [Google Fonts](https://fonts.google.com/specimen/Inter) (weights 400, 500, 600, 700).
+
 ```css
-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+/* CSS custom property: var(--ep-font-sans) */
 ```
 
 ### Scale
@@ -157,12 +198,13 @@ Used for: Expression chips, code snippets, variable names.
 
 ### Radius
 
-| Name | Size | Tailwind | Usage |
-|------|------|----------|-------|
-| Default | 4px | `rounded` | Inputs, small buttons |
-| Medium | 6px | `rounded-md` | Expression chips |
-| Large | 8px | `rounded-lg` | Panels, blocks, modals |
-| Full | 50% | `rounded-full` | Status indicators, slider thumb |
+| Name | Size | CSS Variable | Usage |
+|------|------|-------------|-------|
+| SM | 0.375rem (6px) | `--ep-radius-sm` | Small buttons, checkboxes |
+| MD | 0.5rem (8px) | `--ep-radius-md` | Inputs, standard buttons, expression chips |
+| LG | 0.75rem (12px) | `--ep-radius-lg` | Panels, cards, blocks, modals, alerts |
+| XL | 1rem (16px) | `--ep-radius-xl` | Large containers |
+| Full | 9999px | `--ep-radius-full` | Badges, status indicators, slider thumb |
 
 ### Styles
 
@@ -175,86 +217,70 @@ Used for: Expression chips, code snippets, variable names.
 
 ## Shadows
 
-| Name | Tailwind | CSS | Usage |
-|------|----------|-----|-------|
-| SM | `shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Panels |
-| MD | `shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Preview container |
-| LG | `shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Palette items |
-| XL | `shadow-xl` | `0 20px 25px rgba(0,0,0,0.1)` | Modals |
+Five levels with refined multi-layer values for realistic depth.
+
+| Name | CSS Variable | Value | Usage |
+|------|-------------|-------|-------|
+| XS | `--ep-shadow-xs` | `0 1px 2px 0 rgb(0 0 0 / 0.03)` | Subtle surface lift |
+| SM | `--ep-shadow-sm` | `0 1px 2px 0 rgb(0 0 0 / 0.05)` | Cards, panels |
+| MD | `--ep-shadow-md` | `0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)` | Elevated cards, preview container |
+| LG | `--ep-shadow-lg` | `0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)` | Dropdowns, popovers |
+| XL | `--ep-shadow-xl` | `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)` | Modals, dialogs |
 
 ---
 
 ## Components
 
+Components are implemented as CSS classes in `modules/design-system/components.css`. Apply via class names rather than composing utility classes.
+
 ### Buttons
 
-#### Primary Button
-```
-bg-blue-500 text-white hover:bg-blue-600
-px-3 py-1.5 text-sm rounded transition-colors
-```
+All buttons use the base `.btn` class combined with a variant class. Buttons include built-in focus ring, disabled state, and transition support.
 
-#### Secondary Button
-```
-bg-gray-100 text-gray-700 hover:bg-gray-200
-px-3 py-1.5 text-sm rounded transition-colors
-```
+| Class | Description | Usage |
+|-------|-------------|-------|
+| `.btn` | Base button (required) | All buttons |
+| `.btn-primary` | Blue background, white text | Primary actions (save, create) |
+| `.btn-secondary` | Muted gray background | Secondary actions |
+| `.btn-outline` | White background, gray border | Tertiary actions |
+| `.btn-ghost` | Transparent, no border | Toolbar actions, icon buttons |
+| `.btn-destructive` | Red background, white text | Delete, remove actions |
+| `.btn-sm` | Smaller size variant | Compact UI areas |
+| `.btn-lg` | Larger size variant | Prominent CTAs |
+| `.btn-icon` | Square (equal width/height) | Icon-only buttons |
 
-#### Active Toggle Button
-```
-bg-blue-500 text-white
-px-2 py-1 text-xs rounded
-```
-
-#### Inactive Toggle Button
-```
-bg-white text-gray-600 hover:bg-gray-50
-px-2 py-1 text-xs rounded
-```
-
-#### Danger Button
-```
-bg-red-500 text-white hover:bg-red-600
-rounded w-5 h-5
-```
-
-#### Icon Button
-```
-p-1 text-gray-500 hover:bg-gray-100 transition-colors
+```html
+<button class="btn btn-primary">Save</button>
+<button class="btn btn-outline btn-sm">Cancel</button>
+<button class="btn btn-ghost btn-icon btn-sm">
+  <svg class="ep-icon">...</svg>
+</button>
 ```
 
 ### Form Inputs
 
-#### Text Input
-```
-px-2 py-1 text-sm
-border border-gray-200 rounded
-focus:outline-none focus:border-blue-400
-```
+Form controls use the `.ep-*` prefix. All include built-in focus ring (box-shadow approach) and disabled styling.
 
-#### Number Input with Unit
-```
-[Input: px-2 py-1 text-sm border border-gray-200 rounded-l]
-[Unit selector: px-2 py-1 text-sm border-l-0 border-gray-200 rounded-r bg-gray-50]
-```
+| Class | Description |
+|-------|-------------|
+| `.ep-input` | Standard text input |
+| `.ep-select` | Native select dropdown |
+| `.ep-textarea` | Multi-line text area |
+| `.ep-label` | Form label (block display, 500 weight) |
+| `.ep-checkbox` | Styled checkbox |
 
-#### Select
-```
-px-2 py-1 text-sm
-border border-gray-200 rounded
-focus:outline-none focus:border-blue-400
-```
+```html
+<label class="ep-label">Name</label>
+<input class="ep-input" type="text" placeholder="Enter name..." />
 
-#### Color Picker
-```
-[Swatch: w-8 h-8 border border-gray-200 rounded cursor-pointer]
-[Hex input: flex-1 px-2 py-1 text-sm font-mono border border-gray-200 rounded]
-```
+<select class="ep-select">
+  <option>Option 1</option>
+</select>
 
-#### Slider
-```
-appearance-none w-full h-2 bg-gray-200 rounded-lg cursor-pointer
-Thumb: w-4 h-4 bg-blue-500 rounded-full hover:bg-blue-600
+<textarea class="ep-textarea" placeholder="Description..."></textarea>
+
+<!-- Monospace input (for code/expressions) -->
+<input class="ep-input mono" type="text" />
 ```
 
 ### Panels
@@ -398,36 +424,68 @@ w-2 h-2 rounded-full bg-green-500
 w-2 h-2 rounded-full bg-yellow-500
 ```
 
-### Badge
+### Badges
 
-#### Success Badge
-```
-bg-green-100 text-green-700
-px-1.5 py-0.5 text-xs rounded
-```
+Badges use the `.badge` base class combined with a variant. They render as inline-flex with full border-radius.
 
-#### Warning Badge
-```
-bg-amber-100 text-amber-700
-px-1.5 py-0.5 text-xs rounded
-```
+| Class | Description |
+|-------|-------------|
+| `.badge` | Base badge (required) |
+| `.badge-primary` | Blue background, blue-800 text |
+| `.badge-success` | Green background, green-800 text |
+| `.badge-warning` | Amber background, amber-800 text |
+| `.badge-destructive` | Red background, red-700 text |
+| `.badge-outline` | Transparent, bordered |
 
-#### Error Badge
-```
-bg-red-100 text-red-700
-px-1.5 py-0.5 text-xs rounded
-```
-
-#### Info Badge
-```
-bg-blue-100 text-blue-700
-px-1.5 py-0.5 text-xs rounded
+```html
+<span class="badge badge-primary">Active</span>
+<span class="badge badge-success">Published</span>
+<span class="badge badge-destructive">Error</span>
 ```
 
-#### Neutral Badge
+### Alerts
+
+Inline alert blocks use `.alert` with a variant class.
+
+| Class | Description |
+|-------|-------------|
+| `.alert` | Base alert (required) |
+| `.alert-info` | Blue — informational messages |
+| `.alert-success` | Green — success feedback |
+| `.alert-warning` | Amber — warning messages |
+| `.alert-error` | Red — error messages |
+
+```html
+<div class="alert alert-warning">
+  <svg class="ep-icon">...</svg>
+  <div>
+    <div class="alert-title">Warning</div>
+    <div>This action cannot be undone.</div>
+  </div>
+</div>
 ```
-bg-gray-100 text-gray-700
-px-1.5 py-0.5 text-xs rounded
+
+### Cards
+
+Cards use the `.card` class with optional header/content/footer sub-components.
+
+| Class | Description |
+|-------|-------------|
+| `.card` | Card container (white bg, border, shadow-sm, radius-lg) |
+| `.card-header` | Header with bottom border and flex-column layout |
+| `.card-title` | Title text (lg, semibold, tight tracking) |
+| `.card-description` | Subtitle text (sm, muted) |
+| `.card-content` | Main content area with padding |
+| `.card-footer` | Footer with top border |
+
+```html
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Templates</h3>
+    <p class="card-description">Manage your document templates</p>
+  </div>
+  <div class="card-content">...</div>
+</div>
 ```
 
 ---
@@ -1409,11 +1467,24 @@ Thumb:
 
 ### Focus
 
+Focus uses a **ring-based system** via offset `box-shadow`, not border-color. This provides a visible focus indicator that does not shift layout.
+
+```css
+/* Focus ring implementation (from --ep-ring) */
+box-shadow:
+  0 0 0 var(--ep-ring-offset) var(--ep-white),        /* white gap */
+  0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color);  /* blue ring */
+
+/* Default values: --ep-ring-offset: 2px, --ep-ring-width: 2px, --ep-ring-color: blue-500 */
+```
+
 | Element | Effect |
 |---------|--------|
-| Text input | `border-gray-200` → `border-blue-400` |
-| Select | `border-gray-200` → `border-blue-400` |
-| Button | No visible ring (outline: none) |
+| Text input | Border changes to `--ep-ring-color` + focus ring box-shadow |
+| Select | Border changes to `--ep-ring-color` + focus ring box-shadow |
+| Textarea | Border changes to `--ep-ring-color` + focus ring box-shadow |
+| Button | Focus ring box-shadow on `:focus-visible` (no change on click) |
+| Destructive button | Focus ring with `--ep-red-500` instead of blue |
 
 ### Active/Selected
 
@@ -1492,54 +1563,103 @@ Thumb:
 
 ## Icons
 
-The editor uses Unicode symbols and inline SVGs (no icon library).
+All icons use [Lucide](https://lucide.dev/) -- an open-source icon set with consistent 24x24 stroke-based SVGs.
 
-### Block Type Icons
+### Delivery Methods
 
-| Block | Symbol |
-|-------|--------|
-| Text | T |
-| Container | ▢ |
-| Columns | ▦ |
-| Table | ⊞ |
-| Conditional | ? |
-| Loop | ↻ |
+There are **two** ways to use Lucide icons, depending on the rendering context:
 
-### UI Icons (SVG)
+#### 1. SVG Sprite (Thymeleaf / server-side templates)
 
-| Icon | Size | Color |
-|------|------|-------|
-| Chevron | w-4 h-4 | text-gray-500 |
-| Close (X) | w-6 h-6 | text-gray-400, hover: text-gray-600 |
-| Drag handle | - | ⋮⋮ (Unicode) |
+A build-time sprite (`modules/design-system/icons.svg`) is generated from selected Lucide icons. Reference icons via `<use href>` in Thymeleaf.
+
+```html
+<!-- Thymeleaf fragment (fragments/icon.html) -->
+<th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon')}" />
+<th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon ep-icon-lg')}" />
+
+<!-- Rendered output -->
+<svg class="ep-icon" aria-hidden="true">
+  <use href="/design-system/icons.svg#icon-file-text" />
+</svg>
+```
+
+#### 2. Inline SVG helper (Lit / TypeScript components)
+
+For Lit web components, use the `icon()` helper from `ui/icons.ts`. Icons are baked into the bundle as inline SVG templates -- no runtime HTTP requests.
+
+```typescript
+import { icon } from '../ui/icons'
+
+// In a Lit template
+html`<button>${icon('undo-2')} Undo</button>`
+html`<button>${icon('plus', 20)} Add</button>`  // custom size (default: 16)
+```
+
+### Icon Size Classes
+
+| Class | Size | Usage |
+|-------|------|-------|
+| `.ep-icon-sm` | 0.875rem (14px) | Compact UI, inline with small text |
+| `.ep-icon` | 1rem (16px) | Default — buttons, labels, list items |
+| `.ep-icon-lg` | 1.25rem (20px) | Section headers, prominent actions |
+| `.ep-icon-xl` | 1.5rem (24px) | Empty states, large feature icons |
+
+### Commonly Used Icons
+
+| Name | Lucide Icon | Usage |
+|------|-------------|-------|
+| `file-text` | FileText | Document/template |
+| `layout-template` | LayoutTemplate | Container block |
+| `columns-2` | Columns2 | Column block |
+| `table` | Table | Table block |
+| `git-branch` | GitBranch | Conditional block |
+| `repeat` | Repeat | Loop block |
+| `type` | Type | Text block |
+| `plus` | Plus | Add actions |
+| `trash-2` | Trash2 | Delete actions |
+| `save` | Save | Save actions |
+| `undo-2` | Undo2 | Undo |
+| `redo-2` | Redo2 | Redo |
+| `search` | Search | Search input |
+| `x` | X | Close / dismiss |
+| `chevron-right` | ChevronRight | Expand / navigate |
+| `grip-vertical` | GripVertical | Drag handle |
+| `box` | Box | Generic block |
 
 ---
 
 ## Transitions
 
-| Property | Duration | Usage |
-|----------|----------|-------|
-| Colors | 150ms | Buttons, hover states |
-| All | 150ms | Blocks, panels |
-| Opacity | 150ms | Drag states |
+Three speed levels are available as CSS custom properties:
+
+| Name | CSS Variable | Duration | Usage |
+|------|-------------|----------|-------|
+| Fast | `--ep-transition-fast` | 100ms ease | Table row hover, quick micro-interactions |
+| Base | `--ep-transition-base` | 150ms ease | Buttons, hover states, color changes |
+| Slow | `--ep-transition-slow` | 200ms ease | Panels, overlays, larger UI shifts |
+
+A composite `--ep-transition-colors` property transitions `color`, `background-color`, `border-color`, and `box-shadow` at the base speed. This is the default for buttons and form controls.
 
 ```css
-transition-colors    /* color, background-color, border-color */
-transition-all       /* all properties */
-transition-opacity   /* opacity only */
+/* Usage examples */
+transition: var(--ep-transition-colors);          /* color properties at 150ms */
+transition: background-color var(--ep-transition-fast);  /* single property, fast */
+transition: all var(--ep-transition-slow);         /* all properties, slow */
 ```
 
 ---
 
 ## Z-Index
 
-| Layer | Z-Index | Usage |
-|-------|---------|-------|
-| Base | 0 | Normal content |
-| Dropdown | 10 | Select menus |
-| Overlay | 50 | Modal backdrop |
-| Modal | 50 | Modal dialog |
-| Tooltip | 100 | Tooltips (if added) |
+| Layer | Z-Index | CSS Variable | Usage |
+|-------|---------|-------------|-------|
+| Base | 0 | — | Normal content flow |
+| Dropdown | 10 | `--ep-z-dropdown` | Select menus, dropdown panels |
+| Sticky | 20 | `--ep-z-sticky` | Sticky headers, toolbars |
+| Overlay | 40 | `--ep-z-overlay` | Modal backdrop, drawer overlay |
+| Modal | 50 | `--ep-z-modal` | Modal dialog, context menu |
+| Tooltip | 60 | `--ep-z-tooltip` | Tooltips, popovers |
 
 ---
 
@@ -1554,8 +1674,9 @@ transition-opacity   /* opacity only */
 
 ### Focus Indicators
 
-- Inputs: Blue border (`border-blue-400`)
-- Interactive elements: Visible state change
+- All interactive elements: Ring-based focus via `box-shadow` (2px blue-500 ring with 2px white offset)
+- Inputs: Border transitions to `--ep-ring-color` + focus ring shadow
+- Buttons: Focus ring on `:focus-visible` only (not on click)
 
 ### Touch Targets
 
@@ -1568,5 +1689,6 @@ transition-opacity   /* opacity only */
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.0.0 | 2026-02 | Comprehensive UI redesign: Inter font, enhanced tokens, CSS component classes, Lucide icons, ring-based focus, shadcn/ui-inspired design |
 | 1.1.0 | 2025-12 | Added app-wide components: Navigation, Menus, Data Tables, Cards, Lists, Feedback, Utility components |
 | 1.0.0 | 2025-12 | Initial visual styleguide for template editor |

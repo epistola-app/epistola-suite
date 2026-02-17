@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}">Themes</a> &raquo; <span>New Theme</span>
+        </nav>
+
+        <h1>New Theme</h1>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" method="post">
+                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                        <label class="ep-label" for="slug">Theme ID (Slug)</label>
+                        <input type="text" id="slug" name="slug" class="ep-input"
+                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                               minlength="3" maxlength="20"
+                               placeholder="corporate"
+                               th:value="${formData?.slug}">
+                        <span class="form-hint">3-20 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                    </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
+                        <label class="ep-label" for="name">Name</label>
+                        <input type="text" id="name" name="name" class="ep-input"
+                               required placeholder="Corporate Theme"
+                               th:value="${formData?.name}">
+                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
+                    </div>
+                    <div class="form-group">
+                        <label class="ep-label" for="description">Description (optional)</label>
+                        <textarea id="description" name="description" class="ep-textarea" rows="2"
+                                  placeholder="Theme description"
+                                  th:text="${formData?.description}"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Theme</button>
+                        <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

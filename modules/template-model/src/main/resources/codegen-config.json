@@ -1,0 +1,10 @@
+{
+  "title": "Epistola Template Model Code Generation",
+  "version": "1.0",
+  "description": "Generates Kotlin data classes from JSON Schema definitions",
+  "targetLanguage": "kotlin",
+  "packageName": "app.epistola.template.model",
+  "generatorComment": "Generated from JSON Schema — do not edit manually",
+  "nestedClassNameOption": "refSchema",
+  "companionObject": false
+}

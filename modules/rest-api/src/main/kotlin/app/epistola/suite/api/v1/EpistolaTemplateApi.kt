@@ -3,11 +3,10 @@ package app.epistola.suite.api.v1
 import app.epistola.api.TemplatesApi
 import app.epistola.api.VariantsApi
 import app.epistola.api.VersionsApi
-import app.epistola.api.model.ActivationDto
 import app.epistola.api.model.ActivationListResponse
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
-import app.epistola.api.model.SetActivationRequest
+import app.epistola.api.model.PublishVersionRequest
 import app.epistola.api.model.TemplateDataValidationError
 import app.epistola.api.model.TemplateDataValidationResult
 import app.epistola.api.model.TemplateDto
@@ -34,12 +33,12 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.activations.RemoveActivation
-import app.epistola.suite.templates.commands.activations.SetActivation
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.DeleteVariant
+import app.epistola.suite.templates.commands.variants.SetDefaultVariant
 import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.commands.versions.ArchiveVersion
-import app.epistola.suite.templates.commands.versions.PublishVersion
+import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.commands.versions.UpdateVersion
 import app.epistola.suite.templates.model.DataExample
@@ -95,7 +94,7 @@ class EpistolaTemplateApi(
             name = createTemplateRequest.name,
             schema = schemaJson,
         ).execute()
-        val variantSummaries = GetVariantSummaries(templateId = template.id).query()
+        val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = template.id).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -105,7 +104,7 @@ class EpistolaTemplateApi(
     ): ResponseEntity<TemplateDto> {
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = TemplateId.of(templateId)).query()
             ?: return ResponseEntity.notFound().build()
-        val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
+        val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -126,7 +125,7 @@ class EpistolaTemplateApi(
             dataExamples = dataExamples,
             forceUpdate = updateTemplateRequest.forceUpdate ?: false,
         ).execute() ?: return ResponseEntity.notFound().build()
-        val variantSummaries = GetVariantSummaries(templateId = TemplateId.of(templateId)).query()
+        val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = TemplateId.of(templateId)).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
     }
 
@@ -196,7 +195,7 @@ class EpistolaTemplateApi(
             templateId = TemplateId.of(templateId),
             title = createVariantRequest.title,
             description = createVariantRequest.description,
-            tags = createVariantRequest.tags ?: emptyMap(),
+            attributes = createVariantRequest.attributes ?: emptyMap(),
         ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.status(HttpStatus.CREATED).body(variant.toDto(summary))
@@ -223,14 +222,15 @@ class EpistolaTemplateApi(
         variantId: String,
         updateVariantRequest: UpdateVariantRequest,
     ): ResponseEntity<VariantDto> {
-        val tags = updateVariantRequest.tags
+        val attributes = updateVariantRequest.attributes
             ?: return ResponseEntity.badRequest().build()
         val typedTenantId = TenantId.of(tenantId)
         val variant = UpdateVariant(
             tenantId = typedTenantId,
             templateId = TemplateId.of(templateId),
             variantId = VariantId.of(variantId),
-            tags = tags,
+            title = updateVariantRequest.title,
+            attributes = attributes,
         ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.ok(variant.toDto(summary))
@@ -251,6 +251,21 @@ class EpistolaTemplateApi(
         } else {
             ResponseEntity.notFound().build()
         }
+    }
+
+    override fun setDefaultVariant(
+        tenantId: String,
+        templateId: String,
+        variantId: String,
+    ): ResponseEntity<VariantDto> {
+        val typedTenantId = TenantId.of(tenantId)
+        val variant = SetDefaultVariant(
+            tenantId = typedTenantId,
+            templateId = TemplateId.of(templateId),
+            variantId = VariantId.of(variantId),
+        ).execute() ?: return ResponseEntity.notFound().build()
+        val summary = getVariantSummary(variant, typedTenantId)
+        return ResponseEntity.ok(variant.toDto(summary))
     }
 
     // ================== Draft operations ==================
@@ -275,7 +290,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateModel::class.java)
+            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
         val draft = UpdateDraft(
             tenantId = TenantId.of(tenantId),
@@ -299,34 +314,6 @@ class EpistolaTemplateApi(
             variantId = VariantId.of(variantId),
         ).query()
         return ResponseEntity.ok(ActivationListResponse(items = activations.map { it.toDto() }))
-    }
-
-    override fun setVariantActivation(
-        tenantId: String,
-        templateId: String,
-        variantId: String,
-        environmentId: String,
-        setActivationRequest: SetActivationRequest,
-    ): ResponseEntity<ActivationDto> {
-        val activation = SetActivation(
-            tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
-            variantId = VariantId.of(variantId),
-            environmentId = EnvironmentId.of(environmentId),
-            versionId = VersionId.of(setActivationRequest.versionId),
-        ).execute() ?: return ResponseEntity.notFound().build()
-
-        // Fetch full activation details for response
-        val activations = ListActivations(
-            tenantId = TenantId.of(tenantId),
-            templateId = TemplateId.of(templateId),
-            variantId = VariantId.of(variantId),
-        ).query()
-        val typedEnvId = EnvironmentId.of(environmentId)
-        val activationDetails = activations.find { it.environmentId == typedEnvId }
-            ?: return ResponseEntity.notFound().build()
-
-        return ResponseEntity.ok(activationDetails.toDto())
     }
 
     override fun removeVariantActivation(
@@ -411,7 +398,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateModel::class.java)
+            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
         val version = UpdateVersion(
             tenantId = TenantId.of(tenantId),
@@ -428,14 +415,16 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
         versionId: Int,
+        publishVersionRequest: PublishVersionRequest,
     ): ResponseEntity<VersionDto> {
-        val published = PublishVersion(
+        val result = PublishToEnvironment(
             tenantId = TenantId.of(tenantId),
             templateId = TemplateId.of(templateId),
             variantId = VariantId.of(variantId),
             versionId = VersionId.of(versionId),
+            environmentId = EnvironmentId.of(publishVersionRequest.environmentId),
         ).execute() ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(published.toDto(objectMapper))
+        return ResponseEntity.ok(result.version.toDto(objectMapper))
     }
 
     override fun archiveVersion(

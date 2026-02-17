@@ -128,14 +128,14 @@ class TestFixture {
             tenant: Tenant,
             template: DocumentTemplate,
             title: String? = null,
-            tags: Map<String, String> = emptyMap(),
+            attributes: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
             id = TestIdHelpers.nextVariantId(),
             tenantId = tenant.id,
             templateId = template.id,
             title = title,
             description = null,
-            tags = tags,
+            attributes = attributes,
         ).execute()!!
 
         fun noTenants() {

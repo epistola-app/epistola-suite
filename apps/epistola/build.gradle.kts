@@ -27,7 +27,6 @@ dependencies {
     implementation(project(":modules:rest-api"))
 
     // UI/Frontend modules
-    implementation(project(":modules:vendor"))
     implementation(project(":modules:editor"))
     implementation(project(":modules:schema-manager"))
 
@@ -85,6 +84,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-grafana")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    testImplementation(libs.playwright)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -123,8 +123,15 @@ val copySbomToResources by tasks.registering(Copy::class) {
     into(layout.buildDirectory.dir("resources/main/META-INF/sbom"))
 }
 
+// Copy design-system assets to static resources so Spring Boot serves them at /design-system/*
+val copyDesignSystem by tasks.registering(Copy::class) {
+    from(rootProject.file("modules/design-system"))
+    include("*.css", "icons.svg")
+    into(layout.buildDirectory.dir("resources/main/static/design-system"))
+}
+
 tasks.processResources {
-    dependsOn(copySbomToResources)
+    dependsOn(copySbomToResources, copyDesignSystem)
 }
 
 // Convenience task for generating SBOM standalone

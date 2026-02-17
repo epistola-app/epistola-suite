@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}">Attributes</a> &raquo; <span>New Attribute</span>
+        </nav>
+
+        <h1>New Attribute</h1>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" method="post">
+                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+                        <label class="ep-label" for="slug">Attribute ID (Slug)</label>
+                        <input type="text" id="slug" name="slug" class="ep-input"
+                               required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+                               minlength="3" maxlength="50"
+                               placeholder="language"
+                               th:value="${formData?.slug}">
+                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
+                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+                    </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('displayName')} ? 'error' : ''">
+                        <label class="ep-label" for="displayName">Display Name</label>
+                        <input type="text" id="displayName" name="displayName" class="ep-input"
+                               required placeholder="Language"
+                               th:value="${formData?.displayName}">
+                        <span class="form-error" th:if="${errors?.containsKey('displayName')}" th:text="${errors.displayName}"></span>
+                    </div>
+                    <div class="form-group" th:classappend="${errors?.containsKey('allowedValues')} ? 'error' : ''">
+                        <label class="ep-label" for="allowedValues">Allowed Values (one per line, leave empty for any value)</label>
+                        <textarea id="allowedValues" name="allowedValues" class="ep-textarea" rows="4"
+                                  placeholder="dutch&#10;english&#10;german"
+                                  th:text="${formData?.allowedValues}"></textarea>
+                        <span class="form-hint">Define the valid values for this attribute. Leave empty to allow any value.</span>
+                        <span class="form-error" th:if="${errors?.containsKey('allowedValues')}" th:text="${errors.allowedValues}"></span>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Create Attribute</button>
+                        <a th:href="@{/tenants/{tenantId}/attributes(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

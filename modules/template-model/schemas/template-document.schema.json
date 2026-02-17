@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/template-document.schema.json",
+  "title": "TemplateDocument",
+  "description": "Root schema for an Epistola template document using the node/slot graph model.",
+  "type": "object",
+
+  "properties": {
+    "modelVersion": {
+      "const": 1,
+      "description": "Schema version for forward-compatibility detection."
+    },
+    "root": {
+      "$ref": "template-shared.schema.json#/$defs/NodeId",
+      "description": "ID of the root node in the document tree."
+    },
+    "nodes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/Node" },
+      "description": "Flat map of all nodes keyed by NodeId."
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/Slot" },
+      "description": "Flat map of all slots keyed by SlotId."
+    },
+    "themeRef": {
+      "$ref": "template-shared.schema.json#/$defs/ThemeRef"
+    },
+    "pageSettingsOverride": {
+      "$ref": "template-shared.schema.json#/$defs/PageSettings"
+    },
+    "documentStylesOverride": {
+      "$ref": "template-shared.schema.json#/$defs/DocumentStyles"
+    }
+  },
+  "required": ["modelVersion", "root", "nodes", "slots", "themeRef"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "Node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "template-shared.schema.json#/$defs/NodeId"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Node type identifier (e.g. 'text', 'container', 'columns')."
+        },
+        "slots": {
+          "type": "array",
+          "items": { "$ref": "template-shared.schema.json#/$defs/SlotId" },
+          "description": "Ordered slot IDs owned by this node."
+        },
+        "styles": {
+          "type": "object",
+          "description": "Inline style overrides (CSS-like key/value pairs)."
+        },
+        "stylePreset": {
+          "type": "string",
+          "description": "Reference to a named preset in the theme's block style presets."
+        },
+        "props": {
+          "type": "object",
+          "description": "Type-specific properties (content, expression, columns config, etc.)."
+        }
+      },
+      "required": ["id", "type", "slots"],
+      "additionalProperties": false
+    },
+
+    "Slot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "template-shared.schema.json#/$defs/SlotId"
+        },
+        "nodeId": {
+          "$ref": "template-shared.schema.json#/$defs/NodeId",
+          "description": "Parent node that owns this slot."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Semantic slot name (e.g. 'children', 'column-0', 'cell-0-1', 'body')."
+        },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "template-shared.schema.json#/$defs/NodeId" },
+          "description": "Ordered child node IDs in this slot."
+        }
+      },
+      "required": ["id", "nodeId", "name", "children"],
+      "additionalProperties": false
+    }
+  }
+}

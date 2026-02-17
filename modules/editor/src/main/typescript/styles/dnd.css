@@ -1,0 +1,90 @@
+/*
+ * Drag-and-Drop Visual Feedback
+ *
+ * Drop indicators, slot highlights, drag source dimming.
+ * Tokens auto-update from the enhanced design system.
+ */
+
+@layer states {
+  /* Drop indicator line on block edges */
+  .canvas-block[data-drop-edge='top']::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ep-blue-500);
+    border-radius: 1px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .canvas-block[data-drop-edge='bottom']::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ep-blue-500);
+    border-radius: 1px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Slot highlight when dragging over (empty or non-empty) */
+  .canvas-slot.drag-over {
+    border: 1px dashed var(--ep-blue-400);
+    border-radius: var(--ep-radius-sm);
+    background: color-mix(in srgb, var(--ep-blue-100) 50%, transparent);
+  }
+
+  /* Dimmed drag source */
+  .canvas-block.dragging,
+  .palette-item.dragging,
+  .tree-node-label.dragging {
+    opacity: 0.4;
+  }
+
+  /* Tree drop indicator: reorder-above line */
+  .tree-node-label[data-drop-indicator='reorder-above']::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ep-blue-500);
+    border-radius: 1px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Tree drop indicator: reorder-below line */
+  .tree-node-label[data-drop-indicator='reorder-below']::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ep-blue-500);
+    border-radius: 1px;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Tree drop indicator: make-child highlight */
+  .tree-node-label[data-drop-indicator='make-child'] {
+    background: color-mix(in srgb, var(--ep-blue-100) 60%, transparent);
+    outline: 1.5px solid var(--ep-blue-400);
+    outline-offset: -1.5px;
+  }
+
+  /* Cursor feedback for invalid drops */
+  .canvas-slot.drop-forbidden,
+  .canvas-block.drop-forbidden {
+    cursor: not-allowed;
+  }
+}

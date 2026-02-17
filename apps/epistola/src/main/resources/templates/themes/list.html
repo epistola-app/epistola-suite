@@ -1,121 +1,78 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Themes - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
-        <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo;
-            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
-            <span>Themes</span>
-        </nav>
-
-        <h1>Themes</h1>
-
-        <div id="create-form" th:fragment="create-form">
-            <section class="form-section">
-                <h2>Create New Theme</h2>
-                <form th:action="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" method="post"
-                      th:hx-post="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}"
-                      hx-target="#theme-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label for="slug">Theme ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" required
-                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="20"
-                               placeholder="corporate"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-20 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required placeholder="Theme name"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Description (optional)</label>
-                        <textarea id="description" name="description" rows="2" placeholder="Theme description"
-                                  th:text="${formData?.description}"></textarea>
-                    </div>
-                    <button type="submit">Create Theme</button>
-                </form>
-            </section>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Themes</h1>
+            <div class="page-actions">
+                <div th:replace="~{fragments/search :: search-box(
+                    placeholder='Search themes...',
+                    searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
+                    targetId='theme-rows'
+                )}"></div>
+                <a th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Theme
+                </a>
+            </div>
         </div>
 
-        <section>
-            <h2>Existing Themes</h2>
-            <div th:replace="~{fragments/search :: search-box(
-                placeholder='Search themes...',
-                searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
-                targetId='theme-rows'
-            )}"></div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Description</th>
-                        <th>Last Modified</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="theme-rows">
-                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
-                    <th:block th:fragment="rows">
-                        <tr th:each="theme : ${themes}">
-                            <td>
-                                <span th:text="${theme.name}"></span>
-                                <span th:if="${tenant?.defaultThemeId == theme.id}" class="badge badge-primary">Default</span>
-                            </td>
-                            <td>
-                                <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
-                                <span th:unless="${theme.description != null}" class="text-muted">-</span>
-                            </td>
-                            <td th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td class="actions">
-                                <a th:href="@{/tenants/{tenantId}/themes/{themeId}(tenantId=${tenantId},themeId=${theme.id})}"
-                                   class="btn btn-small">Edit</a>
-                                <!--/* Show "Set as Default" only if not already default */-->
-                                <form th:unless="${tenant?.defaultThemeId == theme.id}"
-                                      th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
-                                      hx-target="#theme-rows"
-                                      hx-swap="innerHTML"
-                                      style="display: inline;">
-                                    <input type="hidden" name="themeId" th:value="${theme.id}">
-                                    <button type="submit" class="btn btn-small btn-secondary">Set as Default</button>
-                                </form>
-                                <!--/* Disable delete button for default theme or when only one theme exists */-->
-                                <form th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) > 1}"
-                                      th:hx-post="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
-                                      hx-target="#theme-rows"
-                                      hx-swap="innerHTML"
-                                      hx-confirm="Delete this theme? Templates using it will fall back to their own styles."
-                                      style="display: inline;">
-                                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
-                                </form>
-                                <span th:if="${tenant?.defaultThemeId == theme.id}" class="text-muted text-small"
-                                      title="Cannot delete the default theme">Cannot delete</span>
-                                <span th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) <= 1}" class="text-muted text-small"
-                                      title="At least one theme must exist">Cannot delete last theme</span>
-                            </td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(themes)}">
-                            <td colspan="4" class="empty-message">No themes yet. Create one above.</td>
-                        </tr>
-                    </th:block>
-                </tbody>
-            </table>
-        </section>
-    </main>
+        <div th:if="${#lists.isEmpty(themes)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='palette', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No themes yet</div>
+            <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
+            <a th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                New Theme
+            </a>
+        </div>
 
-    <th:block th:replace="~{fragments/footer :: footer}" />
+        <table th:if="${!#lists.isEmpty(themes)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Last Modified</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="theme-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="theme : ${themes}">
+                        <td>
+                            <a th:href="@{/tenants/{tenantId}/themes/{themeId}(tenantId=${tenantId},themeId=${theme.id})}"
+                               th:text="${theme.name}" style="font-weight: 500;"></a>
+                            <span th:if="${tenant?.defaultThemeId == theme.id}" class="badge badge-primary" style="margin-left: var(--ep-space-2);">Default</span>
+                        </td>
+                        <td>
+                            <span th:if="${theme.description != null}" th:text="${theme.description}" class="text-truncate"></span>
+                            <span th:unless="${theme.description != null}" class="text-muted">-</span>
+                        </td>
+                        <td th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="actions">
+                            <a th:href="@{/tenants/{tenantId}/themes/{themeId}(tenantId=${tenantId},themeId=${theme.id})}"
+                               class="btn btn-sm btn-ghost">Edit</a>
+                            <form th:unless="${tenant?.defaultThemeId == theme.id}"
+                                  th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
+                                  hx-target="#theme-rows"
+                                  hx-swap="innerHTML">
+                                <input type="hidden" name="themeId" th:value="${theme.id}">
+                                <button type="submit" class="btn btn-sm btn-ghost">Set as Default</button>
+                            </form>
+                            <form th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) > 1}"
+                                  th:hx-post="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
+                                  hx-target="#theme-rows"
+                                  hx-swap="innerHTML"
+                                  hx-confirm="Delete this theme? Templates using it will fall back to their own styles.">
+                                <button type="submit" class="btn btn-sm btn-destructive">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
+    </th:block>
 </body>
 </html>

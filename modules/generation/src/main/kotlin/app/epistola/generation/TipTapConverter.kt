@@ -29,7 +29,7 @@ import com.itextpdf.layout.properties.ListNumberingType
  */
 class TipTapConverter(
     private val expressionEvaluator: CompositeExpressionEvaluator,
-    private val defaultLanguage: ExpressionLanguage = ExpressionLanguage.Jsonata,
+    private val defaultLanguage: ExpressionLanguage = ExpressionLanguage.jsonata,
 ) {
     /**
      * Converts TipTap JSON content to a list of iText block elements.
@@ -228,7 +228,7 @@ class TipTapConverter(
                     // Get language from attrs, default to the converter's default
                     val languageStr = attrs?.get("language") as? String
                     val language = when (languageStr) {
-                        "javascript" -> ExpressionLanguage.JavaScript
+                        "javascript" -> ExpressionLanguage.javascript
                         else -> defaultLanguage
                     }
                     val value = expressionEvaluator.evaluate(

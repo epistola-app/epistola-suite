@@ -20,7 +20,7 @@ class CompositeExpressionEvaluatorTest {
         // JSONata-style sum aggregation
         val expression = Expression(
             raw = "\$sum(items.price)",
-            language = ExpressionLanguage.Jsonata,
+            language = ExpressionLanguage.jsonata,
         )
         assertEquals(30, evaluator.evaluate(expression, data))
     }
@@ -37,7 +37,7 @@ class CompositeExpressionEvaluatorTest {
         // JavaScript-style reduce
         val expression = Expression(
             raw = "items.reduce((sum, x) => sum + x.price, 0)",
-            language = ExpressionLanguage.JavaScript,
+            language = ExpressionLanguage.javascript,
         )
         assertEquals(30L, evaluator.evaluate(expression, data))
     }
@@ -46,8 +46,7 @@ class CompositeExpressionEvaluatorTest {
     fun `defaults to JSONata`() {
         val data = mapOf("name" to "John")
 
-        // Expression with default language
-        val expression = Expression(raw = "name")
+        val expression = Expression(raw = "name", language = ExpressionLanguage.jsonata)
         assertEquals("John", evaluator.evaluate(expression, data))
     }
 
@@ -57,7 +56,7 @@ class CompositeExpressionEvaluatorTest {
 
         val expression = Expression(
             raw = "active",
-            language = ExpressionLanguage.Jsonata,
+            language = ExpressionLanguage.jsonata,
         )
         assertEquals(true, evaluator.evaluateCondition(expression, data))
     }
@@ -68,7 +67,7 @@ class CompositeExpressionEvaluatorTest {
 
         val expression = Expression(
             raw = "items.length > 0",
-            language = ExpressionLanguage.JavaScript,
+            language = ExpressionLanguage.javascript,
         )
         assertEquals(true, evaluator.evaluateCondition(expression, data))
     }
@@ -85,7 +84,7 @@ class CompositeExpressionEvaluatorTest {
         // JSONata filter syntax
         val expression = Expression(
             raw = "items[active]",
-            language = ExpressionLanguage.Jsonata,
+            language = ExpressionLanguage.jsonata,
         )
         val result = evaluator.evaluateIterable(expression, data)
         assertEquals(1, result.size)
@@ -103,7 +102,7 @@ class CompositeExpressionEvaluatorTest {
         // JavaScript filter syntax
         val expression = Expression(
             raw = "items.filter(x => x.active)",
-            language = ExpressionLanguage.JavaScript,
+            language = ExpressionLanguage.javascript,
         )
         val result = evaluator.evaluateIterable(expression, data)
         assertEquals(1, result.size)
@@ -115,7 +114,7 @@ class CompositeExpressionEvaluatorTest {
 
         val result = evaluator.processTemplate(
             "Hello {{name}}, you are {{age}} years old!",
-            ExpressionLanguage.Jsonata,
+            ExpressionLanguage.jsonata,
             data,
         )
         assertEquals("Hello John, you are 30 years old!", result)
@@ -127,7 +126,7 @@ class CompositeExpressionEvaluatorTest {
 
         val result = evaluator.processTemplate(
             "Hello {{name}}, you are {{age}} years old!",
-            ExpressionLanguage.JavaScript,
+            ExpressionLanguage.javascript,
             data,
         )
         assertEquals("Hello John, you are 30 years old!", result)
@@ -140,7 +139,7 @@ class CompositeExpressionEvaluatorTest {
 
         val expression = Expression(
             raw = "prefix & \": \" & item.name",
-            language = ExpressionLanguage.Jsonata,
+            language = ExpressionLanguage.jsonata,
         )
         assertEquals("Item: Widget", evaluator.evaluate(expression, data, loopContext))
     }
@@ -150,7 +149,7 @@ class CompositeExpressionEvaluatorTest {
         val data = mapOf("x" to 5, "y" to 3)
 
         // Test with explicit language parameter
-        assertEquals(8L, evaluator.evaluate("x + y", ExpressionLanguage.JavaScript, data))
+        assertEquals(8L, evaluator.evaluate("x + y", ExpressionLanguage.javascript, data))
     }
 
     @Test
@@ -165,7 +164,7 @@ class CompositeExpressionEvaluatorTest {
         // SimplePath only supports path traversal
         val expression = Expression(
             raw = "customer.address.city",
-            language = ExpressionLanguage.SimplePath,
+            language = ExpressionLanguage.simple_path,
         )
         assertEquals("Amsterdam", evaluator.evaluate(expression, data))
     }
@@ -175,8 +174,8 @@ class CompositeExpressionEvaluatorTest {
         val data = mapOf("name" to "John")
 
         // All three should return the same result for simple paths
-        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.Jsonata, data))
-        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.JavaScript, data))
-        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.SimplePath, data))
+        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.jsonata, data))
+        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.javascript, data))
+        assertEquals("John", evaluator.evaluate("name", ExpressionLanguage.simple_path, data))
     }
 }

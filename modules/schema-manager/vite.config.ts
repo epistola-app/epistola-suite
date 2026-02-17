@@ -3,37 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path, {resolve} from 'path'
 
-// Shared dependencies loaded via import map - excluded from bundle
-const EXTERNALS = [
-  'react',
-  'react-dom',
-  'react-dom/client',
-  'react/jsx-runtime',
-  'zustand',
-  'zustand/middleware/immer',
-  'immer',
-  '@floating-ui/dom',
-  'uuid',
-  '@radix-ui/react-slot',
-  '@radix-ui/react-accordion',
-  '@radix-ui/react-dialog',
-  '@radix-ui/react-label',
-  '@radix-ui/react-popover',
-  '@radix-ui/react-select',
-  '@radix-ui/react-separator',
-  '@radix-ui/react-tabs',
-  '@radix-ui/react-tooltip',
-  'class-variance-authority',
-  'clsx',
-  'lucide-react',
-  'tailwind-merge',
-  '@radix-ui/react-direction',
-  'motion',
-  'radix-ui',
-  'zod',
-  // Note: CodeMirror packages are intentionally NOT externalized.
-  // They are bundled directly to avoid multiple @codemirror/state instances.
-]
+// All dependencies are bundled — no import map needed
+const EXTERNALS: string[] = []
 
 // https://vite.dev/config/
 export default defineConfig({

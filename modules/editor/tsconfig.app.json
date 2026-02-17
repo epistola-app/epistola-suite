@@ -2,7 +2,7 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2022",
-    "useDefineForClassFields": true,
+    "useDefineForClassFields": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "types": ["vite/client"],
@@ -14,7 +14,9 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "react-jsx",
+
+    /* Lit decorators */
+    "experimentalDecorators": true,
 
     /* Linting */
     "strict": true,
@@ -24,11 +26,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    /* Shadcn Path */
+    /* Path aliases */
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/main/typescript/*"]
     }
   },
-  "include": ["src/main/typescript"]
+  "include": ["src/main/typescript"],
+  "exclude": ["src/main/typescript/**/*.test.ts", "src/main/typescript/**/test-helpers.ts"]
 }

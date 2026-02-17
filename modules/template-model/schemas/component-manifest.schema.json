@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/component-manifest.schema.json",
+  "title": "ComponentManifest",
+  "description": "Manifest defining a component type that can be used in the editor. Used by the component registry to validate operations, generate palette entries, and configure inspectors.",
+  "type": "object",
+
+  "properties": {
+    "type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique type identifier matching Node.type (e.g. 'text', 'columns', 'table')."
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable display name for the palette and tree."
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon identifier (e.g. Lucide icon name)."
+    },
+    "category": {
+      "type": "string",
+      "enum": ["content", "layout", "logic", "page"],
+      "description": "Category for palette grouping."
+    },
+    "slots": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SlotTemplate" },
+      "description": "Slot templates created when this node type is instantiated."
+    },
+    "allowedChildren": {
+      "$ref": "#/$defs/AllowedChildren",
+      "description": "Constraints on which node types can be placed in this node's slots."
+    },
+    "stylePolicy": {
+      "$ref": "#/$defs/StylePolicy",
+      "description": "Which style properties are allowed on this node type."
+    },
+    "inspector": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/InspectorField" },
+      "description": "Inspector panel field configuration for editing node props."
+    },
+    "defaultProps": {
+      "type": "object",
+      "description": "Default props applied when creating a new node of this type."
+    }
+  },
+  "required": ["type", "label", "category", "slots"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "SlotTemplate": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Slot name (e.g. 'children', 'body', 'column-{i}')."
+        },
+        "dynamic": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, the slot name is a pattern and slots are created dynamically (e.g. columns, table cells)."
+        }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    },
+
+    "AllowedChildren": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "all" }
+          },
+          "required": ["mode"],
+          "additionalProperties": false,
+          "description": "All node types are allowed as children."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "allowlist" },
+            "types": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["mode", "types"],
+          "additionalProperties": false,
+          "description": "Only the listed node types are allowed."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "denylist" },
+            "types": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["mode", "types"],
+          "additionalProperties": false,
+          "description": "All node types are allowed except those listed."
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "none" }
+          },
+          "required": ["mode"],
+          "additionalProperties": false,
+          "description": "This node type cannot have children (leaf node)."
+        }
+      ]
+    },
+
+    "StylePolicy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "all" }
+          },
+          "required": ["mode"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "allowlist" },
+            "properties": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["mode", "properties"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "none" }
+          },
+          "required": ["mode"],
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "InspectorField": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Property key in node.props (dot notation for nested paths)."
+        },
+        "label": {
+          "type": "string",
+          "description": "Display label for the inspector field."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text", "number", "boolean", "select", "expression", "json", "color"],
+          "description": "Input type for the inspector field."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "value": {}
+            },
+            "required": ["label", "value"]
+          },
+          "description": "Options for 'select' type fields."
+        },
+        "defaultValue": {
+          "description": "Default value for this field when creating new nodes."
+        }
+      },
+      "required": ["key", "label", "type"],
+      "additionalProperties": false
+    }
+  }
+}

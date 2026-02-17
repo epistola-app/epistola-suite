@@ -46,9 +46,8 @@ epistola-suite-modules/
 │   ├── generation/        # Pure PDF rendering
 │   ├── template-model/    # Template data structures
 │   ├── rest-api/          # OpenAPI specs
-│   ├── editor/            # Vite + TypeScript editor
-│   ├── schema-manager/    # Schema tools
-│   └── vendor/            # Frontend dependencies
+│   ├── editor/            # Lit + ProseMirror template editor (web components)
+│   └── schema-manager/    # Schema tools (React, bundled)
 ├── docs/                  # Documentation
 ├── scripts/               # Setup scripts
 └── build.gradle.kts       # Root build configuration
@@ -61,7 +60,8 @@ epistola-suite-modules/
 - **modules/generation**: Pure PDF rendering (no business logic)
 - **modules/template-model**: Data structures for templates
 - **modules/rest-api**: OpenAPI specifications
-- **modules/editor**: Rich text editor frontend component
+- **modules/editor**: Lit + ProseMirror template editor (web components, no React)
+- **modules/schema-manager**: JSON schema editing UI (React, self-contained bundle)
 
 ## Frontend Architecture
 

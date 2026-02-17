@@ -1,0 +1,41 @@
+/*
+ * Editor Layout — shell grid and panel sizing
+ *
+ * Uses a 1px background-color trick on editor-main to create
+ * consistent "borders" between panels without extra elements.
+ */
+
+@layer layout {
+  .epistola-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: var(--ep-white);
+    color: var(--ep-foreground);
+    font-family: var(--ep-font-sans);
+  }
+
+  .editor-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--ep-muted-foreground);
+  }
+
+  .editor-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    /* 1px gap trick: gray background shows through as panel dividers */
+    gap: 1px;
+    background: var(--ep-gray-200);
+  }
+
+  epistola-canvas {
+    flex: 1;
+    overflow: auto;
+    background: var(--ep-gray-100);
+  }
+}

@@ -62,7 +62,8 @@ internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries
 internal fun VariantSummary.toDto() = VariantSummaryDto(
     id = id.value,
     title = title,
-    tags = tags,
+    attributes = attributes,
+    isDefault = isDefault,
     hasDraft = hasDraft,
     publishedVersions = publishedVersions,
 )
@@ -72,7 +73,8 @@ internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
     templateId = templateId.value,
     title = title,
     description = description,
-    tags = tags,
+    attributes = attributes,
+    isDefault = isDefault,
     hasDraft = info.hasDraft,
     publishedVersions = info.publishedVersions,
     createdAt = createdAt,

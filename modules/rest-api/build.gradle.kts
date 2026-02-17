@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.spring)
     alias(libs.plugins.spring.dependency.management)
+    alias(libs.plugins.kover)
 }
 
 // Module containing REST API interfaces and models.

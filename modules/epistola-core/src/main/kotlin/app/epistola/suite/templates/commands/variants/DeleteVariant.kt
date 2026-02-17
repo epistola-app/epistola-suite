@@ -20,34 +20,33 @@ class DeleteVariantHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<DeleteVariant, Boolean> {
     override fun handle(command: DeleteVariant): Boolean = jdbi.inTransaction<Boolean, Exception> { handle ->
-        // Verify the variant belongs to a template owned by the tenant before deleting
-        val variantExists = handle.createQuery(
+        // Check if this variant is the default — block deletion if so
+        val isDefault = handle.createQuery(
             """
-                SELECT COUNT(*) > 0
-                FROM template_variants tv
-                JOIN document_templates dt ON tv.template_id = dt.id
-                WHERE tv.id = :variantId
-                  AND tv.template_id = :templateId
-                  AND dt.tenant_id = :tenantId
+                SELECT is_default FROM template_variants
+                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
             .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
             .mapTo<Boolean>()
-            .one()
+            .findOne()
+            .orElse(null) ?: return@inTransaction false
 
-        if (!variantExists) {
-            return@inTransaction false
+        if (isDefault) {
+            throw DefaultVariantDeletionException(command.variantId)
         }
 
         val rowsAffected = handle.createUpdate(
             """
                 DELETE FROM template_variants
-                WHERE id = :variantId
+                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                 """,
         )
+            .bind("tenantId", command.tenantId)
             .bind("variantId", command.variantId)
+            .bind("templateId", command.templateId)
             .execute()
 
         rowsAffected > 0

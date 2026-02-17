@@ -1,0 +1,26 @@
+/*
+ * Epistola Editor V2 — CSS Entry Point
+ *
+ * Declares layer order, then imports design system tokens/base/components
+ * followed by editor-specific styles. Vite bundles all imports into a
+ * single CSS file during build.
+ */
+
+@layer base, layout, components, states;
+
+/* Design system (shared with main app) */
+@import '@design/tokens.css';
+@import '@design/base.css';
+@import '@design/components.css';
+
+/* Editor-specific styles */
+@import './styles/editor-layout.css';
+@import './styles/toolbar.css';
+@import './styles/sidebar.css';
+@import './styles/tree.css';
+@import './styles/canvas.css';
+@import './styles/preview.css';
+@import './styles/palette.css';
+@import './styles/inspector.css';
+@import './styles/dnd.css';
+@import './styles/prosemirror.css';

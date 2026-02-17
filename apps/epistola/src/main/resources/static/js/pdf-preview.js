@@ -12,8 +12,7 @@ async function previewPdf(button) {
     const url = `/tenants/${tenantId}/templates/${templateId}/variants/${variantId}/preview`;
 
     // Show loading state
-    const originalText = button.textContent;
-    button.textContent = 'Loading...';
+    const originalContent = button.innerHTML;
     button.disabled = true;
 
     try {
@@ -41,11 +40,13 @@ async function previewPdf(button) {
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank');
+        // Revoke blob URL after the new tab has had time to load
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (error) {
         console.error('PDF preview failed:', error);
         alert('Failed to generate PDF preview: ' + error.message);
     } finally {
-        button.textContent = originalText;
+        button.innerHTML = originalContent;
         button.disabled = false;
     }
 }

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/template-shared.schema.json",
+  "title": "Template Shared Definitions",
+  "description": "Shared type definitions used across template-related schemas.",
+
+  "$defs": {
+    "NodeId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for a node within a document."
+    },
+
+    "SlotId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for a slot within a document."
+    },
+
+    "PageFormat": {
+      "type": "string",
+      "enum": ["A4", "Letter", "Custom"]
+    },
+
+    "Orientation": {
+      "type": "string",
+      "enum": ["portrait", "landscape"]
+    },
+
+    "Margins": {
+      "type": "object",
+      "description": "Page margins in millimeters.",
+      "properties": {
+        "top": { "type": "integer", "minimum": 0, "description": "Top margin in mm." },
+        "right": { "type": "integer", "minimum": 0, "description": "Right margin in mm." },
+        "bottom": { "type": "integer", "minimum": 0, "description": "Bottom margin in mm." },
+        "left": { "type": "integer", "minimum": 0, "description": "Left margin in mm." }
+      },
+      "required": ["top", "right", "bottom", "left"],
+      "additionalProperties": false
+    },
+
+    "PageSettings": {
+      "type": "object",
+      "properties": {
+        "format": { "$ref": "#/$defs/PageFormat" },
+        "orientation": { "$ref": "#/$defs/Orientation" },
+        "margins": { "$ref": "#/$defs/Margins" },
+        "backgroundColor": { "type": "string", "description": "Page background color (CSS color value)." }
+      },
+      "required": ["format", "orientation", "margins"],
+      "additionalProperties": false
+    },
+
+    "DocumentStyles": {
+      "type": "object",
+      "description": "Document-level style overrides. Open object — the style-registry drives available properties."
+    },
+
+    "ExpressionLanguage": {
+      "type": "string",
+      "enum": ["jsonata", "javascript", "simple_path"]
+    },
+
+    "Expression": {
+      "type": "object",
+      "properties": {
+        "raw": { "type": "string" },
+        "language": { "$ref": "#/$defs/ExpressionLanguage" }
+      },
+      "required": ["raw", "language"],
+      "additionalProperties": false
+    },
+
+    "ThemeRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "inherit" }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "const": "override" },
+            "themeId": { "type": "string", "minLength": 1 }
+          },
+          "required": ["type", "themeId"],
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "BorderStyle": {
+      "type": "string",
+      "enum": ["none", "all", "horizontal", "vertical"]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 package app.epistola.suite.templates.model
 
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
@@ -10,10 +11,12 @@ import java.time.OffsetDateTime
  */
 data class TemplateVariant(
     val id: VariantId,
+    val tenantId: TenantId,
     val templateId: TemplateId,
     val title: String?,
     val description: String?,
-    @Json val tags: Map<String, String> = emptyMap(),
+    @Json val attributes: Map<String, String> = emptyMap(),
+    val isDefault: Boolean,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
 )
@@ -24,7 +27,8 @@ data class TemplateVariant(
 data class VariantSummary(
     val id: VariantId,
     val title: String?,
-    @Json val tags: Map<String, String>,
+    @Json val attributes: Map<String, String>,
+    val isDefault: Boolean,
     val hasDraft: Boolean,
     @Json val publishedVersions: List<Int>,
 )

@@ -6,7 +6,7 @@ import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.jdbi.v3.json.Json
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component
  */
 data class PreviewContext(
     /** The draft's template model, null if no draft exists */
-    val draftTemplateModel: TemplateModel?,
+    val draftTemplateModel: TemplateDocument?,
     /** The parent template's default theme ID for theme cascade */
     val templateThemeId: ThemeId?,
     /** The tenant's default theme ID for ultimate fallback in theme cascade */
@@ -26,10 +26,10 @@ data class PreviewContext(
 
 /**
  * Internal row representation for JDBI mapping.
- * JDBI's Jackson plugin handles JSONB -> TemplateModel conversion via @Json annotation.
+ * JDBI's Jackson plugin handles JSONB -> TemplateDocument conversion via @Json annotation.
  */
 private data class PreviewContextRow(
-    @Json val draftTemplateModel: TemplateModel?,
+    @Json val draftTemplateModel: TemplateDocument?,
     val templateThemeId: String?,
     val tenantDefaultThemeId: String?,
 )
@@ -57,13 +57,13 @@ class GetPreviewContextHandler(
                 ver.template_model as draft_template_model,
                 dt.theme_id as template_theme_id,
                 t.default_theme_id as tenant_default_theme_id
-            FROM document_templates dt
-            JOIN tenants t ON t.id = dt.tenant_id
-            JOIN template_variants tv ON tv.template_id = dt.id
-            LEFT JOIN template_versions ver ON ver.variant_id = tv.id AND ver.status = 'draft'
+            FROM template_variants tv
+            JOIN document_templates dt ON dt.tenant_id = tv.tenant_id AND dt.id = tv.template_id
+            JOIN tenants t ON t.id = tv.tenant_id
+            LEFT JOIN template_versions ver ON ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'draft'
             WHERE tv.id = :variantId
               AND tv.template_id = :templateId
-              AND dt.tenant_id = :tenantId
+              AND tv.tenant_id = :tenantId
             """,
         )
             .bind("variantId", query.variantId)

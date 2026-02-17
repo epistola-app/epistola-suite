@@ -5,7 +5,6 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.queries.ListEnvironments
-import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
@@ -24,8 +23,10 @@ class EnvironmentHandler {
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val environments = ListEnvironments(tenantId = tenantId).query()
         return ServerResponse.ok().render(
-            "environments/list",
+            "layout/shell",
             mapOf(
+                "contentView" to "environments/list",
+                "pageTitle" to "Environments - Epistola",
                 "tenant" to tenant,
                 "tenantId" to tenantId.value,
                 "environments" to environments,
@@ -46,60 +47,58 @@ class EnvironmentHandler {
         }
     }
 
+    fun newForm(request: ServerRequest): ServerResponse {
+        val tenantId = request.pathVariable("tenantId")
+        return ServerResponse.ok().render(
+            "layout/shell",
+            mapOf(
+                "contentView" to "environments/new",
+                "pageTitle" to "New Environment - Epistola",
+                "tenantId" to tenantId,
+            ),
+        )
+    }
+
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val slug = request.params().getFirst("slug")?.trim().orEmpty()
         val name = request.params().getFirst("name")?.trim().orEmpty()
 
+        fun renderFormWithErrors(errors: Map<String, String>): ServerResponse {
+            val formData = mapOf("slug" to slug, "name" to name)
+            return ServerResponse.ok().render(
+                "layout/shell",
+                mapOf(
+                    "contentView" to "environments/new",
+                    "pageTitle" to "New Environment - Epistola",
+                    "tenantId" to tenantId,
+                    "formData" to formData,
+                    "errors" to errors,
+                ),
+            )
+        }
+
         // Validate slug
         val environmentId = EnvironmentId.validateOrNull(slug)
         if (environmentId == null) {
-            val formData = mapOf("slug" to slug, "name" to name)
-            val errors = mapOf("slug" to "Invalid environment ID format. Must be 3-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens.")
-            return request.htmx {
-                fragment("environments/list", "create-form") {
-                    "tenantId" to tenantId
-                    "formData" to formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/tenants/$tenantId/environments") }
-            }
+            return renderFormWithErrors(
+                mapOf("slug" to "Invalid environment ID format. Must be 3-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."),
+            )
         }
 
-        val command = try {
+        try {
             CreateEnvironment(
                 id = environmentId,
                 tenantId = TenantId.of(tenantId),
                 name = name,
-            )
+            ).execute()
         } catch (e: ValidationException) {
-            val formData = mapOf("slug" to slug, "name" to name)
-            val errors = mapOf(e.field to e.message)
-            return request.htmx {
-                fragment("environments/list", "create-form") {
-                    "tenantId" to tenantId
-                    "formData" to formData
-                    "errors" to errors
-                }
-                retarget("#create-form")
-                reswap(HxSwap.OUTER_HTML)
-                onNonHtmx { redirect("/tenants/$tenantId/environments") }
-            }
+            return renderFormWithErrors(mapOf(e.field to e.message))
         }
 
-        command.execute()
-
-        val environments = ListEnvironments(tenantId = TenantId.of(tenantId)).query()
-        return request.htmx {
-            fragment("environments/list", "rows") {
-                "tenantId" to tenantId
-                "environments" to environments
-            }
-            trigger("environmentCreated")
-            onNonHtmx { redirect("/tenants/$tenantId/environments") }
-        }
+        return ServerResponse.status(303)
+            .header("Location", "/tenants/$tenantId/environments")
+            .build()
     }
 
     fun delete(request: ServerRequest): ServerResponse {

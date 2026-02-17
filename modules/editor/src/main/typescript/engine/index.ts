@@ -1,0 +1,48 @@
+export { EditorEngine, type EngineListener } from './EditorEngine.js'
+export { EventEmitter, type EngineEvents } from './events.js'
+export {
+  type Command,
+  type InsertNode,
+  type RemoveNode,
+  type MoveNode,
+  type UpdateNodeProps,
+  type UpdateNodeStyles,
+  type SetStylePreset,
+  type UpdateDocumentStyles,
+  type UpdatePageSettings,
+  type CommandResult,
+  type CommandOk,
+  type CommandError,
+} from './commands.js'
+export {
+  type DocumentIndexes,
+  buildIndexes,
+  getAncestorPath,
+  isAncestor,
+  getNodeDepth,
+  findAncestorAtLevel,
+} from './indexes.js'
+export { type Change, type ChangeContext, type ChangeStackOps } from './change.js'
+export { CommandChange } from './command-change.js'
+export { TextChange } from './text-change.js'
+export { UndoStack, type TextChangeOps } from './undo.js'
+export {
+  ComponentRegistry,
+  createDefaultRegistry,
+  type ComponentDefinition,
+  type ComponentCategory,
+  type AllowedChildren,
+  type SlotTemplate,
+  type InspectorField,
+} from './registry.js'
+export { deepFreeze } from './freeze.js'
+export { getNestedValue, setNestedValue } from './props.js'
+export { defaultStyleRegistry } from './style-registry.js'
+export {
+  getInheritableKeys,
+  resolveDocumentStyles,
+  resolveNodeStyles,
+  resolvePageSettings,
+  resolvePresetStyles,
+  DEFAULT_PAGE_SETTINGS,
+} from './styles.js'

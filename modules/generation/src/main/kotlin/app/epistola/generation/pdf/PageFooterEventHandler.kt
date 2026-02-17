@@ -1,6 +1,6 @@
 package app.epistola.generation.pdf
 
-import app.epistola.template.model.PageFooterBlock
+import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.Rectangle
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
@@ -16,9 +16,10 @@ import com.itextpdf.layout.element.Image
  * Registered to handle END_PAGE events and draws footer content at the bottom of each page.
  */
 class PageFooterEventHandler(
-    private val footerBlock: PageFooterBlock,
+    private val footerNodeId: String,
+    private val document: TemplateDocument,
     private val context: RenderContext,
-    private val blockRenderers: BlockRendererRegistry,
+    private val registry: NodeRendererRegistry,
 ) : AbstractPdfDocumentEventHandler() {
 
     override fun onAcceptedEvent(event: AbstractPdfDocumentEvent) {
@@ -43,15 +44,18 @@ class PageFooterEventHandler(
         // Write after normal page content
         val pdfCanvas = PdfCanvas(page.newContentStreamAfter(), page.resources, pdfDoc)
 
-        // ✅ This constructor exists in iText 9
         val canvas = Canvas(pdfCanvas, footerRect)
 
-        val elements = blockRenderers.renderBlocks(footerBlock.children, context)
-        for (element in elements) {
-            when (element) {
-                is IBlockElement -> canvas.add(element)
-                is Image -> canvas.add(element)
-                is AreaBreak -> Unit
+        // Render the footer node's slots
+        val footerNode = document.nodes[footerNodeId]
+        if (footerNode != null) {
+            val elements = registry.renderSlots(footerNode, document, context)
+            for (element in elements) {
+                when (element) {
+                    is IBlockElement -> canvas.add(element)
+                    is Image -> canvas.add(element)
+                    is AreaBreak -> Unit
+                }
             }
         }
 

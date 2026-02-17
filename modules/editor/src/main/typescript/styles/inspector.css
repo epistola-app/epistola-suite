@@ -1,0 +1,312 @@
+/*
+ * Editor Inspector Panel
+ *
+ * Section labels uppercase/tracked, compact h-8 inputs,
+ * subtle node-info background, polished delete section.
+ *
+ * Uses shared .ep-input, .ep-select, .ep-checkbox, .ep-btn-danger
+ * from the design system. Only inspector-specific layout here.
+ */
+
+@layer components {
+  .epistola-inspector {
+    padding: var(--ep-space-3);
+  }
+
+  .inspector-node-info {
+    margin-bottom: var(--ep-space-4);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    background: var(--ep-gray-50);
+    border-radius: var(--ep-radius-sm);
+  }
+
+  .inspector-node-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-800);
+  }
+
+  .inspector-node-id {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    font-family: var(--ep-font-mono);
+    margin-top: var(--ep-space-0-5);
+  }
+
+  .inspector-section {
+    margin-bottom: var(--ep-space-4);
+  }
+
+  .inspector-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ep-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .inspector-field {
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .inspector-field-label {
+    display: block;
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+    margin-bottom: var(--ep-space-0-5);
+  }
+
+  /* Compact inputs for inspector */
+  .epistola-inspector .ep-input,
+  .epistola-inspector .ep-select,
+  .epistola-inspector .ep-textarea {
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .epistola-inspector .ep-textarea {
+    height: auto;
+    min-height: var(--ep-h-8);
+  }
+
+  .inspector-checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .inspector-delete-section {
+    margin-top: var(--ep-space-6);
+    padding-top: var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-200);
+  }
+
+  .inspector-unsupported {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  /* Style groups */
+  .inspector-style-group {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .inspector-style-group-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ep-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--ep-space-1);
+  }
+
+  /* Unit input: number + unit dropdown side by side */
+  .style-unit-input {
+    display: flex;
+    gap: var(--ep-space-1);
+  }
+
+  .style-unit-number {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .style-unit-select {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  /* Color input: picker + text side by side */
+  .style-color-input {
+    display: flex;
+    gap: var(--ep-space-1);
+    align-items: center;
+  }
+
+  .style-color-picker {
+    width: 32px;
+    height: 28px;
+    padding: 1px;
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .style-color-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Spacing input: 4 values in a row */
+  .style-spacing-input {
+    display: flex;
+    gap: var(--ep-space-1);
+    align-items: center;
+  }
+
+  .style-spacing-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    flex: 1;
+  }
+
+  .style-spacing-label {
+    font-size: 9px;
+    color: var(--ep-gray-400);
+    font-weight: 500;
+  }
+
+  .style-spacing-number {
+    width: 100%;
+    text-align: center;
+  }
+
+  .style-spacing-unit {
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  /* Margins grid (page settings) */
+  .inspector-margins-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: var(--ep-space-1);
+  }
+
+  .inspector-margin-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+
+  .inspector-margin-field .style-spacing-number {
+    text-align: center;
+  }
+
+  /* Column count control */
+  .inspector-column-count {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .inspector-column-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-white);
+    color: var(--ep-gray-600);
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--ep-transition-base), border-color var(--ep-transition-base);
+  }
+
+  .inspector-column-btn:hover:not(:disabled) {
+    background: var(--ep-gray-50);
+    border-color: var(--ep-gray-300);
+  }
+
+  .inspector-column-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .inspector-column-count-value {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+    min-width: 1.5em;
+    text-align: center;
+  }
+
+  /* Per-column sizes */
+  .inspector-column-sizes {
+    display: flex;
+    gap: var(--ep-space-1);
+  }
+
+  .inspector-column-size {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    flex: 1;
+  }
+
+  .inspector-column-size-label {
+    font-size: 9px;
+    color: var(--ep-gray-400);
+    font-weight: 500;
+  }
+
+  .inspector-column-size-input {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Expression trigger button */
+  .inspector-expression-trigger {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: var(--ep-h-8);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-white);
+    cursor: pointer;
+    text-align: left;
+    font-size: var(--ep-text-xs);
+    transition: border-color var(--ep-transition-base), background var(--ep-transition-base);
+  }
+
+  .inspector-expression-trigger:hover {
+    background: var(--ep-gray-50);
+    border-color: var(--ep-gray-300);
+  }
+
+  .inspector-expression-trigger.valid {
+    border-color: var(--ep-green-400);
+  }
+
+  .inspector-expression-trigger.invalid {
+    border-color: var(--ep-red-400);
+  }
+
+  .inspector-expression-trigger.empty {
+    border-color: var(--ep-gray-200);
+  }
+
+  .inspector-expression-value {
+    font-family: var(--ep-font-mono);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .inspector-expression-placeholder {
+    color: var(--ep-gray-400);
+    font-style: italic;
+  }
+
+  /* Highlighted field path items (e.g., array fields for loop expressions) */
+  .expression-dialog-path-item.highlighted {
+    background: var(--ep-blue-50);
+    border-left: 2px solid var(--ep-blue-400);
+    padding-left: var(--ep-space-1);
+  }
+}

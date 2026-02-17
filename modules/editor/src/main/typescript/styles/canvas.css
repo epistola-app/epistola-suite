@@ -1,0 +1,129 @@
+/*
+ * Editor Canvas
+ *
+ * Upgraded page shadow, gradient block headers, blue-500 ring
+ * for selected blocks, and better visual hierarchy.
+ */
+
+@layer components {
+  .epistola-canvas {
+    padding: var(--ep-space-6);
+  }
+
+  .canvas-page {
+    max-width: 48rem;
+    margin-inline: auto;
+    background: var(--ep-white);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-lg);
+    box-shadow: var(--ep-shadow-md);
+    min-height: 24rem;
+    padding: var(--ep-space-4);
+  }
+
+  .canvas-slot {
+    /* non-empty slot: no extra styles */
+  }
+
+  .canvas-slot.empty {
+    min-height: 3rem;
+    border: 1px dashed var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .canvas-slot-hint {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-block {
+    position: relative;
+    margin-block: var(--ep-space-1);
+    border-radius: var(--ep-radius-sm);
+    transition:
+      box-shadow var(--ep-transition-base),
+      border-color var(--ep-transition-base);
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--ep-gray-300);
+    }
+
+    &.selected {
+      box-shadow: 0 0 0 2px var(--ep-blue-500);
+    }
+  }
+
+  .canvas-block-header {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    background: linear-gradient(to bottom, var(--ep-gray-50), var(--ep-gray-100));
+    border-radius: var(--ep-radius-sm) var(--ep-radius-sm) 0 0;
+    border: 1px solid var(--ep-gray-200);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .canvas-block-label {
+    font-weight: 500;
+  }
+
+  .canvas-block-id {
+    color: var(--ep-gray-300);
+    margin-left: auto;
+    font-family: var(--ep-font-mono);
+    font-size: 10px;
+  }
+
+  .canvas-block-content {
+    padding: var(--ep-space-2);
+    border: 1px solid var(--ep-gray-200);
+    border-top: none;
+    border-radius: 0 0 var(--ep-radius-sm) var(--ep-radius-sm);
+
+    &.text-type {
+      min-height: 2rem;
+    }
+  }
+
+  .canvas-leaf-text {
+    font-size: var(--ep-text-sm);
+    color: var(--ep-gray-600);
+    font-style: italic;
+  }
+
+  .canvas-pagebreak {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding-block: var(--ep-space-1);
+  }
+
+  .canvas-pagebreak-line {
+    flex: 1;
+    border-top: 1px dashed var(--ep-gray-400);
+  }
+
+  .canvas-pagebreak-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-leaf-default {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+  }
+
+  .canvas-columns {
+    display: flex;
+    /* gap and column flex are set inline from node props */
+  }
+
+  .canvas-column {
+    min-width: 0; /* prevent overflow from long content */
+  }
+}

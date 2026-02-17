@@ -1,96 +1,61 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Templates - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
-        <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo; Templates
-        </nav>
-
+    <th:block th:fragment="content">
         <div class="page-header">
-            <h1>Document Templates</h1>
-            <a th:href="@{/tenants/{tenantId}/themes(tenantId=${tenantId})}" class="btn btn-secondary">Manage Themes</a>
+            <h1>Templates</h1>
+            <div class="page-actions">
+                <div th:replace="~{fragments/search :: search-box(
+                    placeholder='Search templates...',
+                    searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
+                    targetId='template-rows'
+                )}"></div>
+                <a th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Template
+                </a>
+            </div>
         </div>
 
-        <div id="create-form" th:fragment="create-form">
-            <section class="form-section">
-                <h2>Create New Template</h2>
-                <form th:action="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}" method="post"
-                      th:hx-post="@{/tenants/{tenantId}/templates(tenantId=${tenantId})}"
-                      hx-target="#template-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label for="slug">Template ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" required
-                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="50"
-                               placeholder="monthly-invoice"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-50 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required placeholder="Template name"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('schema')} ? 'error' : ''">
-                        <label for="schema">JSON Schema (optional)</label>
-                        <textarea id="schema" name="schema" rows="6" placeholder='{"type": "object", "properties": {...}}'
-                                  th:text="${formData?.schema}"></textarea>
-                        <span class="form-error" th:if="${errors?.containsKey('schema')}" th:text="${errors.schema}"></span>
-                    </div>
-                    <button type="submit">Create Template</button>
-                </form>
-            </section>
+        <div th:if="${#lists.isEmpty(templates)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No templates yet</div>
+            <div class="empty-state-description">Create your first document template to get started.</div>
+            <a th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                New Template
+            </a>
         </div>
 
-        <section>
-            <h2>Existing Templates</h2>
-            <div th:replace="~{fragments/search :: search-box(
-                placeholder='Search templates...',
-                searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
-                targetId='template-rows'
-            )}"></div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Variants</th>
-                        <th>Last Modified</th>
-                        <th>Actions</th>
+        <table th:if="${!#lists.isEmpty(templates)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>ID</th>
+                    <th>Variants</th>
+                    <th>Last Modified</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="template-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="template : ${templates}">
+                        <td>
+                            <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}"
+                               th:text="${template.name}" style="font-weight: 500;"></a>
+                        </td>
+                        <td><code th:text="${template.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td th:text="${template.variantCount}"></td>
+                        <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="actions">
+                            <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-sm btn-ghost">View</a>
+                        </td>
                     </tr>
-                </thead>
-                <tbody id="template-rows">
-                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
-                    <th:block th:fragment="rows">
-                        <tr th:each="template : ${templates}">
-                            <td th:text="${template.id}"></td>
-                            <td th:text="${template.name}"></td>
-                            <td th:text="${template.variantCount}"></td>
-                            <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td class="actions">
-                                <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-small">View</a>
-                            </td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(templates)}">
-                            <td colspan="5" class="empty-message">No templates yet. Create one above.</td>
-                        </tr>
-                    </th:block>
-                </tbody>
-            </table>
-        </section>
-    </main>
-
-    <th:block th:replace="~{fragments/footer :: footer}" />
+                </th:block>
+            </tbody>
+        </table>
+    </th:block>
 </body>
 </html>

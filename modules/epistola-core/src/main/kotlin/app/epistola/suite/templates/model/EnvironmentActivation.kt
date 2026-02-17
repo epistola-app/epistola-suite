@@ -1,6 +1,7 @@
 package app.epistola.suite.templates.model
 
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import java.time.OffsetDateTime
@@ -9,6 +10,7 @@ import java.time.OffsetDateTime
  * Environment activation mapping a variant to its active version in an environment.
  */
 data class EnvironmentActivation(
+    val tenantId: TenantId,
     val environmentId: EnvironmentId,
     val variantId: VariantId,
     val versionId: VersionId,

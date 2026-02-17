@@ -55,9 +55,14 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
     }
 }
 
-// Configure Kover for test coverage
+// Configure Kover for test coverage — all modules must be listed explicitly for aggregation
 dependencies {
     kover(project(":apps:epistola"))
+    kover(project(":modules:epistola-core"))
+    kover(project(":modules:generation"))
+    kover(project(":modules:template-model"))
+    kover(project(":modules:rest-api"))
+    kover(project(":modules:loadtest"))
 }
 
 kover {

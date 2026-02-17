@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/style-registry.schema.json",
+  "title": "StyleRegistry",
+  "description": "Defines the set of style properties available in the editor, grouped by category. Used to render the style inspector and validate style values.",
+  "type": "object",
+
+  "properties": {
+    "groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/StyleGroup" },
+      "description": "Ordered list of style property groups."
+    }
+  },
+  "required": ["groups"],
+  "additionalProperties": false,
+
+  "$defs": {
+    "StyleGroup": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Group identifier (e.g. 'typography', 'spacing', 'border')."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable group label."
+        },
+        "properties": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StyleProperty" }
+        }
+      },
+      "required": ["name", "label", "properties"],
+      "additionalProperties": false
+    },
+
+    "StyleProperty": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSS property key (camelCase, e.g. 'fontSize', 'backgroundColor')."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["text", "number", "color", "select", "unit", "spacing"],
+          "description": "Input type for the style editor."
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "string" }
+            },
+            "required": ["label", "value"]
+          },
+          "description": "Options for 'select' type properties."
+        },
+        "units": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowed CSS units for 'unit' type (e.g. ['px', 'em', 'rem', '%'])."
+        },
+        "inheritable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this property cascades from document styles to child nodes."
+        }
+      },
+      "required": ["key", "label", "type"],
+      "additionalProperties": false
+    }
+  }
+}

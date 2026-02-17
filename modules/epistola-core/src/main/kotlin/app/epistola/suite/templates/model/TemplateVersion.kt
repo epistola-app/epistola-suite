@@ -1,8 +1,9 @@
 package app.epistola.suite.templates.model
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.template.model.TemplateModel
+import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
@@ -21,8 +22,9 @@ enum class VersionStatus {
  */
 data class TemplateVersion(
     val id: VersionId,
+    val tenantId: TenantId,
     val variantId: VariantId,
-    @Json val templateModel: TemplateModel,
+    @Json val templateModel: TemplateDocument,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,
@@ -35,6 +37,7 @@ data class TemplateVersion(
  */
 data class VersionSummary(
     val id: VersionId,
+    val tenantId: TenantId,
     val variantId: VariantId,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,

@@ -13,6 +13,7 @@ class EnvironmentRoutes(private val handler: EnvironmentHandler) {
         "/tenants/{tenantId}/environments".nest {
             GET("", handler::list)
             GET("/search", handler::search)
+            GET("/new", handler::newForm)
             POST("", handler::create)
             POST("/{environmentId}/delete", handler::delete)
         }

@@ -10,6 +10,8 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.templates.services.VariantResolver
+import app.epistola.suite.templates.services.VariantSelectionCriteria
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -18,10 +20,14 @@ import tools.jackson.databind.node.ObjectNode
 
 /**
  * Individual item in a batch generation request.
+ *
+ * Variant can be specified either explicitly via [variantId] or resolved automatically
+ * via [variantSelectionCriteria]. Exactly one of the two must be set.
  */
 data class BatchGenerationItem(
     val templateId: TemplateId,
-    val variantId: VariantId,
+    val variantId: VariantId? = null,
+    val variantSelectionCriteria: VariantSelectionCriteria? = null,
     val versionId: VersionId?,
     val environmentId: EnvironmentId?,
     val data: ObjectNode,
@@ -29,6 +35,9 @@ data class BatchGenerationItem(
     val correlationId: String? = null,
 ) {
     init {
+        require((variantId != null) xor (variantSelectionCriteria != null)) {
+            "Exactly one of variantId or variantSelectionCriteria must be set"
+        }
         require((versionId != null) xor (environmentId != null)) {
             "Exactly one of versionId or environmentId must be set"
         }
@@ -88,6 +97,7 @@ data class GenerateDocumentBatch(
 @Component
 class GenerateDocumentBatchHandler(
     private val jdbi: Jdbi,
+    private val variantResolver: VariantResolver,
 ) : CommandHandler<GenerateDocumentBatch, BatchId> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -95,29 +105,34 @@ class GenerateDocumentBatchHandler(
     override fun handle(command: GenerateDocumentBatch): BatchId {
         logger.info("Generating batch of {} documents for tenant {}", command.items.size, command.tenantId)
 
+        // Pre-resolve all variants from criteria before entering the transaction
+        val resolvedVariantIds = command.items.map { item ->
+            item.variantId
+                ?: variantResolver.resolve(command.tenantId, item.templateId, item.variantSelectionCriteria!!)
+        }
+
         val batchId = jdbi.inTransaction<BatchId, Exception> { handle ->
             // 1. Validate all templates/variants/versions/environments exist
             for ((index, item) in command.items.withIndex()) {
+                val resolvedVariantId = resolvedVariantIds[index]
+
                 val templateExists = handle.createQuery(
                     """
                     SELECT EXISTS (
                         SELECT 1
-                        FROM document_templates dt
-                        JOIN template_variants tv ON dt.id = tv.template_id
-                        WHERE dt.id = :templateId
-                          AND tv.id = :variantId
-                          AND dt.tenant_id = :tenantId
+                        FROM template_variants
+                        WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                     )
                     """,
                 )
                     .bind("templateId", item.templateId)
-                    .bind("variantId", item.variantId)
+                    .bind("variantId", resolvedVariantId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
                     .one()
 
                 require(templateExists) {
-                    "Item $index: Template ${item.templateId} variant ${item.variantId} not found for tenant ${command.tenantId}"
+                    "Item $index: Template ${item.templateId} variant $resolvedVariantId not found for tenant ${command.tenantId}"
                 }
 
                 if (item.versionId != null) {
@@ -125,25 +140,19 @@ class GenerateDocumentBatchHandler(
                         """
                         SELECT EXISTS (
                             SELECT 1
-                            FROM template_versions ver
-                            JOIN template_variants tv ON ver.variant_id = tv.id
-                            JOIN document_templates dt ON tv.template_id = dt.id
-                            WHERE ver.id = :versionId
-                              AND ver.variant_id = :variantId
-                              AND tv.template_id = :templateId
-                              AND dt.tenant_id = :tenantId
+                            FROM template_versions
+                            WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
                         )
                         """,
                     )
                         .bind("versionId", item.versionId)
-                        .bind("variantId", item.variantId)
-                        .bind("templateId", item.templateId)
+                        .bind("variantId", resolvedVariantId)
                         .bind("tenantId", command.tenantId)
                         .mapTo<Boolean>()
                         .one()
 
                     require(versionExists) {
-                        "Item $index: Version ${item.versionId} not found for template ${item.templateId} variant ${item.variantId}"
+                        "Item $index: Version ${item.versionId} not found for template ${item.templateId} variant $resolvedVariantId"
                     }
                 } else {
                     val environmentExists = handle.createQuery(
@@ -194,13 +203,13 @@ class GenerateDocumentBatchHandler(
                 """,
             )
 
-            for (item in command.items) {
+            for ((index, item) in command.items.withIndex()) {
                 val requestId = GenerationRequestId.generate()
                 batch.bind("id", requestId)
                     .bind("batchId", batchId)
                     .bind("tenantId", command.tenantId)
                     .bind("templateId", item.templateId)
-                    .bind("variantId", item.variantId)
+                    .bind("variantId", resolvedVariantIds[index])
                     .bind("versionId", item.versionId)
                     .bind("environmentId", item.environmentId)
                     .bind("data", item.data.toString())

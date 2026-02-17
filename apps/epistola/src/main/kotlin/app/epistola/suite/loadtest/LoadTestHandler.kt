@@ -37,8 +37,10 @@ class LoadTestHandler(
         val runs = ListLoadTestRuns(tenantId = tenantId, limit = 50).query()
 
         return ServerResponse.ok().render(
-            "loadtest/list",
+            "layout/shell",
             mapOf(
+                "contentView" to "loadtest/list",
+                "pageTitle" to "Load Tests - Epistola",
                 "tenant" to tenant,
                 "tenantId" to tenantId.value,
                 "runs" to runs,
@@ -56,9 +58,11 @@ class LoadTestHandler(
         val templates = ListDocumentTemplates(tenantId = tenantId).query()
 
         return ServerResponse.ok().render(
-            "loadtest/new",
+            "layout/shell",
             mapOf(
-                "tenantId" to tenantId,
+                "contentView" to "loadtest/new",
+                "pageTitle" to "Start Load Test - Epistola",
+                "tenantId" to tenantId.value,
                 "templates" to templates,
             ),
         )
@@ -103,10 +107,14 @@ class LoadTestHandler(
             return redirect("/tenants/$tenantId/load-tests/${run.id}")
         } catch (e: Exception) {
             // Show error and reload form
+            val templates = ListDocumentTemplates(tenantId = tenantId).query()
             return ServerResponse.badRequest().render(
-                "loadtest/new",
+                "layout/shell",
                 mapOf(
-                    "tenantId" to tenantId,
+                    "contentView" to "loadtest/new",
+                    "pageTitle" to "Start Load Test - Epistola",
+                    "tenantId" to tenantId.value,
+                    "templates" to templates,
                     "error" to (e.message ?: "Failed to start load test"),
                 ),
             )
@@ -127,9 +135,11 @@ class LoadTestHandler(
         val template = GetDocumentTemplate(tenantId = tenantId, id = run.templateId).query()
 
         return ServerResponse.ok().render(
-            "loadtest/detail",
+            "layout/shell",
             mapOf(
-                "tenantId" to tenantId,
+                "contentView" to "loadtest/detail",
+                "pageTitle" to "Load Test Details - Epistola",
+                "tenantId" to tenantId.value,
                 "run" to run,
                 "template" to template,
             ),
@@ -176,9 +186,11 @@ class LoadTestHandler(
         ).query()
 
         return ServerResponse.ok().render(
-            "loadtest/requests",
+            "layout/shell",
             mapOf(
-                "tenantId" to tenantId,
+                "contentView" to "loadtest/requests",
+                "pageTitle" to "Load Test Request Log - Epistola",
+                "tenantId" to tenantId.value,
                 "run" to run,
                 "requests" to requests,
                 "offset" to offset,

@@ -7,6 +7,7 @@ import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
@@ -16,6 +17,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
+import app.epistola.suite.templates.services.VariantSelectionCriteria
 import tools.jackson.databind.ObjectMapper
 
 /**
@@ -102,28 +104,56 @@ internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJ
 internal fun GenerateDocumentRequest.toCommand(
     tenantId: String,
     objectMapper: ObjectMapper,
-) = app.epistola.suite.documents.commands.GenerateDocument(
-    tenantId = TenantId.of(tenantId),
-    templateId = TemplateId.of(templateId),
-    variantId = VariantId.of(requireNotNull(variantId) { "variantId is required" }),
-    versionId = versionId?.let { VersionId.of(it) },
-    environmentId = environmentId?.let { EnvironmentId.of(it) },
-    data = data,
-    filename = filename,
-    correlationId = correlationId,
-)
+): app.epistola.suite.documents.commands.GenerateDocument {
+    require((variantId != null) xor (attributes != null)) {
+        "Exactly one of variantId or attributes must be set"
+    }
+    return app.epistola.suite.documents.commands.GenerateDocument(
+        tenantId = TenantId.of(tenantId),
+        templateId = TemplateId.of(templateId),
+        variantId = variantId?.let { VariantId.of(it) },
+        variantSelectionCriteria = attributes?.toSelectionCriteria(),
+        versionId = versionId?.let { VersionId.of(it) },
+        environmentId = environmentId?.let { EnvironmentId.of(it) },
+        data = data,
+        filename = filename,
+        correlationId = correlationId,
+    )
+}
 
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     objectMapper: ObjectMapper,
-) = app.epistola.suite.documents.commands.BatchGenerationItem(
-    templateId = TemplateId.of(templateId),
-    variantId = VariantId.of(requireNotNull(variantId) { "variantId is required" }),
-    versionId = versionId?.let { VersionId.of(it) },
-    environmentId = environmentId?.let { EnvironmentId.of(it) },
-    data = data,
-    filename = filename,
-    correlationId = correlationId,
-)
+): app.epistola.suite.documents.commands.BatchGenerationItem {
+    require((variantId != null) xor (attributes != null)) {
+        "Exactly one of variantId or attributes must be set"
+    }
+    return app.epistola.suite.documents.commands.BatchGenerationItem(
+        templateId = TemplateId.of(templateId),
+        variantId = variantId?.let { VariantId.of(it) },
+        variantSelectionCriteria = attributes?.toSelectionCriteria(),
+        versionId = versionId?.let { VersionId.of(it) },
+        environmentId = environmentId?.let { EnvironmentId.of(it) },
+        data = data,
+        filename = filename,
+        correlationId = correlationId,
+    )
+}
+
+private fun List<VariantSelectionAttribute>.toSelectionCriteria(): VariantSelectionCriteria {
+    val required = mutableMapOf<String, String>()
+    val optional = mutableMapOf<String, String>()
+    for (attr in this) {
+        if (attr.required != false) {
+            required[attr.key] = attr.value
+        } else {
+            optional[attr.key] = attr.value
+        }
+    }
+    return VariantSelectionCriteria(
+        requiredAttributes = required,
+        optionalAttributes = optional,
+    )
+}
 
 internal fun GenerateBatchRequest.toCommand(
     tenantId: String,

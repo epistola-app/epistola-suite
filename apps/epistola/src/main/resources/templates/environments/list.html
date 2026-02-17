@@ -1,97 +1,62 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Environments - Epistola</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <th:block th:replace="~{fragments/htmx :: htmx}" />
-</head>
 <body>
-    <main class="regular">
-        <nav class="breadcrumb">
-            <a th:href="@{/}">Tenants</a> &raquo;
-            <a th:href="@{/tenants/{id}(id=${tenant.id})}" th:text="${tenant.name}">Tenant</a> &raquo;
-            <span>Environments</span>
-        </nav>
-
-        <h1>Environments</h1>
-
-        <div id="create-form" th:fragment="create-form">
-            <section class="form-section">
-                <h2>Create New Environment</h2>
-                <form th:action="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}" method="post"
-                      th:hx-post="@{/tenants/{tenantId}/environments(tenantId=${tenantId})}"
-                      hx-target="#environment-rows"
-                      hx-swap="innerHTML"
-                      hx-on::after-request="if(event.detail.successful) this.reset()">
-                    <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-                        <label for="slug">Environment ID (Slug)</label>
-                        <input type="text" id="slug" name="slug" required
-                               pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-                               minlength="3" maxlength="30"
-                               placeholder="production"
-                               th:value="${formData?.slug}">
-                        <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens only</span>
-                        <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
-                    </div>
-                    <div class="form-group" th:classappend="${errors?.containsKey('name')} ? 'error' : ''">
-                        <label for="name">Name</label>
-                        <input type="text" id="name" name="name" required placeholder="Environment name"
-                               th:value="${formData?.name}">
-                        <span class="form-error" th:if="${errors?.containsKey('name')}" th:text="${errors.name}"></span>
-                    </div>
-                    <button type="submit">Create Environment</button>
-                </form>
-            </section>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Environments</h1>
+            <div class="page-actions">
+                <div th:replace="~{fragments/search :: search-box(
+                    placeholder='Search environments...',
+                    searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
+                    targetId='environment-rows'
+                )}"></div>
+                <a th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Environment
+                </a>
+            </div>
         </div>
 
-        <section>
-            <h2>Existing Environments</h2>
-            <div th:replace="~{fragments/search :: search-box(
-                placeholder='Search environments...',
-                searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
-                targetId='environment-rows'
-            )}"></div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                        <th>Created Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="environment-rows">
-                    <!--/* Fragment contains only the rows, not the tbody wrapper */-->
-                    <th:block th:fragment="rows">
-                        <tr th:each="env : ${environments}">
-                            <td>
-                                <code th:text="${env.id}"></code>
-                            </td>
-                            <td>
-                                <span th:text="${env.name}"></span>
-                            </td>
-                            <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td class="actions">
-                                <form th:hx-post="@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
-                                      hx-target="#environment-rows"
-                                      hx-swap="innerHTML"
-                                      hx-confirm="Delete this environment? Any active template versions deployed to it will need to be redeployed elsewhere."
-                                      style="display: inline;">
-                                    <button type="submit" class="btn btn-small btn-danger">Delete</button>
-                                </form>
-                            </td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(environments)}">
-                            <td colspan="4" class="empty-message">No environments yet. Create one above.</td>
-                        </tr>
-                    </th:block>
-                </tbody>
-            </table>
-        </section>
-    </main>
+        <div th:if="${#lists.isEmpty(environments)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='globe', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No environments yet</div>
+            <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
+            <a th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+                <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                New Environment
+            </a>
+        </div>
 
-    <th:block th:replace="~{fragments/footer :: footer}" />
+        <table th:if="${!#lists.isEmpty(environments)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>ID</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="environment-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="env : ${environments}">
+                        <td style="font-weight: 500;" th:text="${env.name}"></td>
+                        <td><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
+                        <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                        <td class="actions">
+                            <form th:hx-post="@{/tenants/{tenantId}/environments/{environmentId}/delete(tenantId=${tenantId},environmentId=${env.id})}"
+                                  hx-target="#environment-rows"
+                                  hx-swap="innerHTML"
+                                  hx-confirm="Delete this environment? Any active template versions deployed to it will need to be redeployed elsewhere."
+                                  style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-destructive">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
+    </th:block>
 </body>
 </html>

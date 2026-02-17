@@ -68,16 +68,13 @@ class StartLoadTestHandler(
         )
 
         val loadTestRun = jdbi.inTransaction<LoadTestRun, Exception> { handle ->
-            // 1. Verify template exists and belongs to tenant
+            // 1. Verify template/variant exists and belongs to tenant
             val templateExists = handle.createQuery(
                 """
                 SELECT EXISTS (
                     SELECT 1
-                    FROM document_templates dt
-                    JOIN template_variants tv ON dt.id = tv.template_id
-                    WHERE dt.id = :templateId
-                      AND tv.id = :variantId
-                      AND dt.tenant_id = :tenantId
+                    FROM template_variants
+                    WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
                 )
                 """,
             )
@@ -97,19 +94,13 @@ class StartLoadTestHandler(
                     """
                     SELECT EXISTS (
                         SELECT 1
-                        FROM template_versions ver
-                        JOIN template_variants tv ON ver.variant_id = tv.id
-                        JOIN document_templates dt ON tv.template_id = dt.id
-                        WHERE ver.id = :versionId
-                          AND ver.variant_id = :variantId
-                          AND tv.template_id = :templateId
-                          AND dt.tenant_id = :tenantId
+                        FROM template_versions
+                        WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
                     )
                     """,
                 )
                     .bind("versionId", command.versionId)
                     .bind("variantId", command.variantId)
-                    .bind("templateId", command.templateId)
                     .bind("tenantId", command.tenantId)
                     .mapTo<Boolean>()
                     .one()

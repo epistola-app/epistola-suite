@@ -7,7 +7,6 @@ plugins {
 
 dependencyManagement {
     imports {
-        // TODO: figure out how we can do this another way
         mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.2")
     }
 }
@@ -41,8 +40,9 @@ val copyDistToResources by tasks.registering(Copy::class) {
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
 
-    // Ensure task re-runs if output directory is missing
-    outputs.upToDateWhen { layout.buildDirectory.dir("resources/main/META-INF/resources/editor").get().asFile.exists() }
+    outputs.upToDateWhen {
+        layout.buildDirectory.dir("resources/main/META-INF/resources/editor").get().asFile.exists()
+    }
 }
 
 tasks.named("processResources") {
