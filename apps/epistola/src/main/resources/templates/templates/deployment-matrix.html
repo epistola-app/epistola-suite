@@ -55,7 +55,7 @@
                                         <td th:each="env : ${environments}" class="deployment-matrix-cell">
                                             <th:block th:with="
                                                 cell=${matrix.containsKey(variant.id) ? matrix.get(variant.id).getOrDefault(env.id, null) : null},
-                                                versions=${versionsByVariant.getOrDefault(variant.id, T(java.util.Collections).emptyList())}"
+                                                versions=${versionsByVariant.getOrDefault(variant.id, {})}"
                                             >
                                                 <th:block th:if="${!#lists.isEmpty(versions)}">
                                                     <form style="display:inline; margin:0;">
