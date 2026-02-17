@@ -91,11 +91,13 @@ export function renderSchemaSection(
         ? html`
             <div class="dc-field-list">
               <div class="dc-field-list-header">
-                <span class="dc-field-list-header-spacer"></span>
-                <span class="dc-field-list-header-cell dc-field-list-header-name">Name</span>
-                <span class="dc-field-list-header-cell dc-field-list-header-type">Type</span>
-                <span class="dc-field-list-header-cell dc-field-list-header-req">Req</span>
-                <span class="dc-field-list-header-spacer"></span>
+                <span></span>
+                <span>Name</span>
+                <span>Type</span>
+                <span>Items</span>
+                <span>Req</span>
+                <span></span>
+                <span></span>
               </div>
               ${fields.map((field) =>
                 renderSchemaFieldRow(

@@ -130,7 +130,8 @@
   }
 
   .dc-field-list-header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 24px 2fr 1fr 100px 50px 24px 24px;
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-1-5) var(--ep-space-3);
@@ -141,27 +142,6 @@
     color: var(--ep-gray-400);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-  }
-
-  .dc-field-list-header-spacer {
-    width: 24px;
-    flex-shrink: 0;
-  }
-
-  .dc-field-list-header-name {
-    flex: 2;
-    min-width: 0;
-  }
-
-  .dc-field-list-header-type {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .dc-field-list-header-req {
-    width: 50px;
-    flex-shrink: 0;
-    text-align: center;
   }
 
   /* --------------------------------------------------------------------------
@@ -177,7 +157,8 @@
   }
 
   .dc-field-controls {
-    display: flex;
+    display: grid;
+    grid-template-columns: 24px 2fr 1fr 100px 50px 24px 24px;
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
@@ -194,7 +175,6 @@
     color: var(--ep-gray-400);
     cursor: pointer;
     font-size: 10px;
-    flex-shrink: 0;
     border-radius: var(--ep-radius-sm);
     transition: background var(--ep-transition-base);
   }
@@ -206,11 +186,9 @@
 
   .dc-field-expand-spacer {
     width: 24px;
-    flex-shrink: 0;
   }
 
   .dc-field-name-input {
-    flex: 2;
     min-width: 0;
     height: var(--ep-h-8);
     font-size: var(--ep-text-xs);
@@ -218,7 +196,6 @@
   }
 
   .dc-field-type-select {
-    flex: 1;
     min-width: 0;
     height: var(--ep-h-8);
     font-size: var(--ep-text-xs);
@@ -226,8 +203,6 @@
   }
 
   .dc-field-array-type-select {
-    width: 100px;
-    flex-shrink: 0;
     height: var(--ep-h-8);
     font-size: var(--ep-text-xs);
     padding: var(--ep-space-1) var(--ep-space-2);
@@ -238,16 +213,11 @@
     align-items: center;
     gap: var(--ep-space-1);
     cursor: pointer;
-    flex-shrink: 0;
   }
 
-  .dc-field-required-text {
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
-  }
+  /* .dc-field-required-text removed — Req text is now only in the header */
 
   .dc-field-add-nested-btn {
-    flex-shrink: 0;
     font-size: var(--ep-text-xs);
     padding: var(--ep-space-0-5) var(--ep-space-2);
     height: auto;
@@ -265,7 +235,6 @@
     cursor: pointer;
     font-size: 16px;
     line-height: 1;
-    flex-shrink: 0;
     border-radius: var(--ep-radius-sm);
     transition: color var(--ep-transition-base), background var(--ep-transition-base);
   }
@@ -411,14 +380,8 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Example form
+   * Example form — compact tree layout
    * ---------------------------------------------------------------------- */
-
-  .dc-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--ep-space-3);
-  }
 
   .dc-form-empty {
     padding: var(--ep-space-6) var(--ep-space-4);
@@ -429,54 +392,64 @@
     border-radius: var(--ep-radius-md);
   }
 
-  .dc-form-field {
-    margin-bottom: var(--ep-space-2);
-  }
-
-  .dc-form-field-label {
-    display: block;
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-500);
-    margin-bottom: var(--ep-space-0-5);
-  }
-
-  .dc-form-field-checkbox {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-2);
-  }
-
-  .dc-form-checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-2);
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-600);
-    cursor: pointer;
-  }
-
   .dc-required-mark {
     color: var(--ep-red-500);
     margin-left: 2px;
   }
 
-  .dc-form-hint {
+  /* Tree container */
+  .dc-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Inline row: label + input side-by-side */
+  .dc-tree-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .dc-tree-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dc-tree-input {
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    min-width: 0;
+  }
+
+  .dc-tree-checkbox {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .dc-tree-hint {
     font-size: var(--ep-text-xs);
     color: var(--ep-gray-400);
   }
 
-  /* Collapsible sections (object fields) */
-  .dc-form-section {
-    border: 1px solid var(--ep-gray-200);
-    border-radius: var(--ep-radius-md);
-    margin-bottom: var(--ep-space-2);
+  /* Collapsible groups (object / array) */
+  .dc-tree-group {
+    border: 1px solid var(--ep-gray-150, var(--ep-gray-200));
+    border-radius: var(--ep-radius-sm);
   }
 
-  .dc-form-section-header {
+  .dc-tree-group-header {
     display: flex;
     align-items: center;
     gap: var(--ep-space-2);
-    padding: var(--ep-space-2) var(--ep-space-3);
+    padding: var(--ep-space-1) var(--ep-space-2);
     background: var(--ep-gray-50);
     cursor: pointer;
     user-select: none;
@@ -485,37 +458,44 @@
     color: var(--ep-gray-700);
   }
 
-  .dc-form-section-header:hover {
+  .dc-tree-group-header:hover {
     background: var(--ep-gray-100);
   }
 
-  .dc-form-section-type {
-    font-size: var(--ep-text-xs);
+  .dc-tree-type-badge {
+    font-size: 10px;
     color: var(--ep-gray-400);
     font-weight: 400;
     margin-left: auto;
   }
 
-  .dc-form-section-body {
-    padding: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
-  }
-
-  /* Array items */
-  .dc-array-items {
+  .dc-tree-group-body {
     display: flex;
     flex-direction: column;
-    gap: var(--ep-space-1);
-    margin-bottom: var(--ep-space-2);
+    gap: 4px;
+    padding: var(--ep-space-2);
+    border-top: 1px solid var(--ep-gray-100);
   }
 
-  .dc-array-item {
+  /* Nested array-of-objects item header */
+  .dc-tree-group-header-item {
+    font-weight: 500;
+    color: var(--ep-gray-500);
+  }
+
+  .dc-tree-group-item {
+    border-color: var(--ep-gray-100);
+  }
+
+  /* Array item row: input + remove button */
+  .dc-tree-array-item {
     display: flex;
     align-items: center;
     gap: var(--ep-space-1);
+    min-width: 0;
   }
 
-  .dc-array-item-input {
+  .dc-tree-array-item .ep-input {
     flex: 1;
     min-width: 0;
     height: var(--ep-h-8);
@@ -523,9 +503,13 @@
     padding: var(--ep-space-1) var(--ep-space-2);
   }
 
+  .dc-tree-add-btn {
+    align-self: flex-start;
+  }
+
   .dc-array-item-remove {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -533,7 +517,7 @@
     border: none;
     color: var(--ep-gray-400);
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1;
     flex-shrink: 0;
     border-radius: var(--ep-radius-sm);
@@ -543,42 +527,6 @@
   .dc-array-item-remove:hover {
     color: var(--ep-red-500);
     background: var(--ep-red-50);
-  }
-
-  .dc-array-add-btn {
-    margin-top: var(--ep-space-1);
-  }
-
-  /* Array of objects items */
-  .dc-array-object-item {
-    border: 1px solid var(--ep-gray-200);
-    border-radius: var(--ep-radius-sm);
-    margin-bottom: var(--ep-space-2);
-    overflow: hidden;
-  }
-
-  .dc-array-object-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--ep-space-1) var(--ep-space-3);
-    background: var(--ep-gray-50);
-    border-bottom: 1px solid var(--ep-gray-100);
-  }
-
-  .dc-array-object-index {
-    font-size: var(--ep-text-xs);
-    font-weight: 600;
-    color: var(--ep-gray-500);
-  }
-
-  .dc-array-object-item > .dc-form-field,
-  .dc-array-object-item > :not(.dc-array-object-header) .dc-form-field {
-    padding: 0 var(--ep-space-3);
-  }
-
-  .dc-array-object-item > :last-child {
-    padding-bottom: var(--ep-space-2);
   }
 
   /* --------------------------------------------------------------------------

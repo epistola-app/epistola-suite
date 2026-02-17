@@ -125,16 +125,49 @@ describe('jsonSchemaToVisualSchema', () => {
 
     expect(result.fields).toHaveLength(2)
     expect(result.fields.find((f) => f.name === 'name')).toMatchObject({
+      id: 'field:name',
       name: 'name',
       type: 'string',
       required: true,
     })
     expect(result.fields.find((f) => f.name === 'age')).toMatchObject({
+      id: 'field:age',
       name: 'age',
       type: 'integer',
       required: false,
       description: 'User age',
     })
+  })
+
+  it('generates deterministic IDs based on field path', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        address: {
+          type: 'object',
+          properties: {
+            street: { type: 'string' },
+            city: { type: 'string' },
+          },
+        },
+      },
+    }
+    const result1 = jsonSchemaToVisualSchema(schema)
+    const result2 = jsonSchemaToVisualSchema(schema)
+
+    // IDs are deterministic — same schema produces same IDs
+    expect(result1.fields[0].id).toBe(result2.fields[0].id)
+    expect(result1.fields[1].id).toBe(result2.fields[1].id)
+
+    // IDs are path-based
+    expect(result1.fields[0].id).toBe('field:name')
+    expect(result1.fields[1].id).toBe('field:address')
+    const addressField = result1.fields[1]
+    if (addressField.type === 'object') {
+      expect(addressField.nestedFields?.[0].id).toBe('field:address.street')
+      expect(addressField.nestedFields?.[1].id).toBe('field:address.city')
+    }
   })
 
   it('converts array property', () => {
@@ -202,6 +235,7 @@ describe('generateSchemaFromData', () => {
 
     expect(result.fields).toHaveLength(3)
     expect(result.fields.find((f) => f.name === 'name')?.type).toBe('string')
+    expect(result.fields.find((f) => f.name === 'name')?.id).toBe('field:name')
     expect(result.fields.find((f) => f.name === 'age')?.type).toBe('integer')
     expect(result.fields.find((f) => f.name === 'active')?.type).toBe('boolean')
     // All fields should default to optional

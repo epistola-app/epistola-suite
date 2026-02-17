@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Data Contract Editor — Expand/collapse broken**: Object and array fields could not be expanded because `jsonSchemaToVisualSchema()` generated new random IDs on every render, causing expanded-field state to be lost. Field IDs are now deterministic, based on the field path (e.g., `field:name`, `field:address.street`).
+
+### Changed
+- **Data Contract Editor — Schema field alignment**: Switched schema field header and rows from flex to CSS grid for consistent column alignment across expand button, name, type, array-item-type, required, and action columns.
+- **Data Contract Editor — Compact example form**: Redesigned the test data example form with a compact tree layout: labels and inputs are side-by-side on each row, objects/arrays use collapsible `<details>` (collapsed by default for deeply nested), and spacing is minimal.
+
 ### Added
 - **Data Contract Editor**: Replaced the React-based schema-manager module with a Lit web component data contract editor integrated into `modules/editor/`. Features a visual schema field builder, schema-driven example form (auto-generated inputs from JSON Schema), and migration assistant. Produces `data-contract-editor.js` (53 kB) and `data-contract-editor.css` (30 kB).
 

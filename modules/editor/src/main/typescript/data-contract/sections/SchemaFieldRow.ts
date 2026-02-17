@@ -111,7 +111,7 @@ export function renderSchemaFieldRow(
                 )}
               </select>
             `
-          : nothing
+          : html`<span></span>`
         }
 
         <label class="dc-field-required-label" title="Required field">
@@ -124,7 +124,6 @@ export function renderSchemaFieldRow(
               callbacks.onUpdate(field.id, { required: (e.target as HTMLInputElement).checked })
             }}
           />
-          <span class="dc-field-required-text">Req</span>
         </label>
 
         ${canExpand
@@ -140,9 +139,9 @@ export function renderSchemaFieldRow(
                     onToggleExpand?.(field.id)
                   }
                 }}
-              >+ Nested</button>
+              >+</button>
             `
-          : nothing
+          : html`<span></span>`
         }
 
         <button

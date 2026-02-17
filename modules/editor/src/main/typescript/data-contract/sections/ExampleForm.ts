@@ -106,9 +106,9 @@ export function renderExampleForm(
   const requiredSet = new Set(schema.required ?? [])
 
   return html`
-    <div class="dc-form">
+    <div class="dc-tree">
       ${Object.entries(schema.properties).map(([name, propSchema]) =>
-        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange),
+        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange, 0),
       )}
     </div>
   `
@@ -116,6 +116,7 @@ export function renderExampleForm(
 
 /**
  * Render a single form field based on its JSON Schema property type.
+ * Uses compact inline rows: label and input side-by-side.
  */
 function renderFormField(
   name: string,
@@ -124,12 +125,13 @@ function renderFormField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  depth: number,
 ): unknown {
   const type = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type
   const value = getNestedValue(rootData, path)
 
   const label = html`
-    <label class="dc-form-field-label">
+    <label class="dc-tree-label">
       ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
     </label>
   `
@@ -137,11 +139,11 @@ function renderFormField(
   switch (type) {
     case 'string':
       return html`
-        <div class="dc-form-field">
+        <div class="dc-tree-row">
           ${label}
           <input
             type="text"
-            class="ep-input"
+            class="ep-input dc-tree-input"
             .value=${String(value ?? '')}
             placeholder="${name}"
             @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
@@ -151,11 +153,11 @@ function renderFormField(
 
     case 'number':
       return html`
-        <div class="dc-form-field">
+        <div class="dc-tree-row">
           ${label}
           <input
             type="number"
-            class="ep-input"
+            class="ep-input dc-tree-input"
             step="any"
             .value=${value != null ? String(value) : ''}
             placeholder="${name}"
@@ -169,11 +171,11 @@ function renderFormField(
 
     case 'integer':
       return html`
-        <div class="dc-form-field">
+        <div class="dc-tree-row">
           ${label}
           <input
             type="number"
-            class="ep-input"
+            class="ep-input dc-tree-input"
             step="1"
             .value=${value != null ? String(value) : ''}
             placeholder="${name}"
@@ -187,34 +189,32 @@ function renderFormField(
 
     case 'boolean':
       return html`
-        <div class="dc-form-field dc-form-field-checkbox">
-          <label class="dc-form-checkbox-label">
+        <div class="dc-tree-row">
+          ${label}
+          <label class="dc-tree-checkbox">
             <input
               type="checkbox"
               class="ep-checkbox"
               .checked=${value === true}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
             />
-            <span>
-              ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-            </span>
           </label>
         </div>
       `
 
     case 'object':
-      return renderObjectField(name, propSchema, path, rootData, isRequired, onChange)
+      return renderObjectField(name, propSchema, path, rootData, isRequired, onChange, depth)
 
     case 'array':
-      return renderArrayField(name, propSchema, path, rootData, isRequired, onChange)
+      return renderArrayField(name, propSchema, path, rootData, isRequired, onChange, depth)
 
     default:
       return html`
-        <div class="dc-form-field">
+        <div class="dc-tree-row">
           ${label}
           <input
             type="text"
-            class="ep-input"
+            class="ep-input dc-tree-input"
             .value=${String(value ?? '')}
             placeholder="${name}"
             @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
@@ -226,6 +226,7 @@ function renderFormField(
 
 /**
  * Render a collapsible object field with nested properties.
+ * Top-level objects open by default; deeper nesting collapsed.
  */
 function renderObjectField(
   name: string,
@@ -234,14 +235,15 @@ function renderObjectField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  depth: number,
 ): unknown {
   if (!propSchema.properties || Object.keys(propSchema.properties).length === 0) {
     return html`
-      <div class="dc-form-field">
-        <label class="dc-form-field-label">
+      <div class="dc-tree-row">
+        <label class="dc-tree-label">
           ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
         </label>
-        <span class="dc-form-hint">No properties defined for this object</span>
+        <span class="dc-tree-hint">No properties defined</span>
       </div>
     `
   }
@@ -249,12 +251,12 @@ function renderObjectField(
   const nestedRequired = new Set(propSchema.required ?? [])
 
   return html`
-    <details class="dc-form-section" open>
-      <summary class="dc-form-section-header">
+    <details class="dc-tree-group" ?open=${depth < 1}>
+      <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-        <span class="dc-form-section-type">Object</span>
+        <span class="dc-tree-type-badge">Object</span>
       </summary>
-      <div class="dc-form-section-body">
+      <div class="dc-tree-group-body">
         ${Object.entries(propSchema.properties).map(([nestedName, nestedProp]) =>
           renderFormField(
             nestedName,
@@ -263,6 +265,7 @@ function renderObjectField(
             rootData,
             nestedRequired.has(nestedName),
             onChange,
+            depth + 1,
           ),
         )}
       </div>
@@ -280,6 +283,7 @@ function renderArrayField(
   rootData: JsonObject,
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
+  depth: number,
 ): unknown {
   const currentValue = getNestedValue(rootData, path)
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : []
@@ -298,44 +302,46 @@ function renderArrayField(
   }
 
   if (itemType === 'object' && itemSchema?.properties) {
-    // Array of objects
-    return renderArrayOfObjects(name, itemSchema, path, items, rootData, isRequired, onChange, addItem, removeItem)
+    return renderArrayOfObjects(name, itemSchema, path, items, rootData, isRequired, onChange, addItem, removeItem, depth)
   }
 
   // Array of primitives
   return html`
-    <div class="dc-form-field">
-      <label class="dc-form-field-label">
+    <details class="dc-tree-group" ?open=${depth < 1}>
+      <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-        <span class="dc-form-section-type">List of ${itemType}</span>
-      </label>
-      <div class="dc-array-items">
+        <span class="dc-tree-type-badge">List&lt;${itemType}&gt; (${items.length})</span>
+      </summary>
+      <div class="dc-tree-group-body">
         ${items.map((item, index) => html`
-          <div class="dc-array-item">
-            ${renderPrimitiveInput(
-              itemType,
-              item,
-              `${name}[${index}]`,
-              (newValue) => {
-                const newItems = [...items]
-                newItems[index] = newValue
-                onChange(path, newItems)
-              },
-            )}
-            <button
-              class="dc-array-item-remove"
-              title="Remove item"
-              aria-label="Remove item"
-              @click=${() => removeItem(index)}
-            >\u00D7</button>
+          <div class="dc-tree-row">
+            <label class="dc-tree-label">[${index}]</label>
+            <div class="dc-tree-array-item">
+              ${renderPrimitiveInput(
+                itemType,
+                item,
+                `${name}[${index}]`,
+                (newValue) => {
+                  const newItems = [...items]
+                  newItems[index] = newValue
+                  onChange(path, newItems)
+                },
+              )}
+              <button
+                class="dc-array-item-remove"
+                title="Remove item"
+                aria-label="Remove item"
+                @click=${() => removeItem(index)}
+              >\u00D7</button>
+            </div>
           </div>
         `)}
+        <button
+          class="ep-btn-outline btn-sm dc-tree-add-btn"
+          @click=${() => addItem()}
+        >+ Add</button>
       </div>
-      <button
-        class="ep-btn-outline btn-sm dc-array-add-btn"
-        @click=${() => addItem()}
-      >+ Add item</button>
-    </div>
+    </details>
   `
 }
 
@@ -352,46 +358,50 @@ function renderArrayOfObjects(
   onChange: (path: string, value: JsonValue) => void,
   addItem: () => void,
   removeItem: (index: number) => void,
+  depth: number,
 ): unknown {
   const nestedRequired = new Set(itemSchema.required ?? [])
 
   return html`
-    <details class="dc-form-section" open>
-      <summary class="dc-form-section-header">
+    <details class="dc-tree-group" ?open=${depth < 1}>
+      <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-        <span class="dc-form-section-type">List of Object (${items.length})</span>
+        <span class="dc-tree-type-badge">List&lt;Object&gt; (${items.length})</span>
       </summary>
-      <div class="dc-form-section-body">
+      <div class="dc-tree-group-body">
         ${items.map((_item, index) => html`
-          <div class="dc-array-object-item">
-            <div class="dc-array-object-header">
-              <span class="dc-array-object-index">#${index + 1}</span>
+          <details class="dc-tree-group dc-tree-group-item" open>
+            <summary class="dc-tree-group-header dc-tree-group-header-item">
+              <span>#${index + 1}</span>
               <button
                 class="dc-array-item-remove"
                 title="Remove item"
                 aria-label="Remove item #${index + 1}"
-                @click=${() => removeItem(index)}
+                @click=${(e: Event) => { e.preventDefault(); removeItem(index) }}
               >\u00D7</button>
+            </summary>
+            <div class="dc-tree-group-body">
+              ${itemSchema.properties
+                ? Object.entries(itemSchema.properties).map(([nestedName, nestedProp]) =>
+                    renderFormField(
+                      nestedName,
+                      nestedProp,
+                      `${path}.${index}.${nestedName}`,
+                      rootData,
+                      nestedRequired.has(nestedName),
+                      onChange,
+                      depth + 1,
+                    ),
+                  )
+                : nothing
+              }
             </div>
-            ${itemSchema.properties
-              ? Object.entries(itemSchema.properties).map(([nestedName, nestedProp]) =>
-                  renderFormField(
-                    nestedName,
-                    nestedProp,
-                    `${path}.${index}.${nestedName}`,
-                    rootData,
-                    nestedRequired.has(nestedName),
-                    onChange,
-                  ),
-                )
-              : nothing
-            }
-          </div>
+          </details>
         `)}
         <button
-          class="ep-btn-outline btn-sm dc-array-add-btn"
+          class="ep-btn-outline btn-sm dc-tree-add-btn"
           @click=${() => addItem()}
-        >+ Add item</button>
+        >+ Add</button>
       </div>
     </details>
   `

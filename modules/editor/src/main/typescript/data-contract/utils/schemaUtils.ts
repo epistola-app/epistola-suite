@@ -85,6 +85,10 @@ function nestedFieldsToProperties(fields: SchemaField[]): Record<string, JsonSch
 
 /**
  * Convert a JSON Schema to a visual schema.
+ *
+ * Field IDs are deterministic based on their path (e.g., `field:name`,
+ * `field:address.street`) so that UI state like expanded-fields survives
+ * re-renders without stale random IDs.
  */
 export function jsonSchemaToVisualSchema(schema: JsonSchema | JsonObject | null): VisualSchema {
   if (!schema || typeof schema !== 'object') {
@@ -100,7 +104,7 @@ export function jsonSchemaToVisualSchema(schema: JsonSchema | JsonObject | null)
   const fields: SchemaField[] = []
 
   for (const [name, prop] of Object.entries(jsonSchema.properties)) {
-    fields.push(jsonSchemaPropertyToField(name, prop, requiredFields.has(name)))
+    fields.push(jsonSchemaPropertyToField(name, prop, requiredFields.has(name), name))
   }
 
   return { fields }
@@ -108,15 +112,17 @@ export function jsonSchemaToVisualSchema(schema: JsonSchema | JsonObject | null)
 
 /**
  * Convert a JSON Schema property to a visual field.
+ * Uses a deterministic `field:${path}` ID so UI state survives re-renders.
  */
 function jsonSchemaPropertyToField(
   name: string,
   prop: JsonSchemaProperty,
   required: boolean,
+  path: string,
 ): SchemaField {
   const type = Array.isArray(prop.type) ? prop.type[0] : prop.type
   const baseField = {
-    id: nanoid(),
+    id: `field:${path}`,
     name,
     required,
     description: prop.description,
@@ -131,7 +137,7 @@ function jsonSchemaPropertyToField(
     const nestedFields =
       itemType === 'object' && prop.items?.properties
         ? Object.entries(prop.items.properties).map(([n, p]) =>
-            jsonSchemaPropertyToField(n, p, new Set(prop.items?.required || []).has(n)),
+            jsonSchemaPropertyToField(n, p, new Set(prop.items?.required || []).has(n), `${path}.${n}`),
           )
         : undefined
     return {
@@ -146,7 +152,7 @@ function jsonSchemaPropertyToField(
     const nestedRequired = new Set(prop.required || [])
     const nestedFields = prop.properties
       ? Object.entries(prop.properties).map(([n, p]) =>
-          jsonSchemaPropertyToField(n, p, nestedRequired.has(n)),
+          jsonSchemaPropertyToField(n, p, nestedRequired.has(n), `${path}.${n}`),
         )
       : undefined
     return {
@@ -171,7 +177,7 @@ export function generateSchemaFromData(data: JsonObject): VisualSchema {
   const fields: SchemaField[] = []
 
   for (const [name, value] of Object.entries(data)) {
-    fields.push(inferFieldFromValue(name, value))
+    fields.push(inferFieldFromValue(name, value, name))
   }
 
   return { fields }
@@ -179,10 +185,11 @@ export function generateSchemaFromData(data: JsonObject): VisualSchema {
 
 /**
  * Infer a schema field from a value.
+ * Uses deterministic path-based IDs for consistency.
  */
-function inferFieldFromValue(name: string, value: JsonValue): SchemaField {
+function inferFieldFromValue(name: string, value: JsonValue, path: string): SchemaField {
   const baseField = {
-    id: nanoid(),
+    id: `field:${path}`,
     name,
     required: false,
   }
@@ -193,7 +200,7 @@ function inferFieldFromValue(name: string, value: JsonValue): SchemaField {
     const arrayItemType = inferType(firstItem)
     const nestedFields =
       typeof firstItem === 'object' && firstItem !== null && !Array.isArray(firstItem)
-        ? Object.entries(firstItem).map(([n, v]) => inferFieldFromValue(n, v))
+        ? Object.entries(firstItem).map(([n, v]) => inferFieldFromValue(n, v, `${path}.${n}`))
         : undefined
     return {
       ...baseField,
@@ -207,7 +214,7 @@ function inferFieldFromValue(name: string, value: JsonValue): SchemaField {
     return {
       ...baseField,
       type: 'object' as const,
-      nestedFields: Object.entries(value).map(([n, v]) => inferFieldFromValue(n, v)),
+      nestedFields: Object.entries(value).map(([n, v]) => inferFieldFromValue(n, v, `${path}.${n}`)),
     }
   }
 
