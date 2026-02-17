@@ -1,11 +1,8 @@
 package app.epistola.generation.pdf
 
-import app.epistola.template.model.BorderStyle
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.colors.ColorConstants
-import com.itextpdf.layout.borders.Border
-import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Table
@@ -62,14 +59,7 @@ class TableNodeRenderer : NodeRenderer {
         )
 
         // Border style
-        val borderStyleStr = node.props?.get("borderStyle") as? String
-        val borderStyle = borderStyleStr?.let {
-            try {
-                BorderStyle.valueOf(it)
-            } catch (_: IllegalArgumentException) {
-                BorderStyle.all
-            }
-        } ?: BorderStyle.all
+        val borderStyle = parseBorderStyle(node.props?.get("borderStyle") as? String)
 
         val borderColor = ColorConstants.GRAY
         val borderWidth = 0.5f
@@ -165,35 +155,5 @@ class TableNodeRenderer : NodeRenderer {
             }
         }
         return covered
-    }
-
-    private fun applyCellBorder(
-        cell: Cell,
-        borderStyle: BorderStyle,
-        borderColor: com.itextpdf.kernel.colors.Color,
-        borderWidth: Float,
-    ) {
-        val solidBorder = SolidBorder(borderColor, borderWidth)
-
-        when (borderStyle) {
-            BorderStyle.all -> {
-                cell.setBorder(solidBorder)
-            }
-            BorderStyle.horizontal -> {
-                cell.setBorderTop(solidBorder)
-                cell.setBorderBottom(solidBorder)
-                cell.setBorderLeft(Border.NO_BORDER)
-                cell.setBorderRight(Border.NO_BORDER)
-            }
-            BorderStyle.vertical -> {
-                cell.setBorderTop(Border.NO_BORDER)
-                cell.setBorderBottom(Border.NO_BORDER)
-                cell.setBorderLeft(solidBorder)
-                cell.setBorderRight(solidBorder)
-            }
-            BorderStyle.none -> {
-                cell.setBorder(Border.NO_BORDER)
-            }
-        }
     }
 }
