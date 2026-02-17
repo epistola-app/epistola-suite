@@ -1,24 +1,24 @@
 /**
- * SchemaCommandHistory — Snapshot-based undo/redo stack for VisualSchema.
+ * SchemaCommandHistory — Command-based undo/redo for VisualSchema.
  *
- * Each execute() pushes a structuredClone of the current state onto the undo
- * stack before applying the command. Redo stack is cleared on new commands.
- * VisualSchema for typical contracts is small (<50 fields), so snapshots are cheap.
+ * Composes SnapshotHistory<VisualSchema> internally. Each execute() snapshots
+ * the current state, applies the command, and returns the new state.
+ * Public API is unchanged from the original implementation.
  */
 
 import type { VisualSchema } from '../types.js'
 import { type SchemaCommand, executeSchemaCommand } from './schemaCommands.js'
+import { SnapshotHistory } from './snapshotHistory.js'
 
 export class SchemaCommandHistory {
-  private undoStack: VisualSchema[] = []
-  private redoStack: VisualSchema[] = []
+  private _history = new SnapshotHistory<VisualSchema>()
 
   get canUndo(): boolean {
-    return this.undoStack.length > 0
+    return this._history.canUndo
   }
 
   get canRedo(): boolean {
-    return this.redoStack.length > 0
+    return this._history.canRedo
   }
 
   /**
@@ -26,8 +26,7 @@ export class SchemaCommandHistory {
    * Returns the new VisualSchema after applying the command.
    */
   execute(command: SchemaCommand, current: VisualSchema): VisualSchema {
-    this.undoStack.push(structuredClone(current))
-    this.redoStack = []
+    this._history.push(current)
     return executeSchemaCommand(current, command)
   }
 
@@ -36,9 +35,7 @@ export class SchemaCommandHistory {
    * Returns null if there is nothing to undo.
    */
   undo(current: VisualSchema): VisualSchema | null {
-    if (!this.canUndo) return null
-    this.redoStack.push(structuredClone(current))
-    return this.undoStack.pop()!
+    return this._history.undo(current)
   }
 
   /**
@@ -46,16 +43,13 @@ export class SchemaCommandHistory {
    * Returns null if there is nothing to redo.
    */
   redo(current: VisualSchema): VisualSchema | null {
-    if (!this.canRedo) return null
-    this.undoStack.push(structuredClone(current))
-    return this.redoStack.pop()!
+    return this._history.redo(current)
   }
 
   /**
    * Clear all history. Call on save or discard.
    */
   clear(): void {
-    this.undoStack = []
-    this.redoStack = []
+    this._history.clear()
   }
 }
