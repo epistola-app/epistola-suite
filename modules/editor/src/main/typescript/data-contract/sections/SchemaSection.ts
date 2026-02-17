@@ -2,14 +2,14 @@
  * SchemaSection — Visual schema builder with field management.
  *
  * Renders a list of schema fields with add/delete/update controls,
- * a "Generate from example" tool, and save state indicators.
- * Converts between visual fields and JSON Schema for persistence.
+ * a "Generate from example" tool, undo/redo, and save state indicators.
+ * Accepts VisualSchema directly — no conversion in the render path.
  */
 
 import { html, nothing } from 'lit'
 import type { DataContractState } from '../DataContractState.js'
-import type { SchemaFieldUpdate, VisualSchema } from '../types.js'
-import { jsonSchemaToVisualSchema } from '../utils/schemaUtils.js'
+import type { VisualSchema } from '../types.js'
+import type { SchemaCommand } from '../utils/schemaCommands.js'
 import { renderSchemaFieldRow } from './SchemaFieldRow.js'
 import { renderValidationMessages } from './ValidationMessages.js'
 import type { MigrationSuggestion } from '../utils/schemaMigration.js'
@@ -22,27 +22,29 @@ export interface SchemaUiState {
   showConfirmGenerate: boolean
   showMigrationAssistant: boolean
   pendingMigrations: MigrationSuggestion[]
+  canUndo: boolean
+  canRedo: boolean
 }
 
 export interface SchemaSectionCallbacks {
-  onFieldUpdate: (fieldId: string, updates: SchemaFieldUpdate) => void
-  onFieldDelete: (fieldId: string) => void
-  onAddField: () => void
+  onCommand: (command: SchemaCommand) => void
   onSave: () => void
   onGenerateFromExample: () => void
   onConfirmGenerate: () => void
   onCancelGenerate: () => void
   onToggleFieldExpand: (fieldId: string) => void
+  onUndo: () => void
+  onRedo: () => void
 }
 
 export function renderSchemaSection(
+  visualSchema: VisualSchema,
   state: DataContractState,
   uiState: SchemaUiState,
   callbacks: SchemaSectionCallbacks,
   expandedFields: Set<string>,
 ): unknown {
-  const visual: VisualSchema = jsonSchemaToVisualSchema(state.schema)
-  const fields = visual.fields
+  const fields = visualSchema.fields
   const hasFields = fields.length > 0
 
   return html`
@@ -60,6 +62,24 @@ export function renderSchemaSection(
           ?disabled=${state.dataExamples.length === 0}
           title="${state.dataExamples.length === 0 ? 'Add a test data example first' : 'Infer schema from first example'}"
         >Generate from example</button>
+
+        <div class="dc-toolbar-spacer"></div>
+
+        <button
+          class="ep-btn-outline btn-sm dc-undo-btn"
+          @click=${() => callbacks.onUndo()}
+          ?disabled=${!uiState.canUndo}
+          title="Undo (Ctrl+Z)"
+          aria-label="Undo"
+        >Undo</button>
+
+        <button
+          class="ep-btn-outline btn-sm dc-redo-btn"
+          @click=${() => callbacks.onRedo()}
+          ?disabled=${!uiState.canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          aria-label="Redo"
+        >Redo</button>
       </div>
 
       <!-- Generate confirmation dialog -->
@@ -102,11 +122,8 @@ export function renderSchemaSection(
               ${fields.map((field) =>
                 renderSchemaFieldRow(
                   field,
-                  {
-                    onUpdate: callbacks.onFieldUpdate,
-                    onDelete: callbacks.onFieldDelete,
-                  },
-                  false,
+                  callbacks.onCommand,
+                  0,
                   expandedFields,
                   callbacks.onToggleFieldExpand,
                 ),
@@ -123,7 +140,7 @@ export function renderSchemaSection(
       <!-- Add field button -->
       <button
         class="ep-btn-outline btn-sm dc-add-field-btn"
-        @click=${() => callbacks.onAddField()}
+        @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
       >+ Add Field</button>
 
       <!-- Status bar -->

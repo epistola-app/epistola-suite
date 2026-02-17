@@ -104,6 +104,15 @@
     margin-bottom: var(--ep-space-3);
   }
 
+  .dc-toolbar-spacer {
+    flex: 1;
+  }
+
+  .dc-undo-btn,
+  .dc-redo-btn {
+    min-width: auto;
+  }
+
   .dc-confirm-bar {
     margin-bottom: var(--ep-space-3);
     display: flex;

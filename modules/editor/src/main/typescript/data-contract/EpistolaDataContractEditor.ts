@@ -5,6 +5,10 @@
  * Owns a DataContractState instance, manages all UI state, delegates
  * rendering to section render functions.
  * Light DOM (no Shadow DOM) for design system CSS integration.
+ *
+ * Schema mutations happen through SchemaCommands, with VisualSchema as the
+ * primary editing state. JSON Schema conversion only happens on load and save.
+ * A snapshot-based undo/redo stack tracks history.
  */
 
 import { LitElement, html, nothing } from 'lit'
@@ -16,15 +20,14 @@ import type {
   JsonSchema,
   JsonValue,
   SaveCallbacks,
-  SchemaFieldUpdate,
+  VisualSchema,
 } from './types.js'
 import {
-  applyFieldUpdate,
-  createEmptyField,
-  generateSchemaFromData,
   jsonSchemaToVisualSchema,
   visualSchemaToJsonSchema,
 } from './utils/schemaUtils.js'
+import type { SchemaCommand } from './utils/schemaCommands.js'
+import { SchemaCommandHistory } from './utils/schemaCommandHistory.js'
 import {
   detectMigrations,
   applyAllMigrations,
@@ -49,6 +52,13 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   contractState?: DataContractState
+
+  // ---------------------------------------------------------------------------
+  // Schema editing state (VisualSchema is the primary editing state)
+  // ---------------------------------------------------------------------------
+
+  @state() private _visualSchema: VisualSchema = { fields: [] }
+  private _commandHistory = new SchemaCommandHistory()
 
   // ---------------------------------------------------------------------------
   // UI state (reactive via @state())
@@ -81,6 +91,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   // Event listener refs
   private _boundBeforeUnload = this._handleBeforeUnload.bind(this)
+  private _boundKeyDown = this._handleKeyDown.bind(this)
 
   // ---------------------------------------------------------------------------
   // Initialization
@@ -97,6 +108,10 @@ export class EpistolaDataContractEditor extends LitElement {
       this.requestUpdate()
     })
 
+    // Convert initial JSON Schema to VisualSchema once — this is now the primary editing state
+    this._visualSchema = jsonSchemaToVisualSchema(initialSchema)
+    this._commandHistory.clear()
+
     // Pre-select first example if available
     if (initialExamples.length > 0) {
       this._editingExampleId = initialExamples[0].id
@@ -110,11 +125,13 @@ export class EpistolaDataContractEditor extends LitElement {
   override connectedCallback() {
     super.connectedCallback()
     window.addEventListener('beforeunload', this._boundBeforeUnload)
+    window.addEventListener('keydown', this._boundKeyDown)
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback()
     window.removeEventListener('beforeunload', this._boundBeforeUnload)
+    window.removeEventListener('keydown', this._boundKeyDown)
     if (this._successTimer) clearTimeout(this._successTimer)
   }
 
@@ -194,20 +211,22 @@ export class EpistolaDataContractEditor extends LitElement {
       showConfirmGenerate: this._showConfirmGenerate,
       showMigrationAssistant: this._showMigrationDialog,
       pendingMigrations: this._pendingMigrations,
+      canUndo: this._commandHistory.canUndo,
+      canRedo: this._commandHistory.canRedo,
     }
 
     const callbacks: SchemaSectionCallbacks = {
-      onFieldUpdate: (fieldId, updates) => this._updateField(fieldId, updates),
-      onFieldDelete: (fieldId) => this._deleteField(fieldId),
-      onAddField: () => this._addField(),
+      onCommand: (command) => this._executeCommand(command),
       onSave: () => this._saveSchema(),
       onGenerateFromExample: () => this._handleGenerateFromExample(),
       onConfirmGenerate: () => this._confirmGenerate(),
       onCancelGenerate: () => { this._showConfirmGenerate = false },
       onToggleFieldExpand: (fieldId) => this._toggleFieldExpand(fieldId),
+      onUndo: () => this._undo(),
+      onRedo: () => this._redo(),
     }
 
-    return renderSchemaSection(state, uiState, callbacks, this._expandedFields)
+    return renderSchemaSection(this._visualSchema, state, uiState, callbacks, this._expandedFields)
   }
 
   // ---------------------------------------------------------------------------
@@ -238,39 +257,43 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
-  // Schema operations
+  // Schema operations (command-based)
   // ---------------------------------------------------------------------------
 
-  private _updateField(fieldId: string, updates: SchemaFieldUpdate): void {
-    const state = this.contractState!
-    const visual = jsonSchemaToVisualSchema(state.schema)
-    const updatedFields = visual.fields.map((f) =>
-      f.id === fieldId ? applyFieldUpdate(f, updates) : f,
-    )
-    state.setDraftSchema(visualSchemaToJsonSchema({ fields: updatedFields }))
+  private _executeCommand(command: SchemaCommand): void {
+    this._visualSchema = this._commandHistory.execute(command, this._visualSchema)
+    this._syncVisualSchemaToState()
     this._clearSchemaSaveStatus()
   }
 
-  private _deleteField(fieldId: string): void {
-    const state = this.contractState!
-    const visual = jsonSchemaToVisualSchema(state.schema)
-    const updatedFields = visual.fields.filter((f) => f.id !== fieldId)
-    if (updatedFields.length === 0) {
-      state.setDraftSchema(null)
-    } else {
-      state.setDraftSchema(visualSchemaToJsonSchema({ fields: updatedFields }))
+  private _undo(): void {
+    const prev = this._commandHistory.undo(this._visualSchema)
+    if (prev) {
+      this._visualSchema = prev
+      this._syncVisualSchemaToState()
+      this._clearSchemaSaveStatus()
     }
-    this._expandedFields.delete(fieldId)
-    this._clearSchemaSaveStatus()
   }
 
-  private _addField(): void {
+  private _redo(): void {
+    const next = this._commandHistory.redo(this._visualSchema)
+    if (next) {
+      this._visualSchema = next
+      this._syncVisualSchemaToState()
+      this._clearSchemaSaveStatus()
+    }
+  }
+
+  /**
+   * Sync the current VisualSchema to DataContractState for dirty tracking and persistence.
+   */
+  private _syncVisualSchemaToState(): void {
     const state = this.contractState!
-    const visual = jsonSchemaToVisualSchema(state.schema)
-    const newField = createEmptyField(`field${visual.fields.length + 1}`)
-    const updatedFields = [...visual.fields, newField]
-    state.setDraftSchema(visualSchemaToJsonSchema({ fields: updatedFields }))
-    this._clearSchemaSaveStatus()
+    if (this._visualSchema.fields.length > 0) {
+      state.setDraftSchema(visualSchemaToJsonSchema(this._visualSchema))
+    } else {
+      state.setDraftSchema(null)
+    }
   }
 
   private _toggleFieldExpand(fieldId: string): void {
@@ -284,9 +307,7 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _handleGenerateFromExample(): void {
-    const state = this.contractState!
-    const hasExistingSchema = state.schema !== null && state.schema.properties &&
-      Object.keys(state.schema.properties).length > 0
+    const hasExistingSchema = this._visualSchema.fields.length > 0
 
     if (hasExistingSchema) {
       this._showConfirmGenerate = true
@@ -302,9 +323,7 @@ export class EpistolaDataContractEditor extends LitElement {
     if (state.dataExamples.length === 0) return
 
     const firstExample = state.dataExamples[0]
-    const visual = generateSchemaFromData(firstExample.data)
-    state.setDraftSchema(visualSchemaToJsonSchema(visual))
-    this._clearSchemaSaveStatus()
+    this._executeCommand({ type: 'generateFromExample', data: firstExample.data })
   }
 
   private async _saveSchema(): Promise<void> {
@@ -343,6 +362,7 @@ export class EpistolaDataContractEditor extends LitElement {
       if (result.success) {
         this._schemaSaveSuccess = true
         this._scheduleSuccessClear(() => { this._schemaSaveSuccess = false })
+        this._commandHistory.clear()
 
         // Re-validate examples after schema save
         if (result.warnings) {
@@ -549,6 +569,21 @@ export class EpistolaDataContractEditor extends LitElement {
   private _handleBeforeUnload(e: BeforeUnloadEvent): void {
     if (this.contractState?.isDirty) {
       e.preventDefault()
+    }
+  }
+
+  private _handleKeyDown(e: KeyboardEvent): void {
+    if (this._activeTab !== 'schema') return
+
+    const isMod = e.metaKey || e.ctrlKey
+    if (!isMod) return
+
+    if (e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      this._undo()
+    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+      e.preventDefault()
+      this._redo()
     }
   }
 
