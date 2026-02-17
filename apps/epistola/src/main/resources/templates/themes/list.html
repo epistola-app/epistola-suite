@@ -53,20 +53,28 @@
                         <td th:text="${#temporals.format(theme.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
                             <a th:href="@{/tenants/{tenantId}/themes/{themeId}(tenantId=${tenantId},themeId=${theme.id})}"
-                               class="btn btn-sm btn-ghost">Edit</a>
+                               class="btn btn-sm btn-icon btn-ghost" title="Edit theme">
+                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            </a>
                             <form th:unless="${tenant?.defaultThemeId == theme.id}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
-                                  hx-swap="innerHTML">
+                                  hx-swap="innerHTML"
+                                  style="display: inline;">
                                 <input type="hidden" name="themeId" th:value="${theme.id}">
-                                <button type="submit" class="btn btn-sm btn-ghost">Set as Default</button>
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </form>
                             <form th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) > 1}"
                                   th:hx-post="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
-                                  hx-confirm="Delete this theme? Templates using it will fall back to their own styles.">
-                                <button type="submit" class="btn btn-sm btn-destructive">Delete</button>
+                                  hx-confirm="Delete this theme? Templates using it will fall back to their own styles."
+                                  style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete theme">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </form>
                         </td>
                     </tr>

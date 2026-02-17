@@ -50,7 +50,9 @@
                                   hx-swap="innerHTML"
                                   hx-confirm="Delete this environment? Any active template versions deployed to it will need to be redeployed elsewhere."
                                   style="display: inline;">
-                                <button type="submit" class="btn btn-sm btn-destructive">Delete</button>
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete environment">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
                             </form>
                         </td>
                     </tr>

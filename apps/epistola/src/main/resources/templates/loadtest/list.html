@@ -71,7 +71,9 @@
                     </td>
                     <td class="actions">
                         <a th:href="@{/tenants/{tenantId}/load-tests/{runId}(tenantId=${tenantId},runId=${run.id})}"
-                           class="btn btn-sm btn-ghost">View</a>
+                           class="btn btn-sm btn-icon btn-ghost" title="View load test">
+                            <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                        </a>
                     </td>
                 </tr>
             </tbody>

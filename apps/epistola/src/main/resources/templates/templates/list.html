@@ -50,7 +50,10 @@
                         <td th:text="${template.variantCount}"></td>
                         <td th:text="${#temporals.format(template.lastModified, 'yyyy-MM-dd HH:mm')}"></td>
                         <td class="actions">
-                            <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}" class="btn btn-sm btn-ghost">View</a>
+                            <a th:href="@{/tenants/{tenantId}/templates/{id}(tenantId=${tenantId},id=${template.id})}"
+                               class="btn btn-sm btn-icon btn-ghost" title="View template">
+                                <th:block th:replace="~{fragments/icon :: icon(name='eye', class='ep-icon ep-icon-sm')}" />
+                            </a>
                         </td>
                     </tr>
                 </th:block>

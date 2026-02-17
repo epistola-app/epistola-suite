@@ -45,13 +45,13 @@
                 searchUrl='/tenants/search',
                 targetId='tenant-rows'
             )}"></div>
-            <table>
+            <table class="ep-table">
                 <thead>
                     <tr>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Created</th>
-                        <th>Actions</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="tenant-rows">
@@ -64,7 +64,10 @@
                             </td>
                             <td th:text="${#temporals.format(tenant.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                             <td class="actions">
-                                <a th:href="@{/tenants/{id}(id=${tenant.id})}" class="btn btn-sm btn-outline">Open</a>
+                                <a th:href="@{/tenants/{id}(id=${tenant.id})}"
+                                   class="btn btn-sm btn-icon btn-ghost" title="Open tenant">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='chevron-right', class='ep-icon ep-icon-sm')}" />
+                                </a>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(tenants)}">
