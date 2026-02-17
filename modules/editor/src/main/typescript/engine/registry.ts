@@ -6,6 +6,7 @@
 
 import type { NodeId, SlotId, Node, Slot } from '../types/index.js'
 import { nanoid } from 'nanoid'
+import { createTableDefinition } from '../components/table/table-registration.js'
 
 // ---------------------------------------------------------------------------
 // Component definition
@@ -49,10 +50,13 @@ export interface ComponentDefinition {
   defaultProps?: Record<string, unknown>
   /**
    * Optional hook to create initial slots for a node of this type.
-   * Used for components (like columns) whose slot count is derived from
-   * defaultProps at creation time rather than from static slot templates.
+   * Used for components (like columns, tables) whose slot count is derived
+   * from props at creation time rather than from static slot templates.
+   *
+   * @param nodeId — the ID of the node being created
+   * @param props — merged props (defaultProps overridden by any overrideProps)
    */
-  createInitialSlots?: (nodeId: NodeId) => Slot[]
+  createInitialSlots?: (nodeId: NodeId, props?: Record<string, unknown>) => Slot[]
 }
 
 // ---------------------------------------------------------------------------
@@ -112,20 +116,27 @@ export class ComponentRegistry {
   /**
    * Create a new node + its initial slots for a given component type.
    * Returns the node and slots ready to be inserted into the document.
+   *
+   * @param overrideProps — optional props to merge over defaultProps
+   *   (e.g. table dialog can pass `{ rows: 4, columns: 3 }`)
    */
-  createNode(type: string): { node: Node; slots: Slot[] } {
+  createNode(type: string, overrideProps?: Record<string, unknown>): { node: Node; slots: Slot[] } {
     const def = this.getOrThrow(type)
     const nodeId = nanoid() as NodeId
 
+    const mergedProps = overrideProps
+      ? { ...(def.defaultProps ? structuredClone(def.defaultProps) : {}), ...overrideProps }
+      : (def.defaultProps ? structuredClone(def.defaultProps) : undefined)
+
     // If the component defines a custom slot initializer, use it
     if (def.createInitialSlots) {
-      const slots = def.createInitialSlots(nodeId)
+      const slots = def.createInitialSlots(nodeId, mergedProps)
       const slotIds = slots.map(s => s.id)
       const node: Node = {
         id: nodeId,
         type,
         slots: slotIds,
-        props: def.defaultProps ? structuredClone(def.defaultProps) : undefined,
+        props: mergedProps,
       }
       return { node, slots }
     }
@@ -149,7 +160,7 @@ export class ComponentRegistry {
       id: nodeId,
       type,
       slots: slotIds,
-      props: def.defaultProps ? structuredClone(def.defaultProps) : undefined,
+      props: mergedProps,
     }
 
     return { node, slots }
@@ -227,34 +238,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     },
   })
 
-  registry.register({
-    type: 'table',
-    label: 'Table',
-    icon: 'table',
-    category: 'layout',
-    slots: [{ name: 'cell-{r}-{c}', dynamic: true }],
-    allowedChildren: { mode: 'all' },
-    applicableStyles: LAYOUT_STYLES,
-    inspector: [
-      {
-        key: 'borderStyle',
-        label: 'Border Style',
-        type: 'select',
-        options: [
-          { label: 'None', value: 'none' },
-          { label: 'All', value: 'all' },
-          { label: 'Horizontal', value: 'horizontal' },
-          { label: 'Vertical', value: 'vertical' },
-        ],
-        defaultValue: 'all',
-      },
-    ],
-    defaultProps: {
-      rows: [{ isHeader: false }, { isHeader: false }],
-      columnWidths: [50, 50],
-      borderStyle: 'all',
-    },
-  })
+  registry.register(createTableDefinition())
 
   registry.register({
     type: 'conditional',
