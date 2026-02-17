@@ -554,8 +554,8 @@ export class EpistolaInspector extends LitElement {
   private _openExpressionDialog(key: string, currentValue: string, node: Node): void {
     if (!this.engine || !this.selectedNodeId) return
 
-    // For loop expressions, highlight array-type fields
-    const isLoopExpr = node.type === 'loop' && key === 'expression.raw'
+    // For loop/datatable expressions, highlight array-type fields
+    const isLoopExpr = (node.type === 'loop' || node.type === 'datatable') && key === 'expression.raw'
     const isConditionalExpr = node.type === 'conditional' && key === 'condition.raw'
     const placeholder = isLoopExpr
       ? 'e.g. items'
