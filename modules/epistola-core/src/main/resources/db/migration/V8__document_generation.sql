@@ -20,9 +20,9 @@
 -- Partitioned by created_at for efficient TTL enforcement via partition dropping
 CREATE TABLE documents (
     id UUID NOT NULL,
-    tenant_id VARCHAR(63) NOT NULL,
-    template_id VARCHAR(50) NOT NULL,
-    variant_id VARCHAR(50) NOT NULL,
+    tenant_id TENANT_ID NOT NULL,
+    template_id TEMPLATE_ID NOT NULL,
+    variant_id VARIANT_ID NOT NULL,
     version_id INTEGER NOT NULL,
     filename VARCHAR(255) NOT NULL,
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
@@ -62,11 +62,11 @@ CREATE INDEX idx_documents_correlation_id ON documents(tenant_id, correlation_id
 CREATE TABLE document_generation_requests (
     id UUID NOT NULL,
     batch_id UUID,  -- Groups related requests. NULL for single-document requests.
-    tenant_id VARCHAR(63) NOT NULL,
-    template_id VARCHAR(50) NOT NULL,
-    variant_id VARCHAR(50) NOT NULL,
+    tenant_id TENANT_ID NOT NULL,
+    template_id TEMPLATE_ID NOT NULL,
+    variant_id VARIANT_ID NOT NULL,
     version_id INTEGER,  -- NULL = use environment to determine version
-    environment_id VARCHAR(30),
+    environment_id ENVIRONMENT_ID,
     data JSONB NOT NULL,
     filename VARCHAR(255),
     correlation_id VARCHAR(255),  -- Client-provided ID for tracking documents across systems
@@ -129,7 +129,7 @@ CREATE INDEX idx_dgr_batch_status ON document_generation_requests(batch_id, stat
 -- Counts are calculated on-demand for in-progress batches, finalized when batch completes.
 CREATE TABLE document_generation_batches (
     id UUID PRIMARY KEY,
-    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_id TENANT_ID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     total_count INTEGER NOT NULL,
     final_completed_count INTEGER,  -- Set when batch completes. NULL for in-progress batches.
     final_failed_count INTEGER,     -- Set when batch completes. NULL for in-progress batches.

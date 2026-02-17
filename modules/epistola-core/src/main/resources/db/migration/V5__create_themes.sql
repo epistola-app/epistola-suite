@@ -1,11 +1,15 @@
+-- Domain type for theme identifiers (slugs)
+CREATE DOMAIN THEME_ID AS VARCHAR(20)
+    CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
+
 -- Theme system for reusable styling across templates
 -- Themes define document-level styles and named block style presets that can be shared
 --
 -- Uses composite PK (tenant_id, id) consistent with all other tenant-scoped tables.
 
 CREATE TABLE themes (
-    id VARCHAR(20) NOT NULL CHECK (id ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'),
-    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    id THEME_ID NOT NULL,
+    tenant_id TENANT_ID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     document_styles JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -28,6 +32,8 @@ COMMENT ON COLUMN themes.last_modified_by IS 'User who last modified this theme'
 -- FK: tenants.default_theme_id -> themes
 -- ============================================================================
 -- Maps tenants.id -> themes.tenant_id, enforcing a tenant can only reference its own themes.
+
+ALTER TABLE tenants ALTER COLUMN default_theme_id TYPE THEME_ID;
 
 ALTER TABLE tenants ADD CONSTRAINT fk_tenants_default_theme
     FOREIGN KEY (id, default_theme_id) REFERENCES themes(tenant_id, id);

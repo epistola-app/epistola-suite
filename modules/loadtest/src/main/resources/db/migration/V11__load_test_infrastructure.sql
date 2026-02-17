@@ -1,4 +1,4 @@
--- V8: Load Test Infrastructure
+-- Load Test Infrastructure
 --
 -- This migration adds support for embedded load testing of document generation.
 -- It includes:
@@ -17,11 +17,11 @@
 CREATE TABLE load_test_runs (
     id UUID PRIMARY KEY,
     batch_id UUID UNIQUE,                       -- Links to document_generation_batches and document_generation_requests
-    tenant_id VARCHAR(63) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    template_id VARCHAR(50) NOT NULL,
-    variant_id VARCHAR(50) NOT NULL,
+    tenant_id TENANT_ID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    template_id TEMPLATE_ID NOT NULL,
+    variant_id VARIANT_ID NOT NULL,
     version_id INTEGER,  -- NULL = use environment
-    environment_id VARCHAR(30),
+    environment_id ENVIRONMENT_ID,
 
     -- Configuration
     target_count INTEGER NOT NULL CHECK (target_count BETWEEN 1 AND 10000),
