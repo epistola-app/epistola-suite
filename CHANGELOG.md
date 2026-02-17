@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Added
+- **Data Contract Editor — Test Data chip list**: Replaced the `<select>` dropdown with a horizontal chip list showing all examples at a glance. Each chip displays the example name and a validation badge (green checkmark or red error count). Active chip is highlighted in blue.
+- **Data Contract Editor — Per-example undo/redo**: Example data edits now have undo/redo support via `SnapshotHistory<JsonObject>`. Each example gets its own history stack. Ctrl+Z/Ctrl+Shift+Z works on both Schema and Test Data tabs. History clears on save or example switch.
+- **Data Contract Editor — Inline field validation**: Validation errors are now shown inline on each form field (red border + error text) instead of only as a top-level block. Collapsed groups with child errors show a red dot and red left border. A compact validation summary pill replaces the old warning block.
+- **SnapshotHistory<T> generic utility**: Extracted a generic snapshot-based undo/redo stack from `SchemaCommandHistory` so the same pattern can be reused across the editor (currently used for both schema and example data editing).
 - **Data Contract Editor — Undo/Redo**: Schema mutations now go through a command pattern with snapshot-based undo/redo. Ctrl+Z/Ctrl+Shift+Z keyboard shortcuts and toolbar buttons. History clears on save.
 - **Data Contract Editor — Infinite nesting**: Schema fields can now be nested to arbitrary depth (previously limited to 2 levels). The `isNested: boolean` flag is replaced by a numeric `depth` parameter.
 

@@ -9,6 +9,10 @@
  * Schema mutations happen through SchemaCommands, with VisualSchema as the
  * primary editing state. JSON Schema conversion only happens on load and save.
  * A snapshot-based undo/redo stack tracks history.
+ *
+ * Example edits also have per-example undo/redo via SnapshotHistory<JsonObject>.
+ * All examples are validated against the schema, with inline field errors and
+ * chip-level badges.
  */
 
 import { LitElement, html, nothing } from 'lit'
@@ -17,6 +21,7 @@ import { nanoid } from 'nanoid'
 import { DataContractState } from './DataContractState.js'
 import type {
   DataExample,
+  JsonObject,
   JsonSchema,
   JsonValue,
   SaveCallbacks,
@@ -28,16 +33,17 @@ import {
 } from './utils/schemaUtils.js'
 import type { SchemaCommand } from './utils/schemaCommands.js'
 import { SchemaCommandHistory } from './utils/schemaCommandHistory.js'
+import { SnapshotHistory } from './utils/snapshotHistory.js'
 import {
   detectMigrations,
   applyAllMigrations,
   type MigrationSuggestion,
 } from './utils/schemaMigration.js'
-import { validateDataAgainstSchema } from './utils/schemaValidation.js'
+import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js'
 import { renderSchemaSection, type SchemaUiState, type SchemaSectionCallbacks } from './sections/SchemaSection.js'
 import { renderExamplesSection, type ExamplesUiState, type ExamplesSectionCallbacks } from './sections/ExamplesSection.js'
 import { renderMigrationDialog, migrationKey } from './sections/MigrationAssistant.js'
-import { setNestedValue } from './sections/ExampleForm.js'
+import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js'
 
 type TabId = 'schema' | 'examples'
 
@@ -79,7 +85,14 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _exampleSaving = false
   @state() private _exampleSaveSuccess = false
   @state() private _exampleSaveError: string | null = null
-  @state() private _exampleValidationWarnings: Array<{ path: string; message: string }> = []
+
+  // Per-example undo/redo stacks
+  private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>()
+  @state() private _exampleCanUndo = false
+  @state() private _exampleCanRedo = false
+
+  // Validation errors for all examples (keyed by example ID)
+  @state() private _exampleValidationErrors = new Map<string, SchemaValidationError[]>()
 
   // Migration dialog state
   @state() private _showMigrationDialog = false
@@ -116,6 +129,9 @@ export class EpistolaDataContractEditor extends LitElement {
     if (initialExamples.length > 0) {
       this._editingExampleId = initialExamples[0].id
     }
+
+    // Validate all examples on init
+    this._validateAllExamples()
   }
 
   // ---------------------------------------------------------------------------
@@ -236,12 +252,28 @@ export class EpistolaDataContractEditor extends LitElement {
   private _renderExamplesTab(): unknown {
     const state = this.contractState!
 
+    // Derive errors for selected example
+    const errorsForSelected = this._editingExampleId
+      ? (this._exampleValidationErrors.get(this._editingExampleId) ?? [])
+      : []
+    const fieldErrorMap = buildFieldErrorMap(errorsForSelected)
+
+    // Derive error counts per example for chip badges
+    const exampleErrorCounts: Record<string, number> = {}
+    for (const ex of state.dataExamples) {
+      exampleErrorCounts[ex.id] = (this._exampleValidationErrors.get(ex.id) ?? []).length
+    }
+
     const uiState: ExamplesUiState = {
       editingId: this._editingExampleId,
       isSaving: this._exampleSaving,
       saveSuccess: this._exampleSaveSuccess,
       saveError: this._exampleSaveError,
-      validationWarnings: this._exampleValidationWarnings,
+      fieldErrorMap,
+      validationErrorCount: errorsForSelected.length,
+      exampleErrorCounts,
+      canUndo: this._exampleCanUndo,
+      canRedo: this._exampleCanRedo,
     }
 
     const callbacks: ExamplesSectionCallbacks = {
@@ -251,6 +283,8 @@ export class EpistolaDataContractEditor extends LitElement {
       onUpdateExampleName: (id, name) => this._updateExampleName(id, name),
       onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
       onSaveExample: (id) => this._saveExample(id),
+      onUndo: () => this._undoExampleData(),
+      onRedo: () => this._redoExampleData(),
     }
 
     return renderExamplesSection(state, uiState, callbacks)
@@ -364,7 +398,9 @@ export class EpistolaDataContractEditor extends LitElement {
         this._scheduleSuccessClear(() => { this._schemaSaveSuccess = false })
         this._commandHistory.clear()
 
-        // Re-validate examples after schema save
+        // Re-validate all examples after schema save
+        this._validateAllExamples()
+
         if (result.warnings) {
           this._schemaWarnings = Object.values(result.warnings).flat()
         } else {
@@ -455,7 +491,8 @@ export class EpistolaDataContractEditor extends LitElement {
   private _selectExample(id: string): void {
     this._editingExampleId = id
     this._clearExampleSaveStatus()
-    this._validateCurrentExample()
+    this._clearExampleHistory()
+    this._syncExampleUndoRedoState()
   }
 
   private _addExample(): void {
@@ -468,6 +505,9 @@ export class EpistolaDataContractEditor extends LitElement {
     state.addDraftExample(newExample)
     this._editingExampleId = newExample.id
     this._clearExampleSaveStatus()
+    this._clearExampleHistory()
+    this._validateAllExamples()
+    this._syncExampleUndoRedoState()
   }
 
   private async _deleteExample(id: string): Promise<void> {
@@ -475,12 +515,19 @@ export class EpistolaDataContractEditor extends LitElement {
 
     const result = await state.deleteSingleExample(id)
     if (result.success) {
+      // Clean up history for deleted example
+      this._exampleHistories.delete(id)
+
       if (this._editingExampleId === id) {
         const remaining = state.dataExamples
         this._editingExampleId = remaining.length > 0 ? remaining[0].id : null
+        this._clearExampleHistory()
       }
+
+      this._validateAllExamples()
     }
     this._clearExampleSaveStatus()
+    this._syncExampleUndoRedoState()
   }
 
   private _updateExampleName(id: string, name: string): void {
@@ -494,10 +541,44 @@ export class EpistolaDataContractEditor extends LitElement {
     const example = state.dataExamples.find((e) => e.id === id)
     if (!example) return
 
+    // Push current data to undo history before mutation
+    this._getExampleHistory(id).push(example.data)
+
     const updatedData = setNestedValue(example.data, path, value)
     state.updateDraftExample(id, { data: updatedData })
     this._clearExampleSaveStatus()
-    this._validateCurrentExample()
+    this._validateAllExamples()
+    this._syncExampleUndoRedoState()
+  }
+
+  private _undoExampleData(): void {
+    if (!this._editingExampleId) return
+    const state = this.contractState!
+    const example = state.dataExamples.find((e) => e.id === this._editingExampleId)
+    if (!example) return
+
+    const history = this._getExampleHistory(this._editingExampleId)
+    const prev = history.undo(example.data)
+    if (prev) {
+      state.updateDraftExample(this._editingExampleId, { data: prev })
+      this._validateAllExamples()
+      this._syncExampleUndoRedoState()
+    }
+  }
+
+  private _redoExampleData(): void {
+    if (!this._editingExampleId) return
+    const state = this.contractState!
+    const example = state.dataExamples.find((e) => e.id === this._editingExampleId)
+    if (!example) return
+
+    const history = this._getExampleHistory(this._editingExampleId)
+    const next = history.redo(example.data)
+    if (next) {
+      state.updateDraftExample(this._editingExampleId, { data: next })
+      this._validateAllExamples()
+      this._syncExampleUndoRedoState()
+    }
   }
 
   private async _saveExample(id: string): Promise<void> {
@@ -521,10 +602,13 @@ export class EpistolaDataContractEditor extends LitElement {
         this._exampleSaveSuccess = true
         this._scheduleSuccessClear(() => { this._exampleSaveSuccess = false })
 
+        // Clear undo/redo history on successful save
+        this._getExampleHistory(id).clear()
+        this._syncExampleUndoRedoState()
+
         if (result.warnings) {
-          this._exampleValidationWarnings = Object.values(result.warnings).flat()
-        } else {
-          this._exampleValidationWarnings = []
+          // Re-validate to update inline errors from server-side warnings
+          this._validateAllExamples()
         }
       } else {
         const errors = result.errors ? Object.values(result.errors).flat() : []
@@ -545,21 +629,52 @@ export class EpistolaDataContractEditor extends LitElement {
     this._exampleSaveError = null
   }
 
-  private _validateCurrentExample(): void {
+  // ---------------------------------------------------------------------------
+  // Example undo/redo helpers
+  // ---------------------------------------------------------------------------
+
+  private _getExampleHistory(exampleId: string): SnapshotHistory<JsonObject> {
+    let history = this._exampleHistories.get(exampleId)
+    if (!history) {
+      history = new SnapshotHistory<JsonObject>()
+      this._exampleHistories.set(exampleId, history)
+    }
+    return history
+  }
+
+  private _clearExampleHistory(): void {
+    if (this._editingExampleId) {
+      this._getExampleHistory(this._editingExampleId).clear()
+    }
+  }
+
+  private _syncExampleUndoRedoState(): void {
+    if (this._editingExampleId) {
+      const history = this._getExampleHistory(this._editingExampleId)
+      this._exampleCanUndo = history.canUndo
+      this._exampleCanRedo = history.canRedo
+    } else {
+      this._exampleCanUndo = false
+      this._exampleCanRedo = false
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Validation (all examples)
+  // ---------------------------------------------------------------------------
+
+  private _validateAllExamples(): void {
     const state = this.contractState!
-    if (!this._editingExampleId || !state.schema) {
-      this._exampleValidationWarnings = []
-      return
+    const newErrors = new Map<string, SchemaValidationError[]>()
+
+    if (state.schema) {
+      for (const example of state.dataExamples) {
+        const result = validateDataAgainstSchema(example.data, state.schema)
+        newErrors.set(example.id, result.errors)
+      }
     }
 
-    const example = state.dataExamples.find((e) => e.id === this._editingExampleId)
-    if (!example) {
-      this._exampleValidationWarnings = []
-      return
-    }
-
-    const result = validateDataAgainstSchema(example.data, state.schema)
-    this._exampleValidationWarnings = result.errors
+    this._exampleValidationErrors = newErrors
   }
 
   // ---------------------------------------------------------------------------
@@ -573,17 +688,25 @@ export class EpistolaDataContractEditor extends LitElement {
   }
 
   private _handleKeyDown(e: KeyboardEvent): void {
-    if (this._activeTab !== 'schema') return
-
     const isMod = e.metaKey || e.ctrlKey
     if (!isMod) return
 
-    if (e.key === 'z' && !e.shiftKey) {
-      e.preventDefault()
-      this._undo()
-    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-      e.preventDefault()
-      this._redo()
+    if (this._activeTab === 'schema') {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        this._undo()
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault()
+        this._redo()
+      }
+    } else if (this._activeTab === 'examples') {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        this._undoExampleData()
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault()
+        this._redoExampleData()
+      }
     }
   }
 

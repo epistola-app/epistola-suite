@@ -540,25 +540,102 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Examples section
+   * Examples section — chip list
    * ---------------------------------------------------------------------- */
 
-  .dc-example-toolbar {
+  .dc-example-chips {
     display: flex;
-    align-items: center;
-    gap: var(--ep-space-2);
+    flex-wrap: wrap;
+    gap: var(--ep-space-1-5);
     margin-bottom: var(--ep-space-3);
   }
 
-  .dc-example-select {
-    flex: 1;
-    min-width: 0;
-    height: var(--ep-h-8);
+  .dc-example-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    padding: var(--ep-space-1) var(--ep-space-2);
     font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-gray-600);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-full);
+    cursor: pointer;
+    transition: background var(--ep-transition-base), border-color var(--ep-transition-base), color var(--ep-transition-base);
+    white-space: nowrap;
+  }
+
+  .dc-example-chip:hover {
+    background: var(--ep-gray-100);
+    border-color: var(--ep-gray-300);
+  }
+
+  .dc-example-chip-active {
+    background: var(--ep-blue-50);
+    border-color: var(--ep-blue-300);
+    color: var(--ep-blue-700);
+  }
+
+  .dc-example-chip-active:hover {
+    background: var(--ep-blue-100);
+    border-color: var(--ep-blue-400);
+  }
+
+  .dc-example-chip-add {
+    color: var(--ep-gray-400);
+    border-style: dashed;
+  }
+
+  .dc-example-chip-add:hover {
+    color: var(--ep-blue-600);
+    border-color: var(--ep-blue-300);
+    background: var(--ep-blue-50);
+  }
+
+  .dc-example-chip-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dc-example-chip-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: var(--ep-radius-full);
+    line-height: 1;
+  }
+
+  .dc-example-chip-badge-ok {
+    color: var(--ep-green-700);
+    background: var(--ep-green-50);
+  }
+
+  .dc-example-chip-badge-error {
+    color: var(--ep-white);
+    background: var(--ep-red-500);
+    padding: 0 4px;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Examples section — header, editor, toolbar
+   * ---------------------------------------------------------------------- */
+
+  .dc-example-header {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-2);
   }
 
   .dc-example-delete-btn {
     color: var(--ep-red-500);
+    flex-shrink: 0;
   }
 
   .dc-example-delete-btn:hover {
@@ -570,8 +647,75 @@
     margin-top: var(--ep-space-3);
   }
 
+  .dc-example-editor-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    margin-bottom: var(--ep-space-3);
+  }
+
   .dc-example-form-container {
     margin-top: var(--ep-space-3);
+  }
+
+  /* --------------------------------------------------------------------------
+   * Validation summary pill (compact, shown in toolbar)
+   * ---------------------------------------------------------------------- */
+
+  .dc-validation-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-amber-800);
+    background: var(--ep-amber-50);
+    border: 1px solid var(--ep-amber-200);
+    border-radius: var(--ep-radius-full);
+    margin-left: auto;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Inline field validation errors
+   * ---------------------------------------------------------------------- */
+
+  .dc-tree-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .dc-input-error {
+    border-color: var(--ep-red-400) !important;
+    background: var(--ep-red-50) !important;
+  }
+
+  .dc-input-error:focus {
+    border-color: var(--ep-red-500) !important;
+    box-shadow: 0 0 0 1px var(--ep-red-200) !important;
+  }
+
+  .dc-field-error {
+    font-size: 10px;
+    color: var(--ep-red-500);
+    line-height: 1.3;
+  }
+
+  /* Red dot on collapsed groups with child errors */
+  .dc-tree-group-error-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: var(--ep-radius-full);
+    background: var(--ep-red-500);
+    flex-shrink: 0;
+  }
+
+  /* Red left border on groups with errors */
+  .dc-tree-group-has-errors > summary {
+    border-left: 2px solid var(--ep-red-400);
   }
 
   /* --------------------------------------------------------------------------

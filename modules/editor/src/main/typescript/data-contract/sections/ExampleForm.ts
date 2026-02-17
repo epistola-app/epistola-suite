@@ -10,10 +10,15 @@
  *   array   -> repeatable rows with add/remove controls
  *
  * The onChange callback receives (dotPath, newValue) for immutable deep updates.
+ *
+ * Inline validation: an optional `errors` map (form path -> error message)
+ * adds red borders and error text to invalid fields, and red dots to
+ * collapsed groups containing errors.
  */
 
 import { html, nothing } from 'lit'
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js'
+import type { SchemaValidationError } from '../utils/schemaValidation.js'
 
 // ---------------------------------------------------------------------------
 // Deep value helpers
@@ -83,17 +88,64 @@ export function setNestedValue(obj: JsonObject, path: string, value: JsonValue):
 }
 
 // ---------------------------------------------------------------------------
+// Validation path utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert a JSON Schema validation path (e.g., "$.users[0].email")
+ * to the dot-separated form path used by the form renderer (e.g., "users.0.email").
+ */
+export function validationPathToFormPath(path: string): string {
+  return path
+    .replace(/^\$\./, '')           // strip leading "$."
+    .replace(/\[(\d+)\]/g, '.$1')  // convert [0] to .0
+}
+
+/**
+ * Build a Map<formPath, errorMessage> from validation errors.
+ * Used to drive inline error indicators on form fields.
+ */
+export function buildFieldErrorMap(errors: SchemaValidationError[]): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const err of errors) {
+    const formPath = validationPathToFormPath(err.path)
+    // Keep the first error per path (most relevant)
+    if (!map.has(formPath)) {
+      map.set(formPath, err.message)
+    }
+  }
+  return map
+}
+
+/**
+ * Check if any error path starts with the given prefix.
+ * Used to show red dots on collapsed groups containing errors.
+ */
+export function hasChildErrors(parentPath: string, errors: Map<string, string>): boolean {
+  const prefix = parentPath + '.'
+  for (const key of errors.keys()) {
+    if (key === parentPath || key.startsWith(prefix)) return true
+  }
+  return false
+}
+
+// ---------------------------------------------------------------------------
 // Render helpers
 // ---------------------------------------------------------------------------
+
+const NO_ERRORS: Map<string, string> = new Map()
 
 /**
  * Render the example form from a JSON Schema.
  * When no schema exists, shows a placeholder message.
+ *
+ * @param errors Optional map of form path -> error message for inline validation.
  */
 export function renderExampleForm(
   schema: JsonSchema | null,
   data: JsonObject,
   onChange: (path: string, value: JsonValue) => void,
+  errors: Map<string, string> = NO_ERRORS,
 ): unknown {
   if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
     return html`
@@ -108,7 +160,7 @@ export function renderExampleForm(
   return html`
     <div class="dc-tree">
       ${Object.entries(schema.properties).map(([name, propSchema]) =>
-        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange, 0),
+        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange, 0, errors),
       )}
     </div>
   `
@@ -126,9 +178,11 @@ function renderFormField(
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   depth: number,
+  errors: Map<string, string>,
 ): unknown {
   const type = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type
   const value = getNestedValue(rootData, path)
+  const fieldError = errors.get(path)
 
   const label = html`
     <label class="dc-tree-label">
@@ -141,13 +195,16 @@ function renderFormField(
       return html`
         <div class="dc-tree-row">
           ${label}
-          <input
-            type="text"
-            class="ep-input dc-tree-input"
-            .value=${String(value ?? '')}
-            placeholder="${name}"
-            @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-          />
+          <div class="dc-tree-input-wrapper">
+            <input
+              type="text"
+              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              .value=${String(value ?? '')}
+              placeholder="${name}"
+              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+            />
+            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+          </div>
         </div>
       `
 
@@ -155,17 +212,20 @@ function renderFormField(
       return html`
         <div class="dc-tree-row">
           ${label}
-          <input
-            type="number"
-            class="ep-input dc-tree-input"
-            step="any"
-            .value=${value != null ? String(value) : ''}
-            placeholder="${name}"
-            @change=${(e: Event) => {
-              const raw = (e.target as HTMLInputElement).value
-              onChange(path, raw === '' ? null : parseFloat(raw))
-            }}
-          />
+          <div class="dc-tree-input-wrapper">
+            <input
+              type="number"
+              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              step="any"
+              .value=${value != null ? String(value) : ''}
+              placeholder="${name}"
+              @change=${(e: Event) => {
+                const raw = (e.target as HTMLInputElement).value
+                onChange(path, raw === '' ? null : parseFloat(raw))
+              }}
+            />
+            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+          </div>
         </div>
       `
 
@@ -173,17 +233,20 @@ function renderFormField(
       return html`
         <div class="dc-tree-row">
           ${label}
-          <input
-            type="number"
-            class="ep-input dc-tree-input"
-            step="1"
-            .value=${value != null ? String(value) : ''}
-            placeholder="${name}"
-            @change=${(e: Event) => {
-              const raw = (e.target as HTMLInputElement).value
-              onChange(path, raw === '' ? null : parseInt(raw, 10))
-            }}
-          />
+          <div class="dc-tree-input-wrapper">
+            <input
+              type="number"
+              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              step="1"
+              .value=${value != null ? String(value) : ''}
+              placeholder="${name}"
+              @change=${(e: Event) => {
+                const raw = (e.target as HTMLInputElement).value
+                onChange(path, raw === '' ? null : parseInt(raw, 10))
+              }}
+            />
+            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+          </div>
         </div>
       `
 
@@ -191,34 +254,40 @@ function renderFormField(
       return html`
         <div class="dc-tree-row">
           ${label}
-          <label class="dc-tree-checkbox">
-            <input
-              type="checkbox"
-              class="ep-checkbox"
-              .checked=${value === true}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
-            />
-          </label>
+          <div class="dc-tree-input-wrapper">
+            <label class="dc-tree-checkbox">
+              <input
+                type="checkbox"
+                class="ep-checkbox"
+                .checked=${value === true}
+                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
+              />
+            </label>
+            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+          </div>
         </div>
       `
 
     case 'object':
-      return renderObjectField(name, propSchema, path, rootData, isRequired, onChange, depth)
+      return renderObjectField(name, propSchema, path, rootData, isRequired, onChange, depth, errors)
 
     case 'array':
-      return renderArrayField(name, propSchema, path, rootData, isRequired, onChange, depth)
+      return renderArrayField(name, propSchema, path, rootData, isRequired, onChange, depth, errors)
 
     default:
       return html`
         <div class="dc-tree-row">
           ${label}
-          <input
-            type="text"
-            class="ep-input dc-tree-input"
-            .value=${String(value ?? '')}
-            placeholder="${name}"
-            @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
-          />
+          <div class="dc-tree-input-wrapper">
+            <input
+              type="text"
+              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              .value=${String(value ?? '')}
+              placeholder="${name}"
+              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+            />
+            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+          </div>
         </div>
       `
   }
@@ -236,6 +305,7 @@ function renderObjectField(
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   depth: number,
+  errors: Map<string, string>,
 ): unknown {
   if (!propSchema.properties || Object.keys(propSchema.properties).length === 0) {
     return html`
@@ -249,11 +319,13 @@ function renderObjectField(
   }
 
   const nestedRequired = new Set(propSchema.required ?? [])
+  const groupHasErrors = hasChildErrors(path, errors)
 
   return html`
-    <details class="dc-tree-group" ?open=${depth < 1}>
+    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${depth < 1}>
       <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
+        ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
         <span class="dc-tree-type-badge">Object</span>
       </summary>
       <div class="dc-tree-group-body">
@@ -266,6 +338,7 @@ function renderObjectField(
             nestedRequired.has(nestedName),
             onChange,
             depth + 1,
+            errors,
           ),
         )}
       </div>
@@ -284,6 +357,7 @@ function renderArrayField(
   isRequired: boolean,
   onChange: (path: string, value: JsonValue) => void,
   depth: number,
+  errors: Map<string, string>,
 ): unknown {
   const currentValue = getNestedValue(rootData, path)
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : []
@@ -302,40 +376,51 @@ function renderArrayField(
   }
 
   if (itemType === 'object' && itemSchema?.properties) {
-    return renderArrayOfObjects(name, itemSchema, path, items, rootData, isRequired, onChange, addItem, removeItem, depth)
+    return renderArrayOfObjects(name, itemSchema, path, items, rootData, isRequired, onChange, addItem, removeItem, depth, errors)
   }
+
+  const groupHasErrors = hasChildErrors(path, errors)
 
   // Array of primitives
   return html`
-    <details class="dc-tree-group" ?open=${depth < 1}>
+    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${depth < 1}>
       <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
+        ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
         <span class="dc-tree-type-badge">List&lt;${itemType}&gt; (${items.length})</span>
       </summary>
       <div class="dc-tree-group-body">
-        ${items.map((item, index) => html`
-          <div class="dc-tree-row">
-            <label class="dc-tree-label">[${index}]</label>
-            <div class="dc-tree-array-item">
-              ${renderPrimitiveInput(
-                itemType,
-                item,
-                `${name}[${index}]`,
-                (newValue) => {
-                  const newItems = [...items]
-                  newItems[index] = newValue
-                  onChange(path, newItems)
-                },
-              )}
-              <button
-                class="dc-array-item-remove"
-                title="Remove item"
-                aria-label="Remove item"
-                @click=${() => removeItem(index)}
-              >\u00D7</button>
+        ${items.map((item, index) => {
+          const itemPath = `${path}.${index}`
+          const itemError = errors.get(itemPath)
+          return html`
+            <div class="dc-tree-row">
+              <label class="dc-tree-label">[${index}]</label>
+              <div class="dc-tree-array-item">
+                <div class="dc-tree-input-wrapper" style="flex:1;min-width:0">
+                  ${renderPrimitiveInput(
+                    itemType,
+                    item,
+                    `${name}[${index}]`,
+                    (newValue) => {
+                      const newItems = [...items]
+                      newItems[index] = newValue
+                      onChange(path, newItems)
+                    },
+                    itemError,
+                  )}
+                  ${itemError ? html`<span class="dc-field-error">${itemError}</span>` : nothing}
+                </div>
+                <button
+                  class="dc-array-item-remove"
+                  title="Remove item"
+                  aria-label="Remove item"
+                  @click=${() => removeItem(index)}
+                >\u00D7</button>
+              </div>
             </div>
-          </div>
-        `)}
+          `
+        })}
         <button
           class="ep-btn-outline btn-sm dc-tree-add-btn"
           @click=${() => addItem()}
@@ -359,45 +444,54 @@ function renderArrayOfObjects(
   addItem: () => void,
   removeItem: (index: number) => void,
   depth: number,
+  errors: Map<string, string>,
 ): unknown {
   const nestedRequired = new Set(itemSchema.required ?? [])
+  const groupHasErrors = hasChildErrors(path, errors)
 
   return html`
-    <details class="dc-tree-group" ?open=${depth < 1}>
+    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${depth < 1}>
       <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
+        ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
         <span class="dc-tree-type-badge">List&lt;Object&gt; (${items.length})</span>
       </summary>
       <div class="dc-tree-group-body">
-        ${items.map((_item, index) => html`
-          <details class="dc-tree-group dc-tree-group-item" open>
-            <summary class="dc-tree-group-header dc-tree-group-header-item">
-              <span>#${index + 1}</span>
-              <button
-                class="dc-array-item-remove"
-                title="Remove item"
-                aria-label="Remove item #${index + 1}"
-                @click=${(e: Event) => { e.preventDefault(); removeItem(index) }}
-              >\u00D7</button>
-            </summary>
-            <div class="dc-tree-group-body">
-              ${itemSchema.properties
-                ? Object.entries(itemSchema.properties).map(([nestedName, nestedProp]) =>
-                    renderFormField(
-                      nestedName,
-                      nestedProp,
-                      `${path}.${index}.${nestedName}`,
-                      rootData,
-                      nestedRequired.has(nestedName),
-                      onChange,
-                      depth + 1,
-                    ),
-                  )
-                : nothing
-              }
-            </div>
-          </details>
-        `)}
+        ${items.map((_item, index) => {
+          const itemPath = `${path}.${index}`
+          const itemHasErrors = hasChildErrors(itemPath, errors)
+          return html`
+            <details class="dc-tree-group dc-tree-group-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}" open>
+              <summary class="dc-tree-group-header dc-tree-group-header-item">
+                <span>#${index + 1}</span>
+                ${itemHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
+                <button
+                  class="dc-array-item-remove"
+                  title="Remove item"
+                  aria-label="Remove item #${index + 1}"
+                  @click=${(e: Event) => { e.preventDefault(); removeItem(index) }}
+                >\u00D7</button>
+              </summary>
+              <div class="dc-tree-group-body">
+                ${itemSchema.properties
+                  ? Object.entries(itemSchema.properties).map(([nestedName, nestedProp]) =>
+                      renderFormField(
+                        nestedName,
+                        nestedProp,
+                        `${path}.${index}.${nestedName}`,
+                        rootData,
+                        nestedRequired.has(nestedName),
+                        onChange,
+                        depth + 1,
+                        errors,
+                      ),
+                    )
+                  : nothing
+                }
+              </div>
+            </details>
+          `
+        })}
         <button
           class="ep-btn-outline btn-sm dc-tree-add-btn"
           @click=${() => addItem()}
@@ -415,13 +509,16 @@ function renderPrimitiveInput(
   value: JsonValue,
   label: string,
   onChange: (value: JsonValue) => void,
+  error?: string,
 ): unknown {
+  const errorClass = error ? 'dc-input-error' : ''
+
   switch (type) {
     case 'number':
       return html`
         <input
           type="number"
-          class="ep-input dc-array-item-input"
+          class="ep-input dc-array-item-input ${errorClass}"
           step="any"
           .value=${value != null ? String(value) : ''}
           placeholder="${label}"
@@ -436,7 +533,7 @@ function renderPrimitiveInput(
       return html`
         <input
           type="number"
-          class="ep-input dc-array-item-input"
+          class="ep-input dc-array-item-input ${errorClass}"
           step="1"
           .value=${value != null ? String(value) : ''}
           placeholder="${label}"
@@ -463,7 +560,7 @@ function renderPrimitiveInput(
       return html`
         <input
           type="text"
-          class="ep-input dc-array-item-input"
+          class="ep-input dc-array-item-input ${errorClass}"
           .value=${String(value ?? '')}
           placeholder="${label}"
           aria-label="${label}"
