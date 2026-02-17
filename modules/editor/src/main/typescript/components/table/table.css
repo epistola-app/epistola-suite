@@ -14,6 +14,7 @@
     display: grid;
     width: 100%;
     border-collapse: collapse;
+    user-select: none;
   }
 
   .table-canvas-cell {
