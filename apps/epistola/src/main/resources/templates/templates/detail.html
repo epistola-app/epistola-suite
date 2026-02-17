@@ -219,7 +219,7 @@
                     <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
                         Define the JSON schema and test data examples for this template.
                     </p>
-                    <div id="schema-manager-container"></div>
+                    <div id="data-contract-container"></div>
                 </div>
             </div>
         </div>
@@ -399,7 +399,7 @@
             const initialExamples = INITIAL_EXAMPLES;
 
             const editor = mountDataContractEditor({
-                container: document.getElementById('schema-manager-container'),
+                container: document.getElementById('data-contract-container'),
                 templateId: templateId,
                 initialSchema: initialSchema,
                 initialExamples: initialExamples,
