@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- **Pre-1.0 version capping in CI**: Breaking changes (`feat!:`, `BREAKING CHANGE:`) now bump the minor version instead of the major version, keeping releases below `1.0.0` while the project is pre-production. The `mathieudutour/github-tag-action` runs in dry-run mode and a custom script caps the calculated version. A safeguard fails the build if existing tags are >= 1.0.0.
 - **Variants Card Grid**: Replaced the variants table with a responsive card grid. Each card shows title, slug, attribute badges, version status, and action buttons. Default variant is visually distinguished with blue tint and always sorted first.
   - **Attribute Filtering**: Filter bar with dropdowns for each attribute definition, allowing quick narrowing of variants. Client-side filtering for instant response. Filters persist across HTMX swaps.
 - **Auto-Draft on Publish**: Publishing a draft version to an environment now automatically creates a new draft (copying the published content), so variants always have an editable version. This removes the need to manually create new drafts after deploying.

@@ -261,13 +261,57 @@ jobs:
         if: ${{ matrix.enabled }}
         uses: sigstore/cosign-installer@v3
 
-      - name: Bump version and create tag
+      - name: Calculate version bump
         if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        id: tag
+        id: version_calc
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: patch
+          dry_run: true
+
+      # Pre-1.0 versioning: breaking changes bump minor instead of major.
+      # This keeps the version below 1.0.0 while the project is pre-production.
+      # Remove this cap and use the tag action directly when going to 1.0.0.
+      - name: Create pre-1.0 version tag
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        id: tag
+        env:
+          RELEASE_TYPE: ${{ steps.version_calc.outputs.release_type }}
+          PREVIOUS_VERSION: ${{ steps.version_calc.outputs.previous_version }}
+        run: |
+          PREV="${PREVIOUS_VERSION:-0.0.0}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$PREV"
+
+          # Safeguard: fail if existing tags are >= 1.0.0 (old tags not cleaned up)
+          if [ "$MAJOR" -gt 0 ]; then
+            echo "::error::Current version ${PREV} is >= 1.0.0. Delete old v* tags and create a v0.x.0 starting tag first."
+            exit 1
+          fi
+
+          # Breaking changes (major) and new features (minor) bump minor
+          # Everything else bumps patch
+          case "$RELEASE_TYPE" in
+            major|minor)
+              NEW_VERSION="0.$((MINOR + 1)).0"
+              ;;
+            *)
+              NEW_VERSION="0.${MINOR}.$((PATCH + 1))"
+              ;;
+          esac
+
+          NEW_TAG="v${NEW_VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_TAG" -m "Release ${NEW_VERSION}"
+          git push origin "$NEW_TAG"
+
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "new_tag=${NEW_TAG}" >> $GITHUB_OUTPUT
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+
+          echo "Version: ${PREV} -> ${NEW_VERSION} (release type: ${RELEASE_TYPE}, capped to pre-1.0)"
 
       - name: Get previous tag (PR)
         if: ${{ matrix.enabled && github.event_name == 'pull_request' }}
