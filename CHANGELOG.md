@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Data table component** (`datatable`): Data-driven table that iterates over an array expression and generates rows dynamically. Columns are child nodes (`datatable-column`) with configurable headers, widths, per-column styling, and template body slots repeated per data item. Supports border style variants, optional header row, and custom item/index aliases. Editor canvas renders a CSS grid with header row and droppable template slots. PDF renderer combines loop iteration with iText table generation. Column management uses standard InsertNode/RemoveNode/MoveNode commands.
 - **Static table component**: Full table support in the editor with CSS Grid rendering, row/column management, cell merging/unmerging via click+shift-click selection, per-column width controls, header rows, and border style options. Each cell is a slot that can contain any block type. Backend PDF renderer supports merged cells via iText rowSpan/colSpan.
 - **Test profiles**: JUnit 5 tag-based test categorization with Gradle tasks (`unitTest`, `integrationTest`, `uiTest`) for running test categories independently
 - **Duplicate ID error handling**: Creating entities with duplicate IDs now shows inline form errors instead of silently failing. Applies to tenants, environments, themes, templates, attributes, and variants.
