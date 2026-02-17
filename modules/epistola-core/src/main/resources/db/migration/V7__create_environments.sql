@@ -15,5 +15,10 @@ CREATE TABLE environments (
     UNIQUE (tenant_id, name)
 );
 
+COMMENT ON TABLE environments IS 'Deployment targets for template versions (e.g., staging, production). Each tenant defines its own set.';
+COMMENT ON COLUMN environments.id IS 'URL-safe slug identifier unique within the tenant';
+COMMENT ON COLUMN environments.tenant_id IS 'Owning tenant';
+COMMENT ON COLUMN environments.name IS 'Human-readable display name, unique within tenant';
+COMMENT ON COLUMN environments.created_at IS 'When the environment was created';
 COMMENT ON COLUMN environments.created_by IS 'User who created this environment';
 COMMENT ON COLUMN environments.last_modified_by IS 'User who last modified this environment';

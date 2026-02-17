@@ -13,6 +13,12 @@ CREATE TABLE tenants (
 
 CREATE INDEX idx_tenants_name ON tenants(name);
 
+COMMENT ON TABLE tenants IS 'Top-level organizational units for multi-tenancy. Each tenant has isolated data.';
+COMMENT ON COLUMN tenants.id IS 'URL-safe slug identifier (e.g., acme-corp)';
+COMMENT ON COLUMN tenants.name IS 'Human-readable display name';
+COMMENT ON COLUMN tenants.default_theme_id IS 'Fallback theme applied when templates and variants do not specify one. FK added in V5.';
+COMMENT ON COLUMN tenants.created_at IS 'When the tenant was created';
+
 -- ============================================================================
 -- TENANT MEMBERSHIPS
 -- ============================================================================
@@ -28,5 +34,7 @@ CREATE TABLE tenant_memberships (
 CREATE INDEX idx_tenant_memberships_user_id ON tenant_memberships(user_id);
 CREATE INDEX idx_tenant_memberships_tenant_id ON tenant_memberships(tenant_id);
 
-COMMENT ON TABLE tenant_memberships IS 'User access to tenants (prepared for future role-based access control)';
+COMMENT ON TABLE tenant_memberships IS 'Many-to-many link between users and tenants they can access';
+COMMENT ON COLUMN tenant_memberships.user_id IS 'FK to users.id';
+COMMENT ON COLUMN tenant_memberships.tenant_id IS 'FK to tenants.id';
 COMMENT ON COLUMN tenant_memberships.joined_at IS 'When the user was granted access to this tenant';
