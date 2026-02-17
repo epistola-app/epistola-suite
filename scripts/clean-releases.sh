@@ -17,6 +17,8 @@ DRY_RUN=false
 KEEP_LATEST=0
 DELETE_RELEASES=true
 DELETE_PACKAGES=true
+DELETE_TAGS=false
+TAG_PREFIX="v"
 CONFIRMED=false
 
 # Usage information
@@ -24,25 +26,38 @@ usage() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Delete GitHub releases and container packages (by default, both are deleted).
+Delete GitHub releases, container packages, and git tags.
+By default, releases and packages are deleted. Tags require --delete-tags or --tags-only.
 
 OPTIONS:
     -d, --dry-run           Show what would be deleted without actually deleting
-    -k, --keep N            Keep the N most recent releases and packages (default: 0 = delete all)
-    --releases-only         Delete only releases, skip packages
-    --packages-only         Delete only packages, skip releases
+    -k, --keep N            Keep the N most recent releases, packages, and tags (default: 0 = delete all)
+    --releases-only         Delete only releases, skip packages and tags
+    --packages-only         Delete only packages, skip releases and tags
+    --tags-only             Delete only git tags, skip releases and packages
+    --delete-tags           Also delete git tags (in addition to releases/packages)
+    --tag-prefix PREFIX     Only delete tags matching this prefix (default: "v")
     -y, --yes               Skip confirmation prompt
     -h, --help              Show this help message
 
 EXAMPLES:
-    # Dry run - see what would be deleted (both releases and packages)
+    # Dry run - see what would be deleted (releases and packages)
     $(basename "$0") --dry-run
 
     # Delete all releases and packages with confirmation
     $(basename "$0")
 
-    # Keep the 3 most recent releases and 3 most recent package versions
-    $(basename "$0") --keep 3
+    # Delete all releases, packages, AND git tags
+    $(basename "$0") --delete-tags
+
+    # Delete only git tags (e.g., to reset versioning)
+    $(basename "$0") --tags-only
+
+    # Delete only chart tags
+    $(basename "$0") --tags-only --tag-prefix "chart-"
+
+    # Keep the 3 most recent of each
+    $(basename "$0") --delete-tags --keep 3
 
     # Delete only releases, keep packages
     $(basename "$0") --releases-only
@@ -50,16 +65,13 @@ EXAMPLES:
     # Delete only packages, keep releases
     $(basename "$0") --packages-only
 
-    # Delete only releases, keep 5 most recent
-    $(basename "$0") --releases-only --keep 5
-
     # Dry run, keep 2 of each
     $(basename "$0") --dry-run --keep 2
 
 NOTE:
-  - This script only deletes GitHub releases, not the underlying git tags.
   - Package versions (container images) are permanently deleted and cannot be recovered.
-  - By default, BOTH releases and packages are deleted.
+  - Git tags are deleted both locally and on the remote.
+  - By default, releases and packages are deleted. Tags require explicit opt-in.
 EOF
     exit 0
 }
@@ -77,11 +89,27 @@ while [[ $# -gt 0 ]]; do
             ;;
         --releases-only)
             DELETE_PACKAGES=false
+            DELETE_TAGS=false
             shift
             ;;
         --packages-only)
             DELETE_RELEASES=false
+            DELETE_TAGS=false
             shift
+            ;;
+        --tags-only)
+            DELETE_RELEASES=false
+            DELETE_PACKAGES=false
+            DELETE_TAGS=true
+            shift
+            ;;
+        --delete-tags)
+            DELETE_TAGS=true
+            shift
+            ;;
+        --tag-prefix)
+            TAG_PREFIX="$2"
+            shift 2
             ;;
         -y|--yes)
             CONFIRMED=true
@@ -104,8 +132,8 @@ if ! [[ "$KEEP_LATEST" =~ ^[0-9]+$ ]]; then
 fi
 
 # Validate flag conflicts
-if [[ $DELETE_RELEASES == false ]] && [[ $DELETE_PACKAGES == false ]]; then
-    echo -e "${RED}Error: Cannot use --releases-only and --packages-only together${NC}" >&2
+if [[ $DELETE_RELEASES == false ]] && [[ $DELETE_PACKAGES == false ]] && [[ $DELETE_TAGS == false ]]; then
+    echo -e "${RED}Error: Nothing to delete. Conflicting --*-only flags.${NC}" >&2
     exit 1
 fi
 
@@ -209,9 +237,23 @@ if [[ $DELETE_PACKAGES == true ]]; then
     fi
 fi
 
+# Fetch git tags if requested
+ALL_TAGS=()
+TOTAL_TAGS=0
+
+if [[ $DELETE_TAGS == true ]]; then
+    echo -e "${BLUE}Fetching git tags matching '${TAG_PREFIX}*' from remote...${NC}"
+    git fetch --tags --force 2>/dev/null
+    while IFS= read -r tag; do
+        [[ -z "$tag" ]] && continue
+        ALL_TAGS+=("$tag")
+    done < <(git tag -l "${TAG_PREFIX}*" --sort=-v:refname)
+    TOTAL_TAGS=${#ALL_TAGS[@]}
+fi
+
 # Check if there's anything to do
-if [[ $TOTAL_RELEASES -eq 0 ]] && [[ $TOTAL_PACKAGE_VERSIONS -eq 0 ]]; then
-    echo -e "${GREEN}No releases or packages found. Nothing to do.${NC}"
+if [[ $TOTAL_RELEASES -eq 0 ]] && [[ $TOTAL_PACKAGE_VERSIONS -eq 0 ]] && [[ $TOTAL_TAGS -eq 0 ]]; then
+    echo -e "${GREEN}No releases, packages, or tags found. Nothing to do.${NC}"
     exit 0
 fi
 
@@ -235,6 +277,28 @@ else
     RELEASES_TO_KEEP=()
 fi
 
+# Determine which tags to delete
+if [[ $DELETE_TAGS == true ]]; then
+    if [[ $KEEP_LATEST -gt 0 ]]; then
+        if [[ $KEEP_LATEST -ge $TOTAL_TAGS ]]; then
+            TAGS_TO_DELETE=()
+            TAGS_TO_KEEP=("${ALL_TAGS[@]}")
+        else
+            TAGS_TO_DELETE=("${ALL_TAGS[@]:$KEEP_LATEST}")
+            TAGS_TO_KEEP=("${ALL_TAGS[@]:0:$KEEP_LATEST}")
+        fi
+    else
+        TAGS_TO_DELETE=("${ALL_TAGS[@]}")
+        TAGS_TO_KEEP=()
+    fi
+else
+    TAGS_TO_DELETE=()
+    TAGS_TO_KEEP=()
+fi
+
+TAGS_DELETE_COUNT=${#TAGS_TO_DELETE[@]}
+TAGS_KEEP_COUNT=${#TAGS_TO_KEEP[@]}
+
 DELETE_COUNT=${#RELEASES_TO_DELETE[@]}
 KEEP_COUNT=${#RELEASES_TO_KEEP[@]}
 
@@ -254,6 +318,13 @@ if [[ $DELETE_PACKAGES == true ]]; then
     echo -e "    Total found:     ${TOTAL_PACKAGE_VERSIONS}"
     echo -e "    To delete:       ${RED}${PACKAGE_VERSIONS_DELETE_COUNT}${NC}"
     echo -e "    To keep:         ${GREEN}${PACKAGE_VERSIONS_KEEP_COUNT}${NC}"
+fi
+
+if [[ $DELETE_TAGS == true ]]; then
+    echo -e "  ${BLUE}Git tags (${TAG_PREFIX}*):${NC}"
+    echo -e "    Total found:     ${TOTAL_TAGS}"
+    echo -e "    To delete:       ${RED}${TAGS_DELETE_COUNT}${NC}"
+    echo -e "    To keep:         ${GREEN}${TAGS_KEEP_COUNT}${NC}"
 fi
 echo ""
 
@@ -295,6 +366,24 @@ if [[ $PACKAGE_VERSIONS_DELETE_COUNT -gt 0 ]]; then
     echo ""
 fi
 
+# Show tags to keep
+if [[ $TAGS_KEEP_COUNT -gt 0 ]]; then
+    echo -e "${GREEN}Git tags to KEEP:${NC}"
+    for tag in "${TAGS_TO_KEEP[@]}"; do
+        echo -e "  ${GREEN}✓${NC} $tag"
+    done
+    echo ""
+fi
+
+# Show tags to delete
+if [[ $TAGS_DELETE_COUNT -gt 0 ]]; then
+    echo -e "${RED}Git tags to DELETE:${NC}"
+    for tag in "${TAGS_TO_DELETE[@]}"; do
+        echo -e "  ${RED}✗${NC} $tag"
+    done
+    echo ""
+fi
+
 # Dry run mode
 if [[ $DRY_RUN == true ]]; then
     echo -e "${YELLOW}DRY RUN MODE - Nothing was deleted${NC}"
@@ -302,8 +391,14 @@ if [[ $DRY_RUN == true ]]; then
     echo "To actually delete, run without --dry-run:"
     cmd="  $(basename "$0")"
     [[ $KEEP_LATEST -gt 0 ]] && cmd="$cmd --keep $KEEP_LATEST"
-    [[ $DELETE_RELEASES == false ]] && cmd="$cmd --packages-only"
-    [[ $DELETE_PACKAGES == false ]] && cmd="$cmd --releases-only"
+    if [[ $DELETE_TAGS == true ]] && [[ $DELETE_RELEASES == false ]] && [[ $DELETE_PACKAGES == false ]]; then
+        cmd="$cmd --tags-only"
+    else
+        [[ $DELETE_RELEASES == false ]] && cmd="$cmd --packages-only"
+        [[ $DELETE_PACKAGES == false ]] && cmd="$cmd --releases-only"
+        [[ $DELETE_TAGS == true ]] && cmd="$cmd --delete-tags"
+    fi
+    [[ $TAG_PREFIX != "v" ]] && cmd="$cmd --tag-prefix $TAG_PREFIX"
     echo "$cmd"
     exit 0
 fi
@@ -313,7 +408,8 @@ if [[ $CONFIRMED == false ]]; then
     echo -e "${YELLOW}WARNING: This will permanently delete:${NC}"
     [[ $DELETE_COUNT -gt 0 ]] && echo -e "${YELLOW}  - ${DELETE_COUNT} GitHub release(s)${NC}"
     [[ $PACKAGE_VERSIONS_DELETE_COUNT -gt 0 ]] && echo -e "${YELLOW}  - ${PACKAGE_VERSIONS_DELETE_COUNT} container package version(s)${NC}"
-    if [[ $DELETE_RELEASES == true ]]; then
+    [[ $TAGS_DELETE_COUNT -gt 0 ]] && echo -e "${YELLOW}  - ${TAGS_DELETE_COUNT} git tag(s) (local + remote)${NC}"
+    if [[ $DELETE_RELEASES == true ]] && [[ $DELETE_TAGS == false ]]; then
         echo -e "${YELLOW}Git tags will NOT be deleted - only the GitHub releases${NC}"
     fi
     if [[ $DELETE_PACKAGES == true ]]; then
@@ -372,6 +468,34 @@ if [[ $PACKAGE_VERSIONS_DELETE_COUNT -gt 0 ]]; then
     done
 fi
 
+# Delete git tags
+TAGS_DELETED=0
+TAGS_FAILED=0
+
+if [[ $TAGS_DELETE_COUNT -gt 0 ]]; then
+    echo ""
+    echo -e "${BLUE}Deleting git tags...${NC}"
+    for tag in "${TAGS_TO_DELETE[@]}"; do
+        echo -n "Deleting tag $tag... "
+        FAILED=false
+        # Delete remote tag
+        if ! git push origin ":refs/tags/$tag" 2>/dev/null; then
+            FAILED=true
+        fi
+        # Delete local tag
+        if ! git tag -d "$tag" 2>/dev/null; then
+            FAILED=true
+        fi
+        if [[ $FAILED == false ]]; then
+            echo -e "${GREEN}✓${NC}"
+            ((TAGS_DELETED++))
+        else
+            echo -e "${RED}✗ Failed${NC}"
+            ((TAGS_FAILED++))
+        fi
+    done
+fi
+
 # Final summary
 echo ""
 echo -e "${BLUE}Deletion complete:${NC}"
@@ -388,9 +512,13 @@ if [[ $DELETE_PACKAGES == true ]] && [[ $PACKAGE_VERSIONS_DELETE_COUNT -gt 0 ]];
     [[ $PACKAGES_FAILED -gt 0 ]] && echo -e "    ${RED}Failed: ${PACKAGES_FAILED}${NC}"
 fi
 
-if [[ $DELETE_RELEASES == true ]]; then
+if [[ $DELETE_TAGS == true ]] && [[ $TAGS_DELETE_COUNT -gt 0 ]]; then
+    echo -e "  ${BLUE}Git tags:${NC}"
+    echo -e "    ${GREEN}Successfully deleted: ${TAGS_DELETED}${NC}"
+    [[ $TAGS_FAILED -gt 0 ]] && echo -e "    ${RED}Failed: ${TAGS_FAILED}${NC}"
+fi
+
+if [[ $DELETE_RELEASES == true ]] && [[ $DELETE_TAGS == false ]]; then
     echo ""
-    echo -e "${YELLOW}Note: Git tags were preserved. To delete tags, use:${NC}"
-    echo -e "  git tag -d <tag-name>          # Delete local tag"
-    echo -e "  git push origin :refs/tags/<tag-name>  # Delete remote tag"
+    echo -e "${YELLOW}Note: Git tags were preserved. To also delete tags, re-run with --delete-tags${NC}"
 fi
