@@ -13,7 +13,8 @@
     "format:check": "prettier --check \"src/main/typescript/**/*.{ts,js,json,css}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "sbom": "mkdir -p build && npx --yes @cyclonedx/cdxgen --no-install-deps -o build/sbom.json"
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.7.7",
