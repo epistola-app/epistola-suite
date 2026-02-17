@@ -72,88 +72,105 @@
                 </div>
             </div>
 
-            <!-- Variants table -->
+            <!-- Attribute filter bar (outside variants-section to survive HTMX swaps) -->
+            <div id="variant-filter-bar" class="variant-filter-bar"
+                 th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
+                <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
+                    <label th:text="${attrDef.displayName}"></label>
+                    <select class="ep-select" th:data-filter-key="${attrDef.id}" onchange="filterVariants()">
+                        <option value="">All</option>
+                        <option th:each="val : ${attrDef.allowedValues}" th:value="${val}" th:text="${val}"></option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Variant card grid -->
             <div id="variants-section" th:fragment="variants-section">
-                <div th:if="${!#lists.isEmpty(variants)}" class="detail-section">
-                    <div class="detail-section-body no-padding">
-                        <table class="ep-table">
-                            <thead>
-                                <tr>
-                                    <th>Slug</th>
-                                    <th>Title</th>
-                                    <th>Attributes</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr th:each="variant : ${variants}">
-                                    <td><code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code></td>
-                                    <td>
-                                        <span th:if="${variant.title != null}" th:text="${variant.title}"></span>
-                                        <span th:unless="${variant.title != null}" class="text-muted">-</span>
-                                    </td>
-                                    <td>
-                                        <span th:if="${variant.isDefault}" class="badge badge-default">Default</span>
-                                        <div class="tags" th:if="${!variant.attributes.isEmpty()}">
-                                            <span th:each="entry : ${variant.attributes}"
-                                                  class="badge badge-outline"
-                                                  th:text="${entry.key + '=' + entry.value}"></span>
-                                        </div>
-                                        <span th:if="${variant.attributes.isEmpty() and !variant.isDefault}" class="text-muted">-</span>
-                                    </td>
-                                    <td>
-                                        <span th:if="${variant.hasDraft}" class="badge badge-primary">Draft</span>
-                                        <span th:unless="${variant.hasDraft}" class="text-muted">No draft</span>
-                                    </td>
-                                    <td class="actions">
-                                        <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                           class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
-                                            <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
-                                        </a>
-                                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
-                                                th:data-variant-id="${variant.id}"
-                                                th:data-versions-url="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                                onclick="openVersionHistory(this)"
-                                                title="Version history">
-                                            <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-icon btn-ghost"
-                                                th:hx-get="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                                hx-target="#edit-variant-dialog-body"
-                                                hx-swap="innerHTML"
-                                                onclick="document.getElementById('edit-variant-dialog').showModal()"
-                                                title="Edit variant">
-                                            <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
-                                        </button>
-                                        <form th:unless="${variant.isDefault}"
-                                              th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                              hx-target="#variants-section" hx-swap="outerHTML"
-                                              hx-confirm="Make this the default variant?">
-                                            <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
-                                                <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
-                                            </button>
-                                        </form>
-                                        <form th:unless="${variant.isDefault}"
-                                              th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                              method="post"
-                                              th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
-                                              hx-confirm="Are you sure you want to delete this variant?"
-                                              hx-target="#variants-section"
-                                              hx-swap="outerHTML">
-                                            <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete variant">
-                                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                            </button>
-                                        </form>
-                                        <button th:if="${variant.isDefault}" type="button"
-                                                class="btn btn-sm btn-icon btn-ghost" disabled
-                                                title="Cannot delete the default variant">
-                                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
+                    <div th:each="variant : ${variants}"
+                         class="variant-card"
+                         th:classappend="${variant.isDefault} ? 'variant-card-default'"
+                         th:data-variant-id="${variant.id}">
+                        <!-- Header: title + default badge -->
+                        <div class="variant-card-header">
+                            <div>
+                                <span class="variant-card-title"
+                                      th:text="${variant.title != null ? variant.title : variant.id}"></span>
+                                <code th:if="${variant.title != null}" class="variant-card-slug"
+                                      th:text="${variant.id}"></code>
+                            </div>
+                            <span th:if="${variant.isDefault}" class="badge badge-primary">Default</span>
+                        </div>
+
+                        <!-- Body: attributes + status -->
+                        <div class="variant-card-body">
+                            <div class="tags" th:if="${!variant.attributes.isEmpty()}">
+                                <span th:each="entry : ${variant.attributes}"
+                                      class="badge badge-outline"
+                                      th:data-attr-key="${entry.key}"
+                                      th:data-attr-value="${entry.value}"
+                                      th:text="${entry.key + '=' + entry.value}"></span>
+                            </div>
+                            <div class="variant-card-status">
+                                <span th:if="${variant.hasDraft}" class="badge badge-draft">Draft</span>
+                                <span th:if="${!variant.publishedVersions.isEmpty()}"
+                                      class="badge badge-published"
+                                      th:text="${#lists.size(variant.publishedVersions) + ' published'}"></span>
+                                <span th:if="${!variant.hasDraft and variant.publishedVersions.isEmpty()}"
+                                      class="text-muted" style="font-size: var(--ep-text-xs);">No versions</span>
+                            </div>
+                        </div>
+
+                        <!-- Footer: actions -->
+                        <div class="variant-card-footer">
+                            <a th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                               class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
+                                <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
+                            </a>
+                            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                    th:data-variant-id="${variant.id}"
+                                    th:data-versions-url="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/versions(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                    onclick="openVersionHistory(this)"
+                                    title="Version history">
+                                <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                    th:hx-get="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                    hx-target="#edit-variant-dialog-body"
+                                    hx-swap="innerHTML"
+                                    onclick="document.getElementById('edit-variant-dialog').showModal()"
+                                    title="Edit variant">
+                                <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                            <form th:unless="${variant.isDefault}"
+                                  th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                  hx-target="#variants-section" hx-swap="outerHTML"
+                                  hx-confirm="Make this the default variant?">
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost" title="Set as default">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </form>
+                            <form th:unless="${variant.isDefault}"
+                                  th:action="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/delete(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                  method="post"
+                                  th:hx-delete="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
+                                  hx-confirm="Are you sure you want to delete this variant?"
+                                  hx-target="#variants-section"
+                                  hx-swap="outerHTML">
+                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete variant">
+                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                                </button>
+                            </form>
+                            <button th:if="${variant.isDefault}" type="button"
+                                    class="btn btn-sm btn-icon btn-ghost" disabled
+                                    title="Cannot delete the default variant">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="variant-no-matches" id="variant-no-matches">
+                        No variants match the selected filters.
                     </div>
                 </div>
 
@@ -323,6 +340,51 @@
                 htmx.ajax('GET', versionsUrl, { target: container, swap: 'innerHTML' });
                 document.getElementById('version-history-dialog').showModal();
             }
+
+            function filterVariants() {
+                const filterBar = document.getElementById('variant-filter-bar');
+                if (!filterBar) return;
+
+                const filters = {};
+                filterBar.querySelectorAll('select[data-filter-key]').forEach(function(select) {
+                    const key = select.dataset.filterKey;
+                    const value = select.value;
+                    if (value) filters[key] = value;
+                });
+
+                const cards = document.querySelectorAll('.variant-card');
+                let visibleCount = 0;
+
+                cards.forEach(function(card) {
+                    const attrs = {};
+                    card.querySelectorAll('[data-attr-key]').forEach(function(badge) {
+                        attrs[badge.dataset.attrKey] = badge.dataset.attrValue;
+                    });
+
+                    let matches = true;
+                    for (const key in filters) {
+                        if (attrs[key] !== filters[key]) {
+                            matches = false;
+                            break;
+                        }
+                    }
+
+                    card.style.display = matches ? '' : 'none';
+                    if (matches) visibleCount++;
+                });
+
+                const noMatches = document.getElementById('variant-no-matches');
+                if (noMatches) {
+                    noMatches.style.display = (visibleCount === 0 && cards.length > 0) ? 'block' : 'none';
+                }
+            }
+
+            // Re-apply filters after HTMX swaps the variants section
+            document.addEventListener('htmx:afterSwap', function(event) {
+                if (event.detail.target && event.detail.target.id === 'variants-section') {
+                    filterVariants();
+                }
+            });
         </script>
         <script type="module">
             import { mountSchemaManager } from '/schema-manager/schema-manager.js';

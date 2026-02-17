@@ -67,7 +67,7 @@ class GetVariantSummariesHandler(
                 FROM template_variants tv
                 WHERE tv.template_id = :templateId
                   AND tv.tenant_id = :tenantId
-                ORDER BY tv.created_at ASC
+                ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )
             .bind("templateId", query.templateId)

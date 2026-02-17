@@ -3,10 +3,12 @@
 ## [Unreleased]
 
 ### Changed
+- **Variants Card Grid**: Replaced the variants table with a responsive card grid. Each card shows title, slug, attribute badges, version status, and action buttons. Default variant is visually distinguished with blue tint and always sorted first.
+  - **Attribute Filtering**: Filter bar with dropdowns for each attribute definition, allowing quick narrowing of variants. Client-side filtering for instant response. Filters persist across HTMX swaps.
 - **Auto-Draft on Publish**: Publishing a draft version to an environment now automatically creates a new draft (copying the published content), so variants always have an editable version. This removes the need to manually create new drafts after deploying.
 - **Template Detail Page Redesign**: Separated the template detail page into focused tabs — Variants (authoring), Deployments (environment matrix), Data Contract, and Settings
   - **Deployment Matrix**: New dedicated Deployments tab with environment x variant grid for managing deployments. Each cell is a select box that deploys on change or removes the activation when "Not deployed" is selected.
-  - **Simplified Variants Tab**: Removed inline nested version tables. Variants table now shows slug, title, attributes, and draft status. Version history moved to a dialog.
+  - **Simplified Variants Tab**: Removed inline nested version tables. Variants now shown as cards with attributes, draft/published status, and action buttons. Version history moved to a dialog.
   - **Version History Dialog**: Click the clock icon on any variant to view, archive, and create draft versions in a dialog.
   - Environment publish/unpublish removed from version rows — use the Deployments tab instead.
 - **Environment-Targeted Publishing**: "Publish to Environment" replaces the separate publish + activate workflow. Publishing now requires a target environment, freezing drafts and activating in a single action.
@@ -18,6 +20,7 @@
 - `PublishVersion` command — replaced by `PublishToEnvironment` which combines publish + activate
 
 ### Added
+- **Playwright UI Testing**: Added Playwright Java test infrastructure with `BasePlaywrightTest` base class and `VariantCardUiTest` covering card grid rendering, attribute filtering, and HTMX interactions
 - `PublishToEnvironment` command: single action that freezes draft content (if needed) and activates in target environment
 - `VersionStillActiveException`: thrown when attempting to archive a version still active in environments
 - UI: environment-targeted publish dropdown in version list, environment badges on published versions, unpublish-from-environment action
