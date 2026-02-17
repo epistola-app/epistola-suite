@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="confirm-dialog">
+        <dialog id="confirm-dialog" class="ep-dialog">
+            <div class="ep-dialog-header">
+                <h3 id="confirm-dialog-title">Confirm</h3>
+            </div>
+            <div class="ep-dialog-body">
+                <p id="confirm-dialog-message"></p>
+                <div id="confirm-dialog-error" class="alert alert-error" style="display: none; margin-top: var(--ep-space-4);"></div>
+            </div>
+            <div class="ep-dialog-footer">
+                <button type="button" class="btn btn-ghost" onclick="closeConfirmDialog()">Cancel</button>
+                <div id="confirm-dialog-footer"></div>
+            </div>
+        </dialog>
+    </th:block>
+</body>
+</html>

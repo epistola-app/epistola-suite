@@ -22,6 +22,103 @@
                     event.detail.headers['X-XSRF-TOKEN'] = token;
                 }
             });
+
+            // ── Confirm dialog ──────────────────────────────────────────────
+
+            /**
+             * Opens a confirm dialog for destructive actions.
+             * Reads data-confirm-* attributes from the trigger element:
+             *   data-confirm-title   - Dialog title
+             *   data-confirm-message - Dialog body text
+             *   data-confirm-url     - POST URL for the action
+             *   data-confirm-target  - CSS selector for HTMX target to swap on success
+             */
+            window.openConfirmDialog = function(trigger) {
+                var dialog = document.getElementById('confirm-dialog');
+                var titleEl = document.getElementById('confirm-dialog-title');
+                var messageEl = document.getElementById('confirm-dialog-message');
+                var errorEl = document.getElementById('confirm-dialog-error');
+                var footerEl = document.getElementById('confirm-dialog-footer');
+
+                titleEl.textContent = trigger.getAttribute('data-confirm-title') || 'Confirm';
+                messageEl.textContent = trigger.getAttribute('data-confirm-message') || 'Are you sure?';
+                errorEl.style.display = 'none';
+                errorEl.textContent = '';
+
+                // Build a fresh form with HTMX attributes
+                var form = document.createElement('form');
+                form.setAttribute('hx-post', trigger.getAttribute('data-confirm-url'));
+                form.setAttribute('hx-target', trigger.getAttribute('data-confirm-target'));
+                form.setAttribute('hx-swap', 'innerHTML');
+
+                var submitBtn = document.createElement('button');
+                submitBtn.type = 'submit';
+                submitBtn.className = 'btn btn-destructive';
+                submitBtn.textContent = 'Delete';
+                form.appendChild(submitBtn);
+
+                footerEl.innerHTML = '';
+                footerEl.appendChild(form);
+
+                // Let HTMX process the dynamically created form
+                htmx.process(form);
+
+                // Handle success: close dialog
+                form.addEventListener('htmx:afterRequest', function(event) {
+                    if (event.detail.successful) {
+                        closeConfirmDialog();
+                    }
+                });
+
+                // Handle error: show error message in dialog
+                form.addEventListener('htmx:responseError', function(event) {
+                    try {
+                        var body = JSON.parse(event.detail.xhr.responseText);
+                        errorEl.textContent = body.error || 'An error occurred.';
+                    } catch (e) {
+                        errorEl.textContent = 'An error occurred.';
+                    }
+                    errorEl.style.display = 'block';
+                });
+
+                dialog.showModal();
+            };
+
+            window.closeConfirmDialog = function() {
+                var dialog = document.getElementById('confirm-dialog');
+                if (dialog) {
+                    dialog.close();
+                }
+            };
+
+            // ── Global safety net for unhandled errors ──────────────────────
+
+            document.addEventListener('htmx:responseError', function(event) {
+                var xhr = event.detail.xhr;
+                if (!xhr || xhr.status < 500) return;
+
+                // Don't show global error if the target is inside the confirm dialog
+                var target = event.detail.target;
+                if (target && target.closest && target.closest('#confirm-dialog')) return;
+
+                // Insert error banner at top of main content
+                var main = document.querySelector('#main-content') || document.querySelector('main');
+                if (!main) return;
+
+                // Remove any existing global error banner
+                var existing = main.querySelector('.global-error-banner');
+                if (existing) existing.remove();
+
+                var banner = document.createElement('div');
+                banner.className = 'alert alert-error global-error-banner';
+                banner.style.marginBottom = 'var(--ep-space-4)';
+                banner.innerHTML = '<span>An unexpected error occurred. Please try again.</span>' +
+                    '<button type="button" class="btn btn-sm btn-ghost" style="margin-left: auto;" ' +
+                    'onclick="this.parentElement.remove()">&times;</button>';
+                banner.style.display = 'flex';
+                banner.style.alignItems = 'center';
+                main.insertBefore(banner, main.firstChild);
+            });
         </script>
     </th:block>
 </head>

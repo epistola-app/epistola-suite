@@ -7,13 +7,14 @@ import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -88,6 +89,8 @@ class AttributeHandler {
             ).execute()
         } catch (e: ValidationException) {
             return renderFormWithErrors(mapOf(e.field to e.message))
+        } catch (e: DuplicateIdException) {
+            return renderFormWithErrors(mapOf("slug" to "An attribute with this ID already exists"))
         }
 
         return ServerResponse.status(303)
@@ -132,9 +135,19 @@ class AttributeHandler {
                 allowedValues = allowedValues,
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: ValidationException) {
-            return ServerResponse.badRequest()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(mapOf("error" to e.message))
+            val attribute = GetAttributeDefinition(
+                id = attributeId,
+                tenantId = TenantId.of(tenantId),
+            ).query() ?: return ServerResponse.notFound().build()
+            return request.htmx {
+                fragment("attributes/list", "edit-attribute-form") {
+                    "tenantId" to tenantId
+                    "attribute" to attribute
+                    "editError" to e.message
+                }
+                retarget("#edit-attribute-dialog-body")
+                reswap(HxSwap.INNER_HTML)
+            }
         }
 
         val attributes = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()

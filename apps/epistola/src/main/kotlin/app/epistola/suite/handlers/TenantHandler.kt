@@ -13,6 +13,7 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -97,7 +98,21 @@ class TenantHandler {
             }
         }
 
-        command.execute()
+        try {
+            command.execute()
+        } catch (e: DuplicateIdException) {
+            val formData = mapOf("name" to name, "slug" to slug)
+            val errors = mapOf("slug" to "A tenant with this ID already exists")
+            return request.htmx {
+                fragment("tenants/list", "create-form") {
+                    "formData" to formData
+                    "errors" to errors
+                }
+                retarget("#create-form")
+                reswap(HxSwap.OUTER_HTML)
+                onNonHtmx { redirect("/") }
+            }
+        }
 
         val tenants = ListTenants().query()
         return request.htmx {

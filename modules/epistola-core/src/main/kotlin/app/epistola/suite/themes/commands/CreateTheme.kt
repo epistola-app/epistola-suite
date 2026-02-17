@@ -8,6 +8,7 @@ import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
 import app.epistola.suite.themes.Theme
+import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -34,22 +35,24 @@ class CreateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateTheme, Theme> {
-    override fun handle(command: CreateTheme): Theme = jdbi.withHandle<Theme, Exception> { handle ->
-        handle.createQuery(
-            """
-            INSERT INTO themes (id, tenant_id, name, description, document_styles, page_settings, block_style_presets, created_at, last_modified)
-            VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, NOW(), NOW())
-            RETURNING *
-            """,
-        )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
-            .bind("name", command.name)
-            .bind("description", command.description)
-            .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))
-            .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
-            .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
-            .mapTo<Theme>()
-            .one()
+    override fun handle(command: CreateTheme): Theme = executeOrThrowDuplicate("theme", command.id.value) {
+        jdbi.withHandle<Theme, Exception> { handle ->
+            handle.createQuery(
+                """
+                INSERT INTO themes (id, tenant_id, name, description, document_styles, page_settings, block_style_presets, created_at, last_modified)
+                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, NOW(), NOW())
+                RETURNING *
+                """,
+            )
+                .bind("id", command.id)
+                .bind("tenantId", command.tenantId)
+                .bind("name", command.name)
+                .bind("description", command.description)
+                .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))
+                .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
+                .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
+                .mapTo<Theme>()
+                .one()
+        }
     }
 }

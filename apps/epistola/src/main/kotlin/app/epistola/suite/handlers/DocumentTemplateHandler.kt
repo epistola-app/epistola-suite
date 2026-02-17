@@ -25,6 +25,7 @@ import app.epistola.suite.templates.validation.MigrationSuggestion
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
 import org.springframework.boot.info.BuildProperties
 import org.springframework.http.MediaType
@@ -175,6 +176,8 @@ class DocumentTemplateHandler(
             ).execute()
         } catch (e: ValidationException) {
             return renderFormWithErrors(mapOf(e.field to e.message))
+        } catch (e: DuplicateIdException) {
+            return renderFormWithErrors(mapOf("slug" to "A template with this ID already exists"))
         }
 
         return ServerResponse.status(303)

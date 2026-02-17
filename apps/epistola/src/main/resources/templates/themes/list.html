@@ -66,21 +66,23 @@
                                     <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
-                            <form th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) > 1}"
-                                  th:hx-post="@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
-                                  hx-target="#theme-rows"
-                                  hx-swap="innerHTML"
-                                  hx-confirm="Delete this theme? Templates using it will fall back to their own styles."
-                                  style="display: inline;">
-                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete theme">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                            </form>
+                            <button th:if="${tenant?.defaultThemeId != theme.id and #lists.size(themes) > 1}"
+                                    type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete theme"
+                                    data-confirm-title="Delete Theme"
+                                    th:attr="data-confirm-message='Delete theme &quot;' + ${theme.name} + '&quot;? Templates using it will fall back to their own styles.',data-confirm-url=@{/tenants/{tenantId}/themes/{themeId}/delete(tenantId=${tenantId},themeId=${theme.id})}"
+                                    data-confirm-target="#theme-rows"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
                         </td>
                     </tr>
                 </th:block>
             </tbody>
         </table>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
     </th:block>
 </body>
 </html>

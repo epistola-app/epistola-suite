@@ -86,6 +86,9 @@
 
             <!-- Variant card grid -->
             <div id="variants-section" th:fragment="variants-section">
+                <div th:if="${variantError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                    <span th:text="${variantError}"></span>
+                </div>
                 <div th:if="${!#lists.isEmpty(variants)}" class="variant-grid">
                     <div th:each="variant : ${variants}"
                          class="variant-card"

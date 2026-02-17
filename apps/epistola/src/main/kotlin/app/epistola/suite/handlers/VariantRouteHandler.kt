@@ -16,6 +16,7 @@ import app.epistola.suite.templates.commands.variants.UpdateVariant
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.variants.GetVariant
 import app.epistola.suite.templates.queries.variants.GetVariantSummaries
+import app.epistola.suite.validation.DuplicateIdException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -43,29 +44,20 @@ class VariantRouteHandler {
         val description = request.params().getFirst("description")?.trim()?.takeIf { it.isNotEmpty() }
         val attributes = readAttributesFromForm(request, TenantId.of(tenantId))
 
-        CreateVariant(
-            id = variantId,
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            title = title,
-            description = description,
-            attributes = attributes,
-        ).execute()
-
-        val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
-        val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
-            ?: return ServerResponse.notFound().build()
-        val attributeDefinitions = ListAttributeDefinitions(tenantId = TenantId.of(tenantId)).query()
-
-        return request.htmx {
-            fragment("templates/detail", "variants-section") {
-                "tenantId" to tenantId
-                "template" to template
-                "variants" to variants
-                "attributeDefinitions" to attributeDefinitions
-            }
-            onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
+        try {
+            CreateVariant(
+                id = variantId,
+                tenantId = TenantId.of(tenantId),
+                templateId = templateId,
+                title = title,
+                description = description,
+                attributes = attributes,
+            ).execute()
+        } catch (e: DuplicateIdException) {
+            return renderVariantsSection(request, tenantId, templateId, "A variant with this ID already exists")
         }
+
+        return renderVariantsSection(request, tenantId, templateId)
     }
 
     fun editVariantForm(request: ServerRequest): ServerResponse {
@@ -171,7 +163,12 @@ class VariantRouteHandler {
         return renderVariantsSection(request, tenantId, templateId)
     }
 
-    private fun renderVariantsSection(request: ServerRequest, tenantId: String, templateId: TemplateId): ServerResponse {
+    private fun renderVariantsSection(
+        request: ServerRequest,
+        tenantId: String,
+        templateId: TemplateId,
+        errorMessage: String? = null,
+    ): ServerResponse {
         val variants = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = TenantId.of(tenantId), id = templateId).query()
             ?: return ServerResponse.notFound().build()
@@ -183,6 +180,9 @@ class VariantRouteHandler {
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
+                if (errorMessage != null) {
+                    "variantError" to errorMessage
+                }
             }
             onNonHtmx { redirect("/tenants/$tenantId/templates/$templateId") }
         }

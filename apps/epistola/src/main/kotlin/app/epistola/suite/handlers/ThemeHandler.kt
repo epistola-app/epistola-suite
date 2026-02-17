@@ -15,6 +15,7 @@ import app.epistola.suite.themes.commands.DeleteTheme
 import app.epistola.suite.themes.commands.UpdateTheme
 import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.ListThemes
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -120,6 +121,8 @@ class ThemeHandler(
             ).execute()
         } catch (e: ValidationException) {
             return renderFormWithErrors(mapOf(e.field to e.message))
+        } catch (e: DuplicateIdException) {
+            return renderFormWithErrors(mapOf("slug" to "A theme with this ID already exists"))
         }
 
         return ServerResponse.status(303)

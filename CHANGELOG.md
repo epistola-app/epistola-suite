@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- **Duplicate ID error handling**: Creating entities with duplicate IDs now shows inline form errors instead of silently failing. Applies to tenants, environments, themes, templates, attributes, and variants.
+- **Confirm dialog for delete operations**: Delete buttons on list pages (themes, environments, attributes) now open a confirm dialog that can display error messages when the operation fails (e.g., deleting a theme in use).
+- **Global error safety net**: Unhandled 500 errors from HTMX requests now show a dismissible error banner at the top of the page.
+- **Attribute edit dialog error handling**: Validation errors during attribute updates now re-render the form inside the dialog with the error message, instead of silently discarding the response.
+
 ### Changed
 - **Pre-1.0 version capping in CI**: Breaking changes (`feat!:`, `BREAKING CHANGE:`) now bump the minor version instead of the major version, keeping releases below `1.0.0` while the project is pre-production. The `mathieudutour/github-tag-action` runs in dry-run mode and a custom script caps the calculated version. A safeguard fails the build if existing tags are >= 1.0.0.
 - **Variants Card Grid**: Replaced the variants table with a responsive card grid. Each card shows title, slug, attribute badges, version status, and action buttons. Default variant is visually distinguished with blue tint and always sorted first.

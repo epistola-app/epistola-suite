@@ -57,20 +57,22 @@
                                     title="Edit attribute">
                                 <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                             </button>
-                            <form th:hx-post="@{/tenants/{tenantId}/attributes/{attributeId}/delete(tenantId=${tenantId},attributeId=${attr.id})}"
-                                  hx-target="#attribute-rows"
-                                  hx-swap="innerHTML"
-                                  hx-confirm="Delete this attribute? Existing variant attributes using this key will not be affected."
-                                  style="display: inline;">
-                                <button type="submit" class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive" title="Delete attribute">
-                                    <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                                </button>
-                            </form>
+                            <button type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete attribute"
+                                    data-confirm-title="Delete Attribute"
+                                    th:attr="data-confirm-message='Delete attribute &quot;' + ${attr.displayName} + '&quot;? Existing variant attributes using this key will not be affected.',data-confirm-url=@{/tenants/{tenantId}/attributes/{attributeId}/delete(tenantId=${tenantId},attributeId=${attr.id})}"
+                                    data-confirm-target="#attribute-rows"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
                         </td>
                     </tr>
                 </th:block>
             </tbody>
         </table>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
 
         <!-- Edit attribute dialog -->
         <dialog id="edit-attribute-dialog" class="ep-dialog">
@@ -90,6 +92,9 @@
               hx-swap="innerHTML"
               hx-on::after-request="if(event.detail.successful) document.getElementById('edit-attribute-dialog').close()">
             <div class="ep-dialog-body">
+                <div th:if="${editError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                    <span th:text="${editError}"></span>
+                </div>
                 <div class="form-group">
                     <label class="ep-label" for="edit-attr-displayName">Display Name</label>
                     <input type="text" id="edit-attr-displayName" name="displayName" class="ep-input"

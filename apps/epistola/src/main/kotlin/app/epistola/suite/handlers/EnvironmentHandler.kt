@@ -10,6 +10,7 @@ import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -94,6 +95,8 @@ class EnvironmentHandler {
             ).execute()
         } catch (e: ValidationException) {
             return renderFormWithErrors(mapOf(e.field to e.message))
+        } catch (e: DuplicateIdException) {
+            return renderFormWithErrors(mapOf("slug" to "An environment with this ID already exists"))
         }
 
         return ServerResponse.status(303)
