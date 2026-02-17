@@ -24,7 +24,22 @@ export class EpistolaPalette extends LitElement {
 
   private _dndCleanup: (() => void) | null = null
 
-  private _handleInsert(type: string) {
+  private async _handleInsert(type: string) {
+    if (!this.engine) return
+
+    // Delegate to component's onBeforeInsert hook if present
+    const def = this.engine.registry.get(type)
+    if (def?.onBeforeInsert) {
+      const overrideProps = await def.onBeforeInsert(this.engine)
+      if (!overrideProps) return // cancelled
+      this._insertNode(type, overrideProps)
+      return
+    }
+
+    this._insertNode(type)
+  }
+
+  private _insertNode(type: string, overrideProps?: Record<string, unknown>) {
     if (!this.engine) return
 
     const doc = this.engine.doc
@@ -32,7 +47,7 @@ export class EpistolaPalette extends LitElement {
     if (!rootNode || rootNode.slots.length === 0) return
 
     const targetSlotId = rootNode.slots[0]
-    const { node, slots } = this.engine.registry.createNode(type)
+    const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps)
 
     this.engine.dispatch({
       type: 'InsertNode',
@@ -40,6 +55,7 @@ export class EpistolaPalette extends LitElement {
       slots,
       targetSlotId,
       index: -1,
+      _restoreNodes: extraNodes,
     })
 
     // Select the newly inserted node

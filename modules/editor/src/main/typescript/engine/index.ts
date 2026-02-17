@@ -1,6 +1,7 @@
 export { EditorEngine, type EngineListener } from './EditorEngine.js'
 export { EventEmitter, type EngineEvents } from './events.js'
 export {
+  type AnyCommand,
   type Command,
   type InsertNode,
   type RemoveNode,

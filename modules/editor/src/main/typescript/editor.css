@@ -24,3 +24,5 @@
 @import './styles/inspector.css';
 @import './styles/dnd.css';
 @import './styles/prosemirror.css';
+@import './components/table/table.css';
+@import './components/datatable/datatable.css';

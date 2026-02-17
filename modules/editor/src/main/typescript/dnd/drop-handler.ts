@@ -19,8 +19,8 @@ export function handleDrop(
   index: number,
 ): void {
   if (isPaletteDrag(dragData)) {
-    const { node, slots } = engine.registry.createNode(dragData.blockType)
-    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId, index })
+    const { node, slots, extraNodes } = engine.registry.createNode(dragData.blockType)
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId, index, _restoreNodes: extraNodes })
     engine.selectNode(node.id)
   } else if (isBlockDrag(dragData)) {
     engine.dispatch({ type: 'MoveNode', nodeId: dragData.nodeId, targetSlotId, index })
