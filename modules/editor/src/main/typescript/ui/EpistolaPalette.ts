@@ -47,7 +47,7 @@ export class EpistolaPalette extends LitElement {
     if (!rootNode || rootNode.slots.length === 0) return
 
     const targetSlotId = rootNode.slots[0]
-    const { node, slots } = this.engine.registry.createNode(type, overrideProps)
+    const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps)
 
     this.engine.dispatch({
       type: 'InsertNode',
@@ -55,6 +55,7 @@ export class EpistolaPalette extends LitElement {
       slots,
       targetSlotId,
       index: -1,
+      _restoreNodes: extraNodes,
     })
 
     // Select the newly inserted node

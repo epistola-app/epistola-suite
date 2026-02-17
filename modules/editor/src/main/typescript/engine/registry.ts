@@ -10,6 +10,8 @@ import type { CommandResult } from './commands.js'
 import { nanoid } from 'nanoid'
 import { createTableDefinition } from '../components/table/table-registration.js'
 import { createColumnsDefinition } from '../components/columns/columns-registration.js'
+import { createDatatableDefinition } from '../components/datatable/datatable-registration.js'
+import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js'
 
 // ---------------------------------------------------------------------------
 // Component definition
@@ -41,6 +43,8 @@ export interface ComponentDefinition {
   label: string
   icon?: string
   category: ComponentCategory
+  /** Hide from the block palette (e.g. child-only components like datatable-column). */
+  hidden?: boolean
   slots: SlotTemplate[]
   allowedChildren: AllowedChildren
   /**
@@ -60,6 +64,22 @@ export interface ComponentDefinition {
    * @param props — merged props (defaultProps overridden by any overrideProps)
    */
   createInitialSlots?: (nodeId: NodeId, props?: Record<string, unknown>) => Slot[]
+
+  /**
+   * Optional hook for creating a subtree of child nodes at insertion time.
+   * Used by components (like datatable) that need atomic creation of the
+   * parent node plus child nodes (columns) and all their slots.
+   *
+   * When present, this is called instead of createInitialSlots.
+   *
+   * @param nodeId — the ID of the parent node being created
+   * @param props — merged props (defaultProps overridden by any overrideProps)
+   */
+  createSubtree?: (nodeId: NodeId, props?: Record<string, unknown>) => {
+    slots: Slot[]         // this node's own slots (with children populated)
+    extraNodes: Node[]    // descendant nodes (e.g. column nodes)
+    extraSlots: Slot[]    // descendant slots (e.g. column body slots)
+  }
 
   // ---------------------------------------------------------------------------
   // Extension hooks — let components customise UI without leaking into generics
@@ -121,7 +141,7 @@ export class ComponentRegistry {
 
   /** Get only components that can be inserted by the user (palette items). */
   insertable(): ComponentDefinition[] {
-    return this.all()
+    return this.all().filter(d => !d.hidden)
   }
 
   /**
@@ -146,18 +166,42 @@ export class ComponentRegistry {
 
   /**
    * Create a new node + its initial slots for a given component type.
-   * Returns the node and slots ready to be inserted into the document.
+   * Returns the node, its slots, and optionally extra descendant nodes/slots
+   * (for components with subtrees like datatable).
    *
    * @param overrideProps — optional props to merge over defaultProps
    *   (e.g. table dialog can pass `{ rows: 4, columns: 3 }`)
    */
-  createNode(type: string, overrideProps?: Record<string, unknown>): { node: Node; slots: Slot[] } {
+  createNode(type: string, overrideProps?: Record<string, unknown>): {
+    node: Node
+    slots: Slot[]
+    extraNodes?: Node[]
+    extraSlots?: Slot[]
+  } {
     const def = this.getOrThrow(type)
     const nodeId = nanoid() as NodeId
 
     const mergedProps = overrideProps
       ? { ...(def.defaultProps ? structuredClone(def.defaultProps) : {}), ...overrideProps }
       : (def.defaultProps ? structuredClone(def.defaultProps) : undefined)
+
+    // If the component defines a subtree initializer, use it (takes priority)
+    if (def.createSubtree) {
+      const { slots, extraNodes, extraSlots } = def.createSubtree(nodeId, mergedProps)
+      const slotIds = slots.map(s => s.id)
+      const node: Node = {
+        id: nodeId,
+        type,
+        slots: slotIds,
+        props: mergedProps,
+      }
+      return {
+        node,
+        slots: [...slots, ...extraSlots],
+        extraNodes: extraNodes.length > 0 ? extraNodes : undefined,
+        extraSlots: extraSlots.length > 0 ? extraSlots : undefined,
+      }
+    }
 
     // If the component defines a custom slot initializer, use it
     if (def.createInitialSlots) {
@@ -248,6 +292,8 @@ export function createDefaultRegistry(): ComponentRegistry {
 
   registry.register(createColumnsDefinition())
   registry.register(createTableDefinition())
+  registry.register(createDatatableDefinition())
+  registry.register(createDatatableColumnDefinition())
 
   registry.register({
     type: 'conditional',

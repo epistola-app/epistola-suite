@@ -1,0 +1,182 @@
+/*
+ * Data Table Component Styles
+ *
+ * Covers: canvas grid, label bar, header/body cells, insert dialog.
+ */
+
+@layer components {
+
+  /* -----------------------------------------------------------------------
+   * Canvas: Data Table wrapper
+   * ----------------------------------------------------------------------- */
+
+  .datatable-canvas {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .datatable-label {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1-5);
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-500);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-200);
+    border-bottom: none;
+    border-radius: var(--ep-radius-sm) var(--ep-radius-sm) 0 0;
+  }
+
+  .datatable-label-icon {
+    display: flex;
+    align-items: center;
+    color: var(--ep-gray-400);
+  }
+
+  /* -----------------------------------------------------------------------
+   * Canvas: Grid
+   * ----------------------------------------------------------------------- */
+
+  .datatable-grid {
+    display: grid;
+    width: 100%;
+    user-select: none;
+  }
+
+  .datatable-header-cell {
+    padding: var(--ep-space-1) var(--ep-space-1-5);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-600);
+    background: var(--ep-gray-50);
+    min-height: 1.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .datatable-body-cell {
+    min-height: 2rem;
+    padding: var(--ep-space-1-5);
+    position: relative;
+    cursor: default;
+  }
+
+  .datatable-body-cell.column-selected {
+    outline: 2px solid var(--ep-blue-400);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--ep-blue-100) 30%, transparent);
+  }
+
+  /* Border variants */
+  .datatable-grid.border-all .datatable-header-cell,
+  .datatable-grid.border-all .datatable-body-cell {
+    border: 1px solid var(--ep-gray-300);
+  }
+
+  .datatable-grid.border-horizontal .datatable-header-cell,
+  .datatable-grid.border-horizontal .datatable-body-cell {
+    border-top: 1px solid var(--ep-gray-300);
+    border-bottom: 1px solid var(--ep-gray-300);
+    border-left: none;
+    border-right: none;
+  }
+
+  .datatable-grid.border-vertical .datatable-header-cell,
+  .datatable-grid.border-vertical .datatable-body-cell {
+    border-top: none;
+    border-bottom: none;
+    border-left: 1px solid var(--ep-gray-300);
+    border-right: 1px solid var(--ep-gray-300);
+  }
+
+  .datatable-grid.border-none .datatable-header-cell,
+  .datatable-grid.border-none .datatable-body-cell {
+    border: 1px dashed var(--ep-gray-200);
+  }
+
+  /* Slot hint inside datatable body cells */
+  .datatable-body-cell .canvas-slot.empty {
+    min-height: 1.5rem;
+    border-style: dashed;
+    border-color: var(--ep-gray-200);
+  }
+
+  .datatable-body-cell .canvas-slot-hint {
+    font-size: 10px;
+  }
+
+  /* -----------------------------------------------------------------------
+   * Insert Dialog
+   * ----------------------------------------------------------------------- */
+
+  .datatable-dialog {
+    padding: 0;
+    border: none;
+    border-radius: var(--ep-radius-lg);
+    box-shadow: var(--ep-shadow-lg);
+    max-width: 280px;
+    width: 100%;
+  }
+
+  .datatable-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .datatable-dialog-content {
+    padding: var(--ep-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-3);
+  }
+
+  .datatable-dialog-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-700);
+  }
+
+  .datatable-dialog-field label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-500);
+  }
+
+  .datatable-dialog-field input {
+    width: 100%;
+  }
+
+  .datatable-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ep-space-2);
+  }
+
+  .datatable-dialog-btn {
+    padding: var(--ep-space-1-5) var(--ep-space-3);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    cursor: pointer;
+    border: 1px solid var(--ep-gray-300);
+    background: var(--ep-white);
+    color: var(--ep-gray-700);
+  }
+
+  .datatable-dialog-btn:hover {
+    background: var(--ep-gray-50);
+  }
+
+  .datatable-dialog-btn.insert {
+    background: var(--ep-blue-500);
+    color: var(--ep-white);
+    border-color: var(--ep-blue-500);
+  }
+
+  .datatable-dialog-btn.insert:hover {
+    background: var(--ep-blue-600);
+  }
+}
