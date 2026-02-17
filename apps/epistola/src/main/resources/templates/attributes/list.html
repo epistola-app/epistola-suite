@@ -92,8 +92,8 @@
               hx-swap="innerHTML"
               hx-on::after-request="if(event.detail.successful) document.getElementById('edit-attribute-dialog').close()">
             <div class="ep-dialog-body">
-                <div th:if="${editError != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-                    <span th:text="${editError}"></span>
+                <div th:if="${error != null}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                    <span th:text="${error}"></span>
                 </div>
                 <div class="form-group">
                     <label class="ep-label" for="edit-attr-displayName">Display Name</label>

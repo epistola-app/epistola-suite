@@ -36,32 +36,32 @@ class EnvironmentHandler {
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val searchTerm = request.param("q").orElse(null)
-        val environments = ListEnvironments(tenantId = TenantId.of(tenantId), searchTerm = searchTerm).query()
+        val environments = ListEnvironments(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("environments/list", "rows") {
-                "tenantId" to tenantId
+                "tenantId" to tenantId.value
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/$tenantId/environments") }
+            onNonHtmx { redirect("/tenants/${tenantId.value}/environments") }
         }
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().render(
             "layout/shell",
             mapOf(
                 "contentView" to "environments/new",
                 "pageTitle" to "New Environment - Epistola",
-                "tenantId" to tenantId,
+                "tenantId" to tenantId.value,
             ),
         )
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val slug = request.params().getFirst("slug")?.trim().orEmpty()
         val name = request.params().getFirst("name")?.trim().orEmpty()
 
@@ -72,7 +72,7 @@ class EnvironmentHandler {
                 mapOf(
                     "contentView" to "environments/new",
                     "pageTitle" to "New Environment - Epistola",
-                    "tenantId" to tenantId,
+                    "tenantId" to tenantId.value,
                     "formData" to formData,
                     "errors" to errors,
                 ),
@@ -90,7 +90,7 @@ class EnvironmentHandler {
         try {
             CreateEnvironment(
                 id = environmentId,
-                tenantId = TenantId.of(tenantId),
+                tenantId = tenantId,
                 name = name,
             ).execute()
         } catch (e: ValidationException) {
@@ -100,18 +100,18 @@ class EnvironmentHandler {
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/$tenantId/environments")
+            .header("Location", "/tenants/${tenantId.value}/environments")
             .build()
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val environmentIdStr = request.pathVariable("environmentId")
         val environmentId = EnvironmentId.validateOrNull(environmentIdStr)
             ?: return ServerResponse.badRequest().build()
 
         try {
-            DeleteEnvironment(tenantId = TenantId.of(tenantId), id = environmentId).execute()
+            DeleteEnvironment(tenantId = tenantId, id = environmentId).execute()
         } catch (e: EnvironmentInUseException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -119,13 +119,13 @@ class EnvironmentHandler {
         }
 
         // Return updated rows for HTMX
-        val environments = ListEnvironments(tenantId = TenantId.of(tenantId)).query()
+        val environments = ListEnvironments(tenantId = tenantId).query()
         return request.htmx {
             fragment("environments/list", "rows") {
-                "tenantId" to tenantId
+                "tenantId" to tenantId.value
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/$tenantId/environments") }
+            onNonHtmx { redirect("/tenants/${tenantId.value}/environments") }
         }
     }
 }
