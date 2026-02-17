@@ -1,28 +1,10 @@
--- Domain types for environment and variant identifiers (slugs)
-CREATE DOMAIN ENVIRONMENT_ID AS VARCHAR(30)
-    CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
-
+-- Domain type for variant identifiers (slugs)
 CREATE DOMAIN VARIANT_ID AS VARCHAR(50)
     CHECK (VALUE ~ '^[a-z][a-z0-9]*(-[a-z0-9]+)*$');
 
--- Template variants, versions, and environments
+-- Template variants, versions, and activations
 -- Enables template lifecycle management with draft/published/archived states
 -- All tenant-owned entities use composite PKs (tenant_id, id) for tenant isolation
-
--- Tenant environments (staging, production, etc.)
-CREATE TABLE environments (
-    id ENVIRONMENT_ID NOT NULL,
-    tenant_id TENANT_ID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_by UUID REFERENCES users(id),
-    last_modified_by UUID REFERENCES users(id),
-    PRIMARY KEY (tenant_id, id),
-    UNIQUE (tenant_id, name)
-);
-
-COMMENT ON COLUMN environments.created_by IS 'User who created this environment';
-COMMENT ON COLUMN environments.last_modified_by IS 'User who last modified this environment';
 
 -- Template variants (language, brand, audience variations)
 CREATE TABLE template_variants (
