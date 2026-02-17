@@ -258,7 +258,7 @@
    * ---------------------------------------------------------------------- */
 
   .dc-field-nested .dc-field-controls {
-    padding-left: var(--ep-space-8);
+    padding-left: calc(var(--ep-space-8) * var(--nest-depth, 1));
   }
 
   .dc-field-nested-container {
@@ -267,7 +267,8 @@
   }
 
   .dc-field-nested-empty {
-    padding: var(--ep-space-2) var(--ep-space-8);
+    padding: var(--ep-space-2);
+    padding-left: calc(var(--ep-space-8) * (var(--nest-depth, 0) + 1));
     font-size: var(--ep-text-xs);
     color: var(--ep-gray-400);
   }

@@ -35,8 +35,10 @@ export function renderSchemaFieldRow(
   const nestedFields = (field.type === 'object' || field.type === 'array') ? field.nestedFields ?? [] : []
   const isExpanded = expandedFields.has(field.id)
 
+  const nestStyle = depth > 0 ? `--nest-depth: ${depth}` : undefined
+
   return html`
-    <div class="dc-field-row ${depth > 0 ? 'dc-field-nested' : ''}">
+    <div class="dc-field-row ${depth > 0 ? 'dc-field-nested' : ''}" style=${nestStyle ?? nothing}>
       <div class="dc-field-controls">
         ${canExpand
           ? html`
