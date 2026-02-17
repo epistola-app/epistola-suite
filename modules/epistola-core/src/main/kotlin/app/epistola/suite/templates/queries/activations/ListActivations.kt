@@ -33,8 +33,10 @@ class ListActivationsHandler(
                     ea.activated_at
                 FROM environment_activations ea
                 JOIN environments e ON e.tenant_id = ea.tenant_id AND e.id = ea.environment_id
+                JOIN template_variants tv ON tv.tenant_id = ea.tenant_id AND tv.id = ea.variant_id
                 WHERE ea.variant_id = :variantId
                   AND ea.tenant_id = :tenantId
+                  AND tv.template_id = :templateId
                 ORDER BY e.name ASC
                 """,
         )

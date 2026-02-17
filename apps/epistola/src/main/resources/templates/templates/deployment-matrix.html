@@ -55,13 +55,13 @@
                                         <td th:each="env : ${environments}" class="deployment-matrix-cell">
                                             <th:block th:with="
                                                 cell=${matrix.containsKey(variant.id) ? matrix.get(variant.id).getOrDefault(env.id, null) : null},
-                                                versions=${versionsByVariant.getOrDefault(variant.id, {})}"
+                                                versions=${versionsByVariant.getOrDefault(variant.id, T(java.util.Collections).emptyList())}"
                                             >
                                                 <th:block th:if="${!#lists.isEmpty(versions)}">
                                                     <form style="display:inline; margin:0;">
                                                         <input type="hidden" name="variantId" th:value="${variant.id}" />
                                                         <input type="hidden" name="environmentId" th:value="${env.id}" />
-                                                        <select name="versionId" class="select select-sm" style="font-size: var(--ep-text-xs);"
+                                                        <select name="versionId" class="ep-select" style="font-size: var(--ep-text-xs);"
                                                                 th:hx-post="@{/tenants/{tenantId}/templates/{id}/deployments(tenantId=${tenantId},id=${templateId})}"
                                                                 hx-target="#deployment-matrix" hx-swap="outerHTML"
                                                                 hx-trigger="change" hx-include="closest form">

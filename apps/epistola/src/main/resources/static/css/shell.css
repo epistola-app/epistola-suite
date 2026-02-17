@@ -26,7 +26,7 @@
     background: var(--ep-white);
     position: sticky;
     top: 0;
-    z-index: var(--ep-z-sticky, 40);
+    z-index: var(--ep-z-sticky);
     flex-shrink: 0;
 }
 

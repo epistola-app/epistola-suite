@@ -77,9 +77,20 @@ class GetEditorContextHandler(
             }
         } ?: emptyList()
 
-        // Parse variant attributes
-        @Suppress("UNCHECKED_CAST")
-        val variantAttributes: Map<String, String> = (row["variant_attributes"] as? Map<String, String>) ?: emptyMap()
+        // Deserialize variant_attributes from JSONB (comes as PGobject from mapToMap)
+        val variantAttributes: Map<String, String> = row["variant_attributes"]?.let { raw ->
+            val json = raw.toString()
+            if (json.isNotBlank() && json != "null") {
+                try {
+                    val typeRef = object : tools.jackson.core.type.TypeReference<Map<String, String>>() {}
+                    objectMapper.readValue(json, typeRef)
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+            } else {
+                emptyMap()
+            }
+        } ?: emptyMap()
 
         // Deserialize draft_template_model from JSONB
         val templateModel = row["draft_template_model"]?.let { raw ->

@@ -10,7 +10,6 @@ import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.template.model.TemplateDocument
-import app.epistola.template.model.ThemeRefOverride
 import org.springframework.stereotype.Service
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
@@ -62,12 +61,6 @@ class GenerationService(
         templateDefaultThemeId: ThemeId? = null,
         tenantDefaultThemeId: ThemeId? = null,
     ) {
-        // Extract variant-level theme from the document's themeRef
-        val variantThemeId = when (val ref = templateModel.themeRef) {
-            is ThemeRefOverride -> ThemeId.of(ref.themeId)
-            else -> null
-        }
-
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
             tenantId,

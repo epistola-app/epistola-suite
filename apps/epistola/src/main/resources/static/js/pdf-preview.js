@@ -40,6 +40,8 @@ async function previewPdf(button) {
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         window.open(blobUrl, '_blank');
+        // Revoke blob URL after the new tab has had time to load
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (error) {
         console.error('PDF preview failed:', error);
         alert('Failed to generate PDF preview: ' + error.message);

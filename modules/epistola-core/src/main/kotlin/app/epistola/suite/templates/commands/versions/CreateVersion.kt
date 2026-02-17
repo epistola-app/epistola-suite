@@ -8,6 +8,7 @@ import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
+import app.epistola.suite.templates.model.createDefaultTemplateModel
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -110,30 +111,5 @@ class CreateVersionHandler(
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()
             .one()
-    }
-
-    private fun createDefaultTemplateModel(templateName: String, variantId: VariantId): Map<String, Any> {
-        val rootId = "root-${variantId.value}"
-        val slotId = "slot-${variantId.value}"
-        return mapOf(
-            "modelVersion" to 1,
-            "root" to rootId,
-            "nodes" to mapOf(
-                rootId to mapOf(
-                    "id" to rootId,
-                    "type" to "root",
-                    "slots" to listOf(slotId),
-                ),
-            ),
-            "slots" to mapOf(
-                slotId to mapOf(
-                    "id" to slotId,
-                    "nodeId" to rootId,
-                    "name" to "children",
-                    "children" to emptyList<String>(),
-                ),
-            ),
-            "themeRef" to mapOf("type" to "inherit"),
-        )
     }
 }

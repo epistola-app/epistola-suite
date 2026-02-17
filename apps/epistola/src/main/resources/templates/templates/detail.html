@@ -406,7 +406,7 @@
                                 method: 'PATCH',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-XSRF-TOKEN': window.getCsrfToken()
+                                    'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
                                 },
                                 body: JSON.stringify({ dataModel: schema, forceUpdate })
                             });
@@ -430,7 +430,7 @@
                                 method: 'PATCH',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-XSRF-TOKEN': window.getCsrfToken()
+                                    'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
                                 },
                                 body: JSON.stringify({ dataExamples: examples })
                             });
@@ -454,7 +454,7 @@
                                 method: 'PATCH',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'X-XSRF-TOKEN': window.getCsrfToken()
+                                    'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
                                 },
                                 body: JSON.stringify({ ...updates, forceUpdate })
                             });
@@ -477,7 +477,7 @@
                             const response = await fetch(`/tenants/${tenantId}/templates/${templateId}/data-examples/${exampleId}`, {
                                 method: 'DELETE',
                                 headers: {
-                                    'X-XSRF-TOKEN': window.getCsrfToken()
+                                    'X-XSRF-TOKEN': typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : ''
                                 }
                             });
 

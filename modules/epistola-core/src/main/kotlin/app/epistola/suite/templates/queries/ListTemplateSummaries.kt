@@ -54,7 +54,7 @@ class ListTemplateSummariesHandler(
                 """.trimIndent(),
             )
             if (!query.searchTerm.isNullOrBlank()) {
-                append(" AND dt.name ILIKE :searchTerm")
+                append(" AND dt.name ILIKE :searchTerm ESCAPE '\\'")
             }
             append(" ORDER BY dt.last_modified DESC")
             append(" LIMIT :limit OFFSET :offset")
@@ -63,7 +63,8 @@ class ListTemplateSummariesHandler(
         val jdbiQuery = handle.createQuery(sql)
             .bind("tenantId", query.tenantId)
         if (!query.searchTerm.isNullOrBlank()) {
-            jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+            val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            jdbiQuery.bind("searchTerm", "%$escaped%")
         }
         jdbiQuery
             .bind("limit", query.limit)

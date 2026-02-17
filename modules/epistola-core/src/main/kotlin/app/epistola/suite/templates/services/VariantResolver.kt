@@ -47,7 +47,7 @@ class AmbiguousVariantResolutionException(
  * Algorithm:
  * 1. Fetch all variants for the template
  * 2. Filter: keep only variants that match ALL required attributes
- * 3. Score remaining variants: (optionalMatches * 10) + totalVariantAttributes
+ * 3. Score remaining variants: (requiredMatches * 100) + (optionalMatches * 10)
  * 4. Select highest score. If tied: [AmbiguousVariantResolutionException]
  * 5. If no variant passes required filter: fall back to default variant (is_default = true), else error
  */
@@ -80,10 +80,12 @@ class VariantResolver {
             return defaultVariant.id
         }
 
-        // Score candidates: (optionalMatches * 10) + totalVariantAttributes
+        // Score candidates based on matched attributes only (not total attribute count)
+        // requiredMatches are weighted higher since they confirm explicit intent
         val scored = candidates.map { variant ->
+            val requiredMatches = countRequiredMatches(variant, criteria.requiredAttributes)
             val optionalMatches = countOptionalMatches(variant, criteria.optionalAttributes)
-            val score = (optionalMatches * 10) + variant.attributes.size
+            val score = (requiredMatches * 100) + (optionalMatches * 10)
             ScoredVariant(variant, score)
         }
 
@@ -102,6 +104,8 @@ class VariantResolver {
     }
 
     private fun matchesAllRequired(variant: TemplateVariant, required: Map<String, String>): Boolean = required.all { (key, value) -> variant.attributes[key] == value }
+
+    private fun countRequiredMatches(variant: TemplateVariant, required: Map<String, String>): Int = required.count { (key, value) -> variant.attributes[key] == value }
 
     private fun countOptionalMatches(variant: TemplateVariant, optional: Map<String, String>): Int = optional.count { (key, value) -> variant.attributes[key] == value }
 

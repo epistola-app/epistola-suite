@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.model
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.template.model.TemplateDocument
@@ -21,6 +22,7 @@ enum class VersionStatus {
  */
 data class TemplateVersion(
     val id: VersionId,
+    val tenantId: TenantId,
     val variantId: VariantId,
     @Json val templateModel: TemplateDocument,
     val status: VersionStatus,
@@ -35,6 +37,7 @@ data class TemplateVersion(
  */
 data class VersionSummary(
     val id: VersionId,
+    val tenantId: TenantId,
     val variantId: VariantId,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,

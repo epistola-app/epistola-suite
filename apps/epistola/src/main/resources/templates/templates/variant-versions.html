@@ -77,7 +77,7 @@
                                       hx-confirm="Are you sure you want to archive this version?">
                                     <button type="submit" class="btn btn-sm btn-icon btn-ghost"
                                             th:disabled="${activationsByVersion.containsKey(version.id)}"
-                                            title="Archive version">
+                                            th:title="${activationsByVersion.containsKey(version.id)} ? 'Cannot archive: version is active in one or more environments' : 'Archive version'">
                                         <th:block th:replace="~{fragments/icon :: icon(name='ban', class='ep-icon ep-icon-sm')}" />
                                     </button>
                                 </form>

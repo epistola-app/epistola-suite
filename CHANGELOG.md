@@ -16,6 +16,25 @@
 - **Archive Guard**: Archiving a version is now blocked if the version is still active in any environment. Remove it from all environments first.
 - **DemoLoader Enhancements**: Demo tenant now includes staging/production environments, language attribute definitions, Dutch/English multi-variant templates, and published versions across environments.
 
+### Fixed
+- **Editor: subtree undo loss** — Undoing a container deletion now correctly restores all descendant nodes and slots, preventing dangling references
+- **ListVariants missing columns** — Added `title` and `description` to the SELECT clause so variant list views display all fields
+- **GetEditorContext unsafe JSONB cast** — Replaced `as? Map` cast with Jackson deserialization for `variant_attributes`, fixing silent data loss
+- **Deployment matrix unstyled dropdowns** — Changed CSS class from `select select-sm` to `ep-select` from the design system; fixed SpEL `{}` syntax error
+- **PDF preview blob URL memory leak** — Blob URLs from `URL.createObjectURL()` are now revoked after 60 seconds
+- **DeleteAttributeDefinition missing validation** — Deletion now checks for variants referencing the attribute and throws `AttributeInUseException` instead of creating orphaned references
+- **UpdateAttributeDefinition allowed values narrowing** — Narrowing allowed values now checks for existing variants using removed values and throws `AllowedValuesInUseException`
+- **VariantResolver scoring tiebreaker** — Changed from `(optionalMatches * 10) + totalAttributes` to `(requiredMatches * 100) + (optionalMatches * 10)` so unrelated attributes no longer influence scoring
+- **Unused templateId in queries** — Five queries (GetDraft, GetVersion, ListVersions, ListActivations, GetActiveVersion) now JOIN to `template_variants` to verify the variant belongs to the specified template
+- **Missing API exception handlers** — Added handlers for `NoMatchingVariantException` (404), `AmbiguousVariantResolutionException` (409), `AttributeInUseException` (409), and `AllowedValuesInUseException` (409)
+- **Missing tenantId in models** — Added `tenantId` to `TemplateVersion`, `VersionSummary`, and `EnvironmentActivation` data classes to match composite PK schema
+- **LIKE pattern injection in template search** — Escaped `%`, `_`, and `\` metacharacters in search terms
+- **Inconsistent getCsrfToken calls** — All calls in `detail.html` now use defensive `typeof` check
+- **Duplicated createDefaultTemplateModel** — Extracted to shared `DefaultTemplateModel.kt`
+- **Dead vendor resource handler** — Removed `/vendor/**` handler from `EditorDevConfig` (vendor module was deleted)
+- **CSS z-index misleading fallback** — Removed incorrect fallback `40` from `var(--ep-z-sticky)` in `shell.css`
+- **Unused variantThemeId in GenerationService** — Removed dead code
+
 ### Removed
 - `SetActivation` command and REST API endpoint — replaced by the publish-to-environment action
 - `PublishVersion` command — replaced by `PublishToEnvironment` which combines publish + activate
@@ -46,7 +65,7 @@
   - **Attribute Validation**: Variant attributes are validated against the registry when creating or updating variants
   - **Attribute-based Variant Resolution**: Auto-select variants based on required/optional attribute criteria with scoring algorithm
     - Required attributes filter candidates, optional attributes score them
-    - Scoring: `(optionalMatches * 10) + totalVariantAttributes` — most specific variant wins
+    - Scoring: `(requiredMatches * 100) + (optionalMatches * 10)` — most specific variant wins
     - Falls back to default variant (empty attributes) when no match found
     - Throws `AmbiguousVariantResolutionException` when multiple variants tie on score
   - **GenerateDocument/Batch support**: Both commands accept `variantSelectionCriteria` as an alternative to explicit `variantId`

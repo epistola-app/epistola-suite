@@ -39,6 +39,8 @@ export interface InsertNode {
   targetSlotId: SlotId
   /** Index within the slot's children array. -1 = append. */
   index: number
+  /** For undo restoration — descendant nodes to re-add (populated by RemoveNode inverse). */
+  _restoreNodes?: Node[]
 }
 
 export interface RemoveNode {
@@ -178,8 +180,13 @@ function applyInsertNode(
   }
 
   // Build new document
-  const newNodes = { ...doc.nodes, [cmd.node.id]: cmd.node }
-  const newSlots = { ...doc.slots }
+  const newNodes: Record<NodeId, Node> = { ...doc.nodes, [cmd.node.id]: cmd.node }
+  const newSlots: Record<SlotId, Slot> = { ...doc.slots }
+
+  // Restore descendant nodes from undo (populated by RemoveNode inverse)
+  if (cmd._restoreNodes) {
+    for (const n of cmd._restoreNodes) newNodes[n.id] = n
+  }
 
   // Add the node's own slots
   for (const slot of cmd.slots) {
@@ -258,12 +265,15 @@ function applyRemoveNode(
   }
 
   // Build inverse: re-insert the node (with its subtree) at original position
+  // Descendant nodes (excluding the root node itself) must be restored via _restoreNodes
+  const descendantNodes = removedNodes.filter(n => n.id !== cmd.nodeId)
   const inverse: InsertNode = {
     type: 'InsertNode',
     node: node,
     slots: removedSlots,
     targetSlotId: parentSlotId,
     index: indexInParent,
+    _restoreNodes: descendantNodes.length > 0 ? descendantNodes : undefined,
   }
 
   return ok({ ...doc, nodes: newNodes, slots: newSlots }, inverse, true)
