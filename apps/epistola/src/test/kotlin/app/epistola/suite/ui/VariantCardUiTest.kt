@@ -253,12 +253,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
         page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/${template.id}")
         assertThat(page.locator(".variant-card")).hasCount(2)
 
-        // Accept confirm dialog
-        page.onDialog { dialog -> dialog.accept() }
-
-        // Click delete on the non-default variant (it has the destructive button)
+        // Click delete on the non-default variant (opens confirm dialog)
         val nonDefaultCard = page.locator(".variant-card:not(.variant-card-default)")
         nonDefaultCard.locator("button.btn-ghost-destructive").click()
+
+        // Confirm in the custom dialog
+        page.waitForSelector("#confirm-dialog[open]")
+        page.locator("#confirm-dialog button.btn-destructive").click()
 
         // Wait for HTMX swap to complete
         page.waitForFunction("document.querySelectorAll('.variant-card').length === 1")
