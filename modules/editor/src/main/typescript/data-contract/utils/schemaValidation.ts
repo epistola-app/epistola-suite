@@ -39,7 +39,7 @@ export function validateDataAgainstSchema(
   // Validate required fields
   if (jsonSchema.required) {
     for (const field of jsonSchema.required) {
-      if (!(field in data) || data[field] === undefined) {
+      if (!(field in data) || isEmptyValue(data[field])) {
         errors.push({
           path: `$.${field}`,
           message: `is required`,
@@ -65,6 +65,14 @@ export function validateDataAgainstSchema(
 }
 
 /**
+ * Check if a value is effectively empty (missing, null, or empty string).
+ * Used by the required field check — these values mean "not provided" in the form.
+ */
+function isEmptyValue(value: JsonValue | undefined): boolean {
+  return value === undefined || value === null || value === ''
+}
+
+/**
  * Validate a single property against its schema.
  */
 function validateProperty(
@@ -75,7 +83,7 @@ function validateProperty(
   const errors: SchemaValidationError[] = []
 
   if (value === null || value === undefined) {
-    // Null/undefined values are allowed (required check is separate)
+    // Null/undefined skip type validation — required check handles these separately
     return errors
   }
 
@@ -112,7 +120,7 @@ function validateProperty(
     // Check required nested fields
     if (schema.required) {
       for (const field of schema.required) {
-        if (!(field in objValue) || objValue[field] === undefined) {
+        if (!(field in objValue) || isEmptyValue(objValue[field])) {
           errors.push({
             path: `${path}.${field}`,
             message: `is required`,

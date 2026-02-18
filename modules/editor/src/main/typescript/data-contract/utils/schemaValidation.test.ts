@@ -190,7 +190,7 @@ describe('validateDataAgainstSchema', () => {
     expect(result.errors[0].path).toBe('$.level1.level2.value')
   })
 
-  it('allows null values', () => {
+  it('allows null values for non-required fields', () => {
     const schema: JsonSchema = {
       type: 'object',
       properties: {
@@ -198,6 +198,76 @@ describe('validateDataAgainstSchema', () => {
       },
     }
     const data: JsonObject = { optional: null }
+
+    const result = validateDataAgainstSchema(data, schema)
+
+    expect(result.valid).toBe(true)
+  })
+
+  it('flags null on a required field as missing', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+      },
+      required: ['name'],
+    }
+    const data: JsonObject = { name: null }
+
+    const result = validateDataAgainstSchema(data, schema)
+
+    expect(result.valid).toBe(false)
+    expect(result.errors[0].path).toBe('$.name')
+    expect(result.errors[0].message).toBe('is required')
+  })
+
+  it('flags empty string on a required field as missing', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+      },
+      required: ['name'],
+    }
+    const data: JsonObject = { name: '' }
+
+    const result = validateDataAgainstSchema(data, schema)
+
+    expect(result.valid).toBe(false)
+    expect(result.errors[0].path).toBe('$.name')
+    expect(result.errors[0].message).toBe('is required')
+  })
+
+  it('flags null on a required nested field as missing', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        address: {
+          type: 'object',
+          properties: {
+            city: { type: 'string' },
+          },
+          required: ['city'],
+        },
+      },
+    }
+    const data: JsonObject = { address: { city: null } }
+
+    const result = validateDataAgainstSchema(data, schema)
+
+    expect(result.valid).toBe(false)
+    expect(result.errors[0].path).toBe('$.address.city')
+    expect(result.errors[0].message).toBe('is required')
+  })
+
+  it('allows empty string on a non-required field', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        nickname: { type: 'string' },
+      },
+    }
+    const data: JsonObject = { nickname: '' }
 
     const result = validateDataAgainstSchema(data, schema)
 
