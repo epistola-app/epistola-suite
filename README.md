@@ -50,9 +50,51 @@ This will:
 # Build the entire project
 gradle build
 
-# Run the application
-gradle :apps:epistola:bootRun
+# Run the application (requires a profile — see Authentication below)
+gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 ```
+
+### Authentication
+
+A Spring profile **must** be set to configure authentication. Without one, the app will fail to start.
+
+| Profile | Auth Method | Use Case |
+|---------|-------------|----------|
+| `local` | Form login (in-memory users) | Local development |
+| `demo` | Form login (in-memory users) | K8s demo environments |
+| `keycloak` | OAuth2/OIDC (local Keycloak) | Testing OAuth2 locally |
+| `prod` | OAuth2/OIDC (external Keycloak) | Production |
+| `local,keycloak` | Both form + OAuth2 | Testing both login methods |
+
+**Local development** — uses in-memory users, no external dependencies:
+
+```bash
+gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
+# Login: admin@local / admin  or  user@local / user
+```
+
+**With Keycloak** — start a local Keycloak instance with pre-configured realm:
+
+```bash
+# Start Keycloak (admin console at http://localhost:8080, admin/admin)
+docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
+
+# Run with OAuth2 only
+gradle :apps:epistola:bootRun --args='--spring.profiles.active=keycloak'
+
+# Or run with both form login and OAuth2
+gradle :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
+```
+
+**Production** — requires environment variables for your Keycloak (or any OIDC provider):
+
+```bash
+export KEYCLOAK_CLIENT_ID=epistola-suite
+export KEYCLOAK_CLIENT_SECRET=<your-secret>
+export KEYCLOAK_ISSUER_URI=https://keycloak.example.com/realms/epistola
+```
+
+See [docs/auth.md](docs/auth.md) for full details on Keycloak setup, auto-provisioning, and safety guards.
 
 ### Docker
 
