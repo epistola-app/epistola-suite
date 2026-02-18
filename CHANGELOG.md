@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **AI chat plugin (frontend)**: First plugin built on the editor plugin architecture. Adds an "AI" sidebar tab with a chat interface for interacting with an AI assistant. Features streaming responses with blinking cursor, proposal cards (Apply/Reject for template modifications), and auto-scroll. Ships as a separate Vite entry point (`ai-plugin.js` 13 kB, `ai-plugin.css` 4 kB) loaded via dynamic import, keeping AI code out of the main editor bundle. Uses mock transport for development — real backend transport to be added later. Includes `AiChatService` (state machine), `applyProposal()` (command/replace modes), and 37 tests.
 - **Editor plugin architecture**: The template editor now supports a plugin system for extending the UI with additional sidebar tabs, toolbar actions, and lifecycle hooks. Plugins implement the `EditorPlugin` interface and are passed via the `plugins` option in `mountEditor()`. The sidebar and toolbar render plugin contributions dynamically alongside built-in controls. See `docs/plugins.md` for the design document.
 
 ### Fixed
