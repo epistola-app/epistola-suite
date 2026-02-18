@@ -2,32 +2,24 @@
  * SchemaSection — Visual schema builder with field management.
  *
  * Renders a list of schema fields with add/delete/update controls,
- * a "Generate from example" tool, undo/redo, and save state indicators.
+ * undo/redo, and validation warnings.
  * Accepts VisualSchema directly — no conversion in the render path.
  */
 
-import { html, nothing } from 'lit'
-import type { DataContractState } from '../DataContractState.js'
+import { html } from 'lit'
 import type { VisualSchema } from '../types.js'
 import type { SchemaCommand } from '../utils/schemaCommands.js'
 import { renderSchemaFieldRow } from './SchemaFieldRow.js'
 import { renderValidationMessages } from './ValidationMessages.js'
-import type { MigrationSuggestion } from '../utils/schemaMigration.js'
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>
-  showConfirmGenerate: boolean
-  showMigrationAssistant: boolean
-  pendingMigrations: MigrationSuggestion[]
   canUndo: boolean
   canRedo: boolean
 }
 
 export interface SchemaSectionCallbacks {
   onCommand: (command: SchemaCommand) => void
-  onGenerateFromExample: () => void
-  onConfirmGenerate: () => void
-  onCancelGenerate: () => void
   onToggleFieldExpand: (fieldId: string) => void
   onUndo: () => void
   onRedo: () => void
@@ -35,7 +27,6 @@ export interface SchemaSectionCallbacks {
 
 export function renderSchemaSection(
   visualSchema: VisualSchema,
-  state: DataContractState,
   uiState: SchemaUiState,
   callbacks: SchemaSectionCallbacks,
   expandedFields: Set<string>,
@@ -52,13 +43,6 @@ export function renderSchemaSection(
 
       <!-- Toolbar -->
       <div class="dc-toolbar">
-        <button
-          class="ep-btn-outline btn-sm"
-          @click=${() => callbacks.onGenerateFromExample()}
-          ?disabled=${state.dataExamples.length === 0}
-          title="${state.dataExamples.length === 0 ? 'Add a test data example first' : 'Infer schema from first example'}"
-        >Generate from example</button>
-
         <div class="dc-toolbar-spacer"></div>
 
         <button
@@ -77,27 +61,6 @@ export function renderSchemaSection(
           aria-label="Redo"
         >Redo</button>
       </div>
-
-      <!-- Generate confirmation dialog -->
-      ${uiState.showConfirmGenerate
-        ? html`
-            <div class="dc-confirm-bar alert alert-warning">
-              <div>
-                <strong>Replace existing schema?</strong>
-                This will overwrite all current field definitions with fields inferred from the first example.
-              </div>
-              <div class="dc-confirm-actions">
-                <button class="btn btn-sm btn-destructive" @click=${() => callbacks.onConfirmGenerate()}>
-                  Replace
-                </button>
-                <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onCancelGenerate()}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          `
-        : nothing
-      }
 
       <!-- Validation warnings -->
       ${renderValidationMessages(uiState.warnings)}
@@ -128,7 +91,7 @@ export function renderSchemaSection(
           `
         : html`
             <div class="dc-empty-state">
-              No fields defined yet. Add a field below or generate from an example.
+              No fields defined yet. Add a field below.
             </div>
           `
       }

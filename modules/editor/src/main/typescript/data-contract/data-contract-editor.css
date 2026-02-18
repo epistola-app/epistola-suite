@@ -119,20 +119,6 @@
     min-width: auto;
   }
 
-  .dc-confirm-bar {
-    margin-bottom: var(--ep-space-3);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--ep-space-3);
-  }
-
-  .dc-confirm-actions {
-    display: flex;
-    gap: var(--ep-space-2);
-    flex-shrink: 0;
-  }
-
   /* --------------------------------------------------------------------------
    * Field list (schema builder)
    * ---------------------------------------------------------------------- */

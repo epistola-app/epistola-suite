@@ -278,32 +278,6 @@ describe('executeSchemaCommand', () => {
     })
   })
 
-  describe('generateFromExample', () => {
-    it('generates schema from data', () => {
-      const schema: VisualSchema = { fields: [] }
-      const result = executeSchemaCommand(schema, {
-        type: 'generateFromExample',
-        data: { name: 'John', age: 30, active: true },
-      })
-
-      expect(result.fields).toHaveLength(3)
-      expect(result.fields.find((f) => f.name === 'name')?.type).toBe('string')
-      expect(result.fields.find((f) => f.name === 'age')?.type).toBe('integer')
-      expect(result.fields.find((f) => f.name === 'active')?.type).toBe('boolean')
-    })
-
-    it('replaces existing schema entirely', () => {
-      const schema = makeSchema()
-      const result = executeSchemaCommand(schema, {
-        type: 'generateFromExample',
-        data: { x: 1 },
-      })
-
-      expect(result.fields).toHaveLength(1)
-      expect(result.fields[0].name).toBe('x')
-    })
-  })
-
   it('does not mutate the original schema', () => {
     const schema = makeSchema()
     const original = structuredClone(schema)

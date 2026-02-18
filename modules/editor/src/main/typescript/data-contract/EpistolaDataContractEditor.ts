@@ -74,7 +74,6 @@ export class EpistolaDataContractEditor extends LitElement {
 
   // Schema tab UI state
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = []
-  @state() private _showConfirmGenerate = false
   @state() private _expandedFields = new Set<string>()
 
   // Examples tab UI state
@@ -237,28 +236,20 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderSchemaTab(): unknown {
-    const state = this.contractState!
-
     const uiState: SchemaUiState = {
       warnings: this._schemaWarnings,
-      showConfirmGenerate: this._showConfirmGenerate,
-      showMigrationAssistant: this._showMigrationDialog,
-      pendingMigrations: this._pendingMigrations,
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
     }
 
     const callbacks: SchemaSectionCallbacks = {
       onCommand: (command) => this._executeCommand(command),
-      onGenerateFromExample: () => this._handleGenerateFromExample(),
-      onConfirmGenerate: () => this._confirmGenerate(),
-      onCancelGenerate: () => { this._showConfirmGenerate = false },
       onToggleFieldExpand: (fieldId) => this._toggleFieldExpand(fieldId),
       onUndo: () => this._undo(),
       onRedo: () => this._redo(),
     }
 
-    return renderSchemaSection(this._visualSchema, state, uiState, callbacks, this._expandedFields)
+    return renderSchemaSection(this._visualSchema, uiState, callbacks, this._expandedFields)
   }
 
   // ---------------------------------------------------------------------------
@@ -350,26 +341,6 @@ export class EpistolaDataContractEditor extends LitElement {
       newSet.add(fieldId)
     }
     this._expandedFields = newSet
-  }
-
-  private _handleGenerateFromExample(): void {
-    const hasExistingSchema = this._visualSchema.fields.length > 0
-
-    if (hasExistingSchema) {
-      this._showConfirmGenerate = true
-    } else {
-      this._confirmGenerate()
-    }
-  }
-
-  private _confirmGenerate(): void {
-    const state = this.contractState!
-    this._showConfirmGenerate = false
-
-    if (state.dataExamples.length === 0) return
-
-    const firstExample = state.dataExamples[0]
-    this._executeCommand({ type: 'generateFromExample', data: firstExample.data })
   }
 
   private async _saveAll(): Promise<void> {

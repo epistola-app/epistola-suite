@@ -6,8 +6,8 @@
  * Tree operations (update, delete, add) work at arbitrary depth via recursion.
  */
 
-import type { JsonObject, SchemaField, SchemaFieldUpdate, VisualSchema } from '../types.js'
-import { applyFieldUpdate, createEmptyField, generateSchemaFromData } from './schemaUtils.js'
+import type { SchemaField, SchemaFieldUpdate, VisualSchema } from '../types.js'
+import { applyFieldUpdate, createEmptyField } from './schemaUtils.js'
 
 // =============================================================================
 // Command types
@@ -17,7 +17,6 @@ export type SchemaCommand =
   | { type: 'addField'; parentFieldId: string | null; name?: string }
   | { type: 'deleteField'; fieldId: string }
   | { type: 'updateField'; fieldId: string; updates: SchemaFieldUpdate }
-  | { type: 'generateFromExample'; data: JsonObject }
 
 // =============================================================================
 // Command executor (pure function)
@@ -37,8 +36,6 @@ export function executeSchemaCommand(schema: VisualSchema, command: SchemaComman
       return { fields: deleteFieldFromTree(schema.fields, command.fieldId) }
     case 'updateField':
       return { fields: updateFieldInTree(schema.fields, command.fieldId, command.updates) }
-    case 'generateFromExample':
-      return generateSchemaFromData(command.data)
   }
 }
 
