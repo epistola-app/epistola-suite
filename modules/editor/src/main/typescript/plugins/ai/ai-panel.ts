@@ -13,11 +13,19 @@
 import { LitElement, html, nothing, type TemplateResult } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { AiChatService, ChatState } from './ai-chat-service.js'
-import type { ChatMessage, ProposalStatus } from './types.js'
+import type { ChatMessage, ChatAttachment, ProposalStatus } from './types.js'
 import type { EditorEngine } from '../../engine/EditorEngine.js'
 import type { TemplateDocument, NodeId } from '../../types/index.js'
+import { nanoid } from 'nanoid'
 import { applyProposal } from './apply-proposal.js'
 import { icon } from '../../ui/icons.js'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+const ACCEPTED_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+const ACCEPT_STRING = '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 @customElement('epistola-ai-panel')
 export class EpistolaAiPanel extends LitElement {
@@ -34,9 +42,12 @@ export class EpistolaAiPanel extends LitElement {
   @state() private _status: 'idle' | 'streaming' | 'error' = 'idle'
   @state() private _error?: string
   @state() private _inputValue = ''
+  @state() private _pendingFiles: ChatAttachment[] = []
+  @state() private _attachError?: string
 
   private _prevService?: AiChatService
   private _userScrolledUp = false
+  private _attachErrorTimer?: ReturnType<typeof setTimeout>
 
   override updated(): void {
     // Subscribe to chat service when it changes
@@ -68,9 +79,15 @@ export class EpistolaAiPanel extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _handleSend(): void {
-    if (!this.chatService || !this.doc || !this._inputValue.trim()) return
-    this.chatService.sendMessage(this._inputValue, this.doc, this.selectedNodeId ?? undefined)
+    if (!this.chatService || !this.doc) return
+    const hasText = this._inputValue.trim().length > 0
+    const hasFiles = this._pendingFiles.length > 0
+    if (!hasText && !hasFiles) return
+
+    const attachments = hasFiles ? [...this._pendingFiles] : undefined
+    this.chatService.sendMessage(this._inputValue, this.doc, this.selectedNodeId ?? undefined, attachments)
     this._inputValue = ''
+    this._pendingFiles = []
     this._userScrolledUp = false
   }
 
@@ -81,7 +98,9 @@ export class EpistolaAiPanel extends LitElement {
   private _handleKeydown(e: KeyboardEvent): void {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      this._handleSend()
+      if (this._inputValue.trim() || this._pendingFiles.length > 0) {
+        this._handleSend()
+      }
     }
   }
 
@@ -104,6 +123,49 @@ export class EpistolaAiPanel extends LitElement {
   private _handleReject(msg: ChatMessage): void {
     if (!this.chatService) return
     this.chatService.setProposalStatus(msg.id, 'rejected')
+  }
+
+  private _handleAttachClick(): void {
+    const input = this.querySelector<HTMLInputElement>('.ai-file-input')
+    input?.click()
+  }
+
+  private _handleFileChange(e: Event): void {
+    const input = e.target as HTMLInputElement
+    if (!input.files?.length) return
+
+    for (const file of Array.from(input.files)) {
+      if (!ACCEPTED_TYPES.includes(file.type)) {
+        this._showAttachError(`"${file.name}" is not a supported file type. Only PDF and DOCX are allowed.`)
+        continue
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        this._showAttachError(`"${file.name}" exceeds the 10 MB size limit.`)
+        continue
+      }
+      this._pendingFiles = [...this._pendingFiles, {
+        id: nanoid(),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        file,
+      }]
+    }
+
+    // Reset input so the same file can be re-selected
+    input.value = ''
+  }
+
+  private _handleRemoveFile(id: string): void {
+    this._pendingFiles = this._pendingFiles.filter((f) => f.id !== id)
+  }
+
+  private _showAttachError(message: string): void {
+    this._attachError = message
+    if (this._attachErrorTimer) clearTimeout(this._attachErrorTimer)
+    this._attachErrorTimer = setTimeout(() => {
+      this._attachError = undefined
+    }, 3000)
   }
 
   // ---------------------------------------------------------------------------
@@ -136,29 +198,59 @@ export class EpistolaAiPanel extends LitElement {
             : nothing}
         </div>
         <div class="ai-input-area">
-          <textarea
-            class="ai-input"
-            placeholder="Ask AI about your template..."
-            .value=${this._inputValue}
-            @input=${this._handleInput}
-            @keydown=${this._handleKeydown}
-            rows="2"
-          ></textarea>
-          ${this._status === 'streaming'
+          <input
+            type="file"
+            class="ai-file-input"
+            accept=${ACCEPT_STRING}
+            multiple
+            @change=${this._handleFileChange}
+            hidden
+          />
+          ${this._attachError
+            ? html`<div class="ai-attach-error">${this._attachError}</div>`
+            : nothing}
+          ${this._pendingFiles.length > 0
             ? html`
-              <button class="ai-stop-btn" @click=${this._handleStop} title="Stop generating">
-                ${icon('square', 14)}
-              </button>`
-            : html`
-              <button
-                class="ai-send-btn"
-                @click=${this._handleSend}
-                ?disabled=${!this._inputValue.trim()}
-                title="Send message"
-              >
-                ${icon('arrow-up', 16)}
-              </button>`
-          }
+              <div class="ai-pending-files">
+                ${this._pendingFiles.map((f) => html`
+                  <span class="ai-file-chip">
+                    ${icon('file-text', 12)}
+                    <span class="ai-file-chip-name">${f.name}</span>
+                    <button class="ai-file-chip-remove" @click=${() => this._handleRemoveFile(f.id)} title="Remove file">
+                      ${icon('x', 10)}
+                    </button>
+                  </span>
+                `)}
+              </div>`
+            : nothing}
+          <div class="ai-input-row">
+            <button class="ai-attach-btn" @click=${this._handleAttachClick} title="Attach file">
+              ${icon('paperclip', 16)}
+            </button>
+            <textarea
+              class="ai-input"
+              placeholder="Ask AI about your template..."
+              .value=${this._inputValue}
+              @input=${this._handleInput}
+              @keydown=${this._handleKeydown}
+              rows="2"
+            ></textarea>
+            ${this._status === 'streaming'
+              ? html`
+                <button class="ai-stop-btn" @click=${this._handleStop} title="Stop generating">
+                  ${icon('square', 14)}
+                </button>`
+              : html`
+                <button
+                  class="ai-send-btn"
+                  @click=${this._handleSend}
+                  ?disabled=${!this._inputValue.trim() && this._pendingFiles.length === 0}
+                  title="Send message"
+                >
+                  ${icon('arrow-up', 16)}
+                </button>`
+            }
+          </div>
         </div>
       </div>
     `
@@ -180,6 +272,14 @@ export class EpistolaAiPanel extends LitElement {
 
     return html`
       <div class="ai-message ${isUser ? 'ai-message-user' : 'ai-message-assistant'} ${isStreaming ? 'ai-message-streaming' : ''}">
+        ${msg.attachments && msg.attachments.length > 0
+          ? html`
+            <div class="ai-message-attachments">
+              ${msg.attachments.map((a) => html`
+                <span class="ai-attachment-badge">${icon('file-text', 10)} ${a.name}</span>
+              `)}
+            </div>`
+          : nothing}
         <div class="ai-message-content">${msg.content}${isStreaming ? html`<span class="ai-cursor"></span>` : nothing}</div>
         ${msg.proposal ? this._renderProposal(msg) : nothing}
       </div>

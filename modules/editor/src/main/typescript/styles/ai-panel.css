@@ -199,11 +199,17 @@
 
   .ai-input-area {
     display: flex;
-    align-items: flex-end;
-    gap: var(--ep-space-2);
+    flex-direction: column;
+    gap: var(--ep-space-1);
     padding: var(--ep-space-3);
     border-top: 1px solid var(--ep-gray-200);
     background: var(--ep-white);
+  }
+
+  .ai-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--ep-space-2);
   }
 
   .ai-input {
@@ -267,5 +273,100 @@
     &:hover {
       background: var(--ep-gray-50);
     }
+  }
+
+  /* ── Attach button ────────────────────────────────────────────────────── */
+
+  .ai-attach-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--ep-radius-full);
+    border: 1px solid var(--ep-gray-300);
+    background: var(--ep-white);
+    color: var(--ep-gray-500);
+    cursor: pointer;
+    transition: var(--ep-transition-colors);
+
+    &:hover {
+      background: var(--ep-gray-50);
+      color: var(--ep-gray-700);
+    }
+  }
+
+  /* ── Pending file chips ───────────────────────────────────────────────── */
+
+  .ai-pending-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-1);
+  }
+
+  .ai-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    background: var(--ep-blue-50);
+    color: var(--ep-blue-700);
+    border-radius: var(--ep-radius-full);
+    font-size: 0.6875rem;
+    line-height: 1;
+    max-width: 12rem;
+  }
+
+  .ai-file-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ai-file-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ep-blue-400);
+    cursor: pointer;
+    border-radius: var(--ep-radius-full);
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--ep-blue-800);
+    }
+  }
+
+  /* ── Attach error ─────────────────────────────────────────────────────── */
+
+  .ai-attach-error {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+    padding: 0 var(--ep-space-1);
+  }
+
+  /* ── Message attachment badges ────────────────────────────────────────── */
+
+  .ai-message-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-1);
+    margin-bottom: var(--ep-space-1);
+  }
+
+  .ai-attachment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.625rem;
+    color: var(--ep-blue-600);
+    background: var(--ep-blue-50);
+    padding: var(--ep-space-0-5) var(--ep-space-1-5);
+    border-radius: var(--ep-radius-full);
+    line-height: 1;
   }
 }
