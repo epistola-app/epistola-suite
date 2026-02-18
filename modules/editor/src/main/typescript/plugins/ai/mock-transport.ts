@@ -65,8 +65,15 @@ export function createMockTransport(options: MockTransportOptions = {}): SendMes
   const { delayMs = 30, includeProposal = true } = options
 
   return async (request, signal, onChunk) => {
+    // Acknowledge uploaded files if any
+    if (request.attachments && request.attachments.length > 0) {
+      const names = request.attachments.map((a) => a.name).join(', ')
+      const ack = `I've reviewed your uploaded file(s): ${names}. `
+      onChunk({ type: 'text', content: ack })
+    }
+
     // Pick a canned response based on message hash
-    const responseIndex = Math.abs(hashCode(request.message)) % CANNED_RESPONSES.length
+    const responseIndex = Math.abs(hashCode(request.message || 'attachment')) % CANNED_RESPONSES.length
     const text = CANNED_RESPONSES[responseIndex]
     const words = text.split(' ')
 

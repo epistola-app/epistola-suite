@@ -13,7 +13,7 @@
 
 import { nanoid } from 'nanoid'
 import type { TemplateDocument, NodeId } from '../../types/index.js'
-import type { SendMessageFn, ChatMessage, ProposalStatus } from './types.js'
+import type { SendMessageFn, ChatMessage, ChatAttachment, ProposalStatus } from './types.js'
 
 // ---------------------------------------------------------------------------
 // State types
@@ -70,11 +70,17 @@ export class AiChatService {
    * Send a user message and stream the assistant response.
    * Aborts any in-flight request before starting a new one.
    */
-  async sendMessage(message: string, document: TemplateDocument, selectedNodeId?: NodeId): Promise<void> {
+  async sendMessage(
+    message: string,
+    document: TemplateDocument,
+    selectedNodeId?: NodeId,
+    attachments?: ChatAttachment[],
+  ): Promise<void> {
     if (this._disposed) return
 
     const trimmed = message.trim()
-    if (!trimmed) return
+    const hasAttachments = attachments && attachments.length > 0
+    if (!trimmed && !hasAttachments) return
 
     // Abort any in-flight request
     this.abort()
@@ -84,6 +90,7 @@ export class AiChatService {
       id: nanoid(),
       role: 'user',
       content: trimmed,
+      ...(hasAttachments ? { attachments } : {}),
       timestamp: Date.now(),
     }
     this._messages = [...this._messages, userMessage]
@@ -110,6 +117,7 @@ export class AiChatService {
           message: trimmed,
           document,
           selectedNodeId,
+          ...(hasAttachments ? { attachments } : {}),
         },
         controller.signal,
         (chunk) => {

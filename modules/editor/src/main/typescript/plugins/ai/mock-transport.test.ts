@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createMockTransport } from './mock-transport.js'
-import type { ChatChunk } from './types.js'
+import type { ChatChunk, ChatAttachment } from './types.js'
 import { createTestDocument, resetCounter } from '../../engine/test-helpers.js'
 
 beforeEach(() => {
@@ -181,6 +181,60 @@ describe('createMockTransport', () => {
     // Should not have received all chunks
     const doneChunks = chunks.filter((c) => c.type === 'done')
     expect(doneChunks).toHaveLength(0)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Attachment acknowledgment
+  // ---------------------------------------------------------------------------
+
+  it('acknowledges uploaded attachments in the response', async () => {
+    const transport = createMockTransport({ delayMs: 0, includeProposal: false })
+    const { chunks, onChunk } = collectChunks()
+
+    const attachment: ChatAttachment = {
+      id: 'att-1',
+      name: 'report.pdf',
+      size: 1024,
+      type: 'application/pdf',
+      file: new File(['dummy'], 'report.pdf', { type: 'application/pdf' }),
+    }
+
+    await transport(
+      { conversationId: 'test', message: 'Analyze this', document: DOC, attachments: [attachment] },
+      new AbortController().signal,
+      onChunk,
+    )
+
+    const fullText = chunks
+      .filter((c) => c.type === 'text')
+      .map((c) => (c as { type: 'text'; content: string }).content)
+      .join('')
+
+    expect(fullText).toContain("I've reviewed your uploaded file(s): report.pdf.")
+  })
+
+  it('acknowledges multiple attachments by name', async () => {
+    const transport = createMockTransport({ delayMs: 0, includeProposal: false })
+    const { chunks, onChunk } = collectChunks()
+
+    const attachments: ChatAttachment[] = [
+      { id: 'att-1', name: 'report.pdf', size: 1024, type: 'application/pdf', file: new File(['a'], 'report.pdf') },
+      { id: 'att-2', name: 'contract.docx', size: 2048, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', file: new File(['b'], 'contract.docx') },
+    ]
+
+    await transport(
+      { conversationId: 'test', message: 'Review these', document: DOC, attachments },
+      new AbortController().signal,
+      onChunk,
+    )
+
+    const fullText = chunks
+      .filter((c) => c.type === 'text')
+      .map((c) => (c as { type: 'text'; content: string }).content)
+      .join('')
+
+    expect(fullText).toContain('report.pdf')
+    expect(fullText).toContain('contract.docx')
   })
 
   // ---------------------------------------------------------------------------

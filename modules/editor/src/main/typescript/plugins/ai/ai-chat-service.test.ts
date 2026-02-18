@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { AiChatService, type ChatState } from './ai-chat-service.js'
-import type { SendMessageFn, ChatChunk } from './types.js'
+import type { SendMessageFn, ChatChunk, ChatAttachment, ChatRequest } from './types.js'
 import { createTestDocument, resetCounter } from '../../engine/test-helpers.js'
 
 beforeEach(() => {
@@ -293,6 +293,69 @@ describe('AiChatService', () => {
       // Should not throw
       service.setProposalStatus('unknown-id', 'applied')
       expect(service.messages).toHaveLength(2)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Attachments
+  // ---------------------------------------------------------------------------
+
+  describe('attachments', () => {
+    function createAttachment(name: string): ChatAttachment {
+      const file = new File(['dummy'], name, { type: 'application/pdf' })
+      return { id: `att-${name}`, name, size: file.size, type: file.type, file }
+    }
+
+    it('stores attachments on user message', async () => {
+      const { fn } = createMockSend()
+      const service = new AiChatService(fn, vi.fn())
+
+      const att = createAttachment('report.pdf')
+      await service.sendMessage('Check this', DOC, undefined, [att])
+
+      expect(service.messages[0].attachments).toHaveLength(1)
+      expect(service.messages[0].attachments![0].name).toBe('report.pdf')
+    })
+
+    it('passes attachments to the transport', async () => {
+      const requests: ChatRequest[] = []
+      const fn: SendMessageFn = async (request, _signal, onChunk) => {
+        requests.push(request)
+        onChunk({ type: 'done' })
+      }
+      const service = new AiChatService(fn, vi.fn())
+
+      const att = createAttachment('document.docx')
+      await service.sendMessage('Review', DOC, undefined, [att])
+
+      expect(requests[0].attachments).toHaveLength(1)
+      expect(requests[0].attachments![0].name).toBe('document.docx')
+    })
+
+    it('allows sending with only attachments (empty message)', async () => {
+      const { fn } = createMockSend()
+      const service = new AiChatService(fn, vi.fn())
+
+      const att = createAttachment('file.pdf')
+      await service.sendMessage('', DOC, undefined, [att])
+
+      expect(service.messages).toHaveLength(2)
+      expect(service.messages[0].content).toBe('')
+      expect(service.messages[0].attachments).toHaveLength(1)
+    })
+
+    it('omits attachments field when none provided', async () => {
+      const requests: ChatRequest[] = []
+      const fn: SendMessageFn = async (request, _signal, onChunk) => {
+        requests.push(request)
+        onChunk({ type: 'done' })
+      }
+      const service = new AiChatService(fn, vi.fn())
+
+      await service.sendMessage('No files', DOC)
+
+      expect(requests[0].attachments).toBeUndefined()
+      expect(service.messages[0].attachments).toBeUndefined()
     })
   })
 
