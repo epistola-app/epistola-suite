@@ -1,0 +1,14 @@
+# Demo profile: form-based login with in-memory users, suitable for K8s demo environments.
+# Users: admin@local / admin, user@local / user
+
+spring:
+  flyway:
+    clean-disabled: true                 # Don't allow clean in demo
+    clean-on-validation-error: false
+
+epistola:
+  auth:
+    auto-provision: false
+
+  demo:
+    enabled: true

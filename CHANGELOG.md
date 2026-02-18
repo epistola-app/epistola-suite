@@ -2,7 +2,18 @@
 
 ## [Unreleased]
 
+### Changed
+- **Bean-driven security architecture**: `SecurityConfig` and `LoginHandler` now detect authentication methods from bean presence (`UserDetailsService`, `ClientRegistrationRepository`) instead of checking profile names. Adding a new form-login profile only requires updating `LocalUserDetailsService`'s `@Profile` annotation.
+- **`OAuth2UserProvisioningService`**: Replaced `@Profile("!local & !test")` with `@ConditionalOnBean(ClientRegistrationRepository::class)`. `AuthProvider` is now derived from the OAuth2 registration ID instead of a config property.
+- **Simplified `AuthProperties`**: Removed `provider` and `registrationId` fields (redundant). Only `autoProvision` remains.
+- **Removed `epistola.auth.provider` and `epistola.auth.registration-id`** from all YAML profile configs.
+
 ### Added
+- **`AuthenticationSafetyValidator`**: Fails fast on startup if `local`/`demo` profiles are combined with `prod` (known passwords in production) or if no authentication mechanism is configured (silent 403s).
+- **Excluded `UserDetailsServiceAutoConfiguration`**: Prevents Spring Boot from creating a default in-memory user when no profile is active, letting the safety validator catch the misconfiguration instead.
+
+### Added
+- **`demo` Spring profile**: New profile for K8s deployments that enables form-based login with in-memory users (`admin@local`/`admin`, `user@local`/`user`) without requiring Keycloak. Includes safe Flyway settings (no auto-clean) and demo data loading. Set `SPRING_PROFILES_ACTIVE=demo` in your deployment.
 - **Auto-recover database on incompatible Flyway migrations**: When Flyway detects checksum mismatches or missing migrations (common during pre-production development), the database is automatically cleaned and recreated from scratch. DemoLoader re-populates demo data after recreation. Production profile explicitly disables this behavior for safety.
 - **AI chat file attachments**: Users can attach PDF and DOCX files to AI chat messages via a paperclip button. Files appear as removable chips above the text input, are displayed as badges in sent messages, and are passed through to the transport layer. Validates file type (PDF/DOCX only) and size (max 10 MB). Sending with files-only (no text) is supported. Mock transport acknowledges uploaded files in its response.
 - **AI chat plugin (frontend)**: First plugin built on the editor plugin architecture. Adds an "AI" sidebar tab with a chat interface for interacting with an AI assistant. Features streaming responses with blinking cursor, proposal cards (Apply/Reject for template modifications), and auto-scroll. Ships as a separate Vite entry point (`ai-plugin.js` 13 kB, `ai-plugin.css` 4 kB) loaded via dynamic import, keeping AI code out of the main editor bundle. Uses mock transport for development — real backend transport to be added later. Includes `AiChatService` (state machine), `applyProposal()` (command/replace modes), and 37 tests.

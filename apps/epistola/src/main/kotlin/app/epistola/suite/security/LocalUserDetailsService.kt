@@ -10,19 +10,18 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories
 import org.springframework.stereotype.Component
 
 /**
- * In-memory user details service for local development.
+ * In-memory user details service for local development and demo environments.
  *
- * Provides hardcoded test users for local development without requiring
- * external OAuth2 providers or database setup.
+ * Provides hardcoded test users without requiring external OAuth2 providers or database setup.
  *
  * Users:
  * - admin@local / admin - Admin user with access to all tenants
  * - user@local / user - Regular user with access to demo-tenant
  *
- * Active only when 'local' profile is active.
+ * Active when 'local' or 'demo' profile is active.
  */
 @Component
-@Profile("local")
+@Profile("local | demo")
 class LocalUserDetailsService : UserDetailsService {
 
     private val passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder()

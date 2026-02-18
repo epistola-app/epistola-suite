@@ -7,7 +7,6 @@ logging:
 
 epistola:
   auth:
-    provider: local
     auto-provision: false  # Not needed for in-memory test users
   demo:
     enabled: false  # Disable demo loading in tests

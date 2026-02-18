@@ -23,8 +23,6 @@ spring:
 
 epistola:
   auth:
-    provider: local  # Default to local, override in prod profile
-    registration-id: keycloak
     auto-provision: false
   demo:
     enabled: true  # Set to false to disable demo loading

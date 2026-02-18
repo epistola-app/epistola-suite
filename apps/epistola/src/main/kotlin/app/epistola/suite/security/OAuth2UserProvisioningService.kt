@@ -7,7 +7,8 @@ import app.epistola.suite.users.commands.CreateUser
 import app.epistola.suite.users.commands.UpdateLastLogin
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.slf4j.LoggerFactory
-import org.springframework.context.annotation.Profile
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService
@@ -26,11 +27,14 @@ import org.springframework.stereotype.Component
  * 4. Updates last login timestamp
  * 5. Converts to EpistolaPrincipal for use by business logic
  *
- * The EpistolaPrincipal is set as the authentication principal so that
- * SecurityFilter can bind it to SecurityContext.
+ * The [AuthProvider] is derived from the OAuth2 registration ID:
+ * - `"keycloak"` → [AuthProvider.KEYCLOAK]
+ * - anything else → [AuthProvider.GENERIC_OIDC]
+ *
+ * Only loaded when a [ClientRegistrationRepository] bean is present (i.e., OAuth2 is configured).
  */
 @Component
-@Profile("!local & !test")
+@ConditionalOnBean(ClientRegistrationRepository::class)
 class OAuth2UserProvisioningService(
     private val mediator: Mediator,
     private val authProperties: AuthProperties,
@@ -42,6 +46,9 @@ class OAuth2UserProvisioningService(
     override fun loadUser(request: OAuth2UserRequest): OAuth2User {
         // Load user info from OAuth2 provider
         val oauth2User = delegate.loadUser(request)
+
+        // Derive AuthProvider from the OAuth2 registration ID
+        val provider = deriveAuthProvider(request.clientRegistration.registrationId)
 
         // Extract required claims
         val externalId = oauth2User.getAttribute<String>("sub")
@@ -62,7 +69,7 @@ class OAuth2UserProvisioningService(
                 externalId = externalId,
                 email = email,
                 displayName = displayName,
-                provider = authProperties.provider,
+                provider = provider,
             )
         } catch (e: Exception) {
             logger.error("Failed to provision user: $email", e)
@@ -135,6 +142,16 @@ class OAuth2UserProvisioningService(
         private val epistolaPrincipal: app.epistola.suite.security.EpistolaPrincipal,
     ) : OAuth2User by delegate {
         fun getPrincipal() = epistolaPrincipal
+    }
+
+    companion object {
+        /**
+         * Derives the [AuthProvider] from the OAuth2 registration ID.
+         */
+        fun deriveAuthProvider(registrationId: String): AuthProvider = when (registrationId.lowercase()) {
+            "keycloak" -> AuthProvider.KEYCLOAK
+            else -> AuthProvider.GENERIC_OIDC
+        }
     }
 }
 

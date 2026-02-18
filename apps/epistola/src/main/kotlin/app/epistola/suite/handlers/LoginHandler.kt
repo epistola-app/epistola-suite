@@ -1,7 +1,6 @@
 package app.epistola.suite.handlers
 
-import org.springframework.core.env.Environment
-import org.springframework.core.env.Profiles
+import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
 import org.springframework.stereotype.Component
@@ -12,13 +11,13 @@ import org.springframework.web.servlet.function.ServerResponse
  * Handler for the login page and related endpoints.
  *
  * Serves:
- * - Login template (form-based for local, OAuth2 for production)
+ * - Login template (form-based when UserDetailsService exists, OAuth2 when registrations configured)
  * - Popup success page for session re-login
  */
 @Component
 class LoginHandler(
-    private val environment: Environment,
-    private val clientRegistrationRepository: ClientRegistrationRepository?,
+    private val userDetailsService: UserDetailsService? = null,
+    private val clientRegistrationRepository: ClientRegistrationRepository? = null,
 ) {
 
     /**
@@ -26,12 +25,12 @@ class LoginHandler(
      * Supports popup mode (popup=true parameter) for session expiry re-login.
      *
      * Shows:
-     * - Form login when 'local' profile is active
+     * - Form login when a UserDetailsService bean is present
      * - OAuth2 button when OAuth2 client registrations are configured
-     * - Both when running with 'local,keycloak' profiles
+     * - Both when running with e.g. 'local,keycloak' profiles
      */
     fun loginPage(request: ServerRequest): ServerResponse {
-        val hasFormLogin = environment.acceptsProfiles(Profiles.of("local"))
+        val hasFormLogin = userDetailsService != null
         val hasOAuth2 = clientRegistrationRepository != null
         val oauth2RegistrationId = getFirstRegistrationId() ?: "keycloak"
 

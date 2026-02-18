@@ -39,7 +39,6 @@ management:
 
 epistola:
   auth:
-    provider: local
     auto-provision: false  # Not needed for in-memory users
   editor:
     dev-server:

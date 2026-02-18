@@ -26,8 +26,6 @@ spring:
 
 epistola:
   auth:
-    provider: keycloak
-    registration-id: keycloak
     auto-provision: true
 
   demo:

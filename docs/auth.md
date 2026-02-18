@@ -1,12 +1,37 @@
 # Authentication
 
-Epistola Suite uses profile-based authentication that adapts to different environments:
+Epistola Suite uses **bean-driven authentication** that adapts to the runtime environment based on which Spring beans are present:
 
-| Profile | Authentication Method | Use Case |
-|---------|----------------------|----------|
-| `local` | Form-based login with in-memory users | Local development |
-| `prod` | OAuth2/OIDC (Keycloak) | Production |
-| `test` | Permit-all (no auth) | Integration tests |
+| Bean Present | Authentication Method | Provided By |
+|-------------|----------------------|-------------|
+| `UserDetailsService` | Form-based login with in-memory users | `LocalUserDetailsService` (`local` / `demo` profiles) |
+| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, etc.) | Spring Security auto-config from `application-prod.yaml` or `application-keycloak.yaml` |
+| Neither | **Startup failure** — safety validator blocks | — |
+
+## How It Works
+
+Authentication methods are **not determined by profile name checks**. Instead:
+
+1. **`LocalUserDetailsService`** is annotated `@Profile("local | demo")` — it's the single source of truth for which profiles get form login.
+2. **`SecurityConfig`** and **`LoginHandler`** check for `UserDetailsService` bean presence (not profile names).
+3. **`OAuth2UserProvisioningService`** uses `@ConditionalOnBean(ClientRegistrationRepository::class)` — only loaded when OAuth2 is configured.
+
+Adding a new form-login profile only requires updating `LocalUserDetailsService`'s `@Profile` annotation.
+
+## Safety Guards
+
+### AuthenticationSafetyValidator
+
+A `SmartInitializingSingleton` that runs at startup and fails fast if:
+
+- **In-memory users in production**: `local` or `demo` profile combined with `prod` → blocks startup (known passwords in production).
+- **No authentication configured**: Neither `UserDetailsService` nor `ClientRegistrationRepository` exists → blocks startup (all requests would 403).
+
+Skipped in `test` profile (tests use permit-all security).
+
+### UserDetailsServiceAutoConfiguration Excluded
+
+Spring Boot's `UserDetailsServiceAutoConfiguration` is excluded to prevent it from creating a default `InMemoryUserDetailsManager` with a random password when no profile provides a `UserDetailsService`. This ensures the safety validator catches the "no auth" case.
 
 ## Local Development
 
@@ -22,6 +47,14 @@ Start the application with the `local` profile:
 |----------|----------|-------------|
 | `admin@local` | `admin` | Admin user with access to all tenants |
 | `user@local` | `user` | Regular user with access to demo-tenant |
+
+## Demo Environment
+
+The `demo` profile provides the same in-memory users as `local`, suitable for K8s demo environments:
+
+```bash
+SPRING_PROFILES_ACTIVE=demo
+```
 
 ## Production (OAuth2/OIDC)
 
@@ -54,6 +87,17 @@ spring:
             issuer-uri: ${KEYCLOAK_ISSUER_URI}
 ```
 
+### AuthProvider Derivation
+
+The `AuthProvider` stored on `User` records is derived from the OAuth2 registration ID:
+
+| Registration ID | AuthProvider |
+|----------------|-------------|
+| `keycloak` | `KEYCLOAK` |
+| anything else | `GENERIC_OIDC` |
+
+No configuration property is needed — the registration ID from the OAuth2 login flow is used directly.
+
 ### Keycloak Setup
 
 1. Create a realm (e.g., `epistola`)
@@ -75,6 +119,12 @@ epistola:
 ```
 
 Disable this to require manual user creation before login.
+
+## Configuration Properties
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `epistola.auth.auto-provision` | `true` | Auto-provision OAuth2 users on first login |
 
 ## Session Management
 
@@ -108,6 +158,7 @@ Created by Flyway migration `V10__create_spring_session_tables.sql`:
 │  │  SecurityConfig │  │  LocalUserDetailsService         │  │
 │  │  SecurityFilter │  │  OAuth2UserProvisioningService   │  │
 │  │  AuthRoutes     │  │  AuthProperties                  │  │
+│  │  SafetyValidator│  │                                  │  │
 │  └─────────────────┘  └──────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -121,7 +172,7 @@ Created by Flyway migration `V10__create_spring_session_tables.sql`:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-- **apps/epistola**: HTTP/Spring Security concerns (filters, OAuth2, form login)
+- **apps/epistola**: HTTP/Spring Security concerns (filters, OAuth2, form login, safety validation)
 - **epistola-core**: Domain model and business logic (User, SecurityContext)
 
 ### SecurityContext
@@ -233,6 +284,16 @@ class MyHandlerTest : CoreIntegrationTestBase() {
 ```
 
 ## Troubleshooting
+
+### App Fails to Start with "No authentication mechanism configured"
+
+No `UserDetailsService` or `ClientRegistrationRepository` bean was found. Either:
+- Activate a profile with form login: `--spring.profiles.active=local` or `demo`
+- Configure OAuth2 registrations: use `prod` or `keycloak` profile
+
+### App Fails to Start with "Cannot combine 'local' or 'demo' profile with 'prod'"
+
+In-memory users with known passwords must not be used in production. Remove the `local`/`demo` profile from your production configuration.
 
 ### Session Lost After Restart
 
