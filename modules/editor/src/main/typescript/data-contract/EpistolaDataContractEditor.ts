@@ -73,18 +73,17 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _activeTab: TabId = 'schema'
 
   // Schema tab UI state
-  @state() private _schemaSaving = false
-  @state() private _schemaSaveSuccess = false
-  @state() private _schemaSaveError: string | null = null
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = []
   @state() private _showConfirmGenerate = false
   @state() private _expandedFields = new Set<string>()
 
   // Examples tab UI state
   @state() private _editingExampleId: string | null = null
-  @state() private _exampleSaving = false
-  @state() private _exampleSaveSuccess = false
-  @state() private _exampleSaveError: string | null = null
+
+  // Unified save state
+  @state() private _saving = false
+  @state() private _saveSuccess = false
+  @state() private _saveError: string | null = null
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>()
@@ -160,12 +159,33 @@ export class EpistolaDataContractEditor extends LitElement {
       return html`<div class="dc-empty-state">No data contract loaded.</div>`
     }
 
+    const state = this.contractState!
+
     return html`
       <div class="dc-editor-layout">
         <!-- Tab bar -->
         <div class="dc-tabs" role="tablist">
           ${this._renderTab('schema', 'Schema')}
           ${this._renderTab('examples', 'Test Data')}
+
+          <div class="dc-tabs-spacer"></div>
+
+          <!-- Unified save -->
+          ${this._saveSuccess
+            ? html`<span class="dc-status-success">Saved successfully</span>`
+            : nothing
+          }
+          ${this._saveError
+            ? html`<span class="dc-status-error">${this._saveError}</span>`
+            : nothing
+          }
+          <button
+            class="ep-btn-primary btn-sm dc-save-btn"
+            ?disabled=${this._saving || !state.isDirty}
+            @click=${() => this._saveAll()}
+          >
+            ${this._saving ? 'Saving...' : 'Save'}
+          </button>
         </div>
 
         <!-- Tab content -->
@@ -186,7 +206,7 @@ export class EpistolaDataContractEditor extends LitElement {
                 this._selectedMigrations,
                 {
                   onApply: (selected) => this._applyMigrations(selected),
-                  onForceSave: () => this._forceSaveSchema(),
+                  onForceSave: () => this._forceSave(),
                   onCancel: () => this._closeMigrationDialog(),
                   onToggleMigration: (m) => this._toggleMigration(m),
                   onSelectAll: () => this._selectAllMigrations(),
@@ -220,9 +240,6 @@ export class EpistolaDataContractEditor extends LitElement {
     const state = this.contractState!
 
     const uiState: SchemaUiState = {
-      isSaving: this._schemaSaving,
-      saveSuccess: this._schemaSaveSuccess,
-      saveError: this._schemaSaveError,
       warnings: this._schemaWarnings,
       showConfirmGenerate: this._showConfirmGenerate,
       showMigrationAssistant: this._showMigrationDialog,
@@ -233,7 +250,6 @@ export class EpistolaDataContractEditor extends LitElement {
 
     const callbacks: SchemaSectionCallbacks = {
       onCommand: (command) => this._executeCommand(command),
-      onSave: () => this._saveSchema(),
       onGenerateFromExample: () => this._handleGenerateFromExample(),
       onConfirmGenerate: () => this._confirmGenerate(),
       onCancelGenerate: () => { this._showConfirmGenerate = false },
@@ -266,9 +282,6 @@ export class EpistolaDataContractEditor extends LitElement {
 
     const uiState: ExamplesUiState = {
       editingId: this._editingExampleId,
-      isSaving: this._exampleSaving,
-      saveSuccess: this._exampleSaveSuccess,
-      saveError: this._exampleSaveError,
       fieldErrorMap,
       validationErrorCount: errorsForSelected.length,
       exampleErrorCounts,
@@ -282,7 +295,6 @@ export class EpistolaDataContractEditor extends LitElement {
       onDeleteExample: (id) => this._deleteExample(id),
       onUpdateExampleName: (id, name) => this._updateExampleName(id, name),
       onUpdateExampleData: (id, path, value) => this._updateExampleData(id, path, value),
-      onSaveExample: (id) => this._saveExample(id),
       onUndo: () => this._undoExampleData(),
       onRedo: () => this._redoExampleData(),
     }
@@ -297,7 +309,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private _executeCommand(command: SchemaCommand): void {
     this._visualSchema = this._commandHistory.execute(command, this._visualSchema)
     this._syncVisualSchemaToState()
-    this._clearSchemaSaveStatus()
+    this._clearSaveStatus()
   }
 
   private _undo(): void {
@@ -305,7 +317,7 @@ export class EpistolaDataContractEditor extends LitElement {
     if (prev) {
       this._visualSchema = prev
       this._syncVisualSchemaToState()
-      this._clearSchemaSaveStatus()
+      this._clearSaveStatus()
     }
   }
 
@@ -314,7 +326,7 @@ export class EpistolaDataContractEditor extends LitElement {
     if (next) {
       this._visualSchema = next
       this._syncVisualSchemaToState()
-      this._clearSchemaSaveStatus()
+      this._clearSaveStatus()
     }
   }
 
@@ -360,69 +372,84 @@ export class EpistolaDataContractEditor extends LitElement {
     this._executeCommand({ type: 'generateFromExample', data: firstExample.data })
   }
 
-  private async _saveSchema(): Promise<void> {
+  private async _saveAll(): Promise<void> {
     const state = this.contractState!
-    if (this._schemaSaving) return
+    if (this._saving) return
 
     // Check for pending migrations before saving
-    const migrations = detectMigrations(state.schema, state.dataExamples)
-    if (!migrations.compatible) {
-      this._pendingMigrations = migrations.migrations
-      this._selectedMigrations = new Set(
-        migrations.migrations
-          .filter((m) => m.autoMigratable)
-          .map((m) => migrationKey(m)),
-      )
-      this._showMigrationDialog = true
-      return
+    if (state.isSchemaDirty) {
+      const migrations = detectMigrations(state.schema, state.dataExamples)
+      if (!migrations.compatible) {
+        this._pendingMigrations = migrations.migrations
+        this._selectedMigrations = new Set(
+          migrations.migrations
+            .filter((m) => m.autoMigratable)
+            .map((m) => migrationKey(m)),
+        )
+        this._showMigrationDialog = true
+        return
+      }
     }
 
-    await this._executeSaveSchema(false)
+    await this._executeSave(false)
   }
 
-  private async _forceSaveSchema(): Promise<void> {
+  private async _forceSave(): Promise<void> {
     this._closeMigrationDialog()
-    await this._executeSaveSchema(true)
+    await this._executeSave(true)
   }
 
-  private async _executeSaveSchema(forceUpdate: boolean): Promise<void> {
+  private async _executeSave(forceUpdate: boolean): Promise<void> {
     const state = this.contractState!
-    this._schemaSaving = true
-    this._schemaSaveSuccess = false
-    this._schemaSaveError = null
+    this._saving = true
+    this._saveSuccess = false
+    this._saveError = null
 
     try {
-      const result = await state.saveSchema(forceUpdate)
-      if (result.success) {
-        this._schemaSaveSuccess = true
-        this._scheduleSuccessClear(() => { this._schemaSaveSuccess = false })
+      // Save schema if dirty
+      if (state.isSchemaDirty) {
+        const schemaResult = await state.saveSchema(forceUpdate)
+        if (!schemaResult.success) {
+          this._saveError = schemaResult.error ?? 'Failed to save schema'
+          if (schemaResult.warnings) {
+            this._schemaWarnings = Object.values(schemaResult.warnings).flat()
+          }
+          return
+        }
         this._commandHistory.clear()
-
-        // Re-validate all examples after schema save
         this._validateAllExamples()
-
-        if (result.warnings) {
-          this._schemaWarnings = Object.values(result.warnings).flat()
+        if (schemaResult.warnings) {
+          this._schemaWarnings = Object.values(schemaResult.warnings).flat()
         } else {
           this._schemaWarnings = []
         }
-      } else {
-        this._schemaSaveError = result.error ?? 'Failed to save schema'
-        if (result.warnings) {
-          this._schemaWarnings = Object.values(result.warnings).flat()
-        }
       }
+
+      // Save all examples if dirty
+      if (state.isExamplesDirty) {
+        const examplesResult = await state.saveExamples()
+        if (!examplesResult.success) {
+          this._saveError = examplesResult.error ?? 'Failed to save examples'
+          return
+        }
+        // Clear all example undo/redo histories on successful save
+        this._exampleHistories.clear()
+        this._syncExampleUndoRedoState()
+      }
+
+      this._saveSuccess = true
+      this._scheduleSuccessClear(() => { this._saveSuccess = false })
     } catch (err) {
-      this._schemaSaveError = err instanceof Error ? err.message : 'Failed to save schema'
+      this._saveError = err instanceof Error ? err.message : 'Failed to save'
     } finally {
-      this._schemaSaving = false
+      this._saving = false
       this.requestUpdate()
     }
   }
 
-  private _clearSchemaSaveStatus(): void {
-    this._schemaSaveSuccess = false
-    this._schemaSaveError = null
+  private _clearSaveStatus(): void {
+    this._saveSuccess = false
+    this._saveError = null
   }
 
   // ---------------------------------------------------------------------------
@@ -474,8 +501,8 @@ export class EpistolaDataContractEditor extends LitElement {
 
     this._closeMigrationDialog()
 
-    // Now save the schema (migrations have been applied to examples)
-    await this._executeSaveSchema(false)
+    // Now save schema + examples (migrations have been applied to examples)
+    await this._executeSave(false)
   }
 
   private _closeMigrationDialog(): void {
@@ -490,7 +517,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
   private _selectExample(id: string): void {
     this._editingExampleId = id
-    this._clearExampleSaveStatus()
+    this._clearSaveStatus()
     this._clearExampleHistory()
     this._syncExampleUndoRedoState()
   }
@@ -504,7 +531,7 @@ export class EpistolaDataContractEditor extends LitElement {
     }
     state.addDraftExample(newExample)
     this._editingExampleId = newExample.id
-    this._clearExampleSaveStatus()
+    this._clearSaveStatus()
     this._clearExampleHistory()
     this._validateAllExamples()
     this._syncExampleUndoRedoState()
@@ -526,14 +553,14 @@ export class EpistolaDataContractEditor extends LitElement {
 
       this._validateAllExamples()
     }
-    this._clearExampleSaveStatus()
+    this._clearSaveStatus()
     this._syncExampleUndoRedoState()
   }
 
   private _updateExampleName(id: string, name: string): void {
     const state = this.contractState!
     state.updateDraftExample(id, { name })
-    this._clearExampleSaveStatus()
+    this._clearSaveStatus()
   }
 
   private _updateExampleData(id: string, path: string, value: JsonValue): void {
@@ -546,7 +573,7 @@ export class EpistolaDataContractEditor extends LitElement {
 
     const updatedData = setNestedValue(example.data, path, value)
     state.updateDraftExample(id, { data: updatedData })
-    this._clearExampleSaveStatus()
+    this._clearSaveStatus()
     this._validateAllExamples()
     this._syncExampleUndoRedoState()
   }
@@ -581,53 +608,6 @@ export class EpistolaDataContractEditor extends LitElement {
     }
   }
 
-  private async _saveExample(id: string): Promise<void> {
-    const state = this.contractState!
-    if (this._exampleSaving) return
-
-    const example = state.dataExamples.find((e) => e.id === id)
-    if (!example) return
-
-    this._exampleSaving = true
-    this._exampleSaveSuccess = false
-    this._exampleSaveError = null
-
-    try {
-      const result = await state.saveSingleExample(id, {
-        name: example.name,
-        data: example.data,
-      })
-
-      if (result.success) {
-        this._exampleSaveSuccess = true
-        this._scheduleSuccessClear(() => { this._exampleSaveSuccess = false })
-
-        // Clear undo/redo history on successful save
-        this._getExampleHistory(id).clear()
-        this._syncExampleUndoRedoState()
-
-        if (result.warnings) {
-          // Re-validate to update inline errors from server-side warnings
-          this._validateAllExamples()
-        }
-      } else {
-        const errors = result.errors ? Object.values(result.errors).flat() : []
-        this._exampleSaveError = errors.length > 0
-          ? errors.map((e) => `${e.path}: ${e.message}`).join('; ')
-          : 'Failed to save example'
-      }
-    } catch (err) {
-      this._exampleSaveError = err instanceof Error ? err.message : 'Failed to save example'
-    } finally {
-      this._exampleSaving = false
-      this.requestUpdate()
-    }
-  }
-
-  private _clearExampleSaveStatus(): void {
-    this._exampleSaveSuccess = false
-    this._exampleSaveError = null
-  }
 
   // ---------------------------------------------------------------------------
   // Example undo/redo helpers

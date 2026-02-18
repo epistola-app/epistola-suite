@@ -13,9 +13,6 @@ import { renderExampleForm } from './ExampleForm.js'
 
 export interface ExamplesUiState {
   editingId: string | null
-  isSaving: boolean
-  saveSuccess: boolean
-  saveError: string | null
   fieldErrorMap: Map<string, string>
   validationErrorCount: number
   exampleErrorCounts: Record<string, number>
@@ -29,7 +26,6 @@ export interface ExamplesSectionCallbacks {
   onDeleteExample: (id: string) => void
   onUpdateExampleName: (id: string, name: string) => void
   onUpdateExampleData: (id: string, path: string, value: JsonValue) => void
-  onSaveExample: (id: string) => void
   onUndo: () => void
   onRedo: () => void
 }
@@ -143,24 +139,6 @@ export function renderExamplesSection(
                 )}
               </div>
 
-              <!-- Save bar -->
-              <div class="dc-status-bar">
-                ${uiState.saveSuccess
-                  ? html`<span class="dc-status-success">Example saved successfully</span>`
-                  : nothing
-                }
-                ${uiState.saveError
-                  ? html`<span class="dc-status-error">${uiState.saveError}</span>`
-                  : nothing
-                }
-                <button
-                  class="ep-btn-primary btn-sm dc-save-btn"
-                  ?disabled=${uiState.isSaving || !state.isExamplesDirty}
-                  @click=${() => callbacks.onSaveExample(selectedExample.id)}
-                >
-                  ${uiState.isSaving ? 'Saving...' : 'Save Example'}
-                </button>
-              </div>
             </div>
           `
         : examples.length === 0

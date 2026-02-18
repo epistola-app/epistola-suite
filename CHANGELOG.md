@@ -12,6 +12,7 @@
 - **Data Contract Editor — Infinite nesting**: Schema fields can now be nested to arbitrary depth (previously limited to 2 levels). The `isNested: boolean` flag is replaced by a numeric `depth` parameter.
 
 ### Changed
+- **Data Contract Editor — Unified save**: Schema and examples are now saved together with a single "Save" button in the tab bar, replacing the separate per-section save buttons. The save operation first persists the schema (with migration check), then batch-saves all examples.
 - **Data Contract Editor — Command architecture**: Schema mutations are now expressed as `SchemaCommand` discriminated union types (`addField`, `deleteField`, `updateField`, `generateFromExample`), executed through pure tree operations. VisualSchema is the primary editing state; JSON Schema conversion only happens on load and save, eliminating redundant roundtrips and ID instability.
 
 ### Fixed

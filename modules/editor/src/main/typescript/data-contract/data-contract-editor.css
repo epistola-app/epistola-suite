@@ -47,8 +47,14 @@
 
   .dc-tabs {
     display: flex;
+    align-items: center;
     gap: 0;
     border-bottom: 1px solid var(--ep-gray-200);
+    padding-right: var(--ep-space-3);
+  }
+
+  .dc-tabs-spacer {
+    flex: 1;
   }
 
   .dc-tab {

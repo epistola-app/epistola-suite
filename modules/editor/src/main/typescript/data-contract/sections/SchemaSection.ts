@@ -15,9 +15,6 @@ import { renderValidationMessages } from './ValidationMessages.js'
 import type { MigrationSuggestion } from '../utils/schemaMigration.js'
 
 export interface SchemaUiState {
-  isSaving: boolean
-  saveSuccess: boolean
-  saveError: string | null
   warnings: Array<{ path: string; message: string }>
   showConfirmGenerate: boolean
   showMigrationAssistant: boolean
@@ -28,7 +25,6 @@ export interface SchemaUiState {
 
 export interface SchemaSectionCallbacks {
   onCommand: (command: SchemaCommand) => void
-  onSave: () => void
   onGenerateFromExample: () => void
   onConfirmGenerate: () => void
   onCancelGenerate: () => void
@@ -142,25 +138,6 @@ export function renderSchemaSection(
         class="ep-btn-outline btn-sm dc-add-field-btn"
         @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
       >+ Add Field</button>
-
-      <!-- Status bar -->
-      <div class="dc-status-bar">
-        ${uiState.saveSuccess
-          ? html`<span class="dc-status-success">Schema saved successfully</span>`
-          : nothing
-        }
-        ${uiState.saveError
-          ? html`<span class="dc-status-error">${uiState.saveError}</span>`
-          : nothing
-        }
-        <button
-          class="ep-btn-primary btn-sm dc-save-btn"
-          ?disabled=${uiState.isSaving || !state.isSchemaDirty}
-          @click=${() => callbacks.onSave()}
-        >
-          ${uiState.isSaving ? 'Saving...' : 'Save Schema'}
-        </button>
-      </div>
     </section>
   `
 }
