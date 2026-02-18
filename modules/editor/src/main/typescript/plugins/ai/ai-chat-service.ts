@@ -13,7 +13,7 @@
 
 import { nanoid } from 'nanoid'
 import type { TemplateDocument, NodeId } from '../../types/index.js'
-import type { SendMessageFn, ChatMessage, AiProposal, ProposalStatus } from './types.js'
+import type { SendMessageFn, ChatMessage, ProposalStatus } from './types.js'
 
 // ---------------------------------------------------------------------------
 // State types
