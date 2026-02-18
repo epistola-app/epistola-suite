@@ -1,0 +1,372 @@
+/*
+ * AI Chat Panel — sidebar tab for AI assistant
+ *
+ * Messages area (scrollable) + fixed bottom input area.
+ * Uses design system tokens for consistency.
+ */
+
+@layer components {
+  .ai-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* ── Messages area ───────────────────────────────────────────────────── */
+
+  .ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--ep-space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-3);
+  }
+
+  /* ── Empty state ─────────────────────────────────────────────────────── */
+
+  .ai-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    padding: var(--ep-space-6);
+    color: var(--ep-muted-foreground);
+  }
+
+  .ai-empty-icon {
+    color: var(--ep-gray-300);
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .ai-empty-title {
+    font-size: var(--ep-text-sm);
+    font-weight: 600;
+    color: var(--ep-gray-600);
+    margin: 0 0 var(--ep-space-1) 0;
+  }
+
+  .ai-empty-text {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-400);
+    margin: 0;
+    line-height: var(--ep-leading-relaxed);
+  }
+
+  /* ── Message bubbles ─────────────────────────────────────────────────── */
+
+  .ai-message {
+    font-size: var(--ep-text-xs);
+    line-height: var(--ep-leading-relaxed);
+  }
+
+  .ai-message-user {
+    align-self: flex-end;
+    max-width: 85%;
+  }
+
+  .ai-message-user .ai-message-content {
+    background: var(--ep-blue-50);
+    color: var(--ep-blue-800);
+    border-radius: var(--ep-radius-lg) var(--ep-radius-lg) var(--ep-radius-sm) var(--ep-radius-lg);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .ai-message-assistant {
+    align-self: flex-start;
+    max-width: 95%;
+  }
+
+  .ai-message-assistant .ai-message-content {
+    color: var(--ep-foreground);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── Streaming cursor ────────────────────────────────────────────────── */
+
+  .ai-message-streaming .ai-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 0.9em;
+    background: var(--ep-primary);
+    margin-left: 1px;
+    vertical-align: text-bottom;
+    animation: ai-blink 0.8s step-end infinite;
+  }
+
+  @keyframes ai-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* ── Error state ─────────────────────────────────────────────────────── */
+
+  .ai-error {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+    background: var(--ep-red-50);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    border-radius: var(--ep-radius-md);
+    border: 1px solid var(--ep-red-200);
+  }
+
+  /* ── Proposal card ───────────────────────────────────────────────────── */
+
+  .ai-proposal {
+    margin-top: var(--ep-space-2);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-md);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    background: var(--ep-gray-50);
+  }
+
+  .ai-proposal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ep-space-2);
+  }
+
+  .ai-proposal-description {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-gray-700);
+  }
+
+  .ai-proposal-actions {
+    display: flex;
+    gap: var(--ep-space-2);
+    margin-top: var(--ep-space-2);
+  }
+
+  .ai-proposal-apply,
+  .ai-proposal-reject {
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    padding: var(--ep-space-1) var(--ep-space-3);
+    border-radius: var(--ep-radius-sm);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: var(--ep-transition-colors);
+  }
+
+  .ai-proposal-apply {
+    background: var(--ep-primary);
+    color: var(--ep-primary-foreground);
+
+    &:hover {
+      background: var(--ep-blue-700);
+    }
+  }
+
+  .ai-proposal-reject {
+    background: var(--ep-white);
+    color: var(--ep-gray-600);
+    border-color: var(--ep-gray-300);
+
+    &:hover {
+      background: var(--ep-gray-50);
+    }
+  }
+
+  .ai-proposal-badge {
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--ep-tracking-wider);
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    border-radius: var(--ep-radius-full);
+    flex-shrink: 0;
+  }
+
+  .ai-proposal-badge-applied {
+    background: var(--ep-green-100);
+    color: var(--ep-green-800);
+  }
+
+  .ai-proposal-badge-rejected {
+    background: var(--ep-gray-100);
+    color: var(--ep-gray-500);
+  }
+
+  /* ── Input area ──────────────────────────────────────────────────────── */
+
+  .ai-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+    padding: var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-200);
+    background: var(--ep-white);
+  }
+
+  .ai-input-row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--ep-space-2);
+  }
+
+  .ai-input {
+    flex: 1;
+    font-family: var(--ep-font-sans);
+    font-size: var(--ep-text-xs);
+    line-height: var(--ep-leading-normal);
+    padding: var(--ep-space-2);
+    border: 1px solid var(--ep-input-border);
+    border-radius: var(--ep-radius-md);
+    resize: none;
+    outline: none;
+    background: var(--ep-white);
+    color: var(--ep-foreground);
+    transition: border-color var(--ep-transition-fast);
+
+    &:focus {
+      border-color: var(--ep-ring-color);
+      box-shadow: 0 0 0 1px var(--ep-ring-color);
+    }
+
+    &::placeholder {
+      color: var(--ep-gray-400);
+    }
+  }
+
+  .ai-send-btn,
+  .ai-stop-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--ep-radius-full);
+    border: none;
+    cursor: pointer;
+    transition: var(--ep-transition-colors);
+  }
+
+  .ai-send-btn {
+    background: var(--ep-primary);
+    color: var(--ep-primary-foreground);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-blue-700);
+    }
+
+    &:disabled {
+      background: var(--ep-gray-200);
+      color: var(--ep-gray-400);
+      cursor: default;
+    }
+  }
+
+  .ai-stop-btn {
+    background: var(--ep-white);
+    color: var(--ep-gray-600);
+    border: 1px solid var(--ep-gray-300);
+
+    &:hover {
+      background: var(--ep-gray-50);
+    }
+  }
+
+  /* ── Attach button ────────────────────────────────────────────────────── */
+
+  .ai-attach-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--ep-radius-full);
+    border: 1px solid var(--ep-gray-300);
+    background: var(--ep-white);
+    color: var(--ep-gray-500);
+    cursor: pointer;
+    transition: var(--ep-transition-colors);
+
+    &:hover {
+      background: var(--ep-gray-50);
+      color: var(--ep-gray-700);
+    }
+  }
+
+  /* ── Pending file chips ───────────────────────────────────────────────── */
+
+  .ai-pending-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-1);
+  }
+
+  .ai-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+    background: var(--ep-blue-50);
+    color: var(--ep-blue-700);
+    border-radius: var(--ep-radius-full);
+    font-size: 0.6875rem;
+    line-height: 1;
+    max-width: 12rem;
+  }
+
+  .ai-file-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ai-file-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ep-blue-400);
+    cursor: pointer;
+    border-radius: var(--ep-radius-full);
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--ep-blue-800);
+    }
+  }
+
+  /* ── Attach error ─────────────────────────────────────────────────────── */
+
+  .ai-attach-error {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-600);
+    padding: 0 var(--ep-space-1);
+  }
+
+  /* ── Message attachment badges ────────────────────────────────────────── */
+
+  .ai-message-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-1);
+    margin-bottom: var(--ep-space-1);
+  }
+
+  .ai-attachment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.625rem;
+    color: var(--ep-blue-600);
+    background: var(--ep-blue-50);
+    padding: var(--ep-space-0-5) var(--ep-space-1-5);
+    border-radius: var(--ep-radius-full);
+    line-height: 1;
+  }
+}

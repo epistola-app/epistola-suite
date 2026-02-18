@@ -7,6 +7,10 @@
     <th:block th:replace="~{fragments/styles :: styles}" />
     <link rel="stylesheet" th:href="@{/css/shell.css}">
     <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
+    <!-- AI plugin CSS — loaded conditionally when AI plugin is enabled -->
+    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins != null and enabledPlugins.contains('ai')}">
+    <!-- TODO: Remove static fallback once backend provides enabledPlugins -->
+    <link rel="stylesheet" href="/editor/ai-plugin.css" th:if="${enabledPlugins == null}">
     <style>
         .editor-page {
             display: flex;
@@ -90,11 +94,25 @@
         const templateId = window.TEMPLATE_ID;
         const variantId = window.VARIANT_ID;
 
+        // Load plugins dynamically
+        const plugins = [];
+
+        // AI chat plugin — uses mock transport until backend is wired up.
+        // When enabledPlugins is provided by the backend, the Thymeleaf
+        // conditional (th:if) will control whether this block is rendered.
+        try {
+            const { createAiPlugin, createMockTransport } = await import('/editor/ai-plugin.js');
+            plugins.push(createAiPlugin({ sendMessage: createMockTransport() }));
+        } catch (e) {
+            console.warn('AI plugin failed to load:', e);
+        }
+
         mountEditor({
             container: container,
             template: window.TEMPLATE_MODEL,
             dataExamples: window.DATA_EXAMPLES,
             dataModel: window.DATA_MODEL,
+            plugins: plugins,
             onSave: async (template) => {
                 const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
                     method: 'PUT',
