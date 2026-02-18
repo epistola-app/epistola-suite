@@ -12,12 +12,20 @@ import './ui/EpistolaEditor.js'
 import type { EpistolaEditor } from './ui/EpistolaEditor.js'
 import type { TemplateDocument, NodeId, SlotId } from './types/index.js'
 import type { FetchPreviewFn } from './ui/preview-service.js'
+import type { EditorPlugin } from './plugins/types.js'
 import { createDefaultRegistry } from './engine/registry.js'
 import { nanoid } from 'nanoid'
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js'
 export { EditorEngine } from './engine/EditorEngine.js'
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js'
+export type {
+  EditorPlugin,
+  SidebarTabContribution,
+  ToolbarAction,
+  PluginContext,
+  PluginDisposeFn,
+} from './plugins/types.js'
 
 // ---------------------------------------------------------------------------
 // Public mount API
@@ -36,6 +44,8 @@ export interface EditorOptions {
   dataExamples?: object[]
   /** Callback to fetch a PDF preview. Host page owns the HTTP call; editor owns debounce/abort. */
   onFetchPreview?: FetchPreviewFn
+  /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
+  plugins?: EditorPlugin[]
 }
 
 export interface EditorInstance {
@@ -80,7 +90,7 @@ export function createEmptyDocument(): TemplateDocument {
  * Mount the editor into a DOM element.
  */
 export function mountEditor(options: EditorOptions): EditorInstance {
-  const { container, template, dataModel, dataExamples, onFetchPreview, onSave } = options
+  const { container, template, dataModel, dataExamples, onFetchPreview, onSave, plugins } = options
   const doc = template ?? createEmptyDocument()
 
   // Create the custom element
@@ -96,6 +106,9 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   }
   if (onSave) {
     editorEl.onSave = onSave
+  }
+  if (plugins) {
+    editorEl.plugins = plugins
   }
 
   // Initialize the engine with data model context

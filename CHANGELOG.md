@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Editor plugin architecture**: The template editor now supports a plugin system for extending the UI with additional sidebar tabs, toolbar actions, and lifecycle hooks. Plugins implement the `EditorPlugin` interface and are passed via the `plugins` option in `mountEditor()`. The sidebar and toolbar render plugin contributions dynamically alongside built-in controls. See `docs/plugins.md` for the design document.
+
 ### Fixed
 - **Generation job cancellation race condition**: Cancelling an in-progress generation job no longer gets overwritten by the worker completing the request. The executor now guards status updates with `AND status != 'CANCELLED'` to preserve cancellation.
 

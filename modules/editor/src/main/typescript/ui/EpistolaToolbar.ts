@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { SaveState } from './save-service.js'
+import type { ToolbarAction } from '../plugins/types.js'
 import { icon } from './icons.js'
 
 @customElement('epistola-toolbar')
@@ -15,6 +16,7 @@ export class EpistolaToolbar extends LitElement {
   @property({ type: Boolean }) hasPreview = false
   @property({ type: Boolean }) hasSave = false
   @property({ attribute: false }) saveState?: SaveState
+  @property({ attribute: false }) pluginActions?: ToolbarAction[]
 
   @state() private _currentExampleIndex = 0
 
@@ -126,7 +128,28 @@ export class EpistolaToolbar extends LitElement {
           : nothing}
 
         ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
+
+        ${this._renderPluginActions()}
       </div>
+    `
+  }
+
+  private _renderPluginActions() {
+    if (!this.pluginActions || this.pluginActions.length === 0) return nothing
+
+    return html`
+      <div class="toolbar-separator"></div>
+      ${this.pluginActions.map(
+        (action) => html`
+          <button
+            class="toolbar-btn"
+            @click=${action.onClick}
+            title=${action.label}
+          >
+            ${icon(action.icon as Parameters<typeof icon>[0])} ${action.label}
+          </button>
+        `,
+      )}
     `
   }
 

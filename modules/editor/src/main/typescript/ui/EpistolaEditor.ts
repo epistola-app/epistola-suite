@@ -7,6 +7,7 @@ import type { ComponentRegistry } from '../engine/registry.js'
 import type { FetchPreviewFn } from './preview-service.js'
 import { SaveService, type SaveState, type SaveFn } from './save-service.js'
 import { EpistolaResizeHandle } from './EpistolaResizeHandle.js'
+import type { EditorPlugin, PluginContext, PluginDisposeFn, SidebarTabContribution, ToolbarAction } from '../plugins/types.js'
 
 import './EpistolaSidebar.js'
 import './EpistolaCanvas.js'
@@ -33,11 +34,13 @@ export class EpistolaEditor extends LitElement {
   private _unsubEngine?: () => void
   private _unsubSelection?: () => void
   private _saveService?: SaveService
+  private _pluginDisposers: PluginDisposeFn[] = []
   private _onKeydown = this._handleKeydown.bind(this)
   private _onBeforeUnload = this._handleBeforeUnload.bind(this)
 
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn
   @property({ attribute: false }) onSave?: SaveFn
+  @property({ attribute: false }) plugins?: EditorPlugin[]
   @state() private _doc?: TemplateDocument
   @state() private _selectedNodeId: NodeId | null = null
   @state() private _previewOpen = false
@@ -91,6 +94,44 @@ export class EpistolaEditor extends LitElement {
         this._saveState = state
       })
     }
+
+    // Initialize plugins
+    this._disposePlugins()
+    if (this.plugins) {
+      const context: PluginContext = {
+        engine: this._engine,
+        doc: this._doc!,
+        selectedNodeId: this._selectedNodeId,
+      }
+      this._pluginDisposers = this.plugins.map((p) => p.init(context))
+    }
+  }
+
+  private _disposePlugins(): void {
+    this._pluginDisposers.forEach((dispose) => dispose())
+    this._pluginDisposers = []
+  }
+
+  /** Sidebar tab contributions from plugins. */
+  private get _pluginSidebarTabs(): SidebarTabContribution[] {
+    if (!this.plugins) return []
+    return this.plugins.filter((p) => p.sidebarTab).map((p) => p.sidebarTab!)
+  }
+
+  /** Toolbar action contributions from plugins. */
+  private get _pluginToolbarActions(): ToolbarAction[] {
+    if (!this.plugins) return []
+    return this.plugins.flatMap((p) => p.toolbarActions ?? [])
+  }
+
+  /** Current plugin context for reactive sidebar tab rendering. */
+  private get _pluginContext(): PluginContext | undefined {
+    if (!this._engine || !this._doc) return undefined
+    return {
+      engine: this._engine,
+      doc: this._doc,
+      selectedNodeId: this._selectedNodeId,
+    }
   }
 
   override connectedCallback(): void {
@@ -114,6 +155,7 @@ export class EpistolaEditor extends LitElement {
     this.removeEventListener('force-save', this._handleForceSave)
     window.removeEventListener('beforeunload', this._onBeforeUnload)
     super.disconnectedCallback()
+    this._disposePlugins()
     this._unsubEngine?.()
     this._unsubSelection?.()
     this._saveService?.dispose()
@@ -184,6 +226,7 @@ export class EpistolaEditor extends LitElement {
           .hasPreview=${hasPreview}
           .hasSave=${hasSave}
           .saveState=${this._saveState}
+          .pluginActions=${this._pluginToolbarActions}
         ></epistola-toolbar>
 
         <!-- Main layout: sidebar | canvas | [resize-handle | preview] -->
@@ -195,6 +238,8 @@ export class EpistolaEditor extends LitElement {
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
+            .pluginTabs=${this._pluginSidebarTabs}
+            .pluginContext=${this._pluginContext}
           ></epistola-sidebar>
 
           <epistola-canvas
