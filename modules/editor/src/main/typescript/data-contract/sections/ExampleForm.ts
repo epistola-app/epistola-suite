@@ -322,7 +322,7 @@ function renderObjectField(
   const groupHasErrors = hasChildErrors(path, errors)
 
   return html`
-    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${depth < 1}>
+    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${false}>
       <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
         ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
@@ -383,7 +383,7 @@ function renderArrayField(
 
   // Array of primitives
   return html`
-    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${depth < 1}>
+    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${false}>
       <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
         ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
@@ -450,7 +450,7 @@ function renderArrayOfObjects(
   const groupHasErrors = hasChildErrors(path, errors)
 
   return html`
-    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${depth < 1}>
+    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${false}>
       <summary class="dc-tree-group-header">
         ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
         ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
