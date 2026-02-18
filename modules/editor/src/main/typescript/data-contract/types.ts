@@ -33,10 +33,10 @@ export interface DataExample {
 // =============================================================================
 
 /** Supported field types in the visual editor */
-export type SchemaFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object'
+export type SchemaFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'array' | 'object'
 
 /** Primitive field types (non-container types) */
-export type PrimitiveFieldType = 'string' | 'number' | 'integer' | 'boolean'
+export type PrimitiveFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'date'
 
 // =============================================================================
 // Schema Fields (Discriminated Union)
@@ -101,6 +101,7 @@ export interface VisualSchema {
 /** JSON Schema property type */
 export interface JsonSchemaProperty {
   type: SchemaFieldType | SchemaFieldType[]
+  format?: string
   description?: string
   items?: JsonSchemaProperty
   properties?: Record<string, JsonSchemaProperty>

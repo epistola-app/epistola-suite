@@ -260,6 +260,21 @@ describe('validateDataAgainstSchema', () => {
     expect(result.errors[0].message).toBe('is required')
   })
 
+  it('validates date format (string with format:date)', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        birthDate: { type: 'string', format: 'date' },
+      },
+    }
+    const valid = validateDataAgainstSchema({ birthDate: '2026-02-18' }, schema)
+    expect(valid.valid).toBe(true)
+
+    const invalid = validateDataAgainstSchema({ birthDate: 'not-a-date' }, schema)
+    expect(invalid.valid).toBe(false)
+    expect(invalid.errors[0].message).toContain('valid date')
+  })
+
   it('allows empty string on a non-required field', () => {
     const schema: JsonSchema = {
       type: 'object',

@@ -12,10 +12,10 @@ import type { SchemaCommand } from '../utils/schemaCommands.js'
 import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js'
 
 /** All field types available in the type dropdown */
-const FIELD_TYPES: SchemaFieldType[] = ['string', 'number', 'integer', 'boolean', 'array', 'object']
+const FIELD_TYPES: SchemaFieldType[] = ['string', 'number', 'integer', 'boolean', 'date', 'array', 'object']
 
 /** Item types available for arrays */
-const ARRAY_ITEM_TYPES: SchemaFieldType[] = ['string', 'number', 'integer', 'boolean', 'object']
+const ARRAY_ITEM_TYPES: SchemaFieldType[] = ['string', 'number', 'integer', 'boolean', 'date', 'object']
 
 /** Check if a field supports nested fields */
 function supportsNestedFields(field: SchemaField): boolean {

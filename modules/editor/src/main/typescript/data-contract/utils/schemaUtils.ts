@@ -4,6 +4,7 @@ import type {
   JsonSchema,
   JsonSchemaProperty,
   JsonValue,
+  PrimitiveFieldType,
   SchemaField,
   SchemaFieldType,
   SchemaFieldUpdate,
@@ -37,8 +38,13 @@ export function visualSchemaToJsonSchema(visual: VisualSchema): JsonSchema {
  * Convert a single field to a JSON Schema property.
  */
 function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
+  // Date is stored as { type: "string", format: "date" } in JSON Schema
   const prop: JsonSchemaProperty = {
-    type: field.type,
+    type: field.type === 'date' ? 'string' : field.type,
+  }
+
+  if (field.type === 'date') {
+    prop.format = 'date'
   }
 
   if (field.description) {
@@ -120,7 +126,9 @@ function jsonSchemaPropertyToField(
   required: boolean,
   path: string,
 ): SchemaField {
-  const type = Array.isArray(prop.type) ? prop.type[0] : prop.type
+  const rawType = Array.isArray(prop.type) ? prop.type[0] : prop.type
+  // Detect date: JSON Schema uses { type: "string", format: "date" }
+  const type = (rawType === 'string' && prop.format === 'date') ? 'date' : rawType
   const baseField = {
     id: `field:${path}`,
     name,
@@ -165,7 +173,7 @@ function jsonSchemaPropertyToField(
   // Primitive types
   return {
     ...baseField,
-    type: type as 'string' | 'number' | 'integer' | 'boolean',
+    type: type as PrimitiveFieldType,
   }
 }
 
@@ -221,13 +229,16 @@ function inferFieldFromValue(name: string, value: JsonValue, path: string): Sche
   // Primitive types
   return {
     ...baseField,
-    type: type as 'string' | 'number' | 'integer' | 'boolean',
+    type: type as PrimitiveFieldType,
   }
 }
 
 /**
  * Infer the JSON Schema type from a value.
  */
+/** ISO date pattern: YYYY-MM-DD */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 function inferType(value: JsonValue): SchemaFieldType {
   if (value === null) {
     return 'string' // Default null to string
@@ -243,6 +254,9 @@ function inferType(value: JsonValue): SchemaFieldType {
   }
   if (typeof value === 'number') {
     return Number.isInteger(value) ? 'integer' : 'number'
+  }
+  if (typeof value === 'string' && ISO_DATE_RE.test(value)) {
+    return 'date'
   }
   return 'string'
 }
@@ -306,7 +320,7 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
   // Primitive types
   return {
     ...baseField,
-    type: type as 'string' | 'number' | 'integer' | 'boolean',
+    type: type as PrimitiveFieldType,
   }
 }
 
@@ -348,6 +362,7 @@ export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = {
   number: 'Number',
   integer: 'Integer',
   boolean: 'Yes/No',
+  date: 'Date',
   array: 'List',
   object: 'Object',
 }

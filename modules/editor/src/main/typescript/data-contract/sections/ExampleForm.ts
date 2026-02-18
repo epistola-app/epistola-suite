@@ -180,7 +180,8 @@ function renderFormField(
   depth: number,
   errors: Map<string, string>,
 ): unknown {
-  const type = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type
+  const rawType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type
+  const type = (rawType === 'string' && propSchema.format === 'date') ? 'date' : rawType
   const value = getNestedValue(rootData, path)
   const fieldError = errors.get(path)
 
@@ -263,6 +264,22 @@ function renderFormField(
                 @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
               />
             </label>
+            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+          </div>
+        </div>
+      `
+
+    case 'date':
+      return html`
+        <div class="dc-tree-row">
+          ${label}
+          <div class="dc-tree-input-wrapper">
+            <input
+              type="date"
+              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              .value=${String(value ?? '')}
+              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+            />
             ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
           </div>
         </div>
@@ -362,7 +379,8 @@ function renderArrayField(
   const currentValue = getNestedValue(rootData, path)
   const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : []
   const itemSchema = propSchema.items
-  const itemType = itemSchema ? (Array.isArray(itemSchema.type) ? itemSchema.type[0] : itemSchema.type) : 'string'
+  const rawItemType = itemSchema ? (Array.isArray(itemSchema.type) ? itemSchema.type[0] : itemSchema.type) : 'string'
+  const itemType = (rawItemType === 'string' && itemSchema?.format === 'date') ? 'date' : rawItemType
 
   const addItem = () => {
     const defaultValue = getDefaultValueForType(itemType, itemSchema)
@@ -556,6 +574,16 @@ function renderPrimitiveInput(
           />
         </label>
       `
+    case 'date':
+      return html`
+        <input
+          type="date"
+          class="ep-input dc-array-item-input ${errorClass}"
+          .value=${String(value ?? '')}
+          aria-label="${label}"
+          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+        />
+      `
     default:
       return html`
         <input
@@ -582,6 +610,8 @@ function getDefaultValueForType(type: string, schema?: JsonSchemaProperty | null
       return 0
     case 'boolean':
       return false
+    case 'date':
+      return ''
     case 'object': {
       if (!schema?.properties) return {}
       const obj: Record<string, JsonValue> = {}

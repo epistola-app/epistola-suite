@@ -1,5 +1,8 @@
 import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js'
 
+/** ISO date pattern: YYYY-MM-DD */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
 /**
  * Validation error for a specific path.
  */
@@ -104,6 +107,16 @@ function validateProperty(
 
   // Use the first matching type for further validation
   const expectedType = expectedTypes.find((t) => typeMatches(actualType, t)) || expectedTypes[0]
+
+  // Validate date format (JSON Schema: type="string", format="date")
+  if (expectedType === 'string' && schema.format === 'date' && typeof value === 'string') {
+    if (!ISO_DATE_RE.test(value)) {
+      errors.push({
+        path,
+        message: 'must be a valid date (YYYY-MM-DD)',
+      })
+    }
+  }
 
   // Validate array items
   if (expectedType === 'array' && Array.isArray(value) && schema.items) {

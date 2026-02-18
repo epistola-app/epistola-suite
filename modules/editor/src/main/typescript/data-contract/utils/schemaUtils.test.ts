@@ -77,6 +77,18 @@ describe('visualSchemaToJsonSchema', () => {
     expect(result.required).toEqual(['items'])
   })
 
+  it('converts date field to string with format:date', () => {
+    const visual: VisualSchema = {
+      fields: [
+        { id: '1', name: 'birthDate', type: 'date', required: true },
+      ],
+    }
+    const result = visualSchemaToJsonSchema(visual)
+
+    expect(result.properties?.birthDate).toEqual({ type: 'string', format: 'date' })
+    expect(result.required).toEqual(['birthDate'])
+  })
+
   it('converts object field with nested fields', () => {
     const visual: VisualSchema = {
       fields: [
@@ -214,6 +226,24 @@ describe('jsonSchemaToVisualSchema', () => {
     }
   })
 
+  it('converts string with format:date to date field', () => {
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        birthDate: { type: 'string', format: 'date' },
+      },
+      required: ['birthDate'],
+    }
+    const result = jsonSchemaToVisualSchema(schema)
+
+    expect(result.fields[0]).toMatchObject({
+      id: 'field:birthDate',
+      name: 'birthDate',
+      type: 'date',
+      required: true,
+    })
+  })
+
   it('handles union types (picks first)', () => {
     const schema: JsonSchema = {
       type: 'object',
@@ -294,6 +324,14 @@ describe('generateSchemaFromData', () => {
     if (userField.type === 'object') {
       expect(userField.nestedFields).toHaveLength(2)
     }
+  })
+
+  it('infers date from ISO date string', () => {
+    const data = { birthDate: '2026-02-18', name: 'John' }
+    const result = generateSchemaFromData(data)
+
+    expect(result.fields.find((f) => f.name === 'birthDate')?.type).toBe('date')
+    expect(result.fields.find((f) => f.name === 'name')?.type).toBe('string')
   })
 
   it('handles null values as string', () => {
@@ -524,6 +562,7 @@ describe('FIELD_TYPE_LABELS', () => {
     expect(FIELD_TYPE_LABELS.number).toBe('Number')
     expect(FIELD_TYPE_LABELS.integer).toBe('Integer')
     expect(FIELD_TYPE_LABELS.boolean).toBe('Yes/No')
+    expect(FIELD_TYPE_LABELS.date).toBe('Date')
     expect(FIELD_TYPE_LABELS.array).toBe('List')
     expect(FIELD_TYPE_LABELS.object).toBe('Object')
   })
