@@ -9,6 +9,18 @@ import type { TemplateDocument, NodeId } from '../../types/index.js'
 import type { AnyCommand } from '../../engine/commands.js'
 
 // ---------------------------------------------------------------------------
+// File attachments — raw files passed through to the transport
+// ---------------------------------------------------------------------------
+
+export interface ChatAttachment {
+  id: string
+  name: string
+  size: number
+  type: string
+  file: File
+}
+
+// ---------------------------------------------------------------------------
 // Transport boundary — host page provides the SendMessageFn implementation
 // ---------------------------------------------------------------------------
 
@@ -17,6 +29,7 @@ export interface ChatRequest {
   message: string
   document: TemplateDocument
   selectedNodeId?: NodeId
+  attachments?: ChatAttachment[]
 }
 
 export type ChatChunk =
@@ -56,6 +69,7 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  attachments?: ChatAttachment[]
   proposal?: AiProposal
   proposalStatus?: ProposalStatus
   timestamp: number
