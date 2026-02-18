@@ -3,8 +3,8 @@
 
 spring:
   flyway:
-    clean-disabled: true                 # Don't allow clean in demo
-    clean-on-validation-error: false
+    clean-disabled: false                 # Don't allow clean in demo
+    clean-on-validation-error: true
 
 epistola:
   auth:
