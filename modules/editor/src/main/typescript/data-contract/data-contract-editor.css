@@ -24,13 +24,9 @@
   .dc-editor-layout {
     display: flex;
     flex-direction: column;
-    min-height: 400px;
   }
 
   .dc-tab-content {
-    flex: 1;
-    overflow-y: auto;
-    max-height: calc(100vh - 280px);
     padding: var(--ep-space-4) 0;
   }
 }
