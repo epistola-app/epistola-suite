@@ -28,7 +28,6 @@ dependencies {
 
     // UI/Frontend modules
     implementation(project(":modules:editor"))
-    implementation(project(":modules:schema-manager"))
 
     // Spring Boot - UI layer concerns
     implementation("org.springframework.boot:spring-boot-starter-actuator")

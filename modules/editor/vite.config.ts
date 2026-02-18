@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => ({
       entry: {
         'template-editor': resolve(__dirname, 'src/main/typescript/lib.ts'),
         'theme-editor': resolve(__dirname, 'src/main/typescript/theme-editor-lib.ts'),
+        'data-contract-editor': resolve(__dirname, 'src/main/typescript/data-contract-lib.ts'),
       },
       formats: ['es'],
     },

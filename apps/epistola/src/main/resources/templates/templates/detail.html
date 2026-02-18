@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <link rel="stylesheet" th:href="@{/schema-manager/schema-manager.css}">
+        <link rel="stylesheet" th:href="@{/editor/data-contract-editor.css}">
         <script th:src="@{/js/pdf-preview.js}"></script>
 
         <div class="page-header">
@@ -212,17 +212,7 @@
 
         <!-- Tab Panel: Data Contract -->
         <div id="tab-data-contract" class="tab-panel">
-            <div class="detail-section">
-                <div class="detail-section-header">
-                    <h3>Data Contract</h3>
-                </div>
-                <div class="detail-section-body">
-                    <p class="text-muted" style="margin-bottom: var(--ep-space-4); font-size: var(--ep-text-sm);">
-                        Define the JSON schema and test data examples for this template.
-                    </p>
-                    <div id="schema-manager-container"></div>
-                </div>
-            </div>
+            <div id="data-contract-container"></div>
         </div>
 
         <!-- Tab Panel: Settings -->
@@ -326,12 +316,25 @@
                 document.querySelector('[data-tab="' + tabId + '"]').classList.add('active');
                 document.getElementById('tab-' + tabId).classList.add('active');
 
+                // Update URL hash for deep linking
+                history.replaceState(null, '', '#' + tabId);
+
                 // Lazy-load deployments on first switch
                 if (tabId === 'deployments' && !deploymentsLoaded) {
                     htmx.ajax('GET', deploymentsUrl, { target: '#deployments-content', swap: 'innerHTML' });
                     deploymentsLoaded = true;
                 }
             }
+
+            // Restore tab from URL hash (works on full page load and HTMX boost)
+            function restoreTabFromHash() {
+                const hash = location.hash.replace('#', '');
+                if (hash && document.getElementById('tab-' + hash)) {
+                    switchTab(hash);
+                }
+            }
+            restoreTabFromHash();
+            window.addEventListener('hashchange', restoreTabFromHash);
 
             function toggleCreateVariantForm() {
                 const form = document.getElementById('create-variant-form');
@@ -392,15 +395,15 @@
             });
         </script>
         <script type="module">
-            import { mountSchemaManager } from '/schema-manager/schema-manager.js';
+            import { mountDataContractEditor } from '/editor/data-contract-editor.js';
 
             const tenantId = TENANT_ID;
             const templateId = TEMPLATE_ID;
             const initialSchema = INITIAL_SCHEMA;
             const initialExamples = INITIAL_EXAMPLES;
 
-            const manager = mountSchemaManager({
-                container: document.getElementById('schema-manager-container'),
+            const editor = mountDataContractEditor({
+                container: document.getElementById('data-contract-container'),
                 templateId: templateId,
                 initialSchema: initialSchema,
                 initialExamples: initialExamples,
@@ -491,10 +494,6 @@
                             console.error('Failed to delete example:', error);
                             return { success: false };
                         }
-                    },
-
-                    onValidateSchema: async (schema, examples) => {
-                        return { compatible: true, errors: [], migrations: [] };
                     }
                 }
             });

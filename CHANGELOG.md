@@ -7,7 +7,31 @@
 
 ### Added
 - **Data table component** (`datatable`): Data-driven table that iterates over an array expression and generates rows dynamically. Columns are child nodes (`datatable-column`) with configurable headers, widths, per-column styling, and template body slots repeated per data item. Supports border style variants, optional header row, and custom item/index aliases. Editor canvas renders a CSS grid with header row and droppable template slots. PDF renderer combines loop iteration with iText table generation. Column management uses standard InsertNode/RemoveNode/MoveNode commands.
-- **Static table component**: Full table support in the editor with CSS Grid rendering, row/column management, cell merging/unmerging via click+shift-click selection, per-column width controls, header rows, and border style options. Each cell is a slot that can contain any block type. Backend PDF renderer supports merged cells via iText rowSpan/colSpan.
+- **Static table component**: Full table support in the editor with CSS Grid rendering, row/column management, cell merging/unmerging via click+shift-click selection, per-column width controls, header rows, and border style options. Each cell is a slot that can contain any block type. Backend PDF renderer supports merged cells via iText rowSpan/colSpan.- **Data Contract Editor — Date field type**: Added `date` as a first-class schema field type. Renders as `<input type="date">` in the example form. Stored as `{ type: "string", format: "date" }` in JSON Schema. Validates ISO date format (YYYY-MM-DD). Auto-inferred from date-like strings when generating schema from examples.
+- **Data Contract Editor — Test Data chip list**: Replaced the `<select>` dropdown with a horizontal chip list showing all examples at a glance. Each chip displays the example name and a validation badge (green checkmark or red error count). Active chip is highlighted in blue.
+- **Data Contract Editor — Per-example undo/redo**: Example data edits now have undo/redo support via `SnapshotHistory<JsonObject>`. Each example gets its own history stack. Ctrl+Z/Ctrl+Shift+Z works on both Schema and Test Data tabs. History clears on save or example switch.
+- **Data Contract Editor — Inline field validation**: Validation errors are now shown inline on each form field (red border + error text) instead of only as a top-level block. Collapsed groups with child errors show a red dot and red left border. A compact validation summary pill replaces the old warning block.
+- **SnapshotHistory<T> generic utility**: Extracted a generic snapshot-based undo/redo stack from `SchemaCommandHistory` so the same pattern can be reused across the editor (currently used for both schema and example data editing).
+- **Data Contract Editor — Undo/Redo**: Schema mutations now go through a command pattern with snapshot-based undo/redo. Ctrl+Z/Ctrl+Shift+Z keyboard shortcuts and toolbar buttons. History clears on save.
+- **Data Contract Editor — Infinite nesting**: Schema fields can now be nested to arbitrary depth (previously limited to 2 levels). The `isNested: boolean` flag is replaced by a numeric `depth` parameter.
+
+### Changed
+- **Data Contract Editor — Unified save**: Schema and examples are now saved together with a single "Save" button in the tab bar, replacing the separate per-section save buttons. The save operation first persists the schema (with migration check), then batch-saves all examples.
+- **Data Contract Editor — Command architecture**: Schema mutations are now expressed as `SchemaCommand` discriminated union types (`addField`, `deleteField`, `updateField`, `generateFromExample`), executed through pure tree operations. VisualSchema is the primary editing state; JSON Schema conversion only happens on load and save, eliminating redundant roundtrips and ID instability.
+
+### Fixed
+- **Data Contract Editor — Expand/collapse broken**: Object and array fields could not be expanded because `jsonSchemaToVisualSchema()` generated new random IDs on every render, causing expanded-field state to be lost. Field IDs are now deterministic, based on the field path (e.g., `field:name`, `field:address.street`).
+
+### Changed
+- **Data Contract Editor — Schema field alignment**: Switched schema field header and rows from flex to CSS grid for consistent column alignment across expand button, name, type, array-item-type, required, and action columns.
+- **Data Contract Editor — Compact example form**: Redesigned the test data example form with a compact tree layout: labels and inputs are side-by-side on each row, objects/arrays use collapsible `<details>` (collapsed by default for deeply nested), and spacing is minimal.
+
+### Added
+- **Data Contract Editor**: Replaced the React-based schema-manager module with a Lit web component data contract editor integrated into `modules/editor/`. Features a visual schema field builder, schema-driven example form (auto-generated inputs from JSON Schema), and migration assistant. Produces `data-contract-editor.js` (53 kB) and `data-contract-editor.css` (30 kB).
+
+### Removed
+- **schema-manager module**: Deleted `modules/schema-manager/` entirely. All functionality has been ported to the Lit-based data contract editor in `modules/editor/`, eliminating the React dependency from the project.
+
 - **Test profiles**: JUnit 5 tag-based test categorization with Gradle tasks (`unitTest`, `integrationTest`, `uiTest`) for running test categories independently
 - **Duplicate ID error handling**: Creating entities with duplicate IDs now shows inline form errors instead of silently failing. Applies to tenants, environments, themes, templates, attributes, and variants.
 - **Confirm dialog for delete operations**: Delete buttons on list pages (themes, environments, attributes) now open a confirm dialog that can display error messages when the operation fails (e.g., deleting a theme in use).

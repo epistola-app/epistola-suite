@@ -22,6 +22,7 @@
     "@epistola/design-system": "workspace:*",
     "@epistola/template-model": "workspace:*",
     "@floating-ui/dom": "^1.7.5",
+    "jsonata": "^2.0.5",
     "lit": "^3.3.0",
     "nanoid": "^5.1.5",
     "prosemirror-commands": "^1.7.1",
@@ -35,7 +36,6 @@
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-state": "^1.4.4",
     "prosemirror-transform": "^1.11.0",
-    "jsonata": "^2.0.5",
     "prosemirror-view": "^1.41.6"
   },
   "devDependencies": {
