@@ -10,7 +10,7 @@ import { type FieldPath, extractFieldPaths } from './schema-paths.js'
 import type { Theme } from '@epistola/template-model/generated/theme.js'
 import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
-import { type Command, type CommandResult, applyCommand } from './commands.js'
+import { type AnyCommand, type CommandResult, applyCommand } from './commands.js'
 import { UndoStack } from './undo.js'
 import type { Change, ChangeContext } from './change.js'
 import { CommandChange } from './command-change.js'
@@ -56,6 +56,9 @@ export class EditorEngine {
   private _currentExampleIndex: number = 0
   private _fieldPathsCache: FieldPath[] | undefined
 
+  /** Generic component state store (e.g. table cell selection). */
+  private _componentState = new Map<string, unknown>()
+
   /** PM EditorState cache for preserving history across delete/undo cycles. */
   private _pmStateCache = new Map<NodeId, unknown>()
 
@@ -81,7 +84,7 @@ export class EditorEngine {
     // Build the ChangeContext that Change implementations use
     this._changeCtx = {
       stack: this._undoStack,
-      applySilent: (command: Command) => this._dispatchSilent(command),
+      applySilent: (command: AnyCommand) => this._dispatchSilent(command),
       syncContent: (nodeId: NodeId, content: unknown) => {
         this.dispatch(
           { type: 'UpdateNodeProps', nodeId, props: { content } },
@@ -255,6 +258,21 @@ export class EditorEngine {
   }
 
   // -----------------------------------------------------------------------
+  // Component state (generic key-value store for component-specific state)
+  // -----------------------------------------------------------------------
+
+  /** Set component state and emit a change event. */
+  setComponentState(key: string, value: unknown): void {
+    this._componentState.set(key, value)
+    this._events.emit('component-state:change', { key, value })
+  }
+
+  /** Get component state by key. */
+  getComponentState<T>(key: string): T | undefined {
+    return this._componentState.get(key) as T | undefined
+  }
+
+  // -----------------------------------------------------------------------
   // Command dispatch
   // -----------------------------------------------------------------------
 
@@ -265,7 +283,7 @@ export class EditorEngine {
    * @param options.skipUndo — if true, do not push to undo stack (used by
    *   external components that manage their own undo, e.g. ProseMirror).
    */
-  dispatch(command: Command, options?: { skipUndo?: boolean }): CommandResult {
+  dispatch(command: AnyCommand, options?: { skipUndo?: boolean }): CommandResult {
     const result = applyCommand(this._doc, this._indexes, command, this.registry)
 
     if (result.ok) {
@@ -303,7 +321,7 @@ export class EditorEngine {
    * Dispatch a command without recording it in the undo stack.
    * Used internally by undo/redo via ChangeContext.
    */
-  private _dispatchSilent(command: Command): CommandResult {
+  private _dispatchSilent(command: AnyCommand): CommandResult {
     const result = applyCommand(this._doc, this._indexes, command, this.registry)
 
     if (result.ok) {
@@ -385,6 +403,7 @@ export class EditorEngine {
     this._recomputeStyles()
     this._undoStack.clear()
     this._pmStateCache.clear()
+    this._componentState.clear()
     this._selectedNodeId = null
     this._notify()
   }

@@ -164,6 +164,8 @@ class DirectPdfRenderer(
                 "table" to TableNodeRenderer(),
                 "conditional" to ConditionalNodeRenderer(),
                 "loop" to LoopNodeRenderer(),
+                "datatable" to DatatableNodeRenderer(),
+                "datatable-column" to DatatableColumnNodeRenderer(),
                 "pagebreak" to PageBreakNodeRenderer(),
                 "pageheader" to PageHeaderNodeRenderer(),
                 "pagefooter" to PageFooterNodeRenderer(),

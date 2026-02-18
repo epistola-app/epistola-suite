@@ -21,6 +21,8 @@ export class EpistolaCanvas extends LitElement {
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
 
   private _dndCleanup: (() => void) | null = null
+  private _unsubComponentState?: () => void
+  private _subscribedEngine?: EditorEngine
 
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation()
@@ -34,11 +36,22 @@ export class EpistolaCanvas extends LitElement {
   override updated() {
     this._dndCleanup?.()
     this._dndCleanup = this._setupDnD()
+
+    // Subscribe to component state changes (e.g. table cell selection) so the
+    // canvas re-renders when state is updated from within renderCanvas hooks.
+    if (this.engine && this.engine !== this._subscribedEngine) {
+      this._unsubComponentState?.()
+      this._subscribedEngine = this.engine
+      this._unsubComponentState = this.engine.events.on('component-state:change', () => {
+        this.requestUpdate()
+      })
+    }
   }
 
   override disconnectedCallback() {
     this._dndCleanup?.()
     this._dndCleanup = null
+    this._unsubComponentState?.()
     super.disconnectedCallback()
   }
 
@@ -304,11 +317,19 @@ export class EpistolaCanvas extends LitElement {
       return this._renderLeafNode(nodeId)
     }
 
-    // For container nodes, render their slot children
-    if (node.type === 'columns') {
-      return this._renderColumnsLayout(node)
+    // Delegate to component's renderCanvas hook if present
+    const def = this.engine!.registry.get(node.type)
+    if (def?.renderCanvas) {
+      return def.renderCanvas({
+        node,
+        doc,
+        engine: this.engine!,
+        renderSlot: (slotId: SlotId) => this._renderSlot(slotId),
+        selectedNodeId: this.selectedNodeId,
+      })
     }
 
+    // Default: render all slots
     return html`
       ${node.slots.map(slotId => this._renderSlot(slotId))}
     `
@@ -347,25 +368,6 @@ export class EpistolaCanvas extends LitElement {
     }
   }
 
-  private _renderColumnsLayout(node: import('../types/index.js').Node): unknown {
-    const props = node.props ?? {}
-    const columnSizes = (props.columnSizes as number[] | undefined) ?? []
-    const gap = (props.gap as number | undefined) ?? 0
-    const gapStyle = gap > 0 ? `${gap}pt` : '0'
-
-    return html`
-      <div class="canvas-columns" style="gap: ${gapStyle}">
-        ${node.slots.map((slotId, i) => {
-          const flex = columnSizes[i] ?? 1
-          return html`
-            <div class="canvas-column" style="flex: ${flex}">
-              ${this._renderSlot(slotId)}
-            </div>
-          `
-        })}
-      </div>
-    `
-  }
 }
 
 // ---------------------------------------------------------------------------

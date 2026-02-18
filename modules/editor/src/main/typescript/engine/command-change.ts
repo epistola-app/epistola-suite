@@ -6,13 +6,13 @@
  * Redo is symmetric.
  */
 
-import type { Command } from './commands.js'
+import type { AnyCommand } from './commands.js'
 import type { Change, ChangeContext } from './change.js'
 
 export class CommandChange implements Change {
-  readonly command: Command
+  readonly command: AnyCommand
 
-  constructor(command: Command) {
+  constructor(command: AnyCommand) {
     this.command = command
   }
 

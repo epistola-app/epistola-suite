@@ -16,6 +16,7 @@ export type EngineEvents = {
   'doc:change': { doc: TemplateDocument; indexes: DocumentIndexes }
   'selection:change': { nodeId: NodeId | null }
   'example:change': { index: number; example: object | undefined }
+  'component-state:change': { key: string; value: unknown }
 }
 
 // ---------------------------------------------------------------------------
