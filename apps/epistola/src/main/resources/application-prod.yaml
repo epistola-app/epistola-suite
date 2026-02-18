@@ -16,6 +16,10 @@ spring:
             issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
             user-name-attribute: preferred_username
 
+  flyway:
+    clean-disabled: true                 # NEVER allow clean in production
+    clean-on-validation-error: false     # Fail on migration errors instead of wiping data
+
   # Session configuration
   session:
     timeout: 8h

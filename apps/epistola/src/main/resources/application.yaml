@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: epistola-suite
+  flyway:
+    clean-disabled: false                # Allow Flyway to clean (required for Flyway 10+)
+    clean-on-validation-error: true      # Auto-clean DB when migrations are incompatible
+    locations:
+      - classpath:db/migration
   threads:
     virtual:
       enabled: true
