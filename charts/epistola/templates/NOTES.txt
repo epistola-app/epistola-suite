@@ -41,22 +41,6 @@
 {{- else if eq $dbType "external" }}
 
 2. Database: Configured to use external PostgreSQL at {{ .Values.database.external.host }}:{{ .Values.database.external.port }}.
-{{- else if eq $dbType "external-legacy" }}
-
-2. Database: Configured to use external PostgreSQL at {{ .Values.postgresql.host }}:{{ .Values.postgresql.port }}.
-
-   WARNING: You are using the deprecated postgresql.* configuration.
-   Please migrate to the new database.* configuration:
-
-   database:
-     type: "external"
-     external:
-       host: "{{ .Values.postgresql.host }}"
-       port: {{ .Values.postgresql.port }}
-       database: "{{ .Values.postgresql.database }}"
-       username: "{{ .Values.postgresql.username }}"
-       existingSecret: "{{ .Values.postgresql.existingSecret }}"
-       secretKey: "{{ .Values.postgresql.secretKey }}"
 {{- else }}
 
 2. Database: No database is configured. Set database.type or use config.env to configure manually.

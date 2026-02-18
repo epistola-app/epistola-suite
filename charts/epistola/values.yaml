@@ -72,11 +72,19 @@ resources:
     memory: 256Mi
 
 # Liveness and readiness probes using Spring Boot Actuator
+startupProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 30
+  timeoutSeconds: 3
+
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
     port: http
-  initialDelaySeconds: 30
   periodSeconds: 15
   failureThreshold: 3
   timeoutSeconds: 5
@@ -85,7 +93,6 @@ readinessProbe:
   httpGet:
     path: /actuator/health/readiness
     port: http
-  initialDelaySeconds: 10
   periodSeconds: 10
   failureThreshold: 3
   timeoutSeconds: 5
@@ -115,6 +122,32 @@ tolerations: []
 
 affinity: {}
 
+# JVM configuration
+jvm:
+  # JAVA_TOOL_OPTIONS passed to the JVM
+  options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
+
+# Observability configuration
+observability:
+  # OpenTelemetry exporter endpoint (e.g., http://otel-collector:4318)
+  otlpEndpoint: ""
+  # Prometheus scrape annotations on pods
+  prometheus:
+    enabled: false
+    port: 4000
+    path: /actuator/prometheus
+
+# Keycloak / OAuth2 configuration (optional, requires config.profiles to include "prod")
+keycloak:
+  enabled: false
+  clientId: epistola-suite
+  # Name of existing secret containing the client secret
+  existingSecret: ""
+  # Key in the secret containing the client secret
+  secretKey: client-secret
+  # Keycloak issuer URI (e.g., https://keycloak.example.com/realms/epistola)
+  issuerUri: ""
+
 # Application configuration
 config:
   # Spring profiles to activate
@@ -122,7 +155,7 @@ config:
   # Additional environment variables
   env: {}
   # Example:
-  #   JAVA_OPTS: "-Xmx512m"
+  #   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "20"
 
 # Database configuration
 # Supported types:
@@ -179,14 +212,3 @@ database:
     clusterName: ""
     # Secret name (defaults to <clusterName>-app)
     secretName: ""
-
-# DEPRECATED: Use database.type: external and database.external.* instead
-# Kept for backward compatibility
-postgresql:
-  enabled: false
-  host: ""
-  port: 5432
-  database: epistola
-  username: epistola
-  existingSecret: ""
-  secretKey: password

@@ -88,12 +88,8 @@ Get the CNPG secret name for app credentials
 {{- end }}
 
 {{/*
-Determine effective database type (handles legacy postgresql.enabled)
+Determine effective database type
 */}}
 {{- define "epistola.database.effectiveType" -}}
-{{- if and .Values.postgresql.enabled (eq .Values.database.type "none") }}
-{{- "external-legacy" }}
-{{- else }}
 {{- .Values.database.type }}
-{{- end }}
 {{- end }}

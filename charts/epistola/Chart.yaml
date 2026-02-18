@@ -3,7 +3,7 @@ name: epistola
 description: A Helm chart for deploying Epistola Document Suite
 type: application
 version: 0.1.0
-appVersion: "0.0.1"
+appVersion: "latest"
 maintainers:
   - name: epistola-app
     url: https://github.com/epistola-app
