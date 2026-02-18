@@ -325,13 +325,15 @@
                 }
             }
 
-            // Restore tab from URL hash on page load
-            (function() {
+            // Restore tab from URL hash (works on full page load and HTMX boost)
+            function restoreTabFromHash() {
                 const hash = location.hash.replace('#', '');
                 if (hash && document.getElementById('tab-' + hash)) {
                     switchTab(hash);
                 }
-            })();
+            }
+            restoreTabFromHash();
+            window.addEventListener('hashchange', restoreTabFromHash);
 
             function toggleCreateVariantForm() {
                 const form = document.getElementById('create-variant-form');
