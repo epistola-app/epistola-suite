@@ -315,12 +315,23 @@
                 document.querySelector('[data-tab="' + tabId + '"]').classList.add('active');
                 document.getElementById('tab-' + tabId).classList.add('active');
 
+                // Update URL hash for deep linking
+                history.replaceState(null, '', '#' + tabId);
+
                 // Lazy-load deployments on first switch
                 if (tabId === 'deployments' && !deploymentsLoaded) {
                     htmx.ajax('GET', deploymentsUrl, { target: '#deployments-content', swap: 'innerHTML' });
                     deploymentsLoaded = true;
                 }
             }
+
+            // Restore tab from URL hash on page load
+            (function() {
+                const hash = location.hash.replace('#', '');
+                if (hash && document.getElementById('tab-' + hash)) {
+                    switchTab(hash);
+                }
+            })();
 
             function toggleCreateVariantForm() {
                 const form = document.getElementById('create-variant-form');
