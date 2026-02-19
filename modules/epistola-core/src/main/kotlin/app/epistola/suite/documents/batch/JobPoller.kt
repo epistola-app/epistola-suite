@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.InetAddress
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -73,6 +74,21 @@ class JobPoller(
             properties.maxConcurrentJobs,
             properties.intervalMs,
         )
+    }
+
+    /**
+     * Wait until all active jobs have completed, up to the given timeout.
+     * Useful for test cleanup to avoid deadlocks when deleting test data.
+     */
+    fun awaitIdle(timeout: Duration = Duration.ofSeconds(10)) {
+        val deadline = System.currentTimeMillis() + timeout.toMillis()
+        while (activeJobs.get() > 0) {
+            if (System.currentTimeMillis() > deadline) {
+                logger.warn("Timed out waiting for {} active jobs to complete", activeJobs.get())
+                break
+            }
+            Thread.sleep(50)
+        }
     }
 
     /**
