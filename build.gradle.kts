@@ -54,6 +54,18 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
         }
     }
 
+    pluginManager.withPlugin("org.jetbrains.kotlinx.kover") {
+        configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
+            currentProject {
+                instrumentation {
+                    // Custom test tasks are developer conveniences for running subsets.
+                    // The default test task already runs everything — Kover only needs that.
+                    disabledForTestTasks.addAll("integrationTest", "unitTest", "uiTest")
+                }
+            }
+        }
+    }
+
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         val testTask = tasks.named<Test>("test")
 
