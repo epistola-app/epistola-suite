@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Flyway `clean-on-validation-error` removed in Flyway 10+**: Replaced the deprecated YAML property with a programmatic `FlywayMigrationStrategy` that catches `FlywayValidateException` and auto-cleans when `clean-disabled=false`. Production (`clean-disabled=true`) re-throws validation errors as before.
+
 ### Changed
 - **PDF/A-2b compliance**: PDF/A-2b (ISO 19005-2 Level B) is now available as an opt-in per-template setting (default: off). When enabled, fonts are embedded (Liberation Sans), an sRGB ICC output intent is included, and XMP metadata is written. Templates that don't need archival compliance use standard PDF with non-embedded Helvetica for smaller, faster output. Preview rendering always uses standard PDF regardless of the setting.
 - **Document metadata**: Generated PDFs include title (from template name), author (from tenant name), and creator metadata. Preview PDFs include default creator metadata.
