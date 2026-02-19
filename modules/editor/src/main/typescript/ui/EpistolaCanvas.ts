@@ -28,16 +28,31 @@ export class EpistolaCanvas extends LitElement {
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation()
     this.engine?.selectNode(nodeId)
+    this._maybeFocusTextEditor(nodeId)
   }
 
   private _handleCanvasClick() {
     this.engine?.selectNode(null)
   }
 
-  private _handleDeleteBlock(nodeId: NodeId) {
-    if (!this.engine) return
-    this.engine.dispatch({ type: 'RemoveNode', nodeId })
-    this.engine.selectNode(null)
+  private _handleFocus(nodeId: NodeId) {
+    this.engine?.selectNode(nodeId)
+    this._maybeFocusTextEditor(nodeId)
+  }
+
+  private _maybeFocusTextEditor(nodeId: NodeId) {
+    const doc = this.doc
+    if (!doc) return
+    const node = doc.nodes[nodeId]
+    if (!node || node.type !== 'text') return
+
+    requestAnimationFrame(() => {
+      const blockEl = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`)
+      const textEditor = blockEl?.querySelector<HTMLElement>('epistola-text-editor')
+      if (!textEditor) return
+      const focusEditor = (textEditor as { focusEditor?: () => void }).focusEditor
+      focusEditor?.call(textEditor)
+    })
   }
 
   override updated() {
@@ -295,7 +310,9 @@ export class EpistolaCanvas extends LitElement {
       <div
         class="canvas-block ${isSelected ? 'selected' : ''}"
         data-node-id=${nodeId}
+        tabindex="0"
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
+        @focus=${() => this._handleFocus(nodeId)}
       >
         <!-- Block header -->
         <div class="canvas-block-header">
