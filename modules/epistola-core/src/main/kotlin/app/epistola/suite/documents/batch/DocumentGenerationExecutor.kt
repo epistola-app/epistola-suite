@@ -146,7 +146,7 @@ class DocumentGenerationExecutor(
             title = template.name,
             author = tenant.name,
         )
-        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata)
+        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()

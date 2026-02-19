@@ -62,6 +62,7 @@ class GenerationService(
         templateDefaultThemeId: ThemeId? = null,
         tenantDefaultThemeId: ThemeId? = null,
         metadata: PdfMetadata = PdfMetadata(),
+        pdfaCompliant: Boolean = false,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -78,6 +79,7 @@ class GenerationService(
             blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
             resolvedDocumentStyles = resolvedStyles.documentStyles,
             metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
         )
     }
 

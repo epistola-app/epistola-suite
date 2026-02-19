@@ -569,11 +569,25 @@ class DirectPdfRendererTest {
     }
 
     @Test
-    fun `output is PDF A-2b compliant with XMP metadata`() {
+    fun `standard mode does not include PDF A identification`() {
         val document = documentWithChildren(emptyMap(), emptyList())
 
         val output = ByteArrayOutputStream()
         renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+
+        val pdfString = pdfBytes.decodeToString()
+        assertTrue(!pdfString.contains("pdfaid:part"), "Standard PDF should not contain pdfaid:part")
+    }
+
+    @Test
+    fun `pdfa mode output is PDF A-2b compliant with XMP metadata`() {
+        val document = documentWithChildren(emptyMap(), emptyList())
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output, pdfaCompliant = true)
 
         val pdfBytes = output.toByteArray()
         val pdfString = pdfBytes.decodeToString()
