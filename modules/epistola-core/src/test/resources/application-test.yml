@@ -1,6 +1,10 @@
 spring:
   flyway:
     enabled: true
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
   jpa:
     hibernate:
       ddl-auto: none
@@ -10,4 +14,4 @@ epistola:
     polling:
       enabled: true
       interval-ms: 100  # Very fast polling for tests (100ms vs 5000ms in production)
-      max-concurrent-jobs: 10  # Higher concurrency for tests
+      max-concurrent-jobs: 2  # Low concurrency sufficient for tests, avoids resource exhaustion on CI

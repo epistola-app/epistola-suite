@@ -11,4 +11,6 @@ class CoreTestcontainersConfiguration {
     @Bean
     @ServiceConnection
     fun postgresContainer(): PostgreSQLContainer = PostgreSQLContainer(DockerImageName.parse("postgres:17"))
+        .withReuse(true)
+        .withTmpFs(mapOf("/var/lib/postgresql/data" to "rw"))
 }

@@ -94,6 +94,8 @@ tasks.withType<Test> {
     jvmArgs(
         "-XX:+UseParallelGC", // Parallel GC is faster for short-lived processes
         "-XX:TieredStopAtLevel=1", // Faster JVM startup (skip C2 compilation)
+        "-Xms256m",
+        "-Xmx512m",
     )
 
     testLogging {

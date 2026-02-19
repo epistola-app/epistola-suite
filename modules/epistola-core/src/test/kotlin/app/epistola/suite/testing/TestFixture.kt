@@ -39,14 +39,12 @@ class TestFixtureFactory(
         currentTenantId = null,
     )
 
-    fun <T> fixture(block: TestFixture.() -> T): T = MediatorContext.runWithMediator(mediator) {
+    fun <T> fixture(
+        namespace: String,
+        block: TestFixture.() -> T,
+    ): T = MediatorContext.runWithMediator(mediator) {
         SecurityContext.runWithPrincipal(testUser) {
-            val fixture = TestFixture()
-            try {
-                fixture.block()
-            } finally {
-                fixture.cleanup()
-            }
+            TestFixture(namespace).block()
         }
     }
 
@@ -70,13 +68,11 @@ class TestFixtureFactory(
 }
 
 @TestFixtureDsl
-class TestFixture {
-    private val createdTenants = mutableListOf<TenantId>()
+class TestFixture(private val namespace: String) {
     private var givenContext: GivenContext? = null
     private var result: Any? = null
-    private var tenantCounter = 0
 
-    private fun nextTenantSlug(): String = "test-tenant-${++tenantCounter}"
+    private fun nextTenantSlug(): String = "$namespace-${TestTenantCounter.next(namespace)}"
 
     fun given(block: GivenContext.() -> Unit): TestFixture {
         givenContext = GivenContext().apply(block)
@@ -93,27 +89,9 @@ class TestFixture {
         ThenContext().block()
     }
 
-    fun cleanup() {
-        createdTenants.forEach { tenantId ->
-            DeleteTenant(tenantId).execute()
-        }
-        createdTenants.clear()
-    }
-
-    fun deleteAllTenants() {
-        ListTenants().query().forEach { tenant ->
-            DeleteTenant(tenant.id).execute()
-        }
-        createdTenants.clear()
-    }
-
     @TestFixtureDsl
     inner class GivenContext {
-        fun tenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
-            this@TestFixture.createdTenants.add(tenant.id)
-            return tenant
-        }
+        fun tenant(name: String): Tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
 
         fun template(
             tenant: Tenant,
@@ -137,19 +115,11 @@ class TestFixture {
             description = null,
             attributes = attributes,
         ).execute()!!
-
-        fun noTenants() {
-            this@TestFixture.deleteAllTenants()
-        }
     }
 
     @TestFixtureDsl
     inner class WhenContext {
-        fun createTenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
-            this@TestFixture.createdTenants.add(tenant.id)
-            return tenant
-        }
+        fun createTenant(name: String): Tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
 
         fun deleteTenant(id: TenantId): Boolean = DeleteTenant(id).execute()
 

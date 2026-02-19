@@ -54,6 +54,18 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
         }
     }
 
+    pluginManager.withPlugin("org.jetbrains.kotlinx.kover") {
+        configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
+            currentProject {
+                instrumentation {
+                    // Custom test tasks are developer conveniences for running subsets.
+                    // The default test task already runs everything — Kover only needs that.
+                    disabledForTestTasks.addAll("integrationTest", "unitTest", "uiTest")
+                }
+            }
+        }
+    }
+
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         val testTask = tasks.named<Test>("test")
 
@@ -63,7 +75,7 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
             testClassesDirs = testTask.get().testClassesDirs
             classpath = testTask.get().classpath
             useJUnitPlatform { excludeTags("integration", "ui") }
-            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
             testLogging { events("passed", "skipped", "failed") }
             filter { isFailOnNoMatchingTests = false }
         }
@@ -77,7 +89,7 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
                 includeTags("integration")
                 excludeTags("ui")
             }
-            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
             testLogging { events("passed", "skipped", "failed") }
             filter { isFailOnNoMatchingTests = false }
         }
@@ -88,7 +100,7 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
             testClassesDirs = testTask.get().testClassesDirs
             classpath = testTask.get().classpath
             useJUnitPlatform { includeTags("ui") }
-            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
             testLogging { events("passed", "skipped", "failed") }
             filter { isFailOnNoMatchingTests = false }
         }
