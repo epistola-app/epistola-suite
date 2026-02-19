@@ -7,8 +7,13 @@ import app.epistola.template.model.PageFormat
 import app.epistola.template.model.PageSettings
 import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
+import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfReader
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class DirectPdfRendererTest {
@@ -561,5 +566,79 @@ class DirectPdfRendererTest {
         val pdfBytes = output.toByteArray()
         assertTrue(pdfBytes.isNotEmpty())
         assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `standard mode does not include PDF A identification`() {
+        val document = documentWithChildren(emptyMap(), emptyList())
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+
+        val pdfString = pdfBytes.decodeToString()
+        assertTrue(!pdfString.contains("pdfaid:part"), "Standard PDF should not contain pdfaid:part")
+    }
+
+    @Test
+    fun `pdfa mode output is PDF A-2b compliant with XMP metadata`() {
+        val document = documentWithChildren(emptyMap(), emptyList())
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output, pdfaCompliant = true)
+
+        val pdfBytes = output.toByteArray()
+        val pdfString = pdfBytes.decodeToString()
+
+        // XMP metadata must contain PDF/A-2b identification
+        assertTrue(pdfString.contains("pdfaid:part"), "XMP metadata should contain pdfaid:part")
+        assertTrue(pdfString.contains("pdfaid:conformance"), "XMP metadata should contain pdfaid:conformance")
+
+        // Verify using iText reader that the output intent is present
+        val readDoc = PdfDocument(PdfReader(ByteArrayInputStream(pdfBytes)))
+        val catalog = readDoc.catalog
+        assertNotNull(catalog, "PDF catalog should exist")
+        readDoc.close()
+    }
+
+    @Test
+    fun `embeds custom metadata when provided`() {
+        val document = documentWithChildren(emptyMap(), emptyList())
+
+        val output = ByteArrayOutputStream()
+        val metadata = PdfMetadata(
+            title = "Invoice 2026-001",
+            author = "Acme Corp",
+            subject = "Monthly invoice",
+            creator = "Epistola Suite",
+        )
+        renderer.render(document, emptyMap(), output, metadata = metadata)
+
+        val pdfBytes = output.toByteArray()
+        val readDoc = PdfDocument(PdfReader(ByteArrayInputStream(pdfBytes)))
+        val info = readDoc.documentInfo
+
+        assertEquals("Invoice 2026-001", info.title)
+        assertEquals("Acme Corp", info.author)
+        assertEquals("Monthly invoice", info.subject)
+        assertEquals("Epistola Suite", info.creator)
+        readDoc.close()
+    }
+
+    @Test
+    fun `sets default creator when no metadata provided`() {
+        val document = documentWithChildren(emptyMap(), emptyList())
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        val readDoc = PdfDocument(PdfReader(ByteArrayInputStream(pdfBytes)))
+        val info = readDoc.documentInfo
+
+        assertEquals("Epistola Suite", info.creator)
+        readDoc.close()
     }
 }

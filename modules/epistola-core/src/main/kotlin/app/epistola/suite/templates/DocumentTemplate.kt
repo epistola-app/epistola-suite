@@ -22,6 +22,7 @@ data class DocumentTemplate(
     @Json val schema: ObjectNode? = null,
     @Json val dataModel: ObjectNode? = null,
     @Json val dataExamples: DataExamples = DataExamples.EMPTY,
+    val pdfaEnabled: Boolean = false,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
 )
@@ -37,6 +38,7 @@ data class DocumentTemplateWithVariants(
     @Json val schema: ObjectNode? = null,
     @Json val dataModel: ObjectNode? = null,
     @Json val dataExamples: DataExamples = DataExamples.EMPTY,
+    val pdfaEnabled: Boolean = false,
     val variants: List<VariantSummary>,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,

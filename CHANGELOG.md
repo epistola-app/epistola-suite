@@ -2,10 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Flyway `clean-on-validation-error` removed in Flyway 10+**: Replaced the deprecated YAML property with a programmatic `FlywayMigrationStrategy` that catches `FlywayValidateException` and auto-cleans when `clean-disabled=false`. Production (`clean-disabled=true`) re-throws validation errors as before.
 ### Added
 - **Static resource cache busting**: Content-hash based URLs for CSS, JS, and SVG assets (e.g. `/css/main-abc123.css`). Combined with 1-year cache headers, browsers cache aggressively but always get fresh content after deployments. Uses Spring Boot's `VersionResourceResolver` — no build-time file renaming needed. Disabled in local dev profile for fast iteration.
 
 ### Changed
+- **PDF/A-2b compliance**: PDF/A-2b (ISO 19005-2 Level B) is now available as an opt-in per-template setting (default: off). When enabled, fonts are embedded (Liberation Sans), an sRGB ICC output intent is included, and XMP metadata is written. Templates that don't need archival compliance use standard PDF with non-embedded Helvetica for smaller, faster output. Preview rendering always uses standard PDF regardless of the setting.
+- **Document metadata**: Generated PDFs include title (from template name), author (from tenant name), and creator metadata. Preview PDFs include default creator metadata.
 - **Test execution speed**: Optimized backend test infrastructure for parallel execution. Gradle parallel builds, JUnit 5 parallel class execution, per-class tenant namespacing for DB isolation, Testcontainers reuse with tmpfs, UNLOGGED tables in tests, HikariCP pool tuning, and JVM heap pre-sizing. Tests that need exclusive DB access are annotated with `@Isolated`.
 
 ### Changed

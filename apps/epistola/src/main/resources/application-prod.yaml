@@ -18,7 +18,6 @@ spring:
 
   flyway:
     clean-disabled: true                 # NEVER allow clean in production
-    clean-on-validation-error: false     # Fail on migration errors instead of wiping data
 
   # Session configuration
   session:

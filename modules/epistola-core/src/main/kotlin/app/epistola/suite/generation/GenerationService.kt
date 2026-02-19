@@ -1,6 +1,7 @@
 package app.epistola.suite.generation
 
 import app.epistola.generation.pdf.DirectPdfRenderer
+import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -60,6 +61,8 @@ class GenerationService(
         outputStream: OutputStream,
         templateDefaultThemeId: ThemeId? = null,
         tenantDefaultThemeId: ThemeId? = null,
+        metadata: PdfMetadata = PdfMetadata(),
+        pdfaCompliant: Boolean = false,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -75,6 +78,8 @@ class GenerationService(
             outputStream = outputStream,
             blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
             resolvedDocumentStyles = resolvedStyles.documentStyles,
+            metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
         )
     }
 
@@ -90,8 +95,9 @@ class GenerationService(
         templateModel: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
+        metadata: PdfMetadata = PdfMetadata(),
     ) {
-        pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream)
+        pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream, metadata = metadata)
     }
 
     /**

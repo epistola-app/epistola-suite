@@ -10,10 +10,13 @@ import app.epistola.template.model.PageFormat
 import app.epistola.template.model.PageSettings
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.PageSize
+import com.itextpdf.kernel.pdf.PdfAConformance
 import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfOutputIntent
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.layout.Document
+import com.itextpdf.pdfa.PdfADocument
 import java.io.OutputStream
 
 /**
@@ -29,6 +32,11 @@ private val DEFAULT_PAGE_SETTINGS = PageSettings(
  * Main PDF renderer that orchestrates node rendering and outputs to a stream.
  * Uses iText Core for direct PDF generation without an intermediate HTML step.
  *
+ * When [pdfaCompliant] is true, output conforms to PDF/A-2b (ISO 19005-2, Level B)
+ * for long-term archival compliance with embedded fonts and sRGB output intent.
+ * When false (default), produces standard PDF with non-embedded Helvetica fonts
+ * for smaller, faster output.
+ *
  * Accepts the v2 [TemplateDocument] (normalized node/slot graph) and traverses
  * the graph starting from the root node through its slots and children.
  */
@@ -41,11 +49,16 @@ class DirectPdfRenderer(
     /**
      * Renders a template document to PDF and writes directly to the output stream.
      *
+     * When [pdfaCompliant] is true, produces PDF/A-2b with embedded fonts and ICC profile.
+     * When false (default), produces standard PDF with non-embedded Helvetica fonts.
+     *
      * @param document The template document containing the node/slot graph
      * @param data The data context for expression evaluation
      * @param outputStream The output stream to write the PDF to
      * @param blockStylePresets Optional block style presets from theme (named style collections like CSS classes)
      * @param resolvedDocumentStyles Optional pre-resolved document styles (merging theme + template styles)
+     * @param metadata Optional document metadata (title, author, etc.)
+     * @param pdfaCompliant Whether to produce PDF/A-2b compliant output (default: false)
      */
     fun render(
         document: TemplateDocument,
@@ -53,9 +66,19 @@ class DirectPdfRenderer(
         outputStream: OutputStream,
         blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
         resolvedDocumentStyles: DocumentStyles? = null,
+        metadata: PdfMetadata = PdfMetadata(),
+        pdfaCompliant: Boolean = false,
     ) {
         val writer = PdfWriter(outputStream)
-        val pdfDocument = PdfDocument(writer)
+        val pdfDocument = if (pdfaCompliant) {
+            val outputIntent = createSrgbOutputIntent()
+            PdfADocument(writer, PdfAConformance.PDF_A_2B, outputIntent)
+        } else {
+            PdfDocument(writer)
+        }
+
+        // Set document metadata
+        applyMetadata(pdfDocument, metadata)
 
         // Resolve page settings: template override, or default
         val pageSettings = document.pageSettingsOverride ?: DEFAULT_PAGE_SETTINGS
@@ -77,7 +100,7 @@ class DirectPdfRenderer(
             ?: emptyMap()
 
         // Create render context
-        val fontCache = FontCache()
+        val fontCache = FontCache(pdfaCompliant)
         val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage)
         val context = RenderContext(
             data = data,
@@ -90,6 +113,9 @@ class DirectPdfRenderer(
             blockStylePresets = blockStylePresets,
             document = document,
         )
+
+        // Set default font on the document so all text uses embedded Liberation Sans
+        iTextDocument.setFont(fontCache.regular)
 
         // Find special nodes (page header/footer) from the document
         val headerNode = document.nodes.values.firstOrNull { it.type == "pageheader" }
@@ -138,6 +164,26 @@ class DirectPdfRenderer(
         iTextDocument.close()
     }
 
+    private fun createSrgbOutputIntent(): PdfOutputIntent {
+        val iccStream = DirectPdfRenderer::class.java.getResourceAsStream(ICC_PROFILE_PATH)
+            ?: throw IllegalStateException("sRGB ICC profile not found: $ICC_PROFILE_PATH")
+        return PdfOutputIntent(
+            "Custom",
+            "",
+            "http://www.color.org",
+            "sRGB IEC61966-2.1",
+            iccStream,
+        )
+    }
+
+    private fun applyMetadata(pdfDocument: PdfDocument, metadata: PdfMetadata) {
+        val info = pdfDocument.documentInfo
+        metadata.title?.let { info.setTitle(it) }
+        metadata.author?.let { info.setAuthor(it) }
+        metadata.subject?.let { info.setSubject(it) }
+        info.setCreator(metadata.creator)
+    }
+
     private fun getPageSize(format: PageFormat, orientation: Orientation): PageSize {
         val baseSize = when (format) {
             PageFormat.A4 -> PageSize.A4
@@ -152,6 +198,8 @@ class DirectPdfRenderer(
     }
 
     companion object {
+        private const val ICC_PROFILE_PATH = "/color/sRGB.icc"
+
         /**
          * Creates the default node renderer registry with all built-in renderers.
          */

@@ -260,6 +260,28 @@
                 </div>
             </div>
 
+            <!-- Output Settings -->
+            <div class="detail-section" id="output-settings-section">
+                <div class="detail-section-header">
+                    <h3>Output Settings</h3>
+                </div>
+                <div class="detail-section-body">
+                    <label style="display: flex; align-items: flex-start; gap: var(--ep-space-3); cursor: pointer;">
+                        <input type="checkbox" class="ep-checkbox"
+                               id="pdfa-toggle"
+                               style="margin-top: 3px; width: auto; height: auto; flex-shrink: 0;"
+                               th:checked="${template.pdfaEnabled}"
+                               onchange="updatePdfaSetting(this.checked)">
+                        <span>
+                            <strong style="font-size: var(--ep-text-sm);">PDF/A-2b compliance</strong>
+                            <span class="text-muted" style="display: block; font-size: var(--ep-text-sm); margin-top: 2px;">
+                                Enable for long-term archival. Embeds fonts and ICC color profile, resulting in larger files. Preview rendering always uses standard PDF for speed.
+                            </span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
             <!-- Danger Zone -->
             <div class="detail-section danger-zone">
                 <div class="detail-section-header">
@@ -288,6 +310,26 @@
 
             const deploymentsUrl = [[${'/tenants/' + tenantId + '/templates/' + template.id + '/deployments'}]];
             let deploymentsLoaded = false;
+
+            function updatePdfaSetting(enabled) {
+                const url = `/tenants/${TENANT_ID}/templates/${TEMPLATE_ID}`;
+                const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+
+                fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ pdfaEnabled: enabled })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        // Revert checkbox on failure
+                        document.getElementById('pdfa-toggle').checked = !enabled;
+                    }
+                });
+            }
 
             function updateTheme(select) {
                 const themeId = select.value || null;

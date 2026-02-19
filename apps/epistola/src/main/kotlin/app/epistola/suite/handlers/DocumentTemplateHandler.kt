@@ -49,6 +49,7 @@ data class UpdateTemplateRequest(
     val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
+    val pdfaEnabled: Boolean? = null,
     val forceUpdate: Boolean = false,
 )
 
@@ -259,6 +260,7 @@ class DocumentTemplateHandler(
                 clearThemeId = updateRequest.clearThemeId,
                 dataModel = updateRequest.dataModel,
                 dataExamples = updateRequest.dataExamples,
+                pdfaEnabled = updateRequest.pdfaEnabled,
                 forceUpdate = updateRequest.forceUpdate,
             ).execute() ?: return ServerResponse.notFound().build()
 

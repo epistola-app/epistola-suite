@@ -1,0 +1,1 @@
+ALTER TABLE document_templates ADD COLUMN pdfa_enabled BOOLEAN NOT NULL DEFAULT FALSE;

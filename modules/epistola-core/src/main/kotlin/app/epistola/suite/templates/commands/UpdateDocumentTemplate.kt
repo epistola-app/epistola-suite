@@ -31,6 +31,7 @@ data class UpdateDocumentTemplate(
     val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
+    val pdfaEnabled: Boolean? = null,
     val forceUpdate: Boolean = false,
 ) : Command<UpdateDocumentTemplateResult?>
 
@@ -121,6 +122,10 @@ class UpdateDocumentTemplateHandler(
             updates.add("data_examples = :dataExamples::jsonb")
             bindings["dataExamples"] = objectMapper.writeValueAsString(command.dataExamples)
         }
+        if (command.pdfaEnabled != null) {
+            updates.add("pdfa_enabled = :pdfaEnabled")
+            bindings["pdfaEnabled"] = command.pdfaEnabled
+        }
 
         if (updates.isEmpty()) {
             val existing = getExisting(command.tenantId, command.id) ?: return null
@@ -133,7 +138,7 @@ class UpdateDocumentTemplateHandler(
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
             WHERE id = :id AND tenant_id = :tenantId
-            RETURNING id, tenant_id, name, theme_id, data_model, data_examples, created_at, last_modified
+            RETURNING id, tenant_id, name, theme_id, data_model, data_examples, pdfa_enabled, created_at, last_modified
         """
 
         val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
@@ -154,7 +159,7 @@ class UpdateDocumentTemplateHandler(
     private fun getExisting(tenantId: TenantId, id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, theme_id, data_model, data_examples, created_at, last_modified
+            SELECT id, tenant_id, name, theme_id, data_model, data_examples, pdfa_enabled, created_at, last_modified
             FROM document_templates
             WHERE id = :id AND tenant_id = :tenantId
             """,

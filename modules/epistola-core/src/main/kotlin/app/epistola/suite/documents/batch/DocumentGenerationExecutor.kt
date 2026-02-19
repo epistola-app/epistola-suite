@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.GenerationRequestId
@@ -141,7 +142,11 @@ class DocumentGenerationExecutor(
 
         @Suppress("UNCHECKED_CAST")
         val dataMap = objectMapper.convertValue(request.data, Map::class.java) as Map<String, Any?>
-        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId)
+        val metadata = PdfMetadata(
+            title = template.name,
+            author = tenant.name,
+        )
+        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()
