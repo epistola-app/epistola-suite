@@ -5,20 +5,17 @@ import app.epistola.suite.common.ids.UserId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
-import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
-import app.epistola.suite.tenants.commands.DeleteTenant
-import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.testing.FakeExecutorTestConfiguration
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
+import app.epistola.suite.testing.TestTenantCounter
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -44,9 +41,8 @@ abstract class CoreIntegrationTestBase {
     protected lateinit var scenarioFactory: ScenarioFactory
 
     private val classNamespace = this::class.simpleName!!.lowercase().take(20)
-    private var tenantCounter = 0
 
-    private fun nextTenantSlug(): String = "$classNamespace-${++tenantCounter}"
+    private fun nextTenantSlug(): String = "$classNamespace-${TestTenantCounter.next(classNamespace)}"
 
     /**
      * Test user for authenticated operations.
@@ -98,7 +94,7 @@ abstract class CoreIntegrationTestBase {
     protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
 
     /**
-     * Creates a test scenario with type-safe Given-When-Then DSL and automatic cleanup.
+     * Creates a test scenario with type-safe Given-When-Then DSL.
      *
      * Example:
      * ```kotlin
@@ -123,19 +119,5 @@ abstract class CoreIntegrationTestBase {
     protected fun createTenant(name: String): Tenant = withMediator {
         val tenant = CreateTenant(id = TenantId.of(nextTenantSlug()), name = name).execute()
         tenant
-    }
-
-    /**
-     * Reset test data before each test.
-     *
-     * Uses per-class namespaced ListTenants + DeleteTenant to only clean up data
-     * owned by this test class, enabling safe parallel execution across test classes.
-     */
-    @BeforeEach
-    fun resetDatabaseState(): Unit = withMediator {
-        tenantCounter = 0
-        ListTenants(idPrefix = classNamespace).query().forEach { tenant ->
-            DeleteTenant(tenant.id).execute()
-        }
     }
 }

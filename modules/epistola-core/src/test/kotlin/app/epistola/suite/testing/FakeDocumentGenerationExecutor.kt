@@ -62,7 +62,30 @@ class FakeDocumentGenerationExecutor(
             val filename = request.filename ?: "document-${request.id.value}.pdf"
 
             localJdbi.useTransaction<Exception> { handle ->
-                // Insert fake document
+                // 1. Claim completion — skip if the request was cancelled during processing
+                val expiresAtInterval = "$localRetentionDays days"
+                val updated = handle.createUpdate(
+                    """
+                    UPDATE document_generation_requests
+                    SET status = 'COMPLETED',
+                        document_id = :documentId,
+                        completed_at = NOW(),
+                        expires_at = NOW() + :expiresAt::interval
+                    WHERE id = :requestId
+                      AND status != 'CANCELLED'
+                    """,
+                )
+                    .bind("requestId", request.id)
+                    .bind("documentId", documentId)
+                    .bind("expiresAt", expiresAtInterval)
+                    .execute()
+
+                if (updated == 0) {
+                    logger.debug("Request {} was cancelled during processing, skipping", request.id.value)
+                    return@useTransaction
+                }
+
+                // 2. Insert fake document (only if not cancelled)
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
@@ -86,23 +109,6 @@ class FakeDocumentGenerationExecutor(
                     .bind("correlationId", request.correlationId)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
                     .bind("content", fakePdfBytes)
-                    .execute()
-
-                // Mark request as completed
-                val expiresAtInterval = "$localRetentionDays days"
-                handle.createUpdate(
-                    """
-                    UPDATE document_generation_requests
-                    SET status = 'COMPLETED',
-                        document_id = :documentId,
-                        completed_at = NOW(),
-                        expires_at = NOW() + :expiresAt::interval
-                    WHERE id = :requestId
-                    """,
-                )
-                    .bind("requestId", request.id)
-                    .bind("documentId", documentId)
-                    .bind("expiresAt", expiresAtInterval)
                     .execute()
             }
 
@@ -130,6 +136,7 @@ class FakeDocumentGenerationExecutor(
                     completed_at = NOW(),
                     expires_at = NOW() + :expiresAt::interval
                 WHERE id = :requestId
+                  AND status != 'CANCELLED'
                 """,
             )
                 .bind("requestId", requestId)
