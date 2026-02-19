@@ -28,7 +28,6 @@ export class EpistolaCanvas extends LitElement {
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation()
     this.engine?.selectNode(nodeId)
-    this._maybeFocusTextEditor(nodeId)
   }
 
   private _handleCanvasClick() {
@@ -37,22 +36,6 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleFocus(nodeId: NodeId) {
     this.engine?.selectNode(nodeId)
-    this._maybeFocusTextEditor(nodeId)
-  }
-
-  private _maybeFocusTextEditor(nodeId: NodeId) {
-    const doc = this.doc
-    if (!doc) return
-    const node = doc.nodes[nodeId]
-    if (!node || node.type !== 'text') return
-
-    requestAnimationFrame(() => {
-      const blockEl = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`)
-      const textEditor = blockEl?.querySelector<HTMLElement>('epistola-text-editor')
-      if (!textEditor) return
-      const focusEditor = (textEditor as { focusEditor?: () => void }).focusEditor
-      focusEditor?.call(textEditor)
-    })
   }
 
   override updated() {

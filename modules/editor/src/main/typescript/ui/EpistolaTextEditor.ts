@@ -122,10 +122,6 @@ export class EpistolaTextEditor extends LitElement {
     super.disconnectedCallback()
   }
 
-  focusEditor(): void {
-    this._pmView?.focus()
-  }
-
   // ---------------------------------------------------------------------------
   // ProseMirror setup
   // ---------------------------------------------------------------------------
