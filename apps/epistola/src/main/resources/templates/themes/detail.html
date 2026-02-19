@@ -44,8 +44,8 @@
             };
             /*]]>*/
         </script>
-        <script type="module">
-            import { mountThemeEditor } from '/editor/theme-editor.js';
+        <script type="module" th:inline="javascript">
+            const { mountThemeEditor } = await import(/*[[@{/editor/theme-editor.js}]]*/ '/editor/theme-editor.js');
 
             const container = document.getElementById('theme-editor-container');
             const tenantId = window.TENANT_ID;

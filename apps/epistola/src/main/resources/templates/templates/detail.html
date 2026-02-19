@@ -394,8 +394,8 @@
                 }
             });
         </script>
-        <script type="module">
-            import { mountDataContractEditor } from '/editor/data-contract-editor.js';
+        <script type="module" th:inline="javascript">
+            const { mountDataContractEditor } = await import(/*[[@{/editor/data-contract-editor.js}]]*/ '/editor/data-contract-editor.js');
 
             const tenantId = TENANT_ID;
             const templateId = TEMPLATE_ID;

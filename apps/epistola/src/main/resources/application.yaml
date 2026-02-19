@@ -9,6 +9,17 @@ spring:
     clean-on-validation-error: true      # Auto-clean DB when migrations are incompatible
     locations:
       - classpath:db/migration
+  web:
+    resources:
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: /css/**, /design-system/**, /js/**, /editor/**
+      cache:
+        cachecontrol:
+          max-age: 365d
+          cache-public: true
   threads:
     virtual:
       enabled: true

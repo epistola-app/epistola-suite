@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Static resource cache busting**: Content-hash based URLs for CSS, JS, and SVG assets (e.g. `/css/main-abc123.css`). Combined with 1-year cache headers, browsers cache aggressively but always get fresh content after deployments. Uses Spring Boot's `VersionResourceResolver` — no build-time file renaming needed. Disabled in local dev profile for fast iteration.
+
 ### Changed
 - **Test execution speed**: Optimized backend test infrastructure for parallel execution. Gradle parallel builds, JUnit 5 parallel class execution, per-class tenant namespacing for DB isolation, Testcontainers reuse with tmpfs, UNLOGGED tables in tests, HikariCP pool tuning, and JVM heap pre-sizing. Tests that need exclusive DB access are annotated with `@Isolated`.
 

@@ -10,7 +10,7 @@
     <!-- AI plugin CSS — loaded conditionally when AI plugin is enabled -->
     <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins != null and enabledPlugins.contains('ai')}">
     <!-- TODO: Remove static fallback once backend provides enabledPlugins -->
-    <link rel="stylesheet" href="/editor/ai-plugin.css" th:if="${enabledPlugins == null}">
+    <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins == null}">
     <style>
         .editor-page {
             display: flex;
@@ -86,8 +86,8 @@
         };
         /*]]>*/
     </script>
-    <script type="module">
-        import { mountEditor } from '/editor/template-editor.js';
+    <script type="module" th:inline="javascript">
+        const { mountEditor } = await import(/*[[@{/editor/template-editor.js}]]*/ '/editor/template-editor.js');
 
         const container = document.getElementById('editor-container');
         const tenantId = window.TENANT_ID;
@@ -101,7 +101,7 @@
         // When enabledPlugins is provided by the backend, the Thymeleaf
         // conditional (th:if) will control whether this block is rendered.
         try {
-            const { createAiPlugin, createMockTransport } = await import('/editor/ai-plugin.js');
+            const { createAiPlugin, createMockTransport } = await import(/*[[@{/editor/ai-plugin.js}]]*/ '/editor/ai-plugin.js');
             plugins.push(createAiPlugin({ sendMessage: createMockTransport() }));
         } catch (e) {
             console.warn('AI plugin failed to load:', e);
