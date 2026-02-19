@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component
 
 data class ListTenants(
     val searchTerm: String? = null,
+    val idPrefix: String? = null,
 ) : Query<List<Tenant>>
 
 @Component
@@ -21,12 +22,18 @@ class ListTenantsHandler(
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND name ILIKE :searchTerm")
             }
+            if (!query.idPrefix.isNullOrBlank()) {
+                append(" AND id LIKE :idPrefix")
+            }
             append(" ORDER BY created_at DESC")
         }
 
         val jdbiQuery = handle.createQuery(sql)
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
+        }
+        if (!query.idPrefix.isNullOrBlank()) {
+            jdbiQuery.bind("idPrefix", "${query.idPrefix}%")
         }
         jdbiQuery
             .mapTo<Tenant>()

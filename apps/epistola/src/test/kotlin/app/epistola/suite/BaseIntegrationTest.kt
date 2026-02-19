@@ -4,8 +4,11 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.tenants.commands.DeleteTenant
+import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
@@ -17,7 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
-import javax.sql.DataSource
 
 @Import(TestcontainersConfiguration::class, UnloggedTablesTestConfiguration::class)
 @SpringBootTest(
@@ -36,9 +38,6 @@ abstract class BaseIntegrationTest {
 
     @Autowired
     protected lateinit var scenarioFactory: ScenarioFactory
-
-    @Autowired
-    private lateinit var dataSource: DataSource
 
     private val classNamespace = this::class.simpleName!!.lowercase().take(20)
     private var tenantCounter = 0
@@ -92,17 +91,14 @@ abstract class BaseIntegrationTest {
     /**
      * Reset test data before each test.
      *
-     * Uses per-class namespaced DELETE to only clean up data owned by this test class,
-     * enabling safe parallel execution across test classes.
+     * Uses per-class namespaced ListTenants + DeleteTenant to only clean up data
+     * owned by this test class, enabling safe parallel execution across test classes.
      */
     @BeforeEach
-    fun resetDatabaseState() {
+    fun resetDatabaseState(): Unit = withMediator {
         tenantCounter = 0
-        dataSource.connection.use { conn ->
-            conn.prepareStatement("DELETE FROM tenants WHERE id LIKE ?").use { stmt ->
-                stmt.setString(1, "$classNamespace-%")
-                stmt.executeUpdate()
-            }
+        ListTenants(idPrefix = classNamespace).query().forEach { tenant ->
+            DeleteTenant(tenant.id).execute()
         }
     }
 }
