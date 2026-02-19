@@ -1,65 +1,104 @@
-import { LitElement, html, nothing } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
-import { styleMap } from 'lit/directives/style-map.js'
-import { draggable, dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
-import { attachClosestEdge, extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
-import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
-import type { EditorEngine } from '../engine/EditorEngine.js'
-import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
-import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
-import { handleDrop } from '../dnd/drop-handler.js'
-import { icon } from './icons.js'
-import '../ui/EpistolaTextEditor.js'
+import { LitElement, html, nothing } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { styleMap } from "lit/directives/style-map.js";
+import {
+  draggable,
+  dropTargetForElements,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import {
+  attachClosestEdge,
+  extractClosestEdge,
+} from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
+import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
+import type { EditorEngine } from "../engine/EditorEngine.js";
+import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
+import {
+  resolveDropOnBlockEdge,
+  canDropHere,
+  type Edge,
+} from "../dnd/drop-logic.js";
+import { handleDrop } from "../dnd/drop-handler.js";
+import { icon } from "./icons.js";
+import "../ui/EpistolaTextEditor.js";
 
-@customElement('epistola-canvas')
+@customElement("epistola-canvas")
 export class EpistolaCanvas extends LitElement {
   override createRenderRoot() {
-    return this
+    return this;
   }
 
-  @property({ attribute: false }) engine?: EditorEngine
-  @property({ attribute: false }) doc?: TemplateDocument
-  @property({ attribute: false }) selectedNodeId: NodeId | null = null
+  @property({ attribute: false }) engine?: EditorEngine;
+  @property({ attribute: false }) doc?: TemplateDocument;
+  @property({ attribute: false }) selectedNodeId: NodeId | null = null;
 
-  private _dndCleanup: (() => void) | null = null
-  private _unsubComponentState?: () => void
-  private _subscribedEngine?: EditorEngine
+  private _dndCleanup: (() => void) | null = null;
+  private _unsubComponentState?: () => void;
+  private _subscribedEngine?: EditorEngine;
 
   private _handleSelect(e: Event, nodeId: NodeId) {
-    e.stopPropagation()
-    this.engine?.selectNode(nodeId)
+    e.stopPropagation();
+    this.engine?.selectNode(nodeId);
+    this._maybeFocusTextEditor(nodeId);
   }
 
   private _handleCanvasClick() {
-    this.engine?.selectNode(null)
+    this.engine?.selectNode(null);
   }
 
   private _handleDeleteBlock(nodeId: NodeId) {
-    if (!this.engine) return
-    this.engine.dispatch({ type: 'RemoveNode', nodeId })
-    this.engine.selectNode(null)
+    if (!this.engine) return;
+    this.engine.dispatch({ type: "RemoveNode", nodeId });
+    this.engine.selectNode(null);
+  }
+
+  private _handleFocus(nodeId: NodeId) {
+    this.engine?.selectNode(nodeId);
+    this._maybeFocusTextEditor(nodeId);
+  }
+
+  private _maybeFocusTextEditor(nodeId: NodeId) {
+    const doc = this.doc;
+    if (!doc) return;
+    const node = doc.nodes[nodeId];
+    if (!node || node.type !== "text") return;
+
+    requestAnimationFrame(() => {
+      const blockEl = this.querySelector<HTMLElement>(
+        `.canvas-block[data-node-id="${nodeId}"]`,
+      );
+      const textEditor = blockEl?.querySelector<HTMLElement>(
+        "epistola-text-editor",
+      );
+      if (!textEditor) return;
+      const focusEditor = (textEditor as { focusEditor?: () => void })
+        .focusEditor;
+      focusEditor?.call(textEditor);
+    });
   }
 
   override updated() {
-    this._dndCleanup?.()
-    this._dndCleanup = this._setupDnD()
+    this._dndCleanup?.();
+    this._dndCleanup = this._setupDnD();
 
     // Subscribe to component state changes (e.g. table cell selection) so the
     // canvas re-renders when state is updated from within renderCanvas hooks.
     if (this.engine && this.engine !== this._subscribedEngine) {
-      this._unsubComponentState?.()
-      this._subscribedEngine = this.engine
-      this._unsubComponentState = this.engine.events.on('component-state:change', () => {
-        this.requestUpdate()
-      })
+      this._unsubComponentState?.();
+      this._subscribedEngine = this.engine;
+      this._unsubComponentState = this.engine.events.on(
+        "component-state:change",
+        () => {
+          this.requestUpdate();
+        },
+      );
     }
   }
 
   override disconnectedCallback() {
-    this._dndCleanup?.()
-    this._dndCleanup = null
-    this._unsubComponentState?.()
-    super.disconnectedCallback()
+    this._dndCleanup?.();
+    this._dndCleanup = null;
+    this._unsubComponentState?.();
+    super.disconnectedCallback();
   }
 
   // ---------------------------------------------------------------------------
@@ -67,143 +106,182 @@ export class EpistolaCanvas extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _setupDnD(): (() => void) | null {
-    if (!this.engine || !this.doc) return null
+    if (!this.engine || !this.doc) return null;
 
-    const cleanups: (() => void)[] = []
+    const cleanups: (() => void)[] = [];
 
     // Setup drag sources on canvas blocks (skip root)
-    const blocks = this.querySelectorAll<HTMLElement>('.canvas-block[data-node-id]')
+    const blocks = this.querySelectorAll<HTMLElement>(
+      ".canvas-block[data-node-id]",
+    );
     for (const blockEl of blocks) {
-      const nodeId = blockEl.dataset.nodeId as NodeId | undefined
-      if (!nodeId || nodeId === this.doc.root) continue
+      const nodeId = blockEl.dataset.nodeId as NodeId | undefined;
+      if (!nodeId || nodeId === this.doc.root) continue;
 
-      const node = this.doc.nodes[nodeId]
-      if (!node) continue
+      const node = this.doc.nodes[nodeId];
+      if (!node) continue;
 
       // Drag source
-      cleanups.push(draggable({
-        element: blockEl,
-        dragHandle: blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl,
-        getInitialData: (): DragData => ({ source: 'block', nodeId, blockType: node.type }),
-        onDragStart: () => blockEl.classList.add('dragging'),
-        onDrop: () => blockEl.classList.remove('dragging'),
-      }))
+      cleanups.push(
+        draggable({
+          element: blockEl,
+          dragHandle:
+            blockEl.querySelector<HTMLElement>(".canvas-block-header") ??
+            blockEl,
+          getInitialData: (): DragData => ({
+            source: "block",
+            nodeId,
+            blockType: node.type,
+          }),
+          onDragStart: () => blockEl.classList.add("dragging"),
+          onDrop: () => blockEl.classList.remove("dragging"),
+        }),
+      );
 
       // Drop target on each block (edge detection for inserting before/after in parent slot)
-      cleanups.push(dropTargetForElements({
-        element: blockEl,
-        getData: ({ input, element }) => attachClosestEdge(
-          { nodeId },
-          { element, input, allowedEdges: ['top', 'bottom'] },
-        ),
-        canDrop: ({ source }) => {
-          const dragData = source.data as Record<string, unknown>
-          if (!isDragData(dragData)) return false
+      cleanups.push(
+        dropTargetForElements({
+          element: blockEl,
+          getData: ({ input, element }) =>
+            attachClosestEdge(
+              { nodeId },
+              { element, input, allowedEdges: ["top", "bottom"] },
+            ),
+          canDrop: ({ source }) => {
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return false;
 
-          // Can't drop a block on itself
-          if (isBlockDrag(dragData) && dragData.nodeId === nodeId) return false
+            // Can't drop a block on itself
+            if (isBlockDrag(dragData) && dragData.nodeId === nodeId)
+              return false;
 
-          // Resolve parent slot of this block via DOM
-          const slotEl = blockEl.closest<HTMLElement>('[data-slot-id]')
-          const parentSlotId = slotEl?.dataset.slotId as SlotId | undefined
-          if (!parentSlotId) return false
+            // Resolve parent slot of this block via DOM
+            const slotEl = blockEl.closest<HTMLElement>("[data-slot-id]");
+            const parentSlotId = slotEl?.dataset.slotId as SlotId | undefined;
+            if (!parentSlotId) return false;
 
-          return canDropHere(dragData, parentSlotId, this.doc!, this.engine!.indexes, this.engine!.registry)
-        },
-        onDragEnter: ({ self, location }) => {
-          // Only show edge indicator if this block is the innermost drop target.
-          // A nested slot (inside this block) takes priority.
-          if (location.current.dropTargets[0]?.element !== blockEl) return
-          const edge = extractClosestEdge(self.data)
-          if (edge === 'top' || edge === 'bottom') {
-            blockEl.setAttribute('data-drop-edge', edge)
-          }
-        },
-        onDrag: ({ self, location }) => {
-          if (location.current.dropTargets[0]?.element !== blockEl) {
-            blockEl.removeAttribute('data-drop-edge')
-            return
-          }
-          const edge = extractClosestEdge(self.data)
-          if (edge === 'top' || edge === 'bottom') {
-            blockEl.setAttribute('data-drop-edge', edge)
-          }
-        },
-        onDragLeave: () => {
-          blockEl.removeAttribute('data-drop-edge')
-        },
-        onDrop: ({ self, source, location }) => {
-          blockEl.removeAttribute('data-drop-edge')
+            return canDropHere(
+              dragData,
+              parentSlotId,
+              this.doc!,
+              this.engine!.indexes,
+              this.engine!.registry,
+            );
+          },
+          onDragEnter: ({ self, location }) => {
+            // Only show edge indicator if this block is the innermost drop target.
+            // A nested slot (inside this block) takes priority.
+            if (location.current.dropTargets[0]?.element !== blockEl) return;
+            const edge = extractClosestEdge(self.data);
+            if (edge === "top" || edge === "bottom") {
+              blockEl.setAttribute("data-drop-edge", edge);
+            }
+          },
+          onDrag: ({ self, location }) => {
+            if (location.current.dropTargets[0]?.element !== blockEl) {
+              blockEl.removeAttribute("data-drop-edge");
+              return;
+            }
+            const edge = extractClosestEdge(self.data);
+            if (edge === "top" || edge === "bottom") {
+              blockEl.setAttribute("data-drop-edge", edge);
+            }
+          },
+          onDragLeave: () => {
+            blockEl.removeAttribute("data-drop-edge");
+          },
+          onDrop: ({ self, source, location }) => {
+            blockEl.removeAttribute("data-drop-edge");
 
-          // If a deeper target (nested slot) is innermost, skip — it handles the drop
-          if (location.current.dropTargets[0]?.element !== blockEl) return
+            // If a deeper target (nested slot) is innermost, skip — it handles the drop
+            if (location.current.dropTargets[0]?.element !== blockEl) return;
 
-          const dragData = source.data as Record<string, unknown>
-          if (!isDragData(dragData)) return
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return;
 
-          const edge = extractClosestEdge(self.data) as Edge | null
-          if (!edge) return
+            const edge = extractClosestEdge(self.data) as Edge | null;
+            if (!edge) return;
 
-          const dropLocation = resolveDropOnBlockEdge(nodeId, edge, this.doc!, this.engine!.indexes)
-          if (!dropLocation) return
+            const dropLocation = resolveDropOnBlockEdge(
+              nodeId,
+              edge,
+              this.doc!,
+              this.engine!.indexes,
+            );
+            if (!dropLocation) return;
 
-          this._handleDrop(dragData, dropLocation.targetSlotId, dropLocation.index)
-        },
-      }))
+            this._handleDrop(
+              dragData,
+              dropLocation.targetSlotId,
+              dropLocation.index,
+            );
+          },
+        }),
+      );
     }
 
     // Setup drop targets on ALL slots (empty and non-empty).
     // Empty slots accept drops at index 0.
     // Non-empty slots accept drops in the empty space below children (append).
-    const slots = this.querySelectorAll<HTMLElement>('.canvas-slot[data-slot-id]')
+    const slots = this.querySelectorAll<HTMLElement>(
+      ".canvas-slot[data-slot-id]",
+    );
     for (const slotEl of slots) {
-      const slotId = slotEl.dataset.slotId as SlotId | undefined
-      if (!slotId) continue
+      const slotId = slotEl.dataset.slotId as SlotId | undefined;
+      if (!slotId) continue;
 
-      const slot = this.doc.slots[slotId]
-      if (!slot) continue
+      const slot = this.doc.slots[slotId];
+      if (!slot) continue;
 
-      cleanups.push(dropTargetForElements({
-        element: slotEl,
-        canDrop: ({ source }) => {
-          const dragData = source.data as Record<string, unknown>
-          if (!isDragData(dragData)) return false
-          return canDropHere(dragData, slotId, this.doc!, this.engine!.indexes, this.engine!.registry)
-        },
-        onDragEnter: ({ location }) => {
-          if (location.current.dropTargets[0]?.element === slotEl) {
-            slotEl.classList.add('drag-over')
-          }
-        },
-        onDrag: ({ location }) => {
-          if (location.current.dropTargets[0]?.element === slotEl) {
-            slotEl.classList.add('drag-over')
-          } else {
-            slotEl.classList.remove('drag-over')
-          }
-        },
-        onDragLeave: () => {
-          slotEl.classList.remove('drag-over')
-        },
-        onDrop: ({ source, location }) => {
-          slotEl.classList.remove('drag-over')
+      cleanups.push(
+        dropTargetForElements({
+          element: slotEl,
+          canDrop: ({ source }) => {
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return false;
+            return canDropHere(
+              dragData,
+              slotId,
+              this.doc!,
+              this.engine!.indexes,
+              this.engine!.registry,
+            );
+          },
+          onDragEnter: ({ location }) => {
+            if (location.current.dropTargets[0]?.element === slotEl) {
+              slotEl.classList.add("drag-over");
+            }
+          },
+          onDrag: ({ location }) => {
+            if (location.current.dropTargets[0]?.element === slotEl) {
+              slotEl.classList.add("drag-over");
+            } else {
+              slotEl.classList.remove("drag-over");
+            }
+          },
+          onDragLeave: () => {
+            slotEl.classList.remove("drag-over");
+          },
+          onDrop: ({ source, location }) => {
+            slotEl.classList.remove("drag-over");
 
-          // Only handle if this slot is the innermost target.
-          // If a child block is innermost, its edge handler takes care of it.
-          if (location.current.dropTargets[0]?.element !== slotEl) return
+            // Only handle if this slot is the innermost target.
+            // If a child block is innermost, its edge handler takes care of it.
+            if (location.current.dropTargets[0]?.element !== slotEl) return;
 
-          const dragData = source.data as Record<string, unknown>
-          if (!isDragData(dragData)) return
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return;
 
-          // Append at end of slot
-          const currentSlot = this.doc!.slots[slotId]
-          const index = currentSlot ? currentSlot.children.length : 0
-          this._handleDrop(dragData, slotId, index)
-        },
-      }))
+            // Append at end of slot
+            const currentSlot = this.doc!.slots[slotId];
+            const index = currentSlot ? currentSlot.children.length : 0;
+            this._handleDrop(dragData, slotId, index);
+          },
+        }),
+      );
     }
 
-    return () => cleanups.forEach(fn => fn())
+    return () => cleanups.forEach((fn) => fn());
   }
 
   // ---------------------------------------------------------------------------
@@ -211,8 +289,8 @@ export class EpistolaCanvas extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
-    if (!this.engine) return
-    handleDrop(this.engine, dragData, targetSlotId, index)
+    if (!this.engine) return;
+    handleDrop(this.engine, dragData, targetSlotId, index);
   }
 
   // ---------------------------------------------------------------------------
@@ -221,13 +299,13 @@ export class EpistolaCanvas extends LitElement {
 
   override render() {
     if (!this.doc || !this.engine) {
-      return html`<div class="editor-empty">No document</div>`
+      return html`<div class="editor-empty">No document</div>`;
     }
 
-    const pageSettings = this.engine.resolvedPageSettings
-    const pageStyle: Record<string, string> = {}
+    const pageSettings = this.engine.resolvedPageSettings;
+    const pageStyle: Record<string, string> = {};
     if (pageSettings.backgroundColor) {
-      pageStyle.backgroundColor = pageSettings.backgroundColor
+      pageStyle.backgroundColor = pageSettings.backgroundColor;
     }
 
     return html`
@@ -236,99 +314,112 @@ export class EpistolaCanvas extends LitElement {
           ${this._renderNodeChildren(this.doc.root)}
         </div>
       </div>
-    `
+    `;
   }
 
   private _renderNodeChildren(nodeId: NodeId): unknown {
-    const doc = this.doc!
-    const node = doc.nodes[nodeId]
-    if (!node) return nothing
+    const doc = this.doc!;
+    const node = doc.nodes[nodeId];
+    if (!node) return nothing;
 
     if (node.slots.length === 0) {
       // Leaf node
-      return this._renderLeafNode(nodeId)
+      return this._renderLeafNode(nodeId);
     }
 
-    return html`
-      ${node.slots.map(slotId => this._renderSlot(slotId))}
-    `
+    return html` ${node.slots.map((slotId) => this._renderSlot(slotId))} `;
   }
 
   private _renderSlot(slotId: SlotId): unknown {
-    const doc = this.doc!
-    const slot = doc.slots[slotId]
-    if (!slot) return nothing
+    const doc = this.doc!;
+    const slot = doc.slots[slotId];
+    if (!slot) return nothing;
 
-    const parentNode = doc.nodes[slot.nodeId]
-    const isMultiSlot = parentNode && parentNode.slots.length > 1
+    const parentNode = doc.nodes[slot.nodeId];
+    const isMultiSlot = parentNode && parentNode.slots.length > 1;
 
     return html`
       <div
-        class="canvas-slot ${slot.children.length === 0 ? 'empty' : ''}"
+        class="canvas-slot ${slot.children.length === 0 ? "empty" : ""}"
         data-slot-id=${slotId}
         data-slot-name=${slot.name}
       >
         ${slot.children.length === 0
-          ? html`<span class="canvas-slot-hint">${isMultiSlot ? slot.name : 'Drop blocks here'}</span>`
-          : slot.children.map(childId => this._renderBlock(childId))
-        }
+          ? html`<span class="canvas-slot-hint"
+              >${isMultiSlot ? slot.name : "Drop blocks here"}</span
+            >`
+          : slot.children.map((childId) => this._renderBlock(childId))}
       </div>
-    `
+    `;
   }
 
   private _renderBlock(nodeId: NodeId): unknown {
-    const doc = this.doc!
-    const node = doc.nodes[nodeId]
-    if (!node) return nothing
+    const doc = this.doc!;
+    const node = doc.nodes[nodeId];
+    if (!node) return nothing;
 
-    const isSelected = this.selectedNodeId === nodeId
-    const def = this.engine!.registry.get(node.type)
-    const label = def?.label ?? node.type
+    const isSelected = this.selectedNodeId === nodeId;
+    const def = this.engine!.registry.get(node.type);
+    const label = def?.label ?? node.type;
 
     // Resolve styles through the full cascade, filtered by component's applicable styles
-    const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId)
-    const applicableStyles = def?.applicableStyles
-    const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles)
-    const contentStyle = toStyleMap(filteredStyles)
+    const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
+    const applicableStyles = def?.applicableStyles;
+    const filteredStyles = filterByApplicableStyles(
+      resolvedStyles,
+      applicableStyles,
+    );
+    const contentStyle = toStyleMap(filteredStyles);
 
     return html`
       <div
-        class="canvas-block ${isSelected ? 'selected' : ''}"
+        class="canvas-block ${isSelected ? "selected" : ""}"
         data-node-id=${nodeId}
+        tabindex="0"
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
+        @focus=${() => this._handleFocus(nodeId)}
       >
         <!-- Block header -->
         <div class="canvas-block-header">
           <span class="canvas-block-label">${label}</span>
           <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
-          ${isSelected ? html`
-            <button
-              class="canvas-block-delete"
-              title="Delete block"
-              @click=${(e: Event) => { e.stopPropagation(); this._handleDeleteBlock(nodeId) }}
-            >${icon('trash-2', 14)}</button>
-          ` : nothing}
+          ${isSelected
+            ? html`
+                <button
+                  class="canvas-block-delete"
+                  title="Delete block"
+                  @click=${(e: Event) => {
+                    e.stopPropagation();
+                    this._handleDeleteBlock(nodeId);
+                  }}
+                >
+                  ${icon("trash-2", 14)}
+                </button>
+              `
+            : nothing}
         </div>
 
         <!-- Block content area -->
         <div
-          class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
+          class="canvas-block-content ${node.type === "text"
+            ? "text-type"
+            : ""}"
           style=${styleMap(contentStyle)}
         >
           ${this._renderBlockContent(nodeId)}
         </div>
       </div>
-    `
+    `;
   }
 
   private _renderBlockContent(nodeId: NodeId): unknown {
-    const doc = this.doc!
-    const node = doc.nodes[nodeId]
-    if (!node) return nothing
+    const doc = this.doc!;
+    const node = doc.nodes[nodeId];
+    if (!node) return nothing;
 
     // Delegate to component's renderCanvas hook if present (checked first so
     // leaf components like image can provide custom rendering)
-    const def = this.engine!.registry.get(node.type)
+    const def = this.engine!.registry.get(node.type);
     if (def?.renderCanvas) {
       return def.renderCanvas({
         node,
@@ -336,32 +427,33 @@ export class EpistolaCanvas extends LitElement {
         engine: this.engine!,
         renderSlot: (slotId: SlotId) => this._renderSlot(slotId),
         selectedNodeId: this.selectedNodeId,
-      })
+      });
     }
 
     // For leaf nodes with no slots, show a content placeholder
     if (node.slots.length === 0) {
-      return this._renderLeafNode(nodeId)
+      return this._renderLeafNode(nodeId);
     }
 
     // Default: render all slots
-    return html`
-      ${node.slots.map(slotId => this._renderSlot(slotId))}
-    `
+    return html` ${node.slots.map((slotId) => this._renderSlot(slotId))} `;
   }
 
   private _renderLeafNode(nodeId: NodeId): unknown {
-    const doc = this.doc!
-    const node = doc.nodes[nodeId]
-    if (!node) return nothing
+    const doc = this.doc!;
+    const node = doc.nodes[nodeId];
+    if (!node) return nothing;
 
     switch (node.type) {
-      case 'text': {
-        const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId)
-        const def = this.engine!.registry.get(node.type)
-        const applicableStyles = def?.applicableStyles
-        const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles)
-        const textStyles = toStyleMap(filteredStyles)
+      case "text": {
+        const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
+        const def = this.engine!.registry.get(node.type);
+        const applicableStyles = def?.applicableStyles;
+        const filteredStyles = filterByApplicableStyles(
+          resolvedStyles,
+          applicableStyles,
+        );
+        const textStyles = toStyleMap(filteredStyles);
         return html`
           <epistola-text-editor
             .nodeId=${nodeId}
@@ -370,19 +462,18 @@ export class EpistolaCanvas extends LitElement {
             .engine=${this.engine}
             .isSelected=${this.selectedNodeId === nodeId}
           ></epistola-text-editor>
-        `
+        `;
       }
-      case 'pagebreak':
+      case "pagebreak":
         return html`<div class="canvas-pagebreak">
           <div class="canvas-pagebreak-line"></div>
           <span class="canvas-pagebreak-label">Page Break</span>
           <div class="canvas-pagebreak-line"></div>
-        </div>`
+        </div>`;
       default:
-        return html`<div class="canvas-leaf-default">${node.type}</div>`
+        return html`<div class="canvas-leaf-default">${node.type}</div>`;
     }
   }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -395,24 +486,24 @@ export class EpistolaCanvas extends LitElement {
  */
 function filterByApplicableStyles(
   styles: Record<string, unknown>,
-  applicableStyles: 'all' | string[] | undefined,
+  applicableStyles: "all" | string[] | undefined,
 ): Record<string, unknown> {
-  if (!applicableStyles || applicableStyles === 'all') return styles
-  if (applicableStyles.length === 0) return {}
-  const result: Record<string, unknown> = {}
+  if (!applicableStyles || applicableStyles === "all") return styles;
+  if (applicableStyles.length === 0) return {};
+  const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(styles)) {
     if (applicableStyles.includes(key)) {
-      result[key] = value
-    } else if (applicableStyles.some(allowed => key.startsWith(allowed))) {
-      result[key] = value
+      result[key] = value;
+    } else if (applicableStyles.some((allowed) => key.startsWith(allowed))) {
+      result[key] = value;
     }
   }
-  return result
+  return result;
 }
 
 /** Convert a camelCase key to kebab-case CSS property name. */
 function camelToKebab(key: string): string {
-  return key.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`)
+  return key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 }
 
 /**
@@ -420,16 +511,16 @@ function camelToKebab(key: string): string {
  * All values are scalar strings (e.g. marginTop: '10px' → margin-top: 10px).
  */
 function toStyleMap(styles: Record<string, unknown>): Record<string, string> {
-  const result: Record<string, string> = {}
+  const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(styles)) {
-    if (value == null) continue
-    result[camelToKebab(key)] = String(value)
+    if (value == null) continue;
+    result[camelToKebab(key)] = String(value);
   }
-  return result
+  return result;
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'epistola-canvas': EpistolaCanvas
+    "epistola-canvas": EpistolaCanvas;
   }
 }
