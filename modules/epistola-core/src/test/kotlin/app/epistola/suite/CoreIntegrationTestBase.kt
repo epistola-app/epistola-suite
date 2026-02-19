@@ -2,6 +2,7 @@ package app.epistola.suite
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.documents.batch.JobPoller
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -16,6 +17,7 @@ import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
 import app.epistola.suite.testing.TestTenantCounter
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -33,6 +35,14 @@ import org.springframework.test.context.ActiveProfiles
 abstract class CoreIntegrationTestBase {
     @Autowired
     protected lateinit var mediator: Mediator
+
+    @Autowired(required = false)
+    private var jobPoller: JobPoller? = null
+
+    @BeforeEach
+    fun awaitIdleJobPoller() {
+        jobPoller?.awaitIdle()
+    }
 
     @Autowired
     protected lateinit var testFixtureFactory: TestFixtureFactory
