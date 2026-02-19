@@ -15,6 +15,13 @@ spring:
       static-locations:
         - file:modules/  # Serves design-system CSS from filesystem for live editing
         - classpath:/static/
+      chain:
+        strategy:
+          content:
+            enabled: false
+      cache:
+        cachecontrol:
+          max-age: 0
   devtools:
     restart:
       enabled: true

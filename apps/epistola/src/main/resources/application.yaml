@@ -8,6 +8,17 @@ spring:
     clean-disabled: false                # Allow Flyway to clean (required for Flyway 10+)
     locations:
       - classpath:db/migration
+  web:
+    resources:
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: /css/**, /design-system/**, /js/**, /editor/**
+      cache:
+        cachecontrol:
+          max-age: 365d
+          cache-public: true
   threads:
     virtual:
       enabled: true
