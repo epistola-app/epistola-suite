@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### Changed
+- **PDF/A-2b compliance**: All generated PDFs now conform to PDF/A-2b (ISO 19005-2 Level B) for long-term archival. Fonts are embedded (Liberation Sans replaces non-embedded Helvetica), an sRGB ICC output intent is included, and XMP metadata is written automatically.
+- **Document metadata**: Generated PDFs include title (from template name), author (from tenant name), and creator metadata. Preview PDFs include default creator metadata.
 - **Test execution speed**: Optimized backend test infrastructure for parallel execution. Gradle parallel builds, JUnit 5 parallel class execution, per-class tenant namespacing for DB isolation, Testcontainers reuse with tmpfs, UNLOGGED tables in tests, HikariCP pool tuning, and JVM heap pre-sizing. Tests that need exclusive DB access are annotated with `@Isolated`.
 
 ### Changed
