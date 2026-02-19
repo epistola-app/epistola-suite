@@ -136,7 +136,7 @@ export class EpistolaEditor extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback()
-    this.addEventListener('keydown', this._onKeydown)
+    window.addEventListener('keydown', this._onKeydown)
     this.addEventListener('toggle-preview', this._handleTogglePreview)
     this.addEventListener('force-save', this._handleForceSave)
     window.addEventListener('beforeunload', this._onBeforeUnload)
@@ -150,7 +150,7 @@ export class EpistolaEditor extends LitElement {
   }
 
   override disconnectedCallback(): void {
-    this.removeEventListener('keydown', this._onKeydown)
+    window.removeEventListener('keydown', this._onKeydown)
     this.removeEventListener('toggle-preview', this._handleTogglePreview)
     this.removeEventListener('force-save', this._handleForceSave)
     window.removeEventListener('beforeunload', this._onBeforeUnload)
