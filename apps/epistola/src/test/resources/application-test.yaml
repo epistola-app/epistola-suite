@@ -1,3 +1,9 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
 logging:
   level:
     app.epistola.suite.documents.batch: INFO

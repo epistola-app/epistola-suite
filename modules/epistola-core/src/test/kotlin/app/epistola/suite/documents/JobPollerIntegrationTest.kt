@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit
         "epistola.demo.enabled=false",
     ],
 )
-@Import(CoreTestcontainersConfiguration::class)
+@Import(CoreTestcontainersConfiguration::class, app.epistola.suite.testing.UnloggedTablesTestConfiguration::class)
 @TestPropertySource(
     properties = [
         "epistola.generation.polling.enabled=true",

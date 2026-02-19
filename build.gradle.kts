@@ -63,7 +63,7 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
             testClassesDirs = testTask.get().testClassesDirs
             classpath = testTask.get().classpath
             useJUnitPlatform { excludeTags("integration", "ui") }
-            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
             testLogging { events("passed", "skipped", "failed") }
             filter { isFailOnNoMatchingTests = false }
         }
@@ -77,7 +77,7 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
                 includeTags("integration")
                 excludeTags("ui")
             }
-            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
             testLogging { events("passed", "skipped", "failed") }
             filter { isFailOnNoMatchingTests = false }
         }
@@ -88,7 +88,7 @@ configure(subprojects.filter { it.path.startsWith(":apps") || it.path.startsWith
             testClassesDirs = testTask.get().testClassesDirs
             classpath = testTask.get().classpath
             useJUnitPlatform { includeTags("ui") }
-            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1")
+            jvmArgs("-XX:+UseParallelGC", "-XX:TieredStopAtLevel=1", "-Xms256m", "-Xmx512m")
             testLogging { events("passed", "skipped", "failed") }
             filter { isFailOnNoMatchingTests = false }
         }

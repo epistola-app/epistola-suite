@@ -30,8 +30,10 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
     @Test
     fun `POST tenant with duplicate slug returns inline error`() = fixture {
+        lateinit var existingTenant: Tenant
+
         given {
-            tenant("Existing Tenant")
+            existingTenant = tenant("Existing Tenant")
         }
 
         whenever {
@@ -39,7 +41,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
             headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
             headers.set("HX-Request", "true")
             val formData = LinkedMultiValueMap<String, String>()
-            formData.add("slug", "test-tenant-1")
+            formData.add("slug", existingTenant.id.value)
             formData.add("name", "Duplicate Tenant")
             val request = HttpEntity(formData, headers)
             restTemplate.postForEntity("/tenants", request, String::class.java)

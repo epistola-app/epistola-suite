@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **Test execution speed**: Optimized backend test infrastructure for parallel execution. Gradle parallel builds, JUnit 5 parallel class execution, per-class tenant namespacing for DB isolation, Testcontainers reuse with tmpfs, UNLOGGED tables in tests, HikariCP pool tuning, and JVM heap pre-sizing. Tests that need exclusive DB access are annotated with `@Isolated`.
+
+### Changed
 - **Bean-driven security architecture**: `SecurityConfig` and `LoginHandler` now detect authentication methods from bean presence (`UserDetailsService`, `ClientRegistrationRepository`) instead of checking profile names. Adding a new form-login profile only requires updating `LocalUserDetailsService`'s `@Profile` annotation.
 - **`OAuth2UserProvisioningService`**: Replaced `@Profile("!local & !test")` with `@ConditionalOnBean(ClientRegistrationRepository::class)`. `AuthProvider` is now derived from the OAuth2 registration ID instead of a config property.
 - **Simplified `AuthProperties`**: Removed `provider` and `registrationId` fields (redundant). Only `autoProvision` remains.

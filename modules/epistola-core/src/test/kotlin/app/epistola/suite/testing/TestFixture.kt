@@ -39,9 +39,12 @@ class TestFixtureFactory(
         currentTenantId = null,
     )
 
-    fun <T> fixture(block: TestFixture.() -> T): T = MediatorContext.runWithMediator(mediator) {
+    fun <T> fixture(
+        namespace: String,
+        block: TestFixture.() -> T,
+    ): T = MediatorContext.runWithMediator(mediator) {
         SecurityContext.runWithPrincipal(testUser) {
-            val fixture = TestFixture()
+            val fixture = TestFixture(namespace)
             try {
                 fixture.block()
             } finally {
@@ -70,13 +73,13 @@ class TestFixtureFactory(
 }
 
 @TestFixtureDsl
-class TestFixture {
+class TestFixture(private val namespace: String) {
     private val createdTenants = mutableListOf<TenantId>()
     private var givenContext: GivenContext? = null
     private var result: Any? = null
     private var tenantCounter = 0
 
-    private fun nextTenantSlug(): String = "test-tenant-${++tenantCounter}"
+    private fun nextTenantSlug(): String = "$namespace-${++tenantCounter}"
 
     fun given(block: GivenContext.() -> Unit): TestFixture {
         givenContext = GivenContext().apply(block)

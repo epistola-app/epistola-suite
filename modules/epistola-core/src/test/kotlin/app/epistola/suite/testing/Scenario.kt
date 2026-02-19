@@ -67,9 +67,12 @@ class ScenarioFactory(
      * Creates and executes a scenario with automatic resource cleanup.
      * Binds both mediator and authenticated user context.
      */
-    fun <T> scenario(block: ScenarioBuilder.() -> T): T = MediatorContext.runWithMediator(mediator) {
+    fun <T> scenario(
+        namespace: String,
+        block: ScenarioBuilder.() -> T,
+    ): T = MediatorContext.runWithMediator(mediator) {
         SecurityContext.runWithPrincipal(testUser) {
-            val builder = ScenarioBuilder()
+            val builder = ScenarioBuilder(namespace)
             try {
                 builder.block()
             } finally {
@@ -92,11 +95,11 @@ class ScenarioFactory(
  * Builder for constructing test scenarios using Given-When-Then pattern.
  */
 @ScenarioDsl
-class ScenarioBuilder {
+class ScenarioBuilder(private val namespace: String) {
     private val cleanupActions = mutableListOf<() -> Unit>()
     private var tenantCounter = 0
 
-    private fun nextTenantSlug(): String = "scenario-tenant-${++tenantCounter}"
+    private fun nextTenantSlug(): String = "$namespace-s${++tenantCounter}"
 
     /**
      * Define the test setup in the given block.
