@@ -56,6 +56,7 @@ class TableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
+            StyleApplicator.COMPONENT_DEFAULTS["table"],
         )
 
         // Border style

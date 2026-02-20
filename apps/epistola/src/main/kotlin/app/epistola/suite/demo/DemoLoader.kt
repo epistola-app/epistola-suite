@@ -1,6 +1,9 @@
 package app.epistola.suite.demo
 
+import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
@@ -34,6 +37,12 @@ import org.springframework.core.io.support.ResourcePatternUtils
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
 import tools.jackson.databind.ObjectMapper
+import java.awt.Color
+import java.awt.Font
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import javax.imageio.ImageIO
 
 @Component
 @ConditionalOnProperty(
@@ -83,6 +92,21 @@ class DemoLoader(
                 val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
                 log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
                 log.info("Tenant has default theme: {}", tenant.defaultThemeId)
+
+                // Upload demo logo asset with well-known ID
+                val logoBytes = generateDemoLogoPng()
+                mediator.send(
+                    UploadAsset(
+                        id = AssetId.of(DEMO_LOGO_ASSET_ID),
+                        tenantId = tenant.id,
+                        name = "Epistola Logo",
+                        mediaType = AssetMediaType.PNG,
+                        content = logoBytes,
+                        width = 120,
+                        height = 40,
+                    ),
+                )
+                log.info("Uploaded demo logo asset (id={})", DEMO_LOGO_ASSET_ID)
 
                 // Create additional demo themes
                 val corporateThemeId = createDemoThemes(tenant.id)
@@ -349,6 +373,39 @@ class DemoLoader(
         log.debug("Published English variant to staging")
     }
 
+    /**
+     * Generates a simple PNG logo: a blue rounded rectangle with white "E" text.
+     * Uses the invoice's accent color (#2563eb).
+     */
+    private fun generateDemoLogoPng(): ByteArray {
+        val width = 120
+        val height = 40
+        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        val g = image.createGraphics()
+
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+
+        // Blue rounded rectangle background
+        g.color = Color(0x25, 0x63, 0xEB)
+        g.fillRoundRect(0, 0, width, height, 8, 8)
+
+        // White "E" letter
+        g.color = Color.WHITE
+        g.font = Font(Font.SANS_SERIF, Font.BOLD, 28)
+        val fm = g.fontMetrics
+        val text = "E"
+        val textX = (width - fm.stringWidth(text)) / 2
+        val textY = (height - fm.height) / 2 + fm.ascent
+        g.drawString(text, textX, textY)
+
+        g.dispose()
+
+        val output = ByteArrayOutputStream()
+        ImageIO.write(image, "png", output)
+        return output.toByteArray()
+    }
+
     private fun loadTemplateDefinitions(): List<TemplateDefinition> {
         val resolver = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
         val resources = resolver.getResources("classpath:demo/templates/*.json")
@@ -371,9 +428,10 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "7.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "8.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
+        private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-000000000001"
     }
 }

@@ -10,6 +10,35 @@ import com.itextpdf.layout.properties.UnitValue
  * Applies CSS-like styles to iText elements.
  */
 object StyleApplicator {
+
+    /**
+     * Style property keys that cascade from document styles to block elements.
+     * Non-inheritable properties (like backgroundColor) are only applied at the document level.
+     */
+    val INHERITABLE_KEYS = setOf(
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "fontStyle",
+        "color",
+        "lineHeight",
+        "letterSpacing",
+        "textAlign",
+    )
+
+    /**
+     * Default styles per component type, matching the editor's ComponentDefinition.defaultStyles.
+     * Provides sensible baseline spacing without requiring explicit configuration.
+     */
+    val COMPONENT_DEFAULTS: Map<String, Map<String, Any>> = mapOf(
+        "text" to mapOf("marginBottom" to "0.5em"),
+        "container" to mapOf("marginBottom" to "0.5em"),
+        "columns" to mapOf("marginBottom" to "0.5em"),
+        "table" to mapOf("marginBottom" to "0.5em"),
+        "datatable" to mapOf("marginBottom" to "0.5em"),
+        "image" to mapOf("marginBottom" to "0.5em"),
+    )
+
     /**
      * Applies styles from block styles and document styles to an iText element.
      */
@@ -30,9 +59,10 @@ object StyleApplicator {
      * Applies styles with theme preset resolution.
      *
      * Style cascade order (lowest to highest priority):
-     * 1. Document styles (from template or theme)
-     * 2. Theme block preset (when block has stylePreset)
-     * 3. Block inline styles
+     * 1. Component default styles (baseline for each component type)
+     * 2. Inheritable document styles (typography only)
+     * 3. Theme block preset (when block has stylePreset)
+     * 4. Block inline styles
      *
      * @param element The iText element to style
      * @param blockInlineStyles The block's inline styles (may be null)
@@ -40,6 +70,7 @@ object StyleApplicator {
      * @param blockStylePresets All available presets from the theme
      * @param documentStyles Document-level default styles
      * @param fontCache The font cache for font lookups
+     * @param defaultStyles Component-type default styles (may be null)
      */
     fun <T : BlockElement<T>> applyStylesWithPreset(
         element: T,
@@ -48,9 +79,18 @@ object StyleApplicator {
         blockStylePresets: Map<String, Map<String, Any>>,
         documentStyles: DocumentStyles?,
         fontCache: FontCache,
+        defaultStyles: Map<String, Any>? = null,
     ) {
-        // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyBlockStyles(element, it, fontCache) }
+        // Apply component default styles first (lowest priority)
+        defaultStyles?.let { applyBlockStyles(element, it, fontCache) }
+
+        // Apply only inheritable document-level styles
+        documentStyles?.let { docStyles ->
+            val inheritable = docStyles.filterKeys { it in INHERITABLE_KEYS }
+            if (inheritable.isNotEmpty()) {
+                applyBlockStyles(element, inheritable, fontCache)
+            }
+        }
 
         // Resolve preset styles (if preset exists)
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }

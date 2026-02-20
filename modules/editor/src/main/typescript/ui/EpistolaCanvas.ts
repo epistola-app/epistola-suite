@@ -8,6 +8,7 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
+import { icon } from './icons.js'
 import '../ui/EpistolaTextEditor.js'
 
 @customElement('epistola-canvas')
@@ -31,6 +32,12 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleCanvasClick() {
     this.engine?.selectNode(null)
+  }
+
+  private _handleDeleteBlock(nodeId: NodeId) {
+    if (!this.engine) return
+    this.engine.dispatch({ type: 'RemoveNode', nodeId })
+    this.engine.selectNode(null)
   }
 
   override updated() {
@@ -294,6 +301,13 @@ export class EpistolaCanvas extends LitElement {
         <div class="canvas-block-header">
           <span class="canvas-block-label">${label}</span>
           <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
+          ${isSelected ? html`
+            <button
+              class="canvas-block-delete"
+              title="Delete block"
+              @click=${(e: Event) => { e.stopPropagation(); this._handleDeleteBlock(nodeId) }}
+            >${icon('trash-2', 14)}</button>
+          ` : nothing}
         </div>
 
         <!-- Block content area -->
@@ -375,7 +389,10 @@ export class EpistolaCanvas extends LitElement {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Filter a resolved styles object to only include properties the component supports. */
+/**
+ * Filter a resolved styles object to only include properties the component supports.
+ * Uses prefix matching: an allowlist entry like 'margin' matches 'marginTop', 'marginBottom', etc.
+ */
 function filterByApplicableStyles(
   styles: Record<string, unknown>,
   applicableStyles: 'all' | string[] | undefined,
@@ -383,8 +400,12 @@ function filterByApplicableStyles(
   if (!applicableStyles || applicableStyles === 'all') return styles
   if (applicableStyles.length === 0) return {}
   const result: Record<string, unknown> = {}
-  for (const key of applicableStyles) {
-    if (key in styles) result[key] = styles[key]
+  for (const [key, value] of Object.entries(styles)) {
+    if (applicableStyles.includes(key)) {
+      result[key] = value
+    } else if (applicableStyles.some(allowed => key.startsWith(allowed))) {
+      result[key] = value
+    }
   }
   return result
 }
@@ -396,21 +417,12 @@ function camelToKebab(key: string): string {
 
 /**
  * Convert a resolved styles object to a styleMap-compatible record.
- * Handles both scalar values and spacing objects (padding/margin).
+ * All values are scalar strings (e.g. marginTop: '10px' → margin-top: 10px).
  */
 function toStyleMap(styles: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {}
   for (const [key, value] of Object.entries(styles)) {
     if (value == null) continue
-
-    // Spacing objects with top/right/bottom/left
-    if (typeof value === 'object' && value !== null && 'top' in value) {
-      const obj = value as Record<string, unknown>
-      const cssKey = camelToKebab(key)
-      result[cssKey] = `${obj.top} ${obj.right} ${obj.bottom} ${obj.left}`
-      continue
-    }
-
     result[camelToKebab(key)] = String(value)
   }
   return result

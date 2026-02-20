@@ -34,6 +34,7 @@ export function createDatatableDefinition(): ComponentDefinition {
     slots: [{ name: 'columns' }],
     allowedChildren: { mode: 'allowlist', types: ['datatable-column'] },
     applicableStyles: LAYOUT_STYLES,
+    defaultStyles: { marginBottom: '0.5em' },
     inspector: [
       { key: 'expression.raw', label: 'Data Expression', type: 'expression' },
       { key: 'itemAlias', label: 'Item Alias', type: 'text', defaultValue: 'item' },

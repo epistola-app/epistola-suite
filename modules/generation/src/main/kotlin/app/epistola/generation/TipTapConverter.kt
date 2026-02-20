@@ -72,7 +72,7 @@ class TipTapConverter(
         fontCache: app.epistola.generation.pdf.FontCache,
     ): Paragraph {
         val paragraph = Paragraph()
-        paragraph.setMarginBottom(12f) // ~1em
+        paragraph.setMarginBottom(6f) // 0.5em × 12pt
 
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
@@ -94,7 +94,6 @@ class TipTapConverter(
         val level = (attrs?.get("level") as? Number)?.toInt() ?: 1
 
         val paragraph = Paragraph()
-        paragraph.setMarginBottom(6f) // 0.5em
         paragraph.setFont(fontCache.bold)
 
         // Set font size based on heading level
@@ -105,6 +104,16 @@ class TipTapConverter(
             else -> 12f
         }
         paragraph.setFontSize(fontSize)
+
+        // Set margins to match editor CSS (proportional to font size)
+        val marginVertical = when (level) {
+            1 -> 9.6f // 0.4em × 24pt
+            2 -> 5.4f // 0.3em × 18pt
+            3 -> 2.8f // 0.2em × 14pt
+            else -> 2.4f // 0.2em × 12pt
+        }
+        paragraph.setMarginTop(marginVertical)
+        paragraph.setMarginBottom(marginVertical)
 
         @Suppress("UNCHECKED_CAST")
         val content = node["content"] as? kotlin.collections.List<Map<String, Any>>
@@ -122,8 +131,8 @@ class TipTapConverter(
         fontCache: app.epistola.generation.pdf.FontCache,
     ): List {
         val list = List()
-        list.setMarginBottom(12f)
-        list.setMarginLeft(24f)
+        list.setMarginBottom(3.6f) // 0.3em × 12pt
+        list.setMarginLeft(18f) // 1.5em × 12pt
 
         @Suppress("UNCHECKED_CAST")
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
@@ -145,8 +154,8 @@ class TipTapConverter(
         fontCache: app.epistola.generation.pdf.FontCache,
     ): List {
         val list = List(ListNumberingType.DECIMAL)
-        list.setMarginBottom(12f)
-        list.setMarginLeft(24f)
+        list.setMarginBottom(3.6f) // 0.3em × 12pt
+        list.setMarginLeft(18f) // 1.5em × 12pt
 
         @Suppress("UNCHECKED_CAST")
         val items = node["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
@@ -168,6 +177,7 @@ class TipTapConverter(
         fontCache: app.epistola.generation.pdf.FontCache,
     ): ListItem {
         val listItem = ListItem()
+        listItem.setMarginBottom(1.8f) // 0.15em × 12pt
 
         @Suppress("UNCHECKED_CAST")
         val content = item["content"] as? kotlin.collections.List<Map<String, Any>> ?: emptyList()
@@ -219,6 +229,9 @@ class TipTapConverter(
                     }
 
                     paragraph.add(text)
+                }
+                "hard_break", "hardBreak" -> {
+                    paragraph.add(Text("\n"))
                 }
                 "expression" -> {
                     // Expression atom node

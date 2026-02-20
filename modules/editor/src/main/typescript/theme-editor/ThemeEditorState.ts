@@ -6,6 +6,7 @@
  */
 
 import type { BlockStylePreset, PageSettings } from '@epistola/template-model/generated/theme.js'
+import { expandSpacingToStyles, type SpacingValue } from '../ui/inputs/style-inputs.js'
 
 export interface ThemeData {
   id: string
@@ -53,7 +54,10 @@ export class ThemeEditorState extends EventTarget {
   // -----------------------------------------------------------------------
 
   updateDocumentStyle(key: string, value: unknown): void {
-    if (value === undefined || value === '' || value === null) {
+    // Spacing properties: expand compound value to individual keys
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
+      expandSpacingToStyles(key, value as SpacingValue, this._current.documentStyles)
+    } else if (value === undefined || value === '' || value === null) {
       delete this._current.documentStyles[key]
     } else {
       this._current.documentStyles[key] = value
@@ -130,10 +134,15 @@ export class ThemeEditorState extends EventTarget {
   updatePresetStyle(name: string, key: string, value: unknown): void {
     const preset = this._current.blockStylePresets[name]
     if (!preset) return
-    if (value === undefined || value === '' || value === null) {
-      delete (preset.styles as Record<string, unknown>)[key]
+    const styles = preset.styles as Record<string, unknown>
+
+    // Spacing properties: expand compound value to individual keys
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
+      expandSpacingToStyles(key, value as SpacingValue, styles)
+    } else if (value === undefined || value === '' || value === null) {
+      delete styles[key]
     } else {
-      ;(preset.styles as Record<string, unknown>)[key] = value
+      styles[key] = value
     }
     this._fireChange()
   }

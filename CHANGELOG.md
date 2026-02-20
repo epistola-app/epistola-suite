@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+- **Demo invoice template improvements**: Added a vendor logo image block to the invoice header, converted multi-paragraph address/metadata blocks to use `hard_break` for tighter line spacing, and normalized `hardBreak` to `hard_break` for ProseMirror schema consistency. `UploadAsset` command now accepts an optional pre-defined `id` parameter.
+- **Proper spacing architecture**: Unified the spacing system between the editor canvas and PDF renderer to eliminate the 2x vertical spacing mismatch. Individual spacing keys (`marginTop`, `marginBottom`, etc.) are now used throughout instead of compound objects, ensuring user-configured spacing is correctly applied in both the editor and PDF output. Added component default styles (`marginBottom: 0.5em`) for content blocks. TipTap paragraph and list spacing now matches the editor's ProseMirror CSS values.
+
 ### Added
+- **Block deletion from canvas**: Blocks can now be deleted by pressing Delete/Backspace on the keyboard when selected, or by clicking the trash icon that appears in the block header. Escape key deselects the current block. Keyboard shortcuts are suppressed when focus is inside text editors, inputs, or textareas.
 - **Asset deletion protection**: Assets referenced by draft or published template versions cannot be deleted. The system scans template document JSONB for image nodes referencing the asset before allowing deletion. Returns a descriptive error listing which templates use the asset.
 - **Asset manager**: Tenant-scoped image asset management with upload, list, search, delete, and raw content serving. Assets are stored as PostgreSQL BYTEA with a 5MB size limit. Supports PNG, JPEG, SVG, and WebP. Includes a dedicated asset manager page with drag-and-drop upload and thumbnail grid.
 - **Image block in template editor**: New "Image" block type in the template editor with an asset picker dialog for selecting or uploading images. The picker shows a thumbnail grid of existing assets and supports drag-and-drop upload.

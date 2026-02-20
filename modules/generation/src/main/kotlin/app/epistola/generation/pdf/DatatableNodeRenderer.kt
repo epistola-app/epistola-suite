@@ -75,6 +75,7 @@ class DatatableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
+            StyleApplicator.COMPONENT_DEFAULTS["datatable"],
         )
 
         // Border style

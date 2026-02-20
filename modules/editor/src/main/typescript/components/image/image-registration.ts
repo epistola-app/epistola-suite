@@ -40,6 +40,7 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
     slots: [],
     allowedChildren: { mode: 'none' },
     applicableStyles: IMAGE_STYLES,
+    defaultStyles: { marginBottom: '0.5em' },
     inspector: [
       { key: 'alt', label: 'Alt Text', type: 'text' },
       { key: 'width', label: 'Width', type: 'text' },

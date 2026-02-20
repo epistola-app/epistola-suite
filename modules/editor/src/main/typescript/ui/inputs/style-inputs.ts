@@ -192,6 +192,79 @@ export function renderSpacingInput(
 }
 
 // ---------------------------------------------------------------------------
+// Spacing: individual key expansion/reading
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand a compound SpacingValue into individual style keys.
+ *
+ * e.g. expandSpacingToStyles('margin', { top: '10px', right: '0px', bottom: '5px', left: '0px' }, styles)
+ * → sets marginTop: '10px', marginRight: '0px', marginBottom: '5px', marginLeft: '0px'
+ *   and deletes the compound 'margin' key.
+ */
+export function expandSpacingToStyles(
+  prefix: string,
+  value: SpacingValue,
+  styles: Record<string, unknown>,
+): void {
+  const sides: Record<string, string> = {
+    Top: value.top,
+    Right: value.right,
+    Bottom: value.bottom,
+    Left: value.left,
+  }
+  for (const [suffix, sideValue] of Object.entries(sides)) {
+    const key = `${prefix}${suffix}`
+    if (sideValue && sideValue !== '0px' && sideValue !== '0em' && sideValue !== '0rem') {
+      styles[key] = sideValue
+    } else {
+      delete styles[key]
+    }
+  }
+  // Remove the compound key if it exists
+  delete styles[prefix]
+}
+
+/**
+ * Read individual style keys back into a compound SpacingValue.
+ *
+ * e.g. readSpacingFromStyles('margin', { marginTop: '10px', marginBottom: '5px' })
+ * → { top: '10px', right: '0px', bottom: '5px', left: '0px' }
+ *
+ * Returns undefined if no individual keys are set.
+ */
+export function readSpacingFromStyles(
+  prefix: string,
+  styles: Record<string, unknown>,
+  defaultUnit = 'px',
+): SpacingValue | undefined {
+  const top = styles[`${prefix}Top`]
+  const right = styles[`${prefix}Right`]
+  const bottom = styles[`${prefix}Bottom`]
+  const left = styles[`${prefix}Left`]
+
+  // Also check for legacy compound value
+  const compound = styles[prefix]
+
+  if (top == null && right == null && bottom == null && left == null && compound == null) {
+    return undefined
+  }
+
+  // If a legacy compound object is present, read from it
+  if (compound != null && typeof compound === 'object') {
+    return parseSpacingValue(compound, defaultUnit)
+  }
+
+  const zero = `0${defaultUnit}`
+  return {
+    top: top != null ? String(top) : zero,
+    right: right != null ? String(right) : zero,
+    bottom: bottom != null ? String(bottom) : zero,
+    left: left != null ? String(left) : zero,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Select input (for style properties)
 // ---------------------------------------------------------------------------
 

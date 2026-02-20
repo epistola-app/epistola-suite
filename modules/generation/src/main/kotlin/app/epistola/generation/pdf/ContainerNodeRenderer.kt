@@ -28,6 +28,7 @@ class ContainerNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
+            StyleApplicator.COMPONENT_DEFAULTS[node.type],
         )
 
         // Render all slots

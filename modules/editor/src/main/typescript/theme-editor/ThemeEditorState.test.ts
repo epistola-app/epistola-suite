@@ -84,6 +84,15 @@ describe('ThemeEditorState', () => {
       state.updateDocumentStyle('color', '')
       expect('color' in state.theme.documentStyles).toBe(false)
     })
+
+    it('updateDocumentStyle expands spacing to individual keys', () => {
+      const state = new ThemeEditorState(createTestTheme())
+      state.updateDocumentStyle('margin', {
+        top: '0px', right: '0px', bottom: '10px', left: '0px',
+      })
+      expect(state.theme.documentStyles.marginBottom).toBe('10px')
+      expect(state.theme.documentStyles.margin).toBeUndefined()
+    })
   })
 
   describe('page settings', () => {
@@ -167,6 +176,32 @@ describe('ThemeEditorState', () => {
       const state = new ThemeEditorState(createTestTheme())
       state.updatePresetStyle('heading', 'fontSize', undefined)
       expect('fontSize' in state.theme.blockStylePresets.heading.styles).toBe(false)
+    })
+
+    it('updatePresetStyle expands spacing to individual keys', () => {
+      const state = new ThemeEditorState(createTestTheme())
+      state.updatePresetStyle('heading', 'margin', {
+        top: '10px', right: '0px', bottom: '16px', left: '0px',
+      })
+      const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>
+      expect(styles.marginTop).toBe('10px')
+      expect(styles.marginBottom).toBe('16px')
+      expect(styles.marginRight).toBeUndefined() // zero values removed
+      expect(styles.marginLeft).toBeUndefined()
+      expect(styles.margin).toBeUndefined() // compound key removed
+    })
+
+    it('updatePresetStyle expands padding to individual keys', () => {
+      const state = new ThemeEditorState(createTestTheme())
+      state.updatePresetStyle('heading', 'padding', {
+        top: '8px', right: '12px', bottom: '8px', left: '12px',
+      })
+      const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>
+      expect(styles.paddingTop).toBe('8px')
+      expect(styles.paddingRight).toBe('12px')
+      expect(styles.paddingBottom).toBe('8px')
+      expect(styles.paddingLeft).toBe('12px')
+      expect(styles.padding).toBeUndefined()
     })
 
     it('updatePresetApplicableTo sets node types', () => {
