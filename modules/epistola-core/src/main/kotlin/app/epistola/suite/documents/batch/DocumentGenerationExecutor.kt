@@ -13,6 +13,8 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.OffsetDateTime
 
@@ -38,6 +41,7 @@ class DocumentGenerationExecutor(
     private val generationService: GenerationService,
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
+    private val contentStore: ContentStore,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -69,9 +73,17 @@ class DocumentGenerationExecutor(
 
         try {
             // Generate the document
-            val document = generateDocument(request)
+            val (document, pdfBytes) = generateDocument(request)
 
-            // Save document and mark request as completed
+            // Store content first — orphaned blob is harmless, missing content is not
+            contentStore.put(
+                ContentKey.document(document.tenantId, document.id),
+                ByteArrayInputStream(pdfBytes),
+                document.contentType,
+                document.sizeBytes,
+            )
+
+            // Save document metadata and mark request as completed
             saveDocumentAndMarkCompleted(request.id, document)
 
             // Check if batch is complete and finalize if so
@@ -93,8 +105,9 @@ class DocumentGenerationExecutor(
 
     /**
      * Generate a PDF document for the given request.
+     * Returns the document metadata and the raw PDF bytes.
      */
-    private fun generateDocument(request: DocumentGenerationRequest): Document {
+    private fun generateDocument(request: DocumentGenerationRequest): Pair<Document, ByteArray> {
         logger.debug(
             "Generating document for request {} (template {}/{}/{})",
             request.id.value,
@@ -168,8 +181,8 @@ class DocumentGenerationExecutor(
         // 7. Generate filename if not provided
         val filename = request.filename ?: "document-${request.id.value}.pdf"
 
-        // 8. Create Document entity
-        return Document(
+        // 8. Create Document entity (metadata only — content stored separately)
+        val document = Document(
             id = DocumentId.generate(),
             tenantId = request.tenantId,
             templateId = request.templateId,
@@ -179,10 +192,10 @@ class DocumentGenerationExecutor(
             correlationId = request.correlationId,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
-            content = pdfBytes,
             createdAt = OffsetDateTime.now(),
             createdBy = null, // TODO: Get from security context when auth is implemented
         )
+        return document to pdfBytes
     }
 
     /**
@@ -213,17 +226,17 @@ class DocumentGenerationExecutor(
                 return@useTransaction
             }
 
-            // 2. Insert document into database (only if request was not cancelled)
+            // 2. Insert document metadata into database (content stored in ContentStore)
             handle.createUpdate(
                 """
                 INSERT INTO documents (
                     id, tenant_id, template_id, variant_id, version_id,
-                    filename, correlation_id, content_type, size_bytes, content,
+                    filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
                 VALUES (
                     :id, :tenantId, :templateId, :variantId, :versionId,
-                    :filename, :correlationId, :contentType, :sizeBytes, :content,
+                    :filename, :correlationId, :contentType, :sizeBytes,
                     :createdAt, :createdBy
                 )
                 """,
@@ -237,7 +250,6 @@ class DocumentGenerationExecutor(
                 .bind("correlationId", document.correlationId)
                 .bind("contentType", document.contentType)
                 .bind("sizeBytes", document.sizeBytes)
-                .bind("content", document.content)
                 .bind("createdAt", document.createdAt)
                 .bind("createdBy", document.createdBy?.value)
                 .execute()

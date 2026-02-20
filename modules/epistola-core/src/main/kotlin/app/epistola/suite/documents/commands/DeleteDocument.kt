@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -22,6 +24,7 @@ data class DeleteDocument(
 @Component
 class DeleteDocumentHandler(
     private val jdbi: Jdbi,
+    private val contentStore: ContentStore,
 ) : CommandHandler<DeleteDocument, Boolean> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -29,9 +32,9 @@ class DeleteDocumentHandler(
     override fun handle(command: DeleteDocument): Boolean {
         logger.info("Deleting document {} for tenant {}", command.documentId, command.tenantId)
 
-        return jdbi.inTransaction<Boolean, Exception> { handle ->
+        val deleted = jdbi.inTransaction<Boolean, Exception> { handle ->
             // Delete document - CASCADE will handle generation item references (SET NULL)
-            val deleted = handle.createUpdate(
+            val rowsDeleted = handle.createUpdate(
                 """
                 DELETE FROM documents
                 WHERE id = :documentId
@@ -42,13 +45,16 @@ class DeleteDocumentHandler(
                 .bind("tenantId", command.tenantId)
                 .execute()
 
-            if (deleted > 0) {
-                logger.info("Deleted document {}", command.documentId)
-                true
-            } else {
-                logger.warn("Document {} not found for tenant {}", command.documentId, command.tenantId)
-                false
-            }
+            rowsDeleted > 0
         }
+
+        if (deleted) {
+            contentStore.delete(ContentKey.document(command.tenantId, command.documentId))
+            logger.info("Deleted document {}", command.documentId)
+        } else {
+            logger.warn("Document {} not found for tenant {}", command.documentId, command.tenantId)
+        }
+
+        return deleted
     }
 }

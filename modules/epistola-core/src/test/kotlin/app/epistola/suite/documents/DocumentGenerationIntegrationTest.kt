@@ -15,6 +15,8 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -34,6 +36,9 @@ import java.util.concurrent.TimeUnit
 class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
+
+    @Autowired
+    private lateinit var contentStore: ContentStore
 
     private val objectMapper = ObjectMapper()
 
@@ -90,9 +95,13 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
             assertThat(document.filename).isEqualTo("invoice-001.pdf")
             assertThat(document.contentType).isEqualTo("application/pdf")
             assertThat(document.sizeBytes).isGreaterThan(0)
-            assertThat(document.content).isNotEmpty()
+
+            // Verify content in ContentStore
+            val stored = contentStore.get(ContentKey.document(setup.tenant.id, document.id))!!
+            val contentBytes = stored.content.readAllBytes()
+            assertThat(contentBytes).isNotEmpty()
             // Verify it's a PDF by checking the magic bytes (%PDF)
-            assertThat(document.content.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
+            assertThat(contentBytes.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
         }
     }
 

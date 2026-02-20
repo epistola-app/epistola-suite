@@ -12,6 +12,8 @@ logging:
 # No OAuth2 configuration needed
 
 epistola:
+  storage:
+    backend: memory
   auth:
     auto-provision: false  # Not needed for in-memory test users
   demo:

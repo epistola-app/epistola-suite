@@ -8,6 +8,8 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -49,6 +51,9 @@ import java.util.concurrent.TimeUnit
 class JobPollerIntegrationTest {
     @Autowired
     private lateinit var mediator: Mediator
+
+    @Autowired
+    private lateinit var contentStore: ContentStore
 
     private val objectMapper = ObjectMapper()
 
@@ -121,7 +126,11 @@ class JobPollerIntegrationTest {
         // Verify it's a REAL PDF (not fake) by checking size
         val document = mediator.query(GetDocument(tenant.id, job.request.documentId!!))!!
         assertThat(document.sizeBytes).isGreaterThan(100) // Real PDFs are bigger than fake (~40 bytes)
-        assertThat(document.content.take(4).toByteArray())
+
+        // Verify content in ContentStore
+        val stored = contentStore.get(ContentKey.document(tenant.id, document.id))!!
+        val contentBytes = stored.content.readAllBytes()
+        assertThat(contentBytes.take(4).toByteArray())
             .isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46)) // %PDF magic bytes
     }
 }

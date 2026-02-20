@@ -32,6 +32,8 @@ spring:
 # Tests use permit-all (see application-test.yaml)
 
 epistola:
+  storage:
+    backend: postgres
   auth:
     auto-provision: false
   demo:

@@ -8,9 +8,12 @@ import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.io.ByteArrayInputStream
 import java.time.OffsetDateTime
 
 /**
@@ -45,6 +48,7 @@ data class UploadAsset(
 @Component
 class UploadAssetHandler(
     private val jdbi: Jdbi,
+    private val contentStore: ContentStore,
 ) : CommandHandler<UploadAsset, Asset> {
 
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -68,11 +72,19 @@ class UploadAssetHandler(
             command.tenantId,
         )
 
+        // Store content first — an orphaned blob is harmless, a DB row pointing to missing content is not
+        contentStore.put(
+            ContentKey.asset(command.tenantId, id),
+            ByteArrayInputStream(command.content),
+            command.mediaType.mimeType,
+            sizeBytes,
+        )
+
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_id, name, media_type, size_bytes, width, height, content, created_at)
-                VALUES (:id, :tenantId, :name, :mediaType, :sizeBytes, :width, :height, :content, :createdAt)
+                INSERT INTO assets (id, tenant_id, name, media_type, size_bytes, width, height, created_at)
+                VALUES (:id, :tenantId, :name, :mediaType, :sizeBytes, :width, :height, :createdAt)
                 """,
             )
                 .bind("id", id.value)
@@ -82,7 +94,6 @@ class UploadAssetHandler(
                 .bind("sizeBytes", sizeBytes)
                 .bind("width", command.width)
                 .bind("height", command.height)
-                .bind("content", command.content)
                 .bind("createdAt", now)
                 .execute()
         }

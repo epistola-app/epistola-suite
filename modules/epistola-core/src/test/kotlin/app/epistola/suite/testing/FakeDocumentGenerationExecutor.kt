@@ -4,9 +4,12 @@ import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import java.io.ByteArrayInputStream
 
 /**
  * Fake document generation executor for tests.
@@ -21,20 +24,23 @@ class FakeDocumentGenerationExecutor(
     generationService: app.epistola.suite.generation.GenerationService,
     mediator: app.epistola.suite.mediator.Mediator,
     objectMapper: tools.jackson.databind.ObjectMapper,
+    contentStore: ContentStore,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     retentionDays: Int = 7,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
     maxDocumentSizeMb: Long = 50,
 ) : DocumentGenerationExecutor(
     jdbi = jdbi,
-    generationService = generationService, // Injected by Spring but not used in fake execute()
-    mediator = mediator, // Injected by Spring but not used in fake execute()
-    objectMapper = objectMapper, // Injected by Spring but not used in fake execute()
+    generationService = generationService,
+    mediator = mediator,
+    objectMapper = objectMapper,
+    contentStore = contentStore,
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val localJdbi = jdbi
+    private val localContentStore = contentStore
     private val localRetentionDays = retentionDays
 
     /**
@@ -61,6 +67,14 @@ class FakeDocumentGenerationExecutor(
             val documentId = DocumentId.generate()
             val filename = request.filename ?: "document-${request.id.value}.pdf"
 
+            // Store fake PDF content in ContentStore
+            localContentStore.put(
+                ContentKey.document(request.tenantId, documentId),
+                ByteArrayInputStream(fakePdfBytes),
+                "application/pdf",
+                fakePdfBytes.size.toLong(),
+            )
+
             localJdbi.useTransaction<Exception> { handle ->
                 // 1. Claim completion — skip if the request was cancelled during processing
                 val expiresAtInterval = "$localRetentionDays days"
@@ -85,17 +99,17 @@ class FakeDocumentGenerationExecutor(
                     return@useTransaction
                 }
 
-                // 2. Insert fake document (only if not cancelled)
+                // 2. Insert document metadata (content stored in ContentStore)
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
                         id, tenant_id, template_id, variant_id, version_id,
-                        filename, correlation_id, content_type, size_bytes, content,
+                        filename, correlation_id, content_type, size_bytes,
                         created_at, created_by
                     )
                     VALUES (
                         :id, :tenantId, :templateId, :variantId, :versionId,
-                        :filename, :correlationId, 'application/pdf', :sizeBytes, :content,
+                        :filename, :correlationId, 'application/pdf', :sizeBytes,
                         NOW(), NULL
                     )
                     """,
@@ -108,7 +122,6 @@ class FakeDocumentGenerationExecutor(
                     .bind("filename", filename)
                     .bind("correlationId", request.correlationId)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
-                    .bind("content", fakePdfBytes)
                     .execute()
             }
 
