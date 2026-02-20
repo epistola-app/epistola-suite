@@ -162,25 +162,57 @@ export class EpistolaEditor extends LitElement {
   }
 
   /**
-   * Global keyboard handler for undo/redo and save.
+   * Global keyboard handler for undo/redo, save, delete, and escape.
    */
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
-    const mod = e.metaKey || e.ctrlKey
-    if (!mod) return
 
-    if (e.key === 's') {
-      e.preventDefault()
-      if (this._saveService && this._doc) {
-        this._saveService.forceSave(this._doc)
+    const mod = e.metaKey || e.ctrlKey
+
+    if (mod) {
+      if (e.key === 's') {
+        e.preventDefault()
+        if (this._saveService && this._doc) {
+          this._saveService.forceSave(this._doc)
+        }
+      } else if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        this._engine.undo()
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+        e.preventDefault()
+        this._engine.redo()
       }
-    } else if (e.key === 'z' && !e.shiftKey) {
-      e.preventDefault()
-      this._engine.undo()
-    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-      e.preventDefault()
-      this._engine.redo()
+      return
     }
+
+    if ((e.key === 'Delete' || e.key === 'Backspace') && this._selectedNodeId) {
+      if (!this._isEditableTarget(e)) {
+        e.preventDefault()
+        this._deleteSelectedNode()
+      }
+    } else if (e.key === 'Escape' && this._selectedNodeId) {
+      this._engine.selectNode(null)
+    }
+  }
+
+  /** Returns true if the event target is a text-editable element (input, textarea, contenteditable). */
+  private _isEditableTarget(e: KeyboardEvent): boolean {
+    const target = e.target
+    if (!(target instanceof HTMLElement)) return false
+    const tag = target.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+    if (target.isContentEditable) return true
+    return false
+  }
+
+  /** Dispatch RemoveNode for the currently selected node and clear selection. */
+  private _deleteSelectedNode(): void {
+    if (!this._engine || !this._selectedNodeId) return
+    this._engine.dispatch({
+      type: 'RemoveNode',
+      nodeId: this._selectedNodeId,
+    })
+    this._engine.selectNode(null)
   }
 
   private _handleTogglePreview = () => {

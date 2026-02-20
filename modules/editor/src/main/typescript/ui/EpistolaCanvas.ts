@@ -8,6 +8,7 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
+import { icon } from './icons.js'
 import '../ui/EpistolaTextEditor.js'
 
 @customElement('epistola-canvas')
@@ -31,6 +32,12 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleCanvasClick() {
     this.engine?.selectNode(null)
+  }
+
+  private _handleDeleteBlock(nodeId: NodeId) {
+    if (!this.engine) return
+    this.engine.dispatch({ type: 'RemoveNode', nodeId })
+    this.engine.selectNode(null)
   }
 
   override updated() {
@@ -294,6 +301,13 @@ export class EpistolaCanvas extends LitElement {
         <div class="canvas-block-header">
           <span class="canvas-block-label">${label}</span>
           <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
+          ${isSelected ? html`
+            <button
+              class="canvas-block-delete"
+              title="Delete block"
+              @click=${(e: Event) => { e.stopPropagation(); this._handleDeleteBlock(nodeId) }}
+            >${icon('trash-2', 14)}</button>
+          ` : nothing}
         </div>
 
         <!-- Block content area -->
