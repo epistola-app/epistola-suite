@@ -42,28 +42,21 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
     applicableStyles: IMAGE_STYLES,
     inspector: [
       { key: 'alt', label: 'Alt Text', type: 'text' },
-      {
-        key: 'objectFit', label: 'Object Fit', type: 'select',
-        options: [
-          { label: 'Contain', value: 'contain' },
-          { label: 'Cover', value: 'cover' },
-          { label: 'Fill', value: 'fill' },
-          { label: 'None', value: 'none' },
-        ],
-        defaultValue: 'contain',
-      },
       { key: 'width', label: 'Width', type: 'text' },
       { key: 'height', label: 'Height', type: 'text' },
+      { key: 'aspectRatioLocked', label: 'Lock Aspect Ratio', type: 'boolean', defaultValue: true },
     ],
     defaultProps: {
       assetId: null,
       alt: '',
-      objectFit: 'contain',
       width: '',
       height: '',
+      aspectRatioLocked: true,
     },
 
     onPropChange: (key, value, props) => {
+      if (!props.aspectRatioLocked) return props
+
       const oldWidth = parsePx(props.width)
       const oldHeight = parsePx(props.height)
 
@@ -111,12 +104,10 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       }
       const src = resolveContentUrl(options.contentUrlPattern, assetId)
       const alt = (node.props?.alt as string) || ''
-      const objectFit = (node.props?.objectFit as string) || 'contain'
       const width = node.props?.width as string | undefined
       const height = node.props?.height as string | undefined
 
       const imgStyle = [
-        `object-fit: ${objectFit}`,
         width ? `width: ${width}` : '',
         height ? `height: ${height}` : '',
       ].filter(Boolean).join('; ') + ';'
