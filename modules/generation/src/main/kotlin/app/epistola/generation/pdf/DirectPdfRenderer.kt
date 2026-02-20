@@ -68,6 +68,7 @@ class DirectPdfRenderer(
         resolvedDocumentStyles: DocumentStyles? = null,
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
+        assetResolver: AssetResolver? = null,
     ) {
         val writer = PdfWriter(outputStream)
         val pdfDocument = if (pdfaCompliant) {
@@ -112,6 +113,7 @@ class DirectPdfRenderer(
             fontCache = fontCache,
             blockStylePresets = blockStylePresets,
             document = document,
+            assetResolver = assetResolver,
         )
 
         // Set default font on the document so all text uses embedded Liberation Sans
@@ -214,6 +216,7 @@ class DirectPdfRenderer(
                 "loop" to LoopNodeRenderer(),
                 "datatable" to DatatableNodeRenderer(),
                 "datatable-column" to DatatableColumnNodeRenderer(),
+                "image" to ImageNodeRenderer(),
                 "pagebreak" to PageBreakNodeRenderer(),
                 "pageheader" to PageHeaderNodeRenderer(),
                 "pagefooter" to PageFooterNodeRenderer(),

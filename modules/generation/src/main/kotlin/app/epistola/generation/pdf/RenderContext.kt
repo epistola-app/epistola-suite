@@ -23,4 +23,6 @@ data class RenderContext(
     val blockStylePresets: Map<String, Map<String, Any>> = emptyMap(),
     /** The template document being rendered (for node/slot lookups) */
     val document: TemplateDocument,
+    /** Optional asset resolver for loading image content during rendering */
+    val assetResolver: AssetResolver? = null,
 )
