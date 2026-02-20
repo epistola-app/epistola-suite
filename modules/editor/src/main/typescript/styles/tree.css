@@ -39,6 +39,11 @@
       font-weight: 500;
       box-shadow: inset 2px 0 0 var(--ep-blue-500);
     }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--ep-blue-500);
+    }
   }
 
   .tree-node-icon {

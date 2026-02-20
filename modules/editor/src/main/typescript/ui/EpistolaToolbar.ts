@@ -4,6 +4,9 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { SaveState } from './save-service.js'
 import type { ToolbarAction } from '../plugins/types.js'
 import { icon } from './icons.js'
+import { buildShortcutGroups, type ShortcutGroup } from './shortcuts.js'
+
+const SHORTCUT_GROUPS: ShortcutGroup[] = buildShortcutGroups()
 
 @customElement('epistola-toolbar')
 export class EpistolaToolbar extends LitElement {
@@ -19,13 +22,28 @@ export class EpistolaToolbar extends LitElement {
   @property({ attribute: false }) pluginActions?: ToolbarAction[]
 
   @state() private _currentExampleIndex = 0
+  @state() private _shortcutsOpen = false
 
   private _unsubExample?: () => void
   private _unsubDoc?: () => void
+  private _onWindowKeydown = (e: KeyboardEvent) => {
+    if (!this._shortcutsOpen) return
+    if (e.key !== 'Escape') return
+    e.preventDefault()
+    this._shortcutsOpen = false
+  }
+  private _onWindowPointerDown = (e: PointerEvent) => {
+    if (!this._shortcutsOpen) return
+    const target = e.target as Node | null
+    if (target && this.contains(target)) return
+    this._shortcutsOpen = false
+  }
 
   override connectedCallback(): void {
     super.connectedCallback()
     this._subscribeToEngine()
+    window.addEventListener('keydown', this._onWindowKeydown)
+    window.addEventListener('pointerdown', this._onWindowPointerDown)
   }
 
   override updated(changed: Map<string, unknown>): void {
@@ -37,6 +55,8 @@ export class EpistolaToolbar extends LitElement {
 
   override disconnectedCallback(): void {
     this._unsubscribeAll()
+    window.removeEventListener('keydown', this._onWindowKeydown)
+    window.removeEventListener('pointerdown', this._onWindowPointerDown)
     super.disconnectedCallback()
   }
 
@@ -79,6 +99,22 @@ export class EpistolaToolbar extends LitElement {
     const select = e.target as HTMLSelectElement
     const index = parseInt(select.value, 10)
     this.engine?.setCurrentExample(index)
+  }
+
+  private _toggleShortcutHelp(e: Event) {
+    e.stopPropagation()
+    this._shortcutsOpen = !this._shortcutsOpen
+  }
+
+  openShortcuts(): void {
+    this._shortcutsOpen = true
+  }
+
+  private _renderShortcutKeys(keys: string) {
+    const parts = keys.split('{cmd}')
+    return html`${parts.map((part, i) => html`
+      ${i > 0 ? html`<span class="shortcut-cmd-icon">${icon('command', 12)}</span>` : nothing}${part}
+    `)}`
   }
 
   override render() {
@@ -222,6 +258,39 @@ export class EpistolaToolbar extends LitElement {
             return html`<option value=${i} ?selected=${i === this._currentExampleIndex}>${label}</option>`
           })}
         </select>
+
+        <div class="toolbar-shortcuts">
+          <button
+            class="toolbar-shortcuts-trigger"
+            type="button"
+            title="Keyboard shortcuts"
+            aria-label="Keyboard shortcuts"
+            aria-expanded=${String(this._shortcutsOpen)}
+            @click=${this._toggleShortcutHelp}
+          >
+            ${icon('command')}
+          </button>
+
+          ${this._shortcutsOpen
+            ? html`
+                <div class="toolbar-shortcuts-popover" role="dialog" aria-label="Keyboard shortcuts">
+                  <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
+                  ${SHORTCUT_GROUPS.map((group) => html`
+                    <div class="toolbar-shortcuts-group ${group.dividerAfter ? 'with-divider' : ''}">
+                      <div class="toolbar-shortcuts-group-title">${group.title}</div>
+                      ${group.items.map((item) => html`
+                        <div class="toolbar-shortcuts-row">
+                          <span class="toolbar-shortcuts-keys">${this._renderShortcutKeys(item.keys)}</span>
+                          <span class="toolbar-shortcuts-action">${item.action}</span>
+                        </div>
+                      `)}
+                    </div>
+                  `)}
+                  <div class="toolbar-shortcuts-footer">Tip: Leader + ? opens this help</div>
+                </div>
+              `
+            : nothing}
+        </div>
       </div>
     `
   }

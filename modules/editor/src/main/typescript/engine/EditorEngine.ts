@@ -252,6 +252,30 @@ export class EditorEngine {
   }
 
   /**
+   * Compute the best next selection when removing a node.
+   * Preference: next sibling -> previous sibling -> parent node -> null.
+   */
+  getNextSelectionAfterRemove(nodeId: NodeId): NodeId | null {
+    if (nodeId === this._doc.root) return null
+
+    const parentSlotId = this._indexes.parentSlotByNodeId.get(nodeId)
+    if (!parentSlotId) return null
+    const parentSlot = this._doc.slots[parentSlotId]
+    if (!parentSlot) return null
+
+    const index = parentSlot.children.indexOf(nodeId)
+    if (index < 0) return null
+
+    const nextSibling = parentSlot.children[index + 1]
+    if (nextSibling) return nextSibling
+
+    const previousSibling = parentSlot.children[index - 1]
+    if (previousSibling) return previousSibling
+
+    return this._indexes.parentNodeByNodeId.get(nodeId) ?? null
+  }
+
+  /**
    * Subscribe to selection changes. Returns unsubscribe function.
    * @deprecated Use `engine.events.on('selection:change', ...)` instead.
    */
