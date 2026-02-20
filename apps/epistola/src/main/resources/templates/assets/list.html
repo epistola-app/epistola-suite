@@ -64,7 +64,7 @@
                                     class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
                                     title="Delete asset"
                                     data-confirm-title="Delete Asset"
-                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? Templates using this image will show a broken image.',data-confirm-url=@{/tenants/{tenantId}/assets/{assetId}/delete(tenantId=${tenantId},assetId=${asset.id})}"
+                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{assetId}/delete(tenantId=${tenantId},assetId=${asset.id})}"
                                     data-confirm-target="#asset-grid-items"
                                     onclick="openConfirmDialog(this)">
                                 <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
