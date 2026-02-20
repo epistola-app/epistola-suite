@@ -6,6 +6,7 @@
  */
 
 import type { ComponentDefinition } from '../../engine/registry.js'
+import type { EditorEngine } from '../../engine/EditorEngine.js'
 import { openAssetPickerDialog, type AssetPickerCallbacks } from './asset-picker-dialog.js'
 import { html } from 'lit'
 
@@ -53,12 +54,31 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       height: '',
     },
 
-    renderCanvas: ({ node }) => {
+    renderCanvas: ({ node, engine: eng }) => {
+      const engine = eng as EditorEngine
+
+      const pickAsset = async (e: Event) => {
+        e.stopPropagation()
+        const asset = await openAssetPickerDialog(options.assetPicker)
+        if (!asset) return
+        engine.dispatch({
+          type: 'UpdateNodeProps',
+          nodeId: node.id,
+          props: {
+            ...node.props,
+            assetId: asset.id,
+            alt: asset.name,
+            width: asset.width ? `${asset.width}px` : '',
+            height: asset.height ? `${asset.height}px` : '',
+          },
+        })
+      }
+
       const assetId = node.props?.assetId as string | null
       if (!assetId) {
-        return html`<div class="canvas-image-placeholder">
+        return html`<div class="canvas-image-placeholder" @click=${pickAsset} style="cursor: pointer" title="Click to select an image">
           <span class="canvas-image-placeholder-icon">&#128247;</span>
-          <span>No image selected</span>
+          <span>Click to select an image</span>
         </div>`
       }
       const src = resolveContentUrl(options.contentUrlPattern, assetId)
@@ -67,7 +87,7 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       const width = node.props?.width as string | undefined
       const height = node.props?.height as string | undefined
 
-      return html`<div class="canvas-image-wrapper">
+      return html`<div class="canvas-image-wrapper" @click=${pickAsset} style="cursor: pointer" title="Click to change image">
         <img
           src="${src}"
           alt="${alt}"

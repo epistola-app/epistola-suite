@@ -169,7 +169,7 @@ export class EpistolaTree extends LitElement {
     el.setAttribute('data-drop-indicator', indicator)
   }
 
-  private _resolveAndDrop(instruction: Instruction, targetNodeId: NodeId, dragData: DragData) {
+  private async _resolveAndDrop(instruction: Instruction, targetNodeId: NodeId, dragData: DragData) {
     if (!this.engine || !this.doc) return
 
     switch (instruction.type) {
@@ -177,19 +177,19 @@ export class EpistolaTree extends LitElement {
       case 'reorder-below': {
         const edge: Edge = instruction.type === 'reorder-above' ? 'top' : 'bottom'
         const loc = resolveDropOnBlockEdge(targetNodeId, edge, this.doc, this.engine.indexes)
-        if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
+        if (loc) await handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
         break
       }
       case 'make-child': {
         const loc = resolveDropInsideNode(targetNodeId, this.doc)
-        if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
+        if (loc) await handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
         break
       }
       case 'reparent': {
         const ancestor = findAncestorAtLevel(targetNodeId, instruction.desiredLevel, this.engine.indexes)
         if (ancestor) {
           const loc = resolveDropOnBlockEdge(ancestor, 'bottom', this.doc, this.engine.indexes)
-          if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
+          if (loc) await handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
         }
         break
       }
