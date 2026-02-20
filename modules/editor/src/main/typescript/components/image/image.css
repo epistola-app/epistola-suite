@@ -22,13 +22,11 @@
 .canvas-image-wrapper {
   display: flex;
   justify-content: center;
-  align-items: center;
   min-height: 2rem;
 }
 
 .canvas-image {
   max-width: 100%;
-  max-height: 400px;
   display: block;
 }
 

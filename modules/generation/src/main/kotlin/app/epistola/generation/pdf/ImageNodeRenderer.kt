@@ -51,16 +51,29 @@ class ImageNodeRenderer : NodeRenderer {
         // Apply width/height from props
         val widthStr = props["width"] as? String
         val heightStr = props["height"] as? String
+        val hasWidth = !widthStr.isNullOrBlank()
+        val hasHeight = !heightStr.isNullOrBlank()
 
-        if (!widthStr.isNullOrBlank()) {
-            applyDimension(widthStr, isWidth = true, image)
+        when {
+            hasWidth && hasHeight -> {
+                applyDimension(widthStr!!, isWidth = true, image)
+                applyDimension(heightStr!!, isWidth = false, image)
+            }
+            hasWidth -> {
+                // Scale proportionally: set width, compute height from aspect ratio
+                applyDimension(widthStr!!, isWidth = true, image)
+                scaleProportionally(widthStr, isWidthGiven = true, image, imageData)
+            }
+            hasHeight -> {
+                // Scale proportionally: set height, compute width from aspect ratio
+                applyDimension(heightStr!!, isWidth = false, image)
+                scaleProportionally(heightStr, isWidthGiven = false, image, imageData)
+            }
+            else -> {
+                // No dimensions specified: auto-scale to fit available width
+                image.setAutoScale(true)
+            }
         }
-        if (!heightStr.isNullOrBlank()) {
-            applyDimension(heightStr, isWidth = false, image)
-        }
-
-        // Auto-scale: if only one dimension is set, scale proportionally
-        image.setAutoScale(widthStr.isNullOrBlank() && heightStr.isNullOrBlank())
 
         // Wrap in a Div to apply layout styles (padding, margin)
         val div = Div()
@@ -86,14 +99,44 @@ class ImageNodeRenderer : NodeRenderer {
                 image.setHeight(UnitValue.createPercentValue(percent))
             }
         } else {
-            // Parse as pixels, convert to points (px * 0.75)
-            val px = value.removeSuffix("px").toFloatOrNull() ?: return
-            val pt = px * 0.75f
+            val pt = parsePxToPoints(value) ?: return
             if (isWidth) {
                 image.setWidth(pt)
             } else {
                 image.setHeight(pt)
             }
         }
+    }
+
+    /**
+     * When only one dimension is given as an absolute pixel value, compute the
+     * other from the image's intrinsic aspect ratio. Percentage values are left
+     * to iText's layout engine.
+     */
+    private fun scaleProportionally(
+        value: String,
+        isWidthGiven: Boolean,
+        image: Image,
+        imageData: com.itextpdf.io.image.ImageData,
+    ) {
+        if (value.endsWith("%")) return // let iText handle percentage layout
+
+        val pt = parsePxToPoints(value) ?: return
+        val intrinsicWidth = imageData.width // in points
+        val intrinsicHeight = imageData.height // in points
+        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) return
+
+        if (isWidthGiven) {
+            val scaledHeight = pt * (intrinsicHeight / intrinsicWidth)
+            image.setHeight(scaledHeight)
+        } else {
+            val scaledWidth = pt * (intrinsicWidth / intrinsicHeight)
+            image.setWidth(scaledWidth)
+        }
+    }
+
+    private fun parsePxToPoints(value: String): Float? {
+        val px = value.removeSuffix("px").toFloatOrNull() ?: return null
+        return px * 0.75f
     }
 }

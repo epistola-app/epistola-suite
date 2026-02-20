@@ -87,13 +87,13 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       const width = node.props?.width as string | undefined
       const height = node.props?.height as string | undefined
 
-      const hasDimensions = width || height
-      const wrapperStyle = `cursor: pointer;${width ? ` width: ${width};` : ''}${height ? ` height: ${height};` : ''}`
-      const imgStyle = hasDimensions
-        ? `object-fit: ${objectFit}; width: 100%; height: 100%;`
-        : `object-fit: ${objectFit};`
+      const imgStyle = [
+        `object-fit: ${objectFit}`,
+        width ? `width: ${width}` : '',
+        height ? `height: ${height}` : '',
+      ].filter(Boolean).join('; ') + ';'
 
-      return html`<div class="canvas-image-wrapper" @click=${pickAsset} style=${wrapperStyle} title="Click to change image">
+      return html`<div class="canvas-image-wrapper" @click=${pickAsset} style="cursor: pointer" title="Click to change image">
         <img
           src="${src}"
           alt="${alt}"
