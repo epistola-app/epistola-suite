@@ -312,12 +312,8 @@ export class EpistolaCanvas extends LitElement {
     const node = doc.nodes[nodeId]
     if (!node) return nothing
 
-    // For leaf nodes with no slots, show a content placeholder
-    if (node.slots.length === 0) {
-      return this._renderLeafNode(nodeId)
-    }
-
-    // Delegate to component's renderCanvas hook if present
+    // Delegate to component's renderCanvas hook if present (checked first so
+    // leaf components like image can provide custom rendering)
     const def = this.engine!.registry.get(node.type)
     if (def?.renderCanvas) {
       return def.renderCanvas({
@@ -327,6 +323,11 @@ export class EpistolaCanvas extends LitElement {
         renderSlot: (slotId: SlotId) => this._renderSlot(slotId),
         selectedNodeId: this.selectedNodeId,
       })
+    }
+
+    // For leaf nodes with no slots, show a content placeholder
+    if (node.slots.length === 0) {
+      return this._renderLeafNode(nodeId)
     }
 
     // Default: render all slots
