@@ -230,6 +230,9 @@ class TipTapConverter(
 
                     paragraph.add(text)
                 }
+                "hard_break", "hardBreak" -> {
+                    paragraph.add(Text("\n"))
+                }
                 "expression" -> {
                     // Expression atom node
                     @Suppress("UNCHECKED_CAST")

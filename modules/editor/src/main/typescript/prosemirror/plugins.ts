@@ -7,12 +7,12 @@
 
 import { history } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
-import { baseKeymap } from 'prosemirror-commands'
+import { baseKeymap, chainCommands, exitCode } from 'prosemirror-commands'
 import { dropCursor } from 'prosemirror-dropcursor'
 import { gapCursor } from 'prosemirror-gapcursor'
 import { toggleMark } from 'prosemirror-commands'
 import type { Schema } from 'prosemirror-model'
-import type { Plugin } from 'prosemirror-state'
+import type { Plugin, Command } from 'prosemirror-state'
 import { epistolaInputRules } from './input-rules.js'
 import { bubbleMenuPlugin } from './bubble-menu.js'
 import type { ExpressionNodeViewOptions } from './ExpressionNodeView.js'
@@ -44,12 +44,28 @@ function markKeymap(schema: Schema) {
 }
 
 /**
+ * Create a keymap for Shift-Enter → hard_break (line break without new paragraph).
+ */
+function hardBreakKeymap(schema: Schema) {
+  const br = schema.nodes.hard_break
+  if (!br) return keymap({})
+
+  const cmd: Command = chainCommands(exitCode, (state, dispatch) => {
+    if (dispatch) dispatch(state.tr.replaceSelectionWith(br.create()).scrollIntoView())
+    return true
+  })
+
+  return keymap({ 'Shift-Enter': cmd, 'Mod-Enter': cmd })
+}
+
+/**
  * Create the full set of ProseMirror plugins for Epistola text blocks.
  */
 export function createPlugins(schema: Schema, _options: PluginOptions): Plugin[] {
   return [
     history(),
     markKeymap(schema),
+    hardBreakKeymap(schema),
     keymap(baseKeymap),
     epistolaInputRules(schema),
     dropCursor(),
