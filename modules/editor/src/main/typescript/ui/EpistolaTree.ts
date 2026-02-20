@@ -237,7 +237,9 @@ export class EpistolaTree extends LitElement {
         <div
           class="tree-node-label ${isSelected ? 'selected' : ''}"
           data-node-id=${nodeId}
+          tabindex="0"
           @click=${() => this._handleSelect(nodeId)}
+          @focus=${() => this._handleSelect(nodeId)}
         >
           <span class="tree-node-icon ${isRoot ? 'root' : ''}">${this._nodeIcon(def?.icon)}</span>
           <span>${label}</span>

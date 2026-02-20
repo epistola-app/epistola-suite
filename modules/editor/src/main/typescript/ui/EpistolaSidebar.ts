@@ -37,6 +37,38 @@ export class EpistolaSidebar extends LitElement {
     this._activeTab = tabId
   }
 
+  private _focusTab(tabId: string, focusTarget: () => HTMLElement | null) {
+    this._setTab(tabId)
+    void this.updateComplete.then(() => {
+      focusTarget()?.focus()
+    })
+  }
+
+  focusPalette(): void {
+    this._focusTab('blocks', () =>
+      this.querySelector<HTMLElement>('.epistola-palette .palette-item'),
+    )
+  }
+
+  focusTree(): void {
+    const selectedId = this.selectedNodeId
+    this._focusTab('structure', () => {
+      if (selectedId) {
+        const selected = this.querySelector<HTMLElement>(`.tree-node-label[data-node-id="${selectedId}"]`)
+        if (selected) return selected
+      }
+      return this.querySelector<HTMLElement>('.tree-node-label[data-node-id]')
+    })
+  }
+
+  focusInspector(): void {
+    this._focusTab('inspector', () =>
+      this.querySelector<HTMLElement>(
+        '.epistola-inspector input, .epistola-inspector select, .epistola-inspector textarea, .epistola-inspector button, .epistola-inspector [tabindex]'
+      ),
+    )
+  }
+
   private get _inspectorLabel(): string {
     return this.selectedNodeId ? 'Inspector' : 'Document'
   }

@@ -33,6 +33,229 @@
     background: var(--ep-gray-200);
   }
 
+  .leader-hint {
+    position: fixed;
+    left: 50%;
+    bottom: var(--ep-space-4);
+    transform: translate(-50%, 8px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+    padding: var(--ep-space-2) var(--ep-space-3);
+    border-radius: var(--ep-radius-full);
+    background: var(--ep-gray-900);
+    color: var(--ep-white);
+    font-size: var(--ep-text-xs);
+    letter-spacing: 0.01em;
+    box-shadow: var(--ep-shadow-lg);
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease,
+      background-color 140ms ease,
+      visibility 0s linear 180ms;
+  }
+
+  .leader-hint.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease,
+      background-color 140ms ease,
+      visibility 0s linear 0s;
+  }
+
+  .leader-hint.is-success {
+    background: var(--ep-green-600, #16a34a);
+  }
+
+  .leader-hint.is-error {
+    background: var(--ep-red-600, #dc2626);
+  }
+
+  .leader-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.8;
+  }
+
+  .leader-text {
+    white-space: nowrap;
+  }
+
+  .insert-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.2);
+    z-index: 35;
+    animation: ep-insert-backdrop-in 140ms ease-out;
+  }
+
+  .insert-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(34rem, 92vw);
+    min-height: 20rem;
+    max-height: min(70vh, 38rem);
+    overflow: auto;
+    border-radius: var(--ep-radius-md);
+    border: 1px solid var(--ep-gray-200);
+    background: var(--ep-white);
+    box-shadow: var(--ep-shadow-lg);
+    padding: var(--ep-space-3);
+    z-index: 36;
+    animation: ep-insert-dialog-in 180ms ease-out;
+  }
+
+  .insert-dialog-title {
+    font-size: var(--ep-text-sm);
+    font-weight: 700;
+    color: var(--ep-gray-900);
+  }
+
+  .insert-dialog-stage {
+    animation: ep-insert-stage-in 140ms ease-out;
+  }
+
+  .insert-dialog-hint {
+    margin-top: var(--ep-space-1);
+    font-size: 11px;
+    font-family: var(--ep-font-mono);
+    color: var(--ep-gray-500);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-100);
+    border-radius: var(--ep-radius-sm);
+    padding: 4px 6px;
+  }
+
+  .insert-dialog-context {
+    margin-top: var(--ep-space-1-5);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-600);
+  }
+
+  .insert-dialog-error {
+    margin-top: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-700, #b91c1c);
+  }
+
+  .insert-dialog-list {
+    margin-top: var(--ep-space-2-5);
+    display: grid;
+    gap: var(--ep-space-1);
+    min-height: 12rem;
+  }
+
+  .insert-dialog-row {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+    gap: var(--ep-space-2);
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-gray-50);
+    border: 1px solid var(--ep-gray-100);
+    transition:
+      background-color var(--ep-transition-fast),
+      border-color var(--ep-transition-fast),
+      transform var(--ep-transition-fast);
+
+    &:hover {
+      background: var(--ep-gray-100);
+      border-color: var(--ep-gray-200);
+      transform: translateY(-1px);
+    }
+
+    &.is-active {
+      background: var(--ep-blue-50, #eff6ff);
+      border-color: var(--ep-blue-300, #93c5fd);
+    }
+  }
+
+  .insert-dialog-index {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 11px;
+    font-family: var(--ep-font-mono);
+    color: var(--ep-gray-800);
+    background: var(--ep-white);
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    padding: 2px 4px;
+  }
+
+  .insert-dialog-label {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-gray-800);
+  }
+
+  .insert-dialog-detail {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--ep-gray-500);
+  }
+
+  .insert-dialog-range {
+    margin-top: var(--ep-space-2);
+    font-size: 11px;
+    color: var(--ep-gray-500);
+    font-family: var(--ep-font-mono);
+  }
+
+  @keyframes ep-insert-backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes ep-insert-dialog-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 8px));
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  @keyframes ep-insert-stage-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .insert-dialog-backdrop,
+    .insert-dialog,
+    .insert-dialog-stage {
+      animation: none;
+    }
+
+    .insert-dialog-row {
+      transition: none;
+    }
+  }
+
   epistola-canvas {
     flex: 1;
     overflow: auto;

@@ -608,11 +608,14 @@ export class EpistolaInspector extends LitElement {
 
   private _handleDelete() {
     if (!this.engine || !this.selectedNodeId) return
-    this.engine.dispatch({
+    const nextSelection = this.engine.getNextSelectionAfterRemove(this.selectedNodeId)
+    const result = this.engine.dispatch({
       type: 'RemoveNode',
       nodeId: this.selectedNodeId,
     })
-    this.engine.selectNode(null)
+    if (result.ok) {
+      this.engine.selectNode(nextSelection)
+    }
   }
 }
 
