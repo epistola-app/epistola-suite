@@ -22,6 +22,15 @@ function resolveContentUrl(pattern: string, assetId: string): string {
   return pattern.replace('{assetId}', assetId)
 }
 
+/** Parse a CSS px value, returning the numeric part or null for non-px / empty values. */
+function parsePx(value: unknown): number | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed.endsWith('px')) return null
+  const num = parseFloat(trimmed)
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
 export function createImageDefinition(options: ImageOptions): ComponentDefinition {
   return {
     type: 'image',
@@ -52,6 +61,25 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       objectFit: 'contain',
       width: '',
       height: '',
+    },
+
+    onPropChange: (key, value, props) => {
+      const oldWidth = parsePx(props.width)
+      const oldHeight = parsePx(props.height)
+
+      if (key === 'width' && oldHeight && oldWidth) {
+        const newWidth = parsePx(value)
+        if (newWidth) {
+          props.height = `${Math.round(oldHeight * (newWidth / oldWidth))}px`
+        }
+      } else if (key === 'height' && oldWidth && oldHeight) {
+        const newHeight = parsePx(value)
+        if (newHeight) {
+          props.width = `${Math.round(oldWidth * (newHeight / oldHeight))}px`
+        }
+      }
+
+      return props
     },
 
     renderCanvas: ({ node, engine: eng }) => {
