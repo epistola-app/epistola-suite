@@ -7,6 +7,7 @@ import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -45,39 +46,38 @@ class AssetHandler {
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val accept = request.headers().accept()
+        val searchTerm = request.param("q").orElse(null)
+
+        // HTMX search — return HTML fragment
+        if (request.isHtmx) {
+            val tenant = GetTenant(id = tenantId).query()
+            val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm).query()
+            return request.htmx {
+                fragment("assets/list", "asset-grid-items") {
+                    "tenantId" to tenantId.value
+                    "tenant" to tenant
+                    "assets" to assets
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
+            }
+        }
 
         // Editor calls with Accept: application/json
-        if (accept.any { it.includes(MediaType.APPLICATION_JSON) }) {
-            val assets = ListAssets(tenantId = tenantId).query()
-            val assetInfoList = assets.map { asset ->
-                mapOf(
-                    "id" to asset.id.value.toString(),
-                    "name" to asset.name,
-                    "mediaType" to asset.mediaType.mimeType,
-                    "sizeBytes" to asset.sizeBytes,
-                    "width" to asset.width,
-                    "height" to asset.height,
-                    "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.id.value}/content",
-                )
-            }
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(assetInfoList)
-        }
-
-        // HTMX search
-        val searchTerm = request.param("q").orElse(null)
-        val tenant = GetTenant(id = tenantId).query()
         val assets = ListAssets(tenantId = tenantId, searchTerm = searchTerm).query()
-        return request.htmx {
-            fragment("assets/list", "asset-grid-items") {
-                "tenantId" to tenantId.value
-                "tenant" to tenant
-                "assets" to assets
-            }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
+        val assetInfoList = assets.map { asset ->
+            mapOf(
+                "id" to asset.id.value.toString(),
+                "name" to asset.name,
+                "mediaType" to asset.mediaType.mimeType,
+                "sizeBytes" to asset.sizeBytes,
+                "width" to asset.width,
+                "height" to asset.height,
+                "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.id.value}/content",
+            )
         }
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(assetInfoList)
     }
 
     fun upload(request: ServerRequest): ServerResponse {
@@ -134,36 +134,34 @@ class AssetHandler {
                 .body(mapOf("error" to e.message))
         }
 
-        val accept = request.headers().accept()
-
-        // Editor calls with Accept: application/json
-        if (accept.any { it.includes(MediaType.APPLICATION_JSON) }) {
-            return ServerResponse.ok()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(
-                    mapOf(
-                        "id" to asset.id.value.toString(),
-                        "name" to asset.name,
-                        "mediaType" to asset.mediaType.mimeType,
-                        "sizeBytes" to asset.sizeBytes,
-                        "width" to asset.width,
-                        "height" to asset.height,
-                        "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.id.value}/content",
-                    ),
-                )
-        }
-
         // HTMX: return updated asset grid
-        val tenant = GetTenant(id = tenantId).query()
-        val assets = ListAssets(tenantId = tenantId).query()
-        return request.htmx {
-            fragment("assets/list", "asset-grid-items") {
-                "tenantId" to tenantId.value
-                "tenant" to tenant
-                "assets" to assets
+        if (request.isHtmx) {
+            val tenant = GetTenant(id = tenantId).query()
+            val assets = ListAssets(tenantId = tenantId).query()
+            return request.htmx {
+                fragment("assets/list", "asset-grid-items") {
+                    "tenantId" to tenantId.value
+                    "tenant" to tenant
+                    "assets" to assets
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/assets") }
         }
+
+        // Editor calls — return JSON
+        return ServerResponse.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(
+                mapOf(
+                    "id" to asset.id.value.toString(),
+                    "name" to asset.name,
+                    "mediaType" to asset.mediaType.mimeType,
+                    "sizeBytes" to asset.sizeBytes,
+                    "width" to asset.width,
+                    "height" to asset.height,
+                    "contentUrl" to "/tenants/${tenantId.value}/assets/${asset.id.value}/content",
+                ),
+            )
     }
 
     fun content(request: ServerRequest): ServerResponse {
