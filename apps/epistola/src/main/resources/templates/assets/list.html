@@ -57,7 +57,7 @@
                         <div class="asset-card-meta">
                             <span th:text="${asset.mediaType.name()}"></span>
                             <span th:text="${asset.width != null ? asset.width + ' x ' + asset.height + ' px' : 'SVG'}"></span>
-                            <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? T(String).format('%.1f KB', asset.sizeBytes / 1024.0) : T(String).format('%.1f MB', asset.sizeBytes / 1048576.0))}"></span>
+                            <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? #numbers.formatDecimal(asset.sizeBytes / 1024.0, 1, 1) + ' KB' : #numbers.formatDecimal(asset.sizeBytes / 1048576.0, 1, 1) + ' MB')}"></span>
                         </div>
                     </div>
                     <div class="asset-card-actions">
