@@ -22,6 +22,7 @@ import java.time.OffsetDateTime
  * @property content Raw image bytes
  * @property width Image width in pixels (null for SVG)
  * @property height Image height in pixels (null for SVG)
+ * @property id Optional pre-defined asset ID (generated if null)
  */
 data class UploadAsset(
     val tenantId: TenantId,
@@ -30,6 +31,7 @@ data class UploadAsset(
     val content: ByteArray,
     val width: Int?,
     val height: Int?,
+    val id: AssetId? = null,
 ) : Command<Asset> {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -55,7 +57,7 @@ class UploadAssetHandler(
             throw AssetTooLargeException(sizeBytes)
         }
 
-        val id = AssetId.generate()
+        val id = command.id ?: AssetId.generate()
         val now = OffsetDateTime.now()
 
         logger.info(
