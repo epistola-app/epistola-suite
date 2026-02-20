@@ -97,6 +97,9 @@ export interface ComponentDefinition {
   /** Custom inspector section rendered above generic props. */
   renderInspector?: (ctx: { node: Node; engine: unknown }) => unknown
 
+  /** Called before dispatching prop changes. Can transform props (e.g. lock aspect ratio). */
+  onPropChange?: (key: string, value: unknown, currentProps: Record<string, unknown>) => Record<string, unknown>
+
   /** Pre-insert hook for palette (e.g. open a dialog). Returns override props or null to cancel. */
   onBeforeInsert?: (engine: unknown) => Promise<Record<string, unknown> | null>
 

@@ -269,6 +269,20 @@ value class EnvironmentId(override val value: String) : SlugId<EnvironmentId> {
 }
 
 /**
+ * Typed ID for Asset entities.
+ */
+@JvmInline
+value class AssetId(override val value: UUID) : UuidId<AssetId> {
+    companion object {
+        fun generate(): AssetId = AssetId(UUIDv7.generate())
+        fun of(value: UUID): AssetId = AssetId(value)
+        fun of(value: String): AssetId = AssetId(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
  * Typed ID for Document entities.
  */
 @JvmInline

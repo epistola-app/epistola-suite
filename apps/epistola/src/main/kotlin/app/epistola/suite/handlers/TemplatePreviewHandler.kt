@@ -1,5 +1,9 @@
 package app.epistola.suite.templates
 
+import app.epistola.generation.pdf.AssetResolution
+import app.epistola.generation.pdf.AssetResolver
+import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -99,17 +103,24 @@ class TemplatePreviewHandler(
             previewContext.draftTemplateModel ?: return ServerResponse.notFound().build()
         }
 
+        val resolvedTenantId = TenantId.of(tenantId)
+        val assetResolver = AssetResolver { assetIdStr ->
+            GetAssetContent(resolvedTenantId, AssetId.of(assetIdStr)).query()
+                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
+        }
+
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_PDF)
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
             .build { _, response ->
                 generationService.renderPdf(
-                    TenantId.of(tenantId),
+                    resolvedTenantId,
                     templateModel,
                     data,
                     response.outputStream,
                     previewContext.templateThemeId,
                     previewContext.tenantDefaultThemeId,
+                    assetResolver = assetResolver,
                 )
                 response.outputStream.flush()
                 null // Return null to indicate no view to render

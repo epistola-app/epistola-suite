@@ -1,0 +1,211 @@
+/* ── Image block canvas styles ────────────────────────────────────────── */
+
+.canvas-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ep-space-2);
+  padding: var(--ep-space-8);
+  background-color: var(--ep-gray-50);
+  border: 2px dashed var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.canvas-image-placeholder-icon {
+  font-size: 2rem;
+  opacity: 0.5;
+}
+
+.canvas-image-wrapper {
+  min-height: 2rem;
+}
+
+.canvas-image {
+  max-width: 100%;
+  display: block;
+}
+
+/* ── Asset picker dialog ────────────────────────────────────────────── */
+
+.asset-picker-dialog {
+  border: none;
+  border-radius: var(--ep-radius-xl);
+  box-shadow: var(--ep-shadow-xl);
+  padding: 0;
+  max-width: 40rem;
+  width: 90%;
+  max-height: 80vh;
+}
+
+.asset-picker-dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.asset-picker-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.asset-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-bottom: 1px solid var(--ep-border-color);
+}
+
+.asset-picker-header h3 {
+  margin: 0;
+  font-size: var(--ep-text-base);
+}
+
+.asset-picker-close {
+  background: none;
+  border: none;
+  font-size: var(--ep-text-xl);
+  cursor: pointer;
+  color: var(--ep-muted-foreground);
+  padding: var(--ep-space-1);
+  line-height: 1;
+}
+
+.asset-picker-close:hover {
+  color: var(--ep-foreground);
+}
+
+.asset-picker-upload-zone {
+  margin: var(--ep-space-4) var(--ep-space-6);
+  padding: var(--ep-space-4);
+  border: 2px dashed var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  text-align: center;
+  font-size: var(--ep-text-sm);
+  color: var(--ep-muted-foreground);
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.asset-picker-upload-zone p {
+  margin: var(--ep-space-1) 0;
+}
+
+.asset-picker-upload-zone.dragover {
+  border-color: var(--ep-primary);
+  background-color: var(--ep-blue-50);
+}
+
+.asset-picker-upload-zone.uploading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.asset-picker-upload-link {
+  color: var(--ep-primary);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.asset-picker-upload-hint {
+  font-size: var(--ep-text-xs);
+}
+
+.asset-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--ep-space-2);
+  padding: 0 var(--ep-space-6);
+  overflow-y: auto;
+  max-height: 300px;
+  min-height: 120px;
+}
+
+.asset-picker-loading,
+.asset-picker-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--ep-space-8);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-sm);
+}
+
+.asset-picker-card {
+  border: 2px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.asset-picker-card:hover {
+  border-color: var(--ep-gray-400);
+}
+
+.asset-picker-card.selected {
+  border-color: var(--ep-primary);
+  box-shadow: 0 0 0 1px var(--ep-primary);
+}
+
+.asset-picker-card-img {
+  aspect-ratio: 1;
+  background-color: var(--ep-gray-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.asset-picker-card-img img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.asset-picker-card-name {
+  padding: var(--ep-space-1) var(--ep-space-2);
+  font-size: var(--ep-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ep-space-3);
+  padding: var(--ep-space-4) var(--ep-space-6);
+  border-top: 1px solid var(--ep-border-color);
+}
+
+.asset-picker-btn {
+  padding: var(--ep-space-1-5) var(--ep-space-4);
+  border-radius: var(--ep-radius-md);
+  font-size: var(--ep-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--ep-border-color);
+  background: var(--ep-white);
+  color: var(--ep-foreground);
+}
+
+.asset-picker-btn:hover {
+  background: var(--ep-gray-50);
+}
+
+.asset-picker-btn.insert {
+  background: var(--ep-primary);
+  color: var(--ep-primary-foreground);
+  border-color: var(--ep-primary);
+}
+
+.asset-picker-btn.insert:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.asset-picker-btn.insert:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

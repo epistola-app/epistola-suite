@@ -113,6 +113,27 @@
             dataExamples: window.DATA_EXAMPLES,
             dataModel: window.DATA_MODEL,
             plugins: plugins,
+            imageOptions: {
+                contentUrlPattern: '/tenants/' + tenantId + '/assets/{assetId}/content',
+                listAssets: async () => {
+                    const resp = await fetch('/tenants/' + tenantId + '/assets/search', {
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                    });
+                    if (!resp.ok) throw new Error('Failed to list assets');
+                    return await resp.json();
+                },
+                uploadAsset: async (file) => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const resp = await fetch('/tenants/' + tenantId + '/assets', {
+                        method: 'POST',
+                        headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': window.getCsrfToken() },
+                        body: formData,
+                    });
+                    if (!resp.ok) throw new Error('Failed to upload asset');
+                    return await resp.json();
+                },
+            },
             onSave: async (template) => {
                 const response = await fetch('/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/draft', {
                     method: 'PUT',

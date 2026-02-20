@@ -1174,3 +1174,106 @@ a.stat-card:hover {
     gap: var(--ep-space-2);
     align-items: center;
 }
+
+/* ── Asset manager ────────────────────────────────────────────────────── */
+
+.asset-upload-zone {
+    border: 2px dashed var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    padding: var(--ep-space-8);
+    text-align: center;
+    margin-bottom: var(--ep-space-6);
+    transition: border-color var(--ep-transition-base),
+                background-color var(--ep-transition-base);
+    cursor: pointer;
+}
+
+.asset-upload-zone:hover,
+.asset-upload-zone.dragover {
+    border-color: var(--ep-primary);
+    background-color: var(--ep-blue-50);
+}
+
+.asset-upload-content {
+    color: var(--ep-muted-foreground);
+}
+
+.asset-upload-content p {
+    margin: var(--ep-space-2) 0 0;
+}
+
+.asset-upload-link {
+    color: var(--ep-primary);
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.asset-upload-link:hover {
+    text-decoration: underline;
+}
+
+.asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--ep-space-4);
+}
+
+.asset-card {
+    background-color: var(--ep-card);
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-lg);
+    overflow: hidden;
+    transition: box-shadow var(--ep-transition-base);
+}
+
+.asset-card:hover {
+    box-shadow: var(--ep-shadow-md);
+}
+
+.asset-card-preview {
+    aspect-ratio: 4 / 3;
+    background-color: var(--ep-gray-50);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--ep-border-color);
+}
+
+.asset-card-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.asset-card-info {
+    padding: var(--ep-space-3);
+}
+
+.asset-card-name {
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.asset-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    margin-top: var(--ep-space-1);
+}
+
+.asset-card-meta span:not(:last-child)::after {
+    content: "\00b7";
+    margin-left: var(--ep-space-2);
+}
+
+.asset-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 var(--ep-space-3) var(--ep-space-2);
+}

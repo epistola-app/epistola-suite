@@ -14,9 +14,12 @@ import type { TemplateDocument, NodeId, SlotId } from './types/index.js'
 import type { FetchPreviewFn } from './ui/preview-service.js'
 import type { EditorPlugin } from './plugins/types.js'
 import { createDefaultRegistry } from './engine/registry.js'
+import { createImageDefinition } from './components/image/image-registration.js'
+import type { AssetInfo } from './components/image/asset-picker-dialog.js'
 import { nanoid } from 'nanoid'
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js'
+export type { AssetInfo } from './components/image/asset-picker-dialog.js'
 export { EditorEngine } from './engine/EditorEngine.js'
 export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js'
 export type {
@@ -46,6 +49,12 @@ export interface EditorOptions {
   onFetchPreview?: FetchPreviewFn
   /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
   plugins?: EditorPlugin[]
+  /** Optional image block support with asset management callbacks. */
+  imageOptions?: {
+    listAssets: () => Promise<AssetInfo[]>
+    uploadAsset: (file: File) => Promise<AssetInfo>
+    contentUrlPattern: string
+  }
 }
 
 export interface EditorInstance {
@@ -111,8 +120,20 @@ export function mountEditor(options: EditorOptions): EditorInstance {
     editorEl.plugins = plugins
   }
 
+  // Build registry with optional image support
+  const registry = createDefaultRegistry()
+  if (options.imageOptions) {
+    registry.register(createImageDefinition({
+      assetPicker: {
+        listAssets: options.imageOptions.listAssets,
+        uploadAsset: options.imageOptions.uploadAsset,
+      },
+      contentUrlPattern: options.imageOptions.contentUrlPattern,
+    }))
+  }
+
   // Initialize the engine with data model context
-  editorEl.initEngine(doc, createDefaultRegistry(), { dataModel, dataExamples })
+  editorEl.initEngine(doc, registry, { dataModel, dataExamples })
 
   // Mount into the container
   container.innerHTML = ''

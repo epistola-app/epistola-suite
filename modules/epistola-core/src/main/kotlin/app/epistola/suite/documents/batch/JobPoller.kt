@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.GenerationRequestId
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import io.micrometer.core.instrument.MeterRegistry
+import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -13,7 +14,9 @@ import org.springframework.stereotype.Component
 import java.net.InetAddress
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -47,6 +50,12 @@ class JobPoller(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val instanceId = "${InetAddress.getLocalHost().hostName}-${ProcessHandle.current().pid()}"
     private val activeJobs = AtomicInteger(0)
+    private val shuttingDown = AtomicBoolean(false)
+
+    // Latch that signals when all active jobs have completed (activeJobs reaches 0)
+    @Volatile
+    private var idleLatch = CountDownLatch(0)
+    private val idleLatchLock = Any()
 
     // Dedicated executor for job processing (virtual threads)
     private val jobThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()
@@ -81,14 +90,24 @@ class JobPoller(
      * Useful for test cleanup to avoid deadlocks when deleting test data.
      */
     fun awaitIdle(timeout: Duration = Duration.ofSeconds(10)) {
-        val deadline = System.currentTimeMillis() + timeout.toMillis()
-        while (activeJobs.get() > 0) {
-            if (System.currentTimeMillis() > deadline) {
-                logger.warn("Timed out waiting for {} active jobs to complete", activeJobs.get())
-                break
-            }
-            Thread.sleep(50)
+        val latch = idleLatch
+        if (activeJobs.get() == 0) return
+        if (!latch.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            logger.warn("Timed out waiting for {} active jobs to complete", activeJobs.get())
         }
+    }
+
+    @PreDestroy
+    fun shutdown() {
+        logger.info("Job poller shutting down... (active jobs: {})", activeJobs.get())
+        shuttingDown.set(true)
+
+        // Wait briefly for in-flight jobs to finish
+        awaitIdle(Duration.ofSeconds(5))
+
+        drainExecutor.shutdownNow()
+        jobThreadExecutor.shutdownNow()
+        logger.info("Job poller shut down (remaining active jobs: {})", activeJobs.get())
     }
 
     /**
@@ -105,6 +124,7 @@ class JobPoller(
      * Multiple calls are coalesced - only one drain runs at a time.
      */
     fun requestDrain() {
+        if (shuttingDown.get()) return
         if (drainRequested.compareAndSet(false, true)) {
             drainExecutor.submit { drain() }
         }
@@ -153,7 +173,11 @@ class JobPoller(
 
                 // Submit each job to executor
                 requests.forEach { request ->
-                    activeJobs.incrementAndGet()
+                    synchronized(idleLatchLock) {
+                        if (activeJobs.getAndIncrement() == 0) {
+                            idleLatch = CountDownLatch(1)
+                        }
+                    }
 
                     // Track start time for duration calculation
                     jobStartTimes[request.id] = System.currentTimeMillis()
@@ -172,7 +196,13 @@ class JobPoller(
                         } finally {
                             // Calculate duration and report to adaptive batch sizer
                             val startTime = jobStartTimes.remove(request.id)
-                            val newActiveCount = activeJobs.decrementAndGet()
+                            val newActiveCount = synchronized(idleLatchLock) {
+                                val count = activeJobs.decrementAndGet()
+                                if (count == 0) {
+                                    idleLatch.countDown()
+                                }
+                                count
+                            }
                             if (startTime != null) {
                                 val duration = System.currentTimeMillis() - startTime
                                 batchSizer.recordJobCompletion(duration)

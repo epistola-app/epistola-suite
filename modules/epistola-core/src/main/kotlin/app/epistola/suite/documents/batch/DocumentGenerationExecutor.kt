@@ -1,6 +1,10 @@
 package app.epistola.suite.documents.batch
 
+import app.epistola.generation.pdf.AssetResolution
+import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.suite.assets.queries.GetAssetContent
+import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.BatchId
 import app.epistola.suite.common.ids.DocumentId
 import app.epistola.suite.common.ids.GenerationRequestId
@@ -146,7 +150,11 @@ class DocumentGenerationExecutor(
             title = template.name,
             author = tenant.name,
         )
-        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled)
+        val assetResolver = AssetResolver { assetId ->
+            mediator.query(GetAssetContent(request.tenantId, AssetId.of(assetId)))
+                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
+        }
+        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()

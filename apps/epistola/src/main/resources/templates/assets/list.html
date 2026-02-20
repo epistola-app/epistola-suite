@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Assets</h1>
+            <div class="page-actions">
+                <div th:replace="~{fragments/search :: search-box(
+                    placeholder='Search assets...',
+                    searchUrl=@{/tenants/{tenantId}/assets/search(tenantId=${tenantId})},
+                    targetId='asset-grid-items'
+                )}"></div>
+            </div>
+        </div>
+
+        <!-- Upload area -->
+        <form id="asset-upload-form"
+              th:hx-post="@{/tenants/{tenantId}/assets(tenantId=${tenantId})}"
+              hx-target="#asset-grid-items"
+              hx-swap="innerHTML"
+              hx-encoding="multipart/form-data"
+              class="asset-upload-zone"
+              ondragover="event.preventDefault(); this.classList.add('dragover')"
+              ondragleave="this.classList.remove('dragover')"
+              ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileDrop(event, this)">
+            <div class="asset-upload-content">
+                <th:block th:replace="~{fragments/icon :: icon(name='upload', class='ep-icon ep-icon-xl')}" />
+                <p>Drag and drop images here or <label class="asset-upload-link" for="asset-file-input">browse</label></p>
+                <p class="text-muted text-sm">PNG, JPEG, WebP, SVG — max 5MB</p>
+            </div>
+            <input type="file" id="asset-file-input" name="file"
+                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                   style="display: none;"
+                   onchange="this.closest('form').requestSubmit()" />
+        </form>
+
+        <div id="asset-grid-items">
+            <th:block th:fragment="asset-grid-items">
+                <div th:if="${#lists.isEmpty(assets)}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{fragments/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No assets yet</div>
+                    <div class="empty-state-description">Upload images to use in your document templates.</div>
+                </div>
+
+                <div th:if="${!#lists.isEmpty(assets)}" class="asset-grid">
+                    <div th:each="asset : ${assets}" class="asset-card">
+                        <div class="asset-card-preview">
+                            <img th:src="@{/tenants/{tenantId}/assets/{assetId}/content(tenantId=${tenantId},assetId=${asset.id})}"
+                                 th:alt="${asset.name}"
+                                 loading="lazy" />
+                        </div>
+                        <div class="asset-card-info">
+                            <div class="asset-card-name" th:text="${asset.name}" th:title="${asset.name}"></div>
+                            <div class="asset-card-meta">
+                                <span th:text="${asset.mediaType.name()}"></span>
+                                <span th:text="${asset.width != null ? asset.width + ' x ' + asset.height + ' px' : 'SVG'}"></span>
+                                <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? #numbers.formatDecimal(asset.sizeBytes / 1024.0, 1, 1) + ' KB' : #numbers.formatDecimal(asset.sizeBytes / 1048576.0, 1, 1) + ' MB')}"></span>
+                            </div>
+                        </div>
+                        <div class="asset-card-actions">
+                            <button type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete asset"
+                                    data-confirm-title="Delete Asset"
+                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? This action cannot be undone.',data-confirm-url=@{/tenants/{tenantId}/assets/{assetId}/delete(tenantId=${tenantId},assetId=${asset.id})}"
+                                    data-confirm-target="#asset-grid-items"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+        </div>
+
+        <th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />
+
+        <script th:inline="javascript">
+            function handleFileDrop(event, form) {
+                const file = event.dataTransfer.files[0];
+                if (file) {
+                    const input = form.querySelector('input[type="file"]');
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                    form.requestSubmit();
+                }
+            }
+        </script>
+    </th:block>
+</body>
+</html>

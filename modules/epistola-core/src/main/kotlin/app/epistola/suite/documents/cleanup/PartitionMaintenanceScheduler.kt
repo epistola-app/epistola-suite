@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.cleanup
 
+import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -42,6 +43,15 @@ class PartitionMaintenanceScheduler(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    @Volatile
+    private var shuttingDown = false
+
+    @PreDestroy
+    fun shutdown() {
+        logger.info("Partition maintenance scheduler shutting down")
+        shuttingDown = true
+    }
+
     private val partitionConfigs = listOf(
         PartitionConfig("documents", "created_at"),
         PartitionConfig("document_generation_requests", "created_at"),
@@ -65,6 +75,7 @@ class PartitionMaintenanceScheduler(
      */
     @Scheduled(cron = "\${epistola.partitions.maintenance-cron:0 0 2 * * ?}")
     fun maintainPartitions() {
+        if (shuttingDown) return
         logger.info("Starting partition maintenance (retention: {} months)", retentionMonths)
 
         partitionConfigs.forEach { config ->
