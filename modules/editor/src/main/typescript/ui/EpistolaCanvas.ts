@@ -203,9 +203,9 @@ export class EpistolaCanvas extends LitElement {
   // Drop handler
   // ---------------------------------------------------------------------------
 
-  private async _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
+  private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
     if (!this.engine) return
-    await handleDrop(this.engine, dragData, targetSlotId, index)
+    handleDrop(this.engine, dragData, targetSlotId, index)
   }
 
   // ---------------------------------------------------------------------------
