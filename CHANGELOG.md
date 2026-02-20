@@ -2,10 +2,15 @@
 
 ## [Unreleased]
 
-### Fixed
-- **Flyway `clean-on-validation-error` removed in Flyway 10+**: Replaced the deprecated YAML property with a programmatic `FlywayMigrationStrategy` that catches `FlywayValidateException` and auto-cleans when `clean-disabled=false`. Production (`clean-disabled=true`) re-throws validation errors as before.
 ### Added
+- **Asset manager**: Tenant-scoped image asset management with upload, list, search, delete, and raw content serving. Assets are stored as PostgreSQL BYTEA with a 5MB size limit. Supports PNG, JPEG, SVG, and WebP. Includes a dedicated asset manager page with drag-and-drop upload and thumbnail grid.
+- **Image block in template editor**: New "Image" block type in the template editor with an asset picker dialog for selecting or uploading images. The picker shows a thumbnail grid of existing assets and supports drag-and-drop upload.
+- **Image rendering in PDF generation**: `ImageNodeRenderer` renders image blocks in generated PDFs. Supports pixel and percentage dimensions with proportional auto-scaling. Uses an `AssetResolver` interface to decouple the generation module from asset storage.
 - **Static resource cache busting**: Content-hash based URLs for CSS, JS, and SVG assets (e.g. `/css/main-abc123.css`). Combined with 1-year cache headers, browsers cache aggressively but always get fresh content after deployments. Uses Spring Boot's `VersionResourceResolver` — no build-time file renaming needed. Disabled in local dev profile for fast iteration.
+
+### Fixed
+- **Intermittent integration test hangs**: Added `@PreDestroy` lifecycle management to `JobPoller`, `StaleJobRecovery`, and `PartitionMaintenanceScheduler`. `JobPoller` now shuts down its virtual thread and drain executors on context close, preventing in-flight jobs from blocking on a closed HikariCP pool. Replaced `Thread.sleep` polling in `awaitIdle()` with a `CountDownLatch` for immediate wakeup. All scheduled components now guard against execution during shutdown.
+- **Flyway `clean-on-validation-error` removed in Flyway 10+**: Replaced the deprecated YAML property with a programmatic `FlywayMigrationStrategy` that catches `FlywayValidateException` and auto-cleans when `clean-disabled=false`. Production (`clean-disabled=true`) re-throws validation errors as before.
 
 ### Changed
 - **PDF/A-2b compliance**: PDF/A-2b (ISO 19005-2 Level B) is now available as an opt-in per-template setting (default: off). When enabled, fonts are embedded (Liberation Sans), an sRGB ICC output intent is included, and XMP metadata is written. Templates that don't need archival compliance use standard PDF with non-embedded Helvetica for smaller, faster output. Preview rendering always uses standard PDF regardless of the setting.

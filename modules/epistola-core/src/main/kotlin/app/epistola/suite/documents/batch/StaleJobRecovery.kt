@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.batch
 
+import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -27,11 +28,21 @@ class StaleJobRecovery(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    @Volatile
+    private var shuttingDown = false
+
+    @PreDestroy
+    fun shutdown() {
+        logger.info("Stale job recovery shutting down")
+        shuttingDown = true
+    }
+
     /**
      * Check for and recover stale jobs every minute.
      */
     @Scheduled(fixedRate = 60000) // Every minute
     fun recoverStaleJobs() {
+        if (shuttingDown) return
         val staleInterval = "$staleTimeoutMinutes minutes"
 
         jdbi.useTransaction<Exception> { handle ->
