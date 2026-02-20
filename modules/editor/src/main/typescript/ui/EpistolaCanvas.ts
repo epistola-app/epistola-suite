@@ -17,6 +17,12 @@ export class EpistolaCanvas extends LitElement {
     return this
   }
 
+  override connectedCallback(): void {
+    super.connectedCallback()
+    if (!this.hasAttribute('tabindex')) this.tabIndex = 0
+    this.setAttribute('aria-label', 'Template canvas')
+  }
+
   @property({ attribute: false }) engine?: EditorEngine
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
@@ -211,6 +217,20 @@ export class EpistolaCanvas extends LitElement {
   private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
     if (!this.engine) return
     handleDrop(this.engine, dragData, targetSlotId, index)
+  }
+
+  private _handleDeleteBlock(nodeId: NodeId): void {
+    if (!this.engine || !this.doc) return
+    if (nodeId === this.doc.root) return
+
+    const nextSelection = this.engine.getNextSelectionAfterRemove(nodeId)
+    const result = this.engine.dispatch({
+      type: 'RemoveNode',
+      nodeId,
+    })
+    if (result.ok) {
+      this.engine.selectNode(nextSelection)
+    }
   }
 
   // ---------------------------------------------------------------------------

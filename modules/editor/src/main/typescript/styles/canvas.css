@@ -97,11 +97,11 @@
     cursor: pointer;
     padding: 0;
     transition: color var(--ep-transition-base), background var(--ep-transition-base);
-  }
 
-  .canvas-block-delete:hover {
-    background: var(--ep-red-50);
-    color: var(--ep-red-500);
+    &:hover {
+      background: var(--ep-red-50);
+      color: var(--ep-red-500);
+    }
   }
 
   .canvas-block-content {

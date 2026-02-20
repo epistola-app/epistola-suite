@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Keyboard Navigation
+
+| Area | Shortcut | Behavior | Conditions |
+|---|---|---|---|
+| Leader | `Cmd/Ctrl + Space`, then `C` | Focus canvas root target (`epistola-canvas` host) | Editor is active |
+| Leader | `Cmd/Ctrl + Space`, then `R` | Focus preview resize divider | Preview is open |
+| Resize Divider | `ArrowLeft` | Increase preview width | Resize divider is focused |
+| Resize Divider | `ArrowRight` | Decrease preview width | Resize divider is focused |
+| Resize Divider | `ArrowRight` at min width | Close preview panel | Resize divider is focused and width is at minimum |
+| Canvas Selection | `Escape` | Clear selected non-root block and focus canvas root target | No insert dialog or leader mode flow is handling `Escape` |
+| Canvas Selection | `ArrowUp` / `ArrowDown` | Move selected block up/down | A non-root block is selected |
+| Insert Dialog | Type characters | Filter block options by `label + category` | Block selection stage is active |
+| Insert Dialog | `ArrowUp` / `ArrowDown` + `Enter` | Navigate filtered results and insert highlighted block | Block selection stage is active |
+| Insert Dialog | `1-9` / `0` | Insert fixed core block mapping (e.g. `1` = Text) | Block selection stage is active and target accepts that block type |
+
 ### Changed
 - **Demo invoice template improvements**: Added a vendor logo image block to the invoice header, converted multi-paragraph address/metadata blocks to use `hard_break` for tighter line spacing, and normalized `hardBreak` to `hard_break` for ProseMirror schema consistency. `UploadAsset` command now accepts an optional pre-defined `id` parameter.
 - **Proper spacing architecture**: Unified the spacing system between the editor canvas and PDF renderer to eliminate the 2x vertical spacing mismatch. Individual spacing keys (`marginTop`, `marginBottom`, etc.) are now used throughout instead of compound objects, ensuring user-configured spacing is correctly applied in both the editor and PDF output. Added component default styles (`marginBottom: 0.5em`) for content blocks. TipTap paragraph and list spacing now matches the editor's ProseMirror CSS values.
