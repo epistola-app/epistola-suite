@@ -1,5 +1,6 @@
 package app.epistola.suite.assets
 
+import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
@@ -181,7 +182,13 @@ class AssetHandler {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val assetId = AssetId.of(UUID.fromString(request.pathVariable("assetId")))
 
-        DeleteAsset(tenantId = tenantId, assetId = assetId).execute()
+        try {
+            DeleteAsset(tenantId = tenantId, assetId = assetId).execute()
+        } catch (e: AssetInUseException) {
+            return ServerResponse.badRequest()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(mapOf("error" to e.message))
+        }
 
         val tenant = GetTenant(id = tenantId).query()
         val assets = ListAssets(tenantId = tenantId).query()

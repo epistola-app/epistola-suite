@@ -61,3 +61,18 @@ class AssetNotFoundException(tenantId: TenantId, assetId: AssetId) : RuntimeExce
 class AssetTooLargeException(sizeBytes: Long) : RuntimeException("Asset size $sizeBytes bytes exceeds maximum of $MAX_ASSET_SIZE_BYTES bytes (5MB)")
 
 class UnsupportedAssetTypeException(mimeType: String) : RuntimeException("Unsupported asset media type: $mimeType. Supported: ${AssetMediaType.entries.map { it.mimeType }}")
+
+/**
+ * Describes a template version that references an asset.
+ */
+data class AssetUsage(
+    val templateName: String,
+    val variantTitle: String?,
+)
+
+class AssetInUseException(
+    val assetId: AssetId,
+    val usages: List<AssetUsage>,
+) : RuntimeException(
+    "Cannot delete asset $assetId: it is used in ${usages.joinToString { it.templateName + (it.variantTitle?.let { t -> " ($t)" } ?: "") }}",
+)

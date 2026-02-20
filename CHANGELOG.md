@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Asset deletion protection**: Assets referenced by draft or published template versions cannot be deleted. The system scans template document JSONB for image nodes referencing the asset before allowing deletion. Returns a descriptive error listing which templates use the asset.
 - **Asset manager**: Tenant-scoped image asset management with upload, list, search, delete, and raw content serving. Assets are stored as PostgreSQL BYTEA with a 5MB size limit. Supports PNG, JPEG, SVG, and WebP. Includes a dedicated asset manager page with drag-and-drop upload and thumbnail grid.
 - **Image block in template editor**: New "Image" block type in the template editor with an asset picker dialog for selecting or uploading images. The picker shows a thumbnail grid of existing assets and supports drag-and-drop upload.
 - **Image rendering in PDF generation**: `ImageNodeRenderer` renders image blocks in generated PDFs. Supports pixel and percentage dimensions with proportional auto-scaling. Uses an `AssetResolver` interface to decouple the generation module from asset storage.

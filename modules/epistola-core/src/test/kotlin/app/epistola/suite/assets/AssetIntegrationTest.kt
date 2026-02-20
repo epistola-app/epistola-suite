@@ -3,12 +3,21 @@ package app.epistola.suite.assets
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
+import app.epistola.suite.assets.queries.FindAssetUsages
 import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
+import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.AssetId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.templates.commands.CreateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.templates.model.Node
+import app.epistola.suite.templates.model.Slot
+import app.epistola.suite.templates.model.TemplateDocument
+import app.epistola.template.model.ThemeRef
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -188,6 +197,143 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
         assertThat(asset.width).isNull()
         assertThat(asset.height).isNull()
         assertThat(asset.mediaType).isEqualTo(AssetMediaType.SVG)
+    }
+
+    @Test
+    fun `delete asset blocked when used in draft template version`() {
+        withMediator {
+            val tenant = createTenant("Test Tenant")
+            val asset = UploadAsset(tenant.id, "header.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+
+            val templateId = TestIdHelpers.nextTemplateId()
+            CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Invoice").execute()
+            val variantId = VariantId.of("${templateId.value}-default")
+            UpdateDraft(
+                tenantId = tenant.id,
+                templateId = templateId,
+                variantId = variantId,
+                templateModel = buildTemplateModelWithAsset(asset.id),
+            ).execute()
+
+            assertThatThrownBy {
+                DeleteAsset(tenantId = tenant.id, assetId = asset.id).execute()
+            }.isInstanceOf(AssetInUseException::class.java)
+                .hasMessageContaining("Invoice")
+        }
+    }
+
+    @Test
+    fun `find asset usages returns template info for referenced asset`() = withMediator {
+        val tenant = createTenant("Test Tenant")
+        val asset = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+
+        val templateId = TestIdHelpers.nextTemplateId()
+        CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Welcome Letter").execute()
+        val variantId = VariantId.of("${templateId.value}-default")
+        UpdateDraft(
+            tenantId = tenant.id,
+            templateId = templateId,
+            variantId = variantId,
+            templateModel = buildTemplateModelWithAsset(asset.id),
+        ).execute()
+
+        val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id).query()
+
+        assertThat(usages).hasSize(1)
+        assertThat(usages[0].templateName).isEqualTo("Welcome Letter")
+    }
+
+    @Test
+    fun `find asset usages returns empty for unused asset`() = withMediator {
+        val tenant = createTenant("Test Tenant")
+        val asset = UploadAsset(tenant.id, "unused.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+
+        val usages = FindAssetUsages(tenantId = tenant.id, assetId = asset.id).query()
+
+        assertThat(usages).isEmpty()
+    }
+
+    @Test
+    fun `delete asset succeeds when asset removed from template`() = withMediator {
+        val tenant = createTenant("Test Tenant")
+        val asset = UploadAsset(tenant.id, "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
+
+        val templateId = TestIdHelpers.nextTemplateId()
+        CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Receipt").execute()
+        val variantId = VariantId.of("${templateId.value}-default")
+        UpdateDraft(
+            tenantId = tenant.id,
+            templateId = templateId,
+            variantId = variantId,
+            templateModel = buildTemplateModelWithAsset(asset.id),
+        ).execute()
+
+        // Remove asset from template by updating with empty model
+        UpdateDraft(
+            tenantId = tenant.id,
+            templateId = templateId,
+            variantId = variantId,
+            templateModel = buildEmptyTemplateModel(),
+        ).execute()
+
+        val deleted = DeleteAsset(tenantId = tenant.id, assetId = asset.id).execute()
+        assertThat(deleted).isTrue()
+    }
+
+    private fun buildTemplateModelWithAsset(assetId: AssetId): TemplateDocument {
+        val rootId = "root-1"
+        val slotId = "slot-1"
+        val imageNodeId = "image-1"
+        return TemplateDocument(
+            modelVersion = 1,
+            root = rootId,
+            nodes = mapOf(
+                rootId to Node(
+                    id = rootId,
+                    type = "root",
+                    slots = listOf(slotId),
+                ),
+                imageNodeId to Node(
+                    id = imageNodeId,
+                    type = "image",
+                    props = mapOf("assetId" to assetId.value.toString()),
+                ),
+            ),
+            slots = mapOf(
+                slotId to Slot(
+                    id = slotId,
+                    nodeId = rootId,
+                    name = "children",
+                    children = listOf(imageNodeId),
+                ),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
+    }
+
+    private fun buildEmptyTemplateModel(): TemplateDocument {
+        val rootId = "root-1"
+        val slotId = "slot-1"
+        return TemplateDocument(
+            modelVersion = 1,
+            root = rootId,
+            nodes = mapOf(
+                rootId to Node(
+                    id = rootId,
+                    type = "root",
+                    slots = listOf(slotId),
+                ),
+            ),
+            slots = mapOf(
+                slotId to Slot(
+                    id = slotId,
+                    nodeId = rootId,
+                    name = "children",
+                    children = emptyList(),
+                ),
+            ),
+            themeRef = ThemeRef.Inherit,
+        )
     }
 
     companion object {

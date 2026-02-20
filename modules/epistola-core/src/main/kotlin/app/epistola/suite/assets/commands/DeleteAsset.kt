@@ -1,5 +1,7 @@
 package app.epistola.suite.assets.commands
 
+import app.epistola.suite.assets.AssetInUseException
+import app.epistola.suite.assets.queries.FindAssetUsagesHandler
 import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
@@ -30,6 +32,11 @@ class DeleteAssetHandler(
         logger.info("Deleting asset {} for tenant {}", command.assetId, command.tenantId)
 
         return jdbi.inTransaction<Boolean, Exception> { handle ->
+            val usages = FindAssetUsagesHandler.findAssetUsages(handle, command.tenantId, command.assetId)
+            if (usages.isNotEmpty()) {
+                throw AssetInUseException(command.assetId, usages)
+            }
+
             val deleted = handle.createUpdate(
                 """
                 DELETE FROM assets
