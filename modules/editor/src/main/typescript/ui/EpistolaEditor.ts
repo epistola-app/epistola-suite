@@ -534,13 +534,18 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    const modeKey = e.key.toLowerCase()
-    const isDocumentContext = this._isDocumentInsertContext()
-    const mode = this._parseInsertModeKey(modeKey, isDocumentContext)
-    if (mode) {
-      e.preventDefault()
-      this._selectInsertMode(mode)
-      return
+    // Placement mode keys (A/B/I or S/E) are only active before a concrete
+    // target is selected. Once in block selection stage, letter keys type into
+    // the filter query instead of changing placement mode.
+    if (!this._insertTarget) {
+      const modeKey = e.key.toLowerCase()
+      const isDocumentContext = this._isDocumentInsertContext()
+      const mode = this._parseInsertModeKey(modeKey, isDocumentContext)
+      if (mode) {
+        e.preventDefault()
+        this._selectInsertMode(mode)
+        return
+      }
     }
 
     if (!this._insertDialogMode) {
