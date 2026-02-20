@@ -54,6 +54,8 @@ export interface ComponentDefinition {
    */
   applicableStyles: 'all' | string[]
   inspector: InspectorField[]
+  /** Default styles for this component type (lowest priority in the cascade). */
+  defaultStyles?: Record<string, unknown>
   defaultProps?: Record<string, unknown>
   /**
    * Optional hook to create initial slots for a node of this type.
@@ -279,6 +281,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'none' },
     applicableStyles: 'all',
     inspector: [],
+    defaultStyles: { marginBottom: '0.5em' },
     defaultProps: { content: null },
   })
 
@@ -291,6 +294,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
+    defaultStyles: { marginBottom: '0.5em' },
   })
 
   registry.register(createColumnsDefinition())

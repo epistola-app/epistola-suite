@@ -209,6 +209,7 @@ export class EditorEngine {
     const node = this._doc.nodes[nodeId]
     if (!node) return {}
 
+    const def = this.registry.get(node.type)
     const presetStyles = resolvePresetStyles(
       this._theme?.blockStylePresets,
       node.stylePreset,
@@ -218,6 +219,7 @@ export class EditorEngine {
       this._inheritableKeys,
       presetStyles,
       node.styles,
+      def?.defaultStyles,
     )
   }
 

@@ -13,6 +13,9 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
+  expandSpacingToStyles,
+  readSpacingFromStyles,
+  type SpacingValue,
 } from './inputs/style-inputs.js'
 
 @customElement('epistola-inspector')
@@ -277,11 +280,17 @@ export class EpistolaInspector extends LitElement {
           return html`
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
-              ${filteredProps.map(prop => this._renderStyleProperty(
-                prop,
-                inlineStyles[prop.key],
-                (value) => this._handleNodeStyleChange(prop.key, value),
-              ))}
+              ${filteredProps.map(prop => {
+                // For spacing properties, reconstruct compound value from individual keys
+                const value = prop.type === 'spacing'
+                  ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
+                  : inlineStyles[prop.key]
+                return this._renderStyleProperty(
+                  prop,
+                  value,
+                  (v) => this._handleNodeStyleChange(prop.key, v),
+                )
+              })}
             </div>
           `
         })}
@@ -499,7 +508,11 @@ export class EpistolaInspector extends LitElement {
     if (!node) return
 
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>
-    if (value === undefined || value === '') {
+
+    // Spacing properties: expand compound value to individual keys
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
+      expandSpacingToStyles(key, value as SpacingValue, newStyles)
+    } else if (value === undefined || value === '') {
       delete newStyles[key]
     } else {
       newStyles[key] = value
@@ -516,7 +529,11 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine || !this.doc) return
 
     const newStyles = structuredClone(this.doc.documentStylesOverride ?? {}) as Record<string, unknown>
-    if (value === undefined || value === '') {
+
+    // Spacing properties: expand compound value to individual keys
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
+      expandSpacingToStyles(key, value as SpacingValue, newStyles)
+    } else if (value === undefined || value === '') {
       delete newStyles[key]
     } else {
       newStyles[key] = value

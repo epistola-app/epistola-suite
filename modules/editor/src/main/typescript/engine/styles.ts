@@ -64,7 +64,12 @@ export function resolveDocumentStyles(
 /**
  * Resolve a single node's final styles.
  *
- * Cascade: inheritable doc styles → preset styles → inline styles.
+ * Cascade (lowest → highest priority):
+ *   1. Component default styles
+ *   2. Inheritable document styles
+ *   3. Theme block style preset
+ *   4. Node inline styles
+ *
  * Only inheritable keys from doc styles are applied; non-inheritable
  * doc styles (like backgroundColor) stay at the document level.
  */
@@ -73,9 +78,12 @@ export function resolveNodeStyles(
   inheritableKeys: Set<string>,
   presetStyles: Record<string, unknown> | undefined,
   inlineStyles: Record<string, unknown> | undefined,
+  defaultStyles?: Record<string, unknown>,
 ): Record<string, unknown> {
-  // Start with only the inheritable doc styles
-  const result: Record<string, unknown> = {}
+  // Start with component defaults (lowest priority)
+  const result: Record<string, unknown> = defaultStyles ? { ...defaultStyles } : {}
+
+  // Overlay inheritable doc styles
   for (const key of inheritableKeys) {
     if (key in resolvedDocStyles) {
       result[key] = resolvedDocStyles[key]

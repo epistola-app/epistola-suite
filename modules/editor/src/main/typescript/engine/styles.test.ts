@@ -105,18 +105,20 @@ describe('resolveDocumentStyles', () => {
 describe('resolveNodeStyles', () => {
   const inheritableKeys = new Set(['fontFamily', 'fontSize', 'color', 'textAlign'])
 
-  it('applies full cascade: inheritable → preset → inline', () => {
+  it('applies full cascade: defaults → inheritable → preset → inline', () => {
     const docStyles = { fontFamily: 'Arial', fontSize: '14px', color: '#000', backgroundColor: '#fff' }
-    const preset = { fontSize: '18px', padding: '10px' }
+    const preset = { fontSize: '18px', paddingTop: '10px' }
     const inline = { color: 'red' }
+    const defaults = { marginBottom: '0.5em', color: 'black' }
 
-    const result = resolveNodeStyles(docStyles, inheritableKeys, preset, inline)
+    const result = resolveNodeStyles(docStyles, inheritableKeys, preset, inline, defaults)
 
     expect(result).toEqual({
+      marginBottom: '0.5em',   // from defaults (not overridden)
       fontFamily: 'Arial',     // from doc (inheritable)
       fontSize: '18px',        // overridden by preset
-      color: 'red',            // overridden by inline
-      padding: '10px',         // from preset (non-inheritable, but preset adds it)
+      color: 'red',            // overridden by inline (defaults → doc → inline)
+      paddingTop: '10px',      // from preset (non-inheritable, but preset adds it)
     })
   })
 
@@ -151,6 +153,50 @@ describe('resolveNodeStyles', () => {
     const docStyles = { fontFamily: 'Arial', color: '#000' }
     const result = resolveNodeStyles(docStyles, new Set(), undefined, undefined)
     expect(result).toEqual({})
+  })
+
+  it('applies defaultStyles as lowest priority layer', () => {
+    const docStyles = {}
+    const defaults = { marginBottom: '0.5em', fontSize: '12px' }
+
+    const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined, defaults)
+
+    expect(result).toEqual({ marginBottom: '0.5em', fontSize: '12px' })
+  })
+
+  it('defaultStyles are overridden by inheritable doc styles', () => {
+    const docStyles = { fontSize: '16px' }
+    const defaults = { marginBottom: '0.5em', fontSize: '12px' }
+
+    const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined, defaults)
+
+    expect(result.fontSize).toBe('16px') // doc overrides default
+    expect(result.marginBottom).toBe('0.5em') // default preserved
+  })
+
+  it('defaultStyles are overridden by preset', () => {
+    const preset = { marginBottom: '1em' }
+    const defaults = { marginBottom: '0.5em' }
+
+    const result = resolveNodeStyles({}, inheritableKeys, preset, undefined, defaults)
+
+    expect(result.marginBottom).toBe('1em')
+  })
+
+  it('defaultStyles are overridden by inline', () => {
+    const inline = { marginBottom: '2em' }
+    const defaults = { marginBottom: '0.5em' }
+
+    const result = resolveNodeStyles({}, inheritableKeys, undefined, inline, defaults)
+
+    expect(result.marginBottom).toBe('2em')
+  })
+
+  it('works without defaultStyles (backward compatible)', () => {
+    const docStyles = { fontFamily: 'Arial' }
+    const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined)
+
+    expect(result).toEqual({ fontFamily: 'Arial' })
   })
 })
 

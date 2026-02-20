@@ -14,6 +14,7 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
+  readSpacingFromStyles,
 } from '../../ui/inputs/style-inputs.js'
 import type { ThemeEditorState } from '../ThemeEditorState.js'
 
@@ -118,11 +119,17 @@ function renderPresetBody(
       ${defaultStyleRegistry.groups.map(group => html`
         <div class="inspector-style-group">
           <div class="inspector-style-group-label">${group.label}</div>
-          ${group.properties.map(prop => renderPresetStyleProperty(
-            prop,
-            styles[prop.key],
-            (value) => state.updatePresetStyle(name, prop.key, value),
-          ))}
+          ${group.properties.map(prop => {
+            // For spacing properties, reconstruct compound value from individual keys
+            const value = prop.type === 'spacing'
+              ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
+              : styles[prop.key]
+            return renderPresetStyleProperty(
+              prop,
+              value,
+              (v) => state.updatePresetStyle(name, prop.key, v),
+            )
+          })}
         </div>
       `)}
     </div>
