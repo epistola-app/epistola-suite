@@ -34,42 +34,42 @@
                    onchange="this.closest('form').requestSubmit()" />
         </form>
 
-        <div th:if="${#lists.isEmpty(assets)}" class="empty-state" id="asset-grid-items">
+        <div id="asset-grid-items">
             <th:block th:fragment="asset-grid-items">
-                <div class="empty-state-icon">
-                    <th:block th:replace="~{fragments/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
+                <div th:if="${#lists.isEmpty(assets)}" class="empty-state">
+                    <div class="empty-state-icon">
+                        <th:block th:replace="~{fragments/icon :: icon(name='image', class='ep-icon ep-icon-xl')}" />
+                    </div>
+                    <div class="empty-state-title">No assets yet</div>
+                    <div class="empty-state-description">Upload images to use in your document templates.</div>
                 </div>
-                <div class="empty-state-title">No assets yet</div>
-                <div class="empty-state-description">Upload images to use in your document templates.</div>
-            </th:block>
-        </div>
 
-        <div th:if="${!#lists.isEmpty(assets)}" class="asset-grid" id="asset-grid-items">
-            <th:block th:fragment="asset-grid-items">
-                <div th:each="asset : ${assets}" class="asset-card">
-                    <div class="asset-card-preview">
-                        <img th:src="@{/tenants/{tenantId}/assets/{assetId}/content(tenantId=${tenantId},assetId=${asset.id})}"
-                             th:alt="${asset.name}"
-                             loading="lazy" />
-                    </div>
-                    <div class="asset-card-info">
-                        <div class="asset-card-name" th:text="${asset.name}" th:title="${asset.name}"></div>
-                        <div class="asset-card-meta">
-                            <span th:text="${asset.mediaType.name()}"></span>
-                            <span th:text="${asset.width != null ? asset.width + ' x ' + asset.height + ' px' : 'SVG'}"></span>
-                            <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? #numbers.formatDecimal(asset.sizeBytes / 1024.0, 1, 1) + ' KB' : #numbers.formatDecimal(asset.sizeBytes / 1048576.0, 1, 1) + ' MB')}"></span>
+                <div th:if="${!#lists.isEmpty(assets)}" class="asset-grid">
+                    <div th:each="asset : ${assets}" class="asset-card">
+                        <div class="asset-card-preview">
+                            <img th:src="@{/tenants/{tenantId}/assets/{assetId}/content(tenantId=${tenantId},assetId=${asset.id})}"
+                                 th:alt="${asset.name}"
+                                 loading="lazy" />
                         </div>
-                    </div>
-                    <div class="asset-card-actions">
-                        <button type="button"
-                                class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-                                title="Delete asset"
-                                data-confirm-title="Delete Asset"
-                                th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? Templates using this image will show a broken image.',data-confirm-url=@{/tenants/{tenantId}/assets/{assetId}/delete(tenantId=${tenantId},assetId=${asset.id})}"
-                                data-confirm-target="#asset-grid-items"
-                                onclick="openConfirmDialog(this)">
-                            <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
-                        </button>
+                        <div class="asset-card-info">
+                            <div class="asset-card-name" th:text="${asset.name}" th:title="${asset.name}"></div>
+                            <div class="asset-card-meta">
+                                <span th:text="${asset.mediaType.name()}"></span>
+                                <span th:text="${asset.width != null ? asset.width + ' x ' + asset.height + ' px' : 'SVG'}"></span>
+                                <span th:text="${asset.sizeBytes < 1024 ? asset.sizeBytes + ' B' : (asset.sizeBytes < 1048576 ? #numbers.formatDecimal(asset.sizeBytes / 1024.0, 1, 1) + ' KB' : #numbers.formatDecimal(asset.sizeBytes / 1048576.0, 1, 1) + ' MB')}"></span>
+                            </div>
+                        </div>
+                        <div class="asset-card-actions">
+                            <button type="button"
+                                    class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+                                    title="Delete asset"
+                                    data-confirm-title="Delete Asset"
+                                    th:attr="data-confirm-message='Delete asset &quot;' + ${asset.name} + '&quot;? Templates using this image will show a broken image.',data-confirm-url=@{/tenants/{tenantId}/assets/{assetId}/delete(tenantId=${tenantId},assetId=${asset.id})}"
+                                    data-confirm-target="#asset-grid-items"
+                                    onclick="openConfirmDialog(this)">
+                                <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </th:block>
