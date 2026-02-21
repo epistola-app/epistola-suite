@@ -2,7 +2,6 @@ package app.epistola.suite.security
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserId
-import java.nio.file.AccessDeniedException
 
 /**
  * Get current authenticated user (throws if not authenticated).
@@ -27,13 +26,13 @@ fun currentUserIdOrNull(): UserId? = SecurityContext.currentOrNull()?.userId
 /**
  * Check if current user has access to the specified tenant.
  *
- * @throws AccessDeniedException if user does not have access
+ * @throws TenantAccessDeniedException if user does not have access
  * @throws IllegalStateException if no user is authenticated
  */
 fun requireTenantAccess(tenantId: TenantId) {
     val principal = SecurityContext.current()
     if (!principal.hasAccessToTenant(tenantId)) {
-        throw AccessDeniedException("User ${principal.email} does not have access to tenant: $tenantId")
+        throw TenantAccessDeniedException(tenantId = tenantId, userEmail = principal.email)
     }
 }
 

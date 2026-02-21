@@ -19,10 +19,12 @@ import app.epistola.suite.themes.queries.GetTheme
 import app.epistola.suite.themes.queries.ListThemes
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
 
 @RestController
+@RequestMapping("/api")
 class EpistolaThemeApi(
     private val objectMapper: ObjectMapper,
 ) : ThemesApi {

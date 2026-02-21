@@ -4,6 +4,7 @@ import app.epistola.api.model.FieldError
 import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
+import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
@@ -280,6 +281,54 @@ class ApiExceptionHandler {
         )
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response)
+    }
+
+    /**
+     * Handles tenant access denied errors.
+     * Returns 403 Forbidden.
+     */
+    @ExceptionHandler(TenantAccessDeniedException::class)
+    fun handleTenantAccessDeniedException(ex: TenantAccessDeniedException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Tenant access denied: user={} tenant={}", ex.userEmail, ex.tenantId)
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            ApiErrorResponse(
+                code = "ACCESS_DENIED",
+                message = "Access denied to tenant: ${ex.tenantId}",
+            ),
+        )
+    }
+
+    /**
+     * Handles Spring Security access denied errors.
+     * Returns 403 Forbidden.
+     */
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException::class)
+    fun handleAccessDeniedException(ex: org.springframework.security.access.AccessDeniedException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Access denied: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            ApiErrorResponse(
+                code = "ACCESS_DENIED",
+                message = "Access denied",
+            ),
+        )
+    }
+
+    /**
+     * Handles authentication errors.
+     * Returns 401 Unauthorized.
+     */
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException::class)
+    fun handleAuthenticationException(ex: org.springframework.security.core.AuthenticationException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Authentication failed: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+            ApiErrorResponse(
+                code = "UNAUTHORIZED",
+                message = "Authentication required",
+            ),
+        )
     }
 
     /**
