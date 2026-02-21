@@ -1,8 +1,12 @@
 package app.epistola.suite.demo
 
+import app.epistola.suite.apikeys.ApiKey
+import app.epistola.suite.apikeys.ApiKeyRepository
+import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.common.ids.ApiKeyId
 import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.EnvironmentId
@@ -56,6 +60,8 @@ class DemoLoader(
     private val resourceLoader: ResourceLoader,
     private val objectMapper: ObjectMapper,
     private val transactionTemplate: TransactionTemplate,
+    private val apiKeyRepository: ApiKeyRepository,
+    private val apiKeyService: ApiKeyService,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -117,6 +123,9 @@ class DemoLoader(
                     log.info("Set Corporate theme as tenant default")
                 }
 
+                // Create demo API key
+                createDemoApiKey(tenant.id)
+
                 // Create environments
                 val staging = mediator.send(CreateEnvironment(id = EnvironmentId.of("staging"), tenantId = tenant.id, name = "Staging"))
                 val production = mediator.send(CreateEnvironment(id = EnvironmentId.of("production"), tenantId = tenant.id, name = "Production"))
@@ -144,6 +153,29 @@ class DemoLoader(
                 log.info("Created {} demo templates with environments and variants", definitions.size)
             }
         }
+    }
+
+    /**
+     * Creates a well-known demo API key for testing external API access.
+     */
+    private fun createDemoApiKey(tenantId: TenantId) {
+        val keyHash = apiKeyService.hashKey(DEMO_API_KEY)
+        val keyPrefix = apiKeyService.extractPrefix(DEMO_API_KEY)
+
+        val apiKey = ApiKey(
+            id = ApiKeyId.of(DEMO_API_KEY_ID),
+            tenantId = tenantId,
+            name = "Demo API Key",
+            keyPrefix = keyPrefix,
+            enabled = true,
+            createdAt = java.time.Instant.now(),
+            lastUsedAt = null,
+            expiresAt = null,
+            createdBy = null,
+        )
+
+        apiKeyRepository.insert(apiKey, keyHash)
+        log.info("Created demo API key: {}", DEMO_API_KEY)
     }
 
     /**
@@ -428,10 +460,12 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "8.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "9.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
         private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-000000000001"
+        private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-000000000002"
+        const val DEMO_API_KEY = "epk_demo_000000000000000000000000000000000000"
     }
 }

@@ -15,6 +15,9 @@ spring:
           keycloak:
             issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
             user-name-attribute: preferred_username
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
 
   flyway:
     clean-disabled: true                 # NEVER allow clean in production

@@ -29,6 +29,9 @@ spring:
           keycloak:
             issuer-uri: http://localhost:8080/realms/epistola
             user-name-attribute: preferred_username
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/epistola
 
 epistola:
   auth:
