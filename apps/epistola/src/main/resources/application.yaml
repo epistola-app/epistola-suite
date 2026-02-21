@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: epistola-suite
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   flyway:
     clean-disabled: false                # Allow Flyway to clean (required for Flyway 10+)
     locations:
