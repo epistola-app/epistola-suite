@@ -146,6 +146,12 @@ tasks.register("generateSbom") {
 // Default: JVM image (recommended, stable)
 // Use -PnativeImage=true to build a native image (currently broken due to JDBI/Kotlin reflection)
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
+    buildpacks.set(
+        listOf(
+            "paketo-buildpacks/apt",
+            "paketo-buildpacks/java",
+        ),
+    )
     environment.set(
         mapOf(
             "BP_JVM_VERSION" to "25",
