@@ -4,8 +4,8 @@ import app.epistola.api.model.FieldError
 import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
-import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
 import app.epistola.suite.templates.services.AmbiguousVariantResolutionException

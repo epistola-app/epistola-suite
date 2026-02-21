@@ -29,9 +29,7 @@ class ApiKeyService {
     /**
      * Generates a deterministic key for use in demo/testing.
      */
-    fun generateDeterministicKey(seed: String): String {
-        return "$KEY_PREFIX$seed"
-    }
+    fun generateDeterministicKey(seed: String): String = "$KEY_PREFIX$seed"
 
     /**
      * Computes the SHA-256 hash of an API key for storage.

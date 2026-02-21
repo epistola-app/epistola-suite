@@ -2,7 +2,6 @@ package app.epistola.suite.security
 
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.UserId
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -16,7 +15,7 @@ import org.springframework.web.filter.OncePerRequestFilter
  * Authenticates API requests using the X-API-Key header.
  *
  * This filter is NOT a @Component — it is registered explicitly by SecurityConfig
- * into the API security filter chain only (/api/** paths).
+ * into the API security filter chain only (paths under /api).
  *
  * If the header is present, the filter validates the key and sets up the
  * SecurityContext with an [ApiKeyAuthenticationToken]. If the key is invalid

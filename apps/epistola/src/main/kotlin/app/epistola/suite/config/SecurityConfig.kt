@@ -24,8 +24,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  * Authentication methods are determined by which beans are present in the context:
  * - **Form login**: Enabled when a [UserDetailsService] bean exists (e.g., [LocalUserDetailsService])
  * - **OAuth2/OIDC**: Enabled when a [ClientRegistrationRepository] bean exists
- * - **API keys**: Always enabled for /api/** paths (stateless, no CSRF)
- * - **JWT bearer tokens**: Enabled for /api/** when OAuth2 is configured
+ * - **API keys**: Always enabled for /api paths (stateless, no CSRF)
+ * - **JWT bearer tokens**: Enabled for /api paths when OAuth2 is configured
  *
  * Both UI auth methods can be enabled simultaneously (e.g., `local,keycloak` profiles).
  */
@@ -53,7 +53,7 @@ class SecurityConfig(
     private fun hasFormLogin(): Boolean = userDetailsService != null
 
     /**
-     * API security filter chain: /api/** paths.
+     * API security filter chain for paths under /api.
      *
      * Stateless, no CSRF, no form login. Supports:
      * - API key authentication via X-API-Key header
@@ -89,7 +89,7 @@ class SecurityConfig(
     }
 
     /**
-     * UI security filter chain: everything except /api/**.
+     * UI security filter chain: everything except /api paths.
      *
      * Session-based, with CSRF protection. Configures form login
      * and/or OAuth2 based on available beans.
