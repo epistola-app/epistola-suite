@@ -2,96 +2,17 @@ package app.epistola.suite.apikeys
 
 import app.epistola.suite.common.ids.ApiKeyId
 import app.epistola.suite.common.ids.TenantId
-import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.mapTo
-import org.springframework.stereotype.Repository
 
 /**
  * Repository for API key persistence.
  *
- * Uses direct JDBI access (not CQRS-mediated) because the API key authentication
+ * Uses direct access (not CQRS-mediated) because the API key authentication
  * filter runs before MediatorContext is bound for the request.
  */
-@Repository
-class ApiKeyRepository(
-    private val jdbi: Jdbi,
-) {
-
-    fun findByKeyHash(keyHash: String): ApiKey? = jdbi.withHandle<ApiKey?, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT id, tenant_id, name, key_prefix, enabled, created_at,
-                   last_used_at, expires_at, created_by
-            FROM api_keys
-            WHERE key_hash = :keyHash
-            """,
-        )
-            .bind("keyHash", keyHash)
-            .mapTo<ApiKey>()
-            .findOne()
-            .orElse(null)
-    }
-
-    fun updateLastUsed(id: ApiKeyId) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                UPDATE api_keys SET last_used_at = NOW() WHERE id = :id
-                """,
-            )
-                .bind("id", id)
-                .execute()
-        }
-    }
-
-    fun insert(
-        apiKey: ApiKey,
-        keyHash: String,
-    ) {
-        jdbi.useHandle<Exception> { handle ->
-            handle.createUpdate(
-                """
-                INSERT INTO api_keys (id, tenant_id, name, key_hash, key_prefix, enabled,
-                                      created_at, expires_at, created_by)
-                VALUES (:id, :tenantId, :name, :keyHash, :keyPrefix, :enabled,
-                        :createdAt, :expiresAt, :createdBy)
-                """,
-            )
-                .bind("id", apiKey.id)
-                .bind("tenantId", apiKey.tenantId)
-                .bind("name", apiKey.name)
-                .bind("keyHash", keyHash)
-                .bind("keyPrefix", apiKey.keyPrefix)
-                .bind("enabled", apiKey.enabled)
-                .bind("createdAt", apiKey.createdAt)
-                .bind("expiresAt", apiKey.expiresAt)
-                .bind("createdBy", apiKey.createdBy?.value)
-                .execute()
-        }
-    }
-
-    fun listByTenantId(tenantId: TenantId): List<ApiKey> = jdbi.withHandle<List<ApiKey>, Exception> { handle ->
-        handle.createQuery(
-            """
-            SELECT id, tenant_id, name, key_prefix, enabled, created_at,
-                   last_used_at, expires_at, created_by
-            FROM api_keys
-            WHERE tenant_id = :tenantId
-            ORDER BY created_at DESC
-            """,
-        )
-            .bind("tenantId", tenantId)
-            .mapTo<ApiKey>()
-            .list()
-    }
-
-    fun disable(id: ApiKeyId): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        handle.createUpdate(
-            """
-            UPDATE api_keys SET enabled = false WHERE id = :id
-            """,
-        )
-            .bind("id", id)
-            .execute() > 0
-    }
+interface ApiKeyRepository {
+    fun findByKeyHash(keyHash: String): ApiKey?
+    fun updateLastUsed(id: ApiKeyId)
+    fun insert(apiKey: ApiKey, keyHash: String)
+    fun listByTenantId(tenantId: TenantId): List<ApiKey>
+    fun disable(id: ApiKeyId): Boolean
 }

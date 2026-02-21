@@ -4,19 +4,13 @@ import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.common.ids.ApiKeyId
 import app.epistola.suite.common.ids.TenantId
-import org.jdbi.v3.core.Jdbi
 
 /**
  * In-memory API key repository for unit tests that don't need Spring context.
- *
- * All repository methods are overridden to use the in-memory store,
- * so the Jdbi instance is never actually used.
  */
 class TestApiKeyRepository(
-    private val keys: MutableMap<String, ApiKey>,
-) : ApiKeyRepository(
-    jdbi = Jdbi.create { throw UnsupportedOperationException("Test Jdbi should not connect") },
-) {
+    private val keys: MutableMap<String, ApiKey> = mutableMapOf(),
+) : ApiKeyRepository {
     override fun findByKeyHash(keyHash: String): ApiKey? = keys[keyHash]
 
     override fun updateLastUsed(id: ApiKeyId) {}
