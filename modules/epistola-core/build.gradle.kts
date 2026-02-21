@@ -44,6 +44,10 @@ dependencies {
     // UUID generation
     implementation(libs.uuid.creator)
 
+    // AWS SDK v2 (S3 content storage backend)
+    implementation(platform(libs.aws.bom))
+    implementation(libs.aws.s3)
+
     // Jackson 3 (tools.jackson) - version managed by Spring Boot BOM via spring-boot-starter-web
     // Note: Spring Boot 4+ uses Jackson 3 with tools.jackson groupId
     // These are already provided by spring-boot-starter-web transitively, but explicit for clarity

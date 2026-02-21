@@ -7,17 +7,23 @@ import app.epistola.suite.common.ids.GenerationRequestId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
 class DocumentQueriesTest : CoreIntegrationTestBase() {
     private val objectMapper = ObjectMapper()
+
+    @Autowired
+    private lateinit var contentStore: ContentStore
 
     @Test
     fun `GetGenerationJob returns job with items`() {
@@ -251,9 +257,14 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
         assertThat(document.filename).isEqualTo("test.pdf")
         assertThat(document.contentType).isEqualTo("application/pdf")
         assertThat(document.sizeBytes).isGreaterThan(0)
-        assertThat(document.content).isNotEmpty()
+
+        // Verify content is stored in ContentStore
+        val stored = contentStore.get(ContentKey.document(tenant.id, documentId))
+        assertThat(stored).isNotNull
+        val contentBytes = stored!!.content.readAllBytes()
+        assertThat(contentBytes).isNotEmpty()
         // Verify it's a PDF by checking the magic bytes (%PDF)
-        assertThat(document.content.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
+        assertThat(contentBytes.take(4).toByteArray()).isEqualTo(byteArrayOf(0x25, 0x50, 0x44, 0x46))
     }
 
     @Test

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Pluggable content storage**: Binary content (images, PDFs) is now stored via a `ContentStore` abstraction instead of inline PostgreSQL BYTEA columns. Four backends are available: `postgres` (default, zero-config), `s3` (for production at scale), `filesystem` (local dev), and `memory` (fast tests). Configured via `epistola.storage.backend` property.
+- **`content_store` table**: New key-value table for the PostgreSQL backend, storing binary content with S3-style keys (`assets/{tenantId}/{assetId}`, `documents/{tenantId}/{documentId}`).
+- **Streaming document downloads**: REST API document downloads now use `InputStreamResource` instead of `ByteArrayResource`, enabling streaming of large PDFs without loading them entirely into heap memory.
+
+### Changed
+- **BREAKING**: The `content` column has been removed from both `assets` and `documents` tables. Binary content is now stored in the `content_store` table (PostgreSQL backend) or external storage (S3/filesystem). The `Document` model no longer has a `content` field.
+
 ### Changed
 - **Demo invoice template improvements**: Added a vendor logo image block to the invoice header, converted multi-paragraph address/metadata blocks to use `hard_break` for tighter line spacing, and normalized `hardBreak` to `hard_break` for ProseMirror schema consistency. `UploadAsset` command now accepts an optional pre-defined `id` parameter.
 - **Proper spacing architecture**: Unified the spacing system between the editor canvas and PDF renderer to eliminate the 2x vertical spacing mismatch. Individual spacing keys (`marginTop`, `marginBottom`, etc.) are now used throughout instead of compound objects, ensuring user-configured spacing is correctly applied in both the editor and PDF output. Added component default styles (`marginBottom: 0.5em`) for content blocks. TipTap paragraph and list spacing now matches the editor's ProseMirror CSS values.

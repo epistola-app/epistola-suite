@@ -18,13 +18,15 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
-import app.epistola.suite.documents.queries.GetDocument
+import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import org.springframework.core.io.ByteArrayResource
+import app.epistola.suite.storage.ContentKey
+import app.epistola.suite.storage.ContentStore
+import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
@@ -37,6 +39,7 @@ import java.util.UUID
 @RestController
 class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
+    private val contentStore: ContentStore,
 ) : GenerationApi {
 
     // ================== Document Generation ==================
@@ -123,16 +126,20 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         documentId: UUID,
     ): ResponseEntity<Resource> {
-        val document = GetDocument(TenantId.of(tenantId), DocumentId.of(documentId)).query()
+        val tid = TenantId.of(tenantId)
+        val did = DocumentId.of(documentId)
+
+        val metadata = GetDocumentMetadata(tid, did).query()
             ?: return ResponseEntity.notFound().build()
 
-        val resource = ByteArrayResource(document.content)
+        val stored = contentStore.get(ContentKey.document(tid, did))
+            ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_PDF)
-            .contentLength(document.sizeBytes)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${document.filename}\"")
-            .body(resource)
+            .contentLength(metadata.sizeBytes)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${metadata.filename}\"")
+            .body(InputStreamResource(stored.content))
     }
 
     override fun deleteDocument(
