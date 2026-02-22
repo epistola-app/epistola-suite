@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **Docker image size reduction**: Replaced `paketobuildpacks/run-noble-full` (765MB) with a custom run image based on `run-noble-base` (188MB) plus only fontconfig and DejaVu fonts. Reduces total image size by ~565MB (from ~1.26GB to ~500MB). The custom image is built automatically as part of the `bootBuildImage` task. Removed the `Aptfile` in favor of a Dockerfile at `apps/epistola/docker/run-image/`.
+
 ### Added
 - **API key authentication**: External systems can authenticate REST API calls using an `X-API-Key` header. Keys use the `epk_` prefix, are SHA-256 hashed for storage, and support enable/disable and expiration. API key identities are Non-Personal Accounts (NPA) scoped to a single tenant.
 - **OAuth2 JWT resource server**: REST API endpoints accept Bearer JWT tokens when an OIDC provider is configured. JWT claims are mapped to `EpistolaPrincipal` with tenant memberships.

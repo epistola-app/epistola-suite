@@ -146,10 +146,19 @@ tasks.register("generateSbom") {
 // Docker image configuration
 // Default: JVM image (recommended, stable)
 // Use -PnativeImage=true to build a native image (currently broken due to JDBI/Kotlin reflection)
+
+// Build a custom run image based on run-noble-base with only fontconfig and DejaVu fonts added.
+// This cuts ~565MB compared to the full run image while still supporting Java AWT font rendering.
+val buildRunImage by tasks.registering(Exec::class) {
+    group = "docker"
+    description = "Build custom CNB run image with fontconfig and fonts"
+    commandLine("docker", "build", "-t", "epistola-run:noble", file("docker/run-image").absolutePath)
+}
+
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
-    // Use the full run image instead of tiny — it includes fontconfig, DejaVu fonts, and all
-    // system libraries needed for PDF font rendering. The tiny/base images lack these.
-    runImage.set("paketobuildpacks/run-noble-full:latest")
+    dependsOn(buildRunImage)
+    runImage.set("epistola-run:noble")
+    pullPolicy.set(org.springframework.boot.buildpack.platform.build.PullPolicy.IF_NOT_PRESENT)
     environment.set(
         mapOf(
             "BP_JVM_VERSION" to "25",
