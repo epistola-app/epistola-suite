@@ -1,8 +1,8 @@
 package app.epistola.suite.config
 
+import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler

@@ -1,8 +1,9 @@
-package app.epistola.suite.security
+package app.epistola.suite.api.security
 
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.security.EpistolaPrincipal
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse

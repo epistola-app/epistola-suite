@@ -1,5 +1,7 @@
 package app.epistola.suite.security
 
+import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
+import app.epistola.suite.api.security.ApiKeyAuthenticationToken
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.common.ids.ApiKeyId
