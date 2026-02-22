@@ -360,6 +360,20 @@ value class ThemeId(override val value: String) : SlugId<ThemeId> {
 }
 
 /**
+ * Typed ID for API key entities.
+ */
+@JvmInline
+value class ApiKeyId(override val value: UUID) : UuidId<ApiKeyId> {
+    companion object {
+        fun generate(): ApiKeyId = ApiKeyId(UUIDv7.generate())
+        fun of(value: UUID): ApiKeyId = ApiKeyId(value)
+        fun of(value: String): ApiKeyId = ApiKeyId(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
  * Typed ID for User entities.
  */
 @JvmInline

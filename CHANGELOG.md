@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- **API key authentication**: External systems can authenticate REST API calls using an `X-API-Key` header. Keys use the `epk_` prefix, are SHA-256 hashed for storage, and support enable/disable and expiration. API key identities are Non-Personal Accounts (NPA) scoped to a single tenant.
+- **OAuth2 JWT resource server**: REST API endpoints accept Bearer JWT tokens when an OIDC provider is configured. JWT claims are mapped to `EpistolaPrincipal` with tenant memberships.
+- **Demo API key**: The `demo` profile auto-creates a well-known API key (`epk_demo_...`) logged at startup for easy testing.
+- **CQRS commands for API key management**: `CreateApiKey`, `RevokeApiKey`, and `ListApiKeys` commands/queries for programmatic key lifecycle management.
+
+### Changed
+- **BREAKING: REST API mounted under `/api` prefix**: All REST API endpoints now live under `/api/` (e.g., `/api/tenants` instead of `/tenants`). This enables a dedicated stateless security filter chain for API traffic.
+- **Dual security filter chains**: `SecurityConfig` is split into an API chain (`/api/**` — stateless, no CSRF, API key + JWT auth) and a UI chain (session-based, form/OAuth2 login, CSRF enabled).
+- **SecurityFilter ordering fix**: `SecurityFilter` now runs at `@Order(-99)` instead of `HIGHEST_PRECEDENCE + 1`, so it executes after Spring Security populates the `SecurityContext`.
+
+### Fixed
+- **AccessDeniedException returns 403 instead of 500**: Introduced `TenantAccessDeniedException` and added exception handlers for 401/403 responses in `ApiExceptionHandler`.
+
+### Added
 - **Pluggable content storage**: Binary content (images, PDFs) is now stored via a `ContentStore` abstraction instead of inline PostgreSQL BYTEA columns. Four backends are available: `postgres` (default, zero-config), `s3` (for production at scale), `filesystem` (local dev), and `memory` (fast tests). Configured via `epistola.storage.backend` property.
 - **`content_store` table**: New key-value table for the PostgreSQL backend, storing binary content with S3-style keys (`assets/{tenantId}/{assetId}`, `documents/{tenantId}/{documentId}`).
 - **Streaming document downloads**: REST API document downloads now use `InputStreamResource` instead of `ByteArrayResource`, enabling streaming of large PDFs without loading them entirely into heap memory.

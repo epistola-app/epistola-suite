@@ -57,11 +57,13 @@ import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 @RestController
+@RequestMapping("/api")
 class EpistolaTemplateApi(
     private val objectMapper: ObjectMapper,
     private val jsonSchemaValidator: JsonSchemaValidator,

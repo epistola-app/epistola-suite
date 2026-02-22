@@ -73,8 +73,9 @@ The frontend uses a **server-side rendering** approach:
 The backend has **two distinct endpoint layers** that must NEVER be mixed:
 
 ### 1. REST API (External Systems Only)
-- **Path pattern**: `/api/v1/*` or `/v1/*`
-- **Implementation**: `@RestController` in `app.epistola.suite.api.v1` package
+- **Path pattern**: `/api/tenants/*`, `/api/tenants/{tenantId}/templates/*`, etc. (all under `/api/` prefix)
+- **Authentication**: API key (`X-API-Key` header) or OAuth2 JWT Bearer token. Stateless, no CSRF.
+- **Implementation**: `@RestController` with `@RequestMapping("/api")` in `app.epistola.suite.api.v1` package
 - **Returns**: JSON DTOs (`application/vnd.epistola.v1+json`)
 - **OpenAPI spec**: `/modules/rest-api/src/main/resources/openapi/`
 - **Purpose**: External system integration (stable, versioned API)

@@ -25,6 +25,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
+    // Spring Security (for exception types in ApiExceptionHandler)
+    implementation("org.springframework.boot:spring-boot-starter-security")
+
     // JSON serialization
     implementation("tools.jackson.module:jackson-module-kotlin")
 

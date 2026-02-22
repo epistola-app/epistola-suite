@@ -5,7 +5,6 @@ import app.epistola.suite.security.SecurityContext
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
@@ -14,7 +13,9 @@ import org.springframework.web.filter.OncePerRequestFilter
 /**
  * Filter that binds the authenticated user to the current request scope using ScopedValue.
  *
- * This filter runs after MediatorFilter to ensure both mediator and security context
+ * This filter runs after Spring Security's filter chain (order -100) to ensure the
+ * authentication context is populated before we extract it. It also runs after
+ * MediatorFilter (HIGHEST_PRECEDENCE) so that both mediator and security context
  * are available throughout the request lifecycle.
  *
  * The filter extracts the Spring Security authentication and converts it to an
@@ -25,7 +26,7 @@ import org.springframework.web.filter.OncePerRequestFilter
  * ScopedValue's automatic scope management.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 1) // Run after MediatorFilter
+@Order(-99) // Run after Spring Security (-100) but before other filters
 class SecurityFilter : OncePerRequestFilter() {
 
     override fun doFilterInternal(
