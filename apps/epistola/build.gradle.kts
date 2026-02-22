@@ -147,12 +147,9 @@ tasks.register("generateSbom") {
 // Default: JVM image (recommended, stable)
 // Use -PnativeImage=true to build a native image (currently broken due to JDBI/Kotlin reflection)
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootBuildImage>("bootBuildImage") {
-    buildpacks.set(
-        listOf(
-            "paketo-buildpacks/apt",
-            "paketo-buildpacks/java",
-        ),
-    )
+    // Use the full run image instead of tiny — it includes fontconfig, DejaVu fonts, and all
+    // system libraries needed for PDF font rendering. The tiny/base images lack these.
+    runImage.set("paketobuildpacks/run-noble-full:latest")
     environment.set(
         mapOf(
             "BP_JVM_VERSION" to "25",
