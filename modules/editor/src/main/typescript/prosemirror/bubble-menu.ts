@@ -239,6 +239,11 @@ function updatePosition(menuEl: HTMLElement, view: EditorView): void {
   })
 }
 
+function hideMenu(menuEl: HTMLElement | null): void {
+  if (!menuEl) return
+  menuEl.style.display = 'none'
+}
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -254,6 +259,19 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       const result = createMenuElement(schema)
       menuEl = result.menuEl
       buttons = result.buttons
+      const ownerDocument = view.dom.ownerDocument
+
+      const onDocumentPointerDown = (event: PointerEvent) => {
+        if (!menuEl) return
+        const target = event.target
+        if (!(target instanceof Node)) return
+        if (view.dom.contains(target) || menuEl.contains(target)) return
+        hideMenu(menuEl)
+      }
+
+      const onEditorBlur = () => {
+        hideMenu(menuEl)
+      }
 
       // Wire up click handlers (need view reference)
       for (const { el, def } of buttons) {
@@ -265,7 +283,9 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       }
 
       // Append to document body for absolute positioning
-      document.body.appendChild(menuEl)
+      ownerDocument.body.appendChild(menuEl)
+      ownerDocument.addEventListener('pointerdown', onDocumentPointerDown, true)
+      view.dom.addEventListener('blur', onEditorBlur, true)
 
       return {
         update(view, _prevState) {
@@ -277,7 +297,7 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
 
           // Hide if selection is empty or collapsed
           if (empty || !view.hasFocus()) {
-            menuEl.style.display = 'none'
+            hideMenu(menuEl)
             return
           }
 
@@ -297,6 +317,8 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
         },
 
         destroy() {
+          ownerDocument.removeEventListener('pointerdown', onDocumentPointerDown, true)
+          view.dom.removeEventListener('blur', onEditorBlur, true)
           menuEl?.remove()
           menuEl = null
           buttons = []
