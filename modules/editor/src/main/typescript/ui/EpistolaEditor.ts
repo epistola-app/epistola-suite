@@ -177,6 +177,10 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
   override connectedCallback(): void {
     super.connectedCallback()
     window.addEventListener('keydown', this._onKeydown)
@@ -204,6 +208,10 @@ export class EpistolaEditor extends LitElement {
     this._saveService?.dispose()
     this._clearLeaderTimers()
   }
+
+  // ---------------------------------------------------------------------------
+  // Keyboard Handling
+  // ---------------------------------------------------------------------------
 
   /**
    * Global keyboard handler for undo/redo, save, delete, and escape.
@@ -281,6 +289,10 @@ export class EpistolaEditor extends LitElement {
       block?.focus({ preventScroll: true })
     })
   }
+
+  // ---------------------------------------------------------------------------
+  // Leader Shortcuts
+  // ---------------------------------------------------------------------------
 
   private _startLeaderMode(): void {
     this._clearLeaderTimers()
@@ -440,6 +452,10 @@ export class EpistolaEditor extends LitElement {
     }
     return false
   }
+
+  // ---------------------------------------------------------------------------
+  // Insert Dialog
+  // ---------------------------------------------------------------------------
 
   private _openInsertDialog(): boolean {
     if (!this._engine || !this._doc) return false
@@ -918,6 +934,10 @@ export class EpistolaEditor extends LitElement {
     }))
   }
 
+  // ---------------------------------------------------------------------------
+  // Block Operations
+  // ---------------------------------------------------------------------------
+
   private _duplicateSelectedNode(): boolean {
     if (!this._engine || !this._doc) return false
     const nodeId = this._selectedNodeId
@@ -1036,6 +1056,10 @@ export class EpistolaEditor extends LitElement {
       e.preventDefault()
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------------
 
   override render() {
     if (!this._engine || !this._doc) {
