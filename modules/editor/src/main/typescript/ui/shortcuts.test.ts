@@ -1,14 +1,32 @@
 import { describe, it, expect } from 'vitest'
-import { LEADER_SHORTCUTS, LEADER_KEY_LABEL, CORE_SHORTCUTS, buildShortcutGroups } from './shortcuts.js'
+import {
+  LEADER_SHORTCUTS,
+  LEADER_KEY_LABEL,
+  CORE_SHORTCUTS,
+  RESIZE_SHORTCUTS,
+  TEXT_SHORTCUTS,
+  INSERT_DIALOG_SHORTCUTS,
+  buildShortcutGroups,
+} from './shortcuts.js'
 
 describe('shortcuts', () => {
   it('builds shortcut groups in expected order', () => {
     const groups = buildShortcutGroups()
 
-    expect(groups).toHaveLength(3)
-    expect(groups.map((group) => group.title)).toEqual(['Leader Key', 'Leader Commands', 'Core'])
+    expect(groups).toHaveLength(6)
+    expect(groups.map((group) => group.title)).toEqual([
+      'Leader Key',
+      'Leader Commands',
+      'Core',
+      'Resize Handle',
+      'Text Editing',
+      'Insert Dialog',
+    ])
     expect(groups[0].items).toEqual([{ keys: LEADER_KEY_LABEL, action: 'Enter leader mode' }])
     expect(groups[2].items).toEqual(CORE_SHORTCUTS)
+    expect(groups[3].items).toEqual(RESIZE_SHORTCUTS)
+    expect(groups[4].items).toEqual(TEXT_SHORTCUTS)
+    expect(groups[5].items).toEqual(INSERT_DIALOG_SHORTCUTS)
   })
 
   it('maps leader commands into Leader Commands group', () => {

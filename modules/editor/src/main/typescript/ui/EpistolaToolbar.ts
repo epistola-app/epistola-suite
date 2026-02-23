@@ -34,8 +34,8 @@ export class EpistolaToolbar extends LitElement {
   }
   private _onWindowPointerDown = (e: PointerEvent) => {
     if (!this._shortcutsOpen) return
-    const target = e.target as Node | null
-    if (target && this.contains(target)) return
+    const target = e.target
+    if (target instanceof Element && target.closest('.toolbar-shortcuts')) return
     this._shortcutsOpen = false
   }
 
@@ -43,7 +43,7 @@ export class EpistolaToolbar extends LitElement {
     super.connectedCallback()
     this._subscribeToEngine()
     window.addEventListener('keydown', this._onWindowKeydown)
-    window.addEventListener('pointerdown', this._onWindowPointerDown)
+    window.addEventListener('pointerdown', this._onWindowPointerDown, true)
   }
 
   override updated(changed: Map<string, unknown>): void {
@@ -56,7 +56,7 @@ export class EpistolaToolbar extends LitElement {
   override disconnectedCallback(): void {
     this._unsubscribeAll()
     window.removeEventListener('keydown', this._onWindowKeydown)
-    window.removeEventListener('pointerdown', this._onWindowPointerDown)
+    window.removeEventListener('pointerdown', this._onWindowPointerDown, true)
     super.disconnectedCallback()
   }
 
