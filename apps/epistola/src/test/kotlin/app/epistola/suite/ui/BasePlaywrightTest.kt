@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.TestInstance
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 
@@ -20,30 +21,27 @@ import org.springframework.boot.test.web.server.LocalServerPort
     ],
 )
 @Tag("ui")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class BasePlaywrightTest : BaseIntegrationTest() {
 
     @LocalServerPort
     private var port: Int = 0
 
+    private lateinit var playwright: Playwright
+    private lateinit var browser: Browser
+
     protected lateinit var page: Page
 
-    companion object {
-        private lateinit var playwright: Playwright
-        private lateinit var browser: Browser
+    @BeforeAll
+    fun launchBrowser() {
+        playwright = Playwright.create()
+        browser = playwright.chromium().launch(BrowserType.LaunchOptions().setHeadless(true))
+    }
 
-        @JvmStatic
-        @BeforeAll
-        fun launchBrowser() {
-            playwright = Playwright.create()
-            browser = playwright.chromium().launch(BrowserType.LaunchOptions().setHeadless(true))
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun closeBrowser() {
-            browser.close()
-            playwright.close()
-        }
+    @AfterAll
+    fun closeBrowser() {
+        browser.close()
+        playwright.close()
     }
 
     @BeforeEach

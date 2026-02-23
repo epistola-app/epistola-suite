@@ -16,6 +16,15 @@ import tools.jackson.databind.node.JsonNodeFactory
 
 class EditorShortcutsUiTest : BasePlaywrightTest() {
 
+    companion object {
+        // Leader idle timeout is 1600ms in EpistolaEditor; we wait slightly longer to avoid scheduler jitter.
+        private const val LEADER_IDLE_HIDE_WAIT_MS = 1900.0
+
+        // Leader result timeout is 700ms and clear timeout is 180ms in EpistolaEditor; add buffer for timing variance.
+        private const val LEADER_RESULT_HIDE_WAIT_MS = 950.0
+        private const val LEADER_MESSAGE_CLEAR_WAIT_MS = 260.0
+    }
+
     @Test
     fun `escape clears selected block`() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
@@ -78,6 +87,68 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         assertThat(page.getByTestId("shortcuts-popover")).hasCount(0)
         assertThat(page.getByTestId("insert-dialog")).hasCount(0)
         assertThat(page.getByTestId("canvas-block")).hasCount(initialCount)
+    }
+
+    @Test
+    fun `leader waiting hint auto hides after timeout`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        val leaderHint = page.getByTestId("leader-hint")
+        val leaderMessage = page.getByTestId("leader-message")
+
+        page.keyboard().press("Control+Space")
+        assertThat(leaderHint).isVisible()
+        assertThat(leaderMessage).containsText("Waiting:")
+
+        page.waitForTimeout(LEADER_IDLE_HIDE_WAIT_MS)
+        assertThat(leaderHint).isHidden()
+        assertThat(leaderMessage).hasText("")
+    }
+
+    @Test
+    fun `leader success hint auto hides and clears after result timeout`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        val leaderHint = page.getByTestId("leader-hint")
+        val leaderMessage = page.getByTestId("leader-message")
+
+        page.keyboard().press("Control+Space")
+        page.keyboard().press("Shift+/")
+
+        assertThat(page.getByTestId("shortcuts-popover")).isVisible()
+        assertThat(leaderHint).isVisible()
+        assertThat(leaderMessage).containsText("Opened shortcuts help")
+
+        page.waitForTimeout(LEADER_RESULT_HIDE_WAIT_MS)
+        assertThat(leaderHint).isHidden()
+
+        page.waitForTimeout(LEADER_MESSAGE_CLEAR_WAIT_MS)
+        assertThat(leaderMessage).hasText("")
+    }
+
+    @Test
+    fun `leader error hint auto hides and clears after result timeout`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        val leaderHint = page.getByTestId("leader-hint")
+        val leaderMessage = page.getByTestId("leader-message")
+
+        page.keyboard().press("Control+Space")
+        page.keyboard().press("x")
+
+        assertThat(leaderHint).isVisible()
+        assertThat(leaderMessage).containsText("Unknown leader command")
+        assertThat(page.getByTestId("shortcuts-popover")).hasCount(0)
+        assertThat(page.getByTestId("insert-dialog")).hasCount(0)
+
+        page.waitForTimeout(LEADER_RESULT_HIDE_WAIT_MS)
+        assertThat(leaderHint).isHidden()
+
+        page.waitForTimeout(LEADER_MESSAGE_CLEAR_WAIT_MS)
+        assertThat(leaderMessage).hasText("")
     }
 
     private fun openEditorPage(tenant: Tenant, template: DocumentTemplate, variantId: String) {
