@@ -374,6 +374,7 @@ export class EpistolaCanvas extends LitElement {
     return html`
       <div
         class="canvas-block ${isSelected ? "selected" : ""}"
+        data-testid="canvas-block"
         data-node-id=${nodeId}
         tabindex="0"
         @click=${(e: Event) => this._handleSelect(e, nodeId)}

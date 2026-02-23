@@ -1064,15 +1064,15 @@ export class EpistolaEditor extends LitElement {
               `
             : nothing}
         </div>
-        <div class=${leaderClasses} role="status" aria-live="polite">
+        <div class=${leaderClasses} data-testid="leader-hint" role="status" aria-live="polite">
           <span class="leader-dot" aria-hidden="true"></span>
-          <span class="leader-text">${this._leaderMessage}</span>
+          <span class="leader-text" data-testid="leader-message">${this._leaderMessage}</span>
         </div>
 
         ${this._insertDialogOpen
           ? html`
               <div class="insert-dialog-backdrop" @click=${this._closeInsertDialog}></div>
-              <div class="insert-dialog" role="dialog" aria-label="Insert block">
+              <div class="insert-dialog" data-testid="insert-dialog" role="dialog" aria-label="Insert block">
                 <div class="insert-dialog-title">Insert Block</div>
                 ${keyed(insertStageKey, html`
                   <div class="insert-dialog-stage">

@@ -909,6 +909,51 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     }
 
     @Nested
+    inner class EditorPageAndAssetsTest {
+
+        @Test
+        fun `GET editor page renders and references template editor bundle`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var template: DocumentTemplate
+            var variantId: VariantId? = null
+
+            given {
+                testTenant = tenant("Test Tenant")
+                template = template(testTenant, "Test Template")
+                variantId = variant(testTenant, template, "Default").id
+            }
+
+            whenever {
+                restTemplate.getForEntity(
+                    "/tenants/${testTenant.id}/templates/${template.id}/variants/$variantId/editor",
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).contains("id=\"editor-container\"")
+                assertThat(response.body).contains("/editor/template-editor-")
+            }
+        }
+
+        @Test
+        fun `GET template editor asset is served in test profile`() = fixture {
+            whenever {
+                restTemplate.getForEntity("/editor/template-editor.js", String::class.java)
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                assertThat(response.body).isNotBlank
+                assertThat(response.body).contains("mountEditor")
+            }
+        }
+    }
+
+    @Nested
     inner class PreviewEndpointTest {
 
         @Test

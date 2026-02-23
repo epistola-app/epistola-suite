@@ -113,6 +113,56 @@ describe('findAncestorAtLevel', () => {
 })
 
 // ---------------------------------------------------------------------------
+// getNextSelectionAfterRemove
+// ---------------------------------------------------------------------------
+
+describe('getNextSelectionAfterRemove', () => {
+  it('returns next sibling when available', () => {
+    const { doc, textNodeId, containerNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, testRegistry())
+
+    expect(engine.getNextSelectionAfterRemove(textNodeId)).toBe(containerNodeId)
+  })
+
+  it('returns previous sibling when next sibling is unavailable', () => {
+    const { doc, textNodeId, containerNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, testRegistry())
+
+    expect(engine.getNextSelectionAfterRemove(containerNodeId)).toBe(textNodeId)
+  })
+
+  it('returns parent node when removed node has no siblings', () => {
+    const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren()
+    const childNodeId = nodeId('child')
+    doc.nodes[childNodeId] = {
+      id: childNodeId,
+      type: 'text',
+      slots: [],
+      props: { content: null },
+    }
+    doc.slots[containerSlotId].children = [childNodeId]
+
+    const engine = new EditorEngine(doc, testRegistry())
+
+    expect(engine.getNextSelectionAfterRemove(childNodeId)).toBe(containerNodeId)
+  })
+
+  it('returns null for root node', () => {
+    const { doc, rootId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, testRegistry())
+
+    expect(engine.getNextSelectionAfterRemove(rootId)).toBeNull()
+  })
+
+  it('returns null for unknown node ids', () => {
+    const { doc } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, testRegistry())
+
+    expect(engine.getNextSelectionAfterRemove('missing-node' as NodeId)).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // getNestedValue / setNestedValue
 // ---------------------------------------------------------------------------
 

@@ -262,6 +262,7 @@ export class EpistolaToolbar extends LitElement {
         <div class="toolbar-shortcuts">
           <button
             class="toolbar-shortcuts-trigger"
+            data-testid="shortcuts-trigger"
             type="button"
             title="Keyboard shortcuts"
             aria-label="Keyboard shortcuts"
@@ -273,7 +274,7 @@ export class EpistolaToolbar extends LitElement {
 
           ${this._shortcutsOpen
             ? html`
-                <div class="toolbar-shortcuts-popover" role="dialog" aria-label="Keyboard shortcuts">
+                <div class="toolbar-shortcuts-popover" data-testid="shortcuts-popover" role="dialog" aria-label="Keyboard shortcuts">
                   <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
                   ${SHORTCUT_GROUPS.map((group) => html`
                     <div class="toolbar-shortcuts-group ${group.dividerAfter ? 'with-divider' : ''}">
