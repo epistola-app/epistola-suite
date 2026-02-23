@@ -22,6 +22,7 @@ export const LEADER_SHORTCUTS: LeaderShortcutDefinition[] = [
   { key: '1', label: 'Leader + 1', action: 'Focus Blocks panel', successMessage: 'Focused Blocks panel', idleToken: '1' },
   { key: '2', label: 'Leader + 2', action: 'Focus Structure panel', successMessage: 'Focused Structure panel', idleToken: '2' },
   { key: '3', label: 'Leader + 3', action: 'Focus Inspector panel', successMessage: 'Focused Inspector panel', idleToken: '3' },
+  { key: 'r', label: 'Leader + R', action: 'Focus resize handle', successMessage: 'Focused resize handle', idleToken: 'R' },
   { key: 'arrowup', label: 'Leader + ↑', action: 'Move selected block up', successMessage: 'Moved block up', idleToken: '↑' },
   { key: 'arrowdown', label: 'Leader + ↓', action: 'Move selected block down', successMessage: 'Moved block down', idleToken: '↓' },
 ]

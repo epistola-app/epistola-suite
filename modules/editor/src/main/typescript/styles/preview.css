@@ -139,35 +139,55 @@
   epistola-resize-handle {
     display: flex;
     align-items: stretch;
+    justify-content: center;
+    width: 12px;
     flex-shrink: 0;
     touch-action: none;
-  }
-
-  .resize-handle {
-    width: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     cursor: col-resize;
-    background: var(--ep-gray-100);
-    transition: background-color var(--ep-transition-fast);
+    transition:
+      background-color var(--ep-transition-fast),
+      box-shadow var(--ep-transition-fast);
 
     &:hover,
     &:active {
-      background: var(--ep-blue-100, #dbeafe);
+      background: var(--ep-blue-50, #eff6ff);
     }
+
+    &:focus,
+    &:focus-visible {
+      outline: none;
+      background: var(--ep-blue-50, #eff6ff);
+      box-shadow: inset 0 0 0 1px var(--ep-blue-200, #bfdbfe);
+    }
+  }
+
+  .resize-handle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
   }
 
   .resize-handle-grip {
     width: 2px;
     height: 24px;
-    border-radius: 1px;
+    border-radius: 999px;
     background: var(--ep-gray-300);
-    transition: background-color var(--ep-transition-fast);
+    transition:
+      background-color var(--ep-transition-fast),
+      transform var(--ep-transition-fast);
 
-    .resize-handle:hover &,
-    .resize-handle:active & {
+    epistola-resize-handle:hover &,
+    epistola-resize-handle:active & {
       background: var(--ep-blue-400, #60a5fa);
+      transform: scaleY(1.08);
+    }
+
+    epistola-resize-handle:focus &,
+    epistola-resize-handle:focus-visible & {
+      background: var(--ep-blue-500, #3b82f6);
+      transform: scaleY(1.12);
     }
   }
 

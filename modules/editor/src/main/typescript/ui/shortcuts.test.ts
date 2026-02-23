@@ -43,4 +43,16 @@ describe('shortcuts', () => {
       expect(suffix.length).toBeGreaterThan(0)
     }
   })
+
+  it('includes leader shortcut for focusing resize handle', () => {
+    expect(LEADER_SHORTCUTS).toContainEqual(
+      expect.objectContaining({
+        key: 'r',
+        label: 'Leader + R',
+        action: 'Focus resize handle',
+        successMessage: 'Focused resize handle',
+        idleToken: 'R',
+      }),
+    )
+  })
 })

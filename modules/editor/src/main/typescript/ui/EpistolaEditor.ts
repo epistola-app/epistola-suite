@@ -346,9 +346,14 @@ export class EpistolaEditor extends LitElement {
 
   private _runLeaderCommand(key: string): LeaderCommandResult {
     switch (key) {
-      case 'p':
+      case 'p': {
+        const openingPreview = !this._previewOpen
         this._handleTogglePreview()
+        if (openingPreview) {
+          this._focusResizeHandleAfterRender()
+        }
         return { ok: true, message: this._leaderSuccessMessage('p') }
+      }
       case 'd':
         return this._runDuplicateLeaderCommand()
       case 'a':
@@ -362,6 +367,8 @@ export class EpistolaEditor extends LitElement {
         return this._withLeaderResult(this._focusTree(), '2', 'Structure panel unavailable')
       case '3':
         return this._withLeaderResult(this._focusInspector(), '3', 'Inspector panel unavailable')
+      case 'r':
+        return this._withLeaderResult(this._focusResizeHandle(), 'r', 'Resize handle unavailable')
       case 'arrowup':
         return this._runMoveLeaderCommand(-1)
       case 'arrowdown':
@@ -422,6 +429,23 @@ export class EpistolaEditor extends LitElement {
     if (!sidebar) return false
     sidebar.focusInspector()
     return true
+  }
+
+  // _focusResizeHandle() for cases where the handle is already mounted (Leader + R)
+  // _focusResizeHandleAfterRender() for preview-open flows where the handle is added next render
+  private _focusResizeHandle(): boolean {
+    const resizeHandle = this.querySelector<HTMLElement>('epistola-resize-handle')
+    if (!resizeHandle) return false
+    resizeHandle.focus({ preventScroll: true })
+    return true
+  }
+
+  private _focusResizeHandleAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        this._focusResizeHandle()
+      })
+    })
   }
 
   private _moveSelectedNode(delta: number): boolean {
