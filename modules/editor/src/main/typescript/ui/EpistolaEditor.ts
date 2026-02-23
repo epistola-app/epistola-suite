@@ -76,6 +76,7 @@ export class EpistolaEditor extends LitElement {
   @state() private _insertDialogMode: InsertMode | null = null
   @state() private _insertDialogSlotOptions: InsertSlotOption[] = []
   @state() private _insertDialogBlockOptions: ComponentDefinition[] = []
+  @state() private _insertDialogQuery = ''
   @state() private _insertDialogHighlight = 0
   @state() private _insertDialogError = ''
 
@@ -456,6 +457,7 @@ export class EpistolaEditor extends LitElement {
     this._insertDialogMode = null
     this._insertDialogSlotOptions = []
     this._insertDialogBlockOptions = []
+    this._insertDialogQuery = ''
     this._insertDialogHighlight = 0
     this._insertDialogError = ''
     this._insertTarget = null
@@ -472,16 +474,24 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    const modeKey = e.key.toLowerCase()
-    const isDocumentContext = this._isDocumentInsertContext()
-    const mode = this._parseInsertModeKey(modeKey, isDocumentContext)
-    if (mode) {
-      e.preventDefault()
-      this._selectInsertMode(mode)
+    if (!this._insertDialogMode) {
+      const modeKey = e.key.toLowerCase()
+      const isDocumentContext = this._isDocumentInsertContext()
+      const mode = this._parseInsertModeKey(modeKey, isDocumentContext)
+      if (mode) {
+        e.preventDefault()
+        this._selectInsertMode(mode)
+      }
       return
     }
 
-    if (!this._insertDialogMode) {
+    const target = e.target as HTMLElement | null
+    if (target?.closest('input, textarea, [contenteditable="true"]')) {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        if (this._insertDialogHighlight <= 0) return
+        this._selectInsertDialogOption(this._insertDialogHighlight)
+      }
       return
     }
 
@@ -535,6 +545,7 @@ export class EpistolaEditor extends LitElement {
       this._insertTarget = insideTarget
       this._insertDialogBlockOptions = this._buildInsertableOptions(insideTarget.parentType)
       this._insertDialogSlotOptions = []
+      this._insertDialogQuery = ''
       this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
       this._insertDialogError = ''
       if (this._insertDialogBlockOptions.length === 0) {
@@ -543,7 +554,7 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    const definition = this._insertDialogBlockOptions[selectedIndex - 1]
+    const definition = this._getInsertDialogVisibleBlockOptions()[selectedIndex - 1]
     if (!definition || !this._insertTarget) {
       this._insertDialogError = 'Invalid block number'
       return
@@ -562,6 +573,7 @@ export class EpistolaEditor extends LitElement {
     this._insertTarget = null
     this._insertDialogSlotOptions = []
     this._insertDialogBlockOptions = []
+    this._insertDialogQuery = ''
     this._insertDialogHighlight = 0
     this._insertDialogError = ''
 
@@ -649,9 +661,37 @@ export class EpistolaEditor extends LitElement {
 
   private _getInsertDialogOptionCount(): number {
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
-      return Math.min(9, this._insertDialogSlotOptions.length)
+      return this._insertDialogSlotOptions.length
     }
-    return Math.min(9, this._insertDialogBlockOptions.length)
+    return this._getInsertDialogVisibleBlockOptions().length
+  }
+
+  private _setInsertDialogQuery(query: string): void {
+    this._insertDialogQuery = query
+    const optionCount = this._getInsertDialogVisibleBlockOptions().length
+    if (optionCount === 0) {
+      this._insertDialogHighlight = 0
+      return
+    }
+    if (this._insertDialogHighlight <= 0 || this._insertDialogHighlight > optionCount) {
+      this._insertDialogHighlight = 1
+    }
+  }
+
+  private _isInsertBlockSelectionStage(): boolean {
+    return !!this._insertTarget
+  }
+
+  private _getInsertDialogVisibleBlockOptions(): ComponentDefinition[] {
+    const query = this._insertDialogQuery.trim().toLowerCase()
+    if (!query) return this._insertDialogBlockOptions
+    return this._insertDialogBlockOptions.filter((def) => {
+      return (
+        def.label.toLowerCase().includes(query)
+        || def.type.toLowerCase().includes(query)
+        || def.category.toLowerCase().includes(query)
+      )
+    })
   }
 
   private _insertNodeAtTarget(type: string, slotId: SlotId, index: number): boolean {
@@ -679,6 +719,8 @@ export class EpistolaEditor extends LitElement {
     if (!this._engine) return []
     return this._engine.registry
       .insertable()
+      // Root is the single document container and must never be insertable as a block.
+      .filter((def) => def.type !== 'root')
       .filter((def) => this._engine!.registry.canContain(parentType, def.type))
   }
 
@@ -793,7 +835,7 @@ export class EpistolaEditor extends LitElement {
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
       return '1-9=Choose slot  ↑/↓=Navigate  Enter=Confirm  Esc=Close'
     }
-    return '1-9=Insert block  ↑/↓=Navigate  Enter=Confirm  Esc=Close'
+    return 'Type=Search  1-9=Quick insert  ↑/↓=Navigate  Enter=Insert  Esc=Close'
   }
 
   private _getInsertDialogContext(): string {
@@ -869,7 +911,7 @@ export class EpistolaEditor extends LitElement {
       }))
     }
 
-    return this._insertDialogBlockOptions.slice(0, 9).map((def, i) => ({
+    return this._getInsertDialogVisibleBlockOptions().map((def, i) => ({
       index: i + 1,
       label: def.label,
       detail: def.category,
@@ -1083,14 +1125,35 @@ export class EpistolaEditor extends LitElement {
                       ? html`<div class="insert-dialog-error">${this._insertDialogError}</div>`
                       : nothing}
 
+                    ${this._isInsertBlockSelectionStage()
+                      ? html`
+                          <input
+                            class="insert-dialog-search"
+                            type="text"
+                            autofocus
+                            .value=${this._insertDialogQuery}
+                            @input=${(event: Event) => {
+                              const target = event.target as HTMLInputElement
+                              this._setInsertDialogQuery(target.value)
+                            }}
+                            placeholder="Search blocks"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-label="Search blocks"
+                          />
+                        `
+                      : nothing}
+
                     <div class="insert-dialog-list">
-                      ${insertRows.map((row) => html`
-                        <div class="insert-dialog-row ${row.index === this._insertDialogHighlight ? 'is-active' : ''}">
-                          <span class="insert-dialog-index">${row.index}</span>
-                          <span class="insert-dialog-label">${row.label}</span>
-                          <span class="insert-dialog-detail">${row.detail}</span>
-                        </div>
-                      `)}
+                      ${insertRows.length === 0
+                        ? html`<div class="insert-dialog-empty">No matching blocks</div>`
+                        : insertRows.map((row) => html`
+                            <div class="insert-dialog-row ${row.index === this._insertDialogHighlight ? 'is-active' : ''}">
+                              <span class="insert-dialog-index">${row.index}</span>
+                              <span class="insert-dialog-label">${row.label}</span>
+                              <span class="insert-dialog-detail">${row.detail}</span>
+                            </div>
+                          `)}
                     </div>
 
                     ${insertRangeText
