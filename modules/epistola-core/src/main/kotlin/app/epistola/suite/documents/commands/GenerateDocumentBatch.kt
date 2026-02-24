@@ -35,8 +35,8 @@ data class BatchGenerationItem(
     val correlationId: String? = null,
 ) {
     init {
-        require((variantId != null) xor (variantSelectionCriteria != null)) {
-            "Exactly one of variantId or variantSelectionCriteria must be set"
+        require(variantId == null || variantSelectionCriteria == null) {
+            "Cannot specify both variantId and variantSelectionCriteria"
         }
         require((versionId != null) xor (environmentId != null)) {
             "Exactly one of versionId or environmentId must be set"
