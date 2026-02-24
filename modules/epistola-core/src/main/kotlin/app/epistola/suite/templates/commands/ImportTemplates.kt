@@ -101,14 +101,14 @@ class ImportTemplatesHandler(
             .mapTo<Boolean>()
             .one()
 
-        val status: ImportStatus
-
-        if (!templateExists) {
-            // ── CREATE template ──────────────────────────────────────
+        // 1. Upsert template
+        val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
                     INSERT INTO document_templates (id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
                     VALUES (:id, :tenantId, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
+                    ON CONFLICT (tenant_id, id) DO UPDATE
+                    SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     """,
             )
                 .bind("id", templateId)
@@ -117,36 +117,8 @@ class ImportTemplatesHandler(
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
                 .execute()
-
-            // Create default variant
-            handle.createUpdate(
-                """
-                    INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
-                    VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
-                    """,
-            )
-                .bind("id", defaultVariantId)
-                .bind("tenantId", tenantId)
-                .bind("templateId", templateId)
-                .execute()
-
-            // Create draft version 1 for default variant
-            val templateModelJson = objectMapper.writeValueAsString(input.templateModel)
-            handle.createUpdate(
-                """
-                    INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                    VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
-                    """,
-            )
-                .bind("id", VersionId.of(1))
-                .bind("tenantId", tenantId)
-                .bind("variantId", defaultVariantId)
-                .bind("templateModel", templateModelJson)
-                .execute()
-
-            status = ImportStatus.CREATED
+            ImportStatus.CREATED
         } else {
-            // ── UPDATE template ──────────────────────────────────────
             handle.createUpdate(
                 """
                     UPDATE document_templates
@@ -160,15 +132,26 @@ class ImportTemplatesHandler(
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
                 .execute()
+            ImportStatus.UPDATED
+        }
 
-            // Update default variant's draft with the top-level templateModel
-            // (unless an explicit variant in the input matches the default)
-            val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
-            if (!hasExplicitDefault) {
-                upsertDraft(handle, tenantId, defaultVariantId, input.templateModel)
-            }
+        // Upsert default variant
+        handle.createUpdate(
+            """
+                INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
+                VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
+                ON CONFLICT (tenant_id, id) DO UPDATE SET template_id = :templateId, last_modified = NOW()
+                """,
+        )
+            .bind("id", defaultVariantId)
+            .bind("tenantId", tenantId)
+            .bind("templateId", templateId)
+            .execute()
 
-            status = ImportStatus.UPDATED
+        // Upsert draft for default variant (unless an explicit variant overrides it)
+        val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
+        if (!hasExplicitDefault) {
+            upsertDraft(handle, tenantId, defaultVariantId, input.templateModel)
         }
 
         // 2. Process explicit variants
@@ -177,68 +160,26 @@ class ImportTemplatesHandler(
             val variantId = VariantId.of(variantInput.id)
             allVariantIds.add(variantId)
 
-            val variantExists = handle.createQuery(
-                """
-                    SELECT COUNT(*) > 0
-                    FROM template_variants
-                    WHERE id = :variantId AND tenant_id = :tenantId AND template_id = :templateId
-                    """,
-            )
-                .bind("variantId", variantId)
-                .bind("tenantId", tenantId)
-                .bind("templateId", templateId)
-                .mapTo<Boolean>()
-                .one()
-
             val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
 
-            if (!variantExists) {
-                handle.createUpdate(
-                    """
-                        INSERT INTO template_variants (id, tenant_id, template_id, title, attributes, is_default, created_at, last_modified)
-                        VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
-                        """,
-                )
-                    .bind("id", variantId)
-                    .bind("tenantId", tenantId)
-                    .bind("templateId", templateId)
-                    .bind("title", variantInput.title)
-                    .bind("attributes", attributesJson)
-                    .execute()
+            handle.createUpdate(
+                """
+                    INSERT INTO template_variants (id, tenant_id, template_id, title, attributes, is_default, created_at, last_modified)
+                    VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
+                    ON CONFLICT (tenant_id, id) DO UPDATE
+                    SET title = :title, attributes = :attributes::jsonb, template_id = :templateId, last_modified = NOW()
+                    """,
+            )
+                .bind("id", variantId)
+                .bind("tenantId", tenantId)
+                .bind("templateId", templateId)
+                .bind("title", variantInput.title)
+                .bind("attributes", attributesJson)
+                .execute()
 
-                // Create draft version 1
-                val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-                val variantModelJson = objectMapper.writeValueAsString(variantTemplateModel)
-                handle.createUpdate(
-                    """
-                        INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                        VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
-                        """,
-                )
-                    .bind("id", VersionId.of(1))
-                    .bind("tenantId", tenantId)
-                    .bind("variantId", variantId)
-                    .bind("templateModel", variantModelJson)
-                    .execute()
-            } else {
-                handle.createUpdate(
-                    """
-                        UPDATE template_variants
-                        SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
-                        WHERE id = :variantId AND tenant_id = :tenantId AND template_id = :templateId
-                        """,
-                )
-                    .bind("variantId", variantId)
-                    .bind("tenantId", tenantId)
-                    .bind("templateId", templateId)
-                    .bind("title", variantInput.title)
-                    .bind("attributes", attributesJson)
-                    .execute()
-
-                // Upsert the draft with the variant-specific or top-level templateModel
-                val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-                upsertDraft(handle, tenantId, variantId, variantTemplateModel)
-            }
+            // Upsert the draft with the variant-specific or top-level templateModel
+            val variantTemplateModel = variantInput.templateModel ?: input.templateModel
+            upsertDraft(handle, tenantId, variantId, variantTemplateModel)
         }
 
         // 3. Publish to environments
