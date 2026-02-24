@@ -1,11 +1,31 @@
 import { LitElement, html } from 'lit'
 import { customElement } from 'lit/decorators.js'
+import {
+  EDITOR_SHORTCUTS_CONFIG,
+  type ResizeKeyboardShortcutConfig,
+  type ResizeShortcutId,
+} from '../shortcuts-config.js'
 
 const STORAGE_KEY = 'ep:preview-width'
-const MIN_WIDTH = 200
-const MAX_WIDTH = 800
-const DEFAULT_WIDTH = 400
-const KEYBOARD_RESIZE_STEP = 16
+
+const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH, defaultWidth: DEFAULT_WIDTH, keyboardStep: KEYBOARD_RESIZE_STEP } =
+  EDITOR_SHORTCUTS_CONFIG.resize.dimensions
+
+const RESIZE_SHORTCUTS_BY_ID = new Map(
+  EDITOR_SHORTCUTS_CONFIG.resize.keyboard.map((shortcut) => [shortcut.id, shortcut] as const),
+)
+
+function getResizeShortcut(shortcutId: ResizeShortcutId): ResizeKeyboardShortcutConfig {
+  const shortcut = RESIZE_SHORTCUTS_BY_ID.get(shortcutId)
+  if (!shortcut) {
+    throw new Error(`Missing resize shortcut config for "${shortcutId}"`)
+  }
+  return shortcut
+}
+
+const GROW_PREVIEW_WIDTH_SHORTCUT = getResizeShortcut('grow-preview-width')
+const SHRINK_PREVIEW_WIDTH_SHORTCUT = getResizeShortcut('shrink-preview-width')
+const CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT = getResizeShortcut('close-preview-when-min-width')
 
 interface ResizeKeyResult {
   nextWidth: number
@@ -21,15 +41,15 @@ export function getResizeResultForKey(
   currentWidth: number,
   step = KEYBOARD_RESIZE_STEP,
 ): ResizeKeyResult | null {
-  if (key === 'ArrowLeft') {
+  if (key === CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.key && currentWidth <= MIN_WIDTH) {
+    return { nextWidth: MIN_WIDTH, closePreview: true }
+  }
+
+  if (key === GROW_PREVIEW_WIDTH_SHORTCUT.key) {
     return { nextWidth: clampWidth(currentWidth + step), closePreview: false }
   }
 
-  if (key === 'ArrowRight') {
-    if (currentWidth <= MIN_WIDTH) {
-      return { nextWidth: MIN_WIDTH, closePreview: true }
-    }
-
+  if (key === SHRINK_PREVIEW_WIDTH_SHORTCUT.key) {
     return { nextWidth: clampWidth(currentWidth - step), closePreview: false }
   }
 

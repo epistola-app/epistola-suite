@@ -8,6 +8,11 @@ import {
   INSERT_DIALOG_SHORTCUTS,
   buildShortcutGroups,
 } from './shortcuts.js'
+import {
+  EDITOR_SHORTCUTS_CONFIG,
+  buildLeaderShortcutLookup,
+  type LeaderShortcutCommandConfig,
+} from '../shortcuts-config.js'
 
 describe('shortcuts', () => {
   it('builds shortcut groups in expected order', () => {
@@ -72,5 +77,27 @@ describe('shortcuts', () => {
         idleToken: 'R',
       }),
     )
+  })
+
+  it('maps leader alias keys to the same command', () => {
+    const lookup = buildLeaderShortcutLookup()
+    expect(lookup.get('?')?.id).toBe('open-shortcuts-help')
+    expect(lookup.get('/')?.id).toBe('open-shortcuts-help')
+  })
+
+  it('throws on duplicate leader keys in config', () => {
+    const commands: LeaderShortcutCommandConfig[] = [
+      ...EDITOR_SHORTCUTS_CONFIG.leader.commands,
+      {
+        id: 'focus-resize-handle',
+        keys: ['p'],
+        helpKeys: 'Leader + R duplicate',
+        action: 'Duplicate key for test',
+        successMessage: 'Duplicate key for test',
+        idleToken: 'R',
+      },
+    ]
+
+    expect(() => buildLeaderShortcutLookup(commands)).toThrow('Duplicate leader shortcut key "p"')
   })
 })

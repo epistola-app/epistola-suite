@@ -151,6 +151,59 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         assertThat(leaderMessage).hasText("")
     }
 
+    @Test
+    fun `insert dialog focuses search after choosing placement and quick-select works`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        page.getByTestId("palette-item-container").click()
+        val blocks = page.getByTestId("canvas-block")
+        assertThat(blocks).hasCount(1)
+
+        blocks.first().click()
+        page.keyboard().press("Control+Space")
+        page.keyboard().press("a")
+
+        val insertDialog = page.getByTestId("insert-dialog")
+        assertThat(insertDialog).isVisible()
+
+        page.keyboard().press("a")
+
+        val searchInput = page.locator(".insert-dialog-search")
+        assertThat(searchInput).isVisible()
+        assertThat(searchInput).isFocused()
+
+        page.keyboard().press("1")
+
+        assertThat(page.getByTestId("insert-dialog")).hasCount(0)
+        assertThat(blocks).hasCount(2)
+    }
+
+    @Test
+    fun `insert dialog allows arrow navigation while search input is focused`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        page.getByTestId("palette-item-container").click()
+        val blocks = page.getByTestId("canvas-block")
+        assertThat(blocks).hasCount(1)
+
+        blocks.first().click()
+        page.keyboard().press("Control+Space")
+        page.keyboard().press("a")
+        page.keyboard().press("a")
+
+        val searchInput = page.locator(".insert-dialog-search")
+        assertThat(searchInput).isVisible()
+        assertThat(searchInput).isFocused()
+
+        page.keyboard().press("ArrowDown")
+        page.keyboard().press("Enter")
+
+        assertThat(page.getByTestId("insert-dialog")).hasCount(0)
+        assertThat(blocks).hasCount(2)
+    }
+
     private fun openEditorPage(tenant: Tenant, template: DocumentTemplate, variantId: String) {
         page.navigate("${baseUrl()}/tenants/${tenant.id}/templates/${template.id}/variants/$variantId/editor")
         page.getByTestId("editor-container").waitFor()

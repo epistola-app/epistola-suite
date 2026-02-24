@@ -12,7 +12,13 @@ import type { EditorPlugin, PluginContext, PluginDisposeFn, SidebarTabContributi
 import type { EpistolaSidebar } from './EpistolaSidebar.js'
 import type { EpistolaToolbar } from './EpistolaToolbar.js'
 import { nanoid } from 'nanoid'
-import { LEADER_SHORTCUTS } from './shortcuts.js'
+import {
+  EDITOR_SHORTCUTS_CONFIG,
+  buildLeaderShortcutLookup,
+  type CoreShortcutId,
+  type LeaderShortcutCommandConfig,
+  type ShortcutBinding,
+} from '../shortcuts-config.js'
 
 import './EpistolaSidebar.js'
 import './EpistolaCanvas.js'
@@ -36,6 +42,22 @@ interface InsertTarget {
 interface LeaderCommandResult {
   ok: boolean
   message: string
+}
+
+const LEADER_COMMANDS_BY_KEY = buildLeaderShortcutLookup()
+
+const CORE_SHORTCUTS_BY_ID = new Map(
+  EDITOR_SHORTCUTS_CONFIG.core.map((shortcut) => [shortcut.id, shortcut] as const),
+)
+
+const INSERT_DIALOG_SHORTCUTS = EDITOR_SHORTCUTS_CONFIG.insertDialog
+
+function getCoreShortcutConfig(shortcutId: CoreShortcutId) {
+  const shortcut = CORE_SHORTCUTS_BY_ID.get(shortcutId)
+  if (!shortcut) {
+    throw new Error(`Missing core shortcut config for "${shortcutId}"`)
+  }
+  return shortcut
 }
 
 /**
@@ -87,9 +109,9 @@ export class EpistolaEditor extends LitElement {
   private _leaderClearTimeout: ReturnType<typeof setTimeout> | null = null
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open'
-  private static readonly LEADER_TIMEOUT_MS = 1600
-  private static readonly LEADER_RESULT_MS = 700
-  private static readonly LEADER_CLEAR_MS = 180
+  private static readonly LEADER_TIMEOUT_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs
+  private static readonly LEADER_RESULT_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.resultHideMs
+  private static readonly LEADER_CLEAR_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.messageClearMs
 
   get engine(): EditorEngine | undefined {
     return this._engine
@@ -216,31 +238,54 @@ export class EpistolaEditor extends LitElement {
   /**
    * Global keyboard handler for undo/redo, save, delete, and escape.
    */
+  private _matchesShortcutBinding(event: KeyboardEvent, binding: ShortcutBinding): boolean {
+    const hasMod = event.metaKey || event.ctrlKey
+    const eventKey = event.key.toLowerCase()
+    if (eventKey !== binding.key.toLowerCase()) return false
+    if (binding.mod !== undefined && binding.mod !== hasMod) return false
+    if (binding.shift !== undefined && binding.shift !== event.shiftKey) return false
+    if (binding.alt !== undefined && binding.alt !== event.altKey) return false
+    return true
+  }
+
+  private _matchesShortcutBindings(event: KeyboardEvent, bindings: readonly ShortcutBinding[]): boolean {
+    return bindings.some((binding) => this._matchesShortcutBinding(event, binding))
+  }
+
+  private _matchesCoreShortcut(event: KeyboardEvent, shortcutId: CoreShortcutId): boolean {
+    const shortcut = getCoreShortcutConfig(shortcutId)
+    return this._matchesShortcutBindings(event, shortcut.bindings)
+  }
+
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
     if (this._insertDialogOpen) {
       this._handleInsertDialogKeydown(e)
       return
     }
-    const mod = e.metaKey || e.ctrlKey
-    if (mod && e.code === 'Space') {
+
+    const hasModifier = e.metaKey || e.ctrlKey
+    const leaderActivation = EDITOR_SHORTCUTS_CONFIG.leader.activation
+    if (e.code === leaderActivation.code && (!leaderActivation.requiresModifier || hasModifier)) {
       e.preventDefault()
       this._startLeaderMode()
       return
     }
+
     const target = e.target as HTMLElement | null
     if (target?.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
       return
     }
+
     const key = e.key.toLowerCase()
 
     if (this._leaderActive) {
-      if (e.key === 'Escape') {
+      if (key === 'escape') {
         e.preventDefault()
         this._hideLeaderMode()
         return
       }
-      if (e.key === 'Shift' || e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta') {
+      if (key === 'shift' || key === 'alt' || key === 'control' || key === 'meta') {
         return
       }
 
@@ -250,23 +295,23 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    if (mod) {
-      if (key === 's') {
+    if (hasModifier) {
+      if (this._matchesCoreShortcut(e, 'save')) {
         e.preventDefault()
         if (this._saveService && this._doc) {
           this._saveService.forceSave(this._doc)
         }
-      } else if (key === 'z' && !e.shiftKey) {
+      } else if (this._matchesCoreShortcut(e, 'undo')) {
         e.preventDefault()
         this._engine.undo()
-      } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+      } else if (this._matchesCoreShortcut(e, 'redo')) {
         e.preventDefault()
         this._engine.redo()
       }
       return
     }
 
-    if (e.key === 'Backspace' || e.key === 'Delete') {
+    if (this._matchesCoreShortcut(e, 'delete-selected-block')) {
       const selectedNodeId = this._selectedNodeId
       if (!selectedNodeId || !this._doc) return
       if (selectedNodeId === this._doc.root) return
@@ -277,7 +322,7 @@ export class EpistolaEditor extends LitElement {
         this._engine.selectNode(nextSelection)
         this._focusCanvasBlock(nextSelection)
       }
-    } else if (e.key === 'Escape' && this._selectedNodeId) {
+    } else if (this._matchesCoreShortcut(e, 'deselect-selected-block') && this._selectedNodeId) {
       this._engine.selectNode(null)
     }
   }
@@ -305,7 +350,7 @@ export class EpistolaEditor extends LitElement {
     this._leaderActive = true
     this._leaderVisible = true
     this._leaderStatus = 'idle'
-    const idleTokens = LEADER_SHORTCUTS.map((command) => command.idleToken).join(' ')
+    const idleTokens = EDITOR_SHORTCUTS_CONFIG.leader.commands.map((command) => command.idleToken).join(' ')
     this._leaderMessage = `Waiting: ${idleTokens}`
     this._leaderTimeout = setTimeout(() => this._hideLeaderMode(), EpistolaEditor.LEADER_TIMEOUT_MS)
   }
@@ -345,62 +390,64 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _runLeaderCommand(key: string): LeaderCommandResult {
-    switch (key) {
-      case 'p': {
+    const command = LEADER_COMMANDS_BY_KEY.get(key)
+    if (!command) {
+      return { ok: false, message: 'Unknown leader command' }
+    }
+
+    switch (command.id) {
+      case 'toggle-preview': {
         const openingPreview = !this._previewOpen
         this._handleTogglePreview()
         if (openingPreview) {
           this._focusResizeHandleAfterRender()
         }
-        return { ok: true, message: this._leaderSuccessMessage('p') }
+        return { ok: true, message: command.successMessage }
       }
-      case 'd':
-        return this._runDuplicateLeaderCommand()
-      case 'a':
-        return this._withLeaderResult(this._openInsertDialog(), 'a', 'Cannot open insert dialog')
-      case '?':
-      case '/':
-        return this._withLeaderResult(this._openShortcutsHelp(), '?', 'Cannot open shortcuts help')
-      case '1':
-        return this._withLeaderResult(this._focusPalette(), '1', 'Blocks panel unavailable')
-      case '2':
-        return this._withLeaderResult(this._focusTree(), '2', 'Structure panel unavailable')
-      case '3':
-        return this._withLeaderResult(this._focusInspector(), '3', 'Inspector panel unavailable')
-      case 'r':
-        return this._withLeaderResult(this._focusResizeHandle(), 'r', 'Resize handle unavailable')
-      case 'arrowup':
-        return this._runMoveLeaderCommand(-1)
-      case 'arrowdown':
-        return this._runMoveLeaderCommand(1)
+      case 'duplicate-selected-block':
+        return this._runDuplicateLeaderCommand(command)
+      case 'open-insert-dialog':
+        return this._withLeaderResult(this._openInsertDialog(), command, 'Cannot open insert dialog')
+      case 'open-shortcuts-help':
+        return this._withLeaderResult(this._openShortcutsHelp(), command, 'Cannot open shortcuts help')
+      case 'focus-blocks-panel':
+        return this._withLeaderResult(this._focusPalette(), command, 'Blocks panel unavailable')
+      case 'focus-structure-panel':
+        return this._withLeaderResult(this._focusTree(), command, 'Structure panel unavailable')
+      case 'focus-inspector-panel':
+        return this._withLeaderResult(this._focusInspector(), command, 'Inspector panel unavailable')
+      case 'focus-resize-handle':
+        return this._withLeaderResult(this._focusResizeHandle(), command, 'Resize handle unavailable')
+      case 'move-selected-block-up':
+        return this._runMoveLeaderCommand(-1, command)
+      case 'move-selected-block-down':
+        return this._runMoveLeaderCommand(1, command)
       default:
-        return { ok: false, message: 'Unknown leader command' }
+        return { ok: false, message: `Unsupported leader command: ${command.id}` }
     }
   }
 
-  private _withLeaderResult(ok: boolean, key: string, failureMessage: string): LeaderCommandResult {
+  private _withLeaderResult(
+    ok: boolean,
+    command: LeaderShortcutCommandConfig,
+    failureMessage: string,
+  ): LeaderCommandResult {
     if (!ok) return { ok: false, message: failureMessage }
-    return { ok: true, message: this._leaderSuccessMessage(key) }
+    return { ok: true, message: command.successMessage }
   }
 
-  private _runDuplicateLeaderCommand(): LeaderCommandResult {
-    const label = this._selectedNodeLabel()
+  private _runDuplicateLeaderCommand(command: LeaderShortcutCommandConfig): LeaderCommandResult {
     const ok = this._duplicateSelectedNode()
     if (!ok) return { ok: false, message: 'Select a block to duplicate' }
-    return { ok: true, message: `Duplicated ${label}` }
+    return { ok: true, message: command.successMessage }
   }
 
-  private _runMoveLeaderCommand(delta: number): LeaderCommandResult {
-    const label = this._selectedNodeLabel()
+  private _runMoveLeaderCommand(delta: number, command: LeaderShortcutCommandConfig): LeaderCommandResult {
     const ok = this._moveSelectedNode(delta)
     if (!ok) {
       return { ok: false, message: delta < 0 ? 'Cannot move block up' : 'Cannot move block down' }
     }
-    return { ok: true, message: `Moved ${label} ${delta < 0 ? 'up' : 'down'}` }
-  }
-
-  private _leaderSuccessMessage(key: string): string {
-    return LEADER_SHORTCUTS.find((command) => command.key === key)?.successMessage ?? 'Command applied'
+    return { ok: true, message: command.successMessage }
   }
 
   private _focusPalette(): boolean {
@@ -504,7 +551,15 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _handleInsertDialogKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
+    const key = e.key.toLowerCase()
+    const navigation = INSERT_DIALOG_SHORTCUTS.navigation
+    const quickSelectKeys = navigation.quickSelect as readonly string[]
+    const selectedIndex = quickSelectKeys.indexOf(key) + 1
+    const isQuickSelect = selectedIndex > 0
+    const isNavigate = key === navigation.next || key === navigation.previous
+    const isConfirm = key === navigation.confirm
+
+    if (key === navigation.close) {
       e.preventDefault()
       if (this._insertDialogMode) {
         this._resetInsertDialogToPlacement()
@@ -515,9 +570,8 @@ export class EpistolaEditor extends LitElement {
     }
 
     if (!this._insertDialogMode) {
-      const modeKey = e.key.toLowerCase()
       const isDocumentContext = this._isDocumentInsertContext()
-      const mode = this._parseInsertModeKey(modeKey, isDocumentContext)
+      const mode = this._parseInsertModeKey(key, isDocumentContext)
       if (mode) {
         e.preventDefault()
         this._selectInsertMode(mode)
@@ -526,16 +580,12 @@ export class EpistolaEditor extends LitElement {
     }
 
     const target = e.target as HTMLElement | null
-    if (target?.closest('input, textarea, [contenteditable="true"]')) {
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        if (this._insertDialogHighlight <= 0) return
-        this._selectInsertDialogOption(this._insertDialogHighlight)
-      }
+    const isTextInputTarget = !!target?.closest('input, textarea, [contenteditable="true"]')
+    if (isTextInputTarget && !isConfirm && !isNavigate && !isQuickSelect) {
       return
     }
 
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (isNavigate) {
       e.preventDefault()
       const optionCount = this._getInsertDialogOptionCount()
       if (optionCount === 0) return
@@ -543,22 +593,22 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogHighlight = 1
         return
       }
-      const delta = e.key === 'ArrowDown' ? 1 : -1
+      const delta = key === navigation.next ? 1 : -1
       const next = this._insertDialogHighlight + delta
       this._insertDialogHighlight = next < 1 ? optionCount : next > optionCount ? 1 : next
       return
     }
 
-    if (e.key === 'Enter') {
+    if (isConfirm) {
       e.preventDefault()
       if (this._insertDialogHighlight <= 0) return
       this._selectInsertDialogOption(this._insertDialogHighlight)
       return
     }
 
-    if (e.key < '1' || e.key > '9') return
+    if (!isQuickSelect) return
+
     e.preventDefault()
-    const selectedIndex = Number(e.key)
     if (selectedIndex > this._getInsertDialogOptionCount()) {
       this._insertDialogError = 'Option out of range'
       return
@@ -582,15 +632,9 @@ export class EpistolaEditor extends LitElement {
         return
       }
 
-      this._insertTarget = insideTarget
-      this._insertDialogBlockOptions = this._buildInsertableOptions(insideTarget.parentType)
       this._insertDialogSlotOptions = []
       this._insertDialogQuery = ''
-      this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
-      this._insertDialogError = ''
-      if (this._insertDialogBlockOptions.length === 0) {
-        this._insertDialogError = 'No blocks can be inserted at this location'
-      }
+      this._setInsertDialogTarget(insideTarget)
       return
     }
 
@@ -608,6 +652,28 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
+  private _focusInsertDialogSearchAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        const searchInput = this.querySelector<HTMLInputElement>('.insert-dialog-search')
+        if (!searchInput) return
+        if (document.activeElement !== searchInput) {
+          searchInput.focus({ preventScroll: true })
+        }
+      })
+    })
+  }
+
+  private _setInsertDialogTarget(target: InsertTarget): void {
+    this._insertTarget = target
+    this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType)
+    this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
+    this._insertDialogError = this._insertDialogBlockOptions.length > 0
+      ? ''
+      : 'No blocks can be inserted at this location'
+    this._focusInsertDialogSearchAfterRender()
+  }
+
   private _selectInsertMode(mode: InsertMode): void {
     this._insertDialogMode = mode
     this._insertTarget = null
@@ -623,12 +689,7 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogError = 'No valid document start target'
         return
       }
-      this._insertTarget = target
-      this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType)
-      this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
-      if (this._insertDialogBlockOptions.length === 0) {
-        this._insertDialogError = 'No blocks can be inserted at this location'
-      }
+      this._setInsertDialogTarget(target)
       return
     }
 
@@ -638,12 +699,7 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogError = 'No valid document end target'
         return
       }
-      this._insertTarget = target
-      this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType)
-      this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
-      if (this._insertDialogBlockOptions.length === 0) {
-        this._insertDialogError = 'No blocks can be inserted at this location'
-      }
+      this._setInsertDialogTarget(target)
       return
     }
 
@@ -653,12 +709,7 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogError = 'No valid "after" target'
         return
       }
-      this._insertTarget = target
-      this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType)
-      this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
-      if (this._insertDialogBlockOptions.length === 0) {
-        this._insertDialogError = 'No blocks can be inserted at this location'
-      }
+      this._setInsertDialogTarget(target)
       return
     }
 
@@ -668,12 +719,7 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogError = 'No valid "before" target'
         return
       }
-      this._insertTarget = target
-      this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType)
-      this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
-      if (this._insertDialogBlockOptions.length === 0) {
-        this._insertDialogError = 'No blocks can be inserted at this location'
-      }
+      this._setInsertDialogTarget(target)
       return
     }
 
@@ -689,13 +735,8 @@ export class EpistolaEditor extends LitElement {
         this._insertDialogError = 'No valid inside slot for selected block'
         return
       }
-      this._insertTarget = target
-      this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType)
       this._insertDialogSlotOptions = []
-      this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0
-      if (this._insertDialogBlockOptions.length === 0) {
-        this._insertDialogError = 'No blocks can be inserted at this location'
-      }
+      this._setInsertDialogTarget(target)
     }
   }
 
@@ -861,21 +902,62 @@ export class EpistolaEditor extends LitElement {
     return { slotId, index: slot.children.length, parentType: ownerNode.type }
   }
 
+  private _insertDialogKeyLabel(key: string): string {
+    if (key === 'escape') return 'Esc'
+    if (key === 'arrowup') return '\u2191'
+    if (key === 'arrowdown') return '\u2193'
+    if (key === 'enter') return 'Enter'
+    if (key.length === 1) return key.toUpperCase()
+    return key
+  }
+
+  private _insertDialogQuickSelectLabel(): string {
+    const quickSelectKeys = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect as readonly string[]
+    if (quickSelectKeys.length === 0) return ''
+
+    const singleDigitSequence = quickSelectKeys.every((value) => /^[0-9]$/.test(value))
+    if (!singleDigitSequence) {
+      return quickSelectKeys.join('/')
+    }
+
+    const first = Number(quickSelectKeys[0])
+    const contiguous = quickSelectKeys.every((value, index) => Number(value) === first + index)
+    if (!contiguous) {
+      return quickSelectKeys.join('/')
+    }
+
+    const last = quickSelectKeys[quickSelectKeys.length - 1]
+    return `${quickSelectKeys[0]}-${last}`
+  }
+
   private _getInsertDialogPrompt(): string {
+    const placement = INSERT_DIALOG_SHORTCUTS.placement
+    const navigation = INSERT_DIALOG_SHORTCUTS.navigation
+    const closeLabel = this._insertDialogKeyLabel(navigation.close)
+    const confirmLabel = this._insertDialogKeyLabel(navigation.confirm)
+    const previousLabel = this._insertDialogKeyLabel(navigation.previous)
+    const nextLabel = this._insertDialogKeyLabel(navigation.next)
+    const quickSelectLabel = this._insertDialogQuickSelectLabel()
+
+    const documentPlacementPrompt = `${placement.document.start.toUpperCase()}=Start  ${placement.document.end.toUpperCase()}=End  ${closeLabel}=Close`
+    const selectedPlacementPrompt = `${placement.selected.after.toUpperCase()}=After  ${placement.selected.before.toUpperCase()}=Before  ${placement.selected.inside.toUpperCase()}=Inside  ${closeLabel}=Close`
+
     if (!this._insertDialogMode) {
       return this._isDocumentInsertContext()
-        ? 'S=Start  E=End  Esc=Close'
-        : 'A=After  B=Before  I=Inside  Esc=Close'
+        ? documentPlacementPrompt
+        : selectedPlacementPrompt
     }
     if (!this._insertTarget && this._insertDialogSlotOptions.length === 0 && this._insertDialogBlockOptions.length === 0) {
       return this._isDocumentInsertContext()
-        ? 'No valid target. Press S/E or Esc'
-        : 'No valid target. Press A/B/I or Esc'
+        ? `No valid target. Press ${placement.document.start.toUpperCase()}/${placement.document.end.toUpperCase()} or ${closeLabel}`
+        : `No valid target. Press ${placement.selected.after.toUpperCase()}/${placement.selected.before.toUpperCase()}/${placement.selected.inside.toUpperCase()} or ${closeLabel}`
     }
+
+    const quickSelectPrompt = quickSelectLabel ? quickSelectLabel : 'Quick-select'
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
-      return '1-9=Choose slot  ↑/↓=Navigate  Enter=Confirm  Esc=Close'
+      return `${quickSelectPrompt}=Choose slot  ${previousLabel}/${nextLabel}=Navigate  ${confirmLabel}=Confirm  ${closeLabel}=Close`
     }
-    return 'Type=Search  1-9=Quick insert  ↑/↓=Navigate  Enter=Insert  Esc=Close'
+    return `Type=Search  ${quickSelectPrompt}=Quick insert  ${previousLabel}/${nextLabel}=Navigate  ${confirmLabel}=Insert  ${closeLabel}=Close`
   }
 
   private _getInsertDialogContext(): string {
@@ -919,14 +1001,15 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _parseInsertModeKey(key: string, isDocumentContext: boolean): InsertMode | null {
+    const placement = INSERT_DIALOG_SHORTCUTS.placement
     if (isDocumentContext) {
-      if (key === 's') return 'start'
-      if (key === 'e') return 'end'
+      if (key === placement.document.start) return 'start'
+      if (key === placement.document.end) return 'end'
       return null
     }
-    if (key === 'a') return 'after'
-    if (key === 'b') return 'before'
-    if (key === 'i') return 'inside'
+    if (key === placement.selected.after) return 'after'
+    if (key === placement.selected.before) return 'before'
+    if (key === placement.selected.inside) return 'inside'
     return null
   }
 
@@ -943,8 +1026,9 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _getInsertDialogRows(): Array<{ index: number; label: string; detail: string }> {
+    const quickSelectCount = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect.length
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
-      return this._insertDialogSlotOptions.slice(0, 9).map((slot, i) => ({
+      return this._insertDialogSlotOptions.slice(0, quickSelectCount).map((slot, i) => ({
         index: i + 1,
         label: slot.label,
         detail: 'slot',

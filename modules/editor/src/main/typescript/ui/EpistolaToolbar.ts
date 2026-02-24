@@ -4,9 +4,43 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { SaveState } from './save-service.js'
 import type { ToolbarAction } from '../plugins/types.js'
 import { icon } from './icons.js'
-import { buildShortcutGroups, type ShortcutGroup } from './shortcuts.js'
+import {
+  EDITOR_SHORTCUTS_CONFIG,
+  buildShortcutGroupsFromConfig,
+  type CoreShortcutId,
+  type ShortcutGroupConfig,
+} from '../shortcuts-config.js'
 
-const SHORTCUT_GROUPS: ShortcutGroup[] = buildShortcutGroups()
+const SHORTCUT_GROUPS: ShortcutGroupConfig[] = buildShortcutGroupsFromConfig()
+
+const CORE_SHORTCUTS_BY_ID = new Map(
+  EDITOR_SHORTCUTS_CONFIG.core.map((shortcut) => [shortcut.id, shortcut] as const),
+)
+
+function getLeaderShortcutHelp(shortcutId: 'open-shortcuts-help'): string {
+  const shortcut = EDITOR_SHORTCUTS_CONFIG.leader.commands.find((command) => command.id === shortcutId)
+  if (!shortcut) {
+    throw new Error(`Missing leader shortcut command config for "${shortcutId}"`)
+  }
+  return shortcut.helpKeys
+}
+
+function getCoreShortcutHelp(shortcutId: CoreShortcutId): string {
+  const shortcut = CORE_SHORTCUTS_BY_ID.get(shortcutId)
+  if (!shortcut) {
+    throw new Error(`Missing core shortcut config for "${shortcutId}"`)
+  }
+  return shortcut.helpKeys
+}
+
+function toTooltipShortcutLabel(helpKeys: string): string {
+  return helpKeys.replaceAll('{cmd}', 'Ctrl/Cmd')
+}
+
+const UNDO_SHORTCUT_HELP = getCoreShortcutHelp('undo')
+const REDO_SHORTCUT_HELP = getCoreShortcutHelp('redo')
+const SAVE_SHORTCUT_HELP = getCoreShortcutHelp('save')
+const OPEN_SHORTCUTS_HELP_KEYS = getLeaderShortcutHelp('open-shortcuts-help')
 
 @customElement('epistola-toolbar')
 export class EpistolaToolbar extends LitElement {
@@ -134,7 +168,7 @@ export class EpistolaToolbar extends LitElement {
             class="toolbar-btn"
             ?disabled=${!canUndo}
             @click=${this._handleUndo}
-            title="Undo (Ctrl+Z)"
+            title=${`Undo (${toTooltipShortcutLabel(UNDO_SHORTCUT_HELP)})`}
           >
             ${icon('undo-2')} Undo
           </button>
@@ -142,7 +176,7 @@ export class EpistolaToolbar extends LitElement {
             class="toolbar-btn"
             ?disabled=${!canRedo}
             @click=${this._handleRedo}
-            title="Redo (Ctrl+Shift+Z)"
+            title=${`Redo (${toTooltipShortcutLabel(REDO_SHORTCUT_HELP)})`}
           >
             ${icon('redo-2')} Redo
           </button>
@@ -211,7 +245,7 @@ export class EpistolaToolbar extends LitElement {
       case 'dirty':
         iconName = 'save'
         label = 'Save'
-        title = 'Save (Ctrl+S)'
+        title = `Save (${toTooltipShortcutLabel(SAVE_SHORTCUT_HELP)})`
         break
       case 'saving':
         iconName = 'loader-2'
@@ -276,18 +310,20 @@ export class EpistolaToolbar extends LitElement {
             ? html`
                 <div class="toolbar-shortcuts-popover" data-testid="shortcuts-popover" role="dialog" aria-label="Keyboard shortcuts">
                   <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
-                  ${SHORTCUT_GROUPS.map((group) => html`
-                    <div class="toolbar-shortcuts-group ${group.dividerAfter ? 'with-divider' : ''}">
-                      <div class="toolbar-shortcuts-group-title">${group.title}</div>
-                      ${group.items.map((item) => html`
-                        <div class="toolbar-shortcuts-row">
-                          <span class="toolbar-shortcuts-keys">${this._renderShortcutKeys(item.keys)}</span>
-                          <span class="toolbar-shortcuts-action">${item.action}</span>
-                        </div>
-                      `)}
-                    </div>
-                  `)}
-                  <div class="toolbar-shortcuts-footer">Tip: Leader + ? opens this help</div>
+                  <div class="toolbar-shortcuts-groups">
+                    ${SHORTCUT_GROUPS.map((group) => html`
+                      <div class="toolbar-shortcuts-group ${group.dividerAfter ? 'with-divider' : ''}">
+                        <div class="toolbar-shortcuts-group-title">${group.title}</div>
+                        ${group.items.map((item) => html`
+                          <div class="toolbar-shortcuts-row">
+                            <span class="toolbar-shortcuts-keys">${this._renderShortcutKeys(item.keys)}</span>
+                            <span class="toolbar-shortcuts-action">${item.action}</span>
+                          </div>
+                        `)}
+                      </div>
+                    `)}
+                  </div>
+                  <div class="toolbar-shortcuts-footer">Tip: ${OPEN_SHORTCUTS_HELP_KEYS} opens this help</div>
                 </div>
               `
             : nothing}

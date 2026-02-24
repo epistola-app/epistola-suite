@@ -193,15 +193,24 @@
     position: absolute;
     top: calc(100% + var(--ep-space-2));
     right: 0;
-    width: 22rem;
-    max-width: min(22rem, 85vw);
-    padding: var(--ep-space-3);
+    width: 36rem;
+    max-width: min(36rem, calc(100vw - var(--ep-space-6)));
+    padding: var(--ep-space-2-5);
     border-radius: var(--ep-radius-md);
     border: 1px solid var(--ep-gray-200);
     background: var(--ep-white);
     box-shadow: var(--ep-shadow-lg);
     z-index: 40;
     animation: ep-shortcuts-in 140ms ease-out;
+  }
+
+  .toolbar-shortcuts-groups {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--ep-space-2);
+    max-height: 24rem;
+    overflow-y: auto;
+    padding-right: var(--ep-space-1);
   }
 
   .toolbar-shortcuts-title {
@@ -213,37 +222,32 @@
     margin-bottom: var(--ep-space-2);
   }
 
-  .toolbar-shortcuts-group + .toolbar-shortcuts-group {
-    margin-top: var(--ep-space-2-5);
-    padding-top: var(--ep-space-2);
-    border-top: 1px solid var(--ep-gray-100);
+  .toolbar-shortcuts-group {
+    min-width: 0;
+    border: 1px solid var(--ep-gray-100);
+    border-radius: var(--ep-radius-sm);
+    background: var(--ep-gray-50);
+    padding: var(--ep-space-1-5);
   }
 
   .toolbar-shortcuts-group.with-divider {
-    margin-bottom: var(--ep-space-2);
-    padding-bottom: var(--ep-space-2);
-    border-bottom: 1px solid var(--ep-gray-200);
-  }
-
-  .toolbar-shortcuts-group.with-divider + .toolbar-shortcuts-group {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
+    grid-column: 1 / -1;
+    border-color: var(--ep-gray-200);
   }
 
   .toolbar-shortcuts-group-title {
     font-size: var(--ep-text-xs);
     font-weight: 600;
     color: var(--ep-gray-700);
-    margin-bottom: var(--ep-space-1-5);
+    margin-bottom: var(--ep-space-1);
   }
 
   .toolbar-shortcuts-row {
     display: grid;
-    grid-template-columns: minmax(8.5rem, max-content) minmax(0, 1fr);
-    gap: var(--ep-space-2);
+    grid-template-columns: minmax(7.5rem, max-content) minmax(0, 1fr);
+    gap: var(--ep-space-1-5);
     align-items: center;
-    padding: 3px 0;
+    padding: 2px 0;
   }
 
   .toolbar-shortcuts-keys {
@@ -270,7 +274,7 @@
   }
 
   .toolbar-shortcuts-footer {
-    margin-top: var(--ep-space-2);
+    margin-top: var(--ep-space-2-5);
     padding-top: var(--ep-space-2);
     border-top: 1px solid var(--ep-gray-100);
     font-size: 11px;
