@@ -1,6 +1,6 @@
 package app.epistola.suite.api.v1.shared
 
-import app.epistola.api.model.DocumentStylesDto
+import app.epistola.api.model.BlockStylePresetDto
 import app.epistola.api.model.MarginsDto
 import app.epistola.api.model.PageSettingsDto
 import app.epistola.api.model.ThemeDto
@@ -20,31 +20,17 @@ internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
     tenantId = tenantId.value,
     name = name,
     description = description,
-    documentStyles = documentStyles.toDto(),
+    documentStyles = objectMapper.valueToTree(documentStyles),
     pageSettings = pageSettings?.toDto(),
     blockStylePresets = blockStylePresets?.mapValues { (_, value) ->
-        objectMapper.valueToTree(value)
+        BlockStylePresetDto(
+            label = value.label,
+            styles = objectMapper.valueToTree(value.styles),
+            applicableTo = value.applicableTo,
+        )
     },
     createdAt = createdAt,
     lastModified = lastModified,
-)
-
-// TODO: Update epistola-contract to use open map DocumentStyles and remove TextAlign enum
-internal fun DocumentStyles.toDto() = DocumentStylesDto(
-    fontFamily = this["fontFamily"] as? String,
-    fontSize = this["fontSize"] as? String,
-    fontWeight = this["fontWeight"] as? String,
-    color = this["color"] as? String,
-    lineHeight = this["lineHeight"] as? String,
-    letterSpacing = this["letterSpacing"] as? String,
-    textAlign = (this["textAlign"] as? String)?.let { align ->
-        try {
-            DocumentStylesDto.TextAlign.valueOf(align.uppercase())
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-    },
-    backgroundColor = this["backgroundColor"] as? String,
 )
 
 internal fun PageSettings.toDto() = PageSettingsDto(
@@ -73,19 +59,9 @@ internal fun Margins.toDto() = MarginsDto(
 
 // From DTO to domain
 
-// TODO: Update epistola-contract to use open map DocumentStyles and remove TextAlign enum
-internal fun DocumentStylesDto?.toDomain(): DocumentStyles {
+internal fun ObjectNode?.toDomainDocumentStyles(objectMapper: ObjectMapper): DocumentStyles {
     if (this == null) return emptyMap()
-    return buildMap {
-        fontFamily?.let { put("fontFamily", it) }
-        fontSize?.let { put("fontSize", it) }
-        fontWeight?.let { put("fontWeight", it) }
-        color?.let { put("color", it) }
-        lineHeight?.let { put("lineHeight", it) }
-        letterSpacing?.let { put("letterSpacing", it) }
-        textAlign?.let { put("textAlign", it.name.lowercase()) }
-        backgroundColor?.let { put("backgroundColor", it) }
-    }
+    return objectMapper.convertValue(this, DocumentStyles::class.java)
 }
 
 internal fun PageSettingsDto.toDomain() = PageSettings(
@@ -112,11 +88,15 @@ internal fun MarginsDto.toDomain() = Margins(
     left = left?.toLong() ?: 20L,
 )
 
-// Helper to convert ObjectNode map to BlockStylePresets
-internal fun Map<String, ObjectNode>?.toDomainPresets(objectMapper: ObjectMapper): BlockStylePresets? = this?.let {
+// Helper to convert BlockStylePresetDto map to domain BlockStylePresets
+internal fun Map<String, BlockStylePresetDto>?.toDomainPresets(objectMapper: ObjectMapper): BlockStylePresets? = this?.let {
     BlockStylePresets(
         it.mapValues { (_, value) ->
-            objectMapper.convertValue(value, BlockStylePreset::class.java)
+            BlockStylePreset(
+                label = value.label,
+                styles = objectMapper.convertValue(value.styles, Map::class.java) as Map<String, Any>,
+                applicableTo = value.applicableTo,
+            )
         },
     )
 }

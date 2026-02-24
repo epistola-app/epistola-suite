@@ -67,219 +67,215 @@ class ImportTemplatesHandler(
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun handle(command: ImportTemplates): List<ImportTemplateResult> {
-        return command.templates.map { input ->
-            try {
-                importSingleTemplate(command.tenantId, input)
-            } catch (e: Exception) {
-                logger.error("Failed to import template '${input.slug}': ${e.message}", e)
-                ImportTemplateResult(
-                    slug = input.slug,
-                    status = ImportStatus.FAILED,
-                    version = input.version,
-                    publishedTo = emptyList(),
-                    errorMessage = e.message ?: "Unknown error",
-                )
-            }
+    override fun handle(command: ImportTemplates): List<ImportTemplateResult> = command.templates.map { input ->
+        try {
+            importSingleTemplate(command.tenantId, input)
+        } catch (e: Exception) {
+            logger.error("Failed to import template '${input.slug}': ${e.message}", e)
+            ImportTemplateResult(
+                slug = input.slug,
+                status = ImportStatus.FAILED,
+                version = input.version,
+                publishedTo = emptyList(),
+                errorMessage = e.message ?: "Unknown error",
+            )
         }
     }
 
-    private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult {
-        return jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
-            val templateId = TemplateId.of(input.slug)
-            val defaultVariantId = VariantId.of("${input.slug}-default")
-            val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
-            val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
+    private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+        val templateId = TemplateId.of(input.slug)
+        val defaultVariantId = VariantId.of("${input.slug}-default")
+        val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
+        val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
 
-            // 1. Check if template exists
-            val templateExists = handle.createQuery(
-                """
+        // 1. Check if template exists
+        val templateExists = handle.createQuery(
+            """
                 SELECT COUNT(*) > 0
                 FROM document_templates
                 WHERE id = :id AND tenant_id = :tenantId
                 """,
-            )
-                .bind("id", templateId)
-                .bind("tenantId", tenantId)
-                .mapTo<Boolean>()
-                .one()
+        )
+            .bind("id", templateId)
+            .bind("tenantId", tenantId)
+            .mapTo<Boolean>()
+            .one()
 
-            val status: ImportStatus
+        val status: ImportStatus
 
-            if (!templateExists) {
-                // ── CREATE template ──────────────────────────────────────
-                handle.createUpdate(
-                    """
+        if (!templateExists) {
+            // ── CREATE template ──────────────────────────────────────
+            handle.createUpdate(
+                """
                     INSERT INTO document_templates (id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
                     VALUES (:id, :tenantId, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
                     """,
-                )
-                    .bind("id", templateId)
-                    .bind("tenantId", tenantId)
-                    .bind("name", input.name)
-                    .bind("dataModel", dataModelJson)
-                    .bind("dataExamples", dataExamplesJson)
-                    .execute()
+            )
+                .bind("id", templateId)
+                .bind("tenantId", tenantId)
+                .bind("name", input.name)
+                .bind("dataModel", dataModelJson)
+                .bind("dataExamples", dataExamplesJson)
+                .execute()
 
-                // Create default variant
-                handle.createUpdate(
-                    """
+            // Create default variant
+            handle.createUpdate(
+                """
                     INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
                     VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
                     """,
-                )
-                    .bind("id", defaultVariantId)
-                    .bind("tenantId", tenantId)
-                    .bind("templateId", templateId)
-                    .execute()
+            )
+                .bind("id", defaultVariantId)
+                .bind("tenantId", tenantId)
+                .bind("templateId", templateId)
+                .execute()
 
-                // Create draft version 1 for default variant
-                val templateModelJson = objectMapper.writeValueAsString(input.templateModel)
-                handle.createUpdate(
-                    """
+            // Create draft version 1 for default variant
+            val templateModelJson = objectMapper.writeValueAsString(input.templateModel)
+            handle.createUpdate(
+                """
                     INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
                     VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                     """,
-                )
-                    .bind("id", VersionId.of(1))
-                    .bind("tenantId", tenantId)
-                    .bind("variantId", defaultVariantId)
-                    .bind("templateModel", templateModelJson)
-                    .execute()
+            )
+                .bind("id", VersionId.of(1))
+                .bind("tenantId", tenantId)
+                .bind("variantId", defaultVariantId)
+                .bind("templateModel", templateModelJson)
+                .execute()
 
-                status = ImportStatus.CREATED
-            } else {
-                // ── UPDATE template ──────────────────────────────────────
-                handle.createUpdate(
-                    """
+            status = ImportStatus.CREATED
+        } else {
+            // ── UPDATE template ──────────────────────────────────────
+            handle.createUpdate(
+                """
                     UPDATE document_templates
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     WHERE id = :id AND tenant_id = :tenantId
                     """,
-                )
-                    .bind("id", templateId)
-                    .bind("tenantId", tenantId)
-                    .bind("name", input.name)
-                    .bind("dataModel", dataModelJson)
-                    .bind("dataExamples", dataExamplesJson)
-                    .execute()
+            )
+                .bind("id", templateId)
+                .bind("tenantId", tenantId)
+                .bind("name", input.name)
+                .bind("dataModel", dataModelJson)
+                .bind("dataExamples", dataExamplesJson)
+                .execute()
 
-                // Update default variant's draft with the top-level templateModel
-                // (unless an explicit variant in the input matches the default)
-                val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
-                if (!hasExplicitDefault) {
-                    upsertDraft(handle, tenantId, defaultVariantId, input.templateModel)
-                }
-
-                status = ImportStatus.UPDATED
+            // Update default variant's draft with the top-level templateModel
+            // (unless an explicit variant in the input matches the default)
+            val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
+            if (!hasExplicitDefault) {
+                upsertDraft(handle, tenantId, defaultVariantId, input.templateModel)
             }
 
-            // 2. Process explicit variants
-            val allVariantIds = mutableSetOf(defaultVariantId)
-            for (variantInput in input.variants) {
-                val variantId = VariantId.of(variantInput.id)
-                allVariantIds.add(variantId)
+            status = ImportStatus.UPDATED
+        }
 
-                val variantExists = handle.createQuery(
-                    """
+        // 2. Process explicit variants
+        val allVariantIds = mutableSetOf(defaultVariantId)
+        for (variantInput in input.variants) {
+            val variantId = VariantId.of(variantInput.id)
+            allVariantIds.add(variantId)
+
+            val variantExists = handle.createQuery(
+                """
                     SELECT COUNT(*) > 0
                     FROM template_variants
                     WHERE id = :variantId AND tenant_id = :tenantId AND template_id = :templateId
                     """,
-                )
-                    .bind("variantId", variantId)
-                    .bind("tenantId", tenantId)
-                    .bind("templateId", templateId)
-                    .mapTo<Boolean>()
-                    .one()
+            )
+                .bind("variantId", variantId)
+                .bind("tenantId", tenantId)
+                .bind("templateId", templateId)
+                .mapTo<Boolean>()
+                .one()
 
-                val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
+            val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
 
-                if (!variantExists) {
-                    handle.createUpdate(
-                        """
+            if (!variantExists) {
+                handle.createUpdate(
+                    """
                         INSERT INTO template_variants (id, tenant_id, template_id, title, attributes, is_default, created_at, last_modified)
                         VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
                         """,
-                    )
-                        .bind("id", variantId)
-                        .bind("tenantId", tenantId)
-                        .bind("templateId", templateId)
-                        .bind("title", variantInput.title)
-                        .bind("attributes", attributesJson)
-                        .execute()
+                )
+                    .bind("id", variantId)
+                    .bind("tenantId", tenantId)
+                    .bind("templateId", templateId)
+                    .bind("title", variantInput.title)
+                    .bind("attributes", attributesJson)
+                    .execute()
 
-                    // Create draft version 1
-                    val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-                    val variantModelJson = objectMapper.writeValueAsString(variantTemplateModel)
-                    handle.createUpdate(
-                        """
+                // Create draft version 1
+                val variantTemplateModel = variantInput.templateModel ?: input.templateModel
+                val variantModelJson = objectMapper.writeValueAsString(variantTemplateModel)
+                handle.createUpdate(
+                    """
                         INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
                         VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                         """,
-                    )
-                        .bind("id", VersionId.of(1))
-                        .bind("tenantId", tenantId)
-                        .bind("variantId", variantId)
-                        .bind("templateModel", variantModelJson)
-                        .execute()
-                } else {
-                    handle.createUpdate(
-                        """
+                )
+                    .bind("id", VersionId.of(1))
+                    .bind("tenantId", tenantId)
+                    .bind("variantId", variantId)
+                    .bind("templateModel", variantModelJson)
+                    .execute()
+            } else {
+                handle.createUpdate(
+                    """
                         UPDATE template_variants
                         SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
                         WHERE id = :variantId AND tenant_id = :tenantId AND template_id = :templateId
                         """,
-                    )
-                        .bind("variantId", variantId)
-                        .bind("tenantId", tenantId)
-                        .bind("templateId", templateId)
-                        .bind("title", variantInput.title)
-                        .bind("attributes", attributesJson)
-                        .execute()
+                )
+                    .bind("variantId", variantId)
+                    .bind("tenantId", tenantId)
+                    .bind("templateId", templateId)
+                    .bind("title", variantInput.title)
+                    .bind("attributes", attributesJson)
+                    .execute()
 
-                    // Upsert the draft with the variant-specific or top-level templateModel
-                    val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-                    upsertDraft(handle, tenantId, variantId, variantTemplateModel)
-                }
+                // Upsert the draft with the variant-specific or top-level templateModel
+                val variantTemplateModel = variantInput.templateModel ?: input.templateModel
+                upsertDraft(handle, tenantId, variantId, variantTemplateModel)
             }
+        }
 
-            // 3. Publish to environments
-            val publishedTo = mutableListOf<String>()
-            for (envSlug in input.publishTo) {
-                val environmentId = EnvironmentId.of(envSlug)
+        // 3. Publish to environments
+        val publishedTo = mutableListOf<String>()
+        for (envSlug in input.publishTo) {
+            val environmentId = EnvironmentId.of(envSlug)
 
-                val environmentExists = handle.createQuery(
-                    """
+            val environmentExists = handle.createQuery(
+                """
                     SELECT COUNT(*) > 0
                     FROM environments
                     WHERE id = :environmentId AND tenant_id = :tenantId
                     """,
-                )
-                    .bind("environmentId", environmentId)
-                    .bind("tenantId", tenantId)
-                    .mapTo<Boolean>()
-                    .one()
+            )
+                .bind("environmentId", environmentId)
+                .bind("tenantId", tenantId)
+                .mapTo<Boolean>()
+                .one()
 
-                if (!environmentExists) {
-                    logger.warn("Skipping publish for template '${input.slug}': environment '$envSlug' does not exist")
-                    continue
-                }
-
-                for (variantId in allVariantIds) {
-                    publishDraft(handle, tenantId, variantId, environmentId)
-                }
-                publishedTo.add(envSlug)
+            if (!environmentExists) {
+                logger.warn("Skipping publish for template '${input.slug}': environment '$envSlug' does not exist")
+                continue
             }
 
-            ImportTemplateResult(
-                slug = input.slug,
-                status = status,
-                version = input.version,
-                publishedTo = publishedTo,
-                errorMessage = null,
-            )
+            for (variantId in allVariantIds) {
+                publishDraft(handle, tenantId, variantId, environmentId)
+            }
+            publishedTo.add(envSlug)
         }
+
+        ImportTemplateResult(
+            slug = input.slug,
+            status = status,
+            version = input.version,
+            publishedTo = publishedTo,
+            errorMessage = null,
+        )
     }
 
     /**
