@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "app.epistola"
-version = "0.0.1-SNAPSHOT"
+version = findProperty("releaseVersion") as String? ?: "dev"
 description = "Epistola Document Suite"
 
 allprojects {

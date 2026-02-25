@@ -334,24 +334,35 @@ jobs:
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
           echo "tag=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
 
-      - name: Get project version
+      - name: Determine build version
         if: ${{ matrix.enabled }}
         id: version
         run: |
-          VERSION=$(gradle properties -q | grep "^version:" | awk '{print $2}')
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            if [ "${{ matrix.variant }}" = "JVM" ]; then
+              VERSION="${{ steps.tag.outputs.new_version }}"
+            else
+              VERSION="${{ steps.latesttag.outputs.tag }}"
+            fi
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            VERSION="${{ steps.previoustag.outputs.tag }}-pr${{ github.event.pull_request.number }}"
+          fi
+          VERSION="${VERSION:-dev}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Generate SBOMs
         if: ${{ matrix.enabled && matrix.variant == 'JVM' }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gradle :apps:epistola:generateSbom
+          gradle :apps:epistola:generateSbom -PreleaseVersion=$VERSION
           pnpm --filter @epistola/editor sbom
 
       - name: Build Docker image
         if: ${{ matrix.enabled }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: gradle :apps:epistola:bootBuildImage ${{ matrix.gradle-args }} --imageName=epistola-suite:$VERSION${{ matrix.image-suffix }}
+        run: gradle :apps:epistola:bootBuildImage -PreleaseVersion=$VERSION ${{ matrix.gradle-args }} --imageName=epistola-suite:$VERSION${{ matrix.image-suffix }}
 
       - name: Tag and push Docker image (PR)
         if: ${{ matrix.enabled && github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'publish') }}

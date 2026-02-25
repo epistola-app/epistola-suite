@@ -32,6 +32,7 @@
 - **SecurityFilter ordering fix**: `SecurityFilter` now runs at `@Order(-99)` instead of `HIGHEST_PRECEDENCE + 1`, so it executes after Spring Security populates the `SecurityContext`.
 
 ### Fixed
+- **Docker image version**: Application now displays the correct release version in the UI footer instead of "vdev". The Gradle build version is now set from a `-PreleaseVersion` property passed by CI, replacing the misleading hardcoded `0.0.1-SNAPSHOT`.
 - **AccessDeniedException returns 403 instead of 500**: Introduced `TenantAccessDeniedException` and added exception handlers for 401/403 responses in `ApiExceptionHandler`.
 - **Editor resize handle click focus**: Removed pointer-event default suppression that prevented mouse click from focusing the resize handle, restoring consistent click and keyboard focus behavior.
 
