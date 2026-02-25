@@ -336,6 +336,133 @@ app/epistola/suite/htmx/
 
 5. **Trigger events for coordination** - Use `trigger()` to notify other parts of the page about changes, rather than updating everything server-side.
 
+## Common Patterns
+
+### Serving Full Pages and Fragments from One Endpoint
+
+When `hx-boost="true"` is on `<body>`, all link navigation sends `HX-Request: true` with `HX-Boosted: true`. If your endpoint also handles HTMX fragment requests (e.g., dynamic form updates), you must distinguish boosted navigation from in-page fragment updates:
+
+```kotlin
+fun newForm(request: ServerRequest): ServerResponse {
+    if (!request.isHtmx || request.htmxBoosted) {
+        // Full page: navigation or boosted link click
+        return ServerResponse.ok().render("layout/shell", mapOf(...))
+    }
+
+    // HTMX fragment: in-page update (e.g., select changed)
+    return request.htmx {
+        fragment("mytemplate", "my-fragment") { ... }
+    }
+}
+```
+
+Without the `htmxBoosted` check, boosted navigation receives a fragment instead of the full page.
+
+### Multi-Select Cascading Dropdowns
+
+When multiple `<select>` elements drive a single dynamic section, use `hx-include="closest form"` so the server receives all current form values, and `HX-Trigger-Name` to know which field changed:
+
+```html
+<select name="templateId" hx-get="/new" hx-target="#options" hx-include="closest form">...</select>
+<!-- Inside the swapped fragment: -->
+<select name="variantId" hx-get="/new" hx-target="#options" hx-include="closest form">...</select>
+<select name="exampleId" hx-get="/new" hx-target="#options" hx-include="closest form">...</select>
+```
+
+```kotlin
+val triggerName = request.htmxTriggerName
+when (triggerName) {
+    "templateId" -> // Template changed: reset all dependent fields
+    "variantId"  -> // Variant changed: reload versions, preserve other selections
+    "exampleId"  -> // Example changed: preserve everything, update test data
+}
+```
+
+### Mutually Exclusive Fields
+
+To make two fields mutually exclusive (e.g., explicit version vs environment), place both inside the HTMX-swapped fragment and control visibility server-side with `th:if`:
+
+```html
+<!-- Version dropdown: hidden when an environment is selected -->
+<div th:if="${#strings.isEmpty(selectedEnvironmentId)}">
+    <select name="versionId" hx-get="/new" hx-target="#options" hx-include="closest form">
+        <option value="">Use environment instead</option>
+        ...
+    </select>
+</div>
+
+<!-- Environment dropdown: hidden when a version is selected -->
+<div th:if="${#strings.isEmpty(selectedVersionId)}">
+    <select name="environmentId" hx-get="/new" hx-target="#options" hx-include="closest form">
+        <option value="">No environment</option>
+        ...
+    </select>
+</div>
+```
+
+The handler clears the opposing field when one is selected:
+```kotlin
+val selectedVersionId = when (triggerName) {
+    "environmentId" -> ""  // environment selected: clear version
+    else -> request.param("versionId").orElse("")
+}
+val selectedEnvironmentId = when (triggerName) {
+    "versionId" -> ""  // version selected: clear environment
+    else -> request.param("environmentId").orElse("")
+}
+```
+
+### HTMX Form Submission with Redirect
+
+Using `hx-post` on a form requires special handling for success redirects. A standard 303 redirect is followed by HTMX as an AJAX request, causing the redirected page to be swapped into the target element (duplicating headers, breaking layout).
+
+Use the `HX-Redirect` response header instead — it tells HTMX to perform a full browser navigation:
+
+```kotlin
+fun start(request: ServerRequest): ServerResponse {
+    try {
+        val result = doWork()
+        val url = "/items/${result.id}"
+        return if (request.isHtmx) {
+            ServerResponse.ok().header("HX-Redirect", url).build()
+        } else {
+            redirect(url)
+        }
+    } catch (e: Exception) {
+        // Return error fragment (must be 200 for HTMX to swap it)
+        return request.htmx {
+            fragment("mytemplate", "form-error") {
+                "error" to (e.message ?: "Something went wrong")
+            }
+            onNonHtmx {
+                ServerResponse.badRequest().render("layout/shell", mapOf("error" to e.message))
+            }
+        }
+    }
+}
+```
+
+```html
+<div id="form-error"><!-- error fragment swapped here --></div>
+<form hx-post="/items" hx-target="#form-error" hx-swap="innerHTML">
+    ...
+</form>
+```
+
+**Important:** HTMX does not swap content on non-2xx responses by default. Return 200 with error content for inline error display.
+
+### Kotlin Inline Value Classes in Thymeleaf
+
+Kotlin `@JvmInline value class` types (e.g., `VariantId(val value: String)`) are erased at runtime. In Thymeleaf expressions, access the underlying value directly — `.value` does not exist at runtime:
+
+```html
+<!-- Correct: variant.id is already a String at runtime -->
+<option th:value="${variant.id}" th:selected="${#strings.toString(variant.id) == selectedId}">
+
+<!-- Wrong: fails with EL1008E "Property 'value' not found on String" -->
+<option th:value="${variant.id.value}">
+```
+
 ## See Also
 
 - [HTMX Documentation](https://htmx.org/docs/)
