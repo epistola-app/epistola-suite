@@ -2,9 +2,11 @@ package app.epistola.suite.loadtest
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
+import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
 import org.assertj.core.api.Assertions.assertThat
@@ -84,6 +86,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("Select a template first")
+                assertThat(response.body).contains("Select a variant first")
             }
         }
 
@@ -115,7 +118,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET template-options with valid templateId returns variant dropdown`() = fixture {
+        fun `GET template-options with valid templateId returns variant and version dropdowns`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
 
@@ -123,7 +126,12 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 templateId = template.id.value
-                // The default variant is created automatically with the template
+                // Create a draft version for the default variant
+                CreateVersion(
+                    tenantId = testTenant.id,
+                    templateId = template.id,
+                    variantId = VariantId.of("${template.id}-default"),
+                ).execute()
             }
 
             whenever {
@@ -142,10 +150,57 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             then {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                // Should contain variant dropdown
+                // Should contain variant dropdown with default selected
                 assertThat(response.body).contains("variantId")
-                // Should contain default variant as selected
                 assertThat(response.body).contains("default")
+                // Should contain version dropdown with the draft version
+                assertThat(response.body).contains("versionId")
+                assertThat(response.body).contains("DRAFT")
+            }
+        }
+
+        @Test
+        fun `GET template-options with variant change loads versions for that variant`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var templateId: String
+            lateinit var customVariantId: String
+
+            given {
+                testTenant = tenant("Test Tenant")
+                val template = template(testTenant, "Invoice Template")
+                templateId = template.id.value
+                val customVariant = variant(testTenant, template, title = "Dutch")
+                customVariantId = customVariant.id.value
+                // Create a draft version for the custom variant
+                CreateVersion(
+                    tenantId = testTenant.id,
+                    templateId = template.id,
+                    variantId = customVariant.id,
+                ).execute()
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                headers.set("HX-Trigger-Name", "variantId")
+                val request = HttpEntity<Void>(headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/load-tests/template-options" +
+                        "?templateId=$templateId&variantId=$customVariantId",
+                    HttpMethod.GET,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                // Should contain Dutch variant selected
+                assertThat(response.body).contains("Dutch")
+                // Should contain version for this variant
+                assertThat(response.body).contains("versionId")
+                assertThat(response.body).contains("DRAFT")
             }
         }
 
@@ -228,6 +283,8 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Enter JSON test data manually")
                 // Should NOT contain example selector
                 assertThat(response.body).doesNotContain("Data Example")
+                // Should still have version dropdown (even if empty)
+                assertThat(response.body).contains("versionId")
             }
         }
     }

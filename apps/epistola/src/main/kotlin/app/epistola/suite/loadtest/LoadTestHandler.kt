@@ -20,6 +20,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -128,12 +129,13 @@ class LoadTestHandler(
     }
 
     /**
-     * HTMX endpoint that returns variant and data example dropdowns for a selected template.
+     * HTMX endpoint that returns variant, version, and data example dropdowns for a selected template.
      *
-     * Triggered by either the templateId or exampleId select element changing.
+     * Triggered by templateId, variantId, or exampleId select element changing.
      * Uses HX-Trigger-Name to determine which field triggered the request:
-     * - "templateId": resets variant/example selection (template changed)
-     * - "exampleId": preserves variant selection, pre-fills test data with example JSON
+     * - "templateId": resets variant/example/version selection (template changed)
+     * - "variantId": preserves example selection, reloads versions for new variant
+     * - "exampleId": preserves variant/version selection, pre-fills test data with example JSON
      */
     fun templateOptions(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
@@ -154,7 +156,7 @@ class LoadTestHandler(
             // Template changed: auto-select default variant
             variants.firstOrNull { it.isDefault }?.id?.value ?: variants.firstOrNull()?.id?.value ?: ""
         } else {
-            // Example changed: preserve current variant selection
+            // Variant or example changed: preserve current variant selection
             request.param("variantId").orElse("")
         }
 
@@ -163,6 +165,25 @@ class LoadTestHandler(
             ""
         } else {
             request.param("exampleId").orElse("")
+        }
+
+        // Load versions for the selected variant
+        val versions = if (selectedVariantId.isNotBlank()) {
+            ListVersions(
+                tenantId = tenantId,
+                templateId = templateId,
+                variantId = VariantId.of(selectedVariantId),
+            ).query()
+        } else {
+            emptyList()
+        }
+
+        val selectedVersionId = if (triggerName == "exampleId") {
+            // Example changed: preserve current version selection
+            request.param("versionId").orElse("")
+        } else {
+            // Template or variant changed: clear version selection
+            ""
         }
 
         // If an example is selected, pretty-print its data as test data
@@ -177,8 +198,10 @@ class LoadTestHandler(
         return request.htmx {
             fragment("loadtest/new", "template-options") {
                 "variants" to variants
+                "versions" to versions
                 "dataExamples" to dataExamples
                 "selectedVariantId" to selectedVariantId
+                "selectedVersionId" to selectedVersionId
                 "selectedExampleId" to selectedExampleId
                 "testData" to testData
                 "tenantId" to tenantId.value
