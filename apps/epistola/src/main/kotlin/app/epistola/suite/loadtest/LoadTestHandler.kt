@@ -7,7 +7,6 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
-import app.epistola.suite.htmx.htmxBoosted
 import app.epistola.suite.htmx.htmxTriggerName
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
@@ -54,33 +53,35 @@ class LoadTestHandler(
     /**
      * Show form to configure a new load test.
      *
-     * For non-HTMX requests: renders the full page with template/environment dropdowns.
-     * For HTMX requests: returns partial fragments for variant, version, and data example
-     * dropdowns based on the current form selection. Uses HX-Trigger-Name to determine
-     * which field triggered the request (templateId, variantId, or exampleId).
+     * Uses unified HTMX DSL pattern:
+     * - Non-HTMX requests: renders the full page with template/environment dropdowns.
+     * - HTMX requests: returns partial fragments for variant, version, and data example
+     *   dropdowns based on the current form selection. Uses HX-Trigger-Name to determine
+     *   which field triggered the request (templateId, variantId, or exampleId).
      */
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
 
-        if (!request.isHtmx || request.htmxBoosted) {
-            val templates = ListDocumentTemplates(tenantId = tenantId).query()
-            val environments = ListEnvironments(tenantId = tenantId).query()
+        // Check if this is a template selection (HTMX cascade update)
+        val templateIdStr = request.param("templateId").orElse("")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
 
-            return ServerResponse.ok().page("loadtest/new") {
-                "pageTitle" to "Start Load Test - Epistola"
-                "tenantId" to tenantId.value
-                "templates" to templates
-                "environments" to environments
+        // If no template selected, return empty fragment for HTMX or full page for non-HTMX
+        if (templateId == null) {
+            return request.htmx {
+                onNonHtmx {
+                    page("loadtest/new") {
+                        "pageTitle" to "Start Load Test - Epistola"
+                        "tenantId" to tenantId.value
+                        "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                        "environments" to ListEnvironments(tenantId = tenantId).query()
+                    }
+                }
+                fragment("loadtest/new", "template-options-empty")
             }
         }
 
-        // HTMX request: return template-options fragment
-        val templateIdStr = request.param("templateId").orElse("")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
-            ?: return request.htmx {
-                fragment("loadtest/new", "template-options-empty")
-            }
-
+        // Template selected - prepare cascade data
         val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = tenantId, id = templateId).query()
         val dataExamples = template?.dataExamples ?: emptyList()
@@ -137,6 +138,14 @@ class LoadTestHandler(
         }
 
         return request.htmx {
+            onNonHtmx {
+                page("loadtest/new") {
+                    "pageTitle" to "Start Load Test - Epistola"
+                    "tenantId" to tenantId.value
+                    "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                    "environments" to ListEnvironments(tenantId = tenantId).query()
+                }
+            }
             fragment("loadtest/new", "template-options") {
                 "variants" to variants
                 "versions" to versions
