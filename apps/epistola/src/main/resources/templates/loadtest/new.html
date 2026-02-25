@@ -9,13 +9,18 @@
 
         <h1>New Load Test</h1>
 
-        <div th:if="${error}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
-            <strong>Error:</strong> <span th:text="${error}"></span>
+        <div id="form-error">
+            <div th:if="${error}" class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+                <strong>Error:</strong> <span th:text="${error}"></span>
+            </div>
         </div>
 
         <div class="card create-form-card" style="max-width: 40rem;">
             <div class="card-content">
-                <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post">
+                <form th:action="@{/tenants/{id}/load-tests(id=${tenantId})}" method="post"
+                      th:hx-post="@{/tenants/{id}/load-tests(id=${tenantId})}"
+                      hx-target="#form-error"
+                      hx-swap="innerHTML">
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
                         <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Template Configuration</legend>
 
@@ -40,17 +45,6 @@
                             <th:block th:replace="~{loadtest/new :: template-options-empty}" />
                         </div>
 
-                        <div class="form-group">
-                            <label class="ep-label" for="environmentId">Environment</label>
-                            <select id="environmentId" name="environmentId" class="ep-select">
-                                <option value="">No environment</option>
-                                <option th:each="env : ${environments}"
-                                        th:value="${env.id}"
-                                        th:text="${env.name} + ' (' + ${env.id} + ')'">
-                                </option>
-                            </select>
-                            <span class="form-hint">Environment to determine version from (leave blank if using explicit version)</span>
-                        </div>
                     </fieldset>
 
                     <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
@@ -88,6 +82,13 @@
         </div>
     </th:block>
 
+    <!--/* Error fragment: shown when form submission fails */-->
+    <th:block th:fragment="form-error">
+        <div class="alert alert-error" style="margin-bottom: var(--ep-space-4);">
+            <strong>Error:</strong> <span th:text="${error}"></span>
+        </div>
+    </th:block>
+
     <!--/* Empty state fragment: shown when no template is selected */-->
     <th:block th:fragment="template-options-empty">
         <div class="form-group">
@@ -104,6 +105,14 @@
                 <option value="">Select a variant first...</option>
             </select>
             <span class="form-hint">Explicit version (leave blank to use environment)</span>
+        </div>
+
+        <div class="form-group">
+            <label class="ep-label" for="environmentId">Environment</label>
+            <select id="environmentId" name="environmentId" class="ep-select" disabled>
+                <option value="">Select a template first...</option>
+            </select>
+            <span class="form-hint">Environment to determine version (leave blank if using explicit version)</span>
         </div>
 
         <fieldset style="border: none; padding: 0; margin: 0;">
@@ -136,11 +145,16 @@
             <span class="form-hint">Template variant to use</span>
         </div>
 
-        <div class="form-group">
+        <!--/* Version dropdown: hidden when an environment is selected */-->
+        <div class="form-group" th:if="${#strings.isEmpty(selectedEnvironmentId)}">
             <label class="ep-label" for="versionId">Version</label>
             <select id="versionId" name="versionId" class="ep-select"
-                    th:disabled="${#lists.isEmpty(versions)}">
-                <option value="">Use environment</option>
+                    th:disabled="${#lists.isEmpty(versions)}"
+                    th:hx-get="@{/tenants/{tenantId}/load-tests/new(tenantId=${tenantId})}"
+                    hx-target="#template-options-section"
+                    hx-include="closest form"
+                    hx-swap="innerHTML">
+                <option value="">Use environment instead</option>
                 <option th:each="version : ${versions}"
                         th:value="${version.id}"
                         th:text="'v' + ${version.id} + ' (' + ${version.status} + ')'"
@@ -148,7 +162,25 @@
                 </option>
             </select>
             <span class="form-hint" th:if="${#lists.isEmpty(versions)}">No versions available for this variant</span>
-            <span class="form-hint" th:unless="${#lists.isEmpty(versions)}">Explicit version (leave as "Use environment" to resolve from environment)</span>
+            <span class="form-hint" th:unless="${#lists.isEmpty(versions)}">Select a version, or leave as "Use environment" to resolve from environment</span>
+        </div>
+
+        <!--/* Environment dropdown: hidden when a version is explicitly selected */-->
+        <div class="form-group" th:if="${#strings.isEmpty(selectedVersionId)}">
+            <label class="ep-label" for="environmentId">Environment</label>
+            <select id="environmentId" name="environmentId" class="ep-select"
+                    th:hx-get="@{/tenants/{tenantId}/load-tests/new(tenantId=${tenantId})}"
+                    hx-target="#template-options-section"
+                    hx-include="closest form"
+                    hx-swap="innerHTML">
+                <option value="">No environment</option>
+                <option th:each="env : ${environments}"
+                        th:value="${env.id}"
+                        th:text="${env.name} + ' (' + ${env.id} + ')'"
+                        th:selected="${#strings.toString(env.id) == selectedEnvironmentId}">
+                </option>
+            </select>
+            <span class="form-hint">Environment to determine version from</span>
         </div>
 
         <fieldset style="border: none; padding: 0; margin: 0;">

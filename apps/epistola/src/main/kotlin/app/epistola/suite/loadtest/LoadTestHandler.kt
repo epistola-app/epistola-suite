@@ -90,15 +90,18 @@ class LoadTestHandler(
         val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
         val template = GetDocumentTemplate(tenantId = tenantId, id = templateId).query()
         val dataExamples = template?.dataExamples ?: emptyList()
+        val environments = ListEnvironments(tenantId = tenantId).query()
 
         val triggerName = request.htmxTriggerName
-        val selectedVariantId = if (triggerName == "templateId") {
+        val resetsAll = triggerName == "templateId"
+
+        val selectedVariantId = if (resetsAll) {
             variants.firstOrNull { it.isDefault }?.id?.value ?: variants.firstOrNull()?.id?.value ?: ""
         } else {
             request.param("variantId").orElse("")
         }
 
-        val selectedExampleId = if (triggerName == "templateId") {
+        val selectedExampleId = if (resetsAll) {
             ""
         } else {
             request.param("exampleId").orElse("")
@@ -115,10 +118,19 @@ class LoadTestHandler(
             emptyList()
         }
 
-        val selectedVersionId = if (triggerName == "exampleId") {
-            request.param("versionId").orElse("")
-        } else {
-            ""
+        // Version/environment mutual exclusion:
+        // - selecting a version clears the environment
+        // - selecting an environment clears the version
+        // - template/variant change resets both
+        val selectedVersionId = when {
+            resetsAll || triggerName == "variantId" -> ""
+            triggerName == "environmentId" -> ""
+            else -> request.param("versionId").orElse("")
+        }
+        val selectedEnvironmentId = when {
+            resetsAll || triggerName == "variantId" -> ""
+            triggerName == "versionId" -> ""
+            else -> request.param("environmentId").orElse("")
         }
 
         // If an example is selected, pretty-print its data as test data
@@ -135,9 +147,11 @@ class LoadTestHandler(
                 "variants" to variants
                 "versions" to versions
                 "dataExamples" to dataExamples
+                "environments" to environments
                 "selectedVariantId" to selectedVariantId
                 "selectedVersionId" to selectedVersionId
                 "selectedExampleId" to selectedExampleId
+                "selectedEnvironmentId" to selectedEnvironmentId
                 "testData" to testData
                 "tenantId" to tenantId.value
             }
@@ -179,23 +193,30 @@ class LoadTestHandler(
                 testData = testData,
             ).execute()
 
-            // Redirect to detail page (both HTMX and non-HTMX)
             return redirect("/tenants/$tenantId/load-tests/${run.id}")
         } catch (e: Exception) {
-            // Show error and reload form
-            val templates = ListDocumentTemplates(tenantId = tenantId).query()
-            val environments = ListEnvironments(tenantId = tenantId).query()
-            return ServerResponse.badRequest().render(
-                "layout/shell",
-                mapOf(
-                    "contentView" to "loadtest/new",
-                    "pageTitle" to "Start Load Test - Epistola",
-                    "tenantId" to tenantId.value,
-                    "templates" to templates,
-                    "environments" to environments,
-                    "error" to (e.message ?: "Failed to start load test"),
-                ),
-            )
+            val errorMessage = e.message ?: "Failed to start load test"
+
+            return request.htmx {
+                fragment("loadtest/new", "form-error") {
+                    "error" to errorMessage
+                }
+                onNonHtmx {
+                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
+                    val environments = ListEnvironments(tenantId = tenantId).query()
+                    ServerResponse.badRequest().render(
+                        "layout/shell",
+                        mapOf(
+                            "contentView" to "loadtest/new",
+                            "pageTitle" to "Start Load Test - Epistola",
+                            "tenantId" to tenantId.value,
+                            "templates" to templates,
+                            "environments" to environments,
+                            "error" to errorMessage,
+                        ),
+                    )
+                }
+            }
         }
     }
 

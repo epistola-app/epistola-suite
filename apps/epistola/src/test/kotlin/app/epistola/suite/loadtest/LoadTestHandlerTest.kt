@@ -34,13 +34,11 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     @Nested
     inner class NewForm {
         @Test
-        fun `GET new returns form with environment dropdown`() = fixture {
+        fun `GET new returns form with template dropdown`() = fixture {
             lateinit var testTenant: Tenant
 
             given {
                 testTenant = tenant("Test Tenant")
-                val envId = TestIdHelpers.nextEnvironmentId()
-                CreateEnvironment(id = envId, tenantId = testTenant.id, name = "Production").execute()
             }
 
             whenever {
@@ -54,8 +52,9 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val response = result<org.springframework.http.ResponseEntity<String>>()
                 assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
                 assertThat(response.body).contains("New Load Test")
-                assertThat(response.body).contains("Production")
                 assertThat(response.body).contains("Select a template")
+                // Empty state: disabled dropdowns
+                assertThat(response.body).contains("Select a template first")
             }
         }
     }
@@ -118,7 +117,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET new (HTMX) with valid templateId returns variant and version dropdowns`() = fixture {
+        fun `GET new (HTMX) with valid templateId returns variant, version and environment dropdowns`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
 
@@ -126,12 +125,13 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 templateId = template.id.value
-                // Create a draft version for the default variant
                 CreateVersion(
                     tenantId = testTenant.id,
                     templateId = template.id,
                     variantId = VariantId.of("${template.id}-default"),
                 ).execute()
+                val envId = TestIdHelpers.nextEnvironmentId()
+                CreateEnvironment(id = envId, tenantId = testTenant.id, name = "Production").execute()
             }
 
             whenever {
@@ -156,6 +156,52 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 // Should contain version dropdown with the draft version
                 assertThat(response.body).contains("versionId")
                 assertThat(response.body).contains("DRAFT")
+                // Should contain environment dropdown (no version selected yet)
+                assertThat(response.body).contains("environmentId")
+                assertThat(response.body).contains("Production")
+            }
+        }
+
+        @Test
+        fun `GET new (HTMX) selecting a version hides environment dropdown`() = fixture {
+            lateinit var testTenant: Tenant
+            lateinit var templateId: String
+
+            given {
+                testTenant = tenant("Test Tenant")
+                val template = template(testTenant, "Invoice Template")
+                templateId = template.id.value
+                val defaultVariantId = VariantId.of("${template.id}-default")
+                CreateVersion(
+                    tenantId = testTenant.id,
+                    templateId = template.id,
+                    variantId = defaultVariantId,
+                ).execute()
+                val envId = TestIdHelpers.nextEnvironmentId()
+                CreateEnvironment(id = envId, tenantId = testTenant.id, name = "Production").execute()
+            }
+
+            whenever {
+                val headers = HttpHeaders()
+                headers.set("HX-Request", "true")
+                headers.set("HX-Trigger-Name", "versionId")
+                val request = HttpEntity<Void>(headers)
+                restTemplate.exchange(
+                    "/tenants/${testTenant.id}/load-tests/new" +
+                        "?templateId=$templateId&variantId=$templateId-default&versionId=1",
+                    HttpMethod.GET,
+                    request,
+                    String::class.java,
+                )
+            }
+
+            then {
+                val response = result<org.springframework.http.ResponseEntity<String>>()
+                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+                // Version dropdown should be present with selection
+                assertThat(response.body).contains("versionId")
+                // Environment dropdown should NOT be present (version was selected)
+                assertThat(response.body).doesNotContain("environmentId")
             }
         }
 
