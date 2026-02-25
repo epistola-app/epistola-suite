@@ -317,11 +317,17 @@ Define reusable fragments in your Thymeleaf templates:
 
 ```
 app/epistola/suite/htmx/
-├── HtmxRequest.kt         # ServerRequest extensions
-├── HtmxRender.kt          # render(), renderTemplate(), htmx {} entry point
-├── HtmxDsl.kt             # DSL builders (HtmxResponseBuilder, ModelBuilder)
+├── HtmxRequest.kt         # ServerRequest extensions (isHtmx, htmxBoosted, etc.)
+├── HtmxRender.kt          # render(), renderTemplate(), page() shortcut, htmx {} entry point
+├── HtmxDsl.kt             # DSL builders (HtmxResponseBuilder, NonHtmxBuilder, ModelBuilder)
+│                          # formError() helper, onNonHtmx overloads
 ├── HtmxSwap.kt            # HxSwap enum
-└── HtmxFragmentsView.kt   # Multi-fragment view rendering
+├── HtmxFragmentsView.kt   # Multi-fragment view rendering
+└── FormBinder.kt          # Form validation DSL, FormData, exception mapping
+
+resources/templates/
+└── fragments/
+    └── form-fields.html   # Reusable form field macros (text, textarea, select, checkbox)
 ```
 
 ## Best Practices
@@ -335,6 +341,190 @@ app/epistola/suite/htmx/
 4. **Use OOB sparingly** - Out-of-band updates are powerful but can make debugging harder. Use them for notifications, counters, and status updates.
 
 5. **Trigger events for coordination** - Use `trigger()` to notify other parts of the page about changes, rather than updating everything server-side.
+
+## Modern HTMX + Thymeleaf Patterns
+
+These patterns reduce boilerplate and improve code consistency across handlers and templates.
+
+### Idea A: Shell Page Shortcut
+
+Eliminate repetitive `render("layout/shell", mapOf(...))` boilerplate with the `page()` extension:
+
+**Before:**
+```kotlin
+return ServerResponse.ok().render(
+    "layout/shell",
+    mapOf(
+        "contentView" to "environments/list",
+        "pageTitle" to "Environments - Epistola",
+        "tenantId" to tenantId.value,
+        "environments" to environments,
+    ),
+)
+```
+
+**After:**
+```kotlin
+return ServerResponse.ok().page("environments/list") {
+    "pageTitle" to "Environments - Epistola"
+    "tenantId" to tenantId.value
+    "environments" to environments
+}
+```
+
+The `page()` extension automatically wraps your content view inside `layout/shell` with the provided model attributes.
+
+### Idea E: Thymeleaf Form Field Macros
+
+Reusable form field fragments reduce boilerplate by 80%. Instead of repeating 4-5 lines per field:
+
+**Before (environments/new.html):**
+```html
+<div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
+    <label class="ep-label" for="slug">Environment ID</label>
+    <input type="text" id="slug" name="slug" class="ep-input"
+           required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+           minlength="3" maxlength="30"
+           th:value="${formData?.slug}">
+    <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens</span>
+    <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+</div>
+```
+
+**After (using form-fields.html macros):**
+```html
+<th:block th:replace="~{fragments/form-fields :: text-field(
+    'slug', 'Environment ID', 'production', '3-30 characters', true,
+    '^[a-z][a-z0-9]*(-[a-z0-9]+)*$', 3, 30
+)}"/>
+```
+
+Available macros: `text-field`, `textarea-field`, `select-field`, `checkbox-field`, `form-actions`.
+
+### Idea C & D: Form Validation DSL + Exception Mapping
+
+Type-safe form validation with automatic exception-to-error mapping:
+
+```kotlin
+val form = request.form {
+    field("slug") {
+        required()
+        asEnvironmentId()  // Validates as EnvironmentId format
+    }
+    field("name") {
+        required()
+        maxLength(100)
+    }
+}
+
+if (form.hasErrors()) {
+    return ServerResponse.ok().page("environments/new") {
+        "pageTitle" to "New Environment - Epistola"
+        "tenantId" to tenantId.value
+        "formData" to form.formData
+        "errors" to form.errors
+    }
+}
+
+val environmentId = form.getEnvironmentId("slug")!!
+val name = form["name"]
+
+// Execute command and automatically map exceptions to form errors
+val result = form.executeOrFormError {
+    CreateEnvironment(id = environmentId, tenantId = tenantId, name = name).execute()
+}
+
+if (result.hasErrors()) {
+    return ServerResponse.ok().page("environments/new") {
+        "pageTitle" to "New Environment - Epistola"
+        "tenantId" to tenantId.value
+        "formData" to result.formData
+        "errors" to result.errors
+    }
+}
+```
+
+**Supported validators:** `required()`, `pattern(regex)`, `minLength(n)`, `maxLength(n)`, `min(n)`, `max(n)`
+
+**Domain ID validators:** `asEnvironmentId()`, `asTemplateId()`, `asVariantId()`, `asVersionId()`, `asTenantId()`
+
+**Type coercion:** `asInt()`, and typed accessors like `form.getInt("count")`, `form.getEnvironmentId("envId")`
+
+**Exception mapping:** Automatically converts `ValidationException` and `DuplicateIdException` to field errors.
+
+### Idea B: Unified Page + Fragment DSL
+
+Eliminate `if (!request.isHtmx)` branches by using `onNonHtmx { page(...) }` inside the htmx DSL:
+
+**Before (separate conditional):**
+```kotlin
+fun newForm(request: ServerRequest): ServerResponse {
+    val tenantId = TenantId.of(request.pathVariable("tenantId"))
+
+    if (!request.isHtmx || request.htmxBoosted) {
+        val templates = ListDocumentTemplates(tenantId = tenantId).query()
+        return ServerResponse.ok().page("loadtest/new") {
+            "pageTitle" to "Start Load Test"
+            "templates" to templates
+        }
+    }
+
+    // HTMX fragment logic...
+    return request.htmx {
+        fragment("loadtest/new", "template-options") { ... }
+    }
+}
+```
+
+**After (unified DSL):**
+```kotlin
+fun newForm(request: ServerRequest): ServerResponse {
+    val tenantId = TenantId.of(request.pathVariable("tenantId"))
+
+    return request.htmx {
+        onNonHtmx {
+            page("loadtest/new") {
+                "pageTitle" to "Start Load Test"
+                "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+            }
+        }
+        fragment("loadtest/new", "template-options") { ... }
+    }
+}
+```
+
+The `onNonHtmx { }` block now supports both `page()` and `redirect()` calls, unifying request handling in a single DSL scope.
+
+### Idea F: HTMX Form Error Response Helper
+
+Simplify inline form error responses with the `formError()` helper:
+
+**Before (verbose):**
+```kotlin
+return request.htmx {
+    fragment("tenants/list", "create-form") {
+        "formData" to formData.formData
+        "errors" to formData.errors
+    }
+    retarget("#create-form")
+    reswap(HxSwap.OUTER_HTML)
+}
+```
+
+**After (concise):**
+```kotlin
+return request.htmx {
+    formError("tenants/list", "create-form", formData)
+    retarget("#create-form")  // Optional customization
+    onNonHtmx { redirect("/tenants") }
+}
+```
+
+The `formError()` helper:
+- Automatically spreads `formData.formData` and `formData.errors`
+- Sets `HxSwap.OUTER_HTML` as default
+- Works with any `FormData` object from the form validation DSL
+- Allows further customization with `retarget()`, `trigger()`, `onNonHtmx()`, etc.
 
 ## Common Patterns
 
