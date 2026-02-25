@@ -11,13 +11,20 @@
   - New command: `ImportTemplates` with `ImportTemplatesHandler`
 
 ### Changed
+- **Editor shortcuts command-system hardening**: Completed migration cleanup and helper projection hardening. Shortcut helper sections now render from runtime registry projection with deterministic layout thresholds, live filter, and active-key feedback. Legacy helper/leader lookup builders were removed from `shortcuts-config.ts`.
 - **Docker image size reduction**: Replaced `paketobuildpacks/run-noble-full` (765MB) with a custom run image based on `run-noble-base` (188MB) plus only fontconfig and DejaVu fonts. Reduces total image size by ~565MB (from ~1.26GB to ~500MB). The custom image is built automatically as part of the `bootBuildImage` task. Removed the `Aptfile` in favor of a Dockerfile at `apps/epistola/docker/run-image/`.
+- **Editor preview toggle focus behavior**: Using `Leader + P` to open preview now automatically focuses the resize handle once it is mounted, so width adjustment works immediately with arrow keys.
+- **Editor resize handle visual states**: Resize handle CSS now uses host-driven hover/active/focus states, shows click-focus immediately (not only `:focus-visible`), and provides a subtler grip with a larger hit area.
 
 ### Added
+- **Shortcut startup validation and plugin extension guardrails**: Added startup validation that checks merged core/plugin shortcut registries, plus plugin namespace validation and failure-mode tests for invalid plugin-provided bindings.
+- **Shortcut docs refresh**: Added shortcut foundation/runtime docs and plugin shortcut extension guidance.
 - **API key authentication**: External systems can authenticate REST API calls using an `X-API-Key` header. Keys use the `epk_` prefix, are SHA-256 hashed for storage, and support enable/disable and expiration. API key identities are Non-Personal Accounts (NPA) scoped to a single tenant.
 - **OAuth2 JWT resource server**: REST API endpoints accept Bearer JWT tokens when an OIDC provider is configured. JWT claims are mapped to `EpistolaPrincipal` with tenant memberships.
 - **Demo API key**: The `demo` profile auto-creates a well-known API key (`epk_demo_...`) logged at startup for easy testing.
 - **CQRS commands for API key management**: `CreateApiKey`, `RevokeApiKey`, and `ListApiKeys` commands/queries for programmatic key lifecycle management.
+- **Editor shortcut `Leader + R`**: Added a leader command to focus the preview resize handle directly.
+- **Keyboard resizing for preview panel**: Focused resize handle now supports `ArrowLeft`/`ArrowRight` adjustments with a configurable `KEYBOARD_RESIZE_STEP` constant (16px), and `ArrowRight` at minimum width closes preview.
 
 ### Changed
 - **BREAKING: REST API mounted under `/api` prefix**: All REST API endpoints now live under `/api/` (e.g., `/api/tenants` instead of `/tenants`). This enables a dedicated stateless security filter chain for API traffic.
@@ -26,6 +33,7 @@
 
 ### Fixed
 - **AccessDeniedException returns 403 instead of 500**: Introduced `TenantAccessDeniedException` and added exception handlers for 401/403 responses in `ApiExceptionHandler`.
+- **Editor resize handle click focus**: Removed pointer-event default suppression that prevented mouse click from focusing the resize handle, restoring consistent click and keyboard focus behavior.
 
 ### Added
 - **Pluggable content storage**: Binary content (images, PDFs) is now stored via a `ContentStore` abstraction instead of inline PostgreSQL BYTEA columns. Four backends are available: `postgres` (default, zero-config), `s3` (for production at scale), `filesystem` (local dev), and `memory` (fast tests). Configured via `epistola.storage.backend` property.

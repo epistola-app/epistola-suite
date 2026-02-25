@@ -11,6 +11,7 @@ import type { Schema, MarkType, NodeType } from 'prosemirror-model'
 import { toggleMark, setBlockType } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
 import { computePosition, offset, flip, shift } from '@floating-ui/dom'
+import { TEXT_SHORTCUT_COMMAND_IDS, getTextBubbleTitle } from '../shortcuts/text-runtime.js'
 
 const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu')
 
@@ -55,7 +56,7 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
   if (schema.marks.strong) {
     defs.push({
       label: 'B',
-      title: 'Bold (Ctrl+B)',
+      title: getTextBubbleTitle(TEXT_SHORTCUT_COMMAND_IDS.bold, 'Bold'),
       className: 'pm-bubble-btn bold',
       isActive: (view) => markActive(view, schema.marks.strong),
       command: (view) => toggleMark(schema.marks.strong)(view.state, view.dispatch, view),
@@ -66,7 +67,7 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
   if (schema.marks.em) {
     defs.push({
       label: 'I',
-      title: 'Italic (Ctrl+I)',
+      title: getTextBubbleTitle(TEXT_SHORTCUT_COMMAND_IDS.italic, 'Italic'),
       className: 'pm-bubble-btn italic',
       isActive: (view) => markActive(view, schema.marks.em),
       command: (view) => toggleMark(schema.marks.em)(view.state, view.dispatch, view),
@@ -77,7 +78,7 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
   if (schema.marks.underline) {
     defs.push({
       label: 'U',
-      title: 'Underline (Ctrl+U)',
+      title: getTextBubbleTitle(TEXT_SHORTCUT_COMMAND_IDS.underline, 'Underline'),
       className: 'pm-bubble-btn underline',
       isActive: (view) => markActive(view, schema.marks.underline),
       command: (view) => toggleMark(schema.marks.underline)(view.state, view.dispatch, view),
@@ -239,6 +240,11 @@ function updatePosition(menuEl: HTMLElement, view: EditorView): void {
   })
 }
 
+function hideMenu(menuEl: HTMLElement | null): void {
+  if (!menuEl) return
+  menuEl.style.display = 'none'
+}
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -254,6 +260,19 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       const result = createMenuElement(schema)
       menuEl = result.menuEl
       buttons = result.buttons
+      const ownerDocument = view.dom.ownerDocument
+
+      const onDocumentPointerDown = (event: PointerEvent) => {
+        if (!menuEl) return
+        const target = event.target
+        if (!(target instanceof Node)) return
+        if (view.dom.contains(target) || menuEl.contains(target)) return
+        hideMenu(menuEl)
+      }
+
+      const onEditorBlur = () => {
+        hideMenu(menuEl)
+      }
 
       // Wire up click handlers (need view reference)
       for (const { el, def } of buttons) {
@@ -265,7 +284,9 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
       }
 
       // Append to document body for absolute positioning
-      document.body.appendChild(menuEl)
+      ownerDocument.body.appendChild(menuEl)
+      ownerDocument.addEventListener('pointerdown', onDocumentPointerDown, true)
+      view.dom.addEventListener('blur', onEditorBlur, true)
 
       return {
         update(view, _prevState) {
@@ -277,7 +298,7 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
 
           // Hide if selection is empty or collapsed
           if (empty || !view.hasFocus()) {
-            menuEl.style.display = 'none'
+            hideMenu(menuEl)
             return
           }
 
@@ -297,6 +318,8 @@ export function bubbleMenuPlugin(schema: Schema): Plugin {
         },
 
         destroy() {
+          ownerDocument.removeEventListener('pointerdown', onDocumentPointerDown, true)
+          view.dom.removeEventListener('blur', onEditorBlur, true)
           menuEl?.remove()
           menuEl = null
           buttons = []

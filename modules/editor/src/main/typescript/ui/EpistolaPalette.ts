@@ -134,6 +134,7 @@ export class EpistolaPalette extends LitElement {
               ${items.map(def => html`
                 <button
                   class="palette-item"
+                  data-testid=${`palette-item-${def.type}`}
                   data-block-type=${def.type}
                   @click=${() => this._handleInsert(def.type)}
                   title="Click to insert ${def.label}"

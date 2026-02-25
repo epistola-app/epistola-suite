@@ -16,7 +16,10 @@ import type { EditorPlugin } from './plugins/types.js'
 import { createDefaultRegistry } from './engine/registry.js'
 import { createImageDefinition } from './components/image/image-registration.js'
 import type { AssetInfo } from './components/image/asset-picker-dialog.js'
+import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js'
 import { nanoid } from 'nanoid'
+
+validateCoreShortcutRegistriesOnStartup()
 
 export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js'
 export type { AssetInfo } from './components/image/asset-picker-dialog.js'
@@ -29,6 +32,12 @@ export type {
   PluginContext,
   PluginDisposeFn,
 } from './plugins/types.js'
+export type { PluginShortcutContribution } from './shortcuts/plugin-registry.js'
+export {
+  definePluginShortcutContribution,
+  validatePluginShortcutContribution,
+} from './shortcuts/plugin-registry.js'
+export { validateShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js'
 
 // ---------------------------------------------------------------------------
 // Public mount API
