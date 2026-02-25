@@ -35,6 +35,7 @@ export const EDITOR_SHORTCUT_COMMAND_IDS = {
   duplicateSelectedBlock: 'editor.block.duplicate',
   openInsertDialog: 'insertDialog.open',
   openShortcutsHelp: 'editor.shortcuts.open-help',
+  openDataPreview: 'editor.data-example.open-viewer',
   focusBlocksPanel: 'editor.panel.blocks.focus',
   focusStructurePanel: 'editor.panel.structure.focus',
   focusInspectorPanel: 'editor.panel.inspector.focus',
@@ -58,6 +59,7 @@ export interface EditorShortcutRuntimeContext {
   duplicateSelectedBlock: () => boolean
   openInsertDialog: () => boolean
   openShortcutsHelp: () => boolean
+  openDataPreview: () => boolean
   focusBlocksPanel: () => boolean
   focusStructurePanel: () => boolean
   focusInspectorPanel: () => boolean
@@ -99,6 +101,12 @@ const LEADER_RUNTIME_DEFINITIONS: readonly LeaderRuntimeDefinition[] = [
     legacyId: 'open-shortcuts-help',
     run: (context) => context.openShortcutsHelp(),
     failureMessage: 'Cannot open shortcuts help',
+  },
+  {
+    commandId: EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview,
+    legacyId: 'open-data-preview',
+    run: (context) => context.openDataPreview(),
+    failureMessage: 'Cannot open data example viewer',
   },
   {
     commandId: EDITOR_SHORTCUT_COMMAND_IDS.focusBlocksPanel,

@@ -23,6 +23,22 @@ const SHORTCUT_ACTIVE_FEEDBACK_MS = 650
 const SHORTCUTS_TRIGGER_SELECTOR = '.toolbar-shortcuts-trigger'
 const SHORTCUTS_SEARCH_SELECTOR = '.toolbar-shortcuts-search-input'
 const SHORTCUTS_POPOVER_ID = 'epistola-toolbar-shortcuts-popover'
+const DATA_PREVIEW_TRIGGER_SELECTOR = '.toolbar-data-preview-trigger'
+const DATA_PREVIEW_POPOVER_SELECTOR = '.toolbar-data-preview-popover'
+const DATA_PREVIEW_POPOVER_ID = 'epistola-toolbar-data-preview-popover'
+const DATA_PREVIEW_PINNED_STORAGE_KEY = 'ep:data-preview:pinned'
+const DATA_PREVIEW_POSITION_STORAGE_KEY = 'ep:data-preview:position'
+const DATA_PREVIEW_VIEWPORT_MARGIN = 12
+const DATA_PREVIEW_DEFAULT_WIDTH = 640
+const DATA_PREVIEW_DEFAULT_HEIGHT = 400
+const DATA_PREVIEW_COPY_FEEDBACK_MS = 1200
+
+type JsonObject = Record<string, unknown>
+type DataPreviewPosition = { x: number; y: number }
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null
+}
 
 @customElement('epistola-toolbar')
 export class EpistolaToolbar extends LitElement {
@@ -39,19 +55,38 @@ export class EpistolaToolbar extends LitElement {
 
   @state() private _currentExampleIndex = 0
   @state() private _shortcutsOpen = false
+  @state() private _dataPreviewOpen = false
+  @state() private _dataPreviewPinned = false
+  @state() private _dataPreviewPosition: DataPreviewPosition | null = null
+  @state() private _dataPreviewCopyState: 'idle' | 'copied' | 'error' = 'idle'
   @state() private _shortcutsQuery = ''
   @state() private _activeShortcutStrokes: string[] = []
 
   private _unsubExample?: () => void
   private _unsubDoc?: () => void
   private _activeShortcutClearTimeout: ReturnType<typeof setTimeout> | null = null
+  private _dataPreviewCopyTimeout: ReturnType<typeof setTimeout> | null = null
+  private _dataPreviewDragging = false
+  private _dataPreviewDragOffsetX = 0
+  private _dataPreviewDragOffsetY = 0
   private _onWindowKeydown = (e: KeyboardEvent) => {
-    if (!this._shortcutsOpen) return
+    if (!this._shortcutsOpen && !this._dataPreviewOpen) return
+
     if (e.key === 'Escape') {
-      e.preventDefault()
-      this._closeShortcuts({ restoreFocus: true })
+      if (this._shortcutsOpen) {
+        e.preventDefault()
+        this._closeShortcuts({ restoreFocus: true })
+        return
+      }
+
+      if (!this._dataPreviewPinned) {
+        e.preventDefault()
+        this._closeDataPreview({ restoreFocus: true })
+      }
       return
     }
+
+    if (!this._shortcutsOpen) return
 
     if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') {
       return
@@ -65,17 +100,44 @@ export class EpistolaToolbar extends LitElement {
     this._scheduleClearActiveShortcutFeedback()
   }
   private _onWindowPointerDown = (e: PointerEvent) => {
-    if (!this._shortcutsOpen) return
+    if (!this._shortcutsOpen && !this._dataPreviewOpen) return
     const target = e.target
-    if (target instanceof Element && target.closest('.toolbar-shortcuts')) return
+    if (target instanceof Element && target.closest('.toolbar-shortcuts, .toolbar-data-preview')) return
     this._closeShortcuts()
+    if (!this._dataPreviewPinned) {
+      this._closeDataPreview()
+    }
+  }
+
+  private _onWindowResize = () => {
+    if (!this._dataPreviewOpen || !this._dataPreviewPinned) return
+    this._normalizeDataPreviewPositionAfterRender()
+  }
+
+  private _onDataPreviewDragMove = (e: PointerEvent) => {
+    if (!this._dataPreviewDragging || !this._dataPreviewPinned) return
+
+    const size = this._getDataPreviewSize()
+    const next = this._clampDataPreviewPosition({
+      x: e.clientX - this._dataPreviewDragOffsetX,
+      y: e.clientY - this._dataPreviewDragOffsetY,
+    }, size)
+
+    this._dataPreviewPosition = next
+  }
+
+  private _onDataPreviewDragEnd = () => {
+    this._stopDataPreviewDrag()
+    this._persistDataPreviewState()
   }
 
   override connectedCallback(): void {
     super.connectedCallback()
     this._subscribeToEngine()
+    this._restoreDataPreviewState()
     window.addEventListener('keydown', this._onWindowKeydown)
     window.addEventListener('pointerdown', this._onWindowPointerDown, true)
+    window.addEventListener('resize', this._onWindowResize)
   }
 
   override updated(changed: Map<string, unknown>): void {
@@ -89,6 +151,9 @@ export class EpistolaToolbar extends LitElement {
     this._unsubscribeAll()
     window.removeEventListener('keydown', this._onWindowKeydown)
     window.removeEventListener('pointerdown', this._onWindowPointerDown, true)
+    window.removeEventListener('resize', this._onWindowResize)
+    this._stopDataPreviewDrag()
+    this._clearDataPreviewCopyFeedback()
     this._clearActiveShortcutFeedback()
     super.disconnectedCallback()
   }
@@ -103,6 +168,7 @@ export class EpistolaToolbar extends LitElement {
     this._currentExampleIndex = this.engine.currentExampleIndex
     this._unsubExample = this.engine.events.on('example:change', ({ index }) => {
       this._currentExampleIndex = index
+      this._clearDataPreviewCopyFeedback()
     })
     // Re-render on doc changes so undo/redo button state stays in sync
     this._unsubDoc = this.engine.events.on('doc:change', () => {
@@ -152,6 +218,24 @@ export class EpistolaToolbar extends LitElement {
     this._activeShortcutStrokes = []
   }
 
+  private _clearDataPreviewCopyFeedback(): void {
+    if (this._dataPreviewCopyTimeout) {
+      clearTimeout(this._dataPreviewCopyTimeout)
+      this._dataPreviewCopyTimeout = null
+    }
+    this._dataPreviewCopyState = 'idle'
+  }
+
+  private _scheduleDataPreviewCopyFeedbackReset(): void {
+    if (this._dataPreviewCopyTimeout) {
+      clearTimeout(this._dataPreviewCopyTimeout)
+    }
+    this._dataPreviewCopyTimeout = setTimeout(() => {
+      this._dataPreviewCopyState = 'idle'
+      this._dataPreviewCopyTimeout = null
+    }, DATA_PREVIEW_COPY_FEEDBACK_MS)
+  }
+
   private _focusShortcutSearchAfterRender(): void {
     void this.updateComplete.then(() => {
       requestAnimationFrame(() => {
@@ -170,7 +254,182 @@ export class EpistolaToolbar extends LitElement {
     })
   }
 
+  private _focusDataPreviewAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        const popover = this.querySelector<HTMLElement>(DATA_PREVIEW_POPOVER_SELECTOR)
+        popover?.focus({ preventScroll: true })
+      })
+    })
+  }
+
+  private _focusDataPreviewTriggerAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        const trigger = this.querySelector<HTMLElement>(DATA_PREVIEW_TRIGGER_SELECTOR)
+        trigger?.focus({ preventScroll: true })
+      })
+    })
+  }
+
+  private _restoreDataPreviewState(): void {
+    try {
+      const pinned = localStorage.getItem(DATA_PREVIEW_PINNED_STORAGE_KEY) === 'true'
+      const position = this._readStoredDataPreviewPosition()
+      this._dataPreviewPinned = pinned
+      this._dataPreviewPosition = position
+
+      if (pinned) {
+        this._dataPreviewOpen = true
+        if (!position) {
+          this._dataPreviewPosition = this._deriveDefaultDataPreviewPosition()
+        }
+        this._normalizeDataPreviewPositionAfterRender()
+      }
+    } catch {
+      // localStorage may be unavailable
+    }
+  }
+
+  private _readStoredDataPreviewPosition(): DataPreviewPosition | null {
+    const raw = localStorage.getItem(DATA_PREVIEW_POSITION_STORAGE_KEY)
+    if (!raw) return null
+
+    try {
+      const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown }
+      if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') {
+        return null
+      }
+
+      return this._clampDataPreviewPosition(
+        { x: parsed.x, y: parsed.y },
+        { width: DATA_PREVIEW_DEFAULT_WIDTH, height: DATA_PREVIEW_DEFAULT_HEIGHT },
+      )
+    } catch {
+      return null
+    }
+  }
+
+  private _persistDataPreviewState(): void {
+    try {
+      localStorage.setItem(DATA_PREVIEW_PINNED_STORAGE_KEY, String(this._dataPreviewPinned))
+
+      if (this._dataPreviewPosition) {
+        localStorage.setItem(DATA_PREVIEW_POSITION_STORAGE_KEY, JSON.stringify(this._dataPreviewPosition))
+      } else {
+        localStorage.removeItem(DATA_PREVIEW_POSITION_STORAGE_KEY)
+      }
+    } catch {
+      // localStorage may be unavailable
+    }
+  }
+
+  private _getDataPreviewSize(): { width: number; height: number } {
+    const popover = this.querySelector<HTMLElement>(DATA_PREVIEW_POPOVER_SELECTOR)
+    if (popover) {
+      const rect = popover.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        return { width: rect.width, height: rect.height }
+      }
+    }
+
+    return {
+      width: DATA_PREVIEW_DEFAULT_WIDTH,
+      height: DATA_PREVIEW_DEFAULT_HEIGHT,
+    }
+  }
+
+  private _clampDataPreviewPosition(position: DataPreviewPosition, size: { width: number; height: number }): DataPreviewPosition {
+    const maxX = Math.max(
+      DATA_PREVIEW_VIEWPORT_MARGIN,
+      window.innerWidth - size.width - DATA_PREVIEW_VIEWPORT_MARGIN,
+    )
+    const maxY = Math.max(
+      DATA_PREVIEW_VIEWPORT_MARGIN,
+      window.innerHeight - size.height - DATA_PREVIEW_VIEWPORT_MARGIN,
+    )
+
+    return {
+      x: Math.round(Math.min(Math.max(position.x, DATA_PREVIEW_VIEWPORT_MARGIN), maxX)),
+      y: Math.round(Math.min(Math.max(position.y, DATA_PREVIEW_VIEWPORT_MARGIN), maxY)),
+    }
+  }
+
+  private _deriveDefaultDataPreviewPosition(): DataPreviewPosition {
+    const size = this._getDataPreviewSize()
+    const trigger = this.querySelector<HTMLElement>(DATA_PREVIEW_TRIGGER_SELECTOR)
+    if (trigger) {
+      const rect = trigger.getBoundingClientRect()
+      return this._clampDataPreviewPosition(
+        {
+          x: Math.round(rect.right - size.width),
+          y: Math.round(rect.bottom + 8),
+        },
+        size,
+      )
+    }
+
+    return this._clampDataPreviewPosition(
+      {
+        x: window.innerWidth - size.width - 24,
+        y: 72,
+      },
+      size,
+    )
+  }
+
+  private _normalizeDataPreviewPositionAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        if (!this._dataPreviewOpen || !this._dataPreviewPinned) return
+
+        const size = this._getDataPreviewSize()
+        const next = this._clampDataPreviewPosition(
+          this._dataPreviewPosition ?? this._deriveDefaultDataPreviewPosition(),
+          size,
+        )
+
+        const current = this._dataPreviewPosition
+        if (!current || current.x !== next.x || current.y !== next.y) {
+          this._dataPreviewPosition = next
+          this._persistDataPreviewState()
+        }
+      })
+    })
+  }
+
+  private _startDataPreviewDrag(e: PointerEvent): void {
+    if (!this._dataPreviewPinned || e.button !== 0) return
+
+    const popover = this.querySelector<HTMLElement>(DATA_PREVIEW_POPOVER_SELECTOR)
+    if (!popover) return
+
+    const rect = popover.getBoundingClientRect()
+    this._dataPreviewDragging = true
+    this._dataPreviewDragOffsetX = e.clientX - rect.left
+    this._dataPreviewDragOffsetY = e.clientY - rect.top
+
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', this._onDataPreviewDragMove)
+    window.addEventListener('pointerup', this._onDataPreviewDragEnd)
+    window.addEventListener('pointercancel', this._onDataPreviewDragEnd)
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  private _stopDataPreviewDrag(): void {
+    if (!this._dataPreviewDragging) return
+    this._dataPreviewDragging = false
+    this._dataPreviewDragOffsetX = 0
+    this._dataPreviewDragOffsetY = 0
+    document.body.style.userSelect = ''
+    window.removeEventListener('pointermove', this._onDataPreviewDragMove)
+    window.removeEventListener('pointerup', this._onDataPreviewDragEnd)
+    window.removeEventListener('pointercancel', this._onDataPreviewDragEnd)
+  }
+
   private _openShortcuts(): void {
+    this._closeDataPreview()
     this._shortcutsOpen = true
     this._clearActiveShortcutFeedback()
     this._focusShortcutSearchAfterRender()
@@ -186,6 +445,33 @@ export class EpistolaToolbar extends LitElement {
     }
   }
 
+  private _openDataPreview(): void {
+    this._closeShortcuts()
+
+    if (this._dataPreviewPinned && !this._dataPreviewPosition) {
+      this._dataPreviewPosition = this._deriveDefaultDataPreviewPosition()
+    }
+
+    this._dataPreviewOpen = true
+    this._clearDataPreviewCopyFeedback()
+    if (this._dataPreviewPinned) {
+      this._normalizeDataPreviewPositionAfterRender()
+    }
+    this._focusDataPreviewAfterRender()
+  }
+
+  private _closeDataPreview(options: { restoreFocus?: boolean; force?: boolean } = {}): void {
+    if (!this._dataPreviewOpen) return
+    if (this._dataPreviewPinned && !options.force) return
+
+    this._stopDataPreviewDrag()
+    this._clearDataPreviewCopyFeedback()
+    this._dataPreviewOpen = false
+    if (options.restoreFocus) {
+      this._focusDataPreviewTriggerAfterRender()
+    }
+  }
+
   private _toggleShortcutHelp(e: Event) {
     e.stopPropagation()
     if (this._shortcutsOpen) {
@@ -195,8 +481,144 @@ export class EpistolaToolbar extends LitElement {
     this._openShortcuts()
   }
 
+  private _toggleDataPreview(e: Event): void {
+    e.stopPropagation()
+    if (this._dataPreviewOpen) {
+      if (this._dataPreviewPinned) {
+        this._focusDataPreviewAfterRender()
+        return
+      }
+      this._closeDataPreview()
+      return
+    }
+    this._openDataPreview()
+  }
+
+  private _toggleDataPreviewPinned(e: Event): void {
+    e.stopPropagation()
+
+    const popover = this.querySelector<HTMLElement>(DATA_PREVIEW_POPOVER_SELECTOR)
+    const currentRect = popover?.getBoundingClientRect()
+
+    this._dataPreviewPinned = !this._dataPreviewPinned
+    if (this._dataPreviewPinned) {
+      const size = this._getDataPreviewSize()
+      const derivedPosition = currentRect
+        ? this._clampDataPreviewPosition({ x: currentRect.left, y: currentRect.top }, size)
+        : this._deriveDefaultDataPreviewPosition()
+
+      this._dataPreviewPosition = derivedPosition
+      this._dataPreviewOpen = true
+      this._normalizeDataPreviewPositionAfterRender()
+      this._focusDataPreviewAfterRender()
+    } else {
+      this._stopDataPreviewDrag()
+    }
+
+    this._persistDataPreviewState()
+  }
+
+  private async _copyDataPreviewJson(e: Event): Promise<void> {
+    e.stopPropagation()
+
+    const preview = this._resolveCurrentExamplePreview()
+    if (preview.json === null) {
+      return
+    }
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error('Clipboard API unavailable')
+      }
+
+      await navigator.clipboard.writeText(preview.json)
+      this._dataPreviewCopyState = 'copied'
+    } catch {
+      this._dataPreviewCopyState = 'error'
+    }
+
+    this._scheduleDataPreviewCopyFeedbackReset()
+  }
+
+  private _dataPreviewCopyButtonLabel(): string {
+    if (this._dataPreviewCopyState === 'copied') {
+      return 'Copied'
+    }
+    if (this._dataPreviewCopyState === 'error') {
+      return 'Copy failed'
+    }
+    return 'Copy JSON'
+  }
+
   openShortcuts(): void {
     this._openShortcuts()
+  }
+
+  openDataPreview(): void {
+    this._openDataPreview()
+  }
+
+  private _resolveCurrentExampleRaw(): JsonObject | undefined {
+    const examples = this.engine?.dataExamples
+    if (!examples || examples.length === 0) {
+      return undefined
+    }
+
+    const example = examples[this._currentExampleIndex]
+    return isJsonObject(example) ? example : undefined
+  }
+
+  private _resolveCurrentExampleName(example: JsonObject | undefined): string {
+    if (!example) {
+      return `Example ${this._currentExampleIndex + 1}`
+    }
+
+    if (typeof example.name === 'string' && example.name.trim().length > 0) {
+      return example.name
+    }
+
+    if (typeof example.label === 'string' && example.label.trim().length > 0) {
+      return example.label
+    }
+
+    return `Example ${this._currentExampleIndex + 1}`
+  }
+
+  private _resolveCurrentExamplePreview(): {
+    header: string
+    json: string | null
+  } {
+    const examples = this.engine?.dataExamples
+    if (!examples || examples.length === 0) {
+      return {
+        header: 'No examples available',
+        json: null,
+      }
+    }
+
+    const current = this._resolveCurrentExampleRaw()
+    const name = this._resolveCurrentExampleName(current)
+    const position = `${this._currentExampleIndex + 1}/${examples.length}`
+    const payload = this.engine?.getExampleData()
+
+    if (payload === undefined) {
+      return {
+        header: `${name} (${position})`,
+        json: null,
+      }
+    }
+
+    try {
+      return {
+        header: `${name} (${position})`,
+        json: JSON.stringify(payload, null, 2),
+      }
+    } catch {
+      return {
+        header: `${name} (${position})`,
+        json: String(payload),
+      }
+    }
   }
 
   private _handleShortcutSearchInput(e: Event): void {
@@ -343,6 +765,34 @@ export class EpistolaToolbar extends LitElement {
       activeStrokes: this._activeShortcutStrokes,
     })
     const shortcutGroups = shortcutProjection.groups
+    const currentExamplePreview = this._resolveCurrentExamplePreview()
+    const dataPreviewPopoverClass = [
+      'toolbar-data-preview-popover',
+      this._dataPreviewPinned ? 'is-pinned' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+    const dataPreviewPopoverStyle = this._dataPreviewPinned
+      ? (() => {
+          const position = this._dataPreviewPosition
+
+          if (!position) {
+            return ''
+          }
+
+          return `left: ${position.x}px; top: ${position.y}px;`
+        })()
+      : ''
+    const dataPreviewPinLabel = this._dataPreviewPinned ? 'Unpin data example viewer' : 'Pin data example viewer'
+    const canCopyDataPreview = currentExamplePreview.json !== null
+    const dataPreviewCopyLabel = this._dataPreviewCopyButtonLabel()
+    const dataPreviewCopyClass = [
+      'toolbar-data-preview-copy',
+      this._dataPreviewCopyState === 'copied' ? 'is-success' : '',
+      this._dataPreviewCopyState === 'error' ? 'is-error' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
 
     return html`
       <div class="toolbar-example-selector">
@@ -358,6 +808,104 @@ export class EpistolaToolbar extends LitElement {
             return html`<option value=${i} ?selected=${i === this._currentExampleIndex}>${label}</option>`
           })}
         </select>
+
+        <div class="toolbar-data-preview">
+          <button
+            class="toolbar-shortcuts-trigger toolbar-data-preview-trigger"
+            data-testid="data-example-trigger"
+            type="button"
+            title="Current data example"
+            aria-label="Current data example"
+            aria-haspopup="dialog"
+            aria-controls=${DATA_PREVIEW_POPOVER_ID}
+            aria-expanded=${String(this._dataPreviewOpen)}
+            @click=${this._toggleDataPreview}
+          >
+            ${icon('file-text')}
+          </button>
+
+          ${this._dataPreviewOpen
+            ? html`
+                <div
+                  id=${DATA_PREVIEW_POPOVER_ID}
+                  class=${dataPreviewPopoverClass}
+                  style=${dataPreviewPopoverStyle}
+                  data-testid="data-example-popover"
+                  role="dialog"
+                  aria-label="Current data example"
+                  tabindex="-1"
+                >
+                  <div class="toolbar-data-preview-header">
+                    <div class="toolbar-data-preview-title">Current Data Example</div>
+
+                    <div class="toolbar-data-preview-actions">
+                      ${this._dataPreviewPinned
+                        ? html`
+                            <button
+                              class="toolbar-data-preview-drag-handle"
+                              data-testid="data-example-drag-handle"
+                              type="button"
+                              title="Drag to move"
+                              aria-label="Drag to move"
+                              @pointerdown=${(e: PointerEvent) => this._startDataPreviewDrag(e)}
+                            >
+                              ${icon('grip-vertical', 14)} Drag
+                            </button>
+                          `
+                        : nothing}
+
+                      <button
+                        class=${dataPreviewCopyClass}
+                        data-testid="data-example-copy"
+                        type="button"
+                        ?disabled=${!canCopyDataPreview}
+                        @click=${(e: Event) => void this._copyDataPreviewJson(e)}
+                      >
+                        ${dataPreviewCopyLabel}
+                      </button>
+
+                      <button
+                        class="toolbar-data-preview-pin ${this._dataPreviewPinned ? 'is-active' : ''}"
+                        data-testid="data-example-pin"
+                        type="button"
+                        title=${dataPreviewPinLabel}
+                        aria-label=${dataPreviewPinLabel}
+                        aria-pressed=${String(this._dataPreviewPinned)}
+                        @click=${this._toggleDataPreviewPinned}
+                      >
+                        ${icon('paperclip', 14)}
+                      </button>
+                    </div>
+                  </div>
+
+                  ${!this._dataPreviewPinned
+                    ? html`
+                        <div class="toolbar-data-preview-drag-hint">
+                          ${icon('paperclip', 12)} Pin to keep this viewer open and movable
+                        </div>
+                      `
+                    : nothing}
+
+                  <div class="toolbar-data-preview-meta">${currentExamplePreview.header}</div>
+
+                  ${currentExamplePreview.json !== null
+                    ? html`
+                        <textarea
+                          class="toolbar-data-preview-json"
+                          data-testid="data-example-json"
+                          readonly
+                          spellcheck="false"
+                          aria-label="Current data example JSON"
+                          .value=${currentExamplePreview.json}
+                        ></textarea>
+                      `
+                    : html`
+                        <div class="toolbar-data-preview-empty">No payload available for this example.</div>
+                      `}
+                </div>
+              `
+            : nothing}
+        </div>
 
         <div class="toolbar-shortcuts">
           <button

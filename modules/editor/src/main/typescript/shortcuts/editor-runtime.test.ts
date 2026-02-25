@@ -15,6 +15,7 @@ describe('editor shortcut runtime registry', () => {
 
     expect(registry.commands.some((command) => command.id === EDITOR_SHORTCUT_COMMAND_IDS.save)).toBe(true)
     expect(registry.commands.some((command) => command.id === EDITOR_SHORTCUT_COMMAND_IDS.togglePreview)).toBe(true)
+    expect(registry.commands.some((command) => command.id === EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview)).toBe(true)
   })
 
   it('uses editor context for core shortcuts and global context for leader chords', () => {
@@ -44,14 +45,16 @@ describe('editor shortcut runtime registry', () => {
     const tokens = getLeaderIdleTokensForCommandIds([
       EDITOR_SHORTCUT_COMMAND_IDS.togglePreview,
       EDITOR_SHORTCUT_COMMAND_IDS.openShortcutsHelp,
+      EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview,
     ])
 
-    expect(tokens).toEqual(['P', '?'])
+    expect(tokens).toEqual(['P', '?', 'E'])
   })
 
   it('returns toolbar display labels from runtime registry bindings', () => {
     expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.undo)).toBe('{cmd} + Z')
     expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.redo)).toBe('{cmd} + Shift + Z / {cmd} + Y')
     expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.openShortcutsHelp)).toBe('Leader + ? or /')
+    expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview)).toBe('Leader + E')
   })
 })
