@@ -43,7 +43,7 @@ class EnvironmentHandler {
                 "tenantId" to tenantId
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/environments") }
+            onNonHtmx { redirect("/tenants/$tenantId/environments") }
         }
     }
 
@@ -99,7 +99,7 @@ class EnvironmentHandler {
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId}/environments")
+            .header("Location", "/tenants/$tenantId/environments")
             .build()
     }
 
@@ -123,7 +123,7 @@ class EnvironmentHandler {
                 "tenantId" to tenantId
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/environments") }
+            onNonHtmx { redirect("/tenants/$tenantId/environments") }
         }
     }
 }

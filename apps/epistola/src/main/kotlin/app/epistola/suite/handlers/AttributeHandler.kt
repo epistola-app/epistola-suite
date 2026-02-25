@@ -17,8 +17,6 @@ import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
-import app.epistola.suite.validation.DuplicateIdException
-import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -105,7 +103,7 @@ class AttributeHandler {
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId}/attributes")
+            .header("Location", "/tenants/$tenantId/attributes")
             .build()
     }
 
@@ -188,7 +186,7 @@ class AttributeHandler {
                 "tenantId" to tenantId
                 "attributes" to attributes
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/attributes") }
+            onNonHtmx { redirect("/tenants/$tenantId/attributes") }
         }
     }
 
@@ -208,7 +206,7 @@ class AttributeHandler {
                 "tenantId" to tenantId
                 "attributes" to attributes
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/attributes") }
+            onNonHtmx { redirect("/tenants/$tenantId/attributes") }
         }
     }
 

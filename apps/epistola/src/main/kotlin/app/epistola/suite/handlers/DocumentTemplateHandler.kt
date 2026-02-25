@@ -30,8 +30,6 @@ import app.epistola.suite.templates.validation.MigrationSuggestion
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.queries.ListThemes
-import app.epistola.suite.validation.DuplicateIdException
-import app.epistola.suite.validation.ValidationException
 import org.springframework.boot.info.BuildProperties
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
@@ -125,7 +123,7 @@ class DocumentTemplateHandler(
                 "tenantId" to tenantId
                 "templates" to templates
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/templates") }
+            onNonHtmx { redirect("/tenants/$tenantId/templates") }
         }
     }
 
@@ -195,7 +193,7 @@ class DocumentTemplateHandler(
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId}/templates/${templateId}")
+            .header("Location", "/tenants/$tenantId/templates/$templateId")
             .build()
     }
 
@@ -327,7 +325,7 @@ class DocumentTemplateHandler(
                 "themes" to themes
             }
             onNonHtmx {
-                redirect("/tenants/${tenantId}/templates/$id")
+                redirect("/tenants/$tenantId/templates/$id")
             }
         }
     }
@@ -459,7 +457,7 @@ class DocumentTemplateHandler(
         DeleteDocumentTemplate(tenantId = tenantId, id = id).execute()
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId}/templates")
+            .header("Location", "/tenants/$tenantId/templates")
             .build()
     }
 }

@@ -50,8 +50,7 @@ val ServerRequest.htmxBoosted: Boolean
  *     ?: return ServerResponse.badRequest().build()
  * ```
  */
-fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? =
-    parse(pathVariable(name))
+fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pathVariable(name))
 
 /**
  * Get a query parameter with optional default value.
@@ -62,11 +61,9 @@ fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? =
  * val category = request.queryParam("category", "all")  // returns "all" if not present
  * ```
  */
-fun ServerRequest.queryParam(name: String): String? =
-    param(name).orElse(null)
+fun ServerRequest.queryParam(name: String): String? = param(name).orElse(null)
 
-fun ServerRequest.queryParam(name: String, default: String): String =
-    param(name).orElse(default)
+fun ServerRequest.queryParam(name: String, default: String): String = param(name).orElse(default)
 
 /**
  * Get a query parameter as an integer with optional default value.
@@ -77,5 +74,4 @@ fun ServerRequest.queryParam(name: String, default: String): String =
  * val limit = request.queryParamInt("limit", 100)
  * ```
  */
-fun ServerRequest.queryParamInt(name: String, default: Int): Int =
-    param(name).orElse(null)?.toIntOrNull() ?: default
+fun ServerRequest.queryParamInt(name: String, default: Int): Int = param(name).orElse(null)?.toIntOrNull() ?: default

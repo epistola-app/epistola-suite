@@ -2,7 +2,6 @@ package app.epistola.suite.themes
 
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.htmx.ModelBuilder
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -68,7 +67,7 @@ class ThemeHandler(
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/themes") }
+            onNonHtmx { redirect("/tenants/$tenantId/themes") }
         }
     }
 
@@ -139,7 +138,7 @@ class ThemeHandler(
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId}/themes/${themeId}")
+            .header("Location", "/tenants/$tenantId/themes/$themeId")
             .build()
     }
 
@@ -234,7 +233,7 @@ class ThemeHandler(
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/themes") }
+            onNonHtmx { redirect("/tenants/$tenantId/themes") }
         }
     }
 
@@ -266,7 +265,7 @@ class ThemeHandler(
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId}/themes") }
+            onNonHtmx { redirect("/tenants/$tenantId/themes") }
         }
     }
 }
