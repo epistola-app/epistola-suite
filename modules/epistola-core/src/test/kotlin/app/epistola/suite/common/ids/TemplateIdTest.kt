@@ -138,7 +138,6 @@ class TemplateIdTest {
             assertThrows<IllegalArgumentException> { TemplateId.of("internal") }
             assertThrows<IllegalArgumentException> { TemplateId.of("null") }
             assertThrows<IllegalArgumentException> { TemplateId.of("undefined") }
-            assertThrows<IllegalArgumentException> { TemplateId.of("default") }
             assertThrows<IllegalArgumentException> { TemplateId.of("new") }
             assertThrows<IllegalArgumentException> { TemplateId.of("create") }
             assertThrows<IllegalArgumentException> { TemplateId.of("edit") }

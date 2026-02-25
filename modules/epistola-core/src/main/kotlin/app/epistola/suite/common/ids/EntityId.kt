@@ -143,7 +143,6 @@ value class TemplateId(override val value: String) : SlugId<TemplateId> {
             "internal",
             "null",
             "undefined",
-            "default",
             "new",
             "create",
             "edit",
@@ -183,7 +182,7 @@ value class VariantId(override val value: String) : SlugId<VariantId> {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
         private val RESERVED_WORDS = setOf(
             "admin", "api", "www", "system", "internal", "null", "undefined",
-            "default", "new", "create", "edit", "delete",
+            "new", "create", "edit", "delete",
         )
 
         fun of(value: String): VariantId = VariantId(value)

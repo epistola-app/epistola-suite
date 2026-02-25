@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Bulk template import endpoint** `POST /api/tenants/{tenantId}/templates/import`
+  - Create-or-update semantics for idempotent template synchronization
+  - Processes templates individually (one failure doesn't block others)
+  - Per-template: creates/updates template metadata, variants, drafts, and publishes to environments
+  - Returns per-template results: created, updated, unchanged, or failed with error message
+  - New command: `ImportTemplates` with `ImportTemplatesHandler`
+
 ### Changed
 - **Docker image size reduction**: Replaced `paketobuildpacks/run-noble-full` (765MB) with a custom run image based on `run-noble-base` (188MB) plus only fontconfig and DejaVu fonts. Reduces total image size by ~565MB (from ~1.26GB to ~500MB). The custom image is built automatically as part of the `bootBuildImage` task. Removed the `Aptfile` in favor of a Dockerfile at `apps/epistola/docker/run-image/`.
 

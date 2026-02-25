@@ -6,6 +6,7 @@ import app.epistola.api.model.ThemeDto
 import app.epistola.api.model.ThemeListResponse
 import app.epistola.api.model.UpdateThemeRequest
 import app.epistola.suite.api.v1.shared.toDomain
+import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.common.ids.TenantId
@@ -54,9 +55,9 @@ class EpistolaThemeApi(
             tenantId = TenantId.of(tenantId),
             name = createThemeRequest.name,
             description = createThemeRequest.description,
-            documentStyles = createThemeRequest.documentStyles.toDomain(),
+            documentStyles = createThemeRequest.documentStyles.toDomainDocumentStyles(objectMapper),
             pageSettings = createThemeRequest.pageSettings?.toDomain(),
-            blockStylePresets = createThemeRequest.blockStylePresets.toDomainPresets(objectMapper),
+            blockStylePresets = createThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
         ).execute()
 
         return ResponseEntity
@@ -86,9 +87,9 @@ class EpistolaThemeApi(
             id = ThemeId.of(themeId),
             name = updateThemeRequest.name,
             description = updateThemeRequest.description,
-            documentStyles = updateThemeRequest.documentStyles?.toDomain(),
+            documentStyles = updateThemeRequest.documentStyles?.toDomainDocumentStyles(objectMapper),
             pageSettings = updateThemeRequest.pageSettings?.toDomain(),
-            blockStylePresets = updateThemeRequest.blockStylePresets.toDomainPresets(objectMapper),
+            blockStylePresets = updateThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
         ).execute() ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(theme.toDto(objectMapper))

@@ -105,8 +105,8 @@ internal fun GenerateDocumentRequest.toCommand(
     tenantId: String,
     objectMapper: ObjectMapper,
 ): app.epistola.suite.documents.commands.GenerateDocument {
-    require((variantId != null) xor (attributes != null)) {
-        "Exactly one of variantId or attributes must be set"
+    require(variantId == null || attributes == null) {
+        "Cannot specify both variantId and attributes"
     }
     return app.epistola.suite.documents.commands.GenerateDocument(
         tenantId = TenantId.of(tenantId),
@@ -124,8 +124,8 @@ internal fun GenerateDocumentRequest.toCommand(
 internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
     objectMapper: ObjectMapper,
 ): app.epistola.suite.documents.commands.BatchGenerationItem {
-    require((variantId != null) xor (attributes != null)) {
-        "Exactly one of variantId or attributes must be set"
+    require(variantId == null || attributes == null) {
+        "Cannot specify both variantId and attributes"
     }
     return app.epistola.suite.documents.commands.BatchGenerationItem(
         templateId = TemplateId.of(templateId),

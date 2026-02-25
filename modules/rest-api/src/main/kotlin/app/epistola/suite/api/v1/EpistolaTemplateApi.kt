@@ -6,6 +6,9 @@ import app.epistola.api.VersionsApi
 import app.epistola.api.model.ActivationListResponse
 import app.epistola.api.model.CreateTemplateRequest
 import app.epistola.api.model.CreateVariantRequest
+import app.epistola.api.model.ImportTemplateResultDto
+import app.epistola.api.model.ImportTemplatesRequest
+import app.epistola.api.model.ImportTemplatesResponse
 import app.epistola.api.model.PublishVersionRequest
 import app.epistola.api.model.TemplateDataValidationError
 import app.epistola.api.model.TemplateDataValidationResult
@@ -31,6 +34,10 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.DeleteDocumentTemplate
+import app.epistola.suite.templates.commands.ImportStatus
+import app.epistola.suite.templates.commands.ImportTemplateInput
+import app.epistola.suite.templates.commands.ImportTemplates
+import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.activations.RemoveActivation
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -98,6 +105,63 @@ class EpistolaTemplateApi(
         ).execute()
         val variantSummaries = GetVariantSummaries(tenantId = TenantId.of(tenantId), templateId = template.id).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
+    }
+
+    override fun importTemplates(
+        tenantId: String,
+        importTemplatesRequest: ImportTemplatesRequest,
+    ): ResponseEntity<ImportTemplatesResponse> {
+        val results = ImportTemplates(
+            tenantId = TenantId.of(tenantId),
+            templates = importTemplatesRequest.templates.map { dto ->
+                ImportTemplateInput(
+                    slug = dto.slug,
+                    name = dto.name,
+                    version = dto.version,
+                    dataModel = dto.dataModel,
+                    dataExamples = dto.dataExamples?.map { ex ->
+                        DataExample(id = ex.id, name = ex.name, data = ex.data as ObjectNode)
+                    } ?: emptyList(),
+                    templateModel = objectMapper.treeToValue(
+                        objectMapper.valueToTree(dto.templateModel),
+                        app.epistola.suite.templates.model.TemplateDocument::class.java,
+                    ),
+                    variants = dto.variants?.map { v ->
+                        ImportVariantInput(
+                            id = v.id,
+                            title = v.title,
+                            attributes = v.attributes ?: emptyMap(),
+                            templateModel = v.templateModel?.let { tm ->
+                                objectMapper.treeToValue(
+                                    objectMapper.valueToTree(tm),
+                                    app.epistola.suite.templates.model.TemplateDocument::class.java,
+                                )
+                            },
+                        )
+                    } ?: emptyList(),
+                    publishTo = dto.publishTo ?: emptyList(),
+                )
+            },
+        ).execute()
+
+        return ResponseEntity.ok(
+            ImportTemplatesResponse(
+                results = results.map { r ->
+                    ImportTemplateResultDto(
+                        slug = r.slug,
+                        status = when (r.status) {
+                            ImportStatus.CREATED -> ImportTemplateResultDto.Status.CREATED
+                            ImportStatus.UPDATED -> ImportTemplateResultDto.Status.UPDATED
+                            ImportStatus.UNCHANGED -> ImportTemplateResultDto.Status.UNCHANGED
+                            ImportStatus.FAILED -> ImportTemplateResultDto.Status.FAILED
+                        },
+                        version = r.version,
+                        publishedTo = r.publishedTo,
+                        errorMessage = r.errorMessage,
+                    )
+                },
+            ),
+        )
     }
 
     override fun getTemplate(
@@ -292,7 +356,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateDocument::class.java)
+            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
         val draft = UpdateDraft(
             tenantId = TenantId.of(tenantId),
@@ -400,7 +464,7 @@ class EpistolaTemplateApi(
         updateDraftRequest: UpdateDraftRequest,
     ): ResponseEntity<VersionDto> {
         val templateModel = updateDraftRequest.templateModel?.let {
-            objectMapper.treeToValue(it, app.epistola.suite.templates.model.TemplateDocument::class.java)
+            objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
         val version = UpdateVersion(
             tenantId = TenantId.of(tenantId),

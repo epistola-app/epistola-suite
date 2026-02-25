@@ -46,8 +46,8 @@ data class GenerateDocument(
     val correlationId: String? = null,
 ) : Command<DocumentGenerationRequest> {
     init {
-        require((variantId != null) xor (variantSelectionCriteria != null)) {
-            "Exactly one of variantId or variantSelectionCriteria must be set"
+        require(variantId == null || variantSelectionCriteria == null) {
+            "Cannot specify both variantId and variantSelectionCriteria"
         }
         require((versionId != null) xor (environmentId != null)) {
             "Exactly one of versionId or environmentId must be set"
@@ -64,9 +64,10 @@ class GenerateDocumentHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: GenerateDocument): DocumentGenerationRequest {
-        // Resolve variant from criteria if not explicitly specified
+        // Resolve variant: explicit ID > attribute selection > default variant
         val resolvedVariantId = command.variantId
-            ?: variantResolver.resolve(command.tenantId, command.templateId, command.variantSelectionCriteria!!)
+            ?: command.variantSelectionCriteria?.let { variantResolver.resolve(command.tenantId, command.templateId, it) }
+            ?: resolveDefaultVariant(command.tenantId, command.templateId)
 
         logger.info("Generating single document for tenant {} template {} variant {}", command.tenantId, command.templateId, resolvedVariantId)
 
@@ -167,5 +168,25 @@ class GenerateDocumentHandler(
         }
 
         return request
+    }
+
+    private fun resolveDefaultVariant(tenantId: TenantId, templateId: TemplateId): VariantId {
+        val variantId = jdbi.withHandle<String?, Exception> { handle ->
+            handle.createQuery(
+                """
+                SELECT id FROM template_variants
+                WHERE tenant_id = :tenantId AND template_id = :templateId AND is_default = TRUE
+                """,
+            )
+                .bind("tenantId", tenantId)
+                .bind("templateId", templateId)
+                .mapTo<String>()
+                .findOne()
+                .orElse(null)
+        }
+        requireNotNull(variantId) {
+            "No default variant found for template $templateId in tenant $tenantId"
+        }
+        return VariantId.of(variantId)
     }
 }
