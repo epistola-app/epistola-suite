@@ -111,7 +111,7 @@ class DocumentTemplateHandler(
         val templates = ListTemplateSummaries(tenantId = tenantId).query()
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "templates" to templates
         }
     }
@@ -122,10 +122,10 @@ class DocumentTemplateHandler(
         val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("templates/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "templates" to templates
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/templates") }
+            onNonHtmx { redirect("/tenants/${tenantId}/templates") }
         }
     }
 
@@ -133,7 +133,7 @@ class DocumentTemplateHandler(
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("templates/new") {
             "pageTitle" to "New Template - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
         }
     }
 
@@ -156,7 +156,7 @@ class DocumentTemplateHandler(
         if (form.hasErrors()) {
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -167,7 +167,7 @@ class DocumentTemplateHandler(
             val errors = mapOf("slug" to "Invalid template ID format")
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -188,14 +188,14 @@ class DocumentTemplateHandler(
         if (result.hasErrors()) {
             return ServerResponse.ok().page("templates/new") {
                 "pageTitle" to "New Template - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.value}/templates/${templateId.value}")
+            .header("Location", "/tenants/${tenantId}/templates/${templateId}")
             .build()
     }
 
@@ -216,7 +216,7 @@ class DocumentTemplateHandler(
         return ServerResponse.ok().render(
             "templates/editor",
             mapOf(
-                "tenantId" to tenantId.value,
+                "tenantId" to tenantId,
                 "templateId" to templateId,
                 "variantId" to variantId,
                 "templateName" to context.templateName,
@@ -322,12 +322,12 @@ class DocumentTemplateHandler(
 
         return request.htmx {
             fragment("templates/detail", "theme-section") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "template" to result.template
                 "themes" to themes
             }
             onNonHtmx {
-                redirect("/tenants/${tenantId.value}/templates/$id")
+                redirect("/tenants/${tenantId}/templates/$id")
             }
         }
     }
@@ -443,7 +443,7 @@ class DocumentTemplateHandler(
 
         return ServerResponse.ok().page("templates/detail") {
             "pageTitle" to "${template.name} - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "template" to template
             "variants" to variants
             "themes" to themes
@@ -459,7 +459,7 @@ class DocumentTemplateHandler(
         DeleteDocumentTemplate(tenantId = tenantId, id = id).execute()
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.value}/templates")
+            .header("Location", "/tenants/${tenantId}/templates")
             .build()
     }
 }

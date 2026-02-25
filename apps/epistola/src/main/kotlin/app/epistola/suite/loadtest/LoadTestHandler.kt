@@ -48,7 +48,7 @@ class LoadTestHandler(
         return ServerResponse.ok().page("loadtest/list") {
             "pageTitle" to "Load Tests - Epistola"
             "tenant" to tenant
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "runs" to runs
         }
     }
@@ -75,7 +75,7 @@ class LoadTestHandler(
                 onNonHtmx {
                     page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantId.value
+                        "tenantId" to tenantId
                         "templates" to ListDocumentTemplates(tenantId = tenantId).query()
                         "environments" to ListEnvironments(tenantId = tenantId).query()
                     }
@@ -144,7 +144,7 @@ class LoadTestHandler(
             onNonHtmx {
                 page("loadtest/new") {
                     "pageTitle" to "Start Load Test - Epistola"
-                    "tenantId" to tenantId.value
+                    "tenantId" to tenantId
                     "templates" to ListDocumentTemplates(tenantId = tenantId).query()
                     "environments" to ListEnvironments(tenantId = tenantId).query()
                 }
@@ -159,7 +159,7 @@ class LoadTestHandler(
                 "selectedExampleId" to selectedExampleId
                 "selectedEnvironmentId" to selectedEnvironmentId
                 "testData" to testData
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
             }
         }
     }
@@ -192,7 +192,7 @@ class LoadTestHandler(
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     ServerResponse.badRequest().page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantId.value
+                        "tenantId" to tenantId
                         "templates" to templates
                         "environments" to environments
                         "error" to errorMessage
@@ -248,7 +248,7 @@ class LoadTestHandler(
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     ServerResponse.badRequest().page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantId.value
+                        "tenantId" to tenantId
                         "templates" to templates
                         "environments" to environments
                         "error" to errorMessage
@@ -273,7 +273,7 @@ class LoadTestHandler(
 
         return ServerResponse.ok().page("loadtest/detail") {
             "pageTitle" to "Load Test Details - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "run" to run
             "template" to template
         }
@@ -320,7 +320,7 @@ class LoadTestHandler(
 
         return ServerResponse.ok().page("loadtest/requests") {
             "pageTitle" to "Load Test Request Log - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "run" to run
             "requests" to requests
             "offset" to offset

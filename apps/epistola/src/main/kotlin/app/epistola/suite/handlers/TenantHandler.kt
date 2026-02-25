@@ -46,7 +46,7 @@ class TenantHandler {
             mapOf(
                 "contentView" to "tenants/home",
                 "pageTitle" to "${tenant.name} - Epistola",
-                "tenantId" to tenantId.value,
+                "tenantId" to tenantId,
                 "tenant" to tenant,
                 "templateCount" to templateCount,
                 "themeCount" to themeCount,

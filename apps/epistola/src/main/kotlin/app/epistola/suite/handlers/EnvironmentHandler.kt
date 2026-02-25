@@ -29,7 +29,7 @@ class EnvironmentHandler {
         return ServerResponse.ok().page("environments/list") {
             "pageTitle" to "Environments - Epistola"
             "tenant" to tenant
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "environments" to environments
         }
     }
@@ -40,10 +40,10 @@ class EnvironmentHandler {
         val environments = ListEnvironments(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("environments/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/environments") }
+            onNonHtmx { redirect("/tenants/${tenantId}/environments") }
         }
     }
 
@@ -51,7 +51,7 @@ class EnvironmentHandler {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("environments/new") {
             "pageTitle" to "New Environment - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
         }
     }
 
@@ -72,7 +72,7 @@ class EnvironmentHandler {
         if (form.hasErrors()) {
             return ServerResponse.ok().page("environments/new") {
                 "pageTitle" to "New Environment - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -92,14 +92,14 @@ class EnvironmentHandler {
         if (result.hasErrors()) {
             return ServerResponse.ok().page("environments/new") {
                 "pageTitle" to "New Environment - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.value}/environments")
+            .header("Location", "/tenants/${tenantId}/environments")
             .build()
     }
 
@@ -120,10 +120,10 @@ class EnvironmentHandler {
         val environments = ListEnvironments(tenantId = tenantId).query()
         return request.htmx {
             fragment("environments/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "environments" to environments
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/environments") }
+            onNonHtmx { redirect("/tenants/${tenantId}/environments") }
         }
     }
 }

@@ -33,7 +33,7 @@ class AttributeHandler {
         return ServerResponse.ok().page("attributes/list") {
             "pageTitle" to "Attributes - Epistola"
             "tenant" to tenant
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "attributes" to attributes
         }
     }
@@ -42,7 +42,7 @@ class AttributeHandler {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("attributes/new") {
             "pageTitle" to "New Attribute - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
         }
     }
 
@@ -65,7 +65,7 @@ class AttributeHandler {
         if (form.hasErrors()) {
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -76,7 +76,7 @@ class AttributeHandler {
             val errors = mapOf("slug" to "Invalid attribute ID format")
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -98,14 +98,14 @@ class AttributeHandler {
         if (result.hasErrors()) {
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.value}/attributes")
+            .header("Location", "/tenants/${tenantId}/attributes")
             .build()
     }
 
@@ -121,7 +121,7 @@ class AttributeHandler {
 
         return request.htmx {
             fragment("attributes/list", "edit-attribute-form") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "attribute" to attribute
             }
         }
@@ -146,7 +146,7 @@ class AttributeHandler {
             ).query() ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
-                    "tenantId" to tenantId.value
+                    "tenantId" to tenantId
                     "attribute" to attribute
                     "error" to form.errors.values.firstOrNull()
                 }
@@ -173,7 +173,7 @@ class AttributeHandler {
             ).query() ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
-                    "tenantId" to tenantId.value
+                    "tenantId" to tenantId
                     "attribute" to attribute
                     "error" to (e.message ?: "Update failed")
                 }
@@ -185,10 +185,10 @@ class AttributeHandler {
         val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
         return request.htmx {
             fragment("attributes/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "attributes" to attributes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/attributes") }
+            onNonHtmx { redirect("/tenants/${tenantId}/attributes") }
         }
     }
 
@@ -205,10 +205,10 @@ class AttributeHandler {
         val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
         return request.htmx {
             fragment("attributes/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "attributes" to attributes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/attributes") }
+            onNonHtmx { redirect("/tenants/${tenantId}/attributes") }
         }
     }
 

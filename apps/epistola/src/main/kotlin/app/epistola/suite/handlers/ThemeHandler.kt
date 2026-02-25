@@ -51,7 +51,7 @@ class ThemeHandler(
         val themes = ListThemes(tenantId = tenantId).query()
         return ServerResponse.ok().page("themes/list") {
             "pageTitle" to "Themes - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "tenant" to tenant
             "themes" to themes
         }
@@ -64,11 +64,11 @@ class ThemeHandler(
         val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("themes/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/themes") }
+            onNonHtmx { redirect("/tenants/${tenantId}/themes") }
         }
     }
 
@@ -76,7 +76,7 @@ class ThemeHandler(
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("themes/new") {
             "pageTitle" to "New Theme - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
         }
     }
 
@@ -99,7 +99,7 @@ class ThemeHandler(
         if (form.hasErrors()) {
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -111,7 +111,7 @@ class ThemeHandler(
             val errors = mapOf("slug" to "Invalid theme ID format")
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -132,14 +132,14 @@ class ThemeHandler(
         if (result.hasErrors()) {
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.value}/themes/${themeId.value}")
+            .header("Location", "/tenants/${tenantId}/themes/${themeId}")
             .build()
     }
 
@@ -163,7 +163,7 @@ class ThemeHandler(
 
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
-            "tenantId" to tenantId.value
+            "tenantId" to tenantId
             "theme" to theme
             "themeJson" to themeJson
         }
@@ -230,11 +230,11 @@ class ThemeHandler(
         val themes = ListThemes(tenantId = tenantId).query()
         return request.htmx {
             fragment("themes/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/themes") }
+            onNonHtmx { redirect("/tenants/${tenantId}/themes") }
         }
     }
 
@@ -262,11 +262,11 @@ class ThemeHandler(
         val themes = ListThemes(tenantId = tenantId).query()
         return request.htmx {
             fragment("themes/list", "rows") {
-                "tenantId" to tenantId.value
+                "tenantId" to tenantId
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/themes") }
+            onNonHtmx { redirect("/tenants/${tenantId}/themes") }
         }
     }
 }
