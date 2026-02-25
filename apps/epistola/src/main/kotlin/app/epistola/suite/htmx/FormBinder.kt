@@ -367,6 +367,9 @@ fun <T> FormData.executeOrFormError(block: () -> T): FormData = try {
     val field = when (e.entityType) {
         "environment" -> "slug"
         "template" -> "slug"
+        "tenant" -> "slug"
+        "theme" -> "slug"
+        "attribute" -> "slug"
         else -> "id"
     }
     val article = if (e.entityType.firstOrNull() in setOf('a', 'e', 'i', 'o', 'u')) "An" else "A"

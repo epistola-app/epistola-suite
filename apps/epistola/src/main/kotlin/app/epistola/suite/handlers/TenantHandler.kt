@@ -73,7 +73,7 @@ class TenantHandler {
                 required()
                 pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
                 minLength(3)
-                maxLength(20)
+                maxLength(63)
             }
             field("name") {
                 required()
@@ -93,7 +93,20 @@ class TenantHandler {
             }
         }
 
-        val tenantId = TenantId.of(form["slug"])
+        val tenantId = TenantId.validateOrNull(form["slug"])
+        if (tenantId == null) {
+            val errors = mapOf("slug" to "Invalid tenant ID format")
+            return request.htmx {
+                fragment("tenants/list", "create-form") {
+                    "formData" to form.formData
+                    "errors" to errors
+                }
+                retarget("#create-form")
+                reswap(HxSwap.OUTER_HTML)
+                onNonHtmx { redirect("/") }
+            }
+        }
+
         val name = form["name"]
 
         val result = form.executeOrFormError {
