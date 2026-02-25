@@ -84,3 +84,40 @@ fun ServerRequest.renderTemplate(
  * @return A ServerResponse appropriate for the request type
  */
 fun ServerRequest.htmx(block: HtmxResponseBuilder.() -> Unit): ServerResponse = HtmxResponseBuilder(this).apply(block).build()
+
+/**
+ * Renders a full page (wrapped in layout/shell with contentView).
+ * Simplifies the common pattern of wrapping a content template inside the shell layout.
+ *
+ * Example usage:
+ * ```kotlin
+ * return ServerResponse.ok().page("environments/new") {
+ *     "tenantId" to tenantId.value
+ *     "pageTitle" to "New Environment"
+ * }
+ * ```
+ *
+ * Equivalent to:
+ * ```kotlin
+ * return ServerResponse.ok().render(
+ *     "layout/shell",
+ *     mapOf(
+ *         "contentView" to "environments/new",
+ *         "tenantId" to tenantId.value,
+ *         "pageTitle" to "New Environment",
+ *     ),
+ * )
+ * ```
+ *
+ * @param contentView The template name to render as the page content (e.g., "environments/new")
+ * @param model DSL builder for model attributes
+ * @return A ServerResponse rendering the full page
+ */
+fun ServerResponse.BodyBuilder.page(
+    contentView: String,
+    model: ModelBuilder.() -> Unit = {},
+): ServerResponse {
+    val modelMap = ModelBuilder().apply(model).build()
+    val pageModel = (modelMap + mapOf("contentView" to contentView)).toMutableMap()
+    return this.render("layout/shell", pageModel)
+}

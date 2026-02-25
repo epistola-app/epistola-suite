@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+    Reusable form field fragments to reduce boilerplate in form templates.
+    Each fragment manages its own styling, error display, and value echo.
+    -->
+
+    <!--
+    Text input field with optional placeholder and hint.
+    - name: The form field name (used for id, name, and value echo)
+    - label: Display label
+    - placeholder: Optional input placeholder text
+    - hint: Optional help text displayed below input
+    - required: Set to true to mark as required (adds required attribute)
+    - pattern: Optional validation pattern (e.g., "^[a-z]+$")
+    - minlength: Optional minimum length
+    - maxlength: Optional maximum length
+    -->
+    <div th:fragment="text-field(name, label, placeholder, hint, required, pattern, minlength, maxlength)"
+         class="form-group"
+         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+        <label class="ep-label" th:for="${name}" th:text="${label}"></label>
+        <input type="text"
+               class="ep-input"
+               th:id="${name}"
+               th:name="${name}"
+               th:placeholder="${placeholder}"
+               th:value="${formData?.get(name)}"
+               th:attr="required=${required},pattern=${pattern},minlength=${minlength},maxlength=${maxlength}">
+        <span class="form-hint" th:if="${hint != null}" th:text="${hint}"></span>
+        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+    </div>
+
+    <!--
+    Text input field with sensible defaults (required, no pattern validation).
+    - name: The form field name
+    - label: Display label
+    - placeholder: Optional input placeholder text
+    - hint: Optional help text
+    -->
+    <div th:fragment="text-field-simple(name, label, placeholder, hint)"
+         th:replace="~{fragments/form-fields :: text-field(${name}, ${label}, ${placeholder}, ${hint}, true, null, null, null)}"></div>
+
+    <!--
+    Textarea field with optional rows and placeholder.
+    - name: The form field name
+    - label: Display label
+    - placeholder: Optional placeholder text
+    - rows: Number of rows (default 5)
+    - required: Set to true to mark as required
+    - minlength: Optional minimum length
+    - maxlength: Optional maximum length
+    -->
+    <div th:fragment="textarea-field(name, label, placeholder, rows, required, minlength, maxlength)"
+         class="form-group"
+         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+        <label class="ep-label" th:for="${name}" th:text="${label}"></label>
+        <textarea class="ep-input"
+                  th:id="${name}"
+                  th:name="${name}"
+                  th:placeholder="${placeholder}"
+                  th:rows="${rows ?: 5}"
+                  th:attr="required=${required},minlength=${minlength},maxlength=${maxlength}"
+                  th:text="${formData?.get(name)}"></textarea>
+        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+    </div>
+
+    <!--
+    Select dropdown with options.
+    - name: The form field name
+    - label: Display label
+    - options: List of options (each option should have id/value and name/label properties)
+    - selectedValue: Currently selected value
+    - required: Set to true to mark as required
+    -->
+    <div th:fragment="select-field(name, label, options, selectedValue, required)"
+         class="form-group"
+         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+        <label class="ep-label" th:for="${name}" th:text="${label}"></label>
+        <select class="ep-input"
+                th:id="${name}"
+                th:name="${name}"
+                th:attr="required=${required}">
+            <option value="">Select an option</option>
+            <option th:each="option : ${options}"
+                    th:value="${option.id}"
+                    th:text="${option.name}"
+                    th:selected="${option.id == selectedValue}"></option>
+        </select>
+        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+    </div>
+
+    <!--
+    Checkbox field.
+    - name: The form field name
+    - label: Display label for checkbox
+    - checked: Set to true if checkbox should be checked
+    -->
+    <div th:fragment="checkbox-field(name, label, checked)"
+         class="form-group">
+        <label class="checkbox-label">
+            <input type="checkbox"
+                   th:id="${name}"
+                   th:name="${name}"
+                   th:checked="${checked}">
+            <span th:text="${label}"></span>
+        </label>
+        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+    </div>
+
+    <!--
+    Generic form group wrapper.
+    Useful for custom field layouts or when you need to wrap existing HTML.
+    - name: The form field name (used for error styling)
+    - content: HTML content to wrap
+    -->
+    <div th:fragment="form-group(name, content)"
+         class="form-group"
+         th:classappend="${errors?.containsKey(name)} ? 'error' : ''">
+        <th:block th:replace="${content}"></th:block>
+        <span class="form-error" th:if="${errors?.containsKey(name)}" th:text="${errors.get(name)}"></span>
+    </div>
+
+    <!--
+    Error display for a single field.
+    - name: The form field name
+    -->
+    <span th:fragment="error(name)"
+          class="form-error"
+          th:if="${errors?.containsKey(name)}"
+          th:text="${errors.get(name)}"></span>
+
+    <!--
+    Form actions bar (submit/cancel buttons).
+    - submitText: Label for submit button (default "Save")
+    - cancelUrl: URL for cancel button
+    -->
+    <div th:fragment="form-actions(submitText, cancelUrl)"
+         class="form-actions">
+        <button type="submit" class="btn btn-primary" th:text="${submitText ?: 'Save'}"></button>
+        <a th:href="${cancelUrl}" class="btn btn-outline">Cancel</a>
+    </div>
+</body>
+</html>

@@ -5,7 +5,13 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxTriggerName
+import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
@@ -17,6 +23,8 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.templates.queries.versions.ListVersions
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -36,36 +44,123 @@ class LoadTestHandler(
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val runs = ListLoadTestRuns(tenantId = tenantId, limit = 50).query()
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/list",
-                "pageTitle" to "Load Tests - Epistola",
-                "tenant" to tenant,
-                "tenantId" to tenantId.value,
-                "runs" to runs,
-            ),
-        )
+        return ServerResponse.ok().page("loadtest/list") {
+            "pageTitle" to "Load Tests - Epistola"
+            "tenant" to tenant
+            "tenantId" to tenantId
+            "runs" to runs
+        }
     }
 
     /**
      * Show form to configure a new load test.
+     *
+     * Uses unified HTMX DSL pattern:
+     * - Non-HTMX requests: renders the full page with template/environment dropdowns.
+     * - HTMX requests: returns partial fragments for variant, version, and data example
+     *   dropdowns based on the current form selection. Uses HX-Trigger-Name to determine
+     *   which field triggered the request (templateId, variantId, or exampleId).
      */
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
 
-        // Fetch templates for dropdown
-        val templates = ListDocumentTemplates(tenantId = tenantId).query()
+        // Check if this is a template selection (HTMX cascade update)
+        val templateIdStr = request.param("templateId").orElse("")
+        val templateId = TemplateId.validateOrNull(templateIdStr)
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/new",
-                "pageTitle" to "Start Load Test - Epistola",
-                "tenantId" to tenantId.value,
-                "templates" to templates,
-            ),
-        )
+        // If no template selected, return empty fragment for HTMX or full page for non-HTMX
+        if (templateId == null) {
+            return request.htmx {
+                onNonHtmx {
+                    page("loadtest/new") {
+                        "pageTitle" to "Start Load Test - Epistola"
+                        "tenantId" to tenantId
+                        "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                        "environments" to ListEnvironments(tenantId = tenantId).query()
+                    }
+                }
+                fragment("loadtest/new", "template-options-empty")
+            }
+        }
+
+        // Template selected - prepare cascade data
+        val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
+        val template = GetDocumentTemplate(tenantId = tenantId, id = templateId).query()
+        val dataExamples = template?.dataExamples ?: emptyList()
+        val environments = ListEnvironments(tenantId = tenantId).query()
+
+        val triggerName = request.htmxTriggerName
+        val resetsAll = triggerName == "templateId"
+
+        val selectedVariantId = if (resetsAll) {
+            variants.firstOrNull { it.isDefault }?.id?.value ?: variants.firstOrNull()?.id?.value ?: ""
+        } else {
+            request.param("variantId").orElse("")
+        }
+
+        val selectedExampleId = if (resetsAll) {
+            ""
+        } else {
+            request.param("exampleId").orElse("")
+        }
+
+        // Load versions for the selected variant
+        val versions = if (selectedVariantId.isNotBlank()) {
+            ListVersions(
+                tenantId = tenantId,
+                templateId = templateId,
+                variantId = VariantId.of(selectedVariantId),
+            ).query()
+        } else {
+            emptyList()
+        }
+
+        // Version/environment mutual exclusion:
+        // - selecting a version clears the environment
+        // - selecting an environment clears the version
+        // - template/variant change resets both
+        val selectedVersionId = when {
+            resetsAll || triggerName == "variantId" -> ""
+            triggerName == "environmentId" -> ""
+            else -> request.param("versionId").orElse("")
+        }
+        val selectedEnvironmentId = when {
+            resetsAll || triggerName == "variantId" -> ""
+            triggerName == "versionId" -> ""
+            else -> request.param("environmentId").orElse("")
+        }
+
+        // If an example is selected, pretty-print its data as test data
+        val testData = if (selectedExampleId.isNotBlank()) {
+            dataExamples.firstOrNull { it.id == selectedExampleId }?.let {
+                objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(it.data)
+            } ?: ""
+        } else {
+            ""
+        }
+
+        return request.htmx {
+            onNonHtmx {
+                page("loadtest/new") {
+                    "pageTitle" to "Start Load Test - Epistola"
+                    "tenantId" to tenantId
+                    "templates" to ListDocumentTemplates(tenantId = tenantId).query()
+                    "environments" to ListEnvironments(tenantId = tenantId).query()
+                }
+            }
+            fragment("loadtest/new", "template-options") {
+                "variants" to variants
+                "versions" to versions
+                "dataExamples" to dataExamples
+                "environments" to environments
+                "selectedVariantId" to selectedVariantId
+                "selectedVersionId" to selectedVersionId
+                "selectedExampleId" to selectedExampleId
+                "selectedEnvironmentId" to selectedEnvironmentId
+                "testData" to testData
+                "tenantId" to tenantId
+            }
+        }
     }
 
     /**
@@ -73,22 +168,53 @@ class LoadTestHandler(
      */
     fun start(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val params = request.params()
 
-        val templateId = TemplateId.of(params.getFirst("templateId") ?: "")
-        val variantId = VariantId.of(params.getFirst("variantId") ?: "")
+        val form = request.form {
+            field("templateId") {
+                required()
+                asTemplateId()
+            }
+            field("variantId") {
+                required()
+                asVariantId()
+            }
+        }
+
+        if (form.hasErrors()) {
+            val errorMessage = form.errors.values.firstOrNull() ?: "Form validation failed"
+            return request.htmx {
+                fragment("loadtest/new", "form-error") {
+                    "error" to errorMessage
+                }
+                onNonHtmx {
+                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
+                    val environments = ListEnvironments(tenantId = tenantId).query()
+                    ServerResponse.badRequest().page("loadtest/new") {
+                        "pageTitle" to "Start Load Test - Epistola"
+                        "tenantId" to tenantId
+                        "templates" to templates
+                        "environments" to environments
+                        "error" to errorMessage
+                    }
+                }
+            }
+        }
+
+        val templateId = form.getTemplateId("templateId")!!
+        val variantId = form.getVariantId("variantId")!!
 
         // Parse version or environment
+        val params = request.params()
         val versionIdStr = params.getFirst("versionId")
         val environmentIdStr = params.getFirst("environmentId")
 
         val versionId = if (!versionIdStr.isNullOrBlank()) VersionId.of(versionIdStr.toInt()) else null
         val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentId.of(environmentIdStr) else null
 
-        val targetCount = params.getFirst("targetCount")?.toIntOrNull() ?: 100
+        val targetCount = request.queryParamInt("targetCount", 100)
 
         // Parse test data JSON
-        val testDataStr = params.getFirst("testData") ?: "{}"
+        val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
         val testData = objectMapper.readTree(testDataStr) as tools.jackson.databind.node.ObjectNode
 
         try {
@@ -103,21 +229,31 @@ class LoadTestHandler(
                 testData = testData,
             ).execute()
 
-            // Redirect to detail page (both HTMX and non-HTMX)
-            return redirect("/tenants/$tenantId/load-tests/${run.id}")
+            val url = "/tenants/$tenantId/load-tests/${run.id}"
+            return if (request.isHtmx) {
+                ServerResponse.ok().header("HX-Redirect", url).build()
+            } else {
+                redirect(url)
+            }
         } catch (e: Exception) {
-            // Show error and reload form
-            val templates = ListDocumentTemplates(tenantId = tenantId).query()
-            return ServerResponse.badRequest().render(
-                "layout/shell",
-                mapOf(
-                    "contentView" to "loadtest/new",
-                    "pageTitle" to "Start Load Test - Epistola",
-                    "tenantId" to tenantId.value,
-                    "templates" to templates,
-                    "error" to (e.message ?: "Failed to start load test"),
-                ),
-            )
+            val errorMessage = e.message ?: "Failed to start load test"
+
+            return request.htmx {
+                fragment("loadtest/new", "form-error") {
+                    "error" to errorMessage
+                }
+                onNonHtmx {
+                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
+                    val environments = ListEnvironments(tenantId = tenantId).query()
+                    ServerResponse.badRequest().page("loadtest/new") {
+                        "pageTitle" to "Start Load Test - Epistola"
+                        "tenantId" to tenantId
+                        "templates" to templates
+                        "environments" to environments
+                        "error" to errorMessage
+                    }
+                }
+            }
         }
     }
 
@@ -134,16 +270,12 @@ class LoadTestHandler(
         // Fetch template name for display
         val template = GetDocumentTemplate(tenantId = tenantId, id = run.templateId).query()
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/detail",
-                "pageTitle" to "Load Test Details - Epistola",
-                "tenantId" to tenantId.value,
-                "run" to run,
-                "template" to template,
-            ),
-        )
+        return ServerResponse.ok().page("loadtest/detail") {
+            "pageTitle" to "Load Test Details - Epistola"
+            "tenantId" to tenantId
+            "run" to run
+            "template" to template
+        }
     }
 
     /**
@@ -175,8 +307,8 @@ class LoadTestHandler(
             ?: return ServerResponse.notFound().build()
 
         // Parse pagination params
-        val offset = request.param("offset").orElse("0").toInt()
-        val limit = request.param("limit").orElse("100").toInt()
+        val offset = request.queryParamInt("offset", 0)
+        val limit = request.queryParamInt("limit", 100)
 
         val requests = GetLoadTestRequests(
             tenantId = tenantId,
@@ -185,18 +317,14 @@ class LoadTestHandler(
             limit = limit,
         ).query()
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/requests",
-                "pageTitle" to "Load Test Request Log - Epistola",
-                "tenantId" to tenantId.value,
-                "run" to run,
-                "requests" to requests,
-                "offset" to offset,
-                "limit" to limit,
-            ),
-        )
+        return ServerResponse.ok().page("loadtest/requests") {
+            "pageTitle" to "Load Test Request Log - Epistola"
+            "tenantId" to tenantId
+            "run" to run
+            "requests" to requests
+            "offset" to offset
+            "limit" to limit
+        }
     }
 
     /**

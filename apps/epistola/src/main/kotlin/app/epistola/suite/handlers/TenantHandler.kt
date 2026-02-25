@@ -3,7 +3,10 @@ package app.epistola.suite.tenants
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.HxSwap
+import app.epistola.suite.htmx.executeOrFormError
+import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
@@ -13,8 +16,6 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
-import app.epistola.suite.validation.DuplicateIdException
-import app.epistola.suite.validation.ValidationException
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
@@ -45,7 +46,7 @@ class TenantHandler {
             mapOf(
                 "contentView" to "tenants/home",
                 "pageTitle" to "${tenant.name} - Epistola",
-                "tenantId" to tenantId.value,
+                "tenantId" to tenantId,
                 "tenant" to tenant,
                 "templateCount" to templateCount,
                 "themeCount" to themeCount,
@@ -56,7 +57,7 @@ class TenantHandler {
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val searchTerm = request.param("q").orElse(null)
+        val searchTerm = request.queryParam("q")
         val tenants = ListTenants(searchTerm = searchTerm).query()
         return request.htmx {
             fragment("tenants/list", "rows") {
@@ -67,29 +68,37 @@ class TenantHandler {
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val name = request.params().getFirst("name")?.trim().orEmpty()
-        val slug = request.params().getFirst("slug")?.trim().orEmpty()
+        val form = request.form {
+            field("slug") {
+                required()
+                pattern("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
+                minLength(3)
+                maxLength(63)
+            }
+            field("name") {
+                required()
+                maxLength(100)
+            }
+        }
 
-        val command = try {
-            CreateTenant(id = TenantId.of(slug), name = name)
-        } catch (e: IllegalArgumentException) {
-            val formData = mapOf("name" to name, "slug" to slug)
-            val errors = mapOf("slug" to (e.message ?: "Invalid slug"))
+        if (form.hasErrors()) {
             return request.htmx {
                 fragment("tenants/list", "create-form") {
-                    "formData" to formData
-                    "errors" to errors
+                    "formData" to form.formData
+                    "errors" to form.errors
                 }
                 retarget("#create-form")
                 reswap(HxSwap.OUTER_HTML)
                 onNonHtmx { redirect("/") }
             }
-        } catch (e: ValidationException) {
-            val formData = mapOf("name" to name, "slug" to slug)
-            val errors = mapOf(e.field to e.message)
+        }
+
+        val tenantId = TenantId.validateOrNull(form["slug"])
+        if (tenantId == null) {
+            val errors = mapOf("slug" to "Invalid tenant ID format")
             return request.htmx {
                 fragment("tenants/list", "create-form") {
-                    "formData" to formData
+                    "formData" to form.formData
                     "errors" to errors
                 }
                 retarget("#create-form")
@@ -98,15 +107,17 @@ class TenantHandler {
             }
         }
 
-        try {
-            command.execute()
-        } catch (e: DuplicateIdException) {
-            val formData = mapOf("name" to name, "slug" to slug)
-            val errors = mapOf("slug" to "A tenant with this ID already exists")
+        val name = form["name"]
+
+        val result = form.executeOrFormError {
+            CreateTenant(id = tenantId, name = name).execute()
+        }
+
+        if (result.hasErrors()) {
             return request.htmx {
                 fragment("tenants/list", "create-form") {
-                    "formData" to formData
-                    "errors" to errors
+                    "formData" to result.formData
+                    "errors" to result.errors
                 }
                 retarget("#create-form")
                 reswap(HxSwap.OUTER_HTML)

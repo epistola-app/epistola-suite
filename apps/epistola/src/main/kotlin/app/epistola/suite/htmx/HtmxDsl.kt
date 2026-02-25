@@ -45,6 +45,60 @@ class ModelBuilder {
 }
 
 /**
+ * Builder for non-HTMX request handling within the htmx DSL.
+ * Allows both page rendering and redirects.
+ *
+ * Usage:
+ * ```kotlin
+ * onNonHtmx {
+ *     page("templates/list") {
+ *         "templates" to templates
+ *     }
+ * }
+ * ```
+ */
+@HtmxDsl
+class NonHtmxBuilder {
+    private var response: ServerResponse? = null
+
+    /**
+     * Render a full page (wrapped in layout/shell).
+     * Only the last page() or redirect() call is used.
+     */
+    fun page(
+        contentView: String,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        val modelMap = ModelBuilder().apply(model).build()
+        val pageModel = (modelMap + mapOf("contentView" to contentView)).toMutableMap()
+        response = ServerResponse.ok().render("layout/shell", pageModel)
+    }
+
+    /**
+     * Render a full page with custom status code.
+     */
+    fun page(
+        status: Int,
+        contentView: String,
+        model: ModelBuilder.() -> Unit = {},
+    ) {
+        val modelMap = ModelBuilder().apply(model).build()
+        val pageModel = (modelMap + mapOf("contentView" to contentView)).toMutableMap()
+        response = ServerResponse.status(status).render("layout/shell", pageModel)
+    }
+
+    /**
+     * Redirect to a URL.
+     * Only the last page() or redirect() call is used.
+     */
+    fun redirect(url: String) {
+        response = ServerResponse.seeOther(URI.create(url)).build()
+    }
+
+    internal fun build(): ServerResponse? = response
+}
+
+/**
  * Main builder for constructing HTMX responses.
  *
  * Supports:
@@ -101,6 +155,39 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     }
 
     /**
+     * Renders a form error fragment with HTMX OOB swap.
+     * Convenience helper for inline form error responses.
+     *
+     * Automatically:
+     * - Spreads formData and errors into the model
+     * - Sets HxSwap to OUTER_HTML (replaces the entire form element)
+     * - Can be further customized with retarget(), onNonHtmx(), etc.
+     *
+     * Usage:
+     * ```kotlin
+     * return request.htmx {
+     *     formError("tenants/list", "create-form", result)
+     *     onNonHtmx { redirect("/tenants") }
+     * }
+     * ```
+     *
+     * @param template The Thymeleaf template path (e.g., "tenants/list")
+     * @param fragmentName The fragment name to render (e.g., "create-form")
+     * @param formData The FormData object containing errors and formData
+     */
+    fun formError(
+        template: String,
+        fragmentName: String,
+        formData: app.epistola.suite.htmx.FormData,
+    ) {
+        fragment(template, fragmentName) {
+            "formData" to formData.formData
+            "errors" to formData.errors
+        }
+        reswap(HxSwap.OUTER_HTML)
+    }
+
+    /**
      * Triggers a client-side event after the response is processed.
      *
      * @param event The event name to trigger
@@ -152,12 +239,42 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
     }
 
     /**
-     * Sets a handler for non-HTMX requests.
-     * Typically used to redirect after form submission.
+     * Sets a handler for non-HTMX requests using a builder DSL.
+     * Allows rendering pages or redirects.
+     *
+     * Usage:
+     * ```kotlin
+     * onNonHtmx {
+     *     page("templates/list") {
+     *         "templates" to templates
+     *     }
+     * }
+     *
+     * onNonHtmx {
+     *     redirect("/templates")
+     * }
+     * ```
+     *
+     * @param block Lambda to build the non-HTMX response
+     */
+    fun onNonHtmx(block: NonHtmxBuilder.() -> Unit) {
+        nonHtmxHandler = {
+            NonHtmxBuilder().apply(block).build()
+                ?: throw IllegalStateException("onNonHtmx block must call either page() or redirect()")
+        }
+    }
+
+    /**
+     * Sets a handler for non-HTMX requests using a lambda.
+     * Legacy API - prefer onNonHtmx(block) for new code.
      *
      * @param handler Lambda that returns a ServerResponse for non-HTMX requests
      */
-    fun onNonHtmx(handler: () -> ServerResponse) {
+    @Deprecated(
+        "Use onNonHtmx { page(...) } or onNonHtmx { redirect(...) } instead",
+        ReplaceWith("onNonHtmx { redirect(url) }"),
+    )
+    fun onNonHtmxLegacy(handler: () -> ServerResponse) {
         nonHtmxHandler = handler
     }
 
