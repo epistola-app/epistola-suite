@@ -7,9 +7,10 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
-import app.epistola.suite.htmx.htmxTriggerName
 import app.epistola.suite.htmx.htmxBoosted
+import app.epistola.suite.htmx.htmxTriggerName
 import app.epistola.suite.htmx.isHtmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
@@ -42,16 +43,12 @@ class LoadTestHandler(
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val runs = ListLoadTestRuns(tenantId = tenantId, limit = 50).query()
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/list",
-                "pageTitle" to "Load Tests - Epistola",
-                "tenant" to tenant,
-                "tenantId" to tenantId.value,
-                "runs" to runs,
-            ),
-        )
+        return ServerResponse.ok().page("loadtest/list") {
+            "pageTitle" to "Load Tests - Epistola"
+            "tenant" to tenant
+            "tenantId" to tenantId.value
+            "runs" to runs
+        }
     }
 
     /**
@@ -69,16 +66,12 @@ class LoadTestHandler(
             val templates = ListDocumentTemplates(tenantId = tenantId).query()
             val environments = ListEnvironments(tenantId = tenantId).query()
 
-            return ServerResponse.ok().render(
-                "layout/shell",
-                mapOf(
-                    "contentView" to "loadtest/new",
-                    "pageTitle" to "Start Load Test - Epistola",
-                    "tenantId" to tenantId.value,
-                    "templates" to templates,
-                    "environments" to environments,
-                ),
-            )
+            return ServerResponse.ok().page("loadtest/new") {
+                "pageTitle" to "Start Load Test - Epistola"
+                "tenantId" to tenantId.value
+                "templates" to templates
+                "environments" to environments
+            }
         }
 
         // HTMX request: return template-options fragment
@@ -210,17 +203,13 @@ class LoadTestHandler(
                 onNonHtmx {
                     val templates = ListDocumentTemplates(tenantId = tenantId).query()
                     val environments = ListEnvironments(tenantId = tenantId).query()
-                    ServerResponse.badRequest().render(
-                        "layout/shell",
-                        mapOf(
-                            "contentView" to "loadtest/new",
-                            "pageTitle" to "Start Load Test - Epistola",
-                            "tenantId" to tenantId.value,
-                            "templates" to templates,
-                            "environments" to environments,
-                            "error" to errorMessage,
-                        ),
-                    )
+                    ServerResponse.badRequest().page("loadtest/new") {
+                        "pageTitle" to "Start Load Test - Epistola"
+                        "tenantId" to tenantId.value
+                        "templates" to templates
+                        "environments" to environments
+                        "error" to errorMessage
+                    }
                 }
             }
         }
@@ -239,16 +228,12 @@ class LoadTestHandler(
         // Fetch template name for display
         val template = GetDocumentTemplate(tenantId = tenantId, id = run.templateId).query()
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/detail",
-                "pageTitle" to "Load Test Details - Epistola",
-                "tenantId" to tenantId.value,
-                "run" to run,
-                "template" to template,
-            ),
-        )
+        return ServerResponse.ok().page("loadtest/detail") {
+            "pageTitle" to "Load Test Details - Epistola"
+            "tenantId" to tenantId.value
+            "run" to run
+            "template" to template
+        }
     }
 
     /**
@@ -290,18 +275,14 @@ class LoadTestHandler(
             limit = limit,
         ).query()
 
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "loadtest/requests",
-                "pageTitle" to "Load Test Request Log - Epistola",
-                "tenantId" to tenantId.value,
-                "run" to run,
-                "requests" to requests,
-                "offset" to offset,
-                "limit" to limit,
-            ),
-        )
+        return ServerResponse.ok().page("loadtest/requests") {
+            "pageTitle" to "Load Test Request Log - Epistola"
+            "tenantId" to tenantId.value
+            "run" to run
+            "requests" to requests
+            "offset" to offset
+            "limit" to limit
+        }
     }
 
     /**

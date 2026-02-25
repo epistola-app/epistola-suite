@@ -4,6 +4,7 @@
     <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
     <module name="epistola-suite.apps.epistola.main" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="app.epistola.suite.EpistolaSuiteApplication" />
+    <extension name="com.github.l34130.mise.core.run.MiseRunConfigurationSettingsEditor" myConfigEnvironmentStrategy="use_project_settings" myMiseDirEnvCb="false" myMiseConfigEnvironmentTf="" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

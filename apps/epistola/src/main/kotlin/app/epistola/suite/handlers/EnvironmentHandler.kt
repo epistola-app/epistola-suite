@@ -5,13 +5,14 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.htmx.executeOrFormError
+import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
-import app.epistola.suite.validation.DuplicateIdException
-import app.epistola.suite.validation.ValidationException
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -23,16 +24,12 @@ class EnvironmentHandler {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val environments = ListEnvironments(tenantId = tenantId).query()
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "environments/list",
-                "pageTitle" to "Environments - Epistola",
-                "tenant" to tenant,
-                "tenantId" to tenantId.value,
-                "environments" to environments,
-            ),
-        )
+        return ServerResponse.ok().page("environments/list") {
+            "pageTitle" to "Environments - Epistola"
+            "tenant" to tenant
+            "tenantId" to tenantId.value
+            "environments" to environments
+        }
     }
 
     fun search(request: ServerRequest): ServerResponse {
@@ -50,53 +47,53 @@ class EnvironmentHandler {
 
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        return ServerResponse.ok().render(
-            "layout/shell",
-            mapOf(
-                "contentView" to "environments/new",
-                "pageTitle" to "New Environment - Epistola",
-                "tenantId" to tenantId.value,
-            ),
-        )
+        return ServerResponse.ok().page("environments/new") {
+            "pageTitle" to "New Environment - Epistola"
+            "tenantId" to tenantId.value
+        }
     }
 
     fun create(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val slug = request.params().getFirst("slug")?.trim().orEmpty()
-        val name = request.params().getFirst("name")?.trim().orEmpty()
 
-        fun renderFormWithErrors(errors: Map<String, String>): ServerResponse {
-            val formData = mapOf("slug" to slug, "name" to name)
-            return ServerResponse.ok().render(
-                "layout/shell",
-                mapOf(
-                    "contentView" to "environments/new",
-                    "pageTitle" to "New Environment - Epistola",
-                    "tenantId" to tenantId.value,
-                    "formData" to formData,
-                    "errors" to errors,
-                ),
-            )
+        val form = request.form {
+            field("slug") {
+                required()
+                asEnvironmentId()
+            }
+            field("name") {
+                required()
+                maxLength(100)
+            }
         }
 
-        // Validate slug
-        val environmentId = EnvironmentId.validateOrNull(slug)
-        if (environmentId == null) {
-            return renderFormWithErrors(
-                mapOf("slug" to "Invalid environment ID format. Must be 3-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens."),
-            )
+        if (form.hasErrors()) {
+            return ServerResponse.ok().page("environments/new") {
+                "pageTitle" to "New Environment - Epistola"
+                "tenantId" to tenantId.value
+                "formData" to form.formData
+                "errors" to form.errors
+            }
         }
 
-        try {
+        val environmentId = form.getEnvironmentId("slug")!!
+        val name = form["name"]
+
+        val result = form.executeOrFormError {
             CreateEnvironment(
                 id = environmentId,
                 tenantId = tenantId,
                 name = name,
             ).execute()
-        } catch (e: ValidationException) {
-            return renderFormWithErrors(mapOf(e.field to e.message))
-        } catch (e: DuplicateIdException) {
-            return renderFormWithErrors(mapOf("slug" to "An environment with this ID already exists"))
+        }
+
+        if (result.hasErrors()) {
+            return ServerResponse.ok().page("environments/new") {
+                "pageTitle" to "New Environment - Epistola"
+                "tenantId" to tenantId.value
+                "formData" to result.formData
+                "errors" to result.errors
+            }
         }
 
         return ServerResponse.status(303)
