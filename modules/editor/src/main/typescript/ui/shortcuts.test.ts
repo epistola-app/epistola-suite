@@ -1,103 +1,123 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { buildShortcutGroupsProjection } from './shortcuts.js'
 import {
-  LEADER_SHORTCUTS,
-  LEADER_KEY_LABEL,
-  CORE_SHORTCUTS,
-  RESIZE_SHORTCUTS,
-  TEXT_SHORTCUTS,
-  INSERT_DIALOG_SHORTCUTS,
-  buildShortcutGroups,
-} from './shortcuts.js'
-import {
-  EDITOR_SHORTCUTS_CONFIG,
-  buildLeaderShortcutLookup,
-  type LeaderShortcutCommandConfig,
-} from '../shortcuts-config.js'
+  SHORTCUT_HELPER_ONE_COLUMN_MAX_ITEMS,
+  SHORTCUT_HELPER_TWO_COLUMN_MIN_ITEMS,
+} from '../shortcuts/helper-projection.js'
 
-describe('shortcuts', () => {
-  it('builds shortcut groups in expected order', () => {
-    const groups = buildShortcutGroups()
+describe('shortcut helper projection', () => {
+  it('orders groups by helper display contract', () => {
+    const projection = buildShortcutGroupsProjection()
 
-    expect(groups).toHaveLength(6)
-    expect(groups.map((group) => group.title)).toEqual([
+    expect(projection.groups.map((group) => group.title)).toEqual([
       'Leader Key',
       'Leader Commands',
       'Core',
-      'Resize Handle',
-      'Text Editing',
-      'Insert Dialog',
+      'Text',
+      'Insert',
+      'Resize',
     ])
-    expect(groups[0].items).toEqual([{ keys: LEADER_KEY_LABEL, action: 'Enter leader mode' }])
-    expect(groups[2].items).toEqual(CORE_SHORTCUTS)
-    expect(groups[3].items).toEqual(RESIZE_SHORTCUTS)
-    expect(groups[4].items).toEqual(TEXT_SHORTCUTS)
-    expect(groups[5].items).toEqual(INSERT_DIALOG_SHORTCUTS)
   })
 
-  it('maps leader commands into Leader Commands group', () => {
-    const groups = buildShortcutGroups()
-    const leaderCommandGroup = groups[1]
+  it('keeps one-off leader key group full width', () => {
+    const projection = buildShortcutGroupsProjection()
+    const leaderKey = projection.groups[0]
 
-    expect(leaderCommandGroup.items).toEqual(
-      LEADER_SHORTCUTS.map((command) => ({ keys: command.label, action: command.action })),
-    )
+    expect(leaderKey?.title).toBe('Leader Key')
+    expect(leaderKey?.fullWidth).toBe(true)
+    expect(leaderKey?.items.length).toBe(1)
   })
 
-  it('defines unique leader keys and idle tokens', () => {
-    const keys = LEADER_SHORTCUTS.map((command) => command.key)
-    const idleTokens = LEADER_SHORTCUTS.map((command) => command.idleToken)
+  it('applies deterministic layout thresholds per group item count', () => {
+    const projection = buildShortcutGroupsProjection()
 
-    expect(new Set(keys).size).toBe(keys.length)
-    expect(new Set(idleTokens).size).toBe(idleTokens.length)
-  })
-
-  it('includes command metadata required by leader mode', () => {
-    for (const command of LEADER_SHORTCUTS) {
-      expect(command.key.length).toBeGreaterThan(0)
-      expect(command.idleToken.length).toBeGreaterThan(0)
-      expect(command.successMessage.length).toBeGreaterThan(0)
+    for (const group of projection.groups) {
+      if (group.items.length <= SHORTCUT_HELPER_ONE_COLUMN_MAX_ITEMS) {
+        expect(group.layout).toBe('one-column')
+      }
+      if (group.items.length >= SHORTCUT_HELPER_TWO_COLUMN_MIN_ITEMS) {
+        expect(group.layout).toBe('two-column')
+      }
     }
   })
 
-  it('uses consistent Leader + label format for displayed commands', () => {
-    for (const command of LEADER_SHORTCUTS) {
-      expect(command.label.startsWith('Leader + ')).toBe(true)
-      const suffix = command.label.slice('Leader + '.length).trim()
-      expect(suffix.length).toBeGreaterThan(0)
-    }
+  it('supports search by command label and key text', () => {
+    const byLabel = buildShortcutGroupsProjection({ query: 'duplicate selected block' })
+    expect(byLabel.groups).toHaveLength(1)
+    expect(byLabel.groups[0]?.title).toBe('Leader Commands')
+
+    const byKey = buildShortcutGroupsProjection({ query: 'ctrl/cmd + z' })
+    const core = byKey.groups.find((group) => group.title === 'Core')
+    expect(core).toBeDefined()
+    expect(core?.items.some((item) => item.keys === '{cmd} + Z')).toBe(true)
   })
 
-  it('includes leader shortcut for focusing resize handle', () => {
-    expect(LEADER_SHORTCUTS).toContainEqual(
-      expect.objectContaining({
-        key: 'r',
-        label: 'Leader + R',
-        action: 'Focus resize handle',
-        successMessage: 'Focused resize handle',
-        idleToken: 'R',
-      }),
-    )
+  it('marks active shortcut rows when active strokes are provided', () => {
+    const projection = buildShortcutGroupsProjection({ activeStrokes: ['mod+space'] })
+
+    const leaderKey = projection.groups.find((group) => group.title === 'Leader Key')
+    expect(leaderKey?.items.some((item) => item.active)).toBe(true)
+
+    const leaderCommands = projection.groups.find((group) => group.title === 'Leader Commands')
+    expect(leaderCommands?.items.some((item) => item.active)).toBe(true)
   })
 
-  it('maps leader alias keys to the same command', () => {
-    const lookup = buildLeaderShortcutLookup()
-    expect(lookup.get('?')?.id).toBe('open-shortcuts-help')
-    expect(lookup.get('/')?.id).toBe('open-shortcuts-help')
-  })
+  it('snapshots layout metadata for section ordering and width rules', () => {
+    const projection = buildShortcutGroupsProjection()
 
-  it('throws on duplicate leader keys in config', () => {
-    const commands: LeaderShortcutCommandConfig[] = [
-      ...EDITOR_SHORTCUTS_CONFIG.leader.commands,
-      {
-        id: 'focus-resize-handle',
-        keys: ['p'],
-        helpKeys: 'Leader + R duplicate',
-        action: 'Duplicate key for test',
-        successMessage: 'Duplicate key for test',
-        idleToken: 'R',
-      },
-    ]
-
-    expect(() => buildLeaderShortcutLookup(commands)).toThrow('Duplicate leader shortcut key "p"')
+    expect(
+      projection.groups.map((group) => ({
+        id: group.id,
+        title: group.title,
+        fullWidth: group.fullWidth,
+        layout: group.layout,
+        itemCount: group.items.length,
+      })),
+    ).toMatchInlineSnapshot(`
+      [
+        {
+          "fullWidth": true,
+          "id": "leader-key",
+          "itemCount": 1,
+          "layout": "one-column",
+          "title": "Leader Key",
+        },
+        {
+          "fullWidth": false,
+          "id": "leader-commands",
+          "itemCount": 10,
+          "layout": "two-column",
+          "title": "Leader Commands",
+        },
+        {
+          "fullWidth": false,
+          "id": "core",
+          "itemCount": 5,
+          "layout": "one-column",
+          "title": "Core",
+        },
+        {
+          "fullWidth": false,
+          "id": "text",
+          "itemCount": 5,
+          "layout": "one-column",
+          "title": "Text",
+        },
+        {
+          "fullWidth": false,
+          "id": "insert",
+          "itemCount": 18,
+          "layout": "two-column",
+          "title": "Insert",
+        },
+        {
+          "fullWidth": false,
+          "id": "resize",
+          "itemCount": 3,
+          "layout": "one-column",
+          "title": "Resize",
+        },
+      ]
+    `)
   })
 })

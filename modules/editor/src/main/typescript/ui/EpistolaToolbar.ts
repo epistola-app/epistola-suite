@@ -4,43 +4,25 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { SaveState } from './save-service.js'
 import type { ToolbarAction } from '../plugins/types.js'
 import { icon } from './icons.js'
+import { buildShortcutGroupsProjection, type ShortcutGroup } from './shortcuts.js'
+import { normalizeShortcutEvent } from '../shortcuts/resolver.js'
 import {
-  EDITOR_SHORTCUTS_CONFIG,
-  buildShortcutGroupsFromConfig,
-  type CoreShortcutId,
-  type ShortcutGroupConfig,
-} from '../shortcuts-config.js'
-
-const SHORTCUT_GROUPS: ShortcutGroupConfig[] = buildShortcutGroupsFromConfig()
-
-const CORE_SHORTCUTS_BY_ID = new Map(
-  EDITOR_SHORTCUTS_CONFIG.core.map((shortcut) => [shortcut.id, shortcut] as const),
-)
-
-function getLeaderShortcutHelp(shortcutId: 'open-shortcuts-help'): string {
-  const shortcut = EDITOR_SHORTCUTS_CONFIG.leader.commands.find((command) => command.id === shortcutId)
-  if (!shortcut) {
-    throw new Error(`Missing leader shortcut command config for "${shortcutId}"`)
-  }
-  return shortcut.helpKeys
-}
-
-function getCoreShortcutHelp(shortcutId: CoreShortcutId): string {
-  const shortcut = CORE_SHORTCUTS_BY_ID.get(shortcutId)
-  if (!shortcut) {
-    throw new Error(`Missing core shortcut config for "${shortcutId}"`)
-  }
-  return shortcut.helpKeys
-}
+  EDITOR_SHORTCUT_COMMAND_IDS,
+  getShortcutDisplayForCommandId,
+} from '../shortcuts/editor-runtime.js'
 
 function toTooltipShortcutLabel(helpKeys: string): string {
   return helpKeys.replaceAll('{cmd}', 'Ctrl/Cmd')
 }
 
-const UNDO_SHORTCUT_HELP = getCoreShortcutHelp('undo')
-const REDO_SHORTCUT_HELP = getCoreShortcutHelp('redo')
-const SAVE_SHORTCUT_HELP = getCoreShortcutHelp('save')
-const OPEN_SHORTCUTS_HELP_KEYS = getLeaderShortcutHelp('open-shortcuts-help')
+const UNDO_SHORTCUT_HELP = getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.undo)
+const REDO_SHORTCUT_HELP = getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.redo)
+const SAVE_SHORTCUT_HELP = getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.save)
+
+const SHORTCUT_ACTIVE_FEEDBACK_MS = 650
+const SHORTCUTS_TRIGGER_SELECTOR = '.toolbar-shortcuts-trigger'
+const SHORTCUTS_SEARCH_SELECTOR = '.toolbar-shortcuts-search-input'
+const SHORTCUTS_POPOVER_ID = 'epistola-toolbar-shortcuts-popover'
 
 @customElement('epistola-toolbar')
 export class EpistolaToolbar extends LitElement {
@@ -57,20 +39,36 @@ export class EpistolaToolbar extends LitElement {
 
   @state() private _currentExampleIndex = 0
   @state() private _shortcutsOpen = false
+  @state() private _shortcutsQuery = ''
+  @state() private _activeShortcutStrokes: string[] = []
 
   private _unsubExample?: () => void
   private _unsubDoc?: () => void
+  private _activeShortcutClearTimeout: ReturnType<typeof setTimeout> | null = null
   private _onWindowKeydown = (e: KeyboardEvent) => {
     if (!this._shortcutsOpen) return
-    if (e.key !== 'Escape') return
-    e.preventDefault()
-    this._shortcutsOpen = false
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      this._closeShortcuts({ restoreFocus: true })
+      return
+    }
+
+    if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') {
+      return
+    }
+
+    const normalized = normalizeShortcutEvent(e)
+    const activeStrokes = [normalized.keyStroke, normalized.codeStroke]
+      .map((stroke) => stroke.trim().toLowerCase())
+      .filter((stroke) => stroke.length > 0)
+    this._activeShortcutStrokes = [...new Set(activeStrokes)]
+    this._scheduleClearActiveShortcutFeedback()
   }
   private _onWindowPointerDown = (e: PointerEvent) => {
     if (!this._shortcutsOpen) return
     const target = e.target
     if (target instanceof Element && target.closest('.toolbar-shortcuts')) return
-    this._shortcutsOpen = false
+    this._closeShortcuts()
   }
 
   override connectedCallback(): void {
@@ -91,6 +89,7 @@ export class EpistolaToolbar extends LitElement {
     this._unsubscribeAll()
     window.removeEventListener('keydown', this._onWindowKeydown)
     window.removeEventListener('pointerdown', this._onWindowPointerDown, true)
+    this._clearActiveShortcutFeedback()
     super.disconnectedCallback()
   }
 
@@ -135,13 +134,74 @@ export class EpistolaToolbar extends LitElement {
     this.engine?.setCurrentExample(index)
   }
 
+  private _scheduleClearActiveShortcutFeedback(): void {
+    if (this._activeShortcutClearTimeout) {
+      clearTimeout(this._activeShortcutClearTimeout)
+    }
+    this._activeShortcutClearTimeout = setTimeout(() => {
+      this._activeShortcutStrokes = []
+      this._activeShortcutClearTimeout = null
+    }, SHORTCUT_ACTIVE_FEEDBACK_MS)
+  }
+
+  private _clearActiveShortcutFeedback(): void {
+    if (this._activeShortcutClearTimeout) {
+      clearTimeout(this._activeShortcutClearTimeout)
+      this._activeShortcutClearTimeout = null
+    }
+    this._activeShortcutStrokes = []
+  }
+
+  private _focusShortcutSearchAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        const input = this.querySelector<HTMLInputElement>(SHORTCUTS_SEARCH_SELECTOR)
+        input?.focus({ preventScroll: true })
+      })
+    })
+  }
+
+  private _focusShortcutTriggerAfterRender(): void {
+    void this.updateComplete.then(() => {
+      requestAnimationFrame(() => {
+        const trigger = this.querySelector<HTMLElement>(SHORTCUTS_TRIGGER_SELECTOR)
+        trigger?.focus({ preventScroll: true })
+      })
+    })
+  }
+
+  private _openShortcuts(): void {
+    this._shortcutsOpen = true
+    this._clearActiveShortcutFeedback()
+    this._focusShortcutSearchAfterRender()
+  }
+
+  private _closeShortcuts(options: { restoreFocus?: boolean } = {}): void {
+    if (!this._shortcutsOpen) return
+    this._shortcutsOpen = false
+    this._shortcutsQuery = ''
+    this._clearActiveShortcutFeedback()
+    if (options.restoreFocus) {
+      this._focusShortcutTriggerAfterRender()
+    }
+  }
+
   private _toggleShortcutHelp(e: Event) {
     e.stopPropagation()
-    this._shortcutsOpen = !this._shortcutsOpen
+    if (this._shortcutsOpen) {
+      this._closeShortcuts()
+      return
+    }
+    this._openShortcuts()
   }
 
   openShortcuts(): void {
-    this._shortcutsOpen = true
+    this._openShortcuts()
+  }
+
+  private _handleShortcutSearchInput(e: Event): void {
+    const target = e.target as HTMLInputElement
+    this._shortcutsQuery = target.value
   }
 
   private _renderShortcutKeys(keys: string) {
@@ -278,6 +338,12 @@ export class EpistolaToolbar extends LitElement {
   }
 
   private _renderExampleSelector(examples: object[]) {
+    const shortcutProjection = buildShortcutGroupsProjection({
+      query: this._shortcutsQuery,
+      activeStrokes: this._activeShortcutStrokes,
+    })
+    const shortcutGroups = shortcutProjection.groups
+
     return html`
       <div class="toolbar-example-selector">
         <label class="toolbar-example-label" for="example-select">Data</label>
@@ -300,6 +366,8 @@ export class EpistolaToolbar extends LitElement {
             type="button"
             title="Keyboard shortcuts"
             aria-label="Keyboard shortcuts"
+            aria-haspopup="dialog"
+            aria-controls=${SHORTCUTS_POPOVER_ID}
             aria-expanded=${String(this._shortcutsOpen)}
             @click=${this._toggleShortcutHelp}
           >
@@ -308,22 +376,42 @@ export class EpistolaToolbar extends LitElement {
 
           ${this._shortcutsOpen
             ? html`
-                <div class="toolbar-shortcuts-popover" data-testid="shortcuts-popover" role="dialog" aria-label="Keyboard shortcuts">
+                <div
+                  id=${SHORTCUTS_POPOVER_ID}
+                  class="toolbar-shortcuts-popover"
+                  data-testid="shortcuts-popover"
+                  role="dialog"
+                  aria-label="Keyboard shortcuts"
+                >
                   <div class="toolbar-shortcuts-title">Keyboard Shortcuts</div>
+                  <div class="toolbar-shortcuts-search">
+                    <input
+                      class="toolbar-shortcuts-search-input"
+                      type="search"
+                      placeholder="Search shortcuts"
+                      .value=${this._shortcutsQuery}
+                      aria-label="Filter keyboard shortcuts"
+                      @input=${this._handleShortcutSearchInput}
+                    />
+                  </div>
                   <div class="toolbar-shortcuts-groups">
-                    ${SHORTCUT_GROUPS.map((group) => html`
-                      <div class="toolbar-shortcuts-group ${group.dividerAfter ? 'with-divider' : ''}">
+                    ${shortcutGroups.length === 0
+                      ? html`<div class="toolbar-shortcuts-empty">No shortcuts found for this filter.</div>`
+                      : shortcutGroups.map((group: ShortcutGroup) => html`
+                      <div class="toolbar-shortcuts-group ${group.fullWidth ? 'is-full-width' : ''}">
                         <div class="toolbar-shortcuts-group-title">${group.title}</div>
-                        ${group.items.map((item) => html`
-                          <div class="toolbar-shortcuts-row">
-                            <span class="toolbar-shortcuts-keys">${this._renderShortcutKeys(item.keys)}</span>
-                            <span class="toolbar-shortcuts-action">${item.action}</span>
-                          </div>
-                        `)}
+                        <div class="toolbar-shortcuts-items ${group.layout === 'two-column' ? 'layout-two-column' : 'layout-one-column'}">
+                          ${group.items.map((item) => html`
+                            <div class="toolbar-shortcuts-row ${item.active ? 'is-active' : ''}">
+                              <span class="toolbar-shortcuts-keys">${this._renderShortcutKeys(item.keys)}</span>
+                              <span class="toolbar-shortcuts-action">${item.action}</span>
+                            </div>
+                          `)}
+                        </div>
                       </div>
                     `)}
                   </div>
-                  <div class="toolbar-shortcuts-footer">Tip: ${OPEN_SHORTCUTS_HELP_KEYS} opens this help</div>
+                  <div class="toolbar-shortcuts-footer">Tip: ${shortcutProjection.footerTip} opens this help</div>
                 </div>
               `
             : nothing}

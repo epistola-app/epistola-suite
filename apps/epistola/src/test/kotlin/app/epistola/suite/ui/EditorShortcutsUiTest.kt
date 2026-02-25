@@ -42,12 +42,12 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
     }
 
     @Test
-    fun `leader question mark opens shortcuts and escape closes it`() {
+    fun `leader slash opens shortcuts and escape closes it`() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
 
         page.keyboard().press("Control+Space")
-        page.keyboard().press("Shift+/")
+        page.keyboard().press("/")
 
         val popover = page.getByTestId("shortcuts-popover")
         assertThat(popover).isVisible()
@@ -115,7 +115,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
         val leaderMessage = page.getByTestId("leader-message")
 
         page.keyboard().press("Control+Space")
-        page.keyboard().press("Shift+/")
+        page.keyboard().press("/")
 
         assertThat(page.getByTestId("shortcuts-popover")).isVisible()
         assertThat(leaderHint).isVisible()

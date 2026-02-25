@@ -1,61 +1,58 @@
 import {
-  EDITOR_SHORTCUTS_CONFIG,
-  buildShortcutGroupsFromConfig,
-  type LeaderShortcutCommandConfig,
-  type ShortcutGroupConfig,
-  type ShortcutHelpItem,
-} from '../shortcuts-config.js'
+  buildShortcutHelperProjection,
+  type ShortcutHelperProjection,
+  type ShortcutHelperProjectionGroup,
+  type ShortcutHelperProjectionItem,
+  type ShortcutHelperProjectionOptions,
+} from '../shortcuts/helper-projection.js'
 
-export interface LeaderShortcutDefinition {
-  key: string
-  label: string
+export interface ShortcutHelpItem {
+  keys: string
   action: string
-  successMessage: string
-  idleToken: string
+  active: boolean
 }
 
-export type ShortcutGroup = ShortcutGroupConfig
+export interface ShortcutGroup {
+  id: string
+  title: string
+  fullWidth: boolean
+  layout: 'one-column' | 'two-column'
+  items: readonly ShortcutHelpItem[]
+}
 
-function toLegacyLeaderShortcut(command: LeaderShortcutCommandConfig): LeaderShortcutDefinition {
-  const key = command.keys[0]
-  if (!key) {
-    throw new Error(`Leader shortcut command "${command.id}" must define at least one key`)
-  }
+export interface ShortcutGroupsProjection {
+  groups: readonly ShortcutGroup[]
+  footerTip: string
+}
 
+function toShortcutHelpItem(item: ShortcutHelperProjectionItem): ShortcutHelpItem {
   return {
-    key,
-    label: command.helpKeys,
-    action: command.action,
-    successMessage: command.successMessage,
-    idleToken: command.idleToken,
+    keys: item.keys,
+    action: item.action,
+    active: item.active,
   }
 }
 
-export const LEADER_KEY_LABEL = EDITOR_SHORTCUTS_CONFIG.leader.activation.helpKeys
+function toShortcutGroup(group: ShortcutHelperProjectionGroup): ShortcutGroup {
+  return {
+    id: group.id,
+    title: group.title,
+    fullWidth: group.fullWidth,
+    layout: group.layout,
+    items: group.items.map((item) => toShortcutHelpItem(item)),
+  }
+}
 
-export const LEADER_SHORTCUTS: LeaderShortcutDefinition[] = EDITOR_SHORTCUTS_CONFIG.leader.commands.map(
-  toLegacyLeaderShortcut,
-)
+export function buildShortcutGroupsProjection(
+  options: ShortcutHelperProjectionOptions = {},
+): ShortcutGroupsProjection {
+  const projection: ShortcutHelperProjection = buildShortcutHelperProjection(options)
+  return {
+    groups: projection.groups.map((group) => toShortcutGroup(group)),
+    footerTip: projection.footerTip,
+  }
+}
 
-export const CORE_SHORTCUTS: ShortcutHelpItem[] = EDITOR_SHORTCUTS_CONFIG.core.map((shortcut) => ({
-  keys: shortcut.helpKeys,
-  action: shortcut.action,
-}))
-
-export const RESIZE_SHORTCUTS: ShortcutHelpItem[] = EDITOR_SHORTCUTS_CONFIG.resize.keyboard.map((shortcut) => ({
-  keys: shortcut.helpKeys,
-  action: shortcut.action,
-}))
-
-export const TEXT_SHORTCUTS: ShortcutHelpItem[] = EDITOR_SHORTCUTS_CONFIG.text.map((shortcut) => ({
-  keys: shortcut.helpKeys,
-  action: shortcut.action,
-}))
-
-export const INSERT_DIALOG_SHORTCUTS: ShortcutHelpItem[] = EDITOR_SHORTCUTS_CONFIG.insertDialog.help.map(
-  (shortcut) => ({ keys: shortcut.keys, action: shortcut.action }),
-)
-
-export function buildShortcutGroups(): ShortcutGroup[] {
-  return buildShortcutGroupsFromConfig()
+export function buildShortcutGroups(options: ShortcutHelperProjectionOptions = {}): ShortcutGroup[] {
+  return [...buildShortcutGroupsProjection(options).groups]
 }

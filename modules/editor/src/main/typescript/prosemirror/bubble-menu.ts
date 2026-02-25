@@ -11,21 +11,9 @@ import type { Schema, MarkType, NodeType } from 'prosemirror-model'
 import { toggleMark, setBlockType } from 'prosemirror-commands'
 import { wrapInList } from 'prosemirror-schema-list'
 import { computePosition, offset, flip, shift } from '@floating-ui/dom'
-import { EDITOR_SHORTCUTS_CONFIG, type TextShortcutId } from '../shortcuts-config.js'
+import { TEXT_SHORTCUT_COMMAND_IDS, getTextBubbleTitle } from '../shortcuts/text-runtime.js'
 
 const BUBBLE_MENU_KEY = new PluginKey('bubbleMenu')
-
-const TEXT_SHORTCUTS_BY_ID = new Map(
-  EDITOR_SHORTCUTS_CONFIG.text.map((shortcut) => [shortcut.id, shortcut] as const),
-)
-
-function getBubbleShortcutTitle(shortcutId: TextShortcutId, fallbackTitle: string): string {
-  const shortcut = TEXT_SHORTCUTS_BY_ID.get(shortcutId)
-  if (!shortcut || !('bubbleTitle' in shortcut)) {
-    return fallbackTitle
-  }
-  return shortcut.bubbleTitle ?? fallbackTitle
-}
 
 // ---------------------------------------------------------------------------
 // Mark / block active helpers
@@ -68,7 +56,7 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
   if (schema.marks.strong) {
     defs.push({
       label: 'B',
-      title: getBubbleShortcutTitle('bold', 'Bold'),
+      title: getTextBubbleTitle(TEXT_SHORTCUT_COMMAND_IDS.bold, 'Bold'),
       className: 'pm-bubble-btn bold',
       isActive: (view) => markActive(view, schema.marks.strong),
       command: (view) => toggleMark(schema.marks.strong)(view.state, view.dispatch, view),
@@ -79,7 +67,7 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
   if (schema.marks.em) {
     defs.push({
       label: 'I',
-      title: getBubbleShortcutTitle('italic', 'Italic'),
+      title: getTextBubbleTitle(TEXT_SHORTCUT_COMMAND_IDS.italic, 'Italic'),
       className: 'pm-bubble-btn italic',
       isActive: (view) => markActive(view, schema.marks.em),
       command: (view) => toggleMark(schema.marks.em)(view.state, view.dispatch, view),
@@ -90,7 +78,7 @@ function createButtonDefs(schema: Schema): ButtonDef[] {
   if (schema.marks.underline) {
     defs.push({
       label: 'U',
-      title: getBubbleShortcutTitle('underline', 'Underline'),
+      title: getTextBubbleTitle(TEXT_SHORTCUT_COMMAND_IDS.underline, 'Underline'),
       className: 'pm-bubble-btn underline',
       isActive: (view) => markActive(view, schema.marks.underline),
       command: (view) => toggleMark(schema.marks.underline)(view.state, view.dispatch, view),

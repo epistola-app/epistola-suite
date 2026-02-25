@@ -1,41 +1,67 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
-  getResizeResultForKey,
+  DEFAULT_WIDTH,
   KEYBOARD_RESIZE_STEP,
-  MIN_WIDTH,
   MAX_WIDTH,
+  MIN_WIDTH,
+  STORAGE_KEY,
+  EpistolaResizeHandle,
 } from './EpistolaResizeHandle.js'
 
-describe('getResizeResultForKey', () => {
-  it('grows preview width on ArrowLeft using keyboard step', () => {
-    expect(getResizeResultForKey('ArrowLeft', 400)).toEqual({
-      nextWidth: 400 + KEYBOARD_RESIZE_STEP,
-      closePreview: false,
-    })
+const originalLocalStorage = globalThis.localStorage
+
+function setMockStorage(valueByKey: Record<string, string | null>): void {
+  const storage: Storage = {
+    getItem: (key) => {
+      const value = valueByKey[key]
+      return value ?? null
+    },
+    setItem: () => {},
+    removeItem: () => {},
+    clear: () => {},
+    key: () => null,
+    length: 0,
+  }
+
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: storage,
+  })
+}
+
+afterEach(() => {
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: originalLocalStorage,
+  })
+})
+
+describe('EpistolaResizeHandle storage and constants', () => {
+  it('returns default width when no persisted value exists', () => {
+    setMockStorage({})
+    expect(EpistolaResizeHandle.getPersistedWidth()).toBe(DEFAULT_WIDTH)
   })
 
-  it('clamps ArrowLeft width changes to the max width', () => {
-    expect(getResizeResultForKey('ArrowLeft', MAX_WIDTH)).toEqual({
-      nextWidth: MAX_WIDTH,
-      closePreview: false,
+  it('clamps persisted width values to configured min/max range', () => {
+    setMockStorage({
+      [STORAGE_KEY]: String(MAX_WIDTH + 999),
     })
+    expect(EpistolaResizeHandle.getPersistedWidth()).toBe(MAX_WIDTH)
+
+    setMockStorage({
+      [STORAGE_KEY]: String(MIN_WIDTH - 999),
+    })
+    expect(EpistolaResizeHandle.getPersistedWidth()).toBe(MIN_WIDTH)
   })
 
-  it('shrinks preview width on ArrowRight using keyboard step', () => {
-    expect(getResizeResultForKey('ArrowRight', MIN_WIDTH + KEYBOARD_RESIZE_STEP)).toEqual({
-      nextWidth: MIN_WIDTH,
-      closePreview: false,
+  it('falls back to default width when persisted value is not numeric', () => {
+    setMockStorage({
+      [STORAGE_KEY]: 'not-a-number',
     })
+    expect(EpistolaResizeHandle.getPersistedWidth()).toBe(DEFAULT_WIDTH)
   })
 
-  it('closes preview on ArrowRight when already at minimum width', () => {
-    expect(getResizeResultForKey('ArrowRight', MIN_WIDTH)).toEqual({
-      nextWidth: MIN_WIDTH,
-      closePreview: true,
-    })
-  })
-
-  it('ignores non-resize keys', () => {
-    expect(getResizeResultForKey('Enter', 400)).toBeNull()
+  it('keeps keyboard resize step positive for width adjustments', () => {
+    expect(KEYBOARD_RESIZE_STEP).toBeGreaterThan(0)
   })
 })

@@ -12,13 +12,25 @@ import type { EditorPlugin, PluginContext, PluginDisposeFn, SidebarTabContributi
 import type { EpistolaSidebar } from './EpistolaSidebar.js'
 import type { EpistolaToolbar } from './EpistolaToolbar.js'
 import { nanoid } from 'nanoid'
+import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js'
 import {
-  EDITOR_SHORTCUTS_CONFIG,
-  buildLeaderShortcutLookup,
-  type CoreShortcutId,
-  type LeaderShortcutCommandConfig,
-  type ShortcutBinding,
-} from '../shortcuts-config.js'
+  getEditorShortcutRegistry,
+  getLeaderIdleTokensForCommandIds,
+  type EditorShortcutRuntimeContext,
+} from '../shortcuts/editor-runtime.js'
+import {
+  getInsertDialogShortcutRegistry,
+  type InsertDialogShortcutRuntimeContext,
+} from '../shortcuts/insert-dialog-runtime.js'
+import {
+  ShortcutResolver,
+  applyResolutionEventPolicy,
+  startShortcutCommandExecution,
+  type ShortcutCommandExecutionResult,
+  type ShortcutChordCancelReason,
+} from '../shortcuts/resolver.js'
+import type { CommandId } from '../shortcuts/foundation.js'
+import { validateCoreShortcutRegistriesOnStartup } from '../shortcuts/startup-validation.js'
 
 import './EpistolaSidebar.js'
 import './EpistolaCanvas.js'
@@ -39,26 +51,9 @@ interface InsertTarget {
   parentType: string
 }
 
-interface LeaderCommandResult {
-  ok: boolean
-  message: string
-}
-
-const LEADER_COMMANDS_BY_KEY = buildLeaderShortcutLookup()
-
-const CORE_SHORTCUTS_BY_ID = new Map(
-  EDITOR_SHORTCUTS_CONFIG.core.map((shortcut) => [shortcut.id, shortcut] as const),
-)
-
 const INSERT_DIALOG_SHORTCUTS = EDITOR_SHORTCUTS_CONFIG.insertDialog
 
-function getCoreShortcutConfig(shortcutId: CoreShortcutId) {
-  const shortcut = CORE_SHORTCUTS_BY_ID.get(shortcutId)
-  if (!shortcut) {
-    throw new Error(`Missing core shortcut config for "${shortcutId}"`)
-  }
-  return shortcut
-}
+const EDITABLE_TARGET_SELECTOR = 'input, textarea, select, [contenteditable="true"], .ProseMirror'
 
 /**
  * <epistola-editor> — Root editor element.
@@ -82,6 +77,21 @@ export class EpistolaEditor extends LitElement {
   private _pluginDisposers: PluginDisposeFn[] = []
   private _onKeydown = this._handleKeydown.bind(this)
   private _onBeforeUnload = this._handleBeforeUnload.bind(this)
+  private readonly _shortcutResolver = new ShortcutResolver<EditorShortcutRuntimeContext>(
+    getEditorShortcutRegistry(),
+    {
+      chord: {
+        timeoutMs: EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs,
+        cancelKeys: ['escape'],
+      },
+    },
+  )
+  private readonly _insertDialogShortcutResolver = new ShortcutResolver<InsertDialogShortcutRuntimeContext>(
+    getInsertDialogShortcutRegistry(),
+    {
+      fallbackContexts: ['insertDialog'],
+    },
+  )
 
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn
   @property({ attribute: false }) onSave?: SaveFn
@@ -90,7 +100,6 @@ export class EpistolaEditor extends LitElement {
   @state() private _selectedNodeId: NodeId | null = null
   @state() private _previewOpen = false
   @state() private _saveState: SaveState = { status: 'idle' }
-  @state() private _leaderActive = false
   @state() private _leaderVisible = false
   @state() private _leaderStatus: 'idle' | 'success' | 'error' = 'idle'
   @state() private _leaderMessage = ''
@@ -205,6 +214,7 @@ export class EpistolaEditor extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback()
+    validateCoreShortcutRegistriesOnStartup()
     window.addEventListener('keydown', this._onKeydown)
     this.addEventListener('toggle-preview', this._handleTogglePreview)
     this.addEventListener('force-save', this._handleForceSave)
@@ -228,6 +238,8 @@ export class EpistolaEditor extends LitElement {
     this._unsubEngine?.()
     this._unsubSelection?.()
     this._saveService?.dispose()
+    this._shortcutResolver.cancelActiveChord()
+    this._insertDialogShortcutResolver.cancelActiveChord()
     this._clearLeaderTimers()
   }
 
@@ -235,26 +247,70 @@ export class EpistolaEditor extends LitElement {
   // Keyboard Handling
   // ---------------------------------------------------------------------------
 
-  /**
-   * Global keyboard handler for undo/redo, save, delete, and escape.
-   */
-  private _matchesShortcutBinding(event: KeyboardEvent, binding: ShortcutBinding): boolean {
-    const hasMod = event.metaKey || event.ctrlKey
-    const eventKey = event.key.toLowerCase()
-    if (eventKey !== binding.key.toLowerCase()) return false
-    if (binding.mod !== undefined && binding.mod !== hasMod) return false
-    if (binding.shift !== undefined && binding.shift !== event.shiftKey) return false
-    if (binding.alt !== undefined && binding.alt !== event.altKey) return false
+  private _isShortcutEditingTarget(target: HTMLElement | null): boolean {
+    return !!target?.closest(EDITABLE_TARGET_SELECTOR)
+  }
+
+  private _canDeleteSelectedBlock(): boolean {
+    if (!this._engine || !this._doc) return false
+    if (!this._selectedNodeId) return false
+    return this._selectedNodeId !== this._doc.root
+  }
+
+  private _deleteSelectedBlockByShortcut(): boolean {
+    if (!this._engine || !this._doc) return false
+    const selectedNodeId = this._selectedNodeId
+    if (!selectedNodeId || selectedNodeId === this._doc.root) return false
+
+    const nextSelection = this._engine.getNextSelectionAfterRemove(selectedNodeId)
+    const result = this._engine.dispatch({ type: 'RemoveNode', nodeId: selectedNodeId })
+    if (!result.ok) return false
+
+    this._engine.selectNode(nextSelection)
+    this._focusCanvasBlock(nextSelection)
     return true
   }
 
-  private _matchesShortcutBindings(event: KeyboardEvent, bindings: readonly ShortcutBinding[]): boolean {
-    return bindings.some((binding) => this._matchesShortcutBinding(event, binding))
+  private _deselectSelectedBlockByShortcut(): boolean {
+    if (!this._engine || !this._selectedNodeId) return false
+    this._engine.selectNode(null)
+    return true
   }
 
-  private _matchesCoreShortcut(event: KeyboardEvent, shortcutId: CoreShortcutId): boolean {
-    const shortcut = getCoreShortcutConfig(shortcutId)
-    return this._matchesShortcutBindings(event, shortcut.bindings)
+  private _buildShortcutRuntimeContext(): EditorShortcutRuntimeContext {
+    return {
+      save: () => {
+        if (this._saveService && this._doc) {
+          this._saveService.forceSave(this._doc)
+        }
+      },
+      undo: () => {
+        this._engine?.undo()
+      },
+      redo: () => {
+        this._engine?.redo()
+      },
+      canDeleteSelectedBlock: this._canDeleteSelectedBlock(),
+      deleteSelectedBlock: () => this._deleteSelectedBlockByShortcut(),
+      canDeselectSelectedBlock: !!this._selectedNodeId,
+      deselectSelectedBlock: () => this._deselectSelectedBlockByShortcut(),
+      togglePreview: () => {
+        const openingPreview = !this._previewOpen
+        this._handleTogglePreview()
+        if (openingPreview) {
+          this._focusResizeHandleAfterRender()
+        }
+      },
+      duplicateSelectedBlock: () => this._duplicateSelectedNode(),
+      openInsertDialog: () => this._openInsertDialog(),
+      openShortcutsHelp: () => this._openShortcutsHelp(),
+      focusBlocksPanel: () => this._focusPalette(),
+      focusStructurePanel: () => this._focusTree(),
+      focusInspectorPanel: () => this._focusInspector(),
+      focusResizeHandle: () => this._focusResizeHandle(),
+      moveSelectedBlockUp: () => this._moveSelectedNode(-1),
+      moveSelectedBlockDown: () => this._moveSelectedNode(1),
+    }
   }
 
   private _handleKeydown(e: KeyboardEvent): void {
@@ -264,100 +320,112 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    const hasModifier = e.metaKey || e.ctrlKey
-    const leaderActivation = EDITOR_SHORTCUTS_CONFIG.leader.activation
-    if (e.code === leaderActivation.code && (!leaderActivation.requiresModifier || hasModifier)) {
-      e.preventDefault()
-      this._startLeaderMode()
-      return
-    }
-
     const target = e.target as HTMLElement | null
-    if (target?.closest('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
-      return
-    }
+    const activeContexts = this._isShortcutEditingTarget(target)
+      ? ['global'] as const
+      : ['global', 'editor'] as const
+    const runtimeContext = this._buildShortcutRuntimeContext()
 
-    const key = e.key.toLowerCase()
-
-    if (this._leaderActive) {
-      if (key === 'escape') {
-        e.preventDefault()
-        this._hideLeaderMode()
-        return
-      }
-      if (key === 'shift' || key === 'alt' || key === 'control' || key === 'meta') {
-        return
-      }
-
-      e.preventDefault()
-      const result = this._runLeaderCommand(key)
-      this._showLeaderResult(result.ok, result.message)
-      return
-    }
-
-    if (hasModifier) {
-      if (this._matchesCoreShortcut(e, 'save')) {
-        e.preventDefault()
-        if (this._saveService && this._doc) {
-          this._saveService.forceSave(this._doc)
-        }
-      } else if (this._matchesCoreShortcut(e, 'undo')) {
-        e.preventDefault()
-        this._engine.undo()
-      } else if (this._matchesCoreShortcut(e, 'redo')) {
-        e.preventDefault()
-        this._engine.redo()
-      }
-      return
-    }
-
-    if (this._matchesCoreShortcut(e, 'delete-selected-block')) {
-      const selectedNodeId = this._selectedNodeId
-      if (!selectedNodeId || !this._doc) return
-      if (selectedNodeId === this._doc.root) return
-      const nextSelection = this._engine.getNextSelectionAfterRemove(selectedNodeId)
-      e.preventDefault()
-      const result = this._engine.dispatch({ type: 'RemoveNode', nodeId: selectedNodeId })
-      if (result.ok) {
-        this._engine.selectNode(nextSelection)
-        this._focusCanvasBlock(nextSelection)
-      }
-    } else if (this._matchesCoreShortcut(e, 'deselect-selected-block') && this._selectedNodeId) {
-      this._engine.selectNode(null)
-    }
-  }
-
-  private _focusCanvasBlock(nodeId: NodeId | null): void {
-    if (!nodeId) return
-    requestAnimationFrame(() => {
-      const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`)
-      block?.focus({ preventScroll: true })
+    const resolution = this._shortcutResolver.resolve({
+      event: e,
+      activeContexts,
+      runtimeContext,
     })
+
+    if (resolution.kind === 'none') {
+      return
+    }
+
+    if (resolution.kind === 'chord-cancelled' && (resolution.reason === 'cancel-key' || resolution.reason === 'mismatch')) {
+      e.preventDefault()
+    } else {
+      applyResolutionEventPolicy(e, resolution)
+    }
+
+    if (resolution.kind === 'chord-awaiting') {
+      this._showLeaderAwaiting(resolution.state.commandIds)
+      return
+    }
+
+    if (resolution.kind === 'chord-cancelled') {
+      this._handleLeaderChordCancelled(resolution.reason)
+      return
+    }
+
+    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
+    if (!resolution.fromChord) {
+      return
+    }
+
+    this._handleLeaderCommandExecution(execution.initial, execution.completion)
   }
 
-  // ---------------------------------------------------------------------------
-  // Leader Shortcuts
-  // ---------------------------------------------------------------------------
-
-  private _startLeaderMode(): void {
+  private _showLeaderAwaiting(commandIds: readonly CommandId[]): void {
     this._clearLeaderTimers()
 
     const active = document.activeElement as HTMLElement | null
-    if (active && this.contains(active) && active.matches('input, textarea, select, [contenteditable="true"], .ProseMirror')) {
+    if (active && this.contains(active) && active.matches(EDITABLE_TARGET_SELECTOR)) {
       active.blur()
     }
 
-    this._leaderActive = true
     this._leaderVisible = true
     this._leaderStatus = 'idle'
-    const idleTokens = EDITOR_SHORTCUTS_CONFIG.leader.commands.map((command) => command.idleToken).join(' ')
-    this._leaderMessage = `Waiting: ${idleTokens}`
-    this._leaderTimeout = setTimeout(() => this._hideLeaderMode(), EpistolaEditor.LEADER_TIMEOUT_MS)
+
+    const idleTokens = getLeaderIdleTokensForCommandIds(commandIds)
+    const fallbackTokens = EDITOR_SHORTCUTS_CONFIG.leader.commands.map((command) => command.idleToken)
+    const tokens = idleTokens.length > 0 ? idleTokens : fallbackTokens
+
+    this._leaderMessage = `Waiting: ${tokens.join(' ')}`
+    this._leaderTimeout = setTimeout(() => {
+      this._shortcutResolver.cancelActiveChord()
+      this._hideLeaderMode()
+    }, EpistolaEditor.LEADER_TIMEOUT_MS)
+  }
+
+  private _handleLeaderChordCancelled(reason: ShortcutChordCancelReason): void {
+    if (reason === 'mismatch') {
+      this._showLeaderResult(false, 'Unknown leader command')
+      return
+    }
+    this._hideLeaderMode()
+  }
+
+  private _handleLeaderCommandExecution(
+    initial: ShortcutCommandExecutionResult,
+    completion: Promise<ShortcutCommandExecutionResult>,
+  ): void {
+    if (initial.status !== 'pending') {
+      this._showLeaderCommandResult(initial)
+      return
+    }
+
+    this._clearLeaderTimers()
+    this._leaderVisible = true
+    this._leaderStatus = 'idle'
+    this._leaderMessage = 'Running command...'
+
+    void completion.then((result) => {
+      this._showLeaderCommandResult(result)
+    })
+  }
+
+  private _showLeaderCommandResult(result: ShortcutCommandExecutionResult): void {
+    if (result.status === 'cancelled') {
+      this._hideLeaderMode()
+      return
+    }
+
+    if (result.status === 'ok') {
+      this._showLeaderResult(true, result.message ?? 'Done')
+      return
+    }
+
+    const message = result.message ?? (result.status === 'rejected' ? 'Command rejected' : 'Command failed')
+    this._showLeaderResult(false, message)
   }
 
   private _showLeaderResult(ok: boolean, message: string): void {
     this._clearLeaderTimers()
-    this._leaderActive = false
     this._leaderVisible = true
     this._leaderStatus = ok ? 'success' : 'error'
     this._leaderMessage = message
@@ -366,7 +434,6 @@ export class EpistolaEditor extends LitElement {
 
   private _hideLeaderMode(): void {
     this._clearLeaderTimers()
-    this._leaderActive = false
     this._leaderVisible = false
     this._leaderClearTimeout = setTimeout(() => {
       this._leaderStatus = 'idle'
@@ -389,65 +456,12 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
-  private _runLeaderCommand(key: string): LeaderCommandResult {
-    const command = LEADER_COMMANDS_BY_KEY.get(key)
-    if (!command) {
-      return { ok: false, message: 'Unknown leader command' }
-    }
-
-    switch (command.id) {
-      case 'toggle-preview': {
-        const openingPreview = !this._previewOpen
-        this._handleTogglePreview()
-        if (openingPreview) {
-          this._focusResizeHandleAfterRender()
-        }
-        return { ok: true, message: command.successMessage }
-      }
-      case 'duplicate-selected-block':
-        return this._runDuplicateLeaderCommand(command)
-      case 'open-insert-dialog':
-        return this._withLeaderResult(this._openInsertDialog(), command, 'Cannot open insert dialog')
-      case 'open-shortcuts-help':
-        return this._withLeaderResult(this._openShortcutsHelp(), command, 'Cannot open shortcuts help')
-      case 'focus-blocks-panel':
-        return this._withLeaderResult(this._focusPalette(), command, 'Blocks panel unavailable')
-      case 'focus-structure-panel':
-        return this._withLeaderResult(this._focusTree(), command, 'Structure panel unavailable')
-      case 'focus-inspector-panel':
-        return this._withLeaderResult(this._focusInspector(), command, 'Inspector panel unavailable')
-      case 'focus-resize-handle':
-        return this._withLeaderResult(this._focusResizeHandle(), command, 'Resize handle unavailable')
-      case 'move-selected-block-up':
-        return this._runMoveLeaderCommand(-1, command)
-      case 'move-selected-block-down':
-        return this._runMoveLeaderCommand(1, command)
-      default:
-        return { ok: false, message: `Unsupported leader command: ${command.id}` }
-    }
-  }
-
-  private _withLeaderResult(
-    ok: boolean,
-    command: LeaderShortcutCommandConfig,
-    failureMessage: string,
-  ): LeaderCommandResult {
-    if (!ok) return { ok: false, message: failureMessage }
-    return { ok: true, message: command.successMessage }
-  }
-
-  private _runDuplicateLeaderCommand(command: LeaderShortcutCommandConfig): LeaderCommandResult {
-    const ok = this._duplicateSelectedNode()
-    if (!ok) return { ok: false, message: 'Select a block to duplicate' }
-    return { ok: true, message: command.successMessage }
-  }
-
-  private _runMoveLeaderCommand(delta: number, command: LeaderShortcutCommandConfig): LeaderCommandResult {
-    const ok = this._moveSelectedNode(delta)
-    if (!ok) {
-      return { ok: false, message: delta < 0 ? 'Cannot move block up' : 'Cannot move block down' }
-    }
-    return { ok: true, message: command.successMessage }
+  private _focusCanvasBlock(nodeId: NodeId | null): void {
+    if (!nodeId) return
+    requestAnimationFrame(() => {
+      const block = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`)
+      block?.focus({ preventScroll: true })
+    })
   }
 
   private _focusPalette(): boolean {
@@ -550,70 +564,57 @@ export class EpistolaEditor extends LitElement {
     this._insertTarget = null
   }
 
-  private _handleInsertDialogKeydown(e: KeyboardEvent): void {
-    const key = e.key.toLowerCase()
-    const navigation = INSERT_DIALOG_SHORTCUTS.navigation
-    const quickSelectKeys = navigation.quickSelect as readonly string[]
-    const selectedIndex = quickSelectKeys.indexOf(key) + 1
-    const isQuickSelect = selectedIndex > 0
-    const isNavigate = key === navigation.next || key === navigation.previous
-    const isConfirm = key === navigation.confirm
-
-    if (key === navigation.close) {
-      e.preventDefault()
-      if (this._insertDialogMode) {
-        this._resetInsertDialogToPlacement()
-        return
-      }
-      this._closeInsertDialog()
-      return
-    }
-
-    if (!this._insertDialogMode) {
-      const isDocumentContext = this._isDocumentInsertContext()
-      const mode = this._parseInsertModeKey(key, isDocumentContext)
-      if (mode) {
-        e.preventDefault()
+  private _buildInsertDialogShortcutRuntimeContext(): InsertDialogShortcutRuntimeContext {
+    return {
+      hasPlacementMode: !this._insertDialogMode,
+      hasSelectionMode: !!this._insertDialogMode,
+      isDocumentContext: this._isDocumentInsertContext(),
+      optionCount: this._getInsertDialogOptionCount(),
+      highlight: this._insertDialogHighlight,
+      closeOrBack: () => {
+        if (this._insertDialogMode) {
+          this._resetInsertDialogToPlacement()
+          return
+        }
+        this._closeInsertDialog()
+      },
+      selectMode: (mode) => {
         this._selectInsertMode(mode)
-      }
+      },
+      setHighlight: (index) => {
+        this._insertDialogHighlight = index
+      },
+      selectOption: (index) => {
+        this._selectInsertDialogOption(index)
+      },
+      setOptionOutOfRange: () => {
+        this._insertDialogError = 'Option out of range'
+      },
+    }
+  }
+
+  private _handleInsertDialogKeydown(e: KeyboardEvent): void {
+    const runtimeContext = this._buildInsertDialogShortcutRuntimeContext()
+    const resolution = this._insertDialogShortcutResolver.resolve({
+      event: e,
+      activeContexts: ['insertDialog'],
+      runtimeContext,
+    })
+
+    if (resolution.kind === 'none') {
       return
     }
 
-    const target = e.target as HTMLElement | null
-    const isTextInputTarget = !!target?.closest('input, textarea, [contenteditable="true"]')
-    if (isTextInputTarget && !isConfirm && !isNavigate && !isQuickSelect) {
+    applyResolutionEventPolicy(e, resolution)
+
+    if (resolution.kind !== 'command') {
       return
     }
 
-    if (isNavigate) {
-      e.preventDefault()
-      const optionCount = this._getInsertDialogOptionCount()
-      if (optionCount === 0) return
-      if (this._insertDialogHighlight <= 0) {
-        this._insertDialogHighlight = 1
-        return
-      }
-      const delta = key === navigation.next ? 1 : -1
-      const next = this._insertDialogHighlight + delta
-      this._insertDialogHighlight = next < 1 ? optionCount : next > optionCount ? 1 : next
-      return
+    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
+    if (execution.initial.status === 'pending') {
+      void execution.completion
     }
-
-    if (isConfirm) {
-      e.preventDefault()
-      if (this._insertDialogHighlight <= 0) return
-      this._selectInsertDialogOption(this._insertDialogHighlight)
-      return
-    }
-
-    if (!isQuickSelect) return
-
-    e.preventDefault()
-    if (selectedIndex > this._getInsertDialogOptionCount()) {
-      this._insertDialogError = 'Option out of range'
-      return
-    }
-    this._selectInsertDialogOption(selectedIndex)
   }
 
   private _selectInsertDialogOption(selectedIndex: number): void {
@@ -998,19 +999,6 @@ export class EpistolaEditor extends LitElement {
     if (!this._doc) return true
     if (this._selectedNodeId === null || this._selectedNodeId === this._doc.root) return true
     return !this._doc.nodes[this._selectedNodeId]
-  }
-
-  private _parseInsertModeKey(key: string, isDocumentContext: boolean): InsertMode | null {
-    const placement = INSERT_DIALOG_SHORTCUTS.placement
-    if (isDocumentContext) {
-      if (key === placement.document.start) return 'start'
-      if (key === placement.document.end) return 'end'
-      return null
-    }
-    if (key === placement.selected.after) return 'after'
-    if (key === placement.selected.before) return 'before'
-    if (key === placement.selected.inside) return 'inside'
-    return null
   }
 
   private _getInsertDialogTotalCount(): number {

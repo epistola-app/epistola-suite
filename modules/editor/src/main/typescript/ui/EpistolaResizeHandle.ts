@@ -1,59 +1,20 @@
 import { LitElement, html } from 'lit'
 import { customElement } from 'lit/decorators.js'
+import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js'
+import { getResizeShortcutRegistry, type ResizeShortcutRuntimeContext } from '../shortcuts/resize-runtime.js'
 import {
-  EDITOR_SHORTCUTS_CONFIG,
-  type ResizeKeyboardShortcutConfig,
-  type ResizeShortcutId,
-} from '../shortcuts-config.js'
+  ShortcutResolver,
+  applyResolutionEventPolicy,
+  startShortcutCommandExecution,
+} from '../shortcuts/resolver.js'
 
 const STORAGE_KEY = 'ep:preview-width'
 
 const { minWidth: MIN_WIDTH, maxWidth: MAX_WIDTH, defaultWidth: DEFAULT_WIDTH, keyboardStep: KEYBOARD_RESIZE_STEP } =
   EDITOR_SHORTCUTS_CONFIG.resize.dimensions
 
-const RESIZE_SHORTCUTS_BY_ID = new Map(
-  EDITOR_SHORTCUTS_CONFIG.resize.keyboard.map((shortcut) => [shortcut.id, shortcut] as const),
-)
-
-function getResizeShortcut(shortcutId: ResizeShortcutId): ResizeKeyboardShortcutConfig {
-  const shortcut = RESIZE_SHORTCUTS_BY_ID.get(shortcutId)
-  if (!shortcut) {
-    throw new Error(`Missing resize shortcut config for "${shortcutId}"`)
-  }
-  return shortcut
-}
-
-const GROW_PREVIEW_WIDTH_SHORTCUT = getResizeShortcut('grow-preview-width')
-const SHRINK_PREVIEW_WIDTH_SHORTCUT = getResizeShortcut('shrink-preview-width')
-const CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT = getResizeShortcut('close-preview-when-min-width')
-
-interface ResizeKeyResult {
-  nextWidth: number
-  closePreview: boolean
-}
-
 function clampWidth(width: number): number {
   return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width))
-}
-
-export function getResizeResultForKey(
-  key: string,
-  currentWidth: number,
-  step = KEYBOARD_RESIZE_STEP,
-): ResizeKeyResult | null {
-  if (key === CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.key && currentWidth <= MIN_WIDTH) {
-    return { nextWidth: MIN_WIDTH, closePreview: true }
-  }
-
-  if (key === GROW_PREVIEW_WIDTH_SHORTCUT.key) {
-    return { nextWidth: clampWidth(currentWidth + step), closePreview: false }
-  }
-
-  if (key === SHRINK_PREVIEW_WIDTH_SHORTCUT.key) {
-    return { nextWidth: clampWidth(currentWidth - step), closePreview: false }
-  }
-
-  return null
 }
 
 /**
@@ -69,6 +30,13 @@ export class EpistolaResizeHandle extends LitElement {
   override createRenderRoot() {
     return this
   }
+
+  private readonly _shortcutResolver = new ShortcutResolver<ResizeShortcutRuntimeContext>(
+    getResizeShortcutRegistry(),
+    {
+      fallbackContexts: ['resizeHandle'],
+    },
+  )
 
   private _dragging = false
   private _startX = 0
@@ -172,17 +140,38 @@ export class EpistolaResizeHandle extends LitElement {
     if (!main) return
 
     const currentWidth = this._readPreviewWidth(main)
-    const result = getResizeResultForKey(e.key, currentWidth)
-    if (!result) return
+    const runtimeContext: ResizeShortcutRuntimeContext = {
+      currentWidth,
+      minWidth: MIN_WIDTH,
+      step: KEYBOARD_RESIZE_STEP,
+      setWidth: (nextWidth) => {
+        this._setPreviewWidth(main, nextWidth, true)
+      },
+      closePreview: () => {
+        this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }))
+      },
+    }
 
-    e.preventDefault()
+    const resolution = this._shortcutResolver.resolve({
+      event: e,
+      activeContexts: ['resizeHandle'],
+      runtimeContext,
+    })
 
-    if (result.closePreview) {
-      this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }))
+    if (resolution.kind === 'none') {
       return
     }
 
-    this._setPreviewWidth(main, result.nextWidth, true)
+    applyResolutionEventPolicy(e, resolution)
+
+    if (resolution.kind !== 'command') {
+      return
+    }
+
+    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
+    if (execution.initial.status === 'pending') {
+      void execution.completion
+    }
   }
 
   override connectedCallback(): void {
@@ -209,6 +198,7 @@ export class EpistolaResizeHandle extends LitElement {
   }
 
   override disconnectedCallback(): void {
+    this._shortcutResolver.cancelActiveChord()
     this.removeEventListener('pointerdown', this._onPointerDown)
     this.removeEventListener('pointermove', this._onPointerMove)
     this.removeEventListener('pointerup', this._onPointerUp)

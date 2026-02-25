@@ -15,17 +15,6 @@ export interface ShortcutBinding {
   alt?: boolean
 }
 
-export interface ShortcutHelpItem {
-  keys: string
-  action: string
-}
-
-export interface ShortcutGroupConfig {
-  title: string
-  dividerAfter?: boolean
-  items: ShortcutHelpItem[]
-}
-
 export interface LeaderActivationShortcutConfig {
   /** `KeyboardEvent.code` used to activate leader mode (layout-independent). */
   code: string
@@ -129,8 +118,6 @@ export interface TextShortcutConfig {
   /** Display-only label used in shortcut helper UI. */
   helpKeys: string
   action: string
-  /** Optional tooltip label for bubble-menu buttons. */
-  bubbleTitle?: string
 }
 
 export interface InsertDialogPlacementShortcutConfig {
@@ -162,7 +149,6 @@ export interface InsertDialogNavigationShortcutConfig {
 export interface InsertDialogShortcutConfig {
   placement: InsertDialogPlacementShortcutConfig
   navigation: InsertDialogNavigationShortcutConfig
-  help: readonly ShortcutHelpItem[]
 }
 
 export interface EditorShortcutsConfig {
@@ -342,7 +328,6 @@ export const EDITOR_SHORTCUTS_CONFIG = {
       ],
       helpKeys: '{cmd} + B',
       action: 'Bold',
-      bubbleTitle: 'Bold (Ctrl+B)',
     },
     {
       id: 'italic',
@@ -351,7 +336,6 @@ export const EDITOR_SHORTCUTS_CONFIG = {
       ],
       helpKeys: '{cmd} + I',
       action: 'Italic',
-      bubbleTitle: 'Italic (Ctrl+I)',
     },
     {
       id: 'underline',
@@ -360,7 +344,6 @@ export const EDITOR_SHORTCUTS_CONFIG = {
       ],
       helpKeys: '{cmd} + U',
       action: 'Underline',
-      bubbleTitle: 'Underline (Ctrl+U)',
     },
     {
       id: 'line-break-shift-enter',
@@ -398,70 +381,5 @@ export const EDITOR_SHORTCUTS_CONFIG = {
       confirm: 'enter',
       close: 'escape',
     },
-    help: [
-      { keys: 'A / B / I', action: 'Choose insert placement' },
-      { keys: 'S / E', action: 'Insert at start / end (document)' },
-      { keys: '1-9', action: 'Choose option' },
-      { keys: '\u2191 / \u2193', action: 'Navigate options' },
-      { keys: 'Enter', action: 'Confirm selection' },
-      { keys: 'Esc', action: 'Back / close dialog' },
-    ],
   },
 } as const satisfies EditorShortcutsConfig
-
-/** Build helper-popover groups directly from the shortcut config. */
-export function buildShortcutGroupsFromConfig(
-  config: EditorShortcutsConfig = EDITOR_SHORTCUTS_CONFIG,
-): ShortcutGroupConfig[] {
-  return [
-    {
-      title: 'Leader Key',
-      dividerAfter: true,
-      items: [
-        {
-          keys: config.leader.activation.helpKeys,
-          action: config.leader.activation.action,
-        },
-      ],
-    },
-    {
-      title: 'Leader Commands',
-      items: config.leader.commands.map((command) => ({ keys: command.helpKeys, action: command.action })),
-    },
-    {
-      title: 'Core',
-      items: config.core.map((shortcut) => ({ keys: shortcut.helpKeys, action: shortcut.action })),
-    },
-    {
-      title: 'Resize Handle',
-      items: config.resize.keyboard.map((shortcut) => ({ keys: shortcut.helpKeys, action: shortcut.action })),
-    },
-    {
-      title: 'Text Editing',
-      items: config.text.map((shortcut) => ({ keys: shortcut.helpKeys, action: shortcut.action })),
-    },
-    {
-      title: 'Insert Dialog',
-      items: config.insertDialog.help.map((shortcut) => ({ keys: shortcut.keys, action: shortcut.action })),
-    },
-  ]
-}
-
-/** Build key-to-command lookup for leader follow-up key resolution. */
-export function buildLeaderShortcutLookup(
-  commands: readonly LeaderShortcutCommandConfig[] = EDITOR_SHORTCUTS_CONFIG.leader.commands,
-): Map<string, LeaderShortcutCommandConfig> {
-  const lookup = new Map<string, LeaderShortcutCommandConfig>()
-  for (const command of commands) {
-    for (const key of command.keys) {
-      const existing = lookup.get(key)
-      if (existing) {
-        throw new Error(
-          `Duplicate leader shortcut key "${key}" for "${existing.id}" and "${command.id}"`,
-        )
-      }
-      lookup.set(key, command)
-    }
-  }
-  return lookup
-}
