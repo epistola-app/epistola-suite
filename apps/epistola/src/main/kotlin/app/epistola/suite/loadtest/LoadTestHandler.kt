@@ -194,7 +194,12 @@ class LoadTestHandler(
                 testData = testData,
             ).execute()
 
-            return redirect("/tenants/$tenantId/load-tests/${run.id}")
+            val url = "/tenants/$tenantId/load-tests/${run.id}"
+            return if (request.isHtmx) {
+                ServerResponse.ok().header("HX-Redirect", url).build()
+            } else {
+                redirect(url)
+            }
         } catch (e: Exception) {
             val errorMessage = e.message ?: "Failed to start load test"
 
