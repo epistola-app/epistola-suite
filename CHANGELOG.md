@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **Load test form upgrade**: Replaced static text inputs with dynamic HTMX-driven dropdowns for variant, data example, and environment selection. Variants and data examples load dynamically when a template is selected. Selecting a data example pre-fills the test data JSON. Environment field is now a dropdown instead of a text input. Fixed blank test data submission bug.
+
 ### Added
 - **Bulk template import endpoint** `POST /api/tenants/{tenantId}/templates/import`
   - Create-or-update semantics for idempotent template synchronization

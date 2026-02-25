@@ -13,6 +13,7 @@ class LoadTestRoutes(private val handler: LoadTestHandler) {
         "/tenants/{tenantId}/load-tests".nest {
             GET("", handler::list)
             GET("/new", handler::newForm)
+            GET("/template-options", handler::templateOptions)
             POST("", handler::start)
 
             GET("/{runId}", handler::detail)

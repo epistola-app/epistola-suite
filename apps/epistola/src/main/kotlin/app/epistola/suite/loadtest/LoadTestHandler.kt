@@ -5,7 +5,9 @@ import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.htmxTriggerName
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
@@ -17,6 +19,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.tenants.queries.GetTenant
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -54,8 +57,8 @@ class LoadTestHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
 
-        // Fetch templates for dropdown
         val templates = ListDocumentTemplates(tenantId = tenantId).query()
+        val environments = ListEnvironments(tenantId = tenantId).query()
 
         return ServerResponse.ok().render(
             "layout/shell",
@@ -64,6 +67,7 @@ class LoadTestHandler(
                 "pageTitle" to "Start Load Test - Epistola",
                 "tenantId" to tenantId.value,
                 "templates" to templates,
+                "environments" to environments,
             ),
         )
     }
@@ -88,7 +92,7 @@ class LoadTestHandler(
         val targetCount = params.getFirst("targetCount")?.toIntOrNull() ?: 100
 
         // Parse test data JSON
-        val testDataStr = params.getFirst("testData") ?: "{}"
+        val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
         val testData = objectMapper.readTree(testDataStr) as tools.jackson.databind.node.ObjectNode
 
         try {
@@ -108,6 +112,7 @@ class LoadTestHandler(
         } catch (e: Exception) {
             // Show error and reload form
             val templates = ListDocumentTemplates(tenantId = tenantId).query()
+            val environments = ListEnvironments(tenantId = tenantId).query()
             return ServerResponse.badRequest().render(
                 "layout/shell",
                 mapOf(
@@ -115,9 +120,70 @@ class LoadTestHandler(
                     "pageTitle" to "Start Load Test - Epistola",
                     "tenantId" to tenantId.value,
                     "templates" to templates,
+                    "environments" to environments,
                     "error" to (e.message ?: "Failed to start load test"),
                 ),
             )
+        }
+    }
+
+    /**
+     * HTMX endpoint that returns variant and data example dropdowns for a selected template.
+     *
+     * Triggered by either the templateId or exampleId select element changing.
+     * Uses HX-Trigger-Name to determine which field triggered the request:
+     * - "templateId": resets variant/example selection (template changed)
+     * - "exampleId": preserves variant selection, pre-fills test data with example JSON
+     */
+    fun templateOptions(request: ServerRequest): ServerResponse {
+        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val templateIdStr = request.param("templateId").orElse("")
+
+        val templateId = TemplateId.validateOrNull(templateIdStr)
+            ?: return request.htmx {
+                fragment("loadtest/new", "template-options-empty")
+                onNonHtmx { redirect("/tenants/$tenantId/load-tests/new") }
+            }
+
+        val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
+        val template = GetDocumentTemplate(tenantId = tenantId, id = templateId).query()
+        val dataExamples = template?.dataExamples ?: emptyList()
+
+        val triggerName = request.htmxTriggerName
+        val selectedVariantId = if (triggerName == "templateId") {
+            // Template changed: auto-select default variant
+            variants.firstOrNull { it.isDefault }?.id?.value ?: variants.firstOrNull()?.id?.value ?: ""
+        } else {
+            // Example changed: preserve current variant selection
+            request.param("variantId").orElse("")
+        }
+
+        val selectedExampleId = if (triggerName == "templateId") {
+            // Template changed: clear example selection
+            ""
+        } else {
+            request.param("exampleId").orElse("")
+        }
+
+        // If an example is selected, pretty-print its data as test data
+        val testData = if (selectedExampleId.isNotBlank()) {
+            dataExamples.firstOrNull { it.id == selectedExampleId }?.let {
+                objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(it.data)
+            } ?: ""
+        } else {
+            ""
+        }
+
+        return request.htmx {
+            fragment("loadtest/new", "template-options") {
+                "variants" to variants
+                "dataExamples" to dataExamples
+                "selectedVariantId" to selectedVariantId
+                "selectedExampleId" to selectedExampleId
+                "testData" to testData
+                "tenantId" to tenantId.value
+            }
+            onNonHtmx { redirect("/tenants/$tenantId/load-tests/new") }
         }
     }
 

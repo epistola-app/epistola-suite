@@ -21,7 +21,11 @@
 
                         <div class="form-group">
                             <label class="ep-label" for="templateId">Template</label>
-                            <select id="templateId" name="templateId" class="ep-select" required>
+                            <select id="templateId" name="templateId" class="ep-select" required
+                                    th:hx-get="@{/tenants/{tenantId}/load-tests/template-options(tenantId=${tenantId})}"
+                                    hx-target="#template-options-section"
+                                    hx-include="closest form"
+                                    hx-swap="innerHTML">
                                 <option value="">Select a template...</option>
                                 <option th:each="template : ${templates}"
                                         th:value="${template.id}"
@@ -31,11 +35,9 @@
                             <span class="form-hint">Select the template to test</span>
                         </div>
 
-                        <div class="form-group">
-                            <label class="ep-label" for="variantId">Variant</label>
-                            <input type="text" id="variantId" name="variantId" class="ep-input"
-                                   required placeholder="default" value="default">
-                            <span class="form-hint">Template variant to use (usually "default")</span>
+                        <div id="template-options-section">
+                            <!--/* Empty state: shown before a template is selected */-->
+                            <th:block th:replace="~{loadtest/new :: template-options-empty}" />
                         </div>
 
                         <div class="form-group">
@@ -47,8 +49,13 @@
 
                         <div class="form-group">
                             <label class="ep-label" for="environmentId">Environment</label>
-                            <input type="text" id="environmentId" name="environmentId" class="ep-input"
-                                   placeholder="production">
+                            <select id="environmentId" name="environmentId" class="ep-select">
+                                <option value="">No environment</option>
+                                <option th:each="env : ${environments}"
+                                        th:value="${env.id}"
+                                        th:text="${env.name} + ' (' + ${env.id} + ')'">
+                                </option>
+                            </select>
                             <span class="form-hint">Environment to determine version from (leave blank if using version ID)</span>
                         </div>
                     </fieldset>
@@ -61,23 +68,6 @@
                             <input type="number" id="targetCount" name="targetCount" class="ep-input"
                                    required value="100" min="1" max="10000">
                             <span class="form-hint">Number of documents to generate (1-10,000)</span>
-                        </div>
-                    </fieldset>
-
-                    <fieldset style="border: none; padding: 0; margin: 0 0 var(--ep-space-6) 0;">
-                        <legend style="font-size: var(--ep-text-lg); font-weight: 600; margin-bottom: var(--ep-space-4);">Test Data</legend>
-
-                        <div class="form-group">
-                            <label class="ep-label" for="testData">JSON Data</label>
-                            <textarea id="testData" name="testData" class="ep-textarea"
-                                      required rows="10" style="font-family: monospace;">{
-  "title": "Load Test Document",
-  "items": [
-    {"name": "Item 1", "price": 10.00},
-    {"name": "Item 2", "price": 20.00}
-  ]
-}</textarea>
-                            <span class="form-hint">JSON data to use for all document generation requests. Use data from your template's examples.</span>
                         </div>
                     </fieldset>
 
@@ -103,6 +93,87 @@
                 </ul>
             </div>
         </div>
+    </th:block>
+
+    <!--/* Empty state fragment: shown when no template is selected */-->
+    <th:block th:fragment="template-options-empty">
+        <div class="form-group">
+            <label class="ep-label" for="variantId">Variant</label>
+            <select id="variantId" name="variantId" class="ep-select" disabled>
+                <option value="">Select a template first...</option>
+            </select>
+            <span class="form-hint">Template variant to use</span>
+        </div>
+
+        <fieldset style="border: none; padding: 0; margin: 0;">
+            <legend style="font-size: var(--ep-text-sm); font-weight: 600; margin-bottom: var(--ep-space-2);">Test Data</legend>
+            <div class="form-group">
+                <label class="ep-label" for="testData">JSON Data</label>
+                <textarea id="testData" name="testData" class="ep-textarea"
+                          rows="6" style="font-family: monospace;"
+                          placeholder="Select a template to load data examples..."></textarea>
+                <span class="form-hint">Select a template to load data examples, or enter JSON manually</span>
+            </div>
+        </fieldset>
+    </th:block>
+
+    <!--/* Dynamic fragment: populated when a template is selected */-->
+    <th:block th:fragment="template-options">
+        <div class="form-group">
+            <label class="ep-label" for="variantId">Variant</label>
+            <select id="variantId" name="variantId" class="ep-select" required>
+                <option th:each="variant : ${variants}"
+                        th:value="${variant.id}"
+                        th:text="${(variant.title != null ? variant.title : variant.id)} + ${variant.isDefault ? ' (default)' : ''}"
+                        th:selected="${#strings.toString(variant.id) == selectedVariantId}">
+                </option>
+            </select>
+            <span class="form-hint">Template variant to use</span>
+        </div>
+
+        <fieldset style="border: none; padding: 0; margin: 0;">
+            <legend style="font-size: var(--ep-text-sm); font-weight: 600; margin-bottom: var(--ep-space-2);">Test Data</legend>
+
+            <!--/* Template has data examples: show example selector */-->
+            <th:block th:if="${!#lists.isEmpty(dataExamples)}">
+                <div class="form-group">
+                    <label class="ep-label" for="exampleId">Data Example</label>
+                    <select id="exampleId" name="exampleId" class="ep-select"
+                            th:hx-get="@{/tenants/{tenantId}/load-tests/template-options(tenantId=${tenantId})}"
+                            hx-target="#template-options-section"
+                            hx-include="closest form"
+                            hx-swap="innerHTML">
+                        <option value="">Select a data example...</option>
+                        <option th:each="example : ${dataExamples}"
+                                th:value="${example.id}"
+                                th:text="${example.name}"
+                                th:selected="${example.id == selectedExampleId}">
+                        </option>
+                    </select>
+                    <span class="form-hint">Select a pre-defined data example to use as test data</span>
+                </div>
+                <div class="form-group">
+                    <label class="ep-label" for="testData">JSON Data</label>
+                    <textarea id="testData" name="testData" class="ep-textarea"
+                              rows="10" style="font-family: monospace;"
+                              th:readonly="${!#strings.isEmpty(selectedExampleId)}"
+                              th:text="${testData}"></textarea>
+                    <span class="form-hint" th:if="${#strings.isEmpty(selectedExampleId)}">Select a data example above, or enter JSON manually</span>
+                    <span class="form-hint" th:unless="${#strings.isEmpty(selectedExampleId)}">Pre-filled from selected data example (read-only)</span>
+                </div>
+            </th:block>
+
+            <!--/* Template has no data examples: show manual JSON entry */-->
+            <th:block th:if="${#lists.isEmpty(dataExamples)}">
+                <div class="form-group">
+                    <label class="ep-label" for="testData">JSON Data</label>
+                    <textarea id="testData" name="testData" class="ep-textarea"
+                              rows="10" style="font-family: monospace;"
+                              placeholder="Enter JSON test data..."></textarea>
+                    <span class="form-hint">This template has no data examples. Enter JSON test data manually.</span>
+                </div>
+            </th:block>
+        </fieldset>
     </th:block>
 </body>
 </html>
