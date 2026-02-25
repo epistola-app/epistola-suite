@@ -1,9 +1,11 @@
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.Routable
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.ThemeNotFoundException
 import org.jdbi.v3.core.Jdbi
@@ -15,9 +17,11 @@ import org.springframework.stereotype.Component
  * The theme must exist and belong to the tenant.
  */
 data class SetTenantDefaultTheme(
-    val tenantId: TenantId,
+    override val tenantId: TenantId,
     val themeId: ThemeId,
-) : Command<Tenant>
+) : Command<Tenant>, TenantScoped, Routable {
+    override val routingKey: String get() = tenantId.value
+}
 
 @Component
 class SetTenantDefaultThemeHandler(

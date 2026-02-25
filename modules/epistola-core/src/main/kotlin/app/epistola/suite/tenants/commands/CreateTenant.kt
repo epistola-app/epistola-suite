@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.Routable
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -20,7 +21,8 @@ import tools.jackson.databind.ObjectMapper
 data class CreateTenant(
     val id: TenantId,
     val name: String,
-) : Command<Tenant> {
+) : Command<Tenant>, Routable {
+    override val routingKey: String get() = id.value
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= 255) { "Name must be 255 characters or less" }
