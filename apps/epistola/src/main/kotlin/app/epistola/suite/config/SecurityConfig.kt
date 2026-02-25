@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
 import org.springframework.core.annotation.Order
+import org.springframework.http.MediaType
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -17,6 +18,8 @@ import org.springframework.security.core.userdetails.UserDetailsService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache
+import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher
 
 /**
  * Spring Security configuration with separate filter chains for API and UI.
@@ -107,7 +110,7 @@ class SecurityConfig(
                     // Public endpoints
                     .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                     .requestMatchers("/login", "/login-popup-success", "/error").permitAll()
-                    .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/editor/**", "/favicon.ico").permitAll()
+                    .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
                 if (oauth2) {
                     authorize.requestMatchers("/oauth2/**").permitAll()
@@ -139,6 +142,15 @@ class SecurityConfig(
                     }
                 }
             }
+        }
+
+        // Only save HTML page navigations in the request cache, never static resources.
+        // This prevents login from redirecting to CSS/JS/image URLs.
+        val htmlOnly = MediaTypeRequestMatcher(MediaType.TEXT_HTML).apply {
+            setIgnoredMediaTypes(setOf(MediaType.ALL))
+        }
+        http.requestCache { cache ->
+            cache.requestCache(HttpSessionRequestCache().apply { setRequestMatcher(htmlOnly) })
         }
 
         http
