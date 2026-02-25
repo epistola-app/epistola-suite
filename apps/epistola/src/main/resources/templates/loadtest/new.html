@@ -22,7 +22,7 @@
                         <div class="form-group">
                             <label class="ep-label" for="templateId">Template</label>
                             <select id="templateId" name="templateId" class="ep-select" required
-                                    th:hx-get="@{/tenants/{tenantId}/load-tests/template-options(tenantId=${tenantId})}"
+                                    th:hx-get="@{/tenants/{tenantId}/load-tests/new(tenantId=${tenantId})}"
                                     hx-target="#template-options-section"
                                     hx-include="closest form"
                                     hx-swap="innerHTML">
@@ -123,7 +123,7 @@
         <div class="form-group">
             <label class="ep-label" for="variantId">Variant</label>
             <select id="variantId" name="variantId" class="ep-select" required
-                    th:hx-get="@{/tenants/{tenantId}/load-tests/template-options(tenantId=${tenantId})}"
+                    th:hx-get="@{/tenants/{tenantId}/load-tests/new(tenantId=${tenantId})}"
                     hx-target="#template-options-section"
                     hx-include="closest form"
                     hx-swap="innerHTML">
@@ -159,7 +159,7 @@
                 <div class="form-group">
                     <label class="ep-label" for="exampleId">Data Example</label>
                     <select id="exampleId" name="exampleId" class="ep-select"
-                            th:hx-get="@{/tenants/{tenantId}/load-tests/template-options(tenantId=${tenantId})}"
+                            th:hx-get="@{/tenants/{tenantId}/load-tests/new(tenantId=${tenantId})}"
                             hx-target="#template-options-section"
                             hx-include="closest form"
                             hx-swap="innerHTML">

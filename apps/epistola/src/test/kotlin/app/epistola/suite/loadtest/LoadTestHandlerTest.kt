@@ -61,9 +61,9 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
     }
 
     @Nested
-    inner class TemplateOptions {
+    inner class HtmxTemplateOptions {
         @Test
-        fun `GET template-options without templateId returns empty-state fragment`() = fixture {
+        fun `GET new (HTMX) without templateId returns empty-state fragment`() = fixture {
             lateinit var testTenant: Tenant
 
             given {
@@ -75,7 +75,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 headers.set("HX-Request", "true")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/load-tests/template-options",
+                    "/tenants/${testTenant.id}/load-tests/new",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -91,7 +91,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET template-options with invalid templateId returns empty-state fragment`() = fixture {
+        fun `GET new (HTMX) with invalid templateId returns empty-state fragment`() = fixture {
             lateinit var testTenant: Tenant
 
             given {
@@ -103,7 +103,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 headers.set("HX-Request", "true")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/load-tests/template-options?templateId=",
+                    "/tenants/${testTenant.id}/load-tests/new?templateId=",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -118,7 +118,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET template-options with valid templateId returns variant and version dropdowns`() = fixture {
+        fun `GET new (HTMX) with valid templateId returns variant and version dropdowns`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
 
@@ -140,7 +140,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 headers.set("HX-Trigger-Name", "templateId")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/load-tests/template-options?templateId=$templateId",
+                    "/tenants/${testTenant.id}/load-tests/new?templateId=$templateId",
                     HttpMethod.GET,
                     request,
                     String::class.java,
@@ -160,7 +160,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET template-options with variant change loads versions for that variant`() = fixture {
+        fun `GET new (HTMX) with variant change loads versions for that variant`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
             lateinit var customVariantId: String
@@ -185,7 +185,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 headers.set("HX-Trigger-Name", "variantId")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/load-tests/template-options" +
+                    "/tenants/${testTenant.id}/load-tests/new" +
                         "?templateId=$templateId&variantId=$customVariantId",
                     HttpMethod.GET,
                     request,
@@ -205,7 +205,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET template-options with templateId and exampleId returns pre-filled JSON`() = fixture {
+        fun `GET new (HTMX) with templateId and exampleId returns pre-filled JSON`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
             lateinit var exampleId: String
@@ -232,7 +232,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 headers.set("HX-Trigger-Name", "exampleId")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/load-tests/template-options" +
+                    "/tenants/${testTenant.id}/load-tests/new" +
                         "?templateId=$templateId&exampleId=$exampleId&variantId=default",
                     HttpMethod.GET,
                     request,
@@ -253,7 +253,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
         }
 
         @Test
-        fun `GET template-options with template without examples shows manual JSON entry`() = fixture {
+        fun `GET new (HTMX) with template without examples shows manual JSON entry`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var templateId: String
 
@@ -269,7 +269,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 headers.set("HX-Trigger-Name", "templateId")
                 val request = HttpEntity<Void>(headers)
                 restTemplate.exchange(
-                    "/tenants/${testTenant.id}/load-tests/template-options?templateId=$templateId",
+                    "/tenants/${testTenant.id}/load-tests/new?templateId=$templateId",
                     HttpMethod.GET,
                     request,
                     String::class.java,
