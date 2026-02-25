@@ -1,6 +1,7 @@
 package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.config.withHandle
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
@@ -23,13 +24,8 @@ class DeleteTenantHandler(
      * Note: Due to CASCADE, this will also delete all associated templates.
      */
     override fun handle(command: DeleteTenant): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
-        val deleted = handle.createUpdate(
-            """
-                DELETE FROM tenants WHERE id = :id
-                """,
-        )
+        handle.createUpdate("DELETE FROM tenants WHERE id = :id")
             .bind("id", command.id)
-            .execute()
-        deleted > 0
+            .execute() > 0
     }
 }

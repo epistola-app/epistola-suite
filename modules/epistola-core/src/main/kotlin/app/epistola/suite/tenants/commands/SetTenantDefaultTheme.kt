@@ -3,6 +3,7 @@ package app.epistola.suite.tenants.commands
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.config.withHandle
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
@@ -30,9 +31,7 @@ class SetTenantDefaultThemeHandler(
     override fun handle(command: SetTenantDefaultTheme): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         // Verify the theme exists and belongs to this tenant
         val themeExists = handle.createQuery(
-            """
-            SELECT COUNT(*) FROM themes WHERE id = :themeId AND tenant_id = :tenantId
-            """,
+            "SELECT COUNT(*) FROM themes WHERE id = :themeId AND tenant_id = :tenantId"
         )
             .bind("themeId", command.themeId)
             .bind("tenantId", command.tenantId)
@@ -50,7 +49,7 @@ class SetTenantDefaultThemeHandler(
             SET default_theme_id = :themeId
             WHERE id = :tenantId
             RETURNING *
-            """,
+            """
         )
             .bind("tenantId", command.tenantId)
             .bind("themeId", command.themeId)
