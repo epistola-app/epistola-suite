@@ -47,10 +47,11 @@ class FieldSpec(val fieldName: String) {
      */
     fun pattern(regex: String) {
         val pattern = Regex(regex)
+        val capitalizedFieldName = fieldName.replaceFirstChar { it.uppercase() }
         validators.add(
             Pair(
                 { value -> pattern.matches(value) },
-                "Invalid format for $fieldName",
+                "Invalid format for $capitalizedFieldName",
             ),
         )
     }
@@ -59,10 +60,11 @@ class FieldSpec(val fieldName: String) {
      * Add a maximum length validation rule.
      */
     fun maxLength(max: Int) {
+        val capitalizedFieldName = fieldName.replaceFirstChar { it.uppercase() }
         validators.add(
             Pair(
                 { value -> value.length <= max },
-                "$fieldName must not exceed $max characters",
+                "$capitalizedFieldName must not exceed $max characters",
             ),
         )
     }
@@ -71,10 +73,11 @@ class FieldSpec(val fieldName: String) {
      * Add a minimum length validation rule.
      */
     fun minLength(min: Int) {
+        val capitalizedFieldName = fieldName.replaceFirstChar { it.uppercase() }
         validators.add(
             Pair(
                 { value -> value.length >= min },
-                "$fieldName must be at least $min characters",
+                "$capitalizedFieldName must be at least $min characters",
             ),
         )
     }
@@ -83,13 +86,14 @@ class FieldSpec(val fieldName: String) {
      * Add a minimum value validation rule (for numeric strings).
      */
     fun min(minimum: Int) {
+        val capitalizedFieldName = fieldName.replaceFirstChar { it.uppercase() }
         validators.add(
             Pair(
                 { value ->
                     val num = value.toIntOrNull()
                     num != null && num >= minimum
                 },
-                "$fieldName must be at least $minimum",
+                "$capitalizedFieldName must be at least $minimum",
             ),
         )
     }
@@ -98,13 +102,14 @@ class FieldSpec(val fieldName: String) {
      * Add a maximum value validation rule (for numeric strings).
      */
     fun max(maximum: Int) {
+        val capitalizedFieldName = fieldName.replaceFirstChar { it.uppercase() }
         validators.add(
             Pair(
                 { value ->
                     val num = value.toIntOrNull()
                     num != null && num <= maximum
                 },
-                "$fieldName must not exceed $maximum",
+                "$capitalizedFieldName must not exceed $maximum",
             ),
         )
     }
@@ -156,9 +161,12 @@ class FieldSpec(val fieldName: String) {
      * Returns error message if validation failed, null if all passed.
      */
     internal fun validate(value: String): String? {
+        // Capitalize field name for error messages
+        val capitalizedFieldName = fieldName.replaceFirstChar { it.uppercase() }
+
         // Check required
         if (required && value.isBlank()) {
-            return "$fieldName is required"
+            return "$capitalizedFieldName is required"
         }
 
         // Skip further validation if not required and empty
@@ -307,7 +315,7 @@ class FormBuilder {
                     }
                     spec.asInt -> {
                         if (value.toIntOrNull() == null) {
-                            errors[fieldName] = "$fieldName must be a number"
+                            errors[fieldName] = "${fieldName.replaceFirstChar { it.uppercase() }} must be a number"
                         }
                     }
                 }

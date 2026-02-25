@@ -93,6 +93,7 @@ class ThemeHandler(
                 required()
                 maxLength(100)
             }
+            field("description") {}
         }
 
         if (form.hasErrors()) {

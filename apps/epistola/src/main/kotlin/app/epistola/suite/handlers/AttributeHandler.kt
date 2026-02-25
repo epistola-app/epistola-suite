@@ -58,6 +58,7 @@ class AttributeHandler {
                 required()
                 maxLength(100)
             }
+            field("allowedValues") {}
         }
 
         if (form.hasErrors()) {
@@ -135,6 +136,7 @@ class AttributeHandler {
                 required()
                 maxLength(100)
             }
+            field("allowedValues") {}
         }
 
         if (form.hasErrors()) {

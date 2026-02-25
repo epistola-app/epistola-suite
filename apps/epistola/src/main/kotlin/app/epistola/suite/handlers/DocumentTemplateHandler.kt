@@ -147,8 +147,8 @@ class DocumentTemplateHandler(
             }
             field("name") {
                 required()
-                maxLength(100)
             }
+            field("schema") {}
         }
 
         if (form.hasErrors()) {
