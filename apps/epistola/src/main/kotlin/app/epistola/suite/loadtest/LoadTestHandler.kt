@@ -6,10 +6,13 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.htmx.executeOrFormError
+import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxTriggerName
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
@@ -166,19 +169,50 @@ class LoadTestHandler(
      */
     fun start(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val params = request.params()
 
-        val templateId = TemplateId.of(params.getFirst("templateId") ?: "")
-        val variantId = VariantId.of(params.getFirst("variantId") ?: "")
+        val form = request.form {
+            field("templateId") {
+                required()
+                asTemplateId()
+            }
+            field("variantId") {
+                required()
+                asVariantId()
+            }
+        }
+
+        if (form.hasErrors()) {
+            val errorMessage = form.errors.values.firstOrNull() ?: "Form validation failed"
+            return request.htmx {
+                fragment("loadtest/new", "form-error") {
+                    "error" to errorMessage
+                }
+                onNonHtmx {
+                    val templates = ListDocumentTemplates(tenantId = tenantId).query()
+                    val environments = ListEnvironments(tenantId = tenantId).query()
+                    ServerResponse.badRequest().page("loadtest/new") {
+                        "pageTitle" to "Start Load Test - Epistola"
+                        "tenantId" to tenantId.value
+                        "templates" to templates
+                        "environments" to environments
+                        "error" to errorMessage
+                    }
+                }
+            }
+        }
+
+        val templateId = form.getTemplateId("templateId")!!
+        val variantId = form.getVariantId("variantId")!!
 
         // Parse version or environment
+        val params = request.params()
         val versionIdStr = params.getFirst("versionId")
         val environmentIdStr = params.getFirst("environmentId")
 
         val versionId = if (!versionIdStr.isNullOrBlank()) VersionId.of(versionIdStr.toInt()) else null
         val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentId.of(environmentIdStr) else null
 
-        val targetCount = params.getFirst("targetCount")?.toIntOrNull() ?: 100
+        val targetCount = request.queryParamInt("targetCount", 100)
 
         // Parse test data JSON
         val testDataStr = params.getFirst("testData")?.takeIf { it.isNotBlank() } ?: "{}"
@@ -274,8 +308,8 @@ class LoadTestHandler(
             ?: return ServerResponse.notFound().build()
 
         // Parse pagination params
-        val offset = request.param("offset").orElse("0").toInt()
-        val limit = request.param("limit").orElse("100").toInt()
+        val offset = request.queryParamInt("offset", 0)
+        val limit = request.queryParamInt("limit", 100)
 
         val requests = GetLoadTestRequests(
             tenantId = tenantId,

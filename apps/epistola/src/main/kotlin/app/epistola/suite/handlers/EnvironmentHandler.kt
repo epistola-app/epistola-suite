@@ -9,6 +9,8 @@ import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
+import app.epistola.suite.htmx.pathId
+import app.epistola.suite.htmx.queryParam
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -34,7 +36,7 @@ class EnvironmentHandler {
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val searchTerm = request.param("q").orElse(null)
+        val searchTerm = request.queryParam("q")
         val environments = ListEnvironments(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("environments/list", "rows") {
@@ -103,8 +105,7 @@ class EnvironmentHandler {
 
     fun delete(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val environmentIdStr = request.pathVariable("environmentId")
-        val environmentId = EnvironmentId.validateOrNull(environmentIdStr)
+        val environmentId = request.pathId("environmentId") { EnvironmentId.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         try {
