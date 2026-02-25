@@ -49,7 +49,9 @@ fun create(request: ServerRequest): ServerResponse {
 
 ## Request Extensions
 
-The `HtmxRequest.kt` file provides extension properties on `ServerRequest`:
+The `HtmxRequest.kt` file provides extension properties and methods on `ServerRequest`:
+
+### HTMX Header Detection
 
 ```kotlin
 // Check if this is an HTMX request
@@ -64,8 +66,6 @@ val currentUrl = request.htmxCurrentUrl  // HX-Current-URL header
 val isBoosted = request.htmxBoosted      // HX-Boosted header
 ```
 
-### Available Extensions
-
 | Property | Header | Description |
 |----------|--------|-------------|
 | `isHtmx` | `HX-Request` | True if request was made by HTMX |
@@ -76,6 +76,59 @@ val isBoosted = request.htmxBoosted      // HX-Boosted header
 | `htmxBoosted` | `HX-Boosted` | True if request is via hx-boost |
 | `htmxHistoryRestoreRequest` | `HX-History-Restore-Request` | True if restoring history |
 | `htmxPrompt` | `HX-Prompt` | User response to hx-prompt |
+
+### Parameter Retrieval Helpers
+
+Clean, concise parameter extraction without boilerplate:
+
+#### Path Variable Extraction with Validation
+
+```kotlin
+// Extract path variable and validate in one expression
+val themeId = request.pathId("themeId") { ThemeId.validateOrNull(it) }
+    ?: return ServerResponse.badRequest().build()
+
+// Replaces verbose:
+// val themeIdStr = request.pathVariable("themeId")
+// val themeId = ThemeId.validateOrNull(themeIdStr) ?: return ...
+```
+
+#### Query Parameter Retrieval
+
+```kotlin
+// Nullable string parameter
+val searchTerm = request.queryParam("q")  // null if not present
+
+// With default value
+val pageSize = request.queryParam("size", "10")  // "10" if not present
+
+// Integer parameters with default
+val offset = request.queryParamInt("offset", 0)
+val limit = request.queryParamInt("limit", 100)
+
+// Replaces verbose:
+// val offset = request.param("offset").orElse("0").toInt()
+// val limit = request.param("limit").orElse("100").toInt()
+```
+
+#### EntityId Usage (toString() Integration)
+
+All EntityIds (TenantId, ThemeId, TemplateId, etc.) have `toString()` implemented, so they can be used directly without `.value`:
+
+```kotlin
+// In handlers:
+return ServerResponse.ok().page("themes/list") {
+    "tenantId" to tenantId        // toString() called automatically
+    "themes" to themes
+}
+
+// In redirects:
+redirect("/tenants/${tenantId}/themes")  // No .value needed
+
+// This works because EntityId.toString() returns the underlying value
+// TenantId("my-tenant").toString() → "my-tenant"
+// ThemeId("dark").toString() → "dark"
+```
 
 ## Simple Render Helper
 
@@ -317,13 +370,16 @@ Define reusable fragments in your Thymeleaf templates:
 
 ```
 app/epistola/suite/htmx/
-├── HtmxRequest.kt         # ServerRequest extensions (isHtmx, htmxBoosted, etc.)
+├── HtmxRequest.kt         # HTMX headers (isHtmx, htmxBoosted, etc.)
+│                          # Parameter helpers: pathId(), queryParam(), queryParamInt()
 ├── HtmxRender.kt          # render(), renderTemplate(), page() shortcut, htmx {} entry point
 ├── HtmxDsl.kt             # DSL builders (HtmxResponseBuilder, NonHtmxBuilder, ModelBuilder)
 │                          # formError() helper, onNonHtmx overloads
 ├── HtmxSwap.kt            # HxSwap enum
 ├── HtmxFragmentsView.kt   # Multi-fragment view rendering
-└── FormBinder.kt          # Form validation DSL, FormData, exception mapping
+└── FormBinder.kt          # Form validation DSL (field specs, validators)
+                           # FormData with typed accessors
+                           # executeOrFormError() for exception mapping
 
 resources/templates/
 └── fragments/
