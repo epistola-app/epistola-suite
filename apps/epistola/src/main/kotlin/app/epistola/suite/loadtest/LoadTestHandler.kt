@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.htmxTriggerName
+import app.epistola.suite.htmx.htmxBoosted
 import app.epistola.suite.htmx.isHtmx
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
@@ -64,7 +65,7 @@ class LoadTestHandler(
     fun newForm(request: ServerRequest): ServerResponse {
         val tenantId = TenantId.of(request.pathVariable("tenantId"))
 
-        if (!request.isHtmx) {
+        if (!request.isHtmx || request.htmxBoosted) {
             val templates = ListDocumentTemplates(tenantId = tenantId).query()
             val environments = ListEnvironments(tenantId = tenantId).query()
 
