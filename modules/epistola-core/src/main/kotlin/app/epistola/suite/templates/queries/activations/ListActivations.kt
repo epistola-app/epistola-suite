@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.queries.activations
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.ActivationDetails
@@ -14,9 +12,7 @@ import org.springframework.stereotype.Component
  * Lists all activations for a variant across all environments.
  */
 data class ListActivations(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
 ) : Query<List<ActivationDetails>>
 
 @Component
@@ -40,9 +36,9 @@ class ListActivationsHandler(
                 ORDER BY e.name ASC
                 """,
         )
-            .bind("variantId", query.variantId)
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("variantId", query.variantId.key)
+            .bind("templateId", query.variantId.templateKey)
+            .bind("tenantId", query.variantId.tenantKey)
             .mapTo<ActivationDetails>()
             .list()
     }

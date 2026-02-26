@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -15,9 +13,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateVariant(
-    val id: VariantKey,
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
+    val id: VariantId,
     val title: String?,
     val description: String?,
     val attributes: Map<String, String> = emptyMap(),
@@ -30,9 +26,9 @@ class CreateVariantHandler(
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
         // Validate attributes against the tenant's attribute definitions
-        validateAttributes(command.tenantId, command.attributes)
+        validateAttributes(command.id.tenantKey, command.attributes)
 
-        return executeOrThrowDuplicate("variant", command.id.value) {
+        return executeOrThrowDuplicate("variant", command.id.key.value) {
             jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
                 // Verify the template belongs to the tenant and get its name for the default model
                 val templateName = handle.createQuery(
@@ -42,8 +38,8 @@ class CreateVariantHandler(
                 WHERE id = :templateId AND tenant_key = :tenantId
                 """,
                 )
-                    .bind("templateId", command.templateId)
-                    .bind("tenantId", command.tenantId)
+                    .bind("templateId", command.id.templateKey)
+                    .bind("tenantId", command.id.tenantKey)
                     .mapTo<String>()
                     .findOne()
                     .orElse(null) ?: return@inTransaction null
@@ -57,8 +53,8 @@ class CreateVariantHandler(
                 WHERE tenant_key = :tenantId AND template_key = :templateId
                 """,
                 )
-                    .bind("tenantId", command.tenantId)
-                    .bind("templateId", command.templateId)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("templateId", command.id.templateKey)
                     .mapTo<Long>()
                     .one()
                 val isDefault = existingCount == 0L
@@ -70,9 +66,9 @@ class CreateVariantHandler(
                 RETURNING *
                 """,
                 )
-                    .bind("id", command.id)
-                    .bind("tenantId", command.tenantId)
-                    .bind("templateId", command.templateId)
+                    .bind("id", command.id.key)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("templateId", command.id.templateKey)
                     .bind("title", command.title)
                     .bind("description", command.description)
                     .bind("attributes", attributesJson)
@@ -92,8 +88,8 @@ class CreateVariantHandler(
                 """,
                 )
                     .bind("id", versionId)
-                    .bind("tenantId", command.tenantId)
-                    .bind("variantId", variant.id)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("variantId", command.id.key)
                     .bind("templateModel", templateModelJson)
                     .execute()
 

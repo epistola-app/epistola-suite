@@ -1,9 +1,7 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -27,11 +25,8 @@ import org.springframework.stereotype.Component
  * - The environment doesn't belong to the tenant
  */
 data class PublishToEnvironment(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
-    val versionId: VersionKey,
-    val environmentId: EnvironmentKey,
+    val versionId: VersionId,
+    val environmentId: EnvironmentId,
 ) : Command<PublishToEnvironmentResult?>
 
 data class PublishToEnvironmentResult(
@@ -53,8 +48,8 @@ class PublishToEnvironmentHandler(
                 WHERE id = :environmentId AND tenant_key = :tenantId
                 """,
         )
-            .bind("environmentId", command.environmentId)
-            .bind("tenantId", command.tenantId)
+            .bind("environmentId", command.environmentId.key)
+            .bind("tenantId", command.environmentId.tenantKey)
             .mapTo<Boolean>()
             .one()
 
@@ -70,9 +65,9 @@ class PublishToEnvironmentHandler(
                 WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null) ?: return@inTransaction null
@@ -92,9 +87,9 @@ class PublishToEnvironmentHandler(
                     WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                     """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
-                .bind("versionId", command.versionId)
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("versionId", command.versionId.key)
                 .execute()
         }
         // If already published, no-op on version (idempotent)
@@ -109,10 +104,10 @@ class PublishToEnvironmentHandler(
                 RETURNING *
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("environmentId", command.environmentId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("environmentId", command.environmentId.key)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<EnvironmentActivation>()
             .one()
 
@@ -124,9 +119,9 @@ class PublishToEnvironmentHandler(
                 WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
             .one()
 
@@ -139,8 +134,8 @@ class PublishToEnvironmentHandler(
                     WHERE tenant_key = :tenantId AND variant_key = :variantId
                     """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
                 .mapTo(Int::class.java)
                 .one()
 
@@ -154,9 +149,9 @@ class PublishToEnvironmentHandler(
                     """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
-                .bind("publishedId", command.versionId)
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("publishedId", command.versionId.key)
                 .mapTo<TemplateVersion>()
                 .one()
         } else {

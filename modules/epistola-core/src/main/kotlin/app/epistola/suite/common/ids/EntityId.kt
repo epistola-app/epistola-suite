@@ -33,7 +33,6 @@ abstract class EntityId<T : EntityKey<T, V>, V : Any, P : EntityIdBase?>(
 
 class TenantId(key: TenantKey) : EntityId<TenantKey, String, Nothing?>(key, null) {
     override val type = "tenant"
-
 }
 
 class UserId(key: UserKey, tenantId: TenantId) : EntityId<UserKey, UUID, TenantId>(key, tenantId) {
@@ -41,8 +40,7 @@ class UserId(key: UserKey, tenantId: TenantId) : EntityId<UserKey, UUID, TenantI
     val tenantKey = tenantId.key
 }
 
-data class TemplateId(override val key: TemplateKey, val tenantId: TenantId) :
-    EntityId<TemplateKey, String, TenantId>(key, tenantId) {
+data class TemplateId(override val key: TemplateKey, val tenantId: TenantId) : EntityId<TemplateKey, String, TenantId>(key, tenantId) {
     override val type = "template"
     val tenantKey = tenantId.key
 }

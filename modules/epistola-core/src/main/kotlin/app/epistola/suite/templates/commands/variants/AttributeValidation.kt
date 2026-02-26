@@ -12,10 +12,10 @@ import app.epistola.suite.validation.validate
  * 1. All attribute keys exist as defined attributes for the tenant
  * 2. All attribute values are in the allowed values list (if the definition has restricted values)
  */
-fun validateAttributes(tenantId: TenantKey, attributes: Map<String, String>) {
+fun validateAttributes(tenantKey: TenantKey, attributes: Map<String, String>) {
     if (attributes.isEmpty()) return
 
-    val definitions = ListAttributeDefinitions(tenantId).query()
+    val definitions = ListAttributeDefinitions(tenantKey).query()
     val definitionMap = definitions.associateBy { it.id.value }
 
     for ((key, value) in attributes) {

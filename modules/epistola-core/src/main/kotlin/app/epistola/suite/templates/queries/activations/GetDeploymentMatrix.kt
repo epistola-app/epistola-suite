@@ -1,8 +1,7 @@
 package app.epistola.suite.templates.queries.activations
 
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
@@ -17,8 +16,7 @@ import java.time.OffsetDateTime
  * across all variants, joined with variant and environment info.
  */
 data class GetDeploymentMatrix(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
+    val templateId: TemplateId,
 ) : Query<List<DeploymentMatrixCell>>
 
 data class DeploymentMatrixCell(
@@ -47,8 +45,8 @@ class GetDeploymentMatrixHandler(
                 ORDER BY tv.created_at ASC, ea.environment_key ASC
                 """,
         )
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("templateId", query.templateId.key)
+            .bind("tenantId", query.templateId.tenantKey)
             .mapTo<DeploymentMatrixCell>()
             .list()
     }

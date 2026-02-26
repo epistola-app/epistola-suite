@@ -1,9 +1,7 @@
 package app.epistola.suite.templates.commands.activations
 
-import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
@@ -18,10 +16,8 @@ import org.springframework.stereotype.Component
  * - The environment or variant doesn't belong to the tenant
  */
 data class RemoveActivation(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
-    val environmentId: EnvironmentKey,
+    val variantId: VariantId,
+    val environmentId: EnvironmentId,
 ) : Command<Boolean>
 
 @Component
@@ -37,8 +33,8 @@ class RemoveActivationHandler(
                 WHERE id = :environmentId AND tenant_key = :tenantId
                 """,
         )
-            .bind("environmentId", command.environmentId)
-            .bind("tenantId", command.tenantId)
+            .bind("environmentId", command.environmentId.key)
+            .bind("tenantId", command.environmentId.tenantKey)
             .mapTo<Boolean>()
             .one()
 
@@ -52,9 +48,9 @@ class RemoveActivationHandler(
                 WHERE tenant_key = :tenantId AND environment_key = :environmentId AND variant_key = :variantId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("environmentId", command.environmentId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("environmentId", command.environmentId.key)
+            .bind("variantId", command.variantId.key)
             .execute()
 
         rowsDeleted > 0

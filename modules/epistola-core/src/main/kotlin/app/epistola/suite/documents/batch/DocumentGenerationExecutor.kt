@@ -7,7 +7,12 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
@@ -116,39 +121,30 @@ class DocumentGenerationExecutor(
             request.versionId?.value ?: request.environmentId?.value,
         )
 
+        // Build composite IDs
+        val tenantId = TenantId(request.tenantId)
+        val templateId = TemplateId(request.templateId, tenantId)
+        val variantId = VariantId(request.variantId, templateId)
+
         // 1. Resolve template version
         val version = if (request.versionId != null) {
             // Use explicit version
-            mediator.query(
-                GetVersion(
-                    tenantId = request.tenantId,
-                    templateId = request.templateId,
-                    variantId = request.variantId,
-                    versionId = request.versionId,
-                ),
-            ) ?: throw IllegalStateException("Version ${request.versionId} not found")
+            val versionId = VersionId(request.versionId, variantId)
+            mediator.query(GetVersion(versionId))
+                ?: throw IllegalStateException("Version ${request.versionId} not found")
         } else {
             // Use environment to determine active version
-            mediator.query(
-                GetActiveVersion(
-                    tenantId = request.tenantId,
-                    templateId = request.templateId,
-                    variantId = request.variantId,
-                    environmentId = request.environmentId!!,
-                ),
-            ) ?: throw IllegalStateException("No active version for environment ${request.environmentId}")
+            val environmentId = EnvironmentId(request.environmentId!!, tenantId)
+            mediator.query(GetActiveVersion(variantId, environmentId))
+                ?: throw IllegalStateException("No active version for environment ${request.environmentId}")
         }
 
         // 2. Get template model
         val templateModel = version.templateModel
 
         // 3. Fetch template to get default theme
-        val template = mediator.query(
-            GetDocumentTemplate(
-                tenantId = request.tenantId,
-                id = request.templateId,
-            ),
-        ) ?: throw IllegalStateException("Template ${request.templateId} not found")
+        val template = mediator.query(GetDocumentTemplate(templateId))
+            ?: throw IllegalStateException("Template ${request.templateId} not found")
 
         // 4. Fetch tenant to get default theme (ultimate fallback)
         val tenant = mediator.query(GetTenant(id = request.tenantId))

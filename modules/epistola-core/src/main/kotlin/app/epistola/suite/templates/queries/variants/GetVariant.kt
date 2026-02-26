@@ -1,8 +1,7 @@
 package app.epistola.suite.templates.queries.variants
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.TemplateVariant
@@ -12,9 +11,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetVariant(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
 ) : Query<TemplateVariant?>
 
 @Component
@@ -31,9 +28,9 @@ class GetVariantHandler(
                   AND tv.tenant_key = :tenantId
                 """,
         )
-            .bind("variantId", query.variantId)
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("variantId", query.variantId.key)
+            .bind("templateId", query.variantId.templateKey)
+            .bind("tenantId", query.variantId.tenantKey)
             .mapTo<TemplateVariant>()
             .findOne()
             .orElse(null)
@@ -41,8 +38,7 @@ class GetVariantHandler(
 }
 
 data class GetVariantSummaries(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
+    val templateId: TemplateId,
 ) : Query<List<VariantSummary>>
 
 @Component
@@ -70,8 +66,8 @@ class GetVariantSummariesHandler(
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("templateId", query.templateId.key)
+            .bind("tenantId", query.templateId.tenantKey)
             .mapTo<VariantSummary>()
             .list()
     }

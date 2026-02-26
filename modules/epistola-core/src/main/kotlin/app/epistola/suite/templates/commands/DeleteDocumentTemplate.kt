@@ -1,15 +1,13 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
 data class DeleteDocumentTemplate(
-    val tenantId: TenantKey,
-    val id: TemplateKey,
+    val id: TemplateId,
 ) : Command<Boolean>
 
 @Component
@@ -23,8 +21,8 @@ class DeleteDocumentTemplateHandler(
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .execute()
         rowsAffected > 0
     }

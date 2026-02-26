@@ -1,6 +1,8 @@
 package app.epistola.suite.templates.services
 
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.query
@@ -66,7 +68,7 @@ class VariantResolver {
         templateId: TemplateKey,
         criteria: VariantSelectionCriteria,
     ): VariantKey {
-        val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
+        val variants = ListVariants(TemplateId(templateId, TenantId(tenantId))).query()
 
         // Filter variants that match ALL required attributes
         val candidates = variants.filter { variant ->

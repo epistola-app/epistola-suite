@@ -25,10 +25,15 @@ import app.epistola.api.model.VersionListResponse
 import app.epistola.suite.api.v1.shared.VariantVersionInfo
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toSummaryDto
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -84,7 +89,7 @@ class EpistolaTemplateApi(
         tenantId: String,
         q: String?,
     ): ResponseEntity<TemplateListResponse> {
-        val templates = ListDocumentTemplates(tenantId = TenantKey.of(tenantId), searchTerm = q).query()
+        val templates = ListDocumentTemplates(tenantId = TenantId(TenantKey.of(tenantId)), searchTerm = q).query()
         return ResponseEntity.ok(
             TemplateListResponse(
                 items = templates.map { it.toSummaryDto() },
@@ -103,7 +108,9 @@ class EpistolaTemplateApi(
             name = createTemplateRequest.name,
             schema = schemaJson,
         ).execute()
-        val variantSummaries = GetVariantSummaries(tenantId = TenantKey.of(tenantId), templateId = template.id).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(template.id, tenantIdComposite)
+        val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -168,9 +175,11 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
     ): ResponseEntity<TemplateDto> {
-        val template = GetDocumentTemplate(tenantId = TenantKey.of(tenantId), id = TemplateKey.of(templateId)).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val template = GetDocumentTemplate(id = templateIdComposite).query()
             ?: return ResponseEntity.notFound().build()
-        val variantSummaries = GetVariantSummaries(tenantId = TenantKey.of(tenantId), templateId = TemplateKey.of(templateId)).query()
+        val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         return ResponseEntity.ok(template.toDto(objectMapper, variantSummaries))
     }
 
@@ -191,7 +200,9 @@ class EpistolaTemplateApi(
             dataExamples = dataExamples,
             forceUpdate = updateTemplateRequest.forceUpdate ?: false,
         ).execute() ?: return ResponseEntity.notFound().build()
-        val variantSummaries = GetVariantSummaries(tenantId = TenantKey.of(tenantId), templateId = TemplateKey.of(templateId)).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
     }
 
@@ -200,7 +211,9 @@ class EpistolaTemplateApi(
         templateId: String,
         validateTemplateDataRequest: ValidateTemplateDataRequest,
     ): ResponseEntity<TemplateDataValidationResult> {
-        val template = GetDocumentTemplate(tenantId = TenantKey.of(tenantId), id = TemplateKey.of(templateId)).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val template = GetDocumentTemplate(id = templateIdComposite).query()
             ?: return ResponseEntity.notFound().build()
 
         val dataModel = template.dataModel
@@ -241,7 +254,9 @@ class EpistolaTemplateApi(
         templateId: String,
     ): ResponseEntity<VariantListResponse> {
         val typedTenantId = TenantKey.of(tenantId)
-        val variants = ListVariants(tenantId = typedTenantId, templateId = TemplateKey.of(templateId)).query()
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variants = ListVariants(templateId = templateIdComposite).query()
         val variantDtos = variants.map { variant ->
             val summary = getVariantSummary(variant, typedTenantId)
             variant.toDto(summary)
@@ -273,11 +288,10 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantKey.of(tenantId)
-        val variant = GetVariant(
-            tenantId = typedTenantId,
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-        ).query() ?: return ResponseEntity.notFound().build()
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val variant = GetVariant(variantId = variantIdComposite).query() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.ok(variant.toDto(summary))
     }
@@ -341,11 +355,10 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
     ): ResponseEntity<VersionDto> {
-        val draft = GetDraft(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-        ).query() ?: return ResponseEntity.notFound().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val draft = GetDraft(variantId = variantIdComposite).query() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(draft.toDto(objectMapper))
     }
 
@@ -374,11 +387,10 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
     ): ResponseEntity<ActivationListResponse> {
-        val activations = ListActivations(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-        ).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val activations = ListActivations(variantId = variantIdComposite).query()
         return ResponseEntity.ok(ActivationListResponse(items = activations.map { it.toDto() }))
     }
 
@@ -407,12 +419,11 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
     ): ResponseEntity<VersionDto> {
-        val version = GetActiveVersion(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-            environmentId = EnvironmentKey.of(environment),
-        ).query() ?: return ResponseEntity.notFound().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environment), tenantIdComposite)
+        val version = GetActiveVersion(variantId = variantIdComposite, environmentId = environmentIdComposite).query() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -424,11 +435,10 @@ class EpistolaTemplateApi(
         variantId: String,
         status: String?,
     ): ResponseEntity<VersionListResponse> {
-        val versions = ListVersions(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-        ).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val versions = ListVersions(variantId = variantIdComposite).query()
         val filteredVersions = if (status != null) {
             versions.filter { it.status.name.equals(status, ignoreCase = true) }
         } else {
@@ -447,12 +457,11 @@ class EpistolaTemplateApi(
         variantId: String,
         versionId: Int,
     ): ResponseEntity<VersionDto> {
-        val version = GetVersion(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-            versionId = VersionKey.of(versionId),
-        ).query() ?: return ResponseEntity.notFound().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
+        val version = GetVersion(versionId = versionIdComposite).query() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(version.toDto(objectMapper))
     }
 
@@ -511,11 +520,10 @@ class EpistolaTemplateApi(
     // ================== Helper methods ==================
 
     private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantKey): VariantVersionInfo {
-        val versions = ListVersions(
-            tenantId = tenantId,
-            templateId = variant.templateId,
-            variantId = variant.id,
-        ).query()
+        val tenantIdComposite = TenantId(tenantId)
+        val templateIdComposite = TemplateId(variant.templateId, tenantIdComposite)
+        val variantIdComposite = VariantId(variant.id, templateIdComposite)
+        val versions = ListVersions(variantId = variantIdComposite).query()
         val hasDraft = versions.any { it.status == VersionStatus.DRAFT }
         val publishedVersions = versions
             .filter { it.status == VersionStatus.PUBLISHED }

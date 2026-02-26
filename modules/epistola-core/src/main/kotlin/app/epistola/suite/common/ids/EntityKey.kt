@@ -45,7 +45,13 @@ value class TenantKey(@JsonValue override val value: String) : SlugKey<TenantKey
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
         private val RESERVED_WORDS = setOf(
-            "admin", "api", "www", "system", "internal", "null", "undefined",
+            "admin",
+            "api",
+            "www",
+            "system",
+            "internal",
+            "null",
+            "undefined",
         )
 
         fun of(value: String): TenantKey = TenantKey(value)
@@ -206,7 +212,13 @@ value class EnvironmentKey(@JsonValue override val value: String) : SlugKey<Envi
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
         private val RESERVED_WORDS = setOf(
-            "admin", "api", "www", "system", "internal", "null", "undefined",
+            "admin",
+            "api",
+            "www",
+            "system",
+            "internal",
+            "null",
+            "undefined",
         )
 
         fun of(value: String): EnvironmentKey = EnvironmentKey(value)

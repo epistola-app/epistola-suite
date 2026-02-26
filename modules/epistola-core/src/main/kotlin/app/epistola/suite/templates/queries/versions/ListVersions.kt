@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.queries.versions
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.VersionSummary
@@ -11,9 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListVersions(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
 ) : Query<List<VersionSummary>>
 
 @Component
@@ -34,9 +30,9 @@ class ListVersionsHandler(
                     ver.id DESC
                 """,
         )
-            .bind("variantId", query.variantId)
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("variantId", query.variantId.key)
+            .bind("templateId", query.variantId.templateKey)
+            .bind("tenantId", query.variantId.tenantKey)
             .mapTo<VersionSummary>()
             .list()
     }

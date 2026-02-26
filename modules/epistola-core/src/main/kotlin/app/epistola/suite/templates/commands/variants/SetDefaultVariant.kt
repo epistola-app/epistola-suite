@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVariant
@@ -16,9 +14,7 @@ import org.springframework.stereotype.Component
  * Returns null if the variant is not found.
  */
 data class SetDefaultVariant(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
 ) : Command<TemplateVariant?>
 
 @Component
@@ -35,9 +31,9 @@ class SetDefaultVariantHandler(
                 )
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
             .mapTo<Boolean>()
             .one()
 
@@ -51,8 +47,8 @@ class SetDefaultVariantHandler(
                 WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("templateId", command.templateId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("templateId", command.variantId.templateKey)
             .execute()
 
         // Set the new default and return it
@@ -64,8 +60,8 @@ class SetDefaultVariantHandler(
                 RETURNING *
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo<TemplateVariant>()
             .findOne()
             .orElse(null)

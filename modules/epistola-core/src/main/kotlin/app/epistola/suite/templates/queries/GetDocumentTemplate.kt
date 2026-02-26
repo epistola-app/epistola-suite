@@ -1,7 +1,6 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -10,8 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetDocumentTemplate(
-    val tenantId: TenantKey,
-    val id: TemplateKey,
+    val id: TemplateId,
 ) : Query<DocumentTemplate?>
 
 @Component
@@ -26,8 +24,8 @@ class GetDocumentTemplateHandler(
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", query.id)
-            .bind("tenantId", query.tenantId)
+            .bind("id", query.id.key)
+            .bind("tenantId", query.id.tenantKey)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)

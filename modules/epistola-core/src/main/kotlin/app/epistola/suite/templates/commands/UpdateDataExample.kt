@@ -1,7 +1,6 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -23,8 +22,7 @@ import tools.jackson.databind.node.ObjectNode
  *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDataExample(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
+    val templateId: TemplateId,
     val exampleId: String,
     val name: String? = null,
     val data: ObjectNode? = null,
@@ -49,7 +47,7 @@ class UpdateDataExampleHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) : CommandHandler<UpdateDataExample, UpdateDataExampleResult?> {
     override fun handle(command: UpdateDataExample): UpdateDataExampleResult? {
-        val existing = getExisting(command.tenantId, command.templateId) ?: return null
+        val existing = getExisting(command.templateId) ?: return null
 
         // Find the example to update
         val existingExample = existing.dataExamples.find { it.id == command.exampleId }
@@ -83,7 +81,7 @@ class UpdateDataExampleHandler(
         }
 
         // Persist
-        val updated = updateDataExamples(command.tenantId, command.templateId, updatedExamples)
+        val updated = updateDataExamples(command.templateId, updatedExamples)
             ?: return null
 
         // Return the updated example from the persisted list
@@ -93,7 +91,7 @@ class UpdateDataExampleHandler(
         return UpdateDataExampleResult(example = persistedExample, warnings = warnings)
     }
 
-    private fun getExisting(tenantId: TenantKey, templateId: TemplateKey): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(templateId: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, tenant_key, name, data_model, data_examples, created_at, last_modified
@@ -101,16 +99,15 @@ class UpdateDataExampleHandler(
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", templateId)
-            .bind("tenantId", tenantId)
+            .bind("id", templateId.key)
+            .bind("tenantId", templateId.tenantKey)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)
     }
 
     private fun updateDataExamples(
-        tenantId: TenantKey,
-        templateId: TemplateKey,
+        templateId: TemplateId,
         dataExamples: List<DataExample>,
     ): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
@@ -121,8 +118,8 @@ class UpdateDataExampleHandler(
             RETURNING id, tenant_key, name, data_model, data_examples, created_at, last_modified
             """,
         )
-            .bind("id", templateId)
-            .bind("tenantId", tenantId)
+            .bind("id", templateId.key)
+            .bind("tenantId", templateId.tenantKey)
             .bind("dataExamples", objectMapper.writeValueAsString(dataExamples))
             .mapTo<DocumentTemplate>()
             .findOne()

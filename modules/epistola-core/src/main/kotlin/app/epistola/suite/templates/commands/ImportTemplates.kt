@@ -2,7 +2,7 @@ package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
@@ -20,7 +20,7 @@ import tools.jackson.databind.node.ObjectNode
 // ── Command ─────────────────────────────────────────────────────────────────
 
 data class ImportTemplates(
-    val tenantId: TenantKey,
+    val tenantId: TenantId,
     val templates: List<ImportTemplateInput>,
 ) : Command<List<ImportTemplateResult>>
 
@@ -82,7 +82,7 @@ class ImportTemplatesHandler(
         }
     }
 
-    private fun importSingleTemplate(tenantId: TenantKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+    private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
         val templateId = TemplateKey.of(input.slug)
         val defaultVariantId = VariantKey.of("${input.slug}-default")
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
@@ -97,7 +97,7 @@ class ImportTemplatesHandler(
                 """,
         )
             .bind("id", templateId)
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .mapTo<Boolean>()
             .one()
 
@@ -112,7 +112,7 @@ class ImportTemplatesHandler(
                     """,
             )
                 .bind("id", templateId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -127,7 +127,7 @@ class ImportTemplatesHandler(
                     """,
             )
                 .bind("id", templateId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -144,7 +144,7 @@ class ImportTemplatesHandler(
                 """,
         )
             .bind("id", defaultVariantId)
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("templateId", templateId)
             .execute()
 
@@ -171,7 +171,7 @@ class ImportTemplatesHandler(
                     """,
             )
                 .bind("id", variantId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("templateId", templateId)
                 .bind("title", variantInput.title)
                 .bind("attributes", attributesJson)
@@ -195,7 +195,7 @@ class ImportTemplatesHandler(
                     """,
             )
                 .bind("environmentId", environmentId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .mapTo<Boolean>()
                 .one()
 
@@ -224,7 +224,7 @@ class ImportTemplatesHandler(
      * Updates the existing draft if one exists, otherwise creates a new one
      * with the next available version ID.
      */
-    private fun upsertDraft(handle: Handle, tenantId: TenantKey, variantId: VariantKey, templateModel: TemplateDocument) {
+    private fun upsertDraft(handle: Handle, tenantId: TenantId, variantId: VariantKey, templateModel: TemplateDocument) {
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
         val updated = handle.createUpdate(
@@ -234,7 +234,7 @@ class ImportTemplatesHandler(
             WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
             .execute()
@@ -247,7 +247,7 @@ class ImportTemplatesHandler(
                 WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
             )
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("variantId", variantId)
                 .mapTo(Int::class.java)
                 .one()
@@ -259,7 +259,7 @@ class ImportTemplatesHandler(
                 """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
                 .execute()
@@ -271,7 +271,7 @@ class ImportTemplatesHandler(
      * Freezes the draft (status -> published), upserts the activation,
      * and auto-creates a new draft so the variant remains editable.
      */
-    private fun publishDraft(handle: Handle, tenantId: TenantKey, variantId: VariantKey, environmentId: EnvironmentKey) {
+    private fun publishDraft(handle: Handle, tenantId: TenantId, variantId: VariantKey, environmentId: EnvironmentKey) {
         // Find the draft version
         val draftVersionId = handle.createQuery(
             """
@@ -280,7 +280,7 @@ class ImportTemplatesHandler(
             WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
             .findOne()
@@ -296,7 +296,7 @@ class ImportTemplatesHandler(
             WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
             .execute()
@@ -310,7 +310,7 @@ class ImportTemplatesHandler(
             DO UPDATE SET version_key = :versionId, activated_at = NOW()
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("environmentId", environmentId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
@@ -324,7 +324,7 @@ class ImportTemplatesHandler(
             WHERE tenant_key = :tenantId AND variant_key = :variantId
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
             .one()
@@ -338,7 +338,7 @@ class ImportTemplatesHandler(
             """,
         )
             .bind("id", VersionKey.of(nextVersionId))
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .bind("publishedId", versionId)
             .execute()

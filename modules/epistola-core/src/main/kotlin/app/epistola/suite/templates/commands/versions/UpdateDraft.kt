@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -18,9 +16,7 @@ import tools.jackson.databind.ObjectMapper
  * If no draft exists, creates one. If a draft exists, updates it.
  */
 data class UpdateDraft(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
     val templateModel: TemplateDocument,
 ) : Command<TemplateVersion?>
 
@@ -38,9 +34,9 @@ class UpdateDraftHandler(
                 WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 """,
         )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("tenantId", command.variantId.tenantKey)
             .mapTo<Boolean>()
             .one()
 
@@ -59,8 +55,8 @@ class UpdateDraftHandler(
                   AND status = 'draft'
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .execute()
 
@@ -74,8 +70,8 @@ class UpdateDraftHandler(
                       AND status = 'draft'
                     """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("variantId", command.variantId.key)
                 .mapTo<TemplateVersion>()
                 .one()
         }
@@ -89,14 +85,14 @@ class UpdateDraftHandler(
                 WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo(Int::class.java)
             .one()
 
         // Enforce max version limit
         require(nextVersionId <= VersionKey.MAX_VERSION) {
-            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId}"
+            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
         }
 
         val versionId = VersionKey.of(nextVersionId)
@@ -109,8 +105,8 @@ class UpdateDraftHandler(
                 """,
         )
             .bind("id", versionId)
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()
             .one()

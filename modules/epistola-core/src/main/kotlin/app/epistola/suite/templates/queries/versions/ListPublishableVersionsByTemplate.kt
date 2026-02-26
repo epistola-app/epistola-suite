@@ -1,7 +1,6 @@
 package app.epistola.suite.templates.queries.versions
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
@@ -16,8 +15,7 @@ import org.springframework.stereotype.Component
  * Used to populate version selectors in the deployment matrix.
  */
 data class ListPublishableVersionsByTemplate(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
+    val templateId: TemplateId,
 ) : Query<List<PublishableVersion>>
 
 data class PublishableVersion(
@@ -45,8 +43,8 @@ class ListPublishableVersionsByTemplateHandler(
                 ORDER BY ver.variant_key, ver.id DESC
                 """,
         )
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("templateId", query.templateId.key)
+            .bind("tenantId", query.templateId.tenantKey)
             .mapTo<PublishableVersion>()
             .list()
     }

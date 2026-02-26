@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -22,7 +22,7 @@ data class TemplateSummary(
 )
 
 data class ListTemplateSummaries(
-    val tenantId: TenantKey,
+    val tenantId: TenantId,
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
@@ -61,7 +61,7 @@ class ListTemplateSummariesHandler(
         }
 
         val jdbiQuery = handle.createQuery(sql)
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
         if (!query.searchTerm.isNullOrBlank()) {
             val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             jdbiQuery.bind("searchTerm", "%$escaped%")

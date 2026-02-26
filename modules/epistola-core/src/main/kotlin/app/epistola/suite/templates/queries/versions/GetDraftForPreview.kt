@@ -1,9 +1,7 @@
 package app.epistola.suite.templates.queries.versions
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.template.model.TemplateDocument
@@ -40,9 +38,7 @@ private data class PreviewContextRow(
  * Used for PDF preview generation.
  */
 data class GetPreviewContext(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
 ) : Query<PreviewContext?>
 
 @Component
@@ -66,9 +62,9 @@ class GetPreviewContextHandler(
               AND tv.tenant_key = :tenantId
             """,
         )
-            .bind("variantId", query.variantId)
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("variantId", query.variantId.key)
+            .bind("templateId", query.variantId.templateKey)
+            .bind("tenantId", query.variantId.tenantKey)
             .mapTo<PreviewContextRow>()
             .findOne()
             .map { row ->

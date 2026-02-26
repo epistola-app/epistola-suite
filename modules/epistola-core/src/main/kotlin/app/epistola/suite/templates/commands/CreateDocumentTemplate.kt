@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
@@ -22,8 +22,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateDocumentTemplate(
-    val id: TemplateKey,
-    val tenantId: TenantKey,
+    val id: TemplateId,
     val name: String,
     val schema: String? = null,
 ) : Command<DocumentTemplate> {
@@ -48,7 +47,7 @@ class CreateDocumentTemplateHandler(
             }
         }
 
-        return executeOrThrowDuplicate("template", command.id.value) {
+        return executeOrThrowDuplicate("template", command.id.key.value) {
             jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
                 // 1. Create the template
                 val template = handle.createQuery(
@@ -58,15 +57,15 @@ class CreateDocumentTemplateHandler(
                 RETURNING id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
                 """,
                 )
-                    .bind("id", command.id)
-                    .bind("tenantId", command.tenantId)
+                    .bind("id", command.id.key)
+                    .bind("tenantId", command.id.tenantKey)
                     .bind("name", command.name)
                     .bind("schema", command.schema)
                     .mapTo<DocumentTemplate>()
                     .one()
 
                 // 2. Create default variant with template-specific ID to avoid conflicts
-                val variantId = VariantKey.of("${command.id}-default")
+                val variantId = VariantKey.of("${command.id.key}-default")
                 handle.createUpdate(
                     """
                 INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
@@ -74,7 +73,7 @@ class CreateDocumentTemplateHandler(
                 """,
                 )
                     .bind("id", variantId)
-                    .bind("tenantId", command.tenantId)
+                    .bind("tenantId", command.id.tenantKey)
                     .bind("templateId", template.id)
                     .execute()
 
@@ -111,7 +110,7 @@ class CreateDocumentTemplateHandler(
                 """,
                 )
                     .bind("id", versionId)
-                    .bind("tenantId", command.tenantId)
+                    .bind("tenantId", command.id.tenantKey)
                     .bind("variantId", variantId)
                     .bind("templateModel", templateModelJson)
                     .execute()

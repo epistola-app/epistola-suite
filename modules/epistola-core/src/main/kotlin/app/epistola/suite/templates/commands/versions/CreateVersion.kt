@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -23,9 +21,7 @@ import tools.jackson.databind.ObjectMapper
  * Throws exception if maximum version limit (200) is reached.
  */
 data class CreateVersion(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
+    val variantId: VariantId,
     val templateModel: TemplateDocument? = null,
 ) : Command<TemplateVersion?>
 
@@ -45,9 +41,9 @@ class CreateVersionHandler(
                   AND tv.template_key = :templateId
                 """,
         )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("tenantId", command.variantId.tenantKey)
             .mapToMap()
             .findOne()
             .orElse(null) ?: return@inTransaction null
@@ -63,8 +59,8 @@ class CreateVersionHandler(
                   AND status = 'draft'
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)
@@ -82,20 +78,20 @@ class CreateVersionHandler(
                 WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo(Int::class.java)
             .one()
 
         // Enforce max version limit
         require(nextVersionId <= VersionKey.MAX_VERSION) {
-            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId}"
+            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
         }
 
         val versionId = VersionKey.of(nextVersionId)
 
         // Use provided model or create default empty template structure
-        val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId)
+        val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId.key)
         val templateModelJson = objectMapper.writeValueAsString(modelToSave)
 
         handle.createQuery(
@@ -106,8 +102,8 @@ class CreateVersionHandler(
                 """,
         )
             .bind("id", versionId)
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()
             .one()

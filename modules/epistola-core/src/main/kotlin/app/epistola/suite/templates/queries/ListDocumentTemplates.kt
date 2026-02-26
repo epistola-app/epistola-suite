@@ -1,6 +1,6 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -9,7 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListDocumentTemplates(
-    val tenantId: TenantKey,
+    val tenantId: TenantId,
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
@@ -30,7 +30,7 @@ class ListDocumentTemplatesHandler(
         }
 
         val jdbiQuery = handle.createQuery(sql)
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

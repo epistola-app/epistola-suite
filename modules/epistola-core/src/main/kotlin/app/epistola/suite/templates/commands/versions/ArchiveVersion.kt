@@ -1,10 +1,7 @@
 package app.epistola.suite.templates.commands.versions
 
 import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantKey
-import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVersion
@@ -23,10 +20,7 @@ import org.springframework.stereotype.Component
  * - The tenant doesn't own the template
  */
 data class ArchiveVersion(
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
-    val versionId: VersionKey,
+    val versionId: VersionId,
 ) : Command<TemplateVersion?>
 
 @Component
@@ -42,17 +36,17 @@ class ArchiveVersionHandler(
                 WHERE tenant_key = :tenantId AND variant_key = :variantId AND version_key = :versionId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<String>()
             .list()
             .map { EnvironmentKey.of(it) }
 
         if (activeEnvironments.isNotEmpty()) {
             throw VersionStillActiveException(
-                versionId = command.versionId,
-                variantId = command.variantId,
+                versionId = command.versionId.key,
+                variantId = command.versionId.variantKey,
                 activeEnvironments = activeEnvironments,
             )
         }
@@ -67,9 +61,9 @@ class ArchiveVersionHandler(
                 RETURNING *
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)
