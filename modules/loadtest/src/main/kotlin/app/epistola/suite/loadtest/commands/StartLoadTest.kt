@@ -1,13 +1,13 @@
 package app.epistola.suite.loadtest.commands
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.loadtest.batch.LoadTestCreatedEvent
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -31,11 +31,11 @@ import tools.jackson.databind.node.ObjectNode
  * @property testData JSON data to use for all document generation requests
  */
 data class StartLoadTest(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId?,
-    val environmentId: EnvironmentId?,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+    val versionId: VersionKey?,
+    val environmentId: EnvironmentKey?,
     val targetCount: Int,
     val concurrencyLevel: Int,
     val testData: ObjectNode,
@@ -130,7 +130,7 @@ class StartLoadTestHandler(
             }
 
             // 3. Create load test run (stays in PENDING status for poller to pick up)
-            val runId = LoadTestRunId.generate()
+            val runId = LoadTestRunKey.generate()
             val run = handle.createQuery(
                 """
                 INSERT INTO load_test_runs (

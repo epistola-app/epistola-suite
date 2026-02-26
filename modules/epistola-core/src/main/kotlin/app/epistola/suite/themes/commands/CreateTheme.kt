@@ -1,7 +1,7 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DocumentStyles
@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateTheme(
-    val id: ThemeId,
-    val tenantId: TenantId,
+    val id: ThemeKey,
+    val tenantId: TenantKey,
     val name: String,
     val description: String? = null,
     val documentStyles: DocumentStyles = emptyMap(),

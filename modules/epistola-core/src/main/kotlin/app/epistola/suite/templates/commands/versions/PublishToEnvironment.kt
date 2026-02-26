@@ -1,10 +1,10 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.EnvironmentActivation
@@ -27,11 +27,11 @@ import org.springframework.stereotype.Component
  * - The environment doesn't belong to the tenant
  */
 data class PublishToEnvironment(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId,
-    val environmentId: EnvironmentId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+    val versionId: VersionKey,
+    val environmentId: EnvironmentKey,
 ) : Command<PublishToEnvironmentResult?>
 
 data class PublishToEnvironmentResult(
@@ -153,7 +153,7 @@ class PublishToEnvironmentHandler(
                     RETURNING *
                     """,
             )
-                .bind("id", VersionId.of(nextVersionId))
+                .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", command.tenantId)
                 .bind("variantId", command.variantId)
                 .bind("publishedId", command.versionId)

@@ -1,8 +1,7 @@
 package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.common.EntityIdentifiable
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.config.withHandle
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
@@ -11,7 +10,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 data class DeleteTenant(
-    val id: TenantId,
+    val id: TenantKey,
 ) : Command<Boolean>,
     EntityIdentifiable,
     Routable {

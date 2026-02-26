@@ -1,6 +1,6 @@
 package app.epistola.suite.themes.queries
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.themes.Theme
@@ -9,7 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListThemes(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val searchTerm: String? = null,
 ) : Query<List<Theme>>
 

@@ -1,13 +1,13 @@
 package app.epistola.suite.documents.model
 
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
@@ -44,17 +44,17 @@ import java.time.OffsetDateTime
  * @property expiresAt When this request should be cleaned up
  */
 data class DocumentGenerationRequest(
-    val id: GenerationRequestId,
-    val batchId: BatchId?,
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId?,
-    val environmentId: EnvironmentId?,
+    val id: GenerationRequestKey,
+    val batchId: BatchKey?,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+    val versionId: VersionKey?,
+    val environmentId: EnvironmentKey?,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationId: String?,
-    val documentId: DocumentId?,
+    val documentId: DocumentKey?,
     val status: RequestStatus,
     val claimedBy: String?,
     val claimedAt: OffsetDateTime?,

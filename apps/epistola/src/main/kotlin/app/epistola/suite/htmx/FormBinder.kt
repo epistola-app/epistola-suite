@@ -1,10 +1,10 @@
 package app.epistola.suite.htmx
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.validation.DuplicateIdException
 import app.epistola.suite.validation.ValidationException
 import org.springframework.web.servlet.function.ServerRequest
@@ -228,27 +228,27 @@ class FormData(
     /**
      * Get as EnvironmentId.
      */
-    fun getEnvironmentId(fieldName: String): app.epistola.suite.common.ids.EnvironmentId? = getAs(fieldName) { EnvironmentId.validateOrNull(it) }
+    fun getEnvironmentId(fieldName: String): app.epistola.suite.common.ids.EnvironmentKey? = getAs(fieldName) { EnvironmentKey.validateOrNull(it) }
 
     /**
      * Get as TemplateId.
      */
-    fun getTemplateId(fieldName: String): app.epistola.suite.common.ids.TemplateId? = getAs(fieldName) { TemplateId.validateOrNull(it) }
+    fun getTemplateId(fieldName: String): app.epistola.suite.common.ids.TemplateKey? = getAs(fieldName) { TemplateKey.validateOrNull(it) }
 
     /**
      * Get as VariantId.
      */
-    fun getVariantId(fieldName: String): app.epistola.suite.common.ids.VariantId? = getAs(fieldName) { VariantId.validateOrNull(it) }
+    fun getVariantId(fieldName: String): app.epistola.suite.common.ids.VariantKey? = getAs(fieldName) { VariantKey.validateOrNull(it) }
 
     /**
      * Get as VersionId.
      */
-    fun getVersionId(fieldName: String): app.epistola.suite.common.ids.VersionId? = getAs(fieldName) { it.toIntOrNull()?.let { v -> VersionId.of(v) } }
+    fun getVersionId(fieldName: String): app.epistola.suite.common.ids.VersionKey? = getAs(fieldName) { it.toIntOrNull()?.let { v -> VersionKey.of(v) } }
 
     /**
      * Get as TenantId.
      */
-    fun getTenantId(fieldName: String): app.epistola.suite.common.ids.TenantId? = getAs(fieldName) { TenantId.validateOrNull(it) }
+    fun getTenantId(fieldName: String): app.epistola.suite.common.ids.TenantKey? = getAs(fieldName) { TenantKey.validateOrNull(it) }
 }
 
 /**
@@ -289,17 +289,17 @@ class FormBuilder {
             if (value.isNotBlank()) {
                 when {
                     spec.asEnvironmentId -> {
-                        if (EnvironmentId.validateOrNull(value) == null) {
+                        if (EnvironmentKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid environment ID format"
                         }
                     }
                     spec.asTemplateId -> {
-                        if (TemplateId.validateOrNull(value) == null) {
+                        if (TemplateKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid template ID format"
                         }
                     }
                     spec.asVariantId -> {
-                        if (VariantId.validateOrNull(value) == null) {
+                        if (VariantKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid variant ID format"
                         }
                     }
@@ -309,7 +309,7 @@ class FormBuilder {
                         }
                     }
                     spec.asTenantId -> {
-                        if (TenantId.validateOrNull(value) == null) {
+                        if (TenantKey.validateOrNull(value) == null) {
                             errors[fieldName] = "Invalid tenant ID format"
                         }
                     }

@@ -8,8 +8,8 @@ import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -102,7 +102,7 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
     fun `get asset returns null for non-existent asset`() = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        val asset = GetAsset(tenantId = tenant.id, assetId = AssetId.generate()).query()
+        val asset = GetAsset(tenantId = tenant.id, assetId = AssetKey.generate()).query()
 
         assertThat(asset).isNull()
     }
@@ -123,7 +123,7 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
     fun `delete returns false for non-existent asset`() = withMediator {
         val tenant = createTenant("Test Tenant")
 
-        val deleted = DeleteAsset(tenantId = tenant.id, assetId = AssetId.generate()).execute()
+        val deleted = DeleteAsset(tenantId = tenant.id, assetId = AssetKey.generate()).execute()
 
         assertThat(deleted).isFalse()
     }
@@ -207,7 +207,7 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
 
             val templateId = TestIdHelpers.nextTemplateId()
             CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Invoice").execute()
-            val variantId = VariantId.of("${templateId.value}-default")
+            val variantId = VariantKey.of("${templateId.value}-default")
             UpdateDraft(
                 tenantId = tenant.id,
                 templateId = templateId,
@@ -229,7 +229,7 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
 
         val templateId = TestIdHelpers.nextTemplateId()
         CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Welcome Letter").execute()
-        val variantId = VariantId.of("${templateId.value}-default")
+        val variantId = VariantKey.of("${templateId.value}-default")
         UpdateDraft(
             tenantId = tenant.id,
             templateId = templateId,
@@ -260,7 +260,7 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
 
         val templateId = TestIdHelpers.nextTemplateId()
         CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Receipt").execute()
-        val variantId = VariantId.of("${templateId.value}-default")
+        val variantId = VariantKey.of("${templateId.value}-default")
         UpdateDraft(
             tenantId = tenant.id,
             templateId = templateId,
@@ -280,7 +280,7 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
         assertThat(deleted).isTrue()
     }
 
-    private fun buildTemplateModelWithAsset(assetId: AssetId): TemplateDocument {
+    private fun buildTemplateModelWithAsset(assetId: AssetKey): TemplateDocument {
         val rootId = "root-1"
         val slotId = "slot-1"
         val imageNodeId = "image-1"

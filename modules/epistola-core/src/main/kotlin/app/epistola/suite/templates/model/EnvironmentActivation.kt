@@ -1,19 +1,19 @@
 package app.epistola.suite.templates.model
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import java.time.OffsetDateTime
 
 /**
  * Environment activation mapping a variant to its active version in an environment.
  */
 data class EnvironmentActivation(
-    val tenantId: TenantId,
-    val environmentId: EnvironmentId,
-    val variantId: VariantId,
-    val versionId: VersionId,
+    val tenantId: TenantKey,
+    val environmentId: EnvironmentKey,
+    val variantId: VariantKey,
+    val versionId: VersionKey,
     val activatedAt: OffsetDateTime,
 )
 
@@ -22,8 +22,8 @@ data class EnvironmentActivation(
  * versionId.value IS the version number (1-200).
  */
 data class ActivationDetails(
-    val environmentId: EnvironmentId,
+    val environmentId: EnvironmentKey,
     val environmentName: String,
-    val versionId: VersionId,
+    val versionId: VersionKey,
     val activatedAt: OffsetDateTime,
 )

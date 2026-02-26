@@ -1,8 +1,8 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.validation.executeOrThrowDuplicate
@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateAttributeDefinition(
-    val id: AttributeId,
-    val tenantId: TenantId,
+    val id: AttributeKey,
+    val tenantId: TenantKey,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
 ) : Command<VariantAttributeDefinition> {

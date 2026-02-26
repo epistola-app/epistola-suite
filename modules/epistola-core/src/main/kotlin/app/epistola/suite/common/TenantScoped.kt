@@ -1,6 +1,6 @@
 package app.epistola.suite.common
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 
 /**
  * Marker interface for commands and messages that are scoped to a specific tenant.
@@ -23,5 +23,5 @@ interface TenantScoped {
     /**
      * The ID of the tenant this message is scoped to.
      */
-    val tenantId: TenantId
+    val tenantId: TenantKey
 }

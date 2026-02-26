@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -27,8 +27,8 @@ data class GenerationJobResult(
  * @property requestId The generation request ID
  */
 data class GetGenerationJob(
-    val tenantId: TenantId,
-    val requestId: GenerationRequestId,
+    val tenantId: TenantKey,
+    val requestId: GenerationRequestKey,
 ) : Query<GenerationJobResult?>
 
 @Component

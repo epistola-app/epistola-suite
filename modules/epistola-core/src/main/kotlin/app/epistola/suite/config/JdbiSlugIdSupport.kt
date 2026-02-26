@@ -1,6 +1,6 @@
 package app.epistola.suite.config
 
-import app.epistola.suite.common.ids.SlugId
+import app.epistola.suite.common.ids.SlugKey
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
@@ -13,8 +13,8 @@ import java.sql.Types
  * JDBI ArgumentFactory for all SlugId implementations.
  * Converts SlugId values to VARCHAR when binding to SQL statements.
  */
-class SlugIdArgumentFactory : AbstractArgumentFactory<SlugId<*>>(Types.VARCHAR) {
-    override fun build(value: SlugId<*>, config: ConfigRegistry): Argument = Argument { position, statement, _ -> statement.setString(position, value.value) }
+class SlugIdArgumentFactory : AbstractArgumentFactory<SlugKey<*>>(Types.VARCHAR) {
+    override fun build(value: SlugKey<*>, config: ConfigRegistry): Argument = Argument { position, statement, _ -> statement.setString(position, value.value) }
 }
 
 /**
@@ -24,7 +24,7 @@ class SlugIdArgumentFactory : AbstractArgumentFactory<SlugId<*>>(Types.VARCHAR) 
  * @param T The concrete SlugId type (e.g., TenantId, ThemeId)
  * @param factory Function that constructs T from a String value
  */
-class SlugIdColumnMapper<T : SlugId<T>>(
+class SlugIdColumnMapper<T : SlugKey<T>>(
     private val factory: (String) -> T,
 ) : ColumnMapper<T> {
     override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): T? {

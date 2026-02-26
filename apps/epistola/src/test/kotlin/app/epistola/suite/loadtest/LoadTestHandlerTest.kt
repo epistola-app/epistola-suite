@@ -2,7 +2,7 @@ package app.epistola.suite.loadtest
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -128,7 +128,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 CreateVersion(
                     tenantId = testTenant.id,
                     templateId = template.id,
-                    variantId = VariantId.of("${template.id}-default"),
+                    variantId = VariantKey.of("${template.id}-default"),
                 ).execute()
                 val envId = TestIdHelpers.nextEnvironmentId()
                 CreateEnvironment(id = envId, tenantId = testTenant.id, name = "Production").execute()
@@ -171,7 +171,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
                 templateId = template.id.value
-                val defaultVariantId = VariantId.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("${template.id}-default")
                 CreateVersion(
                     tenantId = testTenant.id,
                     templateId = template.id,

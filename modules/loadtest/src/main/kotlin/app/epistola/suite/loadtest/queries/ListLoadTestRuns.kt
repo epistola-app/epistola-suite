@@ -1,6 +1,6 @@
 package app.epistola.suite.loadtest.queries
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component
  * @return List of load test runs, ordered by created_at descending (most recent first)
  */
 data class ListLoadTestRuns(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val limit: Int = 50,
 ) : Query<List<LoadTestRun>> {
     init {

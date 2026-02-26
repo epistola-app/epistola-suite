@@ -2,7 +2,7 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
@@ -78,7 +78,7 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
     fun `returns false for non-existent document`() {
         val tenant = createTenant("Test Tenant")
 
-        val deleted = mediator.send(DeleteDocument(tenant.id, DocumentId.generate()))
+        val deleted = mediator.send(DeleteDocument(tenant.id, DocumentKey.generate()))
 
         assertThat(deleted).isFalse()
     }

@@ -6,14 +6,14 @@ import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -95,7 +95,7 @@ class DemoLoader(
                 }
 
                 // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
-                val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
+                val tenant = mediator.send(CreateTenant(id = TenantKey.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
                 log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
                 log.info("Tenant has default theme: {}", tenant.defaultThemeId)
 
@@ -103,7 +103,7 @@ class DemoLoader(
                 val logoBytes = generateDemoLogoPng()
                 mediator.send(
                     UploadAsset(
-                        id = AssetId.of(DEMO_LOGO_ASSET_ID),
+                        id = AssetKey.of(DEMO_LOGO_ASSET_ID),
                         tenantId = tenant.id,
                         name = "Epistola Logo",
                         mediaType = AssetMediaType.PNG,
@@ -127,14 +127,14 @@ class DemoLoader(
                 createDemoApiKey(tenant.id)
 
                 // Create environments
-                val staging = mediator.send(CreateEnvironment(id = EnvironmentId.of("staging"), tenantId = tenant.id, name = "Staging"))
-                val production = mediator.send(CreateEnvironment(id = EnvironmentId.of("production"), tenantId = tenant.id, name = "Production"))
+                val staging = mediator.send(CreateEnvironment(id = EnvironmentKey.of("staging"), tenantId = tenant.id, name = "Staging"))
+                val production = mediator.send(CreateEnvironment(id = EnvironmentKey.of("production"), tenantId = tenant.id, name = "Production"))
                 log.info("Created environments: staging, production")
 
                 // Create attribute definitions
                 mediator.send(
                     CreateAttributeDefinition(
-                        id = AttributeId.of("language"),
+                        id = AttributeKey.of("language"),
                         tenantId = tenant.id,
                         displayName = "Language",
                         allowedValues = listOf("nl", "en"),
@@ -158,12 +158,12 @@ class DemoLoader(
     /**
      * Creates a well-known demo API key for testing external API access.
      */
-    private fun createDemoApiKey(tenantId: TenantId) {
+    private fun createDemoApiKey(tenantId: TenantKey) {
         val keyHash = apiKeyService.hashKey(DEMO_API_KEY)
         val keyPrefix = apiKeyService.extractPrefix(DEMO_API_KEY)
 
         val apiKey = ApiKey(
-            id = ApiKeyId.of(DEMO_API_KEY_ID),
+            id = ApiKeyKey.of(DEMO_API_KEY_ID),
             tenantId = tenantId,
             name = "Demo API Key",
             keyPrefix = keyPrefix,
@@ -181,11 +181,11 @@ class DemoLoader(
     /**
      * Creates demo themes and returns the ID of the Corporate theme.
      */
-    private fun createDemoThemes(tenantId: TenantId): ThemeId? {
+    private fun createDemoThemes(tenantId: TenantKey): ThemeKey? {
         // Corporate Theme - professional styling
         val corporateTheme = mediator.send(
             CreateTheme(
-                id = ThemeId.of("demo-corp"),
+                id = ThemeKey.of("demo-corp"),
                 tenantId = tenantId,
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
@@ -236,7 +236,7 @@ class DemoLoader(
         // Modern Theme - contemporary design
         mediator.send(
             CreateTheme(
-                id = ThemeId.of("demo-modern"),
+                id = ThemeKey.of("demo-modern"),
                 tenantId = tenantId,
                 name = "Modern",
                 description = "Contemporary design with bold accents",
@@ -286,15 +286,15 @@ class DemoLoader(
     }
 
     private fun createTemplateFromDefinition(
-        tenantId: TenantId,
+        tenantId: TenantKey,
         definition: TemplateDefinition,
-        stagingId: EnvironmentId,
-        productionId: EnvironmentId,
+        stagingId: EnvironmentKey,
+        productionId: EnvironmentKey,
     ) {
         // 1. Create template with basic metadata
         val template = mediator.send(
             CreateDocumentTemplate(
-                id = TemplateId.of(definition.slug),
+                id = TemplateKey.of(definition.slug),
                 tenantId = tenantId,
                 name = definition.name,
             ),
@@ -367,7 +367,7 @@ class DemoLoader(
         log.debug("Published default variant to staging and production")
 
         // 8. Create English variant
-        val englishVariantId = VariantId.of("${definition.slug}-en")
+        val englishVariantId = VariantKey.of("${definition.slug}-en")
         val englishVariant = mediator.send(
             CreateVariant(
                 id = englishVariantId,

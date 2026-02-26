@@ -1,17 +1,16 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.pathId
 import app.epistola.suite.htmx.queryParam
-import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -105,7 +104,7 @@ class DocumentTemplateHandler(
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val templates = ListTemplateSummaries(tenantId = tenantId).query()
         return ServerResponse.ok().page("templates/list") {
             "pageTitle" to "Document Templates - Epistola"
@@ -115,7 +114,7 @@ class DocumentTemplateHandler(
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val searchTerm = request.queryParam("q")
         val templates = ListTemplateSummaries(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
@@ -128,7 +127,7 @@ class DocumentTemplateHandler(
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("templates/new") {
             "pageTitle" to "New Template - Epistola"
             "tenantId" to tenantId
@@ -136,7 +135,7 @@ class DocumentTemplateHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         val form = request.form {
             field("slug") {
@@ -160,7 +159,7 @@ class DocumentTemplateHandler(
             }
         }
 
-        val templateId = TemplateId.validateOrNull(form["slug"])
+        val templateId = TemplateKey.validateOrNull(form["slug"])
         if (templateId == null) {
             val errors = mapOf("slug" to "Invalid template ID format")
             return ServerResponse.ok().page("templates/new") {
@@ -198,10 +197,10 @@ class DocumentTemplateHandler(
     }
 
     fun editor(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val templateId = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val templateId = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
-        val variantId = request.pathId("variantId") { VariantId.validateOrNull(it) }
+        val variantId = request.pathId("variantId") { VariantKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         // Get all editor context in a single query
@@ -229,8 +228,8 @@ class DocumentTemplateHandler(
     }
 
     fun get(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val id = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val id = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val template = GetDocumentTemplate(tenantId = tenantId, id = id).query()
@@ -251,8 +250,8 @@ class DocumentTemplateHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val id = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val id = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -263,7 +262,7 @@ class DocumentTemplateHandler(
                 tenantId = tenantId,
                 id = id,
                 name = updateRequest.name,
-                themeId = updateRequest.themeId?.let { ThemeId.of(it) },
+                themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
                 clearThemeId = updateRequest.clearThemeId,
                 dataModel = updateRequest.dataModel,
                 dataExamples = updateRequest.dataExamples,
@@ -301,8 +300,8 @@ class DocumentTemplateHandler(
      * Returns the theme-section fragment for seamless UI updates.
      */
     fun updateTheme(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val id = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val id = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -311,7 +310,7 @@ class DocumentTemplateHandler(
         val result = UpdateDocumentTemplate(
             tenantId = tenantId,
             id = id,
-            themeId = updateRequest.themeId?.let { ThemeId.of(it) },
+            themeId = updateRequest.themeId?.let { ThemeKey.of(it) },
             clearThemeId = updateRequest.clearThemeId,
         ).execute() ?: return ServerResponse.notFound().build()
 
@@ -335,8 +334,8 @@ class DocumentTemplateHandler(
      * Returns migration suggestions for incompatible examples.
      */
     fun validateSchema(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val id = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val id = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -363,8 +362,8 @@ class DocumentTemplateHandler(
      * Only validates the single example being updated against the schema.
      */
     fun updateDataExample(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val templateId = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val templateId = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
@@ -405,8 +404,8 @@ class DocumentTemplateHandler(
      * Deletes a single data example from a template.
      */
     fun deleteDataExample(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val templateId = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val templateId = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
         val exampleId = request.pathVariable("exampleId")
 
@@ -424,8 +423,8 @@ class DocumentTemplateHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val id = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val id = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val template = GetDocumentTemplate(tenantId = tenantId, id = id).query()
@@ -450,8 +449,8 @@ class DocumentTemplateHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val id = request.pathId("id") { TemplateId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val id = request.pathId("id") { TemplateKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         DeleteDocumentTemplate(tenantId = tenantId, id = id).execute()

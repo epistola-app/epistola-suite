@@ -3,9 +3,9 @@ package app.epistola.suite.templates.services
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
@@ -20,10 +20,10 @@ class VariantResolverTest : CoreIntegrationTestBase() {
     @Autowired
     private lateinit var variantResolver: VariantResolver
 
-    private fun setupAttributeDefinitions(tenantId: TenantId): Unit = withMediator {
+    private fun setupAttributeDefinitions(tenantId: TenantKey): Unit = withMediator {
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenantId,
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "french"),
@@ -31,7 +31,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         )
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeId.of("brand"),
+                id = AttributeKey.of("brand"),
                 tenantId = tenantId,
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
@@ -234,7 +234,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                     CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
                 )
 
-                val defaultVariantId = VariantId.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("${template.id}-default")
 
                 mediator.send(
                     CreateVariant(
@@ -269,7 +269,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                 )
 
                 // Give the auto-created default variant some attributes
-                val defaultVariantId = VariantId.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("${template.id}-default")
                 mediator.send(
                     SetDefaultVariant(tenantId = tenant.id, templateId = template.id, variantId = defaultVariantId),
                 )
@@ -468,7 +468,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                     CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
                 )
 
-                val defaultVariantId = VariantId.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("${template.id}-default")
 
                 val resolved = variantResolver.resolve(
                     tenantId = tenant.id,

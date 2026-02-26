@@ -2,7 +2,7 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.BatchValidationException
 import app.epistola.suite.documents.commands.CancelGenerationJob
@@ -140,12 +140,12 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
         // Get one of the request IDs from the batch to check status
-        val requestId = jdbi.withHandle<GenerationRequestId, Exception> { handle ->
+        val requestId = jdbi.withHandle<GenerationRequestKey, Exception> { handle ->
             val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
                 .bind("batchId", batchId)
                 .mapTo(java.util.UUID::class.java)
                 .one()
-            GenerationRequestId(uuid)
+            GenerationRequestKey(uuid)
         }
 
         // Wait for completion
@@ -233,12 +233,12 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
         // Get one of the request IDs from the batch to check status
-        val requestId = jdbi.withHandle<GenerationRequestId, Exception> { handle ->
+        val requestId = jdbi.withHandle<GenerationRequestKey, Exception> { handle ->
             val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
                 .bind("batchId", batchId)
                 .mapTo(java.util.UUID::class.java)
                 .one()
-            GenerationRequestId(uuid)
+            GenerationRequestKey(uuid)
         }
 
         // Wait for completion
@@ -308,12 +308,12 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items))
 
         // Get one of the request IDs from the batch to cancel
-        val requestId = jdbi.withHandle<GenerationRequestId, Exception> { handle ->
+        val requestId = jdbi.withHandle<GenerationRequestKey, Exception> { handle ->
             val uuid = handle.createQuery("SELECT id FROM document_generation_requests WHERE batch_id = :batchId LIMIT 1")
                 .bind("batchId", batchId)
                 .mapTo(java.util.UUID::class.java)
                 .one()
-            GenerationRequestId(uuid)
+            GenerationRequestKey(uuid)
         }
 
         // Try to cancel immediately

@@ -1,10 +1,10 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -54,7 +54,7 @@ class ScenarioFactory(
      * Test user for authenticated operations.
      */
     private val testUser = EpistolaPrincipal(
-        userId = UserId.of("00000000-0000-0000-0000-000000000099"),
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
@@ -132,7 +132,7 @@ class ScenarioBuilder(private val namespace: String) {
          * @param name the name of the tenant to create
          * @return the created [Tenant]
          */
-        fun tenant(name: String): Tenant = capturedMediator.send(CreateTenant(id = TenantId.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
+        fun tenant(name: String): Tenant = capturedMediator.send(CreateTenant(id = TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
 
         /**
          * Creates a document template.
@@ -142,7 +142,7 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the created [DocumentTemplate]
          */
         fun template(
-            tenantId: TenantId,
+            tenantId: TenantKey,
             name: String,
         ): DocumentTemplate = capturedMediator.send(
             CreateDocumentTemplate(
@@ -163,8 +163,8 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the created [TemplateVariant]
          */
         fun variant(
-            tenantId: TenantId,
-            templateId: TemplateId,
+            tenantId: TenantKey,
+            templateId: TemplateKey,
             title: String? = null,
             description: String? = null,
             attributes: Map<String, String> = emptyMap(),
@@ -189,9 +189,9 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the updated [TemplateVersion]
          */
         fun version(
-            tenantId: TenantId,
-            templateId: TemplateId,
-            variantId: VariantId,
+            tenantId: TenantKey,
+            templateId: TemplateKey,
+            variantId: VariantKey,
             templateModel: TemplateDocument,
         ): TemplateVersion = capturedMediator.send(
             UpdateDraft(

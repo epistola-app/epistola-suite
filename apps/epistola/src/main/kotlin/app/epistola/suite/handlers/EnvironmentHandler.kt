@@ -1,7 +1,7 @@
 package app.epistola.suite.environments
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.queries.ListEnvironments
@@ -11,7 +11,6 @@ import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.pathId
 import app.epistola.suite.htmx.queryParam
-import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -23,7 +22,7 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class EnvironmentHandler {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val environments = ListEnvironments(tenantId = tenantId).query()
         return ServerResponse.ok().page("environments/list") {
@@ -35,7 +34,7 @@ class EnvironmentHandler {
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val searchTerm = request.queryParam("q")
         val environments = ListEnvironments(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
@@ -48,7 +47,7 @@ class EnvironmentHandler {
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("environments/new") {
             "pageTitle" to "New Environment - Epistola"
             "tenantId" to tenantId
@@ -56,7 +55,7 @@ class EnvironmentHandler {
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         val form = request.form {
             field("slug") {
@@ -104,8 +103,8 @@ class EnvironmentHandler {
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val environmentId = request.pathId("environmentId") { EnvironmentId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val environmentId = request.pathId("environmentId") { EnvironmentKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         try {

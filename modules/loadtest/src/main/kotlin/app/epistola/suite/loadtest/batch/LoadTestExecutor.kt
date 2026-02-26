@@ -1,14 +1,14 @@
 package app.epistola.suite.loadtest.batch
 
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.loadtest.model.LoadTestMetrics
-import app.epistola.suite.loadtest.model.LoadTestRequestId
+import app.epistola.suite.loadtest.model.LoadTestRequestKey
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Mediator
 import org.jdbi.v3.core.Jdbi
@@ -38,7 +38,7 @@ class LoadTestExecutor(
      */
     private data class SubmittedJob(
         val sequenceNumber: Int,
-        val generationRequestId: GenerationRequestId,
+        val generationRequestId: GenerationRequestKey,
         val correlationId: String,
     )
 
@@ -111,7 +111,7 @@ class LoadTestExecutor(
         // Convert job results to RequestResult format for metrics calculation
         val requestResults = jobResults.map { job ->
             RequestResult(
-                id = LoadTestRequestId.generate(),
+                id = LoadTestRequestKey.generate(),
                 sequenceNumber = job.sequenceNumber,
                 startedAt = job.createdAt,
                 durationMs = job.durationMs,
@@ -144,13 +144,13 @@ class LoadTestExecutor(
      */
     private data class JobResult(
         val sequenceNumber: Int,
-        val generationRequestId: GenerationRequestId,
+        val generationRequestId: GenerationRequestKey,
         val createdAt: OffsetDateTime,
         val startedAt: OffsetDateTime?,
         val completedAt: OffsetDateTime?,
         val status: String,
         val errorMessage: String?,
-        val documentId: DocumentId?,
+        val documentId: DocumentKey?,
     ) {
         val success: Boolean get() = status == "COMPLETED"
         val durationMs: Long get() {
@@ -177,7 +177,7 @@ class LoadTestExecutor(
      * Returns results with actual timing data from the database and a cancellation flag.
      */
     private fun pollForJobCompletion(
-        runId: LoadTestRunId,
+        runId: LoadTestRunKey,
         jobs: List<SubmittedJob>,
     ): Pair<List<JobResult>, Boolean> {
         val jobIds = jobs.map { it.generationRequestId }.toSet()
@@ -218,7 +218,7 @@ class LoadTestExecutor(
                 )
                     .bindList("jobIds", jobIds.map { it.value })
                     .map { rs, _ ->
-                        val requestId = GenerationRequestId.of(rs.getObject("id") as java.util.UUID)
+                        val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
                         val job = jobs.first { it.generationRequestId == requestId }
 
                         JobResult(
@@ -229,7 +229,7 @@ class LoadTestExecutor(
                             completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
                             status = rs.getString("status"),
                             errorMessage = rs.getString("error_message"),
-                            documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentId.of(it) },
+                            documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
                         )
                     }
                     .list()
@@ -279,7 +279,7 @@ class LoadTestExecutor(
             )
                 .bindList("jobIds", jobIds.map { it.value })
                 .map { rs, _ ->
-                    val requestId = GenerationRequestId.of(rs.getObject("id") as java.util.UUID)
+                    val requestId = GenerationRequestKey.of(rs.getObject("id") as java.util.UUID)
                     val job = jobs.first { it.generationRequestId == requestId }
 
                     JobResult(
@@ -290,7 +290,7 @@ class LoadTestExecutor(
                         completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
                         status = rs.getString("status"),
                         errorMessage = rs.getString("error_message"),
-                        documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentId.of(it) },
+                        documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
                     )
                 }
                 .list()
@@ -302,7 +302,7 @@ class LoadTestExecutor(
     /**
      * Store batch_id in load test run for linking to document_generation_requests.
      */
-    private fun storeBatchId(runId: LoadTestRunId, batchId: BatchId) {
+    private fun storeBatchId(runId: LoadTestRunKey, batchId: BatchKey) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -320,7 +320,7 @@ class LoadTestExecutor(
     /**
      * Update progress counts in the database.
      */
-    private fun updateProgress(runId: LoadTestRunId, completedCount: Int, failedCount: Int) {
+    private fun updateProgress(runId: LoadTestRunKey, completedCount: Int, failedCount: Int) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -340,7 +340,7 @@ class LoadTestExecutor(
     /**
      * Check if a run has been cancelled.
      */
-    private fun isRunCancelled(runId: LoadTestRunId): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    private fun isRunCancelled(runId: LoadTestRunKey): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createQuery(
             """
             SELECT status = 'CANCELLED' FROM load_test_runs WHERE id = :runId
@@ -354,7 +354,7 @@ class LoadTestExecutor(
     /**
      * Query all requests created for a batch, ordered by correlation_id sequence.
      */
-    private fun queryBatchRequests(batchId: BatchId, runId: LoadTestRunId): List<SubmittedJob> = jdbi.withHandle<List<SubmittedJob>, Exception> { handle ->
+    private fun queryBatchRequests(batchId: BatchKey, runId: LoadTestRunKey): List<SubmittedJob> = jdbi.withHandle<List<SubmittedJob>, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, correlation_id
@@ -369,7 +369,7 @@ class LoadTestExecutor(
                 val sequenceNumber = correlationId.substringAfterLast("-").toInt()
                 SubmittedJob(
                     sequenceNumber = sequenceNumber,
-                    generationRequestId = GenerationRequestId(rs.getObject("id", java.util.UUID::class.java)),
+                    generationRequestId = GenerationRequestKey(rs.getObject("id", java.util.UUID::class.java)),
                     correlationId = correlationId,
                 )
             }
@@ -465,8 +465,8 @@ class LoadTestExecutor(
      * Finalize load test run with metrics.
      */
     private fun finalizeRun(
-        runId: LoadTestRunId,
-        batchId: BatchId?,
+        runId: LoadTestRunKey,
+        batchId: BatchKey?,
         metrics: LoadTestMetrics,
         completedCount: Int,
         failedCount: Int,
@@ -550,13 +550,13 @@ class LoadTestExecutor(
      * Internal data class for tracking request results.
      */
     private data class RequestResult(
-        val id: LoadTestRequestId,
+        val id: LoadTestRequestKey,
         val sequenceNumber: Int,
         val startedAt: OffsetDateTime,
         val durationMs: Long,
         val success: Boolean,
         val errorMessage: String?,
         val errorType: String?,
-        val documentId: DocumentId?,
+        val documentId: DocumentKey?,
     )
 }

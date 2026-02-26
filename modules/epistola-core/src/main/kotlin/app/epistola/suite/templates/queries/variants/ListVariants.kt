@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.queries.variants
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.TemplateVariant
@@ -10,8 +10,8 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListVariants(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
 ) : Query<List<TemplateVariant>>
 
 @Component

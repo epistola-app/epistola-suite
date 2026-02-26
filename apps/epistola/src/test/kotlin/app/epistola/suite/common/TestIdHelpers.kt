@@ -1,8 +1,8 @@
 package app.epistola.suite.common
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.VariantKey
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -18,19 +18,19 @@ object TestIdHelpers {
      * Generates a unique TemplateId for testing purposes.
      * Each call returns a different ID in the format: test-template-{N}
      */
-    fun nextTemplateId(): TemplateId = TemplateId.of("test-template-${templateIdCounter.incrementAndGet()}")
+    fun nextTemplateId(): TemplateKey = TemplateKey.of("test-template-${templateIdCounter.incrementAndGet()}")
 
     /**
      * Generates a unique VariantId for testing purposes.
      * Each call returns a different ID in the format: test-variant-{N}
      */
-    fun nextVariantId(): VariantId = VariantId.of("test-variant-${variantIdCounter.incrementAndGet()}")
+    fun nextVariantId(): VariantKey = VariantKey.of("test-variant-${variantIdCounter.incrementAndGet()}")
 
     /**
      * Generates a unique EnvironmentId for testing purposes.
      * Each call returns a different ID in the format: test-env-{N}
      */
-    fun nextEnvironmentId(): EnvironmentId = EnvironmentId.of("test-env-${environmentIdCounter.incrementAndGet()}")
+    fun nextEnvironmentId(): EnvironmentKey = EnvironmentKey.of("test-env-${environmentIdCounter.incrementAndGet()}")
 
     /**
      * Resets all counters. Use this in test setup if needed.

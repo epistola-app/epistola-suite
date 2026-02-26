@@ -1,7 +1,7 @@
 package app.epistola.suite.assets
 
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import java.time.OffsetDateTime
 
 /**
@@ -26,8 +26,8 @@ enum class AssetMediaType(val mimeType: String) {
  * Asset metadata (excludes binary content to keep list queries lightweight).
  */
 data class Asset(
-    val id: AssetId,
-    val tenantId: TenantId,
+    val id: AssetKey,
+    val tenantId: TenantKey,
     val name: String,
     val mediaType: AssetMediaType,
     val sizeBytes: Long,
@@ -40,8 +40,8 @@ data class Asset(
  * Asset with binary content. Used for serving and PDF rendering.
  */
 data class AssetContent(
-    val id: AssetId,
-    val tenantId: TenantId,
+    val id: AssetKey,
+    val tenantId: TenantKey,
     val mediaType: AssetMediaType,
     val content: ByteArray,
 ) {
@@ -56,7 +56,7 @@ data class AssetContent(
 
 const val MAX_ASSET_SIZE_BYTES: Long = 5 * 1024 * 1024 // 5MB
 
-class AssetNotFoundException(tenantId: TenantId, assetId: AssetId) : RuntimeException("Asset $assetId not found for tenant $tenantId")
+class AssetNotFoundException(tenantId: TenantKey, assetId: AssetKey) : RuntimeException("Asset $assetId not found for tenant $tenantId")
 
 class AssetTooLargeException(sizeBytes: Long) : RuntimeException("Asset size $sizeBytes bytes exceeds maximum of $MAX_ASSET_SIZE_BYTES bytes (5MB)")
 
@@ -71,7 +71,7 @@ data class AssetUsage(
 )
 
 class AssetInUseException(
-    val assetId: AssetId,
+    val assetId: AssetKey,
     val usages: List<AssetUsage>,
 ) : RuntimeException(
     "Cannot delete asset $assetId: it is used in ${usages.joinToString { it.templateName + (it.variantTitle?.let { t -> " ($t)" } ?: "") }}",

@@ -1,9 +1,9 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -22,8 +22,8 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateDocumentTemplate(
-    val id: TemplateId,
-    val tenantId: TenantId,
+    val id: TemplateKey,
+    val tenantId: TenantKey,
     val name: String,
     val schema: String? = null,
 ) : Command<DocumentTemplate> {
@@ -66,7 +66,7 @@ class CreateDocumentTemplateHandler(
                     .one()
 
                 // 2. Create default variant with template-specific ID to avoid conflicts
-                val variantId = VariantId.of("${command.id}-default")
+                val variantId = VariantKey.of("${command.id}-default")
                 handle.createUpdate(
                     """
                 INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
@@ -102,7 +102,7 @@ class CreateDocumentTemplateHandler(
                     themeRef = ThemeRef.Inherit,
                 )
                 val templateModelJson = objectMapper.writeValueAsString(templateModel)
-                val versionId = VersionId.of(1) // First version is always 1
+                val versionId = VersionKey.of(1) // First version is always 1
 
                 handle.createUpdate(
                     """

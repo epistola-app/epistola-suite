@@ -1,9 +1,9 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateVariant
@@ -15,9 +15,9 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateVariant(
-    val id: VariantId,
-    val tenantId: TenantId,
-    val templateId: TemplateId,
+    val id: VariantKey,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
     val title: String?,
     val description: String?,
     val attributes: Map<String, String> = emptyMap(),
@@ -81,7 +81,7 @@ class CreateVariantHandler(
                     .one()
 
                 // Create an initial draft version for the new variant with default template model (version ID = 1)
-                val versionId = VersionId.of(1) // First version is always 1
+                val versionId = VersionKey.of(1) // First version is always 1
                 val defaultModel = createDefaultTemplateModel(templateName, variant.id)
                 val templateModelJson = objectMapper.writeValueAsString(defaultModel)
 

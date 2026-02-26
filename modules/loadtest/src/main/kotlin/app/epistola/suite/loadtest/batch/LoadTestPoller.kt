@@ -1,7 +1,7 @@
 package app.epistola.suite.loadtest.batch
 
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -113,7 +113,7 @@ class LoadTestPoller(
     /**
      * Mark a load test run as failed.
      */
-    private fun markRunFailed(runId: LoadTestRunId, errorMessage: String?) {
+    private fun markRunFailed(runId: LoadTestRunKey, errorMessage: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

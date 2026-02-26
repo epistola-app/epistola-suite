@@ -1,9 +1,9 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -139,7 +139,7 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the created [Tenant]
          */
         fun tenant(name: String): Tenant {
-            val tenant = capturedMediator.send(CreateTenant(id = TenantId.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
+            val tenant = capturedMediator.send(CreateTenant(id = TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
             this@ScenarioBuilder.registerCleanup {
                 capturedMediator.send(DeleteTenant(tenant.id))
             }
@@ -154,7 +154,7 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the created [DocumentTemplate]
          */
         fun template(
-            tenantId: TenantId,
+            tenantId: TenantKey,
             name: String,
         ): DocumentTemplate = capturedMediator.send(
             CreateDocumentTemplate(
@@ -175,8 +175,8 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the created [TemplateVariant]
          */
         fun variant(
-            tenantId: TenantId,
-            templateId: TemplateId,
+            tenantId: TenantKey,
+            templateId: TemplateKey,
             title: String? = null,
             description: String? = null,
             attributes: Map<String, String> = emptyMap(),
@@ -201,9 +201,9 @@ class ScenarioBuilder(private val namespace: String) {
          * @return the updated [TemplateVersion]
          */
         fun version(
-            tenantId: TenantId,
-            templateId: TemplateId,
-            variantId: VariantId,
+            tenantId: TenantKey,
+            templateId: TemplateKey,
+            variantId: VariantKey,
             templateModel: TemplateDocument,
         ): TemplateVersion = capturedMediator.send(
             UpdateDraft(

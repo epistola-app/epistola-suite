@@ -4,10 +4,10 @@ import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
@@ -164,7 +164,7 @@ class DocumentGenerationExecutor(
             author = tenant.name,
         )
         val assetResolver = AssetResolver { assetId ->
-            mediator.query(GetAssetContent(request.tenantId, AssetId.of(assetId)))
+            mediator.query(GetAssetContent(request.tenantId, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
         generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
@@ -183,7 +183,7 @@ class DocumentGenerationExecutor(
 
         // 8. Create Document entity (metadata only — content stored separately)
         val document = Document(
-            id = DocumentId.generate(),
+            id = DocumentKey.generate(),
             tenantId = request.tenantId,
             templateId = request.templateId,
             variantId = request.variantId,
@@ -201,7 +201,7 @@ class DocumentGenerationExecutor(
     /**
      * Save the generated document and mark the request as completed.
      */
-    private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestId, document: Document) {
+    private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestKey, document: Document) {
         jdbi.useTransaction<Exception> { handle ->
             // 1. Claim completion — skip if the request was cancelled during processing
             val expiresAtInterval = "$retentionDays days"
@@ -261,7 +261,7 @@ class DocumentGenerationExecutor(
     /**
      * Mark a request as failed with an error message.
      */
-    private fun markRequestFailed(requestId: GenerationRequestId, errorMessage: String) {
+    private fun markRequestFailed(requestId: GenerationRequestKey, errorMessage: String) {
         val expiresAtInterval = "$retentionDays days"
         jdbi.useHandle<Exception> { handle ->
             val updated = handle.createUpdate(
@@ -299,7 +299,7 @@ class DocumentGenerationExecutor(
         val isComplete: Boolean get() = pending == 0 && inProgress == 0
     }
 
-    private fun getBatchCounts(batchId: BatchId): BatchCounts = jdbi.withHandle<BatchCounts, Exception> { handle ->
+    private fun getBatchCounts(batchId: BatchKey): BatchCounts = jdbi.withHandle<BatchCounts, Exception> { handle ->
         val results = handle.createQuery(
             """
                 SELECT
@@ -329,7 +329,7 @@ class DocumentGenerationExecutor(
      * Calculates final counts and stores them when all requests are done.
      * Only finalizes once (idempotent - checks completed_at IS NULL).
      */
-    private fun finalizeBatchIfComplete(batchId: BatchId) {
+    private fun finalizeBatchIfComplete(batchId: BatchKey) {
         val counts = getBatchCounts(batchId)
 
         if (counts.isComplete) {

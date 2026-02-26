@@ -10,7 +10,7 @@ import java.util.UUID
  *
  * Generic over both the concrete ID type (T) and the value type (V).
  */
-interface EntityId<T : EntityId<T, V>, V : Any> {
+interface EntityKey<T : EntityKey<T, V>, V : Any> {
     val value: V
 }
 
@@ -18,13 +18,18 @@ interface EntityId<T : EntityId<T, V>, V : Any> {
  * Marker interface for slug-based IDs (String value).
  * Used for human-readable, URL-safe identifiers.
  */
-interface SlugId<T : SlugId<T>> : EntityId<T, String>
+interface SlugKey<T : SlugKey<T>> : EntityKey<T, String>
+
+/**
+ * Marker interface for Numeric Keys like incrementing numbers.
+ */
+interface NumericKey<T : NumericKey<T>> : EntityKey<T, Int>
 
 /**
  * Marker interface for UUID-based IDs.
  * Used for machine-generated unique identifiers.
  */
-interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
+interface UuidKey<T : UuidKey<T>> : EntityKey<T, UUID>
 
 /**
  * Typed ID for Tenant entities.
@@ -38,7 +43,7 @@ interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
  * - No consecutive hyphens
  */
 @JvmInline
-value class TenantId(override val value: String) : SlugId<TenantId> {
+value class TenantKey(override val value: String) : SlugKey<TenantKey> {
     init {
         require(value.length in 3..63) {
             "Tenant ID must be 3-63 characters, got ${value.length}"
@@ -63,13 +68,13 @@ value class TenantId(override val value: String) : SlugId<TenantId> {
             "undefined",
         )
 
-        fun of(value: String): TenantId = TenantId(value)
+        fun of(value: String): TenantKey = TenantKey(value)
 
         /**
          * Validates a slug without throwing.
          * Returns null if invalid, or the validated slug if valid.
          */
-        fun validateOrNull(value: String): TenantId? = runCatching { TenantId(value) }.getOrNull()
+        fun validateOrNull(value: String): TenantKey? = runCatching { TenantKey(value) }.getOrNull()
     }
 
     override fun toString(): String = value
@@ -87,7 +92,7 @@ value class TenantId(override val value: String) : SlugId<TenantId> {
  * - No consecutive hyphens
  */
 @JvmInline
-value class AttributeId(override val value: String) : SlugId<AttributeId> {
+value class AttributeKey(override val value: String) : SlugKey<AttributeKey> {
     init {
         require(value.length in 3..50) {
             "Attribute ID must be 3-50 characters, got ${value.length}"
@@ -100,9 +105,9 @@ value class AttributeId(override val value: String) : SlugId<AttributeId> {
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
-        fun of(value: String): AttributeId = AttributeId(value)
+        fun of(value: String): AttributeKey = AttributeKey(value)
 
-        fun validateOrNull(value: String): AttributeId? = runCatching { AttributeId(value) }.getOrNull()
+        fun validateOrNull(value: String): AttributeKey? = runCatching { AttributeKey(value) }.getOrNull()
     }
 
     override fun toString(): String = value
@@ -120,7 +125,7 @@ value class AttributeId(override val value: String) : SlugId<AttributeId> {
  * - No consecutive hyphens
  */
 @JvmInline
-value class TemplateId(override val value: String) : SlugId<TemplateId> {
+value class TemplateKey(override val value: String) : SlugKey<TemplateKey> {
     init {
         require(value.length in 3..50) {
             "Template ID must be 3-50 characters, got ${value.length}"
@@ -149,13 +154,13 @@ value class TemplateId(override val value: String) : SlugId<TemplateId> {
             "delete",
         )
 
-        fun of(value: String): TemplateId = TemplateId(value)
+        fun of(value: String): TemplateKey = TemplateKey(value)
 
         /**
          * Validates a slug without throwing.
          * Returns null if invalid, or the validated slug if valid.
          */
-        fun validateOrNull(value: String): TemplateId? = runCatching { TemplateId(value) }.getOrNull()
+        fun validateOrNull(value: String): TemplateKey? = runCatching { TemplateKey(value) }.getOrNull()
     }
 
     override fun toString(): String = value
@@ -165,7 +170,7 @@ value class TemplateId(override val value: String) : SlugId<TemplateId> {
  * Typed ID for TemplateVariant entities.
  */
 @JvmInline
-value class VariantId(override val value: String) : SlugId<VariantId> {
+value class VariantKey(override val value: String) : SlugKey<VariantKey> {
     init {
         require(value.length in 3..50) {
             "Variant ID must be 3-50 characters, got ${value.length}"
@@ -185,9 +190,9 @@ value class VariantId(override val value: String) : SlugId<VariantId> {
             "new", "create", "edit", "delete",
         )
 
-        fun of(value: String): VariantId = VariantId(value)
+        fun of(value: String): VariantKey = VariantKey(value)
 
-        fun validateOrNull(value: String): VariantId? = runCatching { VariantId(value) }.getOrNull()
+        fun validateOrNull(value: String): VariantKey? = runCatching { VariantKey(value) }.getOrNull()
     }
 
     override fun toString(): String = value
@@ -199,7 +204,7 @@ value class VariantId(override val value: String) : SlugId<VariantId> {
  * The version ID IS the version number - no separate version_number field.
  */
 @JvmInline
-value class VersionId(override val value: Int) : EntityId<VersionId, Int> {
+value class VersionKey(override val value: Int) : NumericKey<VersionKey> {
     init {
         require(value in MIN_VERSION..MAX_VERSION) {
             "Version ID must be between $MIN_VERSION and $MAX_VERSION, got $value"
@@ -212,7 +217,7 @@ value class VersionId(override val value: Int) : EntityId<VersionId, Int> {
         const val MIN_VERSION = 1
         const val MAX_VERSION = 200
 
-        fun of(value: Int): VersionId = VersionId(value)
+        fun of(value: Int): VersionKey = VersionKey(value)
 
         // No generate() method - version IDs are calculated per variant based on existing versions
     }
@@ -230,7 +235,7 @@ value class VersionId(override val value: Int) : EntityId<VersionId, Int> {
  * - No consecutive hyphens
  */
 @JvmInline
-value class EnvironmentId(override val value: String) : SlugId<EnvironmentId> {
+value class EnvironmentKey(override val value: String) : SlugKey<EnvironmentKey> {
     init {
         require(value.length in 3..30) {
             "Environment ID must be 3-30 characters, got ${value.length}"
@@ -255,13 +260,13 @@ value class EnvironmentId(override val value: String) : SlugId<EnvironmentId> {
             "undefined",
         )
 
-        fun of(value: String): EnvironmentId = EnvironmentId(value)
+        fun of(value: String): EnvironmentKey = EnvironmentKey(value)
 
         /**
          * Validates a slug without throwing.
          * Returns null if invalid, or the validated slug if valid.
          */
-        fun validateOrNull(value: String): EnvironmentId? = runCatching { EnvironmentId(value) }.getOrNull()
+        fun validateOrNull(value: String): EnvironmentKey? = runCatching { EnvironmentKey(value) }.getOrNull()
     }
 
     override fun toString(): String = value
@@ -271,11 +276,11 @@ value class EnvironmentId(override val value: String) : SlugId<EnvironmentId> {
  * Typed ID for Asset entities.
  */
 @JvmInline
-value class AssetId(override val value: UUID) : UuidId<AssetId> {
+value class AssetKey(override val value: UUID) : UuidKey<AssetKey> {
     companion object {
-        fun generate(): AssetId = AssetId(UUIDv7.generate())
-        fun of(value: UUID): AssetId = AssetId(value)
-        fun of(value: String): AssetId = AssetId(UUID.fromString(value))
+        fun generate(): AssetKey = AssetKey(UUIDv7.generate())
+        fun of(value: UUID): AssetKey = AssetKey(value)
+        fun of(value: String): AssetKey = AssetKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()
@@ -285,10 +290,10 @@ value class AssetId(override val value: UUID) : UuidId<AssetId> {
  * Typed ID for Document entities.
  */
 @JvmInline
-value class DocumentId(override val value: UUID) : UuidId<DocumentId> {
+value class DocumentKey(override val value: UUID) : UuidKey<DocumentKey> {
     companion object {
-        fun generate(): DocumentId = DocumentId(UUIDv7.generate())
-        fun of(value: UUID): DocumentId = DocumentId(value)
+        fun generate(): DocumentKey = DocumentKey(UUIDv7.generate())
+        fun of(value: UUID): DocumentKey = DocumentKey(value)
     }
 
     override fun toString(): String = value.toString()
@@ -298,10 +303,10 @@ value class DocumentId(override val value: UUID) : UuidId<DocumentId> {
  * Typed ID for DocumentGenerationRequest entities.
  */
 @JvmInline
-value class GenerationRequestId(override val value: UUID) : UuidId<GenerationRequestId> {
+value class GenerationRequestKey(override val value: UUID) : UuidKey<GenerationRequestKey> {
     companion object {
-        fun generate(): GenerationRequestId = GenerationRequestId(UUIDv7.generate())
-        fun of(value: UUID): GenerationRequestId = GenerationRequestId(value)
+        fun generate(): GenerationRequestKey = GenerationRequestKey(UUIDv7.generate())
+        fun of(value: UUID): GenerationRequestKey = GenerationRequestKey(value)
     }
 
     override fun toString(): String = value.toString()
@@ -312,10 +317,10 @@ value class GenerationRequestId(override val value: UUID) : UuidId<GenerationReq
  * Groups related generation requests together for batch tracking.
  */
 @JvmInline
-value class BatchId(override val value: UUID) : UuidId<BatchId> {
+value class BatchKey(override val value: UUID) : UuidKey<BatchKey> {
     companion object {
-        fun generate(): BatchId = BatchId(UUIDv7.generate())
-        fun of(value: UUID): BatchId = BatchId(value)
+        fun generate(): BatchKey = BatchKey(UUIDv7.generate())
+        fun of(value: UUID): BatchKey = BatchKey(value)
     }
 
     override fun toString(): String = value.toString()
@@ -333,7 +338,7 @@ value class BatchId(override val value: UUID) : UuidId<BatchId> {
  * - No consecutive hyphens
  */
 @JvmInline
-value class ThemeId(override val value: String) : SlugId<ThemeId> {
+value class ThemeKey(override val value: String) : SlugKey<ThemeKey> {
     init {
         require(value.length in 3..20) {
             "Theme ID must be 3-20 characters, got ${value.length}"
@@ -346,13 +351,13 @@ value class ThemeId(override val value: String) : SlugId<ThemeId> {
     companion object {
         private val SLUG_PATTERN = Regex("^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
-        fun of(value: String): ThemeId = ThemeId(value)
+        fun of(value: String): ThemeKey = ThemeKey(value)
 
         /**
          * Validates a slug without throwing.
          * Returns null if invalid, or the validated slug if valid.
          */
-        fun validateOrNull(value: String): ThemeId? = runCatching { ThemeId(value) }.getOrNull()
+        fun validateOrNull(value: String): ThemeKey? = runCatching { ThemeKey(value) }.getOrNull()
     }
 
     override fun toString(): String = value
@@ -362,11 +367,11 @@ value class ThemeId(override val value: String) : SlugId<ThemeId> {
  * Typed ID for API key entities.
  */
 @JvmInline
-value class ApiKeyId(override val value: UUID) : UuidId<ApiKeyId> {
+value class ApiKeyKey(override val value: UUID) : UuidKey<ApiKeyKey> {
     companion object {
-        fun generate(): ApiKeyId = ApiKeyId(UUIDv7.generate())
-        fun of(value: UUID): ApiKeyId = ApiKeyId(value)
-        fun of(value: String): ApiKeyId = ApiKeyId(UUID.fromString(value))
+        fun generate(): ApiKeyKey = ApiKeyKey(UUIDv7.generate())
+        fun of(value: UUID): ApiKeyKey = ApiKeyKey(value)
+        fun of(value: String): ApiKeyKey = ApiKeyKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()
@@ -376,11 +381,11 @@ value class ApiKeyId(override val value: UUID) : UuidId<ApiKeyId> {
  * Typed ID for User entities.
  */
 @JvmInline
-value class UserId(override val value: UUID) : UuidId<UserId> {
+value class UserKey(override val value: UUID) : UuidKey<UserKey> {
     companion object {
-        fun generate(): UserId = UserId(UUIDv7.generate())
-        fun of(value: UUID): UserId = UserId(value)
-        fun of(value: String): UserId = UserId(UUID.fromString(value))
+        fun generate(): UserKey = UserKey(UUIDv7.generate())
+        fun of(value: UUID): UserKey = UserKey(value)
+        fun of(value: String): UserKey = UserKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()

@@ -2,7 +2,7 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -20,7 +20,7 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
     @Test
     fun `returns false for non-existent job`() {
         val tenant = createTenant("Test Tenant")
-        val randomId = GenerationRequestId.generate()
+        val randomId = GenerationRequestKey.generate()
 
         val cancelled = mediator.send(CancelGenerationJob(tenant.id, randomId))
 

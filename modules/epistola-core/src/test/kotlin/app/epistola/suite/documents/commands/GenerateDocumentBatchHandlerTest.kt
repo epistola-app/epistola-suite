@@ -2,8 +2,8 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -104,7 +104,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(), // Non-existent template
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                 environmentId = null,
                 data = objectMapper.createObjectNode().put("id", 2),
                 filename = "doc-2.pdf",
@@ -122,7 +122,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
     fun `requires at least one item`() {
         assertThatThrownBy {
             GenerateDocumentBatch(
-                tenantId = TenantId.of("dummy-tenant"),
+                tenantId = TenantKey.of("dummy-tenant"),
                 items = emptyList(),
             )
         }.isInstanceOf(IllegalArgumentException::class.java)
@@ -135,7 +135,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
             BatchGenerationItem(
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                 environmentId = TestIdHelpers.nextEnvironmentId(), // Both set
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",

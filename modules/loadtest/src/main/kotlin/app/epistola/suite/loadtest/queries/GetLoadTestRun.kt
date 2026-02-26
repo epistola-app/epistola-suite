@@ -1,8 +1,8 @@
 package app.epistola.suite.loadtest.queries
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component
  * @return LoadTestRun if found, null otherwise
  */
 data class GetLoadTestRun(
-    val tenantId: TenantId,
-    val runId: LoadTestRunId,
+    val tenantId: TenantKey,
+    val runId: LoadTestRunKey,
 ) : Query<LoadTestRun?>
 
 @Component

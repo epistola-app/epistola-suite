@@ -1,15 +1,13 @@
 package app.epistola.suite.assets
 
-import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.isHtmx
-import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -29,7 +27,7 @@ class AssetHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val tenant = GetTenant(id = tenantId).query()
         val assets = ListAssets(tenantId = tenantId).query()
         return ServerResponse.ok().render(
@@ -46,7 +44,7 @@ class AssetHandler {
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val searchTerm = request.param("q").orElse(null)
 
         // HTMX search — return HTML fragment
@@ -82,7 +80,7 @@ class AssetHandler {
     }
 
     fun upload(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         val multipartData = request.multipartData()
         val filePart: Part = multipartData["file"]?.firstOrNull()
@@ -166,8 +164,8 @@ class AssetHandler {
     }
 
     fun content(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val assetId = AssetId.of(UUID.fromString(request.pathVariable("assetId")))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
         val assetContent = GetAssetContent(tenantId = tenantId, assetId = assetId).query()
             ?: return ServerResponse.notFound().build()
@@ -179,8 +177,8 @@ class AssetHandler {
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val assetId = AssetId.of(UUID.fromString(request.pathVariable("assetId")))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val assetId = AssetKey.of(UUID.fromString(request.pathVariable("assetId")))
 
         try {
             DeleteAsset(tenantId = tenantId, assetId = assetId).execute()

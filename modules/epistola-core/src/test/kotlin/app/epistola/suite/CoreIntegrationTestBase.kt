@@ -1,7 +1,7 @@
 package app.epistola.suite
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.documents.batch.JobPoller
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -59,7 +59,7 @@ abstract class CoreIntegrationTestBase {
      * Has access to all test tenants created during tests.
      */
     protected val testUser = EpistolaPrincipal(
-        userId = UserId.of("00000000-0000-0000-0000-000000000099"),
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
@@ -127,7 +127,7 @@ abstract class CoreIntegrationTestBase {
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(classNamespace, block)
 
     protected fun createTenant(name: String): Tenant = withMediator {
-        val tenant = CreateTenant(id = TenantId.of(nextTenantSlug()), name = name).execute()
+        val tenant = CreateTenant(id = TenantKey.of(nextTenantSlug()), name = name).execute()
         tenant
     }
 }

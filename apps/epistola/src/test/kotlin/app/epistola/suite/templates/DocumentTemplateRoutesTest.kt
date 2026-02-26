@@ -1,7 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.ListDocumentTemplates
@@ -915,7 +915,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `GET editor page renders and references template editor bundle`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: VariantId? = null
+            var variantId: VariantKey? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -960,7 +960,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 400 with structured errors when data validation fails`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: VariantId? = null
+            var variantId: VariantKey? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1007,7 +1007,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns 400 with structured errors when data type is wrong`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: VariantId? = null
+            var variantId: VariantKey? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1109,7 +1109,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns PDF when data is valid`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: VariantId? = null
+            var variantId: VariantKey? = null
 
             given {
                 testTenant = tenant("Test Tenant")
@@ -1167,7 +1167,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
         fun `POST preview returns PDF when no schema is defined`() = fixture {
             lateinit var testTenant: Tenant
             lateinit var template: DocumentTemplate
-            var variantId: VariantId? = null
+            var variantId: VariantKey? = null
 
             given {
                 testTenant = tenant("Test Tenant")

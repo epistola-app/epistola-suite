@@ -9,8 +9,8 @@ import app.epistola.suite.api.v1.shared.toDomain
 import app.epistola.suite.api.v1.shared.toDomainDocumentStyles
 import app.epistola.suite.api.v1.shared.toDomainPresets
 import app.epistola.suite.api.v1.shared.toDto
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.themes.commands.CreateTheme
@@ -35,7 +35,7 @@ class EpistolaThemeApi(
         q: String?,
     ): ResponseEntity<ThemeListResponse> {
         val themes = ListThemes(
-            tenantId = TenantId.of(tenantId),
+            tenantId = TenantKey.of(tenantId),
             searchTerm = q,
         ).query()
 
@@ -51,8 +51,8 @@ class EpistolaThemeApi(
         createThemeRequest: CreateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val theme = CreateTheme(
-            id = ThemeId.of(createThemeRequest.id),
-            tenantId = TenantId.of(tenantId),
+            id = ThemeKey.of(createThemeRequest.id),
+            tenantId = TenantKey.of(tenantId),
             name = createThemeRequest.name,
             description = createThemeRequest.description,
             documentStyles = createThemeRequest.documentStyles.toDomainDocumentStyles(objectMapper),
@@ -70,8 +70,8 @@ class EpistolaThemeApi(
         themeId: String,
     ): ResponseEntity<ThemeDto> {
         val theme = GetTheme(
-            tenantId = TenantId.of(tenantId),
-            id = ThemeId.of(themeId),
+            tenantId = TenantKey.of(tenantId),
+            id = ThemeKey.of(themeId),
         ).query() ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(theme.toDto(objectMapper))
@@ -83,8 +83,8 @@ class EpistolaThemeApi(
         updateThemeRequest: UpdateThemeRequest,
     ): ResponseEntity<ThemeDto> {
         val theme = UpdateTheme(
-            tenantId = TenantId.of(tenantId),
-            id = ThemeId.of(themeId),
+            tenantId = TenantKey.of(tenantId),
+            id = ThemeKey.of(themeId),
             name = updateThemeRequest.name,
             description = updateThemeRequest.description,
             documentStyles = updateThemeRequest.documentStyles?.toDomainDocumentStyles(objectMapper),
@@ -100,8 +100,8 @@ class EpistolaThemeApi(
         themeId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteTheme(
-            tenantId = TenantId.of(tenantId),
-            id = ThemeId.of(themeId),
+            tenantId = TenantKey.of(tenantId),
+            id = ThemeKey.of(themeId),
         ).execute()
 
         return if (deleted) {

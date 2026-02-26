@@ -1,8 +1,8 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.validation.validate
@@ -13,8 +13,8 @@ import tools.jackson.core.type.TypeReference
 import tools.jackson.databind.ObjectMapper
 
 data class UpdateAttributeDefinition(
-    val id: AttributeId,
-    val tenantId: TenantId,
+    val id: AttributeKey,
+    val tenantId: TenantKey,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
 ) : Command<VariantAttributeDefinition?> {
@@ -30,7 +30,7 @@ data class UpdateAttributeDefinition(
  * Thrown when narrowing allowed values would invalidate existing variants.
  */
 class AllowedValuesInUseException(
-    val attributeId: AttributeId,
+    val attributeId: AttributeKey,
     val removedValues: Set<String>,
 ) : RuntimeException(
     "Cannot remove allowed values ${removedValues.joinToString(", ") { "'$it'" }} from attribute '${attributeId.value}': " +

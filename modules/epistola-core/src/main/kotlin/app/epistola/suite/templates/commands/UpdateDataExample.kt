@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -23,8 +23,8 @@ import tools.jackson.databind.node.ObjectNode
  *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDataExample(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
     val exampleId: String,
     val name: String? = null,
     val data: ObjectNode? = null,
@@ -93,7 +93,7 @@ class UpdateDataExampleHandler(
         return UpdateDataExampleResult(example = persistedExample, warnings = warnings)
     }
 
-    private fun getExisting(tenantId: TenantId, templateId: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(tenantId: TenantKey, templateId: TemplateKey): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
@@ -109,8 +109,8 @@ class UpdateDataExampleHandler(
     }
 
     private fun updateDataExamples(
-        tenantId: TenantId,
-        templateId: TemplateId,
+        tenantId: TenantKey,
+        templateId: TemplateKey,
         dataExamples: List<DataExample>,
     ): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(

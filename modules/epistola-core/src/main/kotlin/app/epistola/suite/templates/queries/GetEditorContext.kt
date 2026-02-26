@@ -1,8 +1,8 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.DataExample
@@ -28,9 +28,9 @@ data class EditorContext(
  * This avoids multiple round-trips to the database.
  */
 data class GetEditorContext(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
 ) : Query<EditorContext?>
 
 @Component

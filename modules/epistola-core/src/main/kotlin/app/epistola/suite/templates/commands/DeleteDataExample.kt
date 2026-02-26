@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -15,8 +15,8 @@ import tools.jackson.databind.ObjectMapper
  * Deletes a single data example from a template.
  */
 data class DeleteDataExample(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
     val exampleId: String,
 ) : Command<DeleteDataExampleResult?>
 
@@ -53,7 +53,7 @@ class DeleteDataExampleHandler(
         return DeleteDataExampleResult(deleted = true)
     }
 
-    private fun getExisting(tenantId: TenantId, templateId: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(tenantId: TenantKey, templateId: TemplateKey): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
                 SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
@@ -69,8 +69,8 @@ class DeleteDataExampleHandler(
     }
 
     private fun updateDataExamples(
-        tenantId: TenantId,
-        templateId: TemplateId,
+        tenantId: TenantKey,
+        templateId: TemplateKey,
         dataExamples: List<DataExample>,
     ): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(

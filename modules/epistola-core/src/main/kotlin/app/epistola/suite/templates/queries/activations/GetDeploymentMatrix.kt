@@ -1,10 +1,10 @@
 package app.epistola.suite.templates.queries.activations
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -17,14 +17,14 @@ import java.time.OffsetDateTime
  * across all variants, joined with variant and environment info.
  */
 data class GetDeploymentMatrix(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
 ) : Query<List<DeploymentMatrixCell>>
 
 data class DeploymentMatrixCell(
-    val variantId: VariantId,
-    val environmentId: EnvironmentId,
-    val versionId: VersionId,
+    val variantId: VariantKey,
+    val environmentId: EnvironmentKey,
+    val versionId: VersionKey,
     val activatedAt: OffsetDateTime,
 )
 

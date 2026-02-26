@@ -1,9 +1,9 @@
 package app.epistola.suite.templates.commands.activations
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
@@ -18,10 +18,10 @@ import org.springframework.stereotype.Component
  * - The environment or variant doesn't belong to the tenant
  */
 data class RemoveActivation(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val environmentId: EnvironmentId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+    val environmentId: EnvironmentKey,
 ) : Command<Boolean>
 
 @Component

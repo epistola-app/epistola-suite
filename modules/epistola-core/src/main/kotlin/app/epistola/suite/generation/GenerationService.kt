@@ -3,9 +3,9 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
@@ -56,12 +56,12 @@ class GenerationService(
      * @param tenantDefaultThemeId Optional default theme from Tenant (ultimate fallback)
      */
     fun renderPdf(
-        tenantId: TenantId,
+        tenantId: TenantKey,
         templateModel: TemplateDocument,
         data: Map<String, Any?>,
         outputStream: OutputStream,
-        templateDefaultThemeId: ThemeId? = null,
-        tenantDefaultThemeId: ThemeId? = null,
+        templateDefaultThemeId: ThemeKey? = null,
+        tenantDefaultThemeId: ThemeKey? = null,
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
@@ -122,8 +122,8 @@ class GenerationService(
      * @return Validation result with any errors found
      */
     fun validatePreviewData(
-        tenantId: TenantId,
-        templateId: TemplateId,
+        tenantId: TenantKey,
+        templateId: TemplateKey,
         data: Map<String, Any?>,
     ): PreviewValidationResult {
         val template = GetDocumentTemplate(tenantId, templateId).query()

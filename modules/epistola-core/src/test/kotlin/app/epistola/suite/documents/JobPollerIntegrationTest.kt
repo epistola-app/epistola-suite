@@ -2,7 +2,7 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.CoreTestcontainersConfiguration
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetDocument
@@ -62,7 +62,7 @@ class JobPollerIntegrationTest {
         // Create test data
         val tenant = mediator.send(
             CreateTenant(
-                id = TenantId.of("test-tenant-${System.currentTimeMillis()}"),
+                id = TenantKey.of("test-tenant-${System.currentTimeMillis()}"),
                 name = "Test Tenant",
             ),
         )

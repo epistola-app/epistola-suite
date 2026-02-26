@@ -1,8 +1,8 @@
 package app.epistola.suite.apikeys
 
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import java.time.Instant
 
 /**
@@ -13,15 +13,15 @@ import java.time.Instant
  * at runtime — the key's own ID is used as the userId in EpistolaPrincipal.
  */
 data class ApiKey(
-    val id: ApiKeyId,
-    val tenantId: TenantId,
+    val id: ApiKeyKey,
+    val tenantId: TenantKey,
     val name: String,
     val keyPrefix: String,
     val enabled: Boolean,
     val createdAt: Instant,
     val lastUsedAt: Instant?,
     val expiresAt: Instant?,
-    val createdBy: UserId?,
+    val createdBy: UserKey?,
 ) {
     fun isExpired(): Boolean = expiresAt != null && Instant.now().isAfter(expiresAt)
 

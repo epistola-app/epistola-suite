@@ -1,10 +1,10 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DataExample
@@ -20,7 +20,7 @@ import tools.jackson.databind.node.ObjectNode
 // ── Command ─────────────────────────────────────────────────────────────────
 
 data class ImportTemplates(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val templates: List<ImportTemplateInput>,
 ) : Command<List<ImportTemplateResult>>
 
@@ -82,9 +82,9 @@ class ImportTemplatesHandler(
         }
     }
 
-    private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
-        val templateId = TemplateId.of(input.slug)
-        val defaultVariantId = VariantId.of("${input.slug}-default")
+    private fun importSingleTemplate(tenantId: TenantKey, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
+        val templateId = TemplateKey.of(input.slug)
+        val defaultVariantId = VariantKey.of("${input.slug}-default")
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
         val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
 
@@ -157,7 +157,7 @@ class ImportTemplatesHandler(
         // 2. Process explicit variants
         val allVariantIds = mutableSetOf(defaultVariantId)
         for (variantInput in input.variants) {
-            val variantId = VariantId.of(variantInput.id)
+            val variantId = VariantKey.of(variantInput.id)
             allVariantIds.add(variantId)
 
             val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
@@ -185,7 +185,7 @@ class ImportTemplatesHandler(
         // 3. Publish to environments
         val publishedTo = mutableListOf<String>()
         for (envSlug in input.publishTo) {
-            val environmentId = EnvironmentId.of(envSlug)
+            val environmentId = EnvironmentKey.of(envSlug)
 
             val environmentExists = handle.createQuery(
                 """
@@ -224,7 +224,7 @@ class ImportTemplatesHandler(
      * Updates the existing draft if one exists, otherwise creates a new one
      * with the next available version ID.
      */
-    private fun upsertDraft(handle: Handle, tenantId: TenantId, variantId: VariantId, templateModel: TemplateDocument) {
+    private fun upsertDraft(handle: Handle, tenantId: TenantKey, variantId: VariantKey, templateModel: TemplateDocument) {
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
         val updated = handle.createUpdate(
@@ -258,7 +258,7 @@ class ImportTemplatesHandler(
                 VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
-                .bind("id", VersionId.of(nextVersionId))
+                .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", tenantId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
@@ -271,7 +271,7 @@ class ImportTemplatesHandler(
      * Freezes the draft (status -> published), upserts the activation,
      * and auto-creates a new draft so the variant remains editable.
      */
-    private fun publishDraft(handle: Handle, tenantId: TenantId, variantId: VariantId, environmentId: EnvironmentId) {
+    private fun publishDraft(handle: Handle, tenantId: TenantKey, variantId: VariantKey, environmentId: EnvironmentKey) {
         // Find the draft version
         val draftVersionId = handle.createQuery(
             """
@@ -286,7 +286,7 @@ class ImportTemplatesHandler(
             .findOne()
             .orElse(null) ?: return
 
-        val versionId = VersionId.of(draftVersionId)
+        val versionId = VersionKey.of(draftVersionId)
 
         // Freeze the draft
         handle.createUpdate(
@@ -337,7 +337,7 @@ class ImportTemplatesHandler(
                     'draft', NOW())
             """,
         )
-            .bind("id", VersionId.of(nextVersionId))
+            .bind("id", VersionKey.of(nextVersionId))
             .bind("tenantId", tenantId)
             .bind("variantId", variantId)
             .bind("publishedId", versionId)

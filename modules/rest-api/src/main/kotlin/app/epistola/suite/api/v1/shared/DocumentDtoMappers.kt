@@ -8,12 +8,12 @@ import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
 import app.epistola.api.model.VariantSelectionAttribute
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
@@ -64,7 +64,7 @@ internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
     createdAt = createdAt,
 )
 
-internal fun BatchId.toJobResponse() = GenerationJobResponse(
+internal fun BatchKey.toJobResponse() = GenerationJobResponse(
     requestId = value, // Use batch ID as request ID for API compatibility
     status = GenerationJobResponse.Status.PENDING,
     jobType = GenerationJobResponse.JobType.BATCH,
@@ -109,12 +109,12 @@ internal fun GenerateDocumentRequest.toCommand(
         "Cannot specify both variantId and attributes"
     }
     return app.epistola.suite.documents.commands.GenerateDocument(
-        tenantId = TenantId.of(tenantId),
-        templateId = TemplateId.of(templateId),
-        variantId = variantId?.let { VariantId.of(it) },
+        tenantId = TenantKey.of(tenantId),
+        templateId = TemplateKey.of(templateId),
+        variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        versionId = versionId?.let { VersionId.of(it) },
-        environmentId = environmentId?.let { EnvironmentId.of(it) },
+        versionId = versionId?.let { VersionKey.of(it) },
+        environmentId = environmentId?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
         correlationId = correlationId,
@@ -128,11 +128,11 @@ internal fun app.epistola.api.model.BatchGenerationItem.toBatchItem(
         "Cannot specify both variantId and attributes"
     }
     return app.epistola.suite.documents.commands.BatchGenerationItem(
-        templateId = TemplateId.of(templateId),
-        variantId = variantId?.let { VariantId.of(it) },
+        templateId = TemplateKey.of(templateId),
+        variantId = variantId?.let { VariantKey.of(it) },
         variantSelectionCriteria = attributes?.toSelectionCriteria(),
-        versionId = versionId?.let { VersionId.of(it) },
-        environmentId = environmentId?.let { EnvironmentId.of(it) },
+        versionId = versionId?.let { VersionKey.of(it) },
+        environmentId = environmentId?.let { EnvironmentKey.of(it) },
         data = data,
         filename = filename,
         correlationId = correlationId,
@@ -159,6 +159,6 @@ internal fun GenerateBatchRequest.toCommand(
     tenantId: String,
     objectMapper: ObjectMapper,
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
-    tenantId = TenantId.of(tenantId),
+    tenantId = TenantKey.of(tenantId),
     items = items.map { it.toBatchItem(objectMapper) },
 )

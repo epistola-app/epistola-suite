@@ -1,12 +1,12 @@
 package app.epistola.suite.themes
 
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 
 /**
  * Thrown when a requested theme does not exist.
  */
 class ThemeNotFoundException(
-    val themeId: ThemeId,
+    val themeId: ThemeKey,
 ) : RuntimeException("Theme not found: $themeId")
 
 /**
@@ -14,7 +14,7 @@ class ThemeNotFoundException(
  * This includes being set as a tenant's default theme or referenced by templates.
  */
 class ThemeInUseException(
-    val themeId: ThemeId,
+    val themeId: ThemeKey,
     reason: String,
 ) : RuntimeException("Cannot delete theme $themeId: $reason")
 
@@ -23,5 +23,5 @@ class ThemeInUseException(
  * At least one theme must always exist per tenant.
  */
 class LastThemeException(
-    val themeId: ThemeId,
+    val themeId: ThemeKey,
 ) : RuntimeException("Cannot delete theme $themeId: it is the last theme for this tenant")

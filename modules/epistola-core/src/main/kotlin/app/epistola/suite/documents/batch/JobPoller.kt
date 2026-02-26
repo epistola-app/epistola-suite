@@ -1,6 +1,6 @@
 package app.epistola.suite.documents.batch
 
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import io.micrometer.core.instrument.MeterRegistry
@@ -69,7 +69,7 @@ class JobPoller(
     private val drainRequested = AtomicBoolean(false)
 
     // Track job start times for duration calculation
-    private val jobStartTimes = ConcurrentHashMap<GenerationRequestId, Long>()
+    private val jobStartTimes = ConcurrentHashMap<GenerationRequestKey, Long>()
 
     // Micrometer counters for observability
     private val jobsClaimedCounter = meterRegistry.counter("epistola.jobs.claimed.total")
@@ -283,7 +283,7 @@ class JobPoller(
     /**
      * Mark a request as failed when job execution throws an exception.
      */
-    private fun markRequestFailed(requestId: GenerationRequestId, errorMessage: String?) {
+    private fun markRequestFailed(requestId: GenerationRequestKey, errorMessage: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

@@ -2,8 +2,8 @@ package app.epistola.suite.documents.queries
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
@@ -67,7 +67,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     @Test
     fun `GetGenerationJob returns null for non-existent job`() {
         val tenant = createTenant("Test Tenant")
-        val randomId = GenerationRequestId.generate()
+        val randomId = GenerationRequestKey.generate()
 
         val job = mediator.query(GetGenerationJob(tenant.id, randomId))
 
@@ -271,7 +271,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     fun `GetDocument returns null for non-existent document`() {
         val tenant = createTenant("Test Tenant")
 
-        val document = mediator.query(GetDocument(tenant.id, DocumentId.generate()))
+        val document = mediator.query(GetDocument(tenant.id, DocumentKey.generate()))
 
         assertThat(document).isNull()
     }
@@ -309,7 +309,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
         )!!
 
         // Generate documents for template1 and track request IDs
-        val requests = mutableListOf<GenerationRequestId>()
+        val requests = mutableListOf<GenerationRequestKey>()
         (1..2).forEach { i ->
             val request = mediator.send(
                 GenerateDocument(

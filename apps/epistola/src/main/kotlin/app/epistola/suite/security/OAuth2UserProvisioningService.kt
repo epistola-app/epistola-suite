@@ -130,7 +130,7 @@ class OAuth2UserProvisioningService(
         )
     }
 
-    private fun updateLastLogin(userId: app.epistola.suite.common.ids.UserId) {
+    private fun updateLastLogin(userId: app.epistola.suite.common.ids.UserKey) {
         mediator.send(UpdateLastLogin(userId))
     }
 

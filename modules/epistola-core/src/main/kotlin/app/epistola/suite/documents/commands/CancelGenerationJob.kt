@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component
  * @property requestId The generation request ID to cancel
  */
 data class CancelGenerationJob(
-    val tenantId: TenantId,
-    val requestId: GenerationRequestId,
+    val tenantId: TenantKey,
+    val requestId: GenerationRequestKey,
 ) : Command<Boolean>
 
 @Component

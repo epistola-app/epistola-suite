@@ -2,7 +2,7 @@ package app.epistola.suite.templates.commands.versions
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -155,7 +155,7 @@ class PublishToEnvironmentTest : CoreIntegrationTestBase() {
             templateId = template.id,
             variantId = variant.id,
             versionId = draft.id,
-            environmentId = EnvironmentId.of("non-existent"),
+            environmentId = EnvironmentKey.of("non-existent"),
         ).execute()
 
         assertThat(result).isNull()

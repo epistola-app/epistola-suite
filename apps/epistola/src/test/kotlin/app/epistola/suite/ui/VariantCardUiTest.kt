@@ -2,8 +2,8 @@ package app.epistola.suite.ui
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -53,13 +53,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
             CreateAttributeDefinition(
-                id = AttributeId.of("brand"),
+                id = AttributeKey.of("brand"),
                 tenantId = tenant.id,
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
@@ -89,7 +89,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
@@ -134,7 +134,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
@@ -166,13 +166,13 @@ class VariantCardUiTest : BasePlaywrightTest() {
         val (tenant, template) = withMediator {
             val (tenant, template) = createTenantAndTemplate()
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("en", "nl"),
             ).execute()
             CreateAttributeDefinition(
-                id = AttributeId.of("brand"),
+                id = AttributeKey.of("brand"),
                 tenantId = tenant.id,
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
@@ -270,7 +270,7 @@ class VariantCardUiTest : BasePlaywrightTest() {
      * Helper to create a tenant + template. Creating a template auto-creates a default variant.
      */
     private fun createTenantAndTemplate(): Pair<Tenant, DocumentTemplate> {
-        val tenantId = TenantId.of("test-ui-tenant-${System.nanoTime()}")
+        val tenantId = TenantKey.of("test-ui-tenant-${System.nanoTime()}")
         val tenant = CreateTenant(id = tenantId, name = "UI Test Tenant").execute()
         val template = CreateDocumentTemplate(
             id = TestIdHelpers.nextTemplateId(),

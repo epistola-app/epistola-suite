@@ -1,7 +1,7 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.themes.LastThemeException
@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component
  * Templates referencing this theme will gracefully fall back to their own styles.
  */
 data class DeleteTheme(
-    val tenantId: TenantId,
-    val id: ThemeId,
+    val tenantId: TenantKey,
+    val id: ThemeKey,
 ) : Command<Boolean>
 
 @Component

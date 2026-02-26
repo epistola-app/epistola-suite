@@ -1,7 +1,7 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DocumentStyles
@@ -18,8 +18,8 @@ import tools.jackson.databind.ObjectMapper
  * Updates a theme with partial updates (only provided fields are updated).
  */
 data class UpdateTheme(
-    val tenantId: TenantId,
-    val id: ThemeId,
+    val tenantId: TenantKey,
+    val id: ThemeKey,
     val name: String? = null,
     val description: String? = null,
     val clearDescription: Boolean = false,
@@ -104,7 +104,7 @@ class UpdateThemeHandler(
         }
     }
 
-    private fun getExisting(tenantId: TenantId, id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
+    private fun getExisting(tenantId: TenantKey, id: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
             SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId

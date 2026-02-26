@@ -2,8 +2,8 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.storage.ContentKey
@@ -22,8 +22,8 @@ import java.util.UUID
  * @property assetId The asset ID
  */
 data class GetAssetContent(
-    val tenantId: TenantId,
-    val assetId: AssetId,
+    val tenantId: TenantKey,
+    val assetId: AssetKey,
 ) : Query<AssetContent?>
 
 @Component
@@ -47,8 +47,8 @@ class GetAssetContentHandler(
                 .bind("tenantId", query.tenantId)
                 .map { rs, _ ->
                     AssetMeta(
-                        id = AssetId(rs.getObject("id", UUID::class.java)),
-                        tenantId = TenantId(rs.getString("tenant_id")),
+                        id = AssetKey(rs.getObject("id", UUID::class.java)),
+                        tenantId = TenantKey(rs.getString("tenant_id")),
                         mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     )
                 }
@@ -69,8 +69,8 @@ class GetAssetContentHandler(
     }
 
     private data class AssetMeta(
-        val id: AssetId,
-        val tenantId: TenantId,
+        val id: AssetKey,
+        val tenantId: TenantKey,
         val mediaType: AssetMediaType,
     )
 }

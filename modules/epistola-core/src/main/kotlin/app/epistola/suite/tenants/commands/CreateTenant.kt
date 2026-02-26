@@ -1,10 +1,9 @@
 package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.common.EntityIdentifiable
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.config.bindJsonb
-import app.epistola.suite.config.withHandle
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
@@ -22,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 
 data class CreateTenant(
-    val id: TenantId,
+    val id: TenantKey,
     val name: String,
 ) : Command<Tenant>,
     EntityIdentifiable,
@@ -64,7 +63,7 @@ class CreateTenantHandler(
                 command.id.value.take(maxTenantIdLength).trimEnd('-')
             }
             val themeSlug = "$prefix$suffix"
-            val themeId = ThemeId.of(themeSlug)
+            val themeId = ThemeKey.of(themeSlug)
             val documentStyles = mapOf(
                 "fontFamily" to "Helvetica, Arial, sans-serif",
                 "fontSize" to "11pt",

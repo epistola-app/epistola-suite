@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -13,7 +13,7 @@ import java.time.OffsetDateTime
  * Summary of a template with variant statistics for list views.
  */
 data class TemplateSummary(
-    val id: TemplateId,
+    val id: TemplateKey,
     val name: String,
     val lastModified: OffsetDateTime,
     val variantCount: Int,
@@ -22,7 +22,7 @@ data class TemplateSummary(
 )
 
 data class ListTemplateSummaries(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,

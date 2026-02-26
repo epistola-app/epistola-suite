@@ -1,8 +1,8 @@
 package app.epistola.suite.templates.queries.activations
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.templates.model.ActivationDetails
@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component
  * Lists all activations for a variant across all environments.
  */
 data class ListActivations(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
 ) : Query<List<ActivationDetails>>
 
 @Component

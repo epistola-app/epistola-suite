@@ -3,10 +3,10 @@ package app.epistola.suite.templates
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.versions.GetPreviewContext
@@ -48,10 +48,10 @@ class TemplatePreviewHandler(
     fun preview(request: ServerRequest): ServerResponse {
         val tenantId = request.pathVariable("tenantId")
         val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
+        val templateId = TemplateKey.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
         val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantId.validateOrNull(variantIdStr)
+        val variantId = VariantKey.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
 
         // Parse the request body
@@ -70,7 +70,7 @@ class TemplatePreviewHandler(
 
         // Validate data against schema BEFORE starting the streaming response
         val validationResult = generationService.validatePreviewData(
-            TenantId.of(tenantId),
+            TenantKey.of(tenantId),
             templateId,
             data,
         )
@@ -91,7 +91,7 @@ class TemplatePreviewHandler(
 
         // Get preview context: draft template model and template's default theme
         val previewContext = GetPreviewContext(
-            tenantId = TenantId.of(tenantId),
+            tenantId = TenantKey.of(tenantId),
             templateId = templateId,
             variantId = variantId,
         ).query() ?: return ServerResponse.notFound().build()
@@ -103,9 +103,9 @@ class TemplatePreviewHandler(
             previewContext.draftTemplateModel ?: return ServerResponse.notFound().build()
         }
 
-        val resolvedTenantId = TenantId.of(tenantId)
+        val resolvedTenantId = TenantKey.of(tenantId)
         val assetResolver = AssetResolver { assetIdStr ->
-            GetAssetContent(resolvedTenantId, AssetId.of(assetIdStr)).query()
+            GetAssetContent(resolvedTenantId, AssetKey.of(assetIdStr)).query()
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
 

@@ -2,8 +2,8 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -18,7 +18,7 @@ import java.util.UUID
  * @property searchTerm Optional search filter on asset name
  */
 data class ListAssets(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val searchTerm: String? = null,
 ) : Query<List<Asset>>
 
@@ -51,8 +51,8 @@ class ListAssetsHandler(
 
         q.map { rs, _ ->
             Asset(
-                id = AssetId(rs.getObject("id", UUID::class.java)),
-                tenantId = TenantId(rs.getString("tenant_id")),
+                id = AssetKey(rs.getObject("id", UUID::class.java)),
+                tenantId = TenantKey(rs.getString("tenant_id")),
                 name = rs.getString("name"),
                 mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                 sizeBytes = rs.getLong("size_bytes"),

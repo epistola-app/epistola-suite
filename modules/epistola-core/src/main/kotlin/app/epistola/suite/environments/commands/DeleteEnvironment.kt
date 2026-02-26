@@ -1,7 +1,7 @@
 package app.epistola.suite.environments.commands
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.EnvironmentInUseException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -10,8 +10,8 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class DeleteEnvironment(
-    val tenantId: TenantId,
-    val id: EnvironmentId,
+    val tenantId: TenantKey,
+    val id: EnvironmentKey,
 ) : Command<Boolean>
 
 @Component

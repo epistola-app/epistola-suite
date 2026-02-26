@@ -11,8 +11,8 @@ import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
 import app.epistola.suite.api.v1.shared.toDto
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
 import app.epistola.suite.environments.commands.UpdateEnvironment
@@ -59,7 +59,7 @@ class EpistolaTenantApi :
         createTenantRequest: CreateTenantRequest,
     ): ResponseEntity<TenantDto> {
         val tenant = CreateTenant(
-            id = TenantId.of(createTenantRequest.id),
+            id = TenantKey.of(createTenantRequest.id),
             name = createTenantRequest.name,
         ).execute()
 
@@ -71,7 +71,7 @@ class EpistolaTenantApi :
     override fun getTenant(
         tenantId: String,
     ): ResponseEntity<TenantDto> {
-        val tenant = GetTenant(id = TenantId.of(tenantId)).query()
+        val tenant = GetTenant(id = TenantKey.of(tenantId)).query()
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(tenant.toDto())
     }
@@ -87,7 +87,7 @@ class EpistolaTenantApi :
     override fun deleteTenant(
         tenantId: String,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteTenant(id = TenantId.of(tenantId)).execute()
+        val deleted = DeleteTenant(id = TenantKey.of(tenantId)).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
@@ -100,7 +100,7 @@ class EpistolaTenantApi :
     override fun listEnvironments(
         tenantId: String,
     ): ResponseEntity<EnvironmentListResponse> {
-        val environments = ListEnvironments(tenantId = TenantId.of(tenantId)).query()
+        val environments = ListEnvironments(tenantId = TenantKey.of(tenantId)).query()
         return ResponseEntity.ok(EnvironmentListResponse(items = environments.map { it.toDto() }))
     }
 
@@ -109,8 +109,8 @@ class EpistolaTenantApi :
         createEnvironmentRequest: CreateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
         val environment = CreateEnvironment(
-            id = EnvironmentId.of(createEnvironmentRequest.id),
-            tenantId = TenantId.of(tenantId),
+            id = EnvironmentKey.of(createEnvironmentRequest.id),
+            tenantId = TenantKey.of(tenantId),
             name = createEnvironmentRequest.name,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(environment.toDto())
@@ -120,7 +120,7 @@ class EpistolaTenantApi :
         tenantId: String,
         environmentId: String,
     ): ResponseEntity<EnvironmentDto> {
-        val environment = GetEnvironment(tenantId = TenantId.of(tenantId), id = EnvironmentId.of(environmentId)).query()
+        val environment = GetEnvironment(tenantId = TenantKey.of(tenantId), id = EnvironmentKey.of(environmentId)).query()
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(environment.toDto())
     }
@@ -133,8 +133,8 @@ class EpistolaTenantApi :
         val name = updateEnvironmentRequest.name
             ?: return ResponseEntity.badRequest().build()
         val environment = UpdateEnvironment(
-            tenantId = TenantId.of(tenantId),
-            id = EnvironmentId.of(environmentId),
+            tenantId = TenantKey.of(tenantId),
+            id = EnvironmentKey.of(environmentId),
             name = name,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(environment.toDto())
@@ -144,7 +144,7 @@ class EpistolaTenantApi :
         tenantId: String,
         environmentId: String,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteEnvironment(tenantId = TenantId.of(tenantId), id = EnvironmentId.of(environmentId)).execute()
+        val deleted = DeleteEnvironment(tenantId = TenantKey.of(tenantId), id = EnvironmentKey.of(environmentId)).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {

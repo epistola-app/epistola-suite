@@ -1,6 +1,6 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 
 /**
  * Thrown when a user attempts to access a tenant they are not a member of.
@@ -9,6 +9,6 @@ import app.epistola.suite.common.ids.TenantId
  * translated to HTTP 403 by the API exception handler.
  */
 class TenantAccessDeniedException(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val userEmail: String,
 ) : RuntimeException("User $userEmail does not have access to tenant: $tenantId")

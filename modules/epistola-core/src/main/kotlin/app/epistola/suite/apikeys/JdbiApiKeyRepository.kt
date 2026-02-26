@@ -1,7 +1,7 @@
 package app.epistola.suite.apikeys
 
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Repository
@@ -29,7 +29,7 @@ class JdbiApiKeyRepository(
             .orElse(null)
     }
 
-    override fun updateLastUsed(id: ApiKeyId) {
+    override fun updateLastUsed(id: ApiKeyKey) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -67,7 +67,7 @@ class JdbiApiKeyRepository(
         }
     }
 
-    override fun listByTenantId(tenantId: TenantId): List<ApiKey> = jdbi.withHandle<List<ApiKey>, Exception> { handle ->
+    override fun listByTenantId(tenantId: TenantKey): List<ApiKey> = jdbi.withHandle<List<ApiKey>, Exception> { handle ->
         handle.createQuery(
             """
             SELECT id, tenant_id, name, key_prefix, enabled, created_at,
@@ -82,7 +82,7 @@ class JdbiApiKeyRepository(
             .list()
     }
 
-    override fun disable(id: ApiKeyId): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    override fun disable(id: ApiKeyKey): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createUpdate(
             """
             UPDATE api_keys SET enabled = false WHERE id = :id

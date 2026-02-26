@@ -5,15 +5,14 @@ import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.pathId
-import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
@@ -25,7 +24,7 @@ import org.springframework.web.servlet.function.ServerResponse
 class AttributeHandler {
 
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
         return ServerResponse.ok().page("attributes/list") {
@@ -37,7 +36,7 @@ class AttributeHandler {
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("attributes/new") {
             "pageTitle" to "New Attribute - Epistola"
             "tenantId" to tenantId
@@ -45,7 +44,7 @@ class AttributeHandler {
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         val form = request.form {
             field("slug") {
@@ -70,7 +69,7 @@ class AttributeHandler {
             }
         }
 
-        val attributeId = AttributeId.validateOrNull(form["slug"])
+        val attributeId = AttributeKey.validateOrNull(form["slug"])
         if (attributeId == null) {
             val errors = mapOf("slug" to "Invalid attribute ID format")
             return ServerResponse.ok().page("attributes/new") {
@@ -109,8 +108,8 @@ class AttributeHandler {
     }
 
     fun editForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val attributeId = request.pathId("attributeId") { AttributeId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val attributeId = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val attribute = GetAttributeDefinition(
@@ -127,8 +126,8 @@ class AttributeHandler {
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val attributeId = request.pathId("attributeId") { AttributeId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val attributeId = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val form = request.form {
@@ -193,8 +192,8 @@ class AttributeHandler {
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val attributeId = request.pathId("attributeId") { AttributeId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val attributeId = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         DeleteAttributeDefinition(

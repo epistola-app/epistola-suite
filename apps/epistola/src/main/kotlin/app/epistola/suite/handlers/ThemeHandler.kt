@@ -1,14 +1,13 @@
 package app.epistola.suite.themes
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.pathId
 import app.epistola.suite.htmx.queryParam
-import app.epistola.suite.htmx.redirect
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DocumentStyles
@@ -45,7 +44,7 @@ class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val tenant = GetTenant(id = tenantId).query()
         val themes = ListThemes(tenantId = tenantId).query()
         return ServerResponse.ok().page("themes/list") {
@@ -57,7 +56,7 @@ class ThemeHandler(
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val searchTerm = request.queryParam("q")
         val tenant = GetTenant(id = tenantId).query()
         val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm).query()
@@ -72,7 +71,7 @@ class ThemeHandler(
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         return ServerResponse.ok().page("themes/new") {
             "pageTitle" to "New Theme - Epistola"
             "tenantId" to tenantId
@@ -80,7 +79,7 @@ class ThemeHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         val form = request.form {
             field("slug") {
@@ -106,7 +105,7 @@ class ThemeHandler(
         }
 
         // Validate slug format as ThemeId
-        val themeId = ThemeId.validateOrNull(form["slug"])
+        val themeId = ThemeKey.validateOrNull(form["slug"])
         if (themeId == null) {
             val errors = mapOf("slug" to "Invalid theme ID format")
             return ServerResponse.ok().page("themes/new") {
@@ -144,8 +143,8 @@ class ThemeHandler(
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val themeId = request.pathId("themeId") { ThemeId.validateOrNull(it) }
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val themeId = request.pathId("themeId") { ThemeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val theme = GetTheme(tenantId = tenantId, id = themeId).query()
@@ -170,9 +169,9 @@ class ThemeHandler(
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val themeIdStr = request.pathVariable("themeId")
-        val themeId = ThemeId.validateOrNull(themeIdStr)
+        val themeId = ThemeKey.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
@@ -208,9 +207,9 @@ class ThemeHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val themeIdStr = request.pathVariable("themeId")
-        val themeId = ThemeId.validateOrNull(themeIdStr)
+        val themeId = ThemeKey.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
         try {
@@ -242,10 +241,10 @@ class ThemeHandler(
      * Sets the default theme for a tenant.
      */
     fun setDefault(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val themeIdStr = request.params().getFirst("themeId")
             ?: return ServerResponse.badRequest().build()
-        val themeId = ThemeId.validateOrNull(themeIdStr)
+        val themeId = ThemeKey.validateOrNull(themeIdStr)
             ?: return ServerResponse.badRequest().build()
 
         try {

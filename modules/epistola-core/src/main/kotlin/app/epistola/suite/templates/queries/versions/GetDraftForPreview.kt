@@ -1,9 +1,9 @@
 package app.epistola.suite.templates.queries.versions
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.template.model.TemplateDocument
@@ -19,9 +19,9 @@ data class PreviewContext(
     /** The draft's template model, null if no draft exists */
     val draftTemplateModel: TemplateDocument?,
     /** The parent template's default theme ID for theme cascade */
-    val templateThemeId: ThemeId?,
+    val templateThemeId: ThemeKey?,
     /** The tenant's default theme ID for ultimate fallback in theme cascade */
-    val tenantDefaultThemeId: ThemeId?,
+    val tenantDefaultThemeId: ThemeKey?,
 )
 
 /**
@@ -40,9 +40,9 @@ private data class PreviewContextRow(
  * Used for PDF preview generation.
  */
 data class GetPreviewContext(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
 ) : Query<PreviewContext?>
 
 @Component
@@ -74,8 +74,8 @@ class GetPreviewContextHandler(
             .map { row ->
                 PreviewContext(
                     draftTemplateModel = row.draftTemplateModel,
-                    templateThemeId = row.templateThemeId?.let { ThemeId.of(it) },
-                    tenantDefaultThemeId = row.tenantDefaultThemeId?.let { ThemeId.of(it) },
+                    templateThemeId = row.templateThemeId?.let { ThemeKey.of(it) },
+                    tenantDefaultThemeId = row.tenantDefaultThemeId?.let { ThemeKey.of(it) },
                 )
             }
             .orElse(null)

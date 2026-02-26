@@ -1,10 +1,10 @@
 package app.epistola.suite.loadtest
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -15,7 +15,7 @@ import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.queries.GetLoadTestRequests
 import app.epistola.suite.loadtest.queries.GetLoadTestRun
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
@@ -40,7 +40,7 @@ class LoadTestHandler(
      * List all load test runs for a tenant.
      */
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
         val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
         val runs = ListLoadTestRuns(tenantId = tenantId, limit = 50).query()
 
@@ -62,11 +62,11 @@ class LoadTestHandler(
      *   which field triggered the request (templateId, variantId, or exampleId).
      */
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         // Check if this is a template selection (HTMX cascade update)
         val templateIdStr = request.param("templateId").orElse("")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
+        val templateId = TemplateKey.validateOrNull(templateIdStr)
 
         // If no template selected, return empty fragment for HTMX or full page for non-HTMX
         if (templateId == null) {
@@ -109,7 +109,7 @@ class LoadTestHandler(
             ListVersions(
                 tenantId = tenantId,
                 templateId = templateId,
-                variantId = VariantId.of(selectedVariantId),
+                variantId = VariantKey.of(selectedVariantId),
             ).query()
         } else {
             emptyList()
@@ -167,7 +167,7 @@ class LoadTestHandler(
      * Start a new load test.
      */
     fun start(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
 
         val form = request.form {
             field("templateId") {
@@ -208,8 +208,8 @@ class LoadTestHandler(
         val versionIdStr = params.getFirst("versionId")
         val environmentIdStr = params.getFirst("environmentId")
 
-        val versionId = if (!versionIdStr.isNullOrBlank()) VersionId.of(versionIdStr.toInt()) else null
-        val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentId.of(environmentIdStr) else null
+        val versionId = if (!versionIdStr.isNullOrBlank()) VersionKey.of(versionIdStr.toInt()) else null
+        val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentKey.of(environmentIdStr) else null
 
         val targetCount = request.queryParamInt("targetCount", 100)
 
@@ -261,8 +261,8 @@ class LoadTestHandler(
      * Show load test run detail with metrics.
      */
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
         val run = GetLoadTestRun(tenantId = tenantId, runId = runId).query()
             ?: return ServerResponse.notFound().build()
@@ -282,8 +282,8 @@ class LoadTestHandler(
      * HTMX fragment endpoint for polling metrics during test execution.
      */
     fun metrics(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
         val run = GetLoadTestRun(tenantId = tenantId, runId = runId).query()
             ?: return ServerResponse.notFound().build()
@@ -300,8 +300,8 @@ class LoadTestHandler(
      * Show detailed request log for a load test run.
      */
     fun requests(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
         val run = GetLoadTestRun(tenantId = tenantId, runId = runId).query()
             ?: return ServerResponse.notFound().build()
@@ -331,8 +331,8 @@ class LoadTestHandler(
      * Cancel a running load test.
      */
     fun cancel(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
         try {
             CancelLoadTest(tenantId = tenantId, runId = runId).execute()

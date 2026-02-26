@@ -1,6 +1,6 @@
 package app.epistola.suite.config
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.kotlin.mapTo
 
@@ -54,7 +54,7 @@ import org.jdbi.v3.core.kotlin.mapTo
  */
 inline fun <reified T : Any> Handle.findByTenantAndId(
     table: String,
-    tenantId: TenantId,
+    tenantId: TenantKey,
     id: Any,
     columns: String = "*",
 ): T? = createQuery("SELECT $columns FROM $table WHERE tenant_id = :tenantId AND id = :id")
@@ -97,7 +97,7 @@ inline fun <reified T : Any> Handle.findById(
  */
 inline fun <reified T : Any> Handle.listForTenant(
     table: String,
-    tenantId: TenantId,
+    tenantId: TenantKey,
     orderBy: String = "created_at DESC",
 ): List<T> = createQuery(
     "SELECT * FROM $table WHERE tenant_id = :tenantId ORDER BY $orderBy",
@@ -114,7 +114,7 @@ inline fun <reified T : Any> Handle.listForTenant(
  * @param id The entity ID to check
  * @return True if entity exists, false otherwise
  */
-fun Handle.existsForTenant(table: String, tenantId: TenantId, id: Any): Boolean = createQuery(
+fun Handle.existsForTenant(table: String, tenantId: TenantKey, id: Any): Boolean = createQuery(
     "SELECT EXISTS(SELECT 1 FROM $table WHERE tenant_id = :tenantId AND id = :id)",
 )
     .bind("tenantId", tenantId.value)
@@ -130,7 +130,7 @@ fun Handle.existsForTenant(table: String, tenantId: TenantId, id: Any): Boolean 
  * @param id The entity ID to delete
  * @return True if a row was deleted, false if not found
  */
-fun Handle.deleteForTenant(table: String, tenantId: TenantId, id: Any): Boolean = createUpdate("DELETE FROM $table WHERE tenant_id = :tenantId AND id = :id")
+fun Handle.deleteForTenant(table: String, tenantId: TenantKey, id: Any): Boolean = createUpdate("DELETE FROM $table WHERE tenant_id = :tenantId AND id = :id")
     .bind("tenantId", tenantId.value)
     .bind("id", id)
     .execute() > 0
@@ -142,7 +142,7 @@ fun Handle.deleteForTenant(table: String, tenantId: TenantId, id: Any): Boolean 
  * @param tenantId The tenant to scope to
  * @return Number of entities for this tenant
  */
-fun Handle.countForTenant(table: String, tenantId: TenantId): Int = createQuery("SELECT COUNT(*) FROM $table WHERE tenant_id = :tenantId")
+fun Handle.countForTenant(table: String, tenantId: TenantKey): Int = createQuery("SELECT COUNT(*) FROM $table WHERE tenant_id = :tenantId")
     .bind("tenantId", tenantId.value)
     .mapTo<Int>()
     .one()

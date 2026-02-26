@@ -1,10 +1,10 @@
 package app.epistola.suite
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -61,7 +61,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Test Tenant")
             CreateEnvironment(
-                id = EnvironmentId.of("production"),
+                id = EnvironmentKey.of("production"),
                 tenantId = tenant.id,
                 name = "Production",
             ).execute()
@@ -95,7 +95,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Test Tenant")
             CreateTheme(
-                id = ThemeId.of("my-theme"),
+                id = ThemeKey.of("my-theme"),
                 tenantId = tenant.id,
                 name = "My Theme",
             ).execute()
@@ -129,7 +129,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Test Tenant")
             CreateDocumentTemplate(
-                id = TemplateId.of("my-template"),
+                id = TemplateKey.of("my-template"),
                 tenantId = tenant.id,
                 name = "My Template",
             ).execute()
@@ -163,7 +163,7 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
         given {
             tenant = tenant("Test Tenant")
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
             ).execute()

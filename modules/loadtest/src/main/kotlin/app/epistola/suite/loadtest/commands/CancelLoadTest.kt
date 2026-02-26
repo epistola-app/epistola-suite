@@ -1,7 +1,7 @@
 package app.epistola.suite.loadtest.commands
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component
  * @property runId Load test run to cancel
  */
 data class CancelLoadTest(
-    val tenantId: TenantId,
-    val runId: LoadTestRunId,
+    val tenantId: TenantKey,
+    val runId: LoadTestRunKey,
 ) : Command<Unit>
 
 @Component

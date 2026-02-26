@@ -1,7 +1,7 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -212,7 +212,7 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
     }
 
     private fun createTenantTemplateAndVariant(): Triple<Tenant, DocumentTemplate, String> {
-        val tenantId = TenantId.of("test-editor-shortcuts-${System.nanoTime()}")
+        val tenantId = TenantKey.of("test-editor-shortcuts-${System.nanoTime()}")
         val tenant = CreateTenant(id = tenantId, name = "UI Test Tenant").execute()
         val template = CreateDocumentTemplate(
             id = TestIdHelpers.nextTemplateId(),

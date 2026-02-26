@@ -1,7 +1,7 @@
 package app.epistola.suite.attributes.commands
 
-import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
  * Thrown when attempting to delete an attribute definition that is still referenced by variants.
  */
 class AttributeInUseException(
-    val attributeId: AttributeId,
+    val attributeId: AttributeKey,
     val variantCount: Long,
 ) : RuntimeException(
     "Cannot delete attribute '${attributeId.value}': it is still referenced by $variantCount variant(s). " +
@@ -19,8 +19,8 @@ class AttributeInUseException(
 )
 
 data class DeleteAttributeDefinition(
-    val id: AttributeId,
-    val tenantId: TenantId,
+    val id: AttributeKey,
+    val tenantId: TenantKey,
 ) : Command<Boolean>
 
 @Component

@@ -1,7 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -47,7 +47,7 @@ class TenantIsolationTest : CoreIntegrationTestBase() {
     @Test
     fun `cannot get template from different tenant`() = fixture {
         lateinit var tenant2: Tenant
-        var templateId: TemplateId? = null
+        var templateId: TemplateKey? = null
 
         given {
             val tenant1 = tenant("Tenant 1")
@@ -68,7 +68,7 @@ class TenantIsolationTest : CoreIntegrationTestBase() {
     fun `two tenants can use the same template slug`() {
         val tenant1 = createTenant("Tenant A")
         val tenant2 = createTenant("Tenant B")
-        val sharedSlug = TemplateId.of("invoice")
+        val sharedSlug = TemplateKey.of("invoice")
 
         withMediator {
             val template1 = CreateDocumentTemplate(id = sharedSlug, tenantId = tenant1.id, name = "Invoice A").execute()

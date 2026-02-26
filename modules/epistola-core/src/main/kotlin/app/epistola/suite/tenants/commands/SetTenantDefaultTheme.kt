@@ -2,9 +2,8 @@ package app.epistola.suite.tenants.commands
 
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.config.withHandle
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
@@ -20,8 +19,8 @@ import org.springframework.transaction.annotation.Transactional
  * The theme must exist and belong to the tenant.
  */
 data class SetTenantDefaultTheme(
-    override val tenantId: TenantId,
-    val themeId: ThemeId,
+    override val tenantId: TenantKey,
+    val themeId: ThemeKey,
 ) : Command<Tenant>,
     TenantScoped,
     EntityIdentifiable,

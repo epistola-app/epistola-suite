@@ -1,7 +1,7 @@
 package app.epistola.suite.attributes.queries
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -9,7 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListAttributeDefinitions(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
 ) : Query<List<VariantAttributeDefinition>>
 
 @Component

@@ -1,12 +1,12 @@
 package app.epistola.suite.templates.model
 
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 
 /**
  * Creates a minimal default template model for a new variant/version.
  * This produces the structure expected by the editor: a root node with a single empty slot.
  */
-fun createDefaultTemplateModel(templateName: String, variantId: VariantId): Map<String, Any> {
+fun createDefaultTemplateModel(templateName: String, variantId: VariantKey): Map<String, Any> {
     val rootId = "root-${variantId.value}"
     val slotId = "slot-${variantId.value}"
     return mapOf(

@@ -1,11 +1,11 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -17,17 +17,17 @@ import java.util.UUID
  * Document metadata without content (for efficient listing).
  */
 data class DocumentMetadata(
-    val id: DocumentId,
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId,
+    val id: DocumentKey,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+    val versionId: VersionKey,
     val filename: String,
     val correlationId: String?,
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: OffsetDateTime,
-    val createdBy: UserId?,
+    val createdBy: UserKey?,
 )
 
 /**
@@ -37,8 +37,8 @@ data class DocumentMetadata(
  * @property documentId The document ID
  */
 data class GetDocumentMetadata(
-    val tenantId: TenantId,
-    val documentId: DocumentId,
+    val tenantId: TenantKey,
+    val documentId: DocumentKey,
 ) : Query<DocumentMetadata?>
 
 @Component
@@ -61,17 +61,17 @@ class GetDocumentMetadataHandler(
             .bind("tenantId", query.tenantId)
             .map { rs, _ ->
                 DocumentMetadata(
-                    id = DocumentId(rs.getObject("id", UUID::class.java)),
-                    tenantId = TenantId(rs.getString("tenant_id")),
-                    templateId = TemplateId(rs.getString("template_id")),
-                    variantId = VariantId(rs.getString("variant_id")),
-                    versionId = VersionId(rs.getInt("version_id")),
+                    id = DocumentKey(rs.getObject("id", UUID::class.java)),
+                    tenantId = TenantKey(rs.getString("tenant_id")),
+                    templateId = TemplateKey(rs.getString("template_id")),
+                    variantId = VariantKey(rs.getString("variant_id")),
+                    versionId = VersionKey(rs.getInt("version_id")),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),
                     sizeBytes = rs.getLong("size_bytes"),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                    createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserId(it) },
+                    createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserKey(it) },
                 )
             }
             .findOne()

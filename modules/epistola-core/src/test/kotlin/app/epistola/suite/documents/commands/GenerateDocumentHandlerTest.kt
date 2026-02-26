@@ -2,8 +2,8 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -74,7 +74,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = TestIdHelpers.nextTemplateId(),
                     variantId = TestIdHelpers.nextVariantId(),
-                    versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                    versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -98,7 +98,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                    versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -112,10 +112,10 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     fun `validates versionId and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = TenantId.of("dummy-tenant"),
+                tenantId = TenantKey.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.of(1),
+                versionId = VersionKey.of(1),
                 environmentId = TestIdHelpers.nextEnvironmentId(), // Both set - should fail
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
@@ -128,7 +128,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     fun `validates either versionId or environmentId is set`() {
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = TenantId.of("dummy-tenant"),
+                tenantId = TenantKey.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 versionId = null,

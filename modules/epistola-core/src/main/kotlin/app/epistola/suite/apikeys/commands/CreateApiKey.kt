@@ -4,9 +4,9 @@ import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.apikeys.ApiKeyWithSecret
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.validation.validate
@@ -14,10 +14,10 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 
 data class CreateApiKey(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val name: String,
     val expiresAt: Instant? = null,
-    val createdBy: UserId? = null,
+    val createdBy: UserKey? = null,
 ) : Command<ApiKeyWithSecret> {
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
@@ -37,7 +37,7 @@ class CreateApiKeyHandler(
         val keyPrefix = apiKeyService.extractPrefix(plaintextKey)
 
         val apiKey = ApiKey(
-            id = ApiKeyId.generate(),
+            id = ApiKeyKey.generate(),
             tenantId = command.tenantId,
             name = command.name,
             keyPrefix = keyPrefix,

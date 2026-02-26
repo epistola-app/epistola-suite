@@ -6,7 +6,7 @@ import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
-import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.ValidationException
@@ -22,7 +22,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             val attr = CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "german"),
@@ -43,7 +43,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             val attr = CreateAttributeDefinition(
-                id = AttributeId.of("custom-field"),
+                id = AttributeKey.of("custom-field"),
                 tenantId = tenant.id,
                 displayName = "Custom Field",
             ).execute()
@@ -58,7 +58,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         assertThatThrownBy {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "",
             )
@@ -72,7 +72,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         assertThatThrownBy {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("dutch", "dutch"),
@@ -87,14 +87,14 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
             ).execute()
 
             CreateAttributeDefinition(
-                id = AttributeId.of("brand"),
+                id = AttributeKey.of("brand"),
                 tenantId = tenant.id,
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
@@ -116,13 +116,13 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant1.id,
                 displayName = "Language",
             ).execute()
 
             CreateAttributeDefinition(
-                id = AttributeId.of("brand"),
+                id = AttributeKey.of("brand"),
                 tenantId = tenant2.id,
                 displayName = "Brand",
             ).execute()
@@ -144,14 +144,14 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
             ).execute()
 
             val attr = GetAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
             ).query()
 
@@ -167,7 +167,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             val attr = GetAttributeDefinition(
-                id = AttributeId.of("non-existent"),
+                id = AttributeKey.of("non-existent"),
                 tenantId = tenant.id,
             ).query()
 
@@ -181,14 +181,14 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english"),
             ).execute()
 
             val updated = UpdateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language (updated)",
                 allowedValues = listOf("dutch", "english", "german"),
@@ -206,7 +206,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             val updated = UpdateAttributeDefinition(
-                id = AttributeId.of("non-existent"),
+                id = AttributeKey.of("non-existent"),
                 tenantId = tenant.id,
                 displayName = "Nope",
             ).execute()
@@ -221,20 +221,20 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
                 displayName = "Language",
             ).execute()
 
             val deleted = DeleteAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
             ).execute()
 
             assertThat(deleted).isTrue()
 
             val attr = GetAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant.id,
             ).query()
             assertThat(attr).isNull()
@@ -247,7 +247,7 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             val deleted = DeleteAttributeDefinition(
-                id = AttributeId.of("non-existent"),
+                id = AttributeKey.of("non-existent"),
                 tenantId = tenant.id,
             ).execute()
 
@@ -262,14 +262,14 @@ class AttributeDefinitionTest : CoreIntegrationTestBase() {
 
         withMediator {
             val attr1 = CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant1.id,
                 displayName = "Language for T1",
                 allowedValues = listOf("dutch"),
             ).execute()
 
             val attr2 = CreateAttributeDefinition(
-                id = AttributeId.of("language"),
+                id = AttributeKey.of("language"),
                 tenantId = tenant2.id,
                 displayName = "Language for T2",
                 allowedValues = listOf("english"),

@@ -2,7 +2,7 @@ package app.epistola.suite.api.security
 
 import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.security.EpistolaPrincipal
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -72,7 +72,7 @@ class ApiKeyAuthenticationFilter(
         }
 
         val principal = EpistolaPrincipal(
-            userId = UserId.of(apiKey.id.value),
+            userId = UserKey.of(apiKey.id.value),
             externalId = "apikey:${apiKey.id}",
             email = "apikey-${apiKey.keyPrefix}@npa.epistola",
             displayName = apiKey.name,

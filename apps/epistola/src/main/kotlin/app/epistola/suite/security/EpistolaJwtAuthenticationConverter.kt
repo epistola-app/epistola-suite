@@ -1,7 +1,7 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.core.convert.converter.Converter
@@ -40,7 +40,7 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
         val tenantIds = extractTenantIds(jwt)
 
         val principal = EpistolaPrincipal(
-            userId = UserId.of(deriveUserId(subject)),
+            userId = UserKey.of(deriveUserId(subject)),
             externalId = subject,
             email = email,
             displayName = displayName,
@@ -62,11 +62,11 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
      * Falls back to empty set if the claim is not present.
      */
     @Suppress("UNCHECKED_CAST")
-    private fun extractTenantIds(jwt: Jwt): Set<TenantId> {
+    private fun extractTenantIds(jwt: Jwt): Set<TenantKey> {
         val tenants = jwt.getClaimAsStringList("epistola_tenants") ?: return emptySet()
         return tenants.mapNotNull { tenantString ->
             try {
-                TenantId.of(tenantString)
+                TenantKey.of(tenantString)
             } catch (e: IllegalArgumentException) {
                 log.warn("Invalid tenant ID in JWT claim: {}", tenantString)
                 null

@@ -1,7 +1,7 @@
 package app.epistola.suite.users.queries
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.users.AuthProvider
@@ -43,11 +43,11 @@ class GetUserByExternalIdHandler(
             .map { rs, _ ->
                 val tenantIds = (rs.getArray("tenant_ids").array as Array<*>)
                     .filterIsInstance<String>()
-                    .map { TenantId.of(it) }
+                    .map { TenantKey.of(it) }
                     .toSet()
 
                 User(
-                    id = UserId.of(rs.getObject("id") as java.util.UUID),
+                    id = UserKey.of(rs.getObject("id") as java.util.UUID),
                     externalId = rs.getString("external_id"),
                     email = rs.getString("email"),
                     displayName = rs.getString("display_name"),

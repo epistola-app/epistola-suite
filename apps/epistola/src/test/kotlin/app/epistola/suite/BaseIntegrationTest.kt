@@ -1,6 +1,6 @@
 package app.epistola.suite
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -84,7 +84,7 @@ abstract class BaseIntegrationTest {
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(classNamespace, block)
 
     protected fun createTenant(name: String): Tenant = withMediator {
-        val tenant = CreateTenant(id = TenantId.of(nextTenantSlug()), name = name).execute()
+        val tenant = CreateTenant(id = TenantKey.of(nextTenantSlug()), name = name).execute()
         tenant
     }
 

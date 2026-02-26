@@ -11,10 +11,10 @@ import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toJobDto
 import app.epistola.suite.api.v1.shared.toJobResponse
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
@@ -80,7 +80,7 @@ class EpistolaDocumentGenerationApi(
     ): ResponseEntity<GenerationJobListResponse> {
         val statusEnum = status?.let { RequestStatus.valueOf(it) }
         val jobs = ListGenerationJobs(
-            tenantId = TenantId.of(tenantId),
+            tenantId = TenantKey.of(tenantId),
             status = statusEnum,
             limit = size,
             offset = page * size,
@@ -102,7 +102,7 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         requestId: UUID,
     ): ResponseEntity<GenerationJobDetail> {
-        val jobResult = GetGenerationJob(TenantId.of(tenantId), GenerationRequestId.of(requestId)).query()
+        val jobResult = GetGenerationJob(TenantKey.of(tenantId), GenerationRequestKey.of(requestId)).query()
             ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(jobResult.toDto(objectMapper))
@@ -112,7 +112,7 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         requestId: UUID,
     ): ResponseEntity<Unit> {
-        val cancelled = CancelGenerationJob(TenantId.of(tenantId), GenerationRequestId.of(requestId)).execute()
+        val cancelled = CancelGenerationJob(TenantKey.of(tenantId), GenerationRequestKey.of(requestId)).execute()
 
         return if (cancelled) {
             ResponseEntity.noContent().build()
@@ -128,8 +128,8 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         documentId: UUID,
     ): ResponseEntity<Resource> {
-        val tid = TenantId.of(tenantId)
-        val did = DocumentId.of(documentId)
+        val tid = TenantKey.of(tenantId)
+        val did = DocumentKey.of(documentId)
 
         val metadata = GetDocumentMetadata(tid, did).query()
             ?: return ResponseEntity.notFound().build()
@@ -148,7 +148,7 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         documentId: UUID,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteDocument(TenantId.of(tenantId), DocumentId.of(documentId)).execute()
+        val deleted = DeleteDocument(TenantKey.of(tenantId), DocumentKey.of(documentId)).execute()
 
         return if (deleted) {
             ResponseEntity.noContent().build()
@@ -167,8 +167,8 @@ class EpistolaDocumentGenerationApi(
         size: Int,
     ): ResponseEntity<DocumentListResponse> {
         val documents = ListDocuments(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId?.let { TemplateId.of(it) },
+            tenantId = TenantKey.of(tenantId),
+            templateId = templateId?.let { TemplateKey.of(it) },
             correlationId = correlationId,
             limit = size,
             offset = page * size,

@@ -1,7 +1,7 @@
 package app.epistola.suite.themes
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.PageSettings
 import app.epistola.template.model.TemplateDocument
@@ -44,7 +44,7 @@ class ThemeStyleResolver(
      * @param templateModel The template document containing themeRef and template-level styles
      * @return Resolved styles combining theme and template settings
      */
-    fun resolveStyles(tenantId: TenantId, templateModel: TemplateDocument): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, tenantDefaultThemeId = null, templateModel = templateModel)
+    fun resolveStyles(tenantId: TenantKey, templateModel: TemplateDocument): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId = null, tenantDefaultThemeId = null, templateModel = templateModel)
 
     /**
      * Resolves document-level styles with support for template-level and tenant-level default themes.
@@ -57,8 +57,8 @@ class ThemeStyleResolver(
      * @return Resolved styles combining theme and template settings
      */
     fun resolveStyles(
-        tenantId: TenantId,
-        templateDefaultThemeId: ThemeId?,
+        tenantId: TenantKey,
+        templateDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
     ): ResolvedStyles = resolveStyles(tenantId, templateDefaultThemeId, tenantDefaultThemeId = null, templateModel)
 
@@ -77,14 +77,14 @@ class ThemeStyleResolver(
      * @return Resolved styles combining theme and template settings
      */
     fun resolveStyles(
-        tenantId: TenantId,
-        templateDefaultThemeId: ThemeId?,
-        tenantDefaultThemeId: ThemeId?,
+        tenantId: TenantKey,
+        templateDefaultThemeId: ThemeKey?,
+        tenantDefaultThemeId: ThemeKey?,
         templateModel: TemplateDocument,
     ): ResolvedStyles {
         // Theme cascade: variant-level > template-level > tenant-level
         val effectiveThemeId = when (val ref = templateModel.themeRef) {
-            is ThemeRefOverride -> ThemeId.of(ref.themeId)
+            is ThemeRefOverride -> ThemeKey.of(ref.themeId)
             else -> null
         } ?: templateDefaultThemeId ?: tenantDefaultThemeId
 
@@ -109,7 +109,7 @@ class ThemeStyleResolver(
     /**
      * Gets a theme by ID for a tenant.
      */
-    private fun getTheme(tenantId: TenantId, themeId: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
+    private fun getTheme(tenantId: TenantKey, themeId: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
             SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId

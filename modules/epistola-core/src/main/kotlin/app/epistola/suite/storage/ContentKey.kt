@@ -1,8 +1,8 @@
 package app.epistola.suite.storage
 
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.TenantKey
 
 /**
  * Builds storage keys following S3-style path conventions.
@@ -11,7 +11,7 @@ import app.epistola.suite.common.ids.TenantId
  */
 object ContentKey {
 
-    fun asset(tenantId: TenantId, assetId: AssetId): String = "assets/${tenantId.value}/${assetId.value}"
+    fun asset(tenantId: TenantKey, assetId: AssetKey): String = "assets/${tenantId.value}/${assetId.value}"
 
-    fun document(tenantId: TenantId, documentId: DocumentId): String = "documents/${tenantId.value}/${documentId.value}"
+    fun document(tenantId: TenantKey, documentId: DocumentKey): String = "documents/${tenantId.value}/${documentId.value}"
 }

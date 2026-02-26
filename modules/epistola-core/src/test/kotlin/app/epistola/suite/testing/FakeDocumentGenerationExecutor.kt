@@ -1,7 +1,7 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.storage.ContentKey
@@ -64,7 +64,7 @@ class FakeDocumentGenerationExecutor(
 
         try {
             // Generate fake document
-            val documentId = DocumentId.generate()
+            val documentId = DocumentKey.generate()
             val filename = request.filename ?: "document-${request.id.value}.pdf"
 
             // Store fake PDF content in ContentStore
@@ -138,7 +138,7 @@ class FakeDocumentGenerationExecutor(
         }
     }
 
-    private fun markRequestFailed(requestId: app.epistola.suite.common.ids.GenerationRequestId, errorMessage: String?) {
+    private fun markRequestFailed(requestId: app.epistola.suite.common.ids.GenerationRequestKey, errorMessage: String?) {
         val expiresAtInterval = "$localRetentionDays days"
         localJdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -168,7 +168,7 @@ class FakeDocumentGenerationExecutor(
         val isComplete: Boolean get() = pending == 0 && inProgress == 0
     }
 
-    private fun getBatchCounts(batchId: BatchId): BatchCounts = localJdbi.withHandle<BatchCounts, Exception> { handle ->
+    private fun getBatchCounts(batchId: BatchKey): BatchCounts = localJdbi.withHandle<BatchCounts, Exception> { handle ->
         val results = handle.createQuery(
             """
                 SELECT
@@ -192,7 +192,7 @@ class FakeDocumentGenerationExecutor(
         )
     }
 
-    private fun finalizeBatchIfComplete(batchId: BatchId) {
+    private fun finalizeBatchIfComplete(batchId: BatchKey) {
         val counts = getBatchCounts(batchId)
 
         if (counts.isComplete) {
