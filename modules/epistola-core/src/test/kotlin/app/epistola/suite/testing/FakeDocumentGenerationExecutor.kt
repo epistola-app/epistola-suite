@@ -82,7 +82,7 @@ class FakeDocumentGenerationExecutor(
                     """
                     UPDATE document_generation_requests
                     SET status = 'COMPLETED',
-                        document_id = :documentId,
+                        document_key = :documentId,
                         completed_at = NOW(),
                         expires_at = NOW() + :expiresAt::interval
                     WHERE id = :requestId
@@ -103,7 +103,7 @@ class FakeDocumentGenerationExecutor(
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
-                        id, tenant_id, template_id, variant_id, version_id,
+                        id, tenant_key, template_key, variant_key, version_key,
                         filename, correlation_id, content_type, size_bytes,
                         created_at, created_by
                     )

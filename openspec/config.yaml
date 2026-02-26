@@ -11,7 +11,7 @@ context: |
 
   - **Pre-production**: Breaking changes acceptable without migration paths
   - **Jackson 3**: Use `tools.jackson.*` imports, not `com.fasterxml.jackson`
-  - **Multi-tenant**: All queries filter by `tenant_id`
+  - **Multi-tenant**: All queries filter by `tenant_key`
   - **ktlint**: Required for Kotlin code style (enforced in CI)
   - **Conventional Commits**: Required for semantic versioning
 

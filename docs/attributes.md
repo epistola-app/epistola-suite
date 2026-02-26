@@ -141,8 +141,8 @@ Attribute definitions are managed through the UI. The attribute registry is tena
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `id` | `VARCHAR(50)` | Slug identifier (PK with tenant_id) |
-| `tenant_id` | `VARCHAR(63)` | FK to `tenants` |
+| `id` | `VARCHAR(50)` | Slug identifier (PK with tenant_key) |
+| `tenant_key` | `VARCHAR(63)` | FK to `tenants` |
 | `display_name` | `VARCHAR(100)` | Human-readable label |
 | `allowed_values` | `JSONB` | Array of permitted values (empty = any) |
 | `created_at` | `TIMESTAMPTZ` | Creation timestamp |

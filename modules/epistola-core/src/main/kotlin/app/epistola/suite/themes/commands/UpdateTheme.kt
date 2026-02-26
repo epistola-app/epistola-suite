@@ -87,7 +87,7 @@ class UpdateThemeHandler(
         val sql = """
             UPDATE themes
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_id = :tenantId
+            WHERE id = :id AND tenant_key = :tenantId
             RETURNING *
         """
 
@@ -107,7 +107,7 @@ class UpdateThemeHandler(
     private fun getExisting(tenantId: TenantKey, id: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId
+            SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
             .bind("id", id)

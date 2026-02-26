@@ -31,7 +31,7 @@ class SetDefaultVariantHandler(
             """
                 SELECT EXISTS (
                     SELECT 1 FROM template_variants
-                    WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                    WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 )
                 """,
         )
@@ -48,7 +48,7 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = FALSE
-                WHERE tenant_id = :tenantId AND template_id = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -60,7 +60,7 @@ class SetDefaultVariantHandler(
             """
                 UPDATE template_variants
                 SET is_default = TRUE
-                WHERE tenant_id = :tenantId AND id = :variantId
+                WHERE tenant_key = :tenantId AND id = :variantId
                 RETURNING *
                 """,
         )

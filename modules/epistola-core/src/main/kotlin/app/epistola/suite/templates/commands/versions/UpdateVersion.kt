@@ -38,7 +38,7 @@ class UpdateVersionHandler(
             """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                   AND status = 'draft'
                 RETURNING *
                 """,

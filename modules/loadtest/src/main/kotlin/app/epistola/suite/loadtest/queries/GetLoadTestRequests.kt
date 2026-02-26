@@ -47,7 +47,7 @@ class GetLoadTestRequestsHandler(
             SELECT batch_id
             FROM load_test_runs
             WHERE id = :runId
-              AND tenant_id = :tenantId
+              AND tenant_key = :tenantId
             """,
         )
             .bind("runId", query.runId)
@@ -84,7 +84,7 @@ class GetLoadTestRequestsHandler(
                         END
                     ELSE NULL
                 END as error_type,
-                document_id,
+                document_key,
                 ROW_NUMBER() OVER (ORDER BY created_at) as sequence_number
             FROM document_generation_requests
             WHERE batch_id = :batchId
@@ -107,7 +107,7 @@ class GetLoadTestRequestsHandler(
                     success = rs.getBoolean("success"),
                     errorMessage = rs.getString("error_message"),
                     errorType = rs.getString("error_type"),
-                    documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { app.epistola.suite.common.ids.DocumentKey.of(it) },
+                    documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { app.epistola.suite.common.ids.DocumentKey.of(it) },
                 )
             }
             .list()

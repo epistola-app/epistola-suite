@@ -36,7 +36,7 @@ class CancelGenerationJobHandler(
                 """
                 SELECT status
                 FROM document_generation_requests
-                WHERE id = :requestId AND tenant_id = :tenantId
+                WHERE id = :requestId AND tenant_key = :tenantId
                 """,
             )
                 .bind("requestId", command.requestId)
@@ -65,7 +65,7 @@ class CancelGenerationJobHandler(
                 SET status = :status,
                     completed_at = NOW()
                 WHERE id = :requestId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                   AND status IN ('PENDING', 'IN_PROGRESS')
                 """,
             )

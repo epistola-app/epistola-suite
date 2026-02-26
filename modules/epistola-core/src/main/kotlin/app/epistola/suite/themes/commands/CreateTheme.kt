@@ -39,7 +39,7 @@ class CreateThemeHandler(
         jdbi.withHandle<Theme, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO themes (id, tenant_id, name, description, document_styles, page_settings, block_style_presets, created_at, last_modified)
+                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, block_style_presets, created_at, last_modified)
                 VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, NOW(), NOW())
                 RETURNING *
                 """,

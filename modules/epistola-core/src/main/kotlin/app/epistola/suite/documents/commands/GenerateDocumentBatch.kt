@@ -122,7 +122,7 @@ class GenerateDocumentBatchHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_variants
-                        WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                        WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                     )
                     """,
                 )
@@ -142,7 +142,7 @@ class GenerateDocumentBatchHandler(
                         SELECT EXISTS (
                             SELECT 1
                             FROM template_versions
-                            WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                            WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                         )
                         """,
                     )
@@ -162,7 +162,7 @@ class GenerateDocumentBatchHandler(
                             SELECT 1
                             FROM environments
                             WHERE id = :environmentId
-                              AND tenant_id = :tenantId
+                              AND tenant_key = :tenantId
                         )
                         """,
                     )
@@ -182,7 +182,7 @@ class GenerateDocumentBatchHandler(
             handle.createUpdate(
                 """
                 INSERT INTO document_generation_batches (
-                    id, tenant_id, total_count
+                    id, tenant_key, total_count
                 )
                 VALUES (:batchId, :tenantId, :totalCount)
                 """,
@@ -196,8 +196,8 @@ class GenerateDocumentBatchHandler(
             val batch = handle.prepareBatch(
                 """
                 INSERT INTO document_generation_requests (
-                    id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
-                    data, filename, correlation_id, document_id, status
+                    id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                    data, filename, correlation_id, document_key, status
                 )
                 VALUES (:id, :batchId, :tenantId, :templateId, :variantId, :versionId, :environmentId,
                         :data::jsonb, :filename, :correlationId, NULL, :status)
@@ -235,7 +235,7 @@ class GenerateDocumentBatchHandler(
             handle.createQuery(
                 """
                 SELECT id FROM template_variants
-                WHERE tenant_id = :tenantId AND template_id = :templateId AND is_default = TRUE
+                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
                 """,
             )
                 .bind("tenantId", tenantId)

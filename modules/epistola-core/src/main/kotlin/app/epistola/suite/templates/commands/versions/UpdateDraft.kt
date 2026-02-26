@@ -35,7 +35,7 @@ class UpdateDraftHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM template_variants
-                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 """,
         )
             .bind("variantId", command.variantId)
@@ -55,7 +55,7 @@ class UpdateDraftHandler(
             """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                   AND status = 'draft'
                 """,
         )
@@ -70,7 +70,7 @@ class UpdateDraftHandler(
                 """
                     SELECT *
                     FROM template_versions
-                    WHERE tenant_id = :tenantId AND variant_id = :variantId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId
                       AND status = 'draft'
                     """,
             )
@@ -86,7 +86,7 @@ class UpdateDraftHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -103,7 +103,7 @@ class UpdateDraftHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
                 VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,

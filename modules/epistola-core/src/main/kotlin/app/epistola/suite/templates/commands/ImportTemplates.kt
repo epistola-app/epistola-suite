@@ -93,7 +93,7 @@ class ImportTemplatesHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM document_templates
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
             .bind("id", templateId)
@@ -105,9 +105,9 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
+                    INSERT INTO document_templates (id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
                     VALUES (:id, :tenantId, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
-                    ON CONFLICT (tenant_id, id) DO UPDATE
+                    ON CONFLICT (tenant_key, id) DO UPDATE
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     """,
             )
@@ -123,7 +123,7 @@ class ImportTemplatesHandler(
                 """
                     UPDATE document_templates
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
-                    WHERE id = :id AND tenant_id = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId
                     """,
             )
                 .bind("id", templateId)
@@ -138,9 +138,9 @@ class ImportTemplatesHandler(
         // Upsert default variant
         handle.createUpdate(
             """
-                INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
+                INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
                 VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
-                ON CONFLICT (tenant_id, id) DO UPDATE SET template_id = :templateId, last_modified = NOW()
+                ON CONFLICT (tenant_key, id) DO UPDATE SET template_key = :templateId, last_modified = NOW()
                 """,
         )
             .bind("id", defaultVariantId)
@@ -164,10 +164,10 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_id, template_id, title, attributes, is_default, created_at, last_modified)
+                    INSERT INTO template_variants (id, tenant_key, template_key, title, attributes, is_default, created_at, last_modified)
                     VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
-                    ON CONFLICT (tenant_id, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, template_id = :templateId, last_modified = NOW()
+                    ON CONFLICT (tenant_key, id) DO UPDATE
+                    SET title = :title, attributes = :attributes::jsonb, template_key = :templateId, last_modified = NOW()
                     """,
             )
                 .bind("id", variantId)
@@ -191,7 +191,7 @@ class ImportTemplatesHandler(
                 """
                     SELECT COUNT(*) > 0
                     FROM environments
-                    WHERE id = :environmentId AND tenant_id = :tenantId
+                    WHERE id = :environmentId AND tenant_key = :tenantId
                     """,
             )
                 .bind("environmentId", environmentId)
@@ -231,7 +231,7 @@ class ImportTemplatesHandler(
             """
             UPDATE template_versions
             SET template_model = :templateModel::jsonb
-            WHERE tenant_id = :tenantId AND variant_id = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", tenantId)
@@ -244,7 +244,7 @@ class ImportTemplatesHandler(
                 """
                 SELECT COALESCE(MAX(id), 0) + 1
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
             )
                 .bind("tenantId", tenantId)
@@ -254,7 +254,7 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
                 VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
@@ -277,7 +277,7 @@ class ImportTemplatesHandler(
             """
             SELECT id
             FROM template_versions
-            WHERE tenant_id = :tenantId AND variant_id = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", tenantId)
@@ -293,7 +293,7 @@ class ImportTemplatesHandler(
             """
             UPDATE template_versions
             SET status = 'published', published_at = NOW()
-            WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+            WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
             """,
         )
             .bind("tenantId", tenantId)
@@ -304,10 +304,10 @@ class ImportTemplatesHandler(
         // Upsert activation
         handle.createUpdate(
             """
-            INSERT INTO environment_activations (tenant_id, environment_id, variant_id, version_id, activated_at)
+            INSERT INTO environment_activations (tenant_key, environment_key, variant_key, version_key, activated_at)
             VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
-            ON CONFLICT (tenant_id, environment_id, variant_id)
-            DO UPDATE SET version_id = :versionId, activated_at = NOW()
+            ON CONFLICT (tenant_key, environment_key, variant_key)
+            DO UPDATE SET version_key = :versionId, activated_at = NOW()
             """,
         )
             .bind("tenantId", tenantId)
@@ -321,7 +321,7 @@ class ImportTemplatesHandler(
             """
             SELECT COALESCE(MAX(id), 0) + 1
             FROM template_versions
-            WHERE tenant_id = :tenantId AND variant_id = :variantId
+            WHERE tenant_key = :tenantId AND variant_key = :variantId
             """,
         )
             .bind("tenantId", tenantId)
@@ -331,9 +331,9 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-            INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+            INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
             VALUES (:id, :tenantId, :variantId,
-                    (SELECT template_model FROM template_versions WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :publishedId),
+                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
                     'draft', NOW())
             """,
         )

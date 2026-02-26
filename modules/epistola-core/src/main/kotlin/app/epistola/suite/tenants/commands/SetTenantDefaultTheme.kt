@@ -37,7 +37,7 @@ class SetTenantDefaultThemeHandler(
     override fun handle(command: SetTenantDefaultTheme): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         // Verify the theme exists and belongs to this tenant
         val themeExists = handle.createQuery(
-            "SELECT COUNT(*) FROM themes WHERE id = :themeId AND tenant_id = :tenantId",
+            "SELECT COUNT(*) FROM themes WHERE id = :themeId AND tenant_key = :tenantId",
         )
             .bind("themeId", command.themeId)
             .bind("tenantId", command.tenantId)
@@ -52,7 +52,7 @@ class SetTenantDefaultThemeHandler(
         handle.createQuery(
             """
             UPDATE tenants
-            SET default_theme_id = :themeId
+            SET default_theme_key = :themeId
             WHERE id = :tenantId
             RETURNING *
             """,

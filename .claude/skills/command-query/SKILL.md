@@ -43,7 +43,7 @@ class CreateEntityHandler(private val jdbi: Jdbi) : CommandHandler<CreateEntity,
         executeOrThrowDuplicate("entity", command.id.value) {
             jdbi.withHandle<Entity, Exception> { handle ->
                 handle.createQuery("""
-                    INSERT INTO entities (id, tenant_id, name, created_at)
+                    INSERT INTO entities (id, tenant_key, name, created_at)
                     VALUES (:id, :tenantId, :name, NOW())
                     RETURNING *
                 """)
@@ -190,7 +190,7 @@ data class Entity(
 )
 ```
 
-JDBI maps database columns to Kotlin data class properties automatically via `mapTo<>()`. Column `tenant_id` maps to `tenantId` (snake_case → camelCase).
+JDBI maps database columns to Kotlin data class properties automatically via `mapTo<>()`. Column `tenant_key` maps to `tenantId` (snake_case → camelCase).
 
 ## Database Migration
 
@@ -199,14 +199,14 @@ Create in `apps/epistola/src/main/resources/db/migration/V<next>__<description>.
 ```sql
 CREATE TABLE entity_name (
     id         entity_slug PRIMARY KEY,
-    tenant_id  tenant_slug NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    tenant_key  tenant_slug NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name       VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE entity_name IS 'Description of what this table stores';
 COMMENT ON COLUMN entity_name.id IS 'Unique slug identifier';
-COMMENT ON COLUMN entity_name.tenant_id IS 'Owning tenant';
+COMMENT ON COLUMN entity_name.tenant_key IS 'Owning tenant';
 ```
 
 **Important**: `COMMENT ON` must be separate statements (not inside `CREATE TABLE`). Use domain types from existing migrations (e.g., `tenant_slug`, `template_slug`, `environment_slug`).

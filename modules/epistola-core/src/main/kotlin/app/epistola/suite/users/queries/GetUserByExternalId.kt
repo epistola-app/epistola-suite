@@ -30,7 +30,7 @@ class GetUserByExternalIdHandler(
             """
             SELECT u.id, u.external_id, u.email, u.display_name, u.provider, u.enabled,
                    u.created_at, u.last_login_at,
-                   COALESCE(array_agg(tm.tenant_id) FILTER (WHERE tm.tenant_id IS NOT NULL), ARRAY[]::varchar[]) as tenant_ids
+                   COALESCE(array_agg(tm.tenant_key) FILTER (WHERE tm.tenant_key IS NOT NULL), ARRAY[]::varchar[]) as tenant_keys
             FROM users u
             LEFT JOIN tenant_memberships tm ON u.id = tm.user_id
             WHERE u.external_id = :externalId AND u.provider = :provider
@@ -41,7 +41,7 @@ class GetUserByExternalIdHandler(
             .bind("externalId", query.externalId)
             .bind("provider", query.provider.name)
             .map { rs, _ ->
-                val tenantIds = (rs.getArray("tenant_ids").array as Array<*>)
+                val tenantIds = (rs.getArray("tenant_keys").array as Array<*>)
                     .filterIsInstance<String>()
                     .map { TenantKey.of(it) }
                     .toSet()

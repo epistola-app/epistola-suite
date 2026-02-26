@@ -83,7 +83,7 @@ class UploadAssetHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_id, name, media_type, size_bytes, width, height, created_at)
+                INSERT INTO assets (id, tenant_key, name, media_type, size_bytes, width, height, created_at)
                 VALUES (:id, :tenantId, :name, :mediaType, :sizeBytes, :width, :height, :createdAt)
                 """,
             )

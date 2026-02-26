@@ -36,12 +36,12 @@ class GetDocumentHandler(
     override fun handle(query: GetDocument): Document? = jdbi.withHandle<Document?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, template_id, variant_id, version_id,
+            SELECT id, tenant_key, template_key, variant_key, version_key,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
             WHERE id = :documentId
-              AND tenant_id = :tenantId
+              AND tenant_key = :tenantId
             """,
         )
             .bind("documentId", query.documentId)
@@ -49,10 +49,10 @@ class GetDocumentHandler(
             .map { rs, _ ->
                 Document(
                     id = DocumentKey(rs.getObject("id", UUID::class.java)),
-                    tenantId = TenantKey(rs.getString("tenant_id")),
-                    templateId = TemplateKey(rs.getString("template_id")),
-                    variantId = VariantKey(rs.getString("variant_id")),
-                    versionId = VersionKey(rs.getInt("version_id")),
+                    tenantId = TenantKey(rs.getString("tenant_key")),
+                    templateId = TemplateKey(rs.getString("template_key")),
+                    variantId = VariantKey(rs.getString("variant_key")),
+                    versionId = VersionKey(rs.getInt("version_key")),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

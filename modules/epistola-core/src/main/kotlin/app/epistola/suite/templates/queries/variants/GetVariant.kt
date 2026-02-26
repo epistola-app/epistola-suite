@@ -24,11 +24,11 @@ class GetVariantHandler(
     override fun handle(query: GetVariant): TemplateVariant? = jdbi.withHandle<TemplateVariant?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT tv.id, tv.tenant_id, tv.template_id, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.last_modified
+                SELECT tv.id, tv.tenant_key, tv.template_key, tv.title, tv.description, tv.attributes, tv.is_default, tv.created_at, tv.last_modified
                 FROM template_variants tv
                 WHERE tv.id = :variantId
-                  AND tv.template_id = :templateId
-                  AND tv.tenant_id = :tenantId
+                  AND tv.template_key = :templateId
+                  AND tv.tenant_key = :tenantId
                 """,
         )
             .bind("variantId", query.variantId)
@@ -57,16 +57,16 @@ class GetVariantSummariesHandler(
                     tv.title,
                     tv.attributes,
                     tv.is_default,
-                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'draft') as has_draft,
+                    EXISTS(SELECT 1 FROM template_versions ver WHERE ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id AND ver.status = 'draft') as has_draft,
                     COALESCE(
                         (SELECT jsonb_agg(ver.id ORDER BY ver.id)
                          FROM template_versions ver
-                         WHERE ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'published'),
+                         WHERE ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id AND ver.status = 'published'),
                         '[]'::jsonb
                     ) as published_versions
                 FROM template_variants tv
-                WHERE tv.template_id = :templateId
-                  AND tv.tenant_id = :tenantId
+                WHERE tv.template_key = :templateId
+                  AND tv.tenant_key = :tenantId
                 ORDER BY tv.is_default DESC, tv.created_at ASC
                 """,
         )

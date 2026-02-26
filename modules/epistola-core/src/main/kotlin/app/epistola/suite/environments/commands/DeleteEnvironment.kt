@@ -23,7 +23,7 @@ class DeleteEnvironmentHandler(
         val activationCount = handle.createQuery(
             """
                 SELECT COUNT(*) FROM environment_activations
-                WHERE tenant_id = :tenantId AND environment_id = :environmentId
+                WHERE tenant_key = :tenantId AND environment_key = :environmentId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -38,7 +38,7 @@ class DeleteEnvironmentHandler(
         val rowsAffected = handle.createUpdate(
             """
                 DELETE FROM environments
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
             .bind("id", command.id)

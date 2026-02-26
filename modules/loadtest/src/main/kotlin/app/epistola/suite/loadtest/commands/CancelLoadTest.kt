@@ -37,7 +37,7 @@ class CancelLoadTestHandler(
                 SET status = :cancelledStatus,
                     completed_at = NOW()
                 WHERE id = :runId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                   AND status IN (:runningStatus, :pendingStatus)
                 """,
             )

@@ -38,16 +38,16 @@ class ListDocumentsHandler(
     override fun handle(query: ListDocuments): List<DocumentMetadata> = jdbi.withHandle<List<DocumentMetadata>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_id, template_id, variant_id, version_id,
+            SELECT id, tenant_key, template_key, variant_key, version_key,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             """,
         )
 
         if (query.templateId != null) {
-            sql.append(" AND template_id = :templateId")
+            sql.append(" AND template_key = :templateId")
         }
 
         if (query.correlationId != null) {
@@ -73,10 +73,10 @@ class ListDocumentsHandler(
         q.map { rs, _ ->
             DocumentMetadata(
                 id = DocumentKey(rs.getObject("id", UUID::class.java)),
-                tenantId = TenantKey(rs.getString("tenant_id")),
-                templateId = TemplateKey(rs.getString("template_id")),
-                variantId = VariantKey(rs.getString("variant_id")),
-                versionId = VersionKey(rs.getInt("version_id")),
+                tenantId = TenantKey(rs.getString("tenant_key")),
+                templateId = TemplateKey(rs.getString("template_key")),
+                variantId = VariantKey(rs.getString("variant_key")),
+                versionId = VersionKey(rs.getInt("version_key")),
                 filename = rs.getString("filename"),
                 correlationId = rs.getString("correlation_id"),
                 contentType = rs.getString("content_type"),

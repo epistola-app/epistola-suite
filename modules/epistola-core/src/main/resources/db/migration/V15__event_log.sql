@@ -4,7 +4,7 @@
 CREATE TABLE event_log (
     id BIGSERIAL PRIMARY KEY,
     event_type VARCHAR(255) NOT NULL,
-    tenant_id VARCHAR(100),
+    tenant_key VARCHAR(100),
     entity_id VARCHAR(255),
     payload JSONB NOT NULL,
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -13,6 +13,6 @@ CREATE TABLE event_log (
 
 -- Performance indexes for common queries
 CREATE INDEX idx_event_log_type ON event_log(event_type);
-CREATE INDEX idx_event_log_tenant ON event_log(tenant_id) WHERE tenant_id IS NOT NULL;
+CREATE INDEX idx_event_log_tenant ON event_log(tenant_key) WHERE tenant_key IS NOT NULL;
 CREATE INDEX idx_event_log_occurred ON event_log(occurred_at DESC);
-CREATE INDEX idx_event_log_tenant_occurred ON event_log(tenant_id, occurred_at DESC) WHERE tenant_id IS NOT NULL;
+CREATE INDEX idx_event_log_tenant_occurred ON event_log(tenant_key, occurred_at DESC) WHERE tenant_key IS NOT NULL;

@@ -34,7 +34,7 @@ class RemoveActivationHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM environments
-                WHERE id = :environmentId AND tenant_id = :tenantId
+                WHERE id = :environmentId AND tenant_key = :tenantId
                 """,
         )
             .bind("environmentId", command.environmentId)
@@ -49,7 +49,7 @@ class RemoveActivationHandler(
         val rowsDeleted = handle.createUpdate(
             """
                 DELETE FROM environment_activations
-                WHERE tenant_id = :tenantId AND environment_id = :environmentId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND environment_key = :environmentId AND variant_key = :variantId
                 """,
         )
             .bind("tenantId", command.tenantId)

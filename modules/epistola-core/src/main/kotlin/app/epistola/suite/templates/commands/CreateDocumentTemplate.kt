@@ -53,9 +53,9 @@ class CreateDocumentTemplateHandler(
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
+                INSERT INTO document_templates (id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
                 VALUES (:id, :tenantId, :name, NULL, :schema::jsonb, NULL, '[]'::jsonb, FALSE, NOW(), NOW())
-                RETURNING id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
+                RETURNING id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
                 """,
                 )
                     .bind("id", command.id)
@@ -69,7 +69,7 @@ class CreateDocumentTemplateHandler(
                 val variantId = VariantKey.of("${command.id}-default")
                 handle.createUpdate(
                     """
-                INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
+                INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
                 VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
                 """,
                 )
@@ -106,7 +106,7 @@ class CreateDocumentTemplateHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
                 VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
                 )

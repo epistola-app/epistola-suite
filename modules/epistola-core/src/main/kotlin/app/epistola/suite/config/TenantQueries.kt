@@ -22,7 +22,7 @@ import org.jdbi.v3.core.kotlin.mapTo
  * ```kotlin
  * override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
  *     handle.createQuery(
- *         "SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId"
+ *         "SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId"
  *     )
  *         .bind("id", query.id)
  *         .bind("tenantId", query.tenantId)
@@ -43,7 +43,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 /**
  * Find a single tenant-scoped entity by ID.
  *
- * Assumes table has `id` and `tenant_id` columns.
+ * Assumes table has `id` and `tenant_key` columns.
  *
  * @param T The entity type to map to
  * @param table The table name (e.g., "themes", "templates")
@@ -57,7 +57,7 @@ inline fun <reified T : Any> Handle.findByTenantAndId(
     tenantId: TenantKey,
     id: Any,
     columns: String = "*",
-): T? = createQuery("SELECT $columns FROM $table WHERE tenant_id = :tenantId AND id = :id")
+): T? = createQuery("SELECT $columns FROM $table WHERE tenant_key = :tenantId AND id = :id")
     .bind("tenantId", tenantId.value)
     .bind("id", id)
     .mapTo<T>()
@@ -100,7 +100,7 @@ inline fun <reified T : Any> Handle.listForTenant(
     tenantId: TenantKey,
     orderBy: String = "created_at DESC",
 ): List<T> = createQuery(
-    "SELECT * FROM $table WHERE tenant_id = :tenantId ORDER BY $orderBy",
+    "SELECT * FROM $table WHERE tenant_key = :tenantId ORDER BY $orderBy",
 )
     .bind("tenantId", tenantId.value)
     .mapTo<T>()
@@ -115,7 +115,7 @@ inline fun <reified T : Any> Handle.listForTenant(
  * @return True if entity exists, false otherwise
  */
 fun Handle.existsForTenant(table: String, tenantId: TenantKey, id: Any): Boolean = createQuery(
-    "SELECT EXISTS(SELECT 1 FROM $table WHERE tenant_id = :tenantId AND id = :id)",
+    "SELECT EXISTS(SELECT 1 FROM $table WHERE tenant_key = :tenantId AND id = :id)",
 )
     .bind("tenantId", tenantId.value)
     .bind("id", id)
@@ -130,7 +130,7 @@ fun Handle.existsForTenant(table: String, tenantId: TenantKey, id: Any): Boolean
  * @param id The entity ID to delete
  * @return True if a row was deleted, false if not found
  */
-fun Handle.deleteForTenant(table: String, tenantId: TenantKey, id: Any): Boolean = createUpdate("DELETE FROM $table WHERE tenant_id = :tenantId AND id = :id")
+fun Handle.deleteForTenant(table: String, tenantId: TenantKey, id: Any): Boolean = createUpdate("DELETE FROM $table WHERE tenant_key = :tenantId AND id = :id")
     .bind("tenantId", tenantId.value)
     .bind("id", id)
     .execute() > 0
@@ -142,7 +142,7 @@ fun Handle.deleteForTenant(table: String, tenantId: TenantKey, id: Any): Boolean
  * @param tenantId The tenant to scope to
  * @return Number of entities for this tenant
  */
-fun Handle.countForTenant(table: String, tenantId: TenantKey): Int = createQuery("SELECT COUNT(*) FROM $table WHERE tenant_id = :tenantId")
+fun Handle.countForTenant(table: String, tenantId: TenantKey): Int = createQuery("SELECT COUNT(*) FROM $table WHERE tenant_key = :tenantId")
     .bind("tenantId", tenantId.value)
     .mapTo<Int>()
     .one()

@@ -56,9 +56,9 @@ class DeleteDataExampleHandler(
     private fun getExisting(tenantId: TenantKey, templateId: TemplateKey): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_id, name, data_model, data_examples, created_at, last_modified
+                SELECT id, tenant_key, name, data_model, data_examples, created_at, last_modified
                 FROM document_templates
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
             .bind("id", templateId)
@@ -77,8 +77,8 @@ class DeleteDataExampleHandler(
             """
             UPDATE document_templates
             SET data_examples = :dataExamples::jsonb, last_modified = NOW()
-            WHERE id = :id AND tenant_id = :tenantId
-            RETURNING id, tenant_id, name, data_model, data_examples, created_at, last_modified
+            WHERE id = :id AND tenant_key = :tenantId
+            RETURNING id, tenant_key, name, data_model, data_examples, created_at, last_modified
             """,
         )
             .bind("id", templateId)

@@ -39,7 +39,7 @@ class DeleteThemeHandler(
         val isDefaultTheme = handle.createQuery(
             """
             SELECT COUNT(*) FROM tenants
-            WHERE id = :tenantId AND default_theme_id = :themeId
+            WHERE id = :tenantId AND default_theme_key = :themeId
             """,
         )
             .bind("tenantId", command.tenantId)
@@ -54,7 +54,7 @@ class DeleteThemeHandler(
         // Check if this is the last theme for the tenant
         val themeCount = handle.createQuery(
             """
-            SELECT COUNT(*) FROM themes WHERE tenant_id = :tenantId
+            SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId
             """,
         )
             .bind("tenantId", command.tenantId)
@@ -68,7 +68,7 @@ class DeleteThemeHandler(
         // Delete the theme
         val deleted = handle.createUpdate(
             """
-            DELETE FROM themes WHERE id = :id AND tenant_id = :tenantId
+            DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
             .bind("id", command.id)

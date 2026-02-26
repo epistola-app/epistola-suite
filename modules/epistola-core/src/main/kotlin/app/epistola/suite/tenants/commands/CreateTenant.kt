@@ -42,7 +42,7 @@ class CreateTenantHandler(
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
         jdbi.withHandle<Tenant, Exception> { handle ->
-            // 1. Insert tenant with NULL default_theme_id
+            // 1. Insert tenant with NULL default_theme_key
             handle.createUpdate(
                 "INSERT INTO tenants (id, name, created_at) VALUES (:id, :name, NOW())",
             )
@@ -78,7 +78,7 @@ class CreateTenantHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO themes (id, tenant_id, name, description, document_styles, page_settings, created_at, last_modified)
+                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, created_at, last_modified)
                 VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW())
                 """,
             )
@@ -90,11 +90,11 @@ class CreateTenantHandler(
                 .bindJsonb("pageSettings", pageSettings, objectMapper)
                 .execute()
 
-            // 3. Update tenant's default_theme_id to point to the new theme
+            // 3. Update tenant's default_theme_key to point to the new theme
             handle.createQuery(
                 """
                 UPDATE tenants
-                SET default_theme_id = :themeId
+                SET default_theme_key = :themeId
                 WHERE id = :id
                 RETURNING *
                 """,

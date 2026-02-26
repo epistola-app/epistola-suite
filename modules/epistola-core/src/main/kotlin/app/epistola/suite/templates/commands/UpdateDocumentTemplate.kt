@@ -109,9 +109,9 @@ class UpdateDocumentTemplateHandler(
             bindings["name"] = command.name
         }
         if (command.clearThemeId) {
-            updates.add("theme_id = NULL")
+            updates.add("theme_key = NULL")
         } else if (command.themeId != null) {
-            updates.add("theme_id = :themeId")
+            updates.add("theme_key = :themeId")
             bindings["themeId"] = command.themeId
         }
         if (command.dataModel != null) {
@@ -137,8 +137,8 @@ class UpdateDocumentTemplateHandler(
         val sql = """
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_id = :tenantId
-            RETURNING id, tenant_id, name, theme_id, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            WHERE id = :id AND tenant_key = :tenantId
+            RETURNING id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
         """
 
         val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
@@ -159,9 +159,9 @@ class UpdateDocumentTemplateHandler(
     private fun getExisting(tenantId: TenantKey, id: TemplateKey): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, theme_id, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            SELECT id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
             FROM document_templates
-            WHERE id = :id AND tenant_id = :tenantId
+            WHERE id = :id AND tenant_key = :tenantId
             """,
         )
             .bind("id", id)

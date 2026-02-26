@@ -41,7 +41,7 @@ class EventLogSubscriber(
             jdbi.withHandle<Unit, Exception> { handle ->
                 handle.createUpdate(
                     """
-                    INSERT INTO event_log (event_type, tenant_id, entity_id, payload, occurred_at)
+                    INSERT INTO event_log (event_type, tenant_key, entity_id, payload, occurred_at)
                     VALUES (:eventType, :tenantId, :entityId, :payload::jsonb, :occurredAt)
                     """,
                 ).apply {

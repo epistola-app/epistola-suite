@@ -50,7 +50,7 @@ class PublishToEnvironmentHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM environments
-                WHERE id = :environmentId AND tenant_id = :tenantId
+                WHERE id = :environmentId AND tenant_key = :tenantId
                 """,
         )
             .bind("environmentId", command.environmentId)
@@ -67,7 +67,7 @@ class PublishToEnvironmentHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -89,7 +89,7 @@ class PublishToEnvironmentHandler(
                 """
                     UPDATE template_versions
                     SET status = 'published', published_at = NOW()
-                    WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                     """,
             )
                 .bind("tenantId", command.tenantId)
@@ -102,10 +102,10 @@ class PublishToEnvironmentHandler(
         // 5. Upsert activation
         val activation = handle.createQuery(
             """
-                INSERT INTO environment_activations (tenant_id, environment_id, variant_id, version_id, activated_at)
+                INSERT INTO environment_activations (tenant_key, environment_key, variant_key, version_key, activated_at)
                 VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
-                ON CONFLICT (tenant_id, environment_id, variant_id)
-                DO UPDATE SET version_id = :versionId, activated_at = NOW()
+                ON CONFLICT (tenant_key, environment_key, variant_key)
+                DO UPDATE SET version_key = :versionId, activated_at = NOW()
                 RETURNING *
                 """,
         )
@@ -121,7 +121,7 @@ class PublishToEnvironmentHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -136,7 +136,7 @@ class PublishToEnvironmentHandler(
                 """
                     SELECT COALESCE(MAX(id), 0) + 1
                     FROM template_versions
-                    WHERE tenant_id = :tenantId AND variant_id = :variantId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId
                     """,
             )
                 .bind("tenantId", command.tenantId)
@@ -146,9 +146,9 @@ class PublishToEnvironmentHandler(
 
             handle.createQuery(
                 """
-                    INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                    INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
                     VALUES (:id, :tenantId, :variantId,
-                            (SELECT template_model FROM template_versions WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :publishedId),
+                            (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
                             'draft', NOW())
                     RETURNING *
                     """,

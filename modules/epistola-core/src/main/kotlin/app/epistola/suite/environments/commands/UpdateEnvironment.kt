@@ -30,7 +30,7 @@ class UpdateEnvironmentHandler(
             """
                 UPDATE environments
                 SET name = :name
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 RETURNING *
                 """,
         )

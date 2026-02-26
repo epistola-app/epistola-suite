@@ -38,7 +38,7 @@ class DeleteDocumentHandler(
                 """
                 DELETE FROM documents
                 WHERE id = :documentId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                 """,
             )
                 .bind("documentId", command.documentId)

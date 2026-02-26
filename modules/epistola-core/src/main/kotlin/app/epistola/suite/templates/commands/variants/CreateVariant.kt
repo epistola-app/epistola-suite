@@ -39,7 +39,7 @@ class CreateVariantHandler(
                     """
                 SELECT name
                 FROM document_templates
-                WHERE id = :templateId AND tenant_id = :tenantId
+                WHERE id = :templateId AND tenant_key = :tenantId
                 """,
                 )
                     .bind("templateId", command.templateId)
@@ -54,7 +54,7 @@ class CreateVariantHandler(
                 val existingCount = handle.createQuery(
                     """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_id = :tenantId AND template_id = :templateId
+                WHERE tenant_key = :tenantId AND template_key = :templateId
                 """,
                 )
                     .bind("tenantId", command.tenantId)
@@ -65,7 +65,7 @@ class CreateVariantHandler(
 
                 val variant = handle.createQuery(
                     """
-                INSERT INTO template_variants (id, tenant_id, template_id, title, description, attributes, is_default, created_at, last_modified)
+                INSERT INTO template_variants (id, tenant_key, template_key, title, description, attributes, is_default, created_at, last_modified)
                 VALUES (:id, :tenantId, :templateId, :title, :description, :attributes::jsonb, :isDefault, NOW(), NOW())
                 RETURNING *
                 """,
@@ -87,7 +87,7 @@ class CreateVariantHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
                 VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
                 )

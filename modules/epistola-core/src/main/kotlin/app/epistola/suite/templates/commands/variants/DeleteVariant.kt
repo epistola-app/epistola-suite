@@ -24,7 +24,7 @@ class DeleteVariantHandler(
         val isDefault = handle.createQuery(
             """
                 SELECT is_default FROM template_variants
-                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -41,7 +41,7 @@ class DeleteVariantHandler(
         val rowsAffected = handle.createUpdate(
             """
                 DELETE FROM template_variants
-                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 """,
         )
             .bind("tenantId", command.tenantId)

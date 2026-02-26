@@ -22,7 +22,7 @@ class CountThemesForTenantHandler(
     override fun handle(query: CountThemesForTenant): Long = jdbi.withHandle<Long, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT COUNT(*) FROM themes WHERE tenant_id = :tenantId
+            SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId
             """,
         )
             .bind("tenantId", query.tenantId)

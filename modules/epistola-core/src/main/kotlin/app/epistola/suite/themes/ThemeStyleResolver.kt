@@ -112,7 +112,7 @@ class ThemeStyleResolver(
     private fun getTheme(tenantId: TenantKey, themeId: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId
+            SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
             .bind("id", themeId)

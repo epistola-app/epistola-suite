@@ -30,9 +30,9 @@ class ListAssetsHandler(
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_id, name, media_type, size_bytes, width, height, created_at
+            SELECT id, tenant_key, name, media_type, size_bytes, width, height, created_at
             FROM assets
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             """,
         )
 
@@ -52,7 +52,7 @@ class ListAssetsHandler(
         q.map { rs, _ ->
             Asset(
                 id = AssetKey(rs.getObject("id", UUID::class.java)),
-                tenantId = TenantKey(rs.getString("tenant_id")),
+                tenantId = TenantKey(rs.getString("tenant_key")),
                 name = rs.getString("name"),
                 mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                 sizeBytes = rs.getLong("size_bytes"),

@@ -55,15 +55,15 @@ class GetPreviewContextHandler(
             """
             SELECT
                 ver.template_model as draft_template_model,
-                dt.theme_id as template_theme_id,
-                t.default_theme_id as tenant_default_theme_id
+                dt.theme_key as template_theme_key,
+                t.default_theme_key as tenant_default_theme_key
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_id = tv.tenant_id AND dt.id = tv.template_id
-            JOIN tenants t ON t.id = tv.tenant_id
-            LEFT JOIN template_versions ver ON ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'draft'
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+            JOIN tenants t ON t.id = tv.tenant_key
+            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id AND ver.status = 'draft'
             WHERE tv.id = :variantId
-              AND tv.template_id = :templateId
-              AND tv.tenant_id = :tenantId
+              AND tv.template_key = :templateId
+              AND tv.tenant_key = :tenantId
             """,
         )
             .bind("variantId", query.variantId)

@@ -21,7 +21,7 @@ class GetThemeHandler(
     override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId
+            SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
             .bind("id", query.id)

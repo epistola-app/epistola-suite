@@ -37,9 +37,9 @@ class ArchiveVersionHandler(
         // Check if the version is still active in any environment
         val activeEnvironments = handle.createQuery(
             """
-                SELECT environment_id
+                SELECT environment_key
                 FROM environment_activations
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND version_id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND version_key = :versionId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -62,7 +62,7 @@ class ArchiveVersionHandler(
             """
                 UPDATE template_versions
                 SET status = 'archived', archived_at = NOW()
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                   AND status = 'published'
                 RETURNING *
                 """,

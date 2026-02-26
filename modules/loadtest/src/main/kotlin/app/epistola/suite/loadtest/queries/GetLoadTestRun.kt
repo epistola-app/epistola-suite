@@ -31,11 +31,11 @@ class GetLoadTestRunHandler(
             SELECT
                 r.id,
                 r.batch_id,
-                r.tenant_id,
-                r.template_id,
-                r.variant_id,
-                r.version_id,
-                r.environment_id,
+                r.tenant_key,
+                r.template_key,
+                r.variant_key,
+                r.version_key,
+                r.environment_key,
                 r.target_count,
                 r.concurrency_level,
                 r.test_data,
@@ -75,7 +75,7 @@ class GetLoadTestRunHandler(
                 END as failed_count
             FROM load_test_runs r
             WHERE r.id = :runId
-              AND r.tenant_id = :tenantId
+              AND r.tenant_key = :tenantId
             """,
         )
             .bind("runId", query.runId)

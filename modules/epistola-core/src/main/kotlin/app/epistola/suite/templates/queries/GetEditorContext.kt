@@ -48,10 +48,10 @@ class GetEditorContextHandler(
                 tv.attributes as variant_attributes,
                 ver.template_model as draft_template_model
             FROM template_variants tv
-            JOIN document_templates dt ON dt.tenant_id = tv.tenant_id AND dt.id = tv.template_id
-            LEFT JOIN template_versions ver ON ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id AND ver.status = 'draft'
-            WHERE tv.template_id = :templateId
-              AND tv.tenant_id = :tenantId
+            JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id AND ver.status = 'draft'
+            WHERE tv.template_key = :templateId
+              AND tv.tenant_key = :tenantId
               AND tv.id = :variantId
             """,
         )

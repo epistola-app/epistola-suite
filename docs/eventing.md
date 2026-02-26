@@ -140,7 +140,7 @@ class AuditLogger {
 **Before**:
 ```kotlin
 override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
-    handle.createQuery("SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId")
+    handle.createQuery("SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId")
         .bind("id", query.id).bind("tenantId", query.tenantId)
         .mapTo<Theme>().findOne().orElse(null)
 }
@@ -185,7 +185,7 @@ data class CommandCompleted<C : Command<*>>(
 CREATE TABLE event_log (
     id BIGSERIAL PRIMARY KEY,
     event_type VARCHAR(255) NOT NULL,          -- e.g., "CreateTheme", "PublishToEnvironment"
-    tenant_id VARCHAR(100),                    -- extracted from TenantScoped commands
+    tenant_key VARCHAR(100),                    -- extracted from TenantScoped commands
     entity_id VARCHAR(255),                    -- optional: primary entity affected
     payload JSONB NOT NULL,                    -- serialized command
     occurred_at TIMESTAMPTZ NOT NULL,

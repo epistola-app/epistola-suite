@@ -48,7 +48,7 @@ class UpdateAttributeDefinitionHandler(
             val currentAllowedValues = handle.createQuery(
                 """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_id = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId
                     """,
             )
                 .bind("id", command.id)
@@ -69,7 +69,7 @@ class UpdateAttributeDefinitionHandler(
                     handle.createQuery(
                         """
                             SELECT COUNT(*) FROM template_variants
-                            WHERE tenant_id = :tenantId
+                            WHERE tenant_key = :tenantId
                               AND attributes ->> :attributeKey = :value
                             """,
                     )
@@ -94,7 +94,7 @@ class UpdateAttributeDefinitionHandler(
                 SET display_name = :displayName,
                     allowed_values = :allowedValues::jsonb,
                     last_modified = NOW()
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 RETURNING *
                 """,
         )

@@ -26,13 +26,13 @@ class GetDraftHandler(
     override fun handle(query: GetDraft): TemplateVersion? = jdbi.withHandle<TemplateVersion?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT ver.id, ver.tenant_id, ver.variant_id, ver.template_model, ver.status, ver.created_at, ver.published_at, ver.archived_at
+                SELECT ver.id, ver.tenant_key, ver.variant_key, ver.template_model, ver.status, ver.created_at, ver.published_at, ver.archived_at
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_id = ver.tenant_id AND tv.id = ver.variant_id
-                WHERE ver.variant_id = :variantId
-                  AND ver.tenant_id = :tenantId
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.id = ver.variant_key
+                WHERE ver.variant_key = :variantId
+                  AND ver.tenant_key = :tenantId
                   AND ver.status = 'draft'
-                  AND tv.template_id = :templateId
+                  AND tv.template_key = :templateId
                 """,
         )
             .bind("variantId", query.variantId)

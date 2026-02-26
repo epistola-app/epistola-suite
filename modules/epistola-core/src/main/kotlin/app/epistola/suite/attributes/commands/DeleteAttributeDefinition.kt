@@ -32,7 +32,7 @@ class DeleteAttributeDefinitionHandler(
         val variantCount = handle.createQuery(
             """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_id = :tenantId AND jsonb_exists(attributes, :attributeKey)
+                WHERE tenant_key = :tenantId AND jsonb_exists(attributes, :attributeKey)
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -47,7 +47,7 @@ class DeleteAttributeDefinitionHandler(
         val rowsAffected = handle.createUpdate(
             """
                 DELETE FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
             .bind("id", command.id)

@@ -30,7 +30,7 @@ class CreateEnvironmentHandler(
         jdbi.withHandle<Environment, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO environments (id, tenant_id, name, created_at)
+                INSERT INTO environments (id, tenant_key, name, created_at)
                 VALUES (:id, :tenantId, :name, NOW())
                 RETURNING *
                 """,

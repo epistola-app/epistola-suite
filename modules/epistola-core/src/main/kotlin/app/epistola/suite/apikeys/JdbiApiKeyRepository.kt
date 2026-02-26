@@ -17,7 +17,7 @@ class JdbiApiKeyRepository(
     override fun findByKeyHash(keyHash: String): ApiKey? = jdbi.withHandle<ApiKey?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, key_prefix, enabled, created_at,
+            SELECT id, tenant_key, name, key_prefix, enabled, created_at,
                    last_used_at, expires_at, created_by
             FROM api_keys
             WHERE key_hash = :keyHash
@@ -48,7 +48,7 @@ class JdbiApiKeyRepository(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO api_keys (id, tenant_id, name, key_hash, key_prefix, enabled,
+                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled,
                                       created_at, expires_at, created_by)
                 VALUES (:id, :tenantId, :name, :keyHash, :keyPrefix, :enabled,
                         :createdAt, :expiresAt, :createdBy)
@@ -70,10 +70,10 @@ class JdbiApiKeyRepository(
     override fun listByTenantId(tenantId: TenantKey): List<ApiKey> = jdbi.withHandle<List<ApiKey>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, key_prefix, enabled, created_at,
+            SELECT id, tenant_key, name, key_prefix, enabled, created_at,
                    last_used_at, expires_at, created_by
             FROM api_keys
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             ORDER BY created_at DESC
             """,
         )

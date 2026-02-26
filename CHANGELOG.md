@@ -127,7 +127,7 @@
 - **Variant delete uses confirm dialog**: Variant delete buttons now use `openConfirmDialog()` (matching themes/environments/attributes) instead of `hx-confirm` with `hx-delete`. The confirm dialog now supports configurable swap mode via `data-confirm-swap`.
 - **Variant delete error reporting**: Attempting to delete the default variant now shows an error message in the UI instead of silently doing nothing.
 - **Editor: component extension hooks**: Decoupled table and columns components from generic editor infrastructure (canvas, inspector, palette, editor, sidebar) using `ComponentDefinition` extension hooks (`renderCanvas`, `renderInspector`, `onBeforeInsert`, `commandTypes`/`commandHandler`). Component-specific logic now lives entirely in each component's registration file, following the open-closed principle. Added generic component state store to `EditorEngine` for cross-component communication (replaces table cell selection prop threading).
-- **Flyway migration restructuring**: Renumbered and consolidated migrations V1-V10 into V1-V8 for cleaner dependency ordering. Users are now created before tenants (enabling FK-based audit columns), themes use composite PK `(tenant_id, id)` consistent with all other tenant-scoped tables, and user audit columns (`created_by`, `last_modified_by`) are inlined into CREATE TABLE statements instead of added via ALTER TABLE. Old V9 (user audit fields) is eliminated. PostgreSQL domain types (`TENANT_ID`, `THEME_ID`, `TEMPLATE_ID`, `VARIANT_ID`, `ENVIRONMENT_ID`) replace raw VARCHAR declarations for slug-based identifiers, embedding the slug pattern CHECK constraint in a single place. Existing local databases require drop+recreate.
+- **Flyway migration restructuring**: Renumbered and consolidated migrations V1-V10 into V1-V8 for cleaner dependency ordering. Users are now created before tenants (enabling FK-based audit columns), themes use composite PK `(tenant_key, id)` consistent with all other tenant-scoped tables, and user audit columns (`created_by`, `last_modified_by`) are inlined into CREATE TABLE statements instead of added via ALTER TABLE. Old V9 (user audit fields) is eliminated. PostgreSQL domain types (`TENANT_ID`, `THEME_ID`, `TEMPLATE_ID`, `VARIANT_ID`, `ENVIRONMENT_ID`) replace raw VARCHAR declarations for slug-based identifiers, embedding the slug pattern CHECK constraint in a single place. Existing local databases require drop+recreate.
 - **Pre-1.0 version capping in CI**: Breaking changes (`feat!:`, `BREAKING CHANGE:`) now bump the minor version instead of the major version, keeping releases below `1.0.0` while the project is pre-production. The `mathieudutour/github-tag-action` runs in dry-run mode and a custom script caps the calculated version. A safeguard fails the build if existing tags are >= 1.0.0.
 - **Variants Card Grid**: Replaced the variants table with a responsive card grid. Each card shows title, slug, attribute badges, version status, and action buttons. Default variant is visually distinguished with blue tint and always sorted first.
   - **Attribute Filtering**: Filter bar with dropdowns for each attribute definition, allowing quick narrowing of variants. Client-side filtering for instant response. Filters persist across HTMX swaps.
@@ -171,9 +171,9 @@
 - `PublishToEnvironment` command: single action that freezes draft content (if needed) and activates in target environment
 - `VersionStillActiveException`: thrown when attempting to archive a version still active in environments
 - UI: environment-targeted publish dropdown in version list, environment badges on published versions, unpublish-from-environment action
-- **Tenant-Scoped Composite Primary Keys**: All tenant-owned entities (`document_templates`, `template_variants`, `environments`, `template_versions`, `environment_activations`) now use composite primary keys `(tenant_id, id)`, allowing different tenants to reuse the same slugs (e.g., both can have a template called "invoice")
+- **Tenant-Scoped Composite Primary Keys**: All tenant-owned entities (`document_templates`, `template_variants`, `environments`, `template_versions`, `environment_activations`) now use composite primary keys `(tenant_key, id)`, allowing different tenants to reuse the same slugs (e.g., both can have a template called "invoice")
   - `TemplateVariant` domain model now includes `tenantId`
-  - Removed JOIN-based tenant isolation in favor of direct `tenant_id` columns on each table
+  - Removed JOIN-based tenant isolation in favor of direct `tenant_key` columns on each table
   - Simplified many queries by eliminating multi-table JOINs that existed solely for tenant verification
   - Merged V12 (variant_attribute_definitions) and V13 (tags→attributes rename) into V3
 
@@ -592,7 +592,7 @@
   - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
   - Tenant IDs must now be client-provided (no auto-generation via `TenantId.generate()`)
   - Examples: `acme-corp`, `demo-tenant`, `my-company-2024`
-  - Database: `tenant_id` columns changed from `UUID` to `VARCHAR(63)` with CHECK constraint
+  - Database: `tenant_key` columns changed from `UUID` to `VARCHAR(63)` with CHECK constraint
   - API: `tenantId` path parameters changed from UUID to string with pattern validation
   - Generic `EntityId<T, V>` architecture: `SlugId<T>` for string IDs, `UuidId<T>` for UUID IDs
 - **BREAKING: ThemeId changed from UUID to slug format**: Theme IDs are now human-readable, URL-safe slugs instead of UUIDs
@@ -601,7 +601,7 @@
   - Pattern: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
   - Theme IDs must now be client-provided (no auto-generation via `ThemeId.generate()`)
   - Examples: `corporate`, `modern`, `my-theme-2024`
-  - Database: `theme_id` columns changed from `UUID` to `VARCHAR(20)` with CHECK constraint
+  - Database: `theme_key` columns changed from `UUID` to `VARCHAR(20)` with CHECK constraint
   - API: `themeId` parameters changed from UUID to string with pattern validation
   - Web UI: Added slug input field to theme creation form
   - Auto-created default theme uses slug `default`
@@ -612,7 +612,7 @@
   - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `default`, `new`, `create`, `edit`, `delete`
   - Template IDs must now be client-provided (no auto-generation)
   - Examples: `monthly-invoice`, `welcome-email`, `quarterly-report`
-  - Database: `template_id` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
+  - Database: `template_key` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
   - API: `templateId` parameters changed from UUID to string with pattern validation
   - Web UI: Added slug input field to template creation form
   - Demo data: Updated to use explicit template slugs (e.g., `demo-invoice`)
@@ -623,7 +623,7 @@
   - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`, `default`, `new`, `create`, `edit`, `delete`
   - Variant IDs must now be client-provided (no auto-generation)
   - Examples: `default`, `corporate`, `simple-v2`
-  - Database: `variant_id` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
+  - Database: `variant_key` columns changed from `UUID` to `VARCHAR(50)` with CHECK constraint
   - API: `variantId` parameters changed from UUID to string with pattern validation
   - Web UI: Added slug input field to variant creation forms
   - Auto-created default variant uses slug `{templateId}-default` to ensure uniqueness across templates
@@ -641,8 +641,8 @@
   - Database changes:
     - `template_versions.id` changed from `UUID` to `INTEGER` with CHECK constraint (1-200)
     - Removed `version_number` column (merged into `id`)
-    - Changed primary key from `id` to composite `(variant_id, id)`
-    - Foreign keys now use composite references: `(variant_id, version_id)`
+    - Changed primary key from `id` to composite `(variant_key, id)`
+    - Foreign keys now use composite references: `(variant_key, version_key)`
   - API changes:
     - `versionId` path parameters changed from UUID to integer (1-200)
     - Removed `versionNumber` field from VersionDto and VersionSummaryDto
@@ -656,7 +656,7 @@
   - Reserved words blocked: `admin`, `api`, `www`, `system`, `internal`, `null`, `undefined`
   - Environment IDs must now be client-provided (no auto-generation via `EnvironmentId.generate()`)
   - Examples: `production`, `staging`, `development`, `test`, `preview`
-  - Database: `environment_id` columns changed from `UUID` to `VARCHAR(30)` with CHECK constraint
+  - Database: `environment_key` columns changed from `UUID` to `VARCHAR(30)` with CHECK constraint
   - API: `environmentId` parameters changed from UUID to string with pattern validation
 - **Code organization improvements**: Refactored large handlers and improved code maintainability
   - Split `DocumentTemplateHandler` (753 lines) into smaller focused handlers:
@@ -1257,7 +1257,7 @@
   - `CreateTenant` and `DeleteTenant` commands for tenant management (internal use)
   - All `DocumentTemplate` records now belong to a tenant (required foreign key)
   - Tenant-scoped queries and commands prevent cross-tenant data access
-  - Database migrations create `tenants` table and add `tenant_id` to `document_templates`
+  - Database migrations create `tenants` table and add `tenant_key` to `document_templates`
   - Default tenant (id=1) created for existing data during migration
   - Cascade delete: removing a tenant deletes all its templates
 - Editor development modes for live reload

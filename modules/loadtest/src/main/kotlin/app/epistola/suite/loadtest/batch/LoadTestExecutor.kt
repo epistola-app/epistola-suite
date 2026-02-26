@@ -211,7 +211,7 @@ class LoadTestExecutor(
                         dgr.completed_at,
                         dgr.status,
                         dgr.error_message,
-                        dgr.document_id
+                        dgr.document_key
                     FROM document_generation_requests dgr
                     WHERE dgr.id IN (<jobIds>)
                     """,
@@ -229,7 +229,7 @@ class LoadTestExecutor(
                             completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
                             status = rs.getString("status"),
                             errorMessage = rs.getString("error_message"),
-                            documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
+                            documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
                         )
                     }
                     .list()
@@ -272,7 +272,7 @@ class LoadTestExecutor(
                     dgr.completed_at,
                     dgr.status,
                     dgr.error_message,
-                    dgr.document_id
+                    dgr.document_key
                 FROM document_generation_requests dgr
                 WHERE dgr.id IN (<jobIds>)
                 """,
@@ -290,7 +290,7 @@ class LoadTestExecutor(
                         completedAt = rs.getObject("completed_at", OffsetDateTime::class.java),
                         status = rs.getString("status"),
                         errorMessage = rs.getString("error_message"),
-                        documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
+                        documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { DocumentKey.of(it) },
                     )
                 }
                 .list()

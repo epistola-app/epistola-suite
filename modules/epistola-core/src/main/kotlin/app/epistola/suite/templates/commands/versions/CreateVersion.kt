@@ -40,9 +40,9 @@ class CreateVersionHandler(
             """
                 SELECT dt.name as template_name
                 FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_id = tv.tenant_id AND dt.id = tv.template_id
-                WHERE tv.tenant_id = :tenantId AND tv.id = :variantId
-                  AND tv.template_id = :templateId
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+                WHERE tv.tenant_key = :tenantId AND tv.id = :variantId
+                  AND tv.template_key = :templateId
                 """,
         )
             .bind("variantId", command.variantId)
@@ -59,7 +59,7 @@ class CreateVersionHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                   AND status = 'draft'
                 """,
         )
@@ -79,7 +79,7 @@ class CreateVersionHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
         )
             .bind("tenantId", command.tenantId)
@@ -100,7 +100,7 @@ class CreateVersionHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
+                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
                 VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,

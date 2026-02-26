@@ -95,7 +95,7 @@ class LoadTestPoller(
                 started_at = NOW()
             FROM claimed
             WHERE load_test_runs.id = claimed.id
-            RETURNING load_test_runs.id, tenant_id, template_id, variant_id, version_id, environment_id,
+            RETURNING load_test_runs.id, tenant_key, template_key, variant_key, version_key, environment_key,
                       target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                       completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                       min_response_time_ms, max_response_time_ms, p50_response_time_ms,

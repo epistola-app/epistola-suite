@@ -8,15 +8,15 @@
 -- DOMAIN TYPE
 -- ============================================================================
 
-CREATE DOMAIN ASSET_ID AS UUID;
+CREATE DOMAIN ASSET_KEY AS UUID;
 
 -- ============================================================================
 -- ASSETS TABLE
 -- ============================================================================
 
 CREATE TABLE assets (
-    id ASSET_ID NOT NULL,
-    tenant_id TENANT_ID NOT NULL,
+    id ASSET_KEY NOT NULL,
+    tenant_key TENANT_KEY NOT NULL,
     name VARCHAR(255) NOT NULL,
     media_type VARCHAR(50) NOT NULL,
     size_bytes BIGINT NOT NULL,
@@ -26,9 +26,9 @@ CREATE TABLE assets (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     created_by UUID REFERENCES users(id),
 
-    PRIMARY KEY (tenant_id, id),
+    PRIMARY KEY (tenant_key, id),
 
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_key) REFERENCES tenants(id) ON DELETE CASCADE,
 
     CONSTRAINT chk_assets_name_not_empty CHECK (LENGTH(name) > 0),
     CONSTRAINT chk_assets_media_type CHECK (media_type IN ('image/png', 'image/jpeg', 'image/svg+xml', 'image/webp')),
@@ -39,12 +39,12 @@ CREATE TABLE assets (
     )
 );
 
-CREATE INDEX idx_assets_tenant_created ON assets(tenant_id, created_at DESC);
-CREATE INDEX idx_assets_tenant_name ON assets(tenant_id, name);
+CREATE INDEX idx_assets_tenant_created ON assets(tenant_key, created_at DESC);
+CREATE INDEX idx_assets_tenant_name ON assets(tenant_key, name);
 
 COMMENT ON TABLE assets IS 'Tenant-scoped image assets stored as BYTEA. Used in template image blocks and PDF generation.';
 COMMENT ON COLUMN assets.id IS 'UUIDv7-based asset identifier';
-COMMENT ON COLUMN assets.tenant_id IS 'Owning tenant';
+COMMENT ON COLUMN assets.tenant_key IS 'Owning tenant';
 COMMENT ON COLUMN assets.name IS 'Human-readable asset name';
 COMMENT ON COLUMN assets.media_type IS 'MIME type: image/png, image/jpeg, image/svg+xml, or image/webp';
 COMMENT ON COLUMN assets.size_bytes IS 'File size in bytes (max 5MB)';

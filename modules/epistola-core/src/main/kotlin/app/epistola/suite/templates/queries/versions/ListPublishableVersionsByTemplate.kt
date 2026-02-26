@@ -34,15 +34,15 @@ class ListPublishableVersionsByTemplateHandler(
         handle.createQuery(
             """
                 SELECT
-                    ver.variant_id,
-                    ver.id as version_id,
+                    ver.variant_key,
+                    ver.id as version_key,
                     ver.status
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_id = ver.tenant_id AND tv.id = ver.variant_id
-                WHERE tv.template_id = :templateId
-                  AND ver.tenant_id = :tenantId
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.id = ver.variant_key
+                WHERE tv.template_key = :templateId
+                  AND ver.tenant_key = :tenantId
                   AND ver.status IN ('draft', 'published')
-                ORDER BY ver.variant_id, ver.id DESC
+                ORDER BY ver.variant_key, ver.id DESC
                 """,
         )
             .bind("templateId", query.templateId)

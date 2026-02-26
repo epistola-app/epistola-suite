@@ -44,7 +44,7 @@ class DeleteAssetHandler(
                 """
                 DELETE FROM assets
                 WHERE id = :assetId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                 """,
             )
                 .bind("assetId", command.assetId.value)

@@ -37,10 +37,10 @@ class GetAssetContentHandler(
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_id, media_type
+                SELECT id, tenant_key, media_type
                 FROM assets
                 WHERE id = :assetId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                 """,
             )
                 .bind("assetId", query.assetId.value)
@@ -48,7 +48,7 @@ class GetAssetContentHandler(
                 .map { rs, _ ->
                     AssetMeta(
                         id = AssetKey(rs.getObject("id", UUID::class.java)),
-                        tenantId = TenantKey(rs.getString("tenant_id")),
+                        tenantId = TenantKey(rs.getString("tenant_key")),
                         mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     )
                 }
