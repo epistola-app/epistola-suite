@@ -811,7 +811,7 @@ export class EpistolaToolbar extends LitElement {
 
         <div class="toolbar-data-preview">
           <button
-            class="toolbar-shortcuts-trigger toolbar-data-preview-trigger"
+            class="btn btn-outline btn-sm btn-icon toolbar-shortcuts-trigger toolbar-data-preview-trigger"
             data-testid="data-example-trigger"
             type="button"
             title="Current data example"
@@ -842,7 +842,7 @@ export class EpistolaToolbar extends LitElement {
                       ${this._dataPreviewPinned
                         ? html`
                             <button
-                              class="toolbar-data-preview-drag-handle"
+                              class="btn btn-outline btn-sm toolbar-data-preview-drag-handle"
                               data-testid="data-example-drag-handle"
                               type="button"
                               title="Drag to move"
@@ -855,7 +855,7 @@ export class EpistolaToolbar extends LitElement {
                         : nothing}
 
                       <button
-                        class=${dataPreviewCopyClass}
+                        class=${`btn btn-outline btn-sm ${dataPreviewCopyClass}`}
                         data-testid="data-example-copy"
                         type="button"
                         ?disabled=${!canCopyDataPreview}
@@ -865,7 +865,7 @@ export class EpistolaToolbar extends LitElement {
                       </button>
 
                       <button
-                        class="toolbar-data-preview-pin ${this._dataPreviewPinned ? 'is-active' : ''}"
+                        class="btn btn-outline btn-sm btn-icon toolbar-data-preview-pin ${this._dataPreviewPinned ? 'is-active' : ''}"
                         data-testid="data-example-pin"
                         type="button"
                         title=${dataPreviewPinLabel}
@@ -909,7 +909,7 @@ export class EpistolaToolbar extends LitElement {
 
         <div class="toolbar-shortcuts">
           <button
-            class="toolbar-shortcuts-trigger"
+            class="btn btn-outline btn-sm btn-icon toolbar-shortcuts-trigger"
             data-testid="shortcuts-trigger"
             type="button"
             title="Keyboard shortcuts"

@@ -156,35 +156,6 @@
     }
   }
 
-  .toolbar-shortcuts-trigger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--ep-h-8);
-    height: var(--ep-h-8);
-    border: 1px solid var(--ep-gray-200);
-    border-radius: var(--ep-radius-sm);
-    background: var(--ep-white);
-    color: var(--ep-gray-600);
-    cursor: pointer;
-    transition:
-      border-color var(--ep-transition-fast),
-      background-color var(--ep-transition-fast),
-      color var(--ep-transition-fast);
-
-    &:hover {
-      border-color: var(--ep-gray-300);
-      background: var(--ep-gray-50);
-      color: var(--ep-gray-800);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ep-ring);
-      border-color: var(--ep-blue-500);
-    }
-  }
-
   .toolbar-shortcuts {
     position: relative;
 
@@ -381,34 +352,7 @@
       flex-shrink: 0;
     }
 
-    .toolbar-data-preview-copy,
-    .toolbar-data-preview-pin {
-      height: 1.75rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid var(--ep-gray-200);
-      border-radius: var(--ep-radius-sm);
-      background: var(--ep-white);
-      color: var(--ep-gray-600);
-      cursor: pointer;
-      flex-shrink: 0;
-
-      &:hover:not(:disabled) {
-        color: var(--ep-gray-800);
-        border-color: var(--ep-gray-300);
-        background: var(--ep-gray-50);
-      }
-
-      &:focus-visible {
-        outline: none;
-        box-shadow: var(--ep-ring);
-        border-color: var(--ep-blue-500);
-      }
-    }
-
     .toolbar-data-preview-copy {
-      padding: 0 var(--ep-space-2);
       font-size: 11px;
       font-weight: 600;
 
@@ -431,10 +375,6 @@
       }
     }
 
-    .toolbar-data-preview-pin {
-      width: 1.75rem;
-    }
-
     .toolbar-data-preview-title {
       font-size: var(--ep-text-xs);
       font-weight: 700;
@@ -446,14 +386,9 @@
     }
 
     .toolbar-data-preview-drag-handle {
-      height: 1.5rem;
       width: 6.5rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       gap: 4px;
       border: 1px dashed var(--ep-gray-300);
-      border-radius: var(--ep-radius-sm);
       background: var(--ep-gray-50);
       color: var(--ep-gray-500);
       cursor: pointer;
@@ -463,7 +398,7 @@
 
       &:hover {
         color: var(--ep-gray-700);
-        border-color: var(--ep-gray-300);
+        border-color: var(--ep-gray-400);
         background: var(--ep-gray-100);
       }
 
