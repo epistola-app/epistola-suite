@@ -13,7 +13,12 @@ import type { DocumentIndexes } from './indexes.js'
 // ---------------------------------------------------------------------------
 
 export type EngineEvents = {
-  'doc:change': { doc: TemplateDocument; indexes: DocumentIndexes }
+  'doc:change': {
+    doc: TemplateDocument
+    indexes: DocumentIndexes
+    structureChanged: boolean
+    commandType?: string
+  }
   'selection:change': { nodeId: NodeId | null }
   'example:change': { index: number; example: object | undefined }
   'component-state:change': { key: string; value: unknown }

@@ -95,6 +95,26 @@ export function canDropHere(
   const parentNode = doc.nodes[targetSlot.nodeId]
   if (!parentNode) return false
 
+  const rootNode = doc.nodes[doc.root]
+  const rootSlotId = rootNode?.slots[0]
+
+  if (dragData.blockType === 'pageheader' || dragData.blockType === 'pagefooter') {
+    if (!rootSlotId || targetSlotId !== rootSlotId) {
+      return false
+    }
+  }
+
+  if (dragData.source === 'palette' && !registry.canInsertInDocument(dragData.blockType, doc)) {
+    return false
+  }
+
+  if (
+    dragData.source === 'block'
+    && (dragData.blockType === 'pageheader' || dragData.blockType === 'pagefooter')
+  ) {
+    return false
+  }
+
   // Check containment constraint
   if (!registry.canContain(parentNode.type, dragData.blockType)) {
     return false

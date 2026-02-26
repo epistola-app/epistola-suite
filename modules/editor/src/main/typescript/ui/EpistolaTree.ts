@@ -62,9 +62,10 @@ export class EpistolaTree extends LitElement {
       if (!node) continue
 
       const isRoot = nodeId === this.doc.root
+      const isFixedPageBlock = node.type === 'pageheader' || node.type === 'pagefooter'
 
       // Drag source (skip root — can't drag the document root)
-      if (!isRoot) {
+      if (!isRoot && !isFixedPageBlock) {
         cleanups.push(draggable({
           element: labelEl,
           getInitialData: (): DragData => ({ source: 'block', nodeId, blockType: node.type }),
@@ -177,22 +178,37 @@ export class EpistolaTree extends LitElement {
       case 'reorder-below': {
         const edge: Edge = instruction.type === 'reorder-above' ? 'top' : 'bottom'
         const loc = resolveDropOnBlockEdge(targetNodeId, edge, this.doc, this.engine.indexes)
-        if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
+        if (loc) this._applyDrop(dragData, loc.targetSlotId, loc.index)
         break
       }
       case 'make-child': {
         const loc = resolveDropInsideNode(targetNodeId, this.doc)
-        if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
+        if (loc) this._applyDrop(dragData, loc.targetSlotId, loc.index)
         break
       }
       case 'reparent': {
         const ancestor = findAncestorAtLevel(targetNodeId, instruction.desiredLevel, this.engine.indexes)
         if (ancestor) {
           const loc = resolveDropOnBlockEdge(ancestor, 'bottom', this.doc, this.engine.indexes)
-          if (loc) handleDrop(this.engine, dragData, loc.targetSlotId, loc.index)
+          if (loc) this._applyDrop(dragData, loc.targetSlotId, loc.index)
         }
         break
       }
+    }
+  }
+
+  private _applyDrop(dragData: DragData, targetSlotId: SlotId, index: number): void {
+    if (!this.engine) return
+    const result = handleDrop(this.engine, dragData, targetSlotId, index)
+    if (!result.ok && result.error) {
+      this.dispatchEvent(new CustomEvent('editor-notice', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          tone: 'error',
+          message: result.error,
+        },
+      }))
     }
   }
 

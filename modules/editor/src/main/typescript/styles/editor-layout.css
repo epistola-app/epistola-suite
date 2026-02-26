@@ -33,11 +33,10 @@
     background: var(--ep-gray-200);
   }
 
-  .leader-hint {
+  .leader-hint,
+  .editor-notice {
     position: fixed;
     left: 50%;
-    bottom: var(--ep-space-4);
-    transform: translate(-50%, 8px);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -56,9 +55,21 @@
       transform 180ms ease,
       background-color 140ms ease,
       visibility 0s linear 180ms;
+    z-index: 44;
   }
 
-  .leader-hint.is-visible {
+  .leader-hint {
+    bottom: var(--ep-space-4);
+    transform: translate(-50%, 8px);
+  }
+
+  .editor-notice {
+    top: var(--ep-space-4);
+    transform: translate(-50%, -8px);
+  }
+
+  .leader-hint.is-visible,
+  .editor-notice.is-visible {
     opacity: 1;
     visibility: visible;
     transform: translate(-50%, 0);
@@ -74,6 +85,14 @@
   }
 
   .leader-hint.is-error {
+    background: var(--ep-red-600, #dc2626);
+  }
+
+  .editor-notice.is-info {
+    background: var(--ep-gray-900);
+  }
+
+  .editor-notice.is-error {
     background: var(--ep-red-600, #dc2626);
   }
 

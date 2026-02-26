@@ -304,6 +304,157 @@ describe('InsertNode', () => {
     expect(engine.doc.slots[slots[0].id]).toBeDefined()
     expect(engine.doc.slots[slots[0].id].nodeId).toBe(node.id)
   })
+
+  it('rejects inserting a second page header', () => {
+    const first = registry.createNode('pageheader')
+    const firstInsert = engine.dispatch({
+      type: 'InsertNode',
+      node: first.node,
+      slots: first.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+    expect(firstInsert.ok).toBe(true)
+
+    const second = registry.createNode('pageheader')
+    const secondInsert = engine.dispatch({
+      type: 'InsertNode',
+      node: second.node,
+      slots: second.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    expect(secondInsert.ok).toBe(false)
+    if (!secondInsert.ok) {
+      expect(secondInsert.error).toContain("Only 1 'pageheader' block allowed per document")
+    }
+  })
+
+  it('rejects inserting a second page footer', () => {
+    const first = registry.createNode('pagefooter')
+    const firstInsert = engine.dispatch({
+      type: 'InsertNode',
+      node: first.node,
+      slots: first.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+    expect(firstInsert.ok).toBe(true)
+
+    const second = registry.createNode('pagefooter')
+    const secondInsert = engine.dispatch({
+      type: 'InsertNode',
+      node: second.node,
+      slots: second.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    expect(secondInsert.ok).toBe(false)
+    if (!secondInsert.ok) {
+      expect(secondInsert.error).toContain("Only 1 'pagefooter' block allowed per document")
+    }
+  })
+
+  it('anchors page header at the top of root slot', () => {
+    const { node, slots } = registry.createNode('pageheader')
+    const result = engine.dispatch({
+      type: 'InsertNode',
+      node,
+      slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(engine.doc.slots[rootSlotId].children[0]).toBe(node.id)
+  })
+
+  it('anchors page footer at the bottom of root slot', () => {
+    const { node, slots } = registry.createNode('pagefooter')
+    const result = engine.dispatch({
+      type: 'InsertNode',
+      node,
+      slots,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+
+    expect(result.ok).toBe(true)
+    const children = engine.doc.slots[rootSlotId].children
+    expect(children[children.length - 1]).toBe(node.id)
+  })
+
+  it('rejects inserting page header outside root slot', () => {
+    const { containerSlotId } = createTestDocumentWithChildren()
+    const { node, slots } = registry.createNode('pageheader')
+
+    const result = engine.dispatch({
+      type: 'InsertNode',
+      node,
+      slots,
+      targetSlotId: containerSlotId,
+      index: 0,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('top of the document')
+    }
+  })
+
+  it('rejects inserting content before anchored page header', () => {
+    const header = registry.createNode('pageheader')
+    const headerResult = engine.dispatch({
+      type: 'InsertNode',
+      node: header.node,
+      slots: header.slots,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+    expect(headerResult.ok).toBe(true)
+
+    const text = registry.createNode('text')
+    const result = engine.dispatch({
+      type: 'InsertNode',
+      node: text.node,
+      slots: text.slots,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('before the page header')
+    }
+  })
+
+  it('rejects inserting content after anchored page footer', () => {
+    const footer = registry.createNode('pagefooter')
+    const footerResult = engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+    expect(footerResult.ok).toBe(true)
+
+    const text = registry.createNode('text')
+    const result = engine.dispatch({
+      type: 'InsertNode',
+      node: text.node,
+      slots: text.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('after the page footer')
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -518,6 +669,157 @@ describe('MoveNode', () => {
     if (!result.ok) {
       expect(result.error).toContain('root')
     }
+  })
+
+  it('rejects moving page header', () => {
+    const registry = testRegistry()
+    const { doc, rootSlotId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const header = registry.createNode('pageheader')
+    const insert = engine.dispatch({
+      type: 'InsertNode',
+      node: header.node,
+      slots: header.slots,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+    expect(insert.ok).toBe(true)
+
+    const result = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: header.node.id,
+      targetSlotId: rootSlotId,
+      index: 1,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('cannot be moved')
+    }
+  })
+
+  it('rejects moving page footer', () => {
+    const registry = testRegistry()
+    const { doc, rootSlotId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const footer = registry.createNode('pagefooter')
+    const insert = engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+    expect(insert.ok).toBe(true)
+
+    const result = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: footer.node.id,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('cannot be moved')
+    }
+  })
+
+  it('rejects moving content before anchored page header', () => {
+    const registry = testRegistry()
+    const { doc, rootSlotId, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const header = registry.createNode('pageheader')
+    const insert = engine.dispatch({
+      type: 'InsertNode',
+      node: header.node,
+      slots: header.slots,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+    expect(insert.ok).toBe(true)
+
+    const result = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: textNodeId,
+      targetSlotId: rootSlotId,
+      index: 0,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('before the page header')
+    }
+  })
+
+  it('rejects moving content after anchored page footer', () => {
+    const registry = testRegistry()
+    const { doc, rootSlotId, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const footer = registry.createNode('pagefooter')
+    const insert = engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    })
+    expect(insert.ok).toBe(true)
+
+    const result = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: textNodeId,
+      targetSlotId: rootSlotId,
+      index: Number.MAX_SAFE_INTEGER,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toContain('after the page footer')
+    }
+  })
+
+  it('allows moving content between anchored page header and footer', () => {
+    const registry = testRegistry()
+    const { doc, rootSlotId, textNodeId, containerNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    const header = registry.createNode('pageheader')
+    const footer = registry.createNode('pagefooter')
+
+    expect(engine.dispatch({
+      type: 'InsertNode',
+      node: header.node,
+      slots: header.slots,
+      targetSlotId: rootSlotId,
+      index: 0,
+    }).ok).toBe(true)
+
+    expect(engine.dispatch({
+      type: 'InsertNode',
+      node: footer.node,
+      slots: footer.slots,
+      targetSlotId: rootSlotId,
+      index: -1,
+    }).ok).toBe(true)
+
+    const result = engine.dispatch({
+      type: 'MoveNode',
+      nodeId: containerNodeId,
+      targetSlotId: rootSlotId,
+      index: 1,
+    })
+
+    expect(result.ok).toBe(true)
+    const children = engine.doc.slots[rootSlotId].children
+    expect(children[0]).toBe(header.node.id)
+    expect(children[1]).toBe(containerNodeId)
+    expect(children).toContain(textNodeId)
+    expect(children[children.length - 1]).toBe(footer.node.id)
   })
 })
 
@@ -1117,6 +1419,69 @@ describe('Subscription', () => {
     engine.dispatch({ type: 'InsertNode', node: n2, slots: s2, targetSlotId: rootSlotId, index: -1 })
     expect(count).toBe(1)
   })
+
+  it('emits doc:change metadata for structural commands', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+
+    let lastEvent: { structureChanged: boolean; commandType?: string } | null = null
+    engine.events.on('doc:change', (event) => {
+      lastEvent = {
+        structureChanged: event.structureChanged,
+        commandType: event.commandType,
+      }
+    })
+
+    const { node, slots } = registry.createNode('text')
+    const result = engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 })
+
+    expect(result.ok).toBe(true)
+    expect(lastEvent).toEqual({ structureChanged: true, commandType: 'InsertNode' })
+  })
+
+  it('emits doc:change metadata for non-structural commands', () => {
+    const registry = testRegistry()
+    const { doc, textNodeId } = createTestDocumentWithChildren()
+    const engine = new EditorEngine(doc, registry)
+
+    let lastEvent: { structureChanged: boolean; commandType?: string } | null = null
+    engine.events.on('doc:change', (event) => {
+      lastEvent = {
+        structureChanged: event.structureChanged,
+        commandType: event.commandType,
+      }
+    })
+
+    const result = engine.dispatch({
+      type: 'UpdateNodeProps',
+      nodeId: textNodeId,
+      props: { content: { type: 'doc', content: [] } },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(lastEvent).toEqual({ structureChanged: false, commandType: 'UpdateNodeProps' })
+  })
+
+  it('emits doc:change metadata for replaceDocument', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const engine = new EditorEngine(doc, registry)
+    const replacement = createTestDocumentWithChildren().doc
+
+    let lastEvent: { structureChanged: boolean; commandType?: string } | null = null
+    engine.events.on('doc:change', (event) => {
+      lastEvent = {
+        structureChanged: event.structureChanged,
+        commandType: event.commandType,
+      }
+    })
+
+    engine.replaceDocument(replacement)
+
+    expect(lastEvent).toEqual({ structureChanged: true, commandType: 'ReplaceDocument' })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1276,6 +1641,24 @@ describe('ComponentRegistry', () => {
   it('throws for unknown type', () => {
     const registry = createDefaultRegistry()
     expect(() => registry.createNode('nonexistent')).toThrow('Unknown component type')
+  })
+
+  it('insertable(document) respects singleton page block limits', () => {
+    const registry = createDefaultRegistry()
+    const doc = createTestDocument()
+    const rootSlotId = doc.nodes[doc.root].slots[0]
+    if (!rootSlotId) throw new Error('Root slot missing')
+
+    const header = registry.createNode('pageheader')
+    doc.nodes[header.node.id] = header.node
+    for (const slot of header.slots) {
+      doc.slots[slot.id] = slot
+    }
+    doc.slots[rootSlotId].children.push(header.node.id)
+
+    const insertableTypes = new Set(registry.insertable(doc).map((def) => def.type))
+    expect(insertableTypes.has('pageheader')).toBe(false)
+    expect(insertableTypes.has('pagefooter')).toBe(true)
   })
 })
 

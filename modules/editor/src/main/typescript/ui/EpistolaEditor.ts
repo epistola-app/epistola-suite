@@ -51,6 +51,11 @@ interface InsertTarget {
   parentType: string
 }
 
+interface EditorNoticeDetail {
+  message?: string
+  tone?: 'info' | 'error'
+}
+
 const INSERT_DIALOG_SHORTCUTS = EDITOR_SHORTCUTS_CONFIG.insertDialog
 
 const EDITABLE_TARGET_SELECTOR = 'input, textarea, select, [contenteditable="true"], .ProseMirror'
@@ -110,17 +115,24 @@ export class EpistolaEditor extends LitElement {
   @state() private _insertDialogQuery = ''
   @state() private _insertDialogHighlight = 0
   @state() private _insertDialogError = ''
+  @state() private _noticeVisible = false
+  @state() private _noticeTone: 'info' | 'error' = 'info'
+  @state() private _noticeMessage = ''
 
   private _insertTarget: InsertTarget | null = null
 
   private _leaderTimeout: ReturnType<typeof setTimeout> | null = null
   private _leaderResultTimeout: ReturnType<typeof setTimeout> | null = null
   private _leaderClearTimeout: ReturnType<typeof setTimeout> | null = null
+  private _noticeResultTimeout: ReturnType<typeof setTimeout> | null = null
+  private _noticeClearTimeout: ReturnType<typeof setTimeout> | null = null
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open'
   private static readonly LEADER_TIMEOUT_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs
   private static readonly LEADER_RESULT_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.resultHideMs
   private static readonly LEADER_CLEAR_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.messageClearMs
+  private static readonly NOTICE_RESULT_MS = 2600
+  private static readonly NOTICE_CLEAR_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.messageClearMs
 
   get engine(): EditorEngine | undefined {
     return this._engine
@@ -218,6 +230,7 @@ export class EpistolaEditor extends LitElement {
     window.addEventListener('keydown', this._onKeydown)
     this.addEventListener('toggle-preview', this._handleTogglePreview)
     this.addEventListener('force-save', this._handleForceSave)
+    this.addEventListener('editor-notice', this._handleEditorNotice as EventListener)
     window.addEventListener('beforeunload', this._onBeforeUnload)
 
     // Restore preview open state from localStorage
@@ -232,6 +245,7 @@ export class EpistolaEditor extends LitElement {
     window.removeEventListener('keydown', this._onKeydown)
     this.removeEventListener('toggle-preview', this._handleTogglePreview)
     this.removeEventListener('force-save', this._handleForceSave)
+    this.removeEventListener('editor-notice', this._handleEditorNotice as EventListener)
     window.removeEventListener('beforeunload', this._onBeforeUnload)
     super.disconnectedCallback()
     this._disposePlugins()
@@ -241,6 +255,7 @@ export class EpistolaEditor extends LitElement {
     this._shortcutResolver.cancelActiveChord()
     this._insertDialogShortcutResolver.cancelActiveChord()
     this._clearLeaderTimers()
+    this._clearNoticeTimers()
   }
 
   // ---------------------------------------------------------------------------
@@ -457,6 +472,46 @@ export class EpistolaEditor extends LitElement {
     }
   }
 
+  private _handleEditorNotice = (event: Event): void => {
+    const customEvent = event as CustomEvent<EditorNoticeDetail>
+    const message = customEvent.detail?.message?.trim()
+    if (!message) return
+
+    const tone = customEvent.detail?.tone === 'error' ? 'error' : 'info'
+    this._showNotice(message, tone)
+  }
+
+  private _showNotice(message: string, tone: 'info' | 'error'): void {
+    this._clearNoticeTimers()
+    this._noticeVisible = true
+    this._noticeTone = tone
+    this._noticeMessage = message
+    this._noticeResultTimeout = setTimeout(() => {
+      this._hideNotice()
+    }, EpistolaEditor.NOTICE_RESULT_MS)
+  }
+
+  private _hideNotice(): void {
+    this._clearNoticeTimers()
+    this._noticeVisible = false
+    this._noticeClearTimeout = setTimeout(() => {
+      this._noticeTone = 'info'
+      this._noticeMessage = ''
+      this._noticeClearTimeout = null
+    }, EpistolaEditor.NOTICE_CLEAR_MS)
+  }
+
+  private _clearNoticeTimers(): void {
+    if (this._noticeResultTimeout) {
+      clearTimeout(this._noticeResultTimeout)
+      this._noticeResultTimeout = null
+    }
+    if (this._noticeClearTimeout) {
+      clearTimeout(this._noticeClearTimeout)
+      this._noticeClearTimeout = null
+    }
+  }
+
   private _focusCanvasBlock(nodeId: NodeId | null): void {
     if (!nodeId) return
     requestAnimationFrame(() => {
@@ -522,6 +577,17 @@ export class EpistolaEditor extends LitElement {
     const nodeId = this._selectedNodeId
     if (!nodeId || nodeId === this._doc.root) return false
 
+    const node = this._doc.nodes[nodeId]
+    if (!node) return false
+    if (node.type === 'pageheader') {
+      this._showNotice('Page header is fixed at the top and cannot be moved', 'error')
+      return false
+    }
+    if (node.type === 'pagefooter') {
+      this._showNotice('Page footer is fixed at the bottom and cannot be moved', 'error')
+      return false
+    }
+
     const parentSlotId = this._engine.indexes.parentSlotByNodeId.get(nodeId)
     if (!parentSlotId) return false
     const parentSlot = this._doc.slots[parentSlotId]
@@ -543,6 +609,8 @@ export class EpistolaEditor extends LitElement {
       this._focusCanvasBlock(nodeId)
       return true
     }
+
+    this._showNotice(result.error, 'error')
     return false
   }
 
@@ -653,11 +721,11 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    const ok = this._insertNodeAtTarget(definition.type, this._insertTarget.slotId, this._insertTarget.index)
-    if (ok) {
+    const result = this._insertNodeAtTarget(definition.type, this._insertTarget.slotId, this._insertTarget.index)
+    if (result.ok) {
       this._closeInsertDialog()
     } else {
-      this._insertDialogError = 'Failed to insert block'
+      this._insertDialogError = result.error ?? 'Failed to insert block'
     }
   }
 
@@ -784,8 +852,10 @@ export class EpistolaEditor extends LitElement {
     })
   }
 
-  private _insertNodeAtTarget(type: string, slotId: SlotId, index: number): boolean {
-    if (!this._engine || !this._doc) return false
+  private _insertNodeAtTarget(type: string, slotId: SlotId, index: number): { ok: boolean; error?: string } {
+    if (!this._engine || !this._doc) {
+      return { ok: false, error: 'Editor is not ready' }
+    }
 
     const { node, slots, extraNodes } = this._engine.registry.createNode(type)
     const result = this._engine.dispatch({
@@ -800,17 +870,20 @@ export class EpistolaEditor extends LitElement {
     if (result.ok) {
       this._engine.selectNode(node.id)
       this._focusCanvasBlock(node.id)
-      return true
+      return { ok: true }
     }
-    return false
+
+    this._showNotice(result.error, 'error')
+    return { ok: false, error: result.error }
   }
 
   private _buildInsertableOptions(parentType: string): ComponentDefinition[] {
     if (!this._engine) return []
     return this._engine.registry
-      .insertable()
+      .insertable(this._doc)
       // Root is the single document container and must never be insertable as a block.
       .filter((def) => def.type !== 'root')
+      .filter((def) => parentType === 'root' || (def.type !== 'pageheader' && def.type !== 'pagefooter'))
       .filter((def) => this._engine!.registry.canContain(parentType, def.type))
   }
 
@@ -834,28 +907,27 @@ export class EpistolaEditor extends LitElement {
 
     const rootNode = this._doc.nodes[this._doc.root]
     if (!rootNode || rootNode.slots.length === 0) return null
-    const slotId = rootNode.slots[0]
-    const slot = this._doc.slots[slotId]
-    if (!slot) return null
-    return { slotId, index: slot.children.length, parentType: rootNode.type }
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.endIndex, parentType: rootNode.type }
   }
 
   private _getInsertTargetDocumentStart(): InsertTarget | null {
     if (!this._doc) return null
     const rootNode = this._doc.nodes[this._doc.root]
-    if (!rootNode || rootNode.slots.length === 0) return null
-    const slotId = rootNode.slots[0]
-    return { slotId, index: 0, parentType: rootNode.type }
+    if (!rootNode) return null
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.startIndex, parentType: rootNode.type }
   }
 
   private _getInsertTargetDocumentEnd(): InsertTarget | null {
     if (!this._doc) return null
     const rootNode = this._doc.nodes[this._doc.root]
-    if (!rootNode || rootNode.slots.length === 0) return null
-    const slotId = rootNode.slots[0]
-    const slot = this._doc.slots[slotId]
-    if (!slot) return null
-    return { slotId, index: slot.children.length, parentType: rootNode.type }
+    if (!rootNode) return null
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.endIndex, parentType: rootNode.type }
   }
 
   private _getInsertTargetBeforeSelected(): InsertTarget | null {
@@ -878,8 +950,31 @@ export class EpistolaEditor extends LitElement {
 
     const rootNode = this._doc.nodes[this._doc.root]
     if (!rootNode || rootNode.slots.length === 0) return null
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.startIndex, parentType: rootNode.type }
+  }
+
+  private _getRootInsertBounds(): { slotId: SlotId; startIndex: number; endIndex: number } | null {
+    if (!this._doc) return null
+
+    const rootNode = this._doc.nodes[this._doc.root]
+    if (!rootNode || rootNode.slots.length === 0) return null
+
     const slotId = rootNode.slots[0]
-    return { slotId, index: 0, parentType: rootNode.type }
+    const rootSlot = this._doc.slots[slotId]
+    if (!rootSlot) return null
+
+    const headerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === 'pageheader')
+    const footerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === 'pagefooter')
+    const startIndex = headerIndex >= 0 ? headerIndex + 1 : 0
+    const endIndex = footerIndex >= 0 ? footerIndex : rootSlot.children.length
+
+    return {
+      slotId,
+      startIndex,
+      endIndex: Math.max(startIndex, endIndex),
+    }
   }
 
   private _getInsertSlotOptionsForInside(): InsertSlotOption[] {
@@ -1072,6 +1167,8 @@ export class EpistolaEditor extends LitElement {
       this._focusCanvasBlock(clone.node.id)
       return true
     }
+
+    this._showNotice(result.error, 'error')
     return false
   }
 
@@ -1181,6 +1278,13 @@ export class EpistolaEditor extends LitElement {
     ]
       .filter(Boolean)
       .join(' ')
+    const noticeClasses = [
+      'editor-notice',
+      this._noticeVisible ? 'is-visible' : '',
+      this._noticeTone === 'error' ? 'is-error' : 'is-info',
+    ]
+      .filter(Boolean)
+      .join(' ')
     const insertRows = this._getInsertDialogRows()
     const insertPrompt = this._getInsertDialogPrompt()
     const insertContext = this._getInsertDialogContext()
@@ -1237,6 +1341,11 @@ export class EpistolaEditor extends LitElement {
         <div class=${leaderClasses} data-testid="leader-hint" role="status" aria-live="polite">
           <span class="leader-dot" aria-hidden="true"></span>
           <span class="leader-text" data-testid="leader-message">${this._leaderMessage}</span>
+        </div>
+
+        <div class=${noticeClasses} data-testid="editor-notice" role="status" aria-live="polite">
+          <span class="leader-dot" aria-hidden="true"></span>
+          <span class="leader-text">${this._noticeMessage}</span>
         </div>
 
         ${this._insertDialogOpen
