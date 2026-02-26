@@ -231,7 +231,7 @@ export class EditorEngine {
   setTheme(theme: Theme | undefined): void {
     this._theme = theme
     this._recomputeStyles()
-    this._notify()
+    this._notify(false)
   }
 
   private _recomputeStyles(): void {
@@ -327,7 +327,7 @@ export class EditorEngine {
         this._undoStack.push(new CommandChange(result.inverse))
       }
 
-      this._notify()
+      this._notify(result.structureChanged, command.type)
     }
 
     return result
@@ -360,7 +360,7 @@ export class EditorEngine {
         this._indexes = buildIndexes(this._doc)
       }
       this._recomputeStyles()
-      this._notify()
+      this._notify(result.structureChanged, command.type)
     }
 
     return result
@@ -435,7 +435,7 @@ export class EditorEngine {
     this._pmStateCache.clear()
     this._componentState.clear()
     this._selectedNodeId = null
-    this._notify()
+    this._notify(true, 'ReplaceDocument')
   }
 
   // -----------------------------------------------------------------------
@@ -450,7 +450,12 @@ export class EditorEngine {
     return this._events.on('doc:change', ({ doc, indexes }) => listener(doc, indexes))
   }
 
-  private _notify(): void {
-    this._events.emit('doc:change', { doc: this._doc, indexes: this._indexes })
+  private _notify(structureChanged: boolean, commandType?: string): void {
+    this._events.emit('doc:change', {
+      doc: this._doc,
+      indexes: this._indexes,
+      structureChanged,
+      commandType,
+    })
   }
 }

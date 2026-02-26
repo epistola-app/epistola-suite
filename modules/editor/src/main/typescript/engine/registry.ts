@@ -113,6 +113,9 @@ export interface ComponentDefinition {
     indexes: DocumentIndexes,
     command: unknown,
   ) => CommandResult
+
+  /** Optional singleton-style guard (e.g. allow only one page header per document). */
+  maxInstancesPerDocument?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -144,9 +147,47 @@ export class ComponentRegistry {
     return Array.from(this._definitions.values())
   }
 
-  /** Get only components that can be inserted by the user (palette items). */
-  insertable(): ComponentDefinition[] {
-    return this.all().filter(d => !d.hidden)
+  /**
+   * Get components that can be inserted by the user.
+   *
+   * If a document is provided, this also applies per-document instance limits
+   * (e.g. singleton page header/footer blocks).
+   */
+  insertable(doc?: TemplateDocument): ComponentDefinition[] {
+    return this
+      .all()
+      .filter(d => !d.hidden)
+      .filter((d) => !doc || this.canInsertInDocument(d.type, doc))
+  }
+
+  canInsertInDocument(type: string, doc: TemplateDocument): boolean {
+    const def = this._definitions.get(type)
+    if (!def) return false
+
+    const limit = def.maxInstancesPerDocument
+    if (typeof limit !== 'number') {
+      return true
+    }
+
+    if (!Number.isInteger(limit) || limit < 0) {
+      return false
+    }
+
+    if (limit === 0) {
+      return false
+    }
+
+    let count = 0
+    for (const node of Object.values(doc.nodes)) {
+      if (node.type === type) {
+        count += 1
+        if (count >= limit) {
+          return false
+        }
+      }
+    }
+
+    return true
   }
 
   /**
@@ -360,6 +401,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
+    maxInstancesPerDocument: 1,
   })
 
   registry.register({
@@ -371,6 +413,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
+    maxInstancesPerDocument: 1,
   })
 
   return registry

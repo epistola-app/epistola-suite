@@ -23,6 +23,7 @@ export class EpistolaPalette extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
 
   private _dndCleanup: (() => void) | null = null
+  private _unsubDocChange?: () => void
 
   private async _handleInsert(type: string) {
     if (!this.engine) return
@@ -44,33 +45,86 @@ export class EpistolaPalette extends LitElement {
 
     const doc = this.engine.doc
     const rootNode = doc.nodes[doc.root]
-    if (!rootNode || rootNode.slots.length === 0) return
+    if (!rootNode || rootNode.slots.length === 0) {
+      this._emitNotice('Cannot insert block: document root slot is missing')
+      return
+    }
 
     const targetSlotId = rootNode.slots[0]
+    const targetSlot = doc.slots[targetSlotId]
+    if (!targetSlot) {
+      this._emitNotice('Cannot insert block: root slot is missing')
+      return
+    }
+
+    const footerIndex = targetSlot.children.findIndex((id) => doc.nodes[id]?.type === 'pagefooter')
+    const insertIndex = type === 'pageheader'
+      ? 0
+      : type === 'pagefooter'
+        ? targetSlot.children.length
+        : footerIndex >= 0
+          ? footerIndex
+          : targetSlot.children.length
+
     const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps)
 
-    this.engine.dispatch({
+    const result = this.engine.dispatch({
       type: 'InsertNode',
       node,
       slots,
       targetSlotId,
-      index: -1,
+      index: insertIndex,
       _restoreNodes: extraNodes,
     })
+
+    if (!result.ok) {
+      this._emitNotice(result.error)
+      return
+    }
 
     // Select the newly inserted node
     this.engine.selectNode(node.id)
   }
 
-  override updated() {
+  override updated(changed: Map<string, unknown>) {
+    if (changed.has('engine')) {
+      this._subscribeToEngine()
+    }
+
     this._dndCleanup?.()
     this._dndCleanup = this._setupDnD()
   }
 
   override disconnectedCallback() {
+    this._unsubDocChange?.()
+    this._unsubDocChange = undefined
     this._dndCleanup?.()
     this._dndCleanup = null
     super.disconnectedCallback()
+  }
+
+  private _emitNotice(message: string): void {
+    this.dispatchEvent(new CustomEvent('editor-notice', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        tone: 'error',
+        message,
+      },
+    }))
+  }
+
+  private _subscribeToEngine(): void {
+    this._unsubDocChange?.()
+    this._unsubDocChange = undefined
+
+    if (!this.engine) return
+
+    this._unsubDocChange = this.engine.events.on('doc:change', ({ structureChanged }) => {
+      if (structureChanged) {
+        this.requestUpdate()
+      }
+    })
   }
 
   private _setupDnD(): (() => void) | null {
@@ -108,7 +162,7 @@ export class EpistolaPalette extends LitElement {
     }
 
     const definitions = this.engine.registry
-      .insertable()
+      .insertable(this.engine.doc)
       .filter(d => d.type !== 'root') // Don't show root in palette
 
     const grouped = new Map<ComponentCategory, ComponentDefinition[]>()

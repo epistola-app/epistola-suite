@@ -120,23 +120,26 @@ export class EpistolaCanvas extends LitElement {
 
       const node = this.doc.nodes[nodeId];
       if (!node) continue;
+      const isFixedPageBlock = node.type === "pageheader" || node.type === "pagefooter";
 
       // Drag source
-      cleanups.push(
-        draggable({
-          element: blockEl,
-          dragHandle:
-            blockEl.querySelector<HTMLElement>(".canvas-block-header") ??
-            blockEl,
-          getInitialData: (): DragData => ({
-            source: "block",
-            nodeId,
-            blockType: node.type,
+      if (!isFixedPageBlock) {
+        cleanups.push(
+          draggable({
+            element: blockEl,
+            dragHandle:
+              blockEl.querySelector<HTMLElement>(".canvas-block-header") ??
+              blockEl,
+            getInitialData: (): DragData => ({
+              source: "block",
+              nodeId,
+              blockType: node.type,
+            }),
+            onDragStart: () => blockEl.classList.add("dragging"),
+            onDrop: () => blockEl.classList.remove("dragging"),
           }),
-          onDragStart: () => blockEl.classList.add("dragging"),
-          onDrop: () => blockEl.classList.remove("dragging"),
-        }),
-      );
+        );
+      }
 
       // Drop target on each block (edge detection for inserting before/after in parent slot)
       cleanups.push(
@@ -290,7 +293,17 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
     if (!this.engine) return;
-    handleDrop(this.engine, dragData, targetSlotId, index);
+    const result = handleDrop(this.engine, dragData, targetSlotId, index);
+    if (!result.ok && result.error) {
+      this.dispatchEvent(new CustomEvent('editor-notice', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          tone: 'error',
+          message: result.error,
+        },
+      }));
+    }
   }
 
   // ---------------------------------------------------------------------------
