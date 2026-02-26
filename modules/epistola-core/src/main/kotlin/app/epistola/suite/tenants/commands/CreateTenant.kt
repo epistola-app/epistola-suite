@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.config.bindJsonb
@@ -23,7 +24,10 @@ import tools.jackson.databind.ObjectMapper
 data class CreateTenant(
     val id: TenantId,
     val name: String,
-) : Command<Tenant>, Routable {
+) : Command<Tenant>,
+    EntityIdentifiable,
+    Routable {
+    override val entityId: String get() = id.value
     override val routingKey: String get() = id.value
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
@@ -41,7 +45,7 @@ class CreateTenantHandler(
         jdbi.withHandle<Tenant, Exception> { handle ->
             // 1. Insert tenant with NULL default_theme_id
             handle.createUpdate(
-                "INSERT INTO tenants (id, name, created_at) VALUES (:id, :name, NOW())"
+                "INSERT INTO tenants (id, name, created_at) VALUES (:id, :name, NOW())",
             )
                 .bind("id", command.id)
                 .bind("name", command.name)
@@ -77,7 +81,7 @@ class CreateTenantHandler(
                 """
                 INSERT INTO themes (id, tenant_id, name, description, document_styles, page_settings, created_at, last_modified)
                 VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW())
-                """
+                """,
             )
                 .bind("id", themeId)
                 .bind("tenantId", command.id)
@@ -94,7 +98,7 @@ class CreateTenantHandler(
                 SET default_theme_id = :themeId
                 WHERE id = :id
                 RETURNING *
-                """
+                """,
             )
                 .bind("id", command.id)
                 .bind("themeId", themeId)

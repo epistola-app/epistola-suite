@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants.commands
 
+import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
@@ -12,6 +13,7 @@ import app.epistola.suite.themes.ThemeNotFoundException
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 /**
  * Sets the default theme for a tenant.
@@ -20,7 +22,11 @@ import org.springframework.stereotype.Component
 data class SetTenantDefaultTheme(
     override val tenantId: TenantId,
     val themeId: ThemeId,
-) : Command<Tenant>, TenantScoped, Routable {
+) : Command<Tenant>,
+    TenantScoped,
+    EntityIdentifiable,
+    Routable {
+    override val entityId: String get() = tenantId.value
     override val routingKey: String get() = tenantId.value
 }
 
@@ -28,10 +34,11 @@ data class SetTenantDefaultTheme(
 class SetTenantDefaultThemeHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<SetTenantDefaultTheme, Tenant> {
+    @Transactional
     override fun handle(command: SetTenantDefaultTheme): Tenant = jdbi.withHandle<Tenant, Exception> { handle ->
         // Verify the theme exists and belongs to this tenant
         val themeExists = handle.createQuery(
-            "SELECT COUNT(*) FROM themes WHERE id = :themeId AND tenant_id = :tenantId"
+            "SELECT COUNT(*) FROM themes WHERE id = :themeId AND tenant_id = :tenantId",
         )
             .bind("themeId", command.themeId)
             .bind("tenantId", command.tenantId)
@@ -49,7 +56,7 @@ class SetTenantDefaultThemeHandler(
             SET default_theme_id = :themeId
             WHERE id = :tenantId
             RETURNING *
-            """
+            """,
         )
             .bind("tenantId", command.tenantId)
             .bind("themeId", command.themeId)

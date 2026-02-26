@@ -1,5 +1,6 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
@@ -7,7 +8,6 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 import tools.jackson.databind.ObjectMapper
-import java.time.Instant
 
 /**
  * Subscribes to all CommandCompleted events and persists them to the event_log table.
@@ -29,7 +29,7 @@ class EventLogSubscriber(
 
     private val logger = LoggerFactory.getLogger(EventLogSubscriber::class.java)
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun persist(event: CommandCompleted<*>) {
         try {
             val command = event.command
@@ -61,10 +61,10 @@ class EventLogSubscriber(
     }
 
     private fun extractEntityId(command: Command<*>): String? {
-        // Extract the primary entity ID from common command patterns
-        // This is heuristic-based; subclasses can override for custom logic
+        // Extract the primary entity ID from the command
+        // EntityIdentifiable takes precedence: it's the primary entity being operated on
         return when {
-            command is TenantScoped && command.tenantId != null -> command.tenantId.value
+            command is EntityIdentifiable -> command.entityId
             else -> null
         }
     }

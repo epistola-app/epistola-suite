@@ -4,11 +4,12 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.full.allSupertypes
 
 /**
- * Spring-based implementation of the Mediator pattern with event eventing.
+ * Spring-based implementation of the Mediator pattern with eventing.
  *
  * Automatically discovers CommandHandler and QueryHandler beans and routes
  * commands/queries to the appropriate handler.
@@ -31,16 +32,20 @@ class SpringMediator(
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
 
     // Cache handlers but allow lazy discovery for late-initialized beans
-    private val commandHandlersCache: MutableMap<KClass<*>, CommandHandler<*, *>> = mutableMapOf()
-    private val queryHandlersCache: MutableMap<KClass<*>, QueryHandler<*, *>> = mutableMapOf()
-    private val eventHandlersCache: MutableMap<KClass<*>, List<EventHandler<*>>> = mutableMapOf()
+    // Thread-safe: use ConcurrentHashMap to prevent data races under concurrent requests
+    private val commandHandlersCache: MutableMap<KClass<*>, CommandHandler<*, *>> =
+        ConcurrentHashMap()
+    private val queryHandlersCache: MutableMap<KClass<*>, QueryHandler<*, *>> =
+        ConcurrentHashMap()
+    private val eventHandlersCache: MutableMap<KClass<*>, List<EventHandler<*>>> =
+        ConcurrentHashMap()
 
     @Suppress("UNCHECKED_CAST")
     override fun <R> send(command: Command<R>): R {
         val commandName = command::class.simpleName
         logger.debug("Dispatching command: {}", commandName)
 
-        val handler = commandHandlersCache.getOrPut(command::class) {
+        val handler = commandHandlersCache.computeIfAbsent(command::class) {
             findCommandHandler(command::class)
         } as? CommandHandler<Command<R>, R>
             ?: throw IllegalArgumentException("No handler found for command: $commandName").also {
@@ -69,7 +74,7 @@ class SpringMediator(
         val queryName = query::class.simpleName
         logger.debug("Dispatching query: {}", queryName)
 
-        val handler = queryHandlersCache.getOrPut(query::class) {
+        val handler = queryHandlersCache.computeIfAbsent(query::class) {
             findQueryHandler(query::class)
         } as? QueryHandler<Query<R>, R>
             ?: throw IllegalArgumentException("No handler found for query: $queryName").also {
@@ -111,12 +116,10 @@ class SpringMediator(
         }
     }
 
-    private fun findEventHandlers(commandClass: KClass<*>): List<EventHandler<*>> {
-        return eventHandlersCache.getOrPut(commandClass) {
-            val allHandlers = applicationContext.getBeansOfType(EventHandler::class.java).values.toList()
-            allHandlers.filter { handler ->
-                extractMessageType(handler, EventHandler::class) == commandClass
-            }
+    private fun findEventHandlers(commandClass: KClass<*>): List<EventHandler<*>> = eventHandlersCache.computeIfAbsent(commandClass) {
+        val allHandlers = applicationContext.getBeansOfType(EventHandler::class.java).values.toList()
+        allHandlers.filter { handler ->
+            extractMessageType(handler, EventHandler::class) == commandClass
         }
     }
 
