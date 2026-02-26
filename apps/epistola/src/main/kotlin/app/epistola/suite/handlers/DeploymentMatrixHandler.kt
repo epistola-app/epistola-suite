@@ -1,9 +1,14 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
@@ -25,36 +30,41 @@ import org.springframework.web.servlet.function.ServerResponse
 class DeploymentMatrixHandler {
 
     fun deploymentMatrix(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
         val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateKey.validateOrNull(templateIdStr)
+        val templateKey = TemplateKey.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
+        val templateId = TemplateId(templateKey, tenantId)
 
-        return renderMatrix(request, tenantId, templateId)
+        return renderMatrix(request, tenantKey, templateKey, templateId)
     }
 
     fun updateDeployment(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
         val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateKey.validateOrNull(templateIdStr)
+        val templateKey = TemplateKey.validateOrNull(templateIdStr)
             ?: return ServerResponse.badRequest().build()
+        val templateId = TemplateId(templateKey, tenantId)
 
         val variantIdStr = request.params().getFirst("variantId")
             ?: return ServerResponse.badRequest().build()
-        val variantId = VariantKey.validateOrNull(variantIdStr)
+        val variantKey = VariantKey.validateOrNull(variantIdStr)
             ?: return ServerResponse.badRequest().build()
+        val variantId = VariantId(variantKey, templateId)
 
         val environmentIdStr = request.params().getFirst("environmentId")
             ?: return ServerResponse.badRequest().build()
+        val environmentKey = EnvironmentKey.of(environmentIdStr)
+        val environmentId = EnvironmentId(environmentKey, tenantId)
 
         val versionIdStr = request.params().getFirst("versionId")
 
         if (versionIdStr.isNullOrBlank()) {
             RemoveActivation(
-                tenantId = tenantId,
-                templateId = templateId,
                 variantId = variantId,
-                environmentId = EnvironmentKey.of(environmentIdStr),
+                environmentId = environmentId,
             ).execute()
         } else {
             val versionIdInt = versionIdStr.toIntOrNull()
@@ -65,26 +75,25 @@ class DeploymentMatrixHandler {
             }
 
             PublishToEnvironment(
-                tenantId = tenantId,
-                templateId = templateId,
-                variantId = variantId,
-                versionId = VersionKey.of(versionIdInt),
-                environmentId = EnvironmentKey.of(environmentIdStr),
+                versionId = VersionId(VersionKey.of(versionIdInt), variantId),
+                environmentId = environmentId,
             ).execute()
         }
 
-        return renderMatrix(request, tenantId, templateId)
+        return renderMatrix(request, tenantKey, templateKey, templateId)
     }
 
     private fun renderMatrix(
         request: ServerRequest,
-        tenantId: TenantKey,
-        templateId: TemplateKey,
+        tenantKey: TenantKey,
+        templateKey: TemplateKey,
+        templateId: TemplateId,
     ): ServerResponse {
-        val variants = GetVariantSummaries(tenantId = tenantId, templateId = templateId).query()
+        val variants = GetVariantSummaries(templateId = templateId).query()
+        val tenantId = TenantId(tenantKey)
         val environments = ListEnvironments(tenantId = tenantId).query()
-        val matrixCells = GetDeploymentMatrix(tenantId = tenantId, templateId = templateId).query()
-        val publishableVersions = ListPublishableVersionsByTemplate(tenantId = tenantId, templateId = templateId).query()
+        val matrixCells = GetDeploymentMatrix(templateId = templateId).query()
+        val publishableVersions = ListPublishableVersionsByTemplate(templateId = templateId).query()
 
         // Build lookups keyed by underlying String values, because Thymeleaf/SpringEL
         // unwraps @JvmInline value classes to their underlying types at runtime.
@@ -96,14 +105,14 @@ class DeploymentMatrixHandler {
 
         return request.htmx {
             fragment("templates/deployment-matrix", "deployment-matrix") {
-                "tenantId" to tenantId.value
-                "templateId" to templateId
+                "tenantId" to tenantKey.value
+                "templateId" to templateKey.value
                 "variants" to variants
                 "environments" to environments
                 "matrix" to matrix
                 "versionsByVariant" to versionsByVariant
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/templates/$templateId") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/${templateKey.value}") }
         }
     }
 }

@@ -5,7 +5,9 @@ import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
 import app.epistola.suite.attributes.queries.GetAttributeDefinition
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.executeOrFormError
@@ -24,13 +26,14 @@ import org.springframework.web.servlet.function.ServerResponse
 class AttributeHandler {
 
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenant = GetTenant(tenantKey).query() ?: return ServerResponse.notFound().build()
+        val tenantId = TenantId(tenantKey)
         val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
         return ServerResponse.ok().page("attributes/list") {
             "pageTitle" to "Attributes - Epistola"
             "tenant" to tenant
-            "tenantId" to tenantId
+            "tenantId" to tenantKey
             "attributes" to attributes
         }
     }
@@ -44,7 +47,8 @@ class AttributeHandler {
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
 
         val form = request.form {
             field("slug") {
@@ -63,18 +67,18 @@ class AttributeHandler {
         if (form.hasErrors()) {
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
                 "formData" to form.formData
                 "errors" to form.errors
             }
         }
 
-        val attributeId = AttributeKey.validateOrNull(form["slug"])
-        if (attributeId == null) {
+        val attributeKey = AttributeKey.validateOrNull(form["slug"])
+        if (attributeKey == null) {
             val errors = mapOf("slug" to "Invalid attribute ID format")
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -86,8 +90,7 @@ class AttributeHandler {
 
         val result = form.executeOrFormError {
             CreateAttributeDefinition(
-                id = attributeId,
-                tenantId = tenantId,
+                id = AttributeId(attributeKey, tenantId),
                 displayName = displayName,
                 allowedValues = allowedValues,
             ).execute()
@@ -96,39 +99,41 @@ class AttributeHandler {
         if (result.hasErrors()) {
             return ServerResponse.ok().page("attributes/new") {
                 "pageTitle" to "New Attribute - Epistola"
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/$tenantId/attributes")
+            .header("Location", "/tenants/$tenantKey/attributes")
             .build()
     }
 
     fun editForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val attributeId = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val attributeKey = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         val attribute = GetAttributeDefinition(
-            id = attributeId,
-            tenantId = tenantId,
+            id = AttributeId(attributeKey, tenantId),
         ).query() ?: return ServerResponse.notFound().build()
 
         return request.htmx {
             fragment("attributes/list", "edit-attribute-form") {
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
                 "attribute" to attribute
             }
         }
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val attributeId = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val attributeKey = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
+        val attributeId = AttributeId(attributeKey, tenantId)
 
         val form = request.form {
             field("displayName") {
@@ -141,11 +146,10 @@ class AttributeHandler {
         if (form.hasErrors()) {
             val attribute = GetAttributeDefinition(
                 id = attributeId,
-                tenantId = tenantId,
             ).query() ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
-                    "tenantId" to tenantId
+                    "tenantId" to tenantKey
                     "attribute" to attribute
                     "error" to form.errors.values.firstOrNull()
                 }
@@ -161,18 +165,16 @@ class AttributeHandler {
         try {
             UpdateAttributeDefinition(
                 id = attributeId,
-                tenantId = tenantId,
                 displayName = displayName,
                 allowedValues = allowedValues,
             ).execute() ?: return ServerResponse.notFound().build()
         } catch (e: Exception) {
             val attribute = GetAttributeDefinition(
                 id = attributeId,
-                tenantId = tenantId,
             ).query() ?: return ServerResponse.notFound().build()
             return request.htmx {
                 fragment("attributes/list", "edit-attribute-form") {
-                    "tenantId" to tenantId
+                    "tenantId" to tenantKey
                     "attribute" to attribute
                     "error" to (e.message ?: "Update failed")
                 }
@@ -184,30 +186,30 @@ class AttributeHandler {
         val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
         return request.htmx {
             fragment("attributes/list", "rows") {
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
                 "attributes" to attributes
             }
-            onNonHtmx { redirect("/tenants/$tenantId/attributes") }
+            onNonHtmx { redirect("/tenants/$tenantKey/attributes") }
         }
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val attributeId = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val attributeKey = request.pathId("attributeId") { AttributeKey.validateOrNull(it) }
             ?: return ServerResponse.badRequest().build()
 
         DeleteAttributeDefinition(
-            id = attributeId,
-            tenantId = tenantId,
+            id = AttributeId(attributeKey, tenantId),
         ).execute()
 
         val attributes = ListAttributeDefinitions(tenantId = tenantId).query()
         return request.htmx {
             fragment("attributes/list", "rows") {
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
                 "attributes" to attributes
             }
-            onNonHtmx { redirect("/tenants/$tenantId/attributes") }
+            onNonHtmx { redirect("/tenants/$tenantKey/attributes") }
         }
     }
 
