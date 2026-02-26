@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.commands.variants
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.validation.validate
 
@@ -12,10 +12,10 @@ import app.epistola.suite.validation.validate
  * 1. All attribute keys exist as defined attributes for the tenant
  * 2. All attribute values are in the allowed values list (if the definition has restricted values)
  */
-fun validateAttributes(tenantKey: TenantKey, attributes: Map<String, String>) {
+fun validateAttributes(tenantId: TenantId, attributes: Map<String, String>) {
     if (attributes.isEmpty()) return
 
-    val definitions = ListAttributeDefinitions(tenantKey).query()
+    val definitions = ListAttributeDefinitions(tenantId).query()
     val definitionMap = definitions.associateBy { it.id.value }
 
     for ((key, value) in attributes) {

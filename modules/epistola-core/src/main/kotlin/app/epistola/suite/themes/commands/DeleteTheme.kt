@@ -1,7 +1,6 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.themes.LastThemeException
@@ -20,8 +19,7 @@ import org.springframework.stereotype.Component
  * Templates referencing this theme will gracefully fall back to their own styles.
  */
 data class DeleteTheme(
-    val tenantId: TenantKey,
-    val id: ThemeKey,
+    val id: ThemeId,
 ) : Command<Boolean>
 
 @Component
@@ -42,13 +40,13 @@ class DeleteThemeHandler(
             WHERE id = :tenantId AND default_theme_key = :themeId
             """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("themeId", command.id)
+            .bind("tenantId", command.id.tenantKey)
+            .bind("themeId", command.id.key)
             .mapTo<Long>()
             .one() > 0
 
         if (isDefaultTheme) {
-            throw ThemeInUseException(command.id, "it is the tenant's default theme")
+            throw ThemeInUseException(command.id.key, "it is the tenant's default theme")
         }
 
         // Check if this is the last theme for the tenant
@@ -57,12 +55,12 @@ class DeleteThemeHandler(
             SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId
             """,
         )
-            .bind("tenantId", command.tenantId)
+            .bind("tenantId", command.id.tenantKey)
             .mapTo<Long>()
             .one()
 
         if (themeCount <= 1) {
-            throw LastThemeException(command.id)
+            throw LastThemeException(command.id.key)
         }
 
         // Delete the theme
@@ -71,8 +69,8 @@ class DeleteThemeHandler(
             DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .execute()
         deleted > 0
     }

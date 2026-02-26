@@ -47,6 +47,7 @@ data class TemplateId(override val key: TemplateKey, val tenantId: TenantId) : E
 
 class VariantId(key: VariantKey, templateId: TemplateId) : EntityId<VariantKey, String, TemplateId>(key, templateId) {
     override val type = "variant"
+    val tenantId = templateId.tenantId
     val tenantKey = templateId.tenantKey
     val templateKey = templateId.key
 }
@@ -54,6 +55,7 @@ class VariantId(key: VariantKey, templateId: TemplateId) : EntityId<VariantKey, 
 class VersionId(key: VersionKey, variantId: VariantId) : EntityId<VersionKey, Int, VariantId>(key, variantId) {
     override val type = "version"
 
+    val tenantId = variantId.tenantId
     val tenantKey = variantId.tenantKey
     val templateKey = variantId.templateKey
     val variantKey = variantId.key

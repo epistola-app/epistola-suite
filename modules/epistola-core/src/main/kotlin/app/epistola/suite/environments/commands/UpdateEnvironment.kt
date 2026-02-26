@@ -1,7 +1,6 @@
 package app.epistola.suite.environments.commands
 
-import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -11,8 +10,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class UpdateEnvironment(
-    val tenantId: TenantKey,
-    val id: EnvironmentKey,
+    val id: EnvironmentId,
     val name: String,
 ) : Command<Environment?> {
     init {
@@ -34,8 +32,8 @@ class UpdateEnvironmentHandler(
                 RETURNING *
                 """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .bind("name", command.name)
             .mapTo<Environment>()
             .findOne()

@@ -1,8 +1,7 @@
 package app.epistola.suite.attributes.queries
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
-import app.epistola.suite.common.ids.AttributeKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -10,8 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetAttributeDefinition(
-    val id: AttributeKey,
-    val tenantId: TenantKey,
+    val id: AttributeId,
 ) : Query<VariantAttributeDefinition?>
 
 @Component
@@ -26,8 +24,8 @@ class GetAttributeDefinitionHandler(
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", query.id)
-            .bind("tenantId", query.tenantId)
+            .bind("id", query.id.key)
+            .bind("tenantId", query.id.tenantKey)
             .mapTo<VariantAttributeDefinition>()
             .findOne()
             .orElse(null)

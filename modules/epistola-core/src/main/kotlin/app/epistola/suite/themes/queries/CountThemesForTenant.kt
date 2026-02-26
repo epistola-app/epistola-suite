@@ -1,6 +1,6 @@
 package app.epistola.suite.themes.queries
 
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component
  * Used to prevent deleting the last theme.
  */
 data class CountThemesForTenant(
-    val tenantId: TenantKey,
+    val tenantId: TenantId,
 ) : Query<Long>
 
 @Component
@@ -25,7 +25,7 @@ class CountThemesForTenantHandler(
             SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId
             """,
         )
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
             .mapTo<Long>()
             .one()
     }

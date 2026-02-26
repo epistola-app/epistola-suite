@@ -1,7 +1,6 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DocumentStyles
@@ -18,8 +17,7 @@ import tools.jackson.databind.ObjectMapper
  * Updates a theme with partial updates (only provided fields are updated).
  */
 data class UpdateTheme(
-    val tenantId: TenantKey,
-    val id: ThemeKey,
+    val id: ThemeId,
     val name: String? = null,
     val description: String? = null,
     val clearDescription: Boolean = false,
@@ -79,7 +77,7 @@ class UpdateThemeHandler(
 
         if (updates.isEmpty()) {
             // No updates to apply, return existing theme
-            return getExisting(command.tenantId, command.id)
+            return getExisting(command.id)
         }
 
         updates.add("last_modified = NOW()")
@@ -93,8 +91,8 @@ class UpdateThemeHandler(
 
         return jdbi.withHandle<Theme?, Exception> { handle ->
             val query = handle.createQuery(sql)
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }
 
@@ -104,14 +102,14 @@ class UpdateThemeHandler(
         }
     }
 
-    private fun getExisting(tenantId: TenantKey, id: ThemeKey): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
+    private fun getExisting(id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
             SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
-            .bind("id", id)
-            .bind("tenantId", tenantId)
+            .bind("id", id.key)
+            .bind("tenantId", id.tenantKey)
             .mapTo<Theme>()
             .findOne()
             .orElse(null)

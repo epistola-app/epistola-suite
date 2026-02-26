@@ -26,7 +26,7 @@ class CreateVariantHandler(
 ) : CommandHandler<CreateVariant, TemplateVariant?> {
     override fun handle(command: CreateVariant): TemplateVariant? {
         // Validate attributes against the tenant's attribute definitions
-        validateAttributes(command.id.tenantKey, command.attributes)
+        validateAttributes(command.id.tenantId, command.attributes)
 
         return executeOrThrowDuplicate("variant", command.id.key.value) {
             jdbi.inTransaction<TemplateVariant?, Exception> { handle ->

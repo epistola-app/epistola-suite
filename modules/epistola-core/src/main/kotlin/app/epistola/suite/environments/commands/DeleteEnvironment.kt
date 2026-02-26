@@ -1,7 +1,6 @@
 package app.epistola.suite.environments.commands
 
-import app.epistola.suite.common.ids.EnvironmentKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.EnvironmentInUseException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -10,8 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class DeleteEnvironment(
-    val tenantId: TenantKey,
-    val id: EnvironmentKey,
+    val id: EnvironmentId,
 ) : Command<Boolean>
 
 @Component
@@ -26,13 +24,13 @@ class DeleteEnvironmentHandler(
                 WHERE tenant_key = :tenantId AND environment_key = :environmentId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("environmentId", command.id)
+            .bind("tenantId", command.id.tenantKey)
+            .bind("environmentId", command.id.key)
             .mapTo<Long>()
             .one()
 
         if (activationCount > 0) {
-            throw EnvironmentInUseException(command.id, activationCount)
+            throw EnvironmentInUseException(command.id.key, activationCount)
         }
 
         val rowsAffected = handle.createUpdate(
@@ -41,8 +39,8 @@ class DeleteEnvironmentHandler(
                 WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .execute()
         rowsAffected > 0
     }

@@ -1,7 +1,6 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DocumentStyles
@@ -16,8 +15,7 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class CreateTheme(
-    val id: ThemeKey,
-    val tenantId: TenantKey,
+    val id: ThemeId,
     val name: String,
     val description: String? = null,
     val documentStyles: DocumentStyles = emptyMap(),
@@ -35,7 +33,7 @@ class CreateThemeHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateTheme, Theme> {
-    override fun handle(command: CreateTheme): Theme = executeOrThrowDuplicate("theme", command.id.value) {
+    override fun handle(command: CreateTheme): Theme = executeOrThrowDuplicate("theme", command.id.key.value) {
         jdbi.withHandle<Theme, Exception> { handle ->
             handle.createQuery(
                 """
@@ -44,8 +42,8 @@ class CreateThemeHandler(
                 RETURNING *
                 """,
             )
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
                 .bind("name", command.name)
                 .bind("description", command.description)
                 .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))

@@ -1,6 +1,6 @@
 package app.epistola.suite.themes.queries
 
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.themes.Theme
@@ -9,7 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class ListThemes(
-    val tenantId: TenantKey,
+    val tenantId: TenantId,
     val searchTerm: String? = null,
 ) : Query<List<Theme>>
 
@@ -27,7 +27,7 @@ class ListThemesHandler(
         }
 
         val jdbiQuery = handle.createQuery(sql)
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

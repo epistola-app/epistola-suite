@@ -22,7 +22,7 @@ class UpdateVariantHandler(
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
     override fun handle(command: UpdateVariant): TemplateVariant? {
         // Validate attributes against the tenant's attribute definitions
-        validateAttributes(command.variantId.tenantKey, command.attributes)
+        validateAttributes(command.variantId.tenantId, command.attributes)
 
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val attributesJson = objectMapper.writeValueAsString(command.attributes)

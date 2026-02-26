@@ -1,7 +1,6 @@
 package app.epistola.suite.themes.queries
 
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.themes.Theme
@@ -10,8 +9,7 @@ import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetTheme(
-    val tenantId: TenantKey,
-    val id: ThemeKey,
+    val id: ThemeId,
 ) : Query<Theme?>
 
 @Component
@@ -24,8 +22,8 @@ class GetThemeHandler(
             SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
-            .bind("id", query.id)
-            .bind("tenantId", query.tenantId)
+            .bind("id", query.id.key)
+            .bind("tenantId", query.id.tenantKey)
             .mapTo<Theme>()
             .findOne()
             .orElse(null)
