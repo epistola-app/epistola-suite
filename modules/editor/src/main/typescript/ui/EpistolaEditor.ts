@@ -304,6 +304,7 @@ export class EpistolaEditor extends LitElement {
       duplicateSelectedBlock: () => this._duplicateSelectedNode(),
       openInsertDialog: () => this._openInsertDialog(),
       openShortcutsHelp: () => this._openShortcutsHelp(),
+      openDataPreview: () => this._openDataPreview(),
       focusBlocksPanel: () => this._focusPalette(),
       focusStructurePanel: () => this._focusTree(),
       focusInspectorPanel: () => this._focusInspector(),
@@ -475,6 +476,13 @@ export class EpistolaEditor extends LitElement {
     const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar')
     if (!toolbar) return false
     toolbar.openShortcuts()
+    return true
+  }
+
+  private _openDataPreview(): boolean {
+    const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar')
+    if (!toolbar) return false
+    toolbar.openDataPreview()
     return true
   }
 

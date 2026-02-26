@@ -58,6 +58,20 @@ class EditorShortcutsUiTest : BasePlaywrightTest() {
     }
 
     @Test
+    fun `leader e opens current data example viewer`() {
+        val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
+        openEditorPage(tenant, template, variantId)
+
+        page.keyboard().press("Control+Space")
+        page.keyboard().press("e")
+
+        val popover = page.getByTestId("data-example-popover")
+        assertThat(popover).isVisible()
+        assertThat(popover).containsText("Current Data Example")
+        assertThat(popover).containsText("Example 1")
+    }
+
+    @Test
     fun `leader activation shows waiting hint`() {
         val (tenant, template, variantId) = withMediator { createTenantTemplateAndVariant() }
         openEditorPage(tenant, template, variantId)
