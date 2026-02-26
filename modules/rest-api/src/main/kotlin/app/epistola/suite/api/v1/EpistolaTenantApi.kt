@@ -11,7 +11,9 @@ import app.epistola.api.model.TenantListResponse
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
 import app.epistola.suite.api.v1.shared.toDto
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.environments.commands.DeleteEnvironment
@@ -100,7 +102,8 @@ class EpistolaTenantApi :
     override fun listEnvironments(
         tenantId: String,
     ): ResponseEntity<EnvironmentListResponse> {
-        val environments = ListEnvironments(tenantId = TenantKey.of(tenantId)).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val environments = ListEnvironments(tenantId = tenantIdComposite).query()
         return ResponseEntity.ok(EnvironmentListResponse(items = environments.map { it.toDto() }))
     }
 
@@ -108,9 +111,10 @@ class EpistolaTenantApi :
         tenantId: String,
         createEnvironmentRequest: CreateEnvironmentRequest,
     ): ResponseEntity<EnvironmentDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(createEnvironmentRequest.id), tenantIdComposite)
         val environment = CreateEnvironment(
-            id = EnvironmentKey.of(createEnvironmentRequest.id),
-            tenantId = TenantKey.of(tenantId),
+            id = environmentIdComposite,
             name = createEnvironmentRequest.name,
         ).execute()
         return ResponseEntity.status(HttpStatus.CREATED).body(environment.toDto())
@@ -120,7 +124,9 @@ class EpistolaTenantApi :
         tenantId: String,
         environmentId: String,
     ): ResponseEntity<EnvironmentDto> {
-        val environment = GetEnvironment(tenantId = TenantKey.of(tenantId), id = EnvironmentKey.of(environmentId)).query()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
+        val environment = GetEnvironment(id = environmentIdComposite).query()
             ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(environment.toDto())
     }
@@ -132,9 +138,10 @@ class EpistolaTenantApi :
     ): ResponseEntity<EnvironmentDto> {
         val name = updateEnvironmentRequest.name
             ?: return ResponseEntity.badRequest().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
         val environment = UpdateEnvironment(
-            tenantId = TenantKey.of(tenantId),
-            id = EnvironmentKey.of(environmentId),
+            id = environmentIdComposite,
             name = name,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(environment.toDto())
@@ -144,7 +151,9 @@ class EpistolaTenantApi :
         tenantId: String,
         environmentId: String,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteEnvironment(tenantId = TenantKey.of(tenantId), id = EnvironmentKey.of(environmentId)).execute()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
+        val deleted = DeleteEnvironment(id = environmentIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {

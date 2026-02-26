@@ -112,7 +112,8 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         requestId: UUID,
     ): ResponseEntity<Unit> {
-        val cancelled = CancelGenerationJob(TenantKey.of(tenantId), GenerationRequestKey.of(requestId)).execute()
+        val typedTenantId = TenantKey.of(tenantId)
+        val cancelled = CancelGenerationJob(typedTenantId, GenerationRequestKey.of(requestId)).execute()
 
         return if (cancelled) {
             ResponseEntity.noContent().build()
@@ -148,7 +149,8 @@ class EpistolaDocumentGenerationApi(
         tenantId: String,
         documentId: UUID,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteDocument(TenantKey.of(tenantId), DocumentKey.of(documentId)).execute()
+        val typedTenantId = TenantKey.of(tenantId)
+        val deleted = DeleteDocument(typedTenantId, DocumentKey.of(documentId)).execute()
 
         return if (deleted) {
             ResponseEntity.noContent().build()

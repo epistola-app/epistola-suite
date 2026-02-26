@@ -191,16 +191,15 @@ class EpistolaTemplateApi(
             DataExample(id = it.id, name = it.name, data = it.data)
         }
         val dataModel = updateTemplateRequest.dataModel
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
         val result = UpdateDocumentTemplate(
-            tenantId = TenantKey.of(tenantId),
-            id = TemplateKey.of(templateId),
+            id = templateIdComposite,
             name = updateTemplateRequest.name,
             dataModel = dataModel,
             dataExamples = dataExamples,
             forceUpdate = updateTemplateRequest.forceUpdate ?: false,
         ).execute() ?: return ResponseEntity.notFound().build()
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
-        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         return ResponseEntity.ok(result.template.toDto(objectMapper, variantSummaries))
     }
@@ -238,7 +237,9 @@ class EpistolaTemplateApi(
         tenantId: String,
         templateId: String,
     ): ResponseEntity<Unit> {
-        val deleted = DeleteDocumentTemplate(tenantId = TenantKey.of(tenantId), id = TemplateKey.of(templateId)).execute()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val deleted = DeleteDocumentTemplate(id = templateIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
@@ -269,10 +270,11 @@ class EpistolaTemplateApi(
         createVariantRequest: CreateVariantRequest,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantKey.of(tenantId)
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(createVariantRequest.id), templateIdComposite)
         val variant = CreateVariant(
-            id = VariantKey.of(createVariantRequest.id),
-            tenantId = typedTenantId,
-            templateId = TemplateKey.of(templateId),
+            id = variantIdComposite,
             title = createVariantRequest.title,
             description = createVariantRequest.description,
             attributes = createVariantRequest.attributes ?: emptyMap(),
@@ -304,10 +306,11 @@ class EpistolaTemplateApi(
         val attributes = updateVariantRequest.attributes
             ?: return ResponseEntity.badRequest().build()
         val typedTenantId = TenantKey.of(tenantId)
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val variant = UpdateVariant(
-            tenantId = typedTenantId,
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
+            variantId = variantIdComposite,
             title = updateVariantRequest.title,
             attributes = attributes,
         ).execute() ?: return ResponseEntity.notFound().build()
@@ -320,10 +323,12 @@ class EpistolaTemplateApi(
         templateId: String,
         variantId: String,
     ): ResponseEntity<Unit> {
+        val typedTenantId = TenantKey.of(tenantId)
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val deleted = DeleteVariant(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
+            variantId = variantIdComposite,
         ).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
@@ -338,10 +343,11 @@ class EpistolaTemplateApi(
         variantId: String,
     ): ResponseEntity<VariantDto> {
         val typedTenantId = TenantKey.of(tenantId)
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val variant = SetDefaultVariant(
-            tenantId = typedTenantId,
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
+            variantId = variantIdComposite,
         ).execute() ?: return ResponseEntity.notFound().build()
         val summary = getVariantSummary(variant, typedTenantId)
         return ResponseEntity.ok(variant.toDto(summary))
@@ -370,10 +376,11 @@ class EpistolaTemplateApi(
         val templateModel = updateDraftRequest.templateModel?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
         val draft = UpdateDraft(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
+            variantId = variantIdComposite,
             templateModel = templateModel,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(draft.toDto(objectMapper))
@@ -399,11 +406,14 @@ class EpistolaTemplateApi(
         variantId: String,
         environmentId: String,
     ): ResponseEntity<Unit> {
+        val typedTenantId = TenantKey.of(tenantId)
+        val tenantIdComposite = TenantId(typedTenantId)
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(environmentId), tenantIdComposite)
         val removed = RemoveActivation(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-            environmentId = EnvironmentKey.of(environmentId),
+            variantId = variantIdComposite,
+            environmentId = environmentIdComposite,
         ).execute()
         return if (removed) {
             ResponseEntity.noContent().build()
@@ -474,11 +484,12 @@ class EpistolaTemplateApi(
         val templateModel = updateDraftRequest.templateModel?.let {
             objectMapper.treeToValue(objectMapper.valueToTree(it), app.epistola.suite.templates.model.TemplateDocument::class.java)
         } ?: return ResponseEntity.badRequest().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val version = UpdateVersion(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-            versionId = VersionKey.of(versionId),
+            versionId = versionIdComposite,
             templateModel = templateModel,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(version.toDto(objectMapper))
@@ -491,12 +502,14 @@ class EpistolaTemplateApi(
         versionId: Int,
         publishVersionRequest: PublishVersionRequest,
     ): ResponseEntity<VersionDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
+        val environmentIdComposite = EnvironmentId(EnvironmentKey.of(publishVersionRequest.environmentId), tenantIdComposite)
         val result = PublishToEnvironment(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-            versionId = VersionKey.of(versionId),
-            environmentId = EnvironmentKey.of(publishVersionRequest.environmentId),
+            versionId = versionIdComposite,
+            environmentId = environmentIdComposite,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(result.version.toDto(objectMapper))
     }
@@ -507,11 +520,12 @@ class EpistolaTemplateApi(
         variantId: String,
         versionId: Int,
     ): ResponseEntity<VersionDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val templateIdComposite = TemplateId(TemplateKey.of(templateId), tenantIdComposite)
+        val variantIdComposite = VariantId(VariantKey.of(variantId), templateIdComposite)
+        val versionIdComposite = VersionId(VersionKey.of(versionId), variantIdComposite)
         val archived = ArchiveVersion(
-            tenantId = TenantKey.of(tenantId),
-            templateId = TemplateKey.of(templateId),
-            variantId = VariantKey.of(variantId),
-            versionId = VersionKey.of(versionId),
+            versionId = versionIdComposite,
         ).execute() ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(archived.toDto(objectMapper))
     }
