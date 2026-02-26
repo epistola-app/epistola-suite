@@ -38,6 +38,9 @@ export class ExpressionNodeView implements NodeView {
   }
 
   dom: HTMLSpanElement
+  private _leftBrace: HTMLSpanElement
+  private _content: HTMLSpanElement
+  private _rightBrace: HTMLSpanElement
   private _node: ProsemirrorNode
   private _view: EditorView
   private _getPos: () => number | undefined
@@ -64,6 +67,19 @@ export class ExpressionNodeView implements NodeView {
     this.dom = document.createElement('span')
     this.dom.className = 'expression-chip'
     this.dom.contentEditable = 'false'
+
+    this._leftBrace = document.createElement('span')
+    this._leftBrace.className = 'expression-chip-brace expression-chip-brace-left'
+    this._leftBrace.textContent = '{{'
+
+    this._content = document.createElement('span')
+    this._content.className = 'expression-chip-content'
+
+    this._rightBrace = document.createElement('span')
+    this._rightBrace.className = 'expression-chip-brace expression-chip-brace-right'
+    this._rightBrace.textContent = '}}'
+
+    this.dom.append(this._leftBrace, this._content, this._rightBrace)
     this._updateDisplay()
 
     // Click → open dialog
@@ -110,7 +126,7 @@ export class ExpressionNodeView implements NodeView {
   private _updateDisplay(): void {
     const expr = this._node.attrs.expression as string
     if (!expr) {
-      this.dom.textContent = '{{...}}'
+      this._setRawExpressionDisplay('...')
       this.dom.title = 'Click to edit expression'
       return
     }
@@ -118,13 +134,13 @@ export class ExpressionNodeView implements NodeView {
     const data = this._getExampleData?.()
     if (!data) {
       // No data example available — show raw expression
-      this.dom.textContent = `{{${expr}}}`
+      this._setRawExpressionDisplay(expr)
       this.dom.title = expr
       return
     }
 
     // Show raw expression immediately, then kick off async resolution
-    this.dom.textContent = `{{${expr}}}`
+    this._setRawExpressionDisplay(expr)
     this.dom.title = expr
     this._resolveAndDisplay(expr, data)
   }
@@ -139,11 +155,25 @@ export class ExpressionNodeView implements NodeView {
       const formatted = formatResolvedValue(result)
       if (formatted !== undefined) {
         // Resolved: show value as text, expression in tooltip
-        this.dom.textContent = formatted
+        this._setResolvedDisplay(formatted)
         this.dom.title = `{{${expr}}}`
       }
       // Unresolved: keep the {{expression}} already set in _updateDisplay
     })
+  }
+
+  private _setRawExpressionDisplay(expr: string): void {
+    this.dom.classList.add('is-raw')
+    this._leftBrace.hidden = false
+    this._rightBrace.hidden = false
+    this._content.textContent = expr
+  }
+
+  private _setResolvedDisplay(value: string): void {
+    this.dom.classList.remove('is-raw')
+    this._leftBrace.hidden = true
+    this._rightBrace.hidden = true
+    this._content.textContent = value
   }
 
   // ---------------------------------------------------------------------------
