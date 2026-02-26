@@ -30,8 +30,8 @@ CREATE TABLE documents (
     CONSTRAINT chk_documents_size_positive CHECK (size_bytes > 0),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_id, template_id) REFERENCES document_templates(tenant_id, id) ON DELETE CASCADE,
-    FOREIGN KEY (tenant_id, variant_id) REFERENCES template_variants(tenant_id, id) ON DELETE CASCADE,
-    FOREIGN KEY (tenant_id, variant_id, version_id) REFERENCES template_versions(tenant_id, variant_id, id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id, template_id, variant_id) REFERENCES template_variants(tenant_id, template_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, template_id, variant_id, version_id) REFERENCES template_versions(tenant_id, template_id, variant_id, id) ON DELETE CASCADE
 ) PARTITION BY RANGE (created_at);
 
 -- No initial partitions created - PartitionMaintenanceScheduler creates them at startup
@@ -91,11 +91,11 @@ CREATE TABLE document_generation_requests (
     ),
     FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_id, template_id) REFERENCES document_templates(tenant_id, id) ON DELETE CASCADE,
-    FOREIGN KEY (tenant_id, variant_id) REFERENCES template_variants(tenant_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (tenant_id, template_id, variant_id) REFERENCES template_variants(tenant_id, template_id, id) ON DELETE CASCADE,
     FOREIGN KEY (tenant_id, environment_id) REFERENCES environments(tenant_id, id) ON DELETE CASCADE,
     CONSTRAINT fk_requests_variant_version
-        FOREIGN KEY (tenant_id, variant_id, version_id)
-        REFERENCES template_versions(tenant_id, variant_id, id)
+        FOREIGN KEY (tenant_id, template_id, variant_id, version_id)
+        REFERENCES template_versions(tenant_id, template_id, variant_id, id)
         ON DELETE CASCADE
 ) PARTITION BY RANGE (created_at);
 
