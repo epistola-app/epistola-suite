@@ -39,8 +39,7 @@ import tools.jackson.databind.ObjectMapper
  * @param objectMapper Jackson ObjectMapper for serialization
  * @return This Update for method chaining
  */
-fun Update.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Update =
-    bind(name, value?.let { objectMapper.writeValueAsString(it) })
+fun Update.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Update = bind(name, value?.let { objectMapper.writeValueAsString(it) })
 
 /**
  * Bind a value as JSONB for a query parameter.
@@ -50,5 +49,4 @@ fun Update.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Upd
  * @param objectMapper Jackson ObjectMapper for serialization
  * @return This Query for method chaining
  */
-fun Query.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Query =
-    bind(name, value?.let { objectMapper.writeValueAsString(it) })
+fun Query.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Query = bind(name, value?.let { objectMapper.writeValueAsString(it) })

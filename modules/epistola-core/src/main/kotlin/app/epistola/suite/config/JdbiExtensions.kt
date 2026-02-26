@@ -33,8 +33,7 @@ import org.jdbi.v3.core.Jdbi
  * @param block The block to execute with the handle
  * @return The result of the block
  */
-inline fun <T> Jdbi.withHandle(crossinline block: (Handle) -> T): T =
-    withHandle<T, Exception> { block(it) }
+inline fun <T> Jdbi.withHandle(crossinline block: (Handle) -> T): T = withHandle<T, Exception> { block(it) }
 
 /**
  * Execute a block within a transaction, returning a result.
@@ -46,8 +45,7 @@ inline fun <T> Jdbi.withHandle(crossinline block: (Handle) -> T): T =
  * @param block The block to execute within the transaction
  * @return The result of the block
  */
-inline fun <T> Jdbi.inTransaction(crossinline block: (Handle) -> T): T =
-    inTransaction<T, Exception> { block(it) }
+inline fun <T> Jdbi.inTransaction(crossinline block: (Handle) -> T): T = inTransaction<T, Exception> { block(it) }
 
 /**
  * Execute a block with a JDBI handle for side effects (no return value).

@@ -1,11 +1,10 @@
 package app.epistola.suite.mediator
 
 import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.tenants.commands.CreateTenant
 import org.assertj.core.api.Assertions.assertThat
+import org.jdbi.v3.core.Jdbi
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.jdbi.v3.core.Jdbi
 
 /**
  * Integration tests for event persistence and eventing behavior.
@@ -40,7 +39,7 @@ class EventPersistenceIntegrationTest : CoreIntegrationTestBase() {
         then {
             val tableExists = jdbi.withHandle<Boolean, Exception> { handle ->
                 handle.createQuery(
-                    "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'event_log')"
+                    "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'event_log')",
                 )
                     .mapTo(Boolean::class.java)
                     .one()
@@ -63,6 +62,4 @@ class EventPersistenceIntegrationTest : CoreIntegrationTestBase() {
             assertThat(tenant!!.name).isEqualTo("Test Tenant")
         }
     }
-
-
 }
