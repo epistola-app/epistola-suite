@@ -102,13 +102,12 @@ class EpistolaTemplateApi(
         createTemplateRequest: CreateTemplateRequest,
     ): ResponseEntity<TemplateDto> {
         val schemaJson = createTemplateRequest.schema?.let { objectMapper.writeValueAsString(it) }
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val template = CreateDocumentTemplate(
-            id = TemplateKey.of(createTemplateRequest.id),
-            tenantId = TenantKey.of(tenantId),
+            id = TemplateId(TemplateKey.of(createTemplateRequest.id), tenantIdComposite),
             name = createTemplateRequest.name,
             schema = schemaJson,
         ).execute()
-        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
         val templateIdComposite = TemplateId(template.id, tenantIdComposite)
         val variantSummaries = GetVariantSummaries(templateId = templateIdComposite).query()
         return ResponseEntity.status(HttpStatus.CREATED).body(template.toDto(objectMapper, variantSummaries))
@@ -119,7 +118,7 @@ class EpistolaTemplateApi(
         importTemplatesRequest: ImportTemplatesRequest,
     ): ResponseEntity<ImportTemplatesResponse> {
         val results = ImportTemplates(
-            tenantId = TenantKey.of(tenantId),
+            tenantId = TenantId(TenantKey.of(tenantId)),
             templates = importTemplatesRequest.templates.map { dto ->
                 ImportTemplateInput(
                     slug = dto.slug,

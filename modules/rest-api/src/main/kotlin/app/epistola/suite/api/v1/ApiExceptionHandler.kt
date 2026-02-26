@@ -233,7 +233,7 @@ class ApiExceptionHandler {
                 code = "ATTRIBUTE_IN_USE",
                 message = ex.message ?: "Attribute is in use and cannot be deleted",
                 details = mapOf(
-                    "attributeId" to ex.attributeId.value,
+                    "attributeId" to ex.attributeId.key,
                     "variantCount" to ex.variantCount,
                 ),
             ),
@@ -253,7 +253,7 @@ class ApiExceptionHandler {
                 code = "ALLOWED_VALUES_IN_USE",
                 message = ex.message ?: "Cannot remove allowed values that are in use by existing variants",
                 details = mapOf(
-                    "attributeId" to ex.attributeId.value,
+                    "attributeId" to ex.attributeId.key,
                     "valuesInUse" to ex.removedValues,
                 ),
             ),
