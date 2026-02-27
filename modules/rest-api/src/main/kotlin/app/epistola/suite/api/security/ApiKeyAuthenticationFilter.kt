@@ -76,8 +76,8 @@ class ApiKeyAuthenticationFilter(
             externalId = "apikey:${apiKey.id}",
             email = "apikey-${apiKey.keyPrefix}@npa.epistola",
             displayName = apiKey.name,
-            tenantMemberships = setOf(apiKey.tenantId),
-            currentTenantId = apiKey.tenantId,
+            tenantMemberships = setOf(apiKey.tenantKey),
+            currentTenantId = apiKey.tenantKey,
         )
 
         SecurityContextHolder.getContext().authentication = ApiKeyAuthenticationToken(principal)

@@ -97,15 +97,16 @@ class PublishToEnvironmentHandler(
         // 5. Upsert activation
         val activation = handle.createQuery(
             """
-                INSERT INTO environment_activations (tenant_key, environment_key, variant_key, version_key, activated_at)
-                VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
-                ON CONFLICT (tenant_key, environment_key, variant_key)
+                INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
+                VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
+                ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
                 DO UPDATE SET version_key = :versionId, activated_at = NOW()
                 RETURNING *
                 """,
         )
             .bind("tenantId", command.versionId.tenantKey)
             .bind("environmentId", command.environmentId.key)
+            .bind("templateId", command.versionId.templateKey)
             .bind("variantId", command.versionId.variantKey)
             .bind("versionId", command.versionId.key)
             .mapTo<EnvironmentActivation>()
@@ -141,8 +142,8 @@ class PublishToEnvironmentHandler(
 
             handle.createQuery(
                 """
-                    INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
-                    VALUES (:id, :tenantId, :variantId,
+                    INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                    VALUES (:id, :tenantId, :templateId, :variantId,
                             (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
                             'draft', NOW())
                     RETURNING *
@@ -150,6 +151,7 @@ class PublishToEnvironmentHandler(
             )
                 .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", command.versionId.tenantKey)
+                .bind("templateId", command.versionId.templateKey)
                 .bind("variantId", command.versionId.variantKey)
                 .bind("publishedId", command.versionId.key)
                 .mapTo<TemplateVersion>()

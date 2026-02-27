@@ -3,6 +3,9 @@ package app.epistola.suite.documents.commands
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
@@ -21,16 +24,17 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
     @Test
     fun `deletes document successfully`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -62,7 +66,7 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
             }
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        val documentId = job.items[0].documentId!!
+        val documentId = job.items[0].documentKey!!
 
         // Delete document
         val deleted = mediator.send(DeleteDocument(tenant.id, documentId))
@@ -88,16 +92,17 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant1.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId1 = TenantId(tenant1.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId1)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant1.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -127,7 +132,7 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
             }
 
         val job = mediator.query(GetGenerationJob(tenant1.id, request.id))!!
-        val documentId = job.items[0].documentId!!
+        val documentId = job.items[0].documentKey!!
 
         // Try to delete with different tenant
         val deleted = mediator.send(DeleteDocument(tenant2.id, documentId))

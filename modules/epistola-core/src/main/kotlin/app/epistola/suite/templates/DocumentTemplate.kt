@@ -16,9 +16,9 @@ import java.time.OffsetDateTime
  */
 data class DocumentTemplate(
     val id: TemplateKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val name: String,
-    val themeId: ThemeKey? = null,
+    val themeKey: ThemeKey? = null,
     @Json val schema: ObjectNode? = null,
     @Json val dataModel: ObjectNode? = null,
     @Json val dataExamples: DataExamples = DataExamples.EMPTY,
@@ -32,9 +32,9 @@ data class DocumentTemplate(
  */
 data class DocumentTemplateWithVariants(
     val id: TemplateKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val name: String,
-    val themeId: ThemeKey? = null,
+    val themeKey: ThemeKey? = null,
     @Json val schema: ObjectNode? = null,
     @Json val dataModel: ObjectNode? = null,
     @Json val dataExamples: DataExamples = DataExamples.EMPTY,

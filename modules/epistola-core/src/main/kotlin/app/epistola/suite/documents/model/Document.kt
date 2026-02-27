@@ -28,10 +28,10 @@ import java.time.OffsetDateTime
  */
 data class Document(
     val id: DocumentKey,
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
-    val versionId: VersionKey,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
+    val variantKey: VariantKey,
+    val versionKey: VersionKey,
     val filename: String,
     val correlationId: String?,
     val contentType: String,

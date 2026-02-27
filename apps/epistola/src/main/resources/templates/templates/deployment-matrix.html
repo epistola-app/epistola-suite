@@ -67,9 +67,9 @@
                                                                 hx-trigger="change" hx-include="closest form">
                                                             <option value="">Not deployed</option>
                                                             <th:block th:each="ver : ${versions}">
-                                                                <option th:value="${ver.versionId}"
-                                                                        th:selected="${cell != null and cell.versionId == ver.versionId}"
-                                                                        th:text="${'v' + ver.versionId + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
+                                                                <option th:value="${ver.versionKey}"
+                                                                        th:selected="${cell != null and cell.versionKey == ver.versionKey}"
+                                                                        th:text="${'v' + ver.versionKey + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
                                                             </th:block>
                                                         </select>
                                                     </form>

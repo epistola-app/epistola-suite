@@ -3,8 +3,11 @@ package app.epistola.suite.templates.services
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
-import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -20,19 +23,17 @@ class VariantResolverTest : CoreIntegrationTestBase() {
     @Autowired
     private lateinit var variantResolver: VariantResolver
 
-    private fun setupAttributeDefinitions(tenantId: TenantKey): Unit = withMediator {
+    private fun setupAttributeDefinitions(tenantId: TenantId): Unit = withMediator {
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeKey.of("language"),
-                tenantId = tenantId,
+                id = AttributeId(AttributeKey.of("language"), tenantId),
                 displayName = "Language",
                 allowedValues = listOf("dutch", "english", "french"),
             ),
         )
         mediator.send(
             CreateAttributeDefinition(
-                id = AttributeKey.of("brand"),
-                tenantId = tenantId,
+                id = AttributeId(AttributeKey.of("brand"), tenantId),
                 displayName = "Brand",
                 allowedValues = listOf("acme", "globex"),
             ),
@@ -46,16 +47,16 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `selects variant matching all required attributes`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 val dutchVariant = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -64,9 +65,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
 
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "English",
                         description = null,
                         attributes = mapOf("language" to "english"),
@@ -89,16 +88,16 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `selects variant matching multiple required attributes`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -107,9 +106,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
 
                 val dutchAcme = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("language" to "dutch", "brand" to "acme"),
@@ -136,16 +133,16 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `prefers variant with more optional matches`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -154,9 +151,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
 
                 val dutchAcme = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("language" to "dutch", "brand" to "acme"),
@@ -181,16 +176,16 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `most specific variant wins via total attributes tiebreaker`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -199,9 +194,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
 
                 val dutchAcme = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("language" to "dutch", "brand" to "acme"),
@@ -229,18 +222,18 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `falls back to default variant when no required match`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 val defaultVariantId = VariantKey.of("${template.id}-default")
 
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "French",
                         description = null,
                         attributes = mapOf("language" to "french"),
@@ -263,23 +256,23 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `default variant with attributes still acts as fallback`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 // Give the auto-created default variant some attributes
                 val defaultVariantId = VariantKey.of("${template.id}-default")
                 mediator.send(
-                    SetDefaultVariant(tenantId = tenant.id, templateId = template.id, variantId = defaultVariantId),
+                    SetDefaultVariant(variantId = VariantId(defaultVariantId, templateId)),
                 )
 
                 // Create a non-default variant with different attributes
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "French",
                         description = null,
                         attributes = mapOf("language" to "french"),
@@ -307,16 +300,16 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `throws AmbiguousVariantResolutionException when variants tie`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 val variant1 = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -325,9 +318,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
 
                 val variant2 = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Also Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -357,17 +348,17 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `required filters then optional scores`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 // English variant - won't pass required filter
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "English Acme",
                         description = null,
                         attributes = mapOf("language" to "english", "brand" to "acme"),
@@ -377,9 +368,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                 // Dutch variant - passes required, no optional match
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -389,9 +378,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                 // Dutch Acme variant - passes required, matches optional
                 val dutchAcme = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("language" to "dutch", "brand" to "acme"),
@@ -415,17 +402,17 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `only optional attributes with scoring-based selection`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 // Variant with language=dutch - score: 1*10 + 1 = 11
                 mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch",
                         description = null,
                         attributes = mapOf("language" to "dutch"),
@@ -435,9 +422,7 @@ class VariantResolverTest : CoreIntegrationTestBase() {
                 // Variant with language=dutch, brand=acme - score: 2*10 + 2 = 22
                 val dutchAcme = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("language" to "dutch", "brand" to "acme"),
@@ -464,8 +449,10 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `empty criteria selects default variant`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
+                val tenantId = TenantId(tenant.id)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 val defaultVariantId = VariantKey.of("${template.id}-default")
@@ -484,16 +471,16 @@ class VariantResolverTest : CoreIntegrationTestBase() {
         fun `variant with extra attributes still matches required subset`() {
             withMediator {
                 val tenant = createTenant("Test Tenant")
-                setupAttributeDefinitions(tenant.id)
+                val tenantId = TenantId(tenant.id)
+                setupAttributeDefinitions(tenantId)
+                val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
                 val template = mediator.send(
-                    CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Invoice"),
+                    CreateDocumentTemplate(id = templateId, name = "Invoice"),
                 )
 
                 val dutchAcme = mediator.send(
                     CreateVariant(
-                        id = TestIdHelpers.nextVariantId(),
-                        tenantId = tenant.id,
-                        templateId = template.id,
+                        id = VariantId(TestIdHelpers.nextVariantId(), templateId),
                         title = "Dutch Acme",
                         description = null,
                         attributes = mapOf("language" to "dutch", "brand" to "acme"),

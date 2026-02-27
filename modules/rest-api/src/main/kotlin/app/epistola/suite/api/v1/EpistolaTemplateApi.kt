@@ -534,7 +534,7 @@ class EpistolaTemplateApi(
 
     private fun getVariantSummary(variant: TemplateVariant, tenantId: TenantKey): VariantVersionInfo {
         val tenantIdComposite = TenantId(tenantId)
-        val templateIdComposite = TemplateId(variant.templateId, tenantIdComposite)
+        val templateIdComposite = TemplateId(variant.templateKey, tenantIdComposite)
         val variantIdComposite = VariantId(variant.id, templateIdComposite)
         val versions = ListVersions(variantId = variantIdComposite).query()
         val hasDraft = versions.any { it.status == VersionStatus.DRAFT }

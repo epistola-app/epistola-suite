@@ -28,14 +28,14 @@ internal fun Tenant.toDto() = TenantDto(
 
 internal fun Environment.toDto() = EnvironmentDto(
     id = id.value,
-    tenantId = tenantId.value,
+    tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
 )
 
 internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
     id = id.value,
-    tenantId = tenantId.value,
+    tenantId = tenantKey.value,
     name = name,
     createdAt = createdAt,
     lastModified = lastModified,
@@ -43,7 +43,7 @@ internal fun DocumentTemplate.toSummaryDto() = TemplateSummaryDto(
 
 internal fun DocumentTemplate.toDto(objectMapper: ObjectMapper, variantSummaries: List<VariantSummary>) = TemplateDto(
     id = id.value,
-    tenantId = tenantId.value,
+    tenantId = tenantKey.value,
     name = name,
     schema = schema?.let { objectMapper.valueToTree(it) },
     dataModel = dataModel?.let { objectMapper.valueToTree(it) },
@@ -70,7 +70,7 @@ internal fun VariantSummary.toDto() = VariantSummaryDto(
 
 internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
     id = id.value,
-    templateId = templateId.value,
+    templateId = templateKey.value,
     title = title,
     description = description,
     attributes = attributes,
@@ -83,7 +83,7 @@ internal fun TemplateVariant.toDto(info: VariantVersionInfo) = VariantDto(
 
 internal fun TemplateVersion.toDto(objectMapper: ObjectMapper) = VersionDto(
     id = id.value,
-    variantId = variantId.value,
+    variantId = variantKey.value,
     templateModel = objectMapper.valueToTree(templateModel),
     status = status.toDtoStatus(),
     createdAt = createdAt,
@@ -93,7 +93,7 @@ internal fun TemplateVersion.toDto(objectMapper: ObjectMapper) = VersionDto(
 
 internal fun app.epistola.suite.templates.model.VersionSummary.toSummaryDto() = VersionSummaryDto(
     id = id.value,
-    variantId = variantId.value,
+    variantId = variantKey.value,
     status = status.toSummaryDtoStatus(),
     createdAt = createdAt,
     publishedAt = publishedAt,
@@ -113,8 +113,8 @@ internal fun VersionStatus.toSummaryDtoStatus() = when (this) {
 }
 
 internal fun ActivationDetails.toDto() = ActivationDto(
-    environmentId = environmentId.value,
+    environmentId = environmentKey.value,
     environmentName = environmentName,
-    versionId = versionId.value,
+    versionId = versionKey.value,
     activatedAt = activatedAt,
 )

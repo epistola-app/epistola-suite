@@ -11,8 +11,8 @@ import java.time.OffsetDateTime
  */
 data class TemplateVariant(
     val id: VariantKey,
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
     val title: String?,
     val description: String?,
     @Json val attributes: Map<String, String> = emptyMap(),

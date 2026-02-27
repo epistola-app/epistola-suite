@@ -2,7 +2,10 @@ package app.epistola.suite.documents
 
 import app.epistola.suite.CoreTestcontainersConfiguration
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetDocument
@@ -66,18 +69,18 @@ class JobPollerIntegrationTest {
                 name = "Test Tenant",
             ),
         )
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
         val template = mediator.send(
             CreateDocumentTemplate(
-                id = TestIdHelpers.nextTemplateId(),
-                tenantId = tenant.id,
+                id = templateId,
                 name = "Test Template",
             ),
         )
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
         val variant = mediator.send(
             CreateVariant(
-                id = TestIdHelpers.nextVariantId(),
-                tenantId = tenant.id,
-                templateId = template.id,
+                id = variantId,
                 title = "Default",
                 description = null,
                 attributes = emptyMap(),
@@ -86,9 +89,7 @@ class JobPollerIntegrationTest {
         val templateModel = TestTemplateBuilder.buildMinimal(name = "Test Template")
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -121,10 +122,10 @@ class JobPollerIntegrationTest {
 
         // Verify real document was created with valid PDF
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        assertThat(job.request.documentId).isNotNull()
+        assertThat(job.request.documentKey).isNotNull()
 
         // Verify it's a REAL PDF (not fake) by checking size
-        val document = mediator.query(GetDocument(tenant.id, job.request.documentId!!))!!
+        val document = mediator.query(GetDocument(tenant.id, job.request.documentKey!!))!!
         assertThat(document.sizeBytes).isGreaterThan(100) // Real PDFs are bigger than fake (~40 bytes)
 
         // Verify content in ContentStore

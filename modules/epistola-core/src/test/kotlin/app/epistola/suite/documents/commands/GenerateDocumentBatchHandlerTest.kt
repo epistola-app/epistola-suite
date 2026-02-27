@@ -2,7 +2,10 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.RequestStatus
@@ -25,16 +28,17 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
     @Test
     fun `creates batch generation request`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -59,7 +63,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
             handle.createQuery(
                 """
                 SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
-                       data, filename, correlation_id, document_key, status, claimed_by, claimed_at,
+                       data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
                        error_message, created_at, started_at, completed_at, expires_at
                 FROM document_generation_requests
                 WHERE batch_id = :batchId
@@ -71,23 +75,24 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
         }
 
         assertThat(requests).hasSize(3)
-        assertThat(requests).allMatch { it.tenantId == tenant.id }
+        assertThat(requests).allMatch { it.tenantKey == tenant.id }
         assertThat(requests).allMatch { it.status in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS) }
     }
 
     @Test
     fun `validates all items before creating request`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!

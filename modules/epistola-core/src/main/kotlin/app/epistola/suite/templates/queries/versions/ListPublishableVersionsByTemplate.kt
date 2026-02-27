@@ -19,8 +19,8 @@ data class ListPublishableVersionsByTemplate(
 ) : Query<List<PublishableVersion>>
 
 data class PublishableVersion(
-    val variantId: VariantKey,
-    val versionId: VersionKey,
+    val variantKey: VariantKey,
+    val versionKey: VersionKey,
     val status: VersionStatus,
 )
 

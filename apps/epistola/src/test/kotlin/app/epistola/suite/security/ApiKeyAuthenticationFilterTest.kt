@@ -176,7 +176,7 @@ class ApiKeyAuthenticationFilterTest {
 
         val apiKey = ApiKey(
             id = ApiKeyKey.of(UUID.randomUUID()),
-            tenantId = tenantId,
+            tenantKey = tenantId,
             name = name,
             keyPrefix = keyPrefix,
             enabled = enabled,

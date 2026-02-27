@@ -1,8 +1,12 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.mediator.execute
@@ -32,43 +36,42 @@ class VersionRouteHandler(
 ) {
 
     fun listVersions(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateKey.validateOrNull(templateIdStr)
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantKey.validateOrNull(variantIdStr)
+        val templateId = TemplateId(templateKey, tenantId)
+        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
+        val variantId = VariantId(variantKey, templateId)
 
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
+        return returnVersionsFragment(request, tenantKey, templateKey, variantId)
     }
 
     fun createDraft(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateKey.validateOrNull(templateIdStr)
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantKey.validateOrNull(variantIdStr)
+        val templateId = TemplateId(templateKey, tenantId)
+        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
+        val variantId = VariantId(variantKey, templateId)
 
-        CreateVersion(
-            tenantId = tenantId,
-            templateId = templateId,
-            variantId = variantId,
-        ).execute()
+        CreateVersion(variantId = variantId).execute()
 
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
+        return returnVersionsFragment(request, tenantKey, templateKey, variantId)
     }
 
     fun updateDraft(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateKey.validateOrNull(templateIdStr)
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantKey.validateOrNull(variantIdStr)
+        val templateId = TemplateId(templateKey, tenantId)
+        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
+        val variantId = VariantId(variantKey, templateId)
 
         // Parse JSON body to get templateModel
         val body = request.body(String::class.java)
@@ -81,8 +84,6 @@ class VersionRouteHandler(
 
         // Execute update command
         UpdateDraft(
-            tenantId = tenantId,
-            templateId = templateId,
             variantId = variantId,
             templateModel = templateModel,
         ).execute()
@@ -94,13 +95,14 @@ class VersionRouteHandler(
     }
 
     fun archiveVersion(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateKey.validateOrNull(templateIdStr)
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
             ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantKey.validateOrNull(variantIdStr)
+        val templateId = TemplateId(templateKey, tenantId)
+        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
             ?: return ServerResponse.badRequest().build()
+        val variantId = VariantId(variantKey, templateId)
         val versionIdInt = request.pathVariable("versionId").toIntOrNull()
             ?: return ServerResponse.badRequest().build()
 
@@ -108,51 +110,37 @@ class VersionRouteHandler(
             return ServerResponse.badRequest().build()
         }
 
+        val versionId = VersionId(VersionKey.of(versionIdInt), variantId)
+
         try {
-            ArchiveVersion(
-                tenantId = tenantId,
-                templateId = templateId,
-                variantId = variantId,
-                versionId = VersionKey.of(versionIdInt),
-            ).execute()
+            ArchiveVersion(versionId = versionId).execute()
         } catch (_: VersionStillActiveException) {
-            return returnVersionsFragment(request, tenantId, templateId, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
+            return returnVersionsFragment(request, tenantKey, templateKey, variantId, error = "Cannot archive: version is still active in one or more environments. Remove it from all environments first.")
         }
 
-        return returnVersionsFragment(request, tenantId, templateId, variantId)
+        return returnVersionsFragment(request, tenantKey, templateKey, variantId)
     }
 
     private fun returnVersionsFragment(
         request: ServerRequest,
-        tenantId: TenantKey,
-        templateId: TemplateKey,
-        variantId: VariantKey,
+        tenantKey: TenantKey,
+        templateKey: TemplateKey,
+        variantId: VariantId,
         error: String? = null,
     ): ServerResponse {
-        val template = GetDocumentTemplate(
-            tenantId = tenantId,
-            id = templateId,
-        ).query() ?: return ServerResponse.notFound().build()
+        val templateId = TemplateId(templateKey, TenantId(tenantKey))
 
-        val variant = GetVariant(
-            tenantId = tenantId,
-            templateId = templateId,
-            variantId = variantId,
-        ).query() ?: return ServerResponse.notFound().build()
+        val template = GetDocumentTemplate(id = templateId).query()
+            ?: return ServerResponse.notFound().build()
 
-        val versions = ListVersions(
-            tenantId = tenantId,
-            templateId = templateId,
-            variantId = variantId,
-        ).query()
+        val variant = GetVariant(variantId = variantId).query()
+            ?: return ServerResponse.notFound().build()
 
-        val activations = ListActivations(
-            tenantId = tenantId,
-            templateId = templateId,
-            variantId = variantId,
-        ).query()
+        val versions = ListVersions(variantId = variantId).query()
 
-        val activationsByVersion = activations.groupBy { it.versionId.value }
+        val activations = ListActivations(variantId = variantId).query()
+
+        val activationsByVersion = activations.groupBy { it.versionKey.value }
 
         val variantSummary = VariantSummary(
             id = variant.id,
@@ -165,8 +153,8 @@ class VersionRouteHandler(
 
         return request.htmx {
             fragment("templates/variant-versions", "content") {
-                "tenantId" to tenantId.value
-                "templateId" to templateId
+                "tenantId" to tenantKey.value
+                "templateId" to templateKey
                 "variant" to variantSummary
                 "versions" to versions
                 "dataExamples" to template.dataExamples
@@ -175,7 +163,7 @@ class VersionRouteHandler(
                     "error" to error
                 }
             }
-            onNonHtmx { redirect("/tenants/${tenantId.value}/templates/$templateId") }
+            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$templateKey") }
         }
     }
 }

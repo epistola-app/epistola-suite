@@ -7,7 +7,7 @@ import java.time.OffsetDateTime
 
 data class VariantAttributeDefinition(
     val id: AttributeKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val displayName: String,
     @Json val allowedValues: List<String> = emptyList(),
     val createdAt: OffsetDateTime,

@@ -46,15 +46,15 @@ import java.time.OffsetDateTime
 data class DocumentGenerationRequest(
     val id: GenerationRequestKey,
     val batchId: BatchKey?,
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
-    val versionId: VersionKey?,
-    val environmentId: EnvironmentKey?,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
+    val variantKey: VariantKey,
+    val versionKey: VersionKey?,
+    val environmentKey: EnvironmentKey?,
     @Json val data: ObjectNode,
     val filename: String?,
-    val correlationId: String?,
-    val documentId: DocumentKey?,
+    val correlationKey: String?,
+    val documentKey: DocumentKey?,
     val status: RequestStatus,
     val claimedBy: String?,
     val claimedAt: OffsetDateTime?,
@@ -66,8 +66,8 @@ data class DocumentGenerationRequest(
 ) {
     init {
         // Validate that exactly one of versionId or environmentId is set
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
+        require((versionKey != null) xor (environmentKey != null)) {
+            "Exactly one of versionKey or environmentKey must be set"
         }
     }
 

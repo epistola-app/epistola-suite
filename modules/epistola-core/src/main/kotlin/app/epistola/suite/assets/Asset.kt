@@ -27,7 +27,7 @@ enum class AssetMediaType(val mimeType: String) {
  */
 data class Asset(
     val id: AssetKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val name: String,
     val mediaType: AssetMediaType,
     val sizeBytes: Long,
@@ -41,14 +41,14 @@ data class Asset(
  */
 data class AssetContent(
     val id: AssetKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val mediaType: AssetMediaType,
     val content: ByteArray,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is AssetContent) return false
-        return id == other.id && tenantId == other.tenantId
+        return id == other.id && tenantKey == other.tenantKey
     }
 
     override fun hashCode(): Int = id.hashCode()

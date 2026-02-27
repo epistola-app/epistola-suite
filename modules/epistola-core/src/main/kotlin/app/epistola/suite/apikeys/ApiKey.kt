@@ -14,7 +14,7 @@ import java.time.Instant
  */
 data class ApiKey(
     val id: ApiKeyKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val name: String,
     val keyPrefix: String,
     val enabled: Boolean,

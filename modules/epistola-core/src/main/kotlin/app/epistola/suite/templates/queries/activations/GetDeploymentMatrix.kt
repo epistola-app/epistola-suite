@@ -20,9 +20,9 @@ data class GetDeploymentMatrix(
 ) : Query<List<DeploymentMatrixCell>>
 
 data class DeploymentMatrixCell(
-    val variantId: VariantKey,
-    val environmentId: EnvironmentKey,
-    val versionId: VersionKey,
+    val variantKey: VariantKey,
+    val environmentKey: EnvironmentKey,
+    val versionKey: VersionKey,
     val activatedAt: OffsetDateTime,
 )
 

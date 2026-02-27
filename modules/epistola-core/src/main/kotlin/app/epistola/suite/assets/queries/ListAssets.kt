@@ -52,7 +52,7 @@ class ListAssetsHandler(
         q.map { rs, _ ->
             Asset(
                 id = AssetKey(rs.getObject("id", UUID::class.java)),
-                tenantId = TenantKey(rs.getString("tenant_key")),
+                tenantKey = TenantKey(rs.getString("tenant_key")),
                 name = rs.getString("name"),
                 mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                 sizeBytes = rs.getLong("size_bytes"),

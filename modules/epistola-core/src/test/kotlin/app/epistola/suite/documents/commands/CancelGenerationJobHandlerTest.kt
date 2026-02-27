@@ -3,6 +3,9 @@ package app.epistola.suite.documents.commands
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -32,16 +35,17 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant1.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId1 = TenantId(tenant1.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId1)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant1.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -67,16 +71,17 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
     @Test
     fun `cannot cancel completed job`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!

@@ -1,6 +1,8 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -167,7 +169,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("New Template")
 
             val templates = listDocumentTemplatesHandler.handle(
-                ListDocumentTemplates(tenantId = testTenant.id, searchTerm = "New Template"),
+                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "New Template"),
             )
             assertThat(templates).hasSize(1)
         }
@@ -198,7 +200,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("HTMX Template")
 
             val templates = listDocumentTemplatesHandler.handle(
-                ListDocumentTemplates(tenantId = testTenant.id, searchTerm = "HTMX Template"),
+                ListDocumentTemplates(tenantId = TenantId(testTenant.id), searchTerm = "HTMX Template"),
             )
             assertThat(templates).hasSize(1)
         }
@@ -229,7 +231,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.body).contains("Name is required")
             assertThat(response.body).contains("form-error")
 
-            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = testTenant.id))
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
             assertThat(templates).isEmpty()
         }
     }
@@ -258,7 +260,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Name is required")
 
-            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = testTenant.id))
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
             assertThat(templates).isEmpty()
         }
     }
@@ -287,7 +289,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
             assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
             assertThat(response.body).contains("Name must be 255 characters or less")
 
-            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = testTenant.id))
+            val templates = listDocumentTemplatesHandler.handle(ListDocumentTemplates(tenantId = TenantId(testTenant.id)))
             assertThat(templates).isEmpty()
         }
     }
@@ -373,8 +375,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataModel = objectMapper.valueToTree(dataModel),
                         dataExamples = dataExamples.map {
                             app.epistola.suite.templates.model.DataExample(
@@ -424,8 +425,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -498,8 +498,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -557,8 +556,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -585,7 +583,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.body).contains("Updated John")
 
                 // Verify the other example is unchanged
-                val updated = mediator.query(GetDocumentTemplate(tenantId = testTenant.id, id = template.id))
+                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, TenantId(testTenant.id))))
                 assertThat(updated).isNotNull
                 assertThat(updated!!.dataExamples).hasSize(2)
                 assertThat(updated.dataExamples.find { it.id == "example-2" }?.name).isEqualTo("Example 2")
@@ -609,8 +607,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -716,8 +713,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataModel = objectMapper.valueToTree(dataModel),
                         dataExamples = dataExamples,
                     ),
@@ -765,8 +761,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataModel = objectMapper.valueToTree(dataModel),
                         dataExamples = dataExamples,
                     ),
@@ -816,8 +811,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -837,7 +831,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 assertThat(response.statusCode).isEqualTo(HttpStatus.NO_CONTENT)
 
                 // Verify example-1 is gone, example-2 remains
-                val updated = mediator.query(GetDocumentTemplate(tenantId = testTenant.id, id = template.id))
+                val updated = mediator.query(GetDocumentTemplate(id = TemplateId(template.id, TenantId(testTenant.id))))
                 assertThat(updated).isNotNull
                 assertThat(updated!!.dataExamples).hasSize(1)
                 assertThat(updated.dataExamples[0].id).isEqualTo("example-2")
@@ -861,8 +855,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataExamples = dataExamples,
                     ),
                 )
@@ -974,8 +967,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )
@@ -1020,8 +1012,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )
@@ -1122,8 +1113,7 @@ class DocumentTemplateRoutesTest : BaseIntegrationTest() {
                 )
                 mediator.send(
                     UpdateDocumentTemplate(
-                        tenantId = testTenant.id,
-                        id = template.id,
+                        id = TemplateId(template.id, TenantId(testTenant.id)),
                         dataModel = objectMapper.valueToTree(dataModel),
                     ),
                 )

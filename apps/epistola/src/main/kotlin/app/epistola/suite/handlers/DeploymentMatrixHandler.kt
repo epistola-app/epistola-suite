@@ -97,11 +97,11 @@ class DeploymentMatrixHandler {
 
         // Build lookups keyed by underlying String values, because Thymeleaf/SpringEL
         // unwraps @JvmInline value classes to their underlying types at runtime.
-        val matrix = matrixCells.groupBy { it.variantId.value }
-            .mapValues { (_, cells) -> cells.associateBy { it.environmentId.value } }
+        val matrix = matrixCells.groupBy { it.variantKey.value }
+            .mapValues { (_, cells) -> cells.associateBy { it.environmentKey.value } }
 
         // Build lookup: variantId -> list of publishable versions
-        val versionsByVariant = publishableVersions.groupBy { it.variantId.value }
+        val versionsByVariant = publishableVersions.groupBy { it.variantKey.value }
 
         return request.htmx {
             fragment("templates/deployment-matrix", "deployment-matrix") {

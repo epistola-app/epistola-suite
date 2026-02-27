@@ -7,6 +7,6 @@ import java.time.OffsetDateTime
 data class Tenant(
     val id: TenantKey,
     val name: String,
-    val defaultThemeId: ThemeKey?,
+    val defaultThemeKey: ThemeKey?,
     val createdAt: OffsetDateTime,
 )

@@ -100,7 +100,7 @@ class UploadAssetHandler(
 
         return Asset(
             id = id,
-            tenantId = command.tenantId,
+            tenantKey = command.tenantId,
             name = command.name,
             mediaType = command.mediaType,
             sizeBytes = sizeBytes,

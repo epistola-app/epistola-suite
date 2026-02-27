@@ -69,7 +69,7 @@ class FakeDocumentGenerationExecutor(
 
             // Store fake PDF content in ContentStore
             localContentStore.put(
-                ContentKey.document(request.tenantId, documentId),
+                ContentKey.document(request.tenantKey, documentId),
                 ByteArrayInputStream(fakePdfBytes),
                 "application/pdf",
                 fakePdfBytes.size.toLong(),
@@ -115,12 +115,12 @@ class FakeDocumentGenerationExecutor(
                     """,
                 )
                     .bind("id", documentId)
-                    .bind("tenantId", request.tenantId)
-                    .bind("templateId", request.templateId)
-                    .bind("variantId", request.variantId)
-                    .bind("versionId", request.versionId ?: request.environmentId) // Use either
+                    .bind("tenantId", request.tenantKey)
+                    .bind("templateId", request.templateKey)
+                    .bind("variantId", request.variantKey)
+                    .bind("versionId", request.versionKey ?: request.environmentKey) // Use either
                     .bind("filename", filename)
-                    .bind("correlationId", request.correlationId)
+                    .bind("correlationId", request.correlationKey)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
                     .execute()
             }

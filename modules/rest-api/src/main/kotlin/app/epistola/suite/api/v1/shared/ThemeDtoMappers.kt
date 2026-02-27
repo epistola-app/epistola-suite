@@ -17,7 +17,7 @@ import tools.jackson.databind.node.ObjectNode
 
 internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
     id = id.value,
-    tenantId = tenantId.value,
+    tenantId = tenantKey.value,
     name = name,
     description = description,
     documentStyles = objectMapper.valueToTree(documentStyles),

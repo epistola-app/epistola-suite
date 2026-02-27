@@ -9,7 +9,7 @@ import java.time.OffsetDateTime
  */
 data class Environment(
     val id: EnvironmentKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val name: String,
     val createdAt: OffsetDateTime,
 )

@@ -68,10 +68,10 @@ class LoadTestExecutor(
         // Build batch items
         val batchItems = (1..run.targetCount).map { sequenceNumber ->
             BatchGenerationItem(
-                templateId = run.templateId,
-                variantId = run.variantId,
-                versionId = run.versionId,
-                environmentId = run.environmentId,
+                templateId = run.templateKey,
+                variantId = run.variantKey,
+                versionId = run.versionKey,
+                environmentId = run.environmentKey,
                 data = run.testData,
                 filename = "loadtest-${run.id}-$sequenceNumber.pdf",
                 correlationId = "loadtest-${run.id}-$sequenceNumber",
@@ -82,7 +82,7 @@ class LoadTestExecutor(
         val batchId = try {
             mediator.send(
                 GenerateDocumentBatch(
-                    tenantId = run.tenantId,
+                    tenantId = run.tenantKey,
                     items = batchItems,
                 ),
             )
@@ -352,20 +352,20 @@ class LoadTestExecutor(
     }
 
     /**
-     * Query all requests created for a batch, ordered by correlation_id sequence.
+     * Query all requests created for a batch, ordered by correlation_key sequence.
      */
     private fun queryBatchRequests(batchId: BatchKey, runId: LoadTestRunKey): List<SubmittedJob> = jdbi.withHandle<List<SubmittedJob>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, correlation_id
+                SELECT id, correlation_key
                 FROM document_generation_requests
                 WHERE batch_id = :batchId
-                ORDER BY correlation_id
+                ORDER BY correlation_key
                 """,
         )
             .bind("batchId", batchId)
             .map { rs, _ ->
-                val correlationId = rs.getString("correlation_id")
+                val correlationId = rs.getString("correlation_key")
                 val sequenceNumber = correlationId.substringAfterLast("-").toInt()
                 SubmittedJob(
                     sequenceNumber = sequenceNumber,

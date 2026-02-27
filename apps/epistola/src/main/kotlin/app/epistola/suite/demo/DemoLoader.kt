@@ -6,9 +6,7 @@ import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.common.ids.ApiKeyId
 import app.epistola.suite.common.ids.ApiKeyKey
-import app.epistola.suite.common.ids.AssetId
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -23,7 +21,6 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
-import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -107,7 +104,7 @@ class DemoLoader(
                 // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
                 val tenant = mediator.send(CreateTenant(id = TenantKey.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
                 log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
-                log.info("Tenant has default theme: {}", tenant.defaultThemeId)
+                log.info("Tenant has default theme: {}", tenant.defaultThemeKey)
 
                 // Upload demo logo asset with well-known ID
                 val logoBytes = generateDemoLogoPng()
@@ -174,7 +171,7 @@ class DemoLoader(
 
         val apiKey = ApiKey(
             id = ApiKeyKey.of(DEMO_API_KEY_ID),
-            tenantId = tenantId.key,
+            tenantKey = tenantId.key,
             name = "Demo API Key",
             keyPrefix = keyPrefix,
             enabled = true,

@@ -83,12 +83,13 @@ class CreateVariantHandler(
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
                 )
                     .bind("id", versionId)
                     .bind("tenantId", command.id.tenantKey)
+                    .bind("templateId", command.id.templateKey)
                     .bind("variantId", command.id.key)
                     .bind("templateModel", templateModelJson)
                     .execute()

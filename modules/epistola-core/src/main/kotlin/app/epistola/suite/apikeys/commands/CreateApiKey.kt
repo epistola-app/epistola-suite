@@ -38,7 +38,7 @@ class CreateApiKeyHandler(
 
         val apiKey = ApiKey(
             id = ApiKeyKey.generate(),
-            tenantId = command.tenantId,
+            tenantKey = command.tenantId,
             name = command.name,
             keyPrefix = keyPrefix,
             enabled = true,

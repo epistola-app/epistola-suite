@@ -49,10 +49,10 @@ class GetDocumentHandler(
             .map { rs, _ ->
                 Document(
                     id = DocumentKey(rs.getObject("id", UUID::class.java)),
-                    tenantId = TenantKey(rs.getString("tenant_key")),
-                    templateId = TemplateKey(rs.getString("template_key")),
-                    variantId = VariantKey(rs.getString("variant_key")),
-                    versionId = VersionKey(rs.getInt("version_key")),
+                    tenantKey = TenantKey(rs.getString("tenant_key")),
+                    templateKey = TemplateKey(rs.getString("template_key")),
+                    variantKey = VariantKey(rs.getString("variant_key")),
+                    versionKey = VersionKey(rs.getInt("version_key")),
                     filename = rs.getString("filename"),
                     correlationId = rs.getString("correlation_id"),
                     contentType = rs.getString("content_type"),

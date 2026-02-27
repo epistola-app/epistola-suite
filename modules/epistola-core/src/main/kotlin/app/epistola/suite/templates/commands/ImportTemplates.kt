@@ -151,7 +151,7 @@ class ImportTemplatesHandler(
         // Upsert draft for default variant (unless an explicit variant overrides it)
         val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
         if (!hasExplicitDefault) {
-            upsertDraft(handle, tenantId, defaultVariantId, input.templateModel)
+            upsertDraft(handle, tenantId, templateId, defaultVariantId, input.templateModel)
         }
 
         // 2. Process explicit variants
@@ -179,7 +179,7 @@ class ImportTemplatesHandler(
 
             // Upsert the draft with the variant-specific or top-level templateModel
             val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-            upsertDraft(handle, tenantId, variantId, variantTemplateModel)
+            upsertDraft(handle, tenantId, templateId, variantId, variantTemplateModel)
         }
 
         // 3. Publish to environments
@@ -205,7 +205,7 @@ class ImportTemplatesHandler(
             }
 
             for (variantId in allVariantIds) {
-                publishDraft(handle, tenantId, variantId, environmentId)
+                publishDraft(handle, tenantId, templateId, variantId, environmentId)
             }
             publishedTo.add(envSlug)
         }
@@ -224,7 +224,7 @@ class ImportTemplatesHandler(
      * Updates the existing draft if one exists, otherwise creates a new one
      * with the next available version ID.
      */
-    private fun upsertDraft(handle: Handle, tenantId: TenantId, variantId: VariantKey, templateModel: TemplateDocument) {
+    private fun upsertDraft(handle: Handle, tenantId: TenantId, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
         val updated = handle.createUpdate(
@@ -254,12 +254,13 @@ class ImportTemplatesHandler(
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
                 .bind("id", VersionKey.of(nextVersionId))
                 .bind("tenantId", tenantId.key)
+                .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
                 .execute()
@@ -271,7 +272,7 @@ class ImportTemplatesHandler(
      * Freezes the draft (status -> published), upserts the activation,
      * and auto-creates a new draft so the variant remains editable.
      */
-    private fun publishDraft(handle: Handle, tenantId: TenantId, variantId: VariantKey, environmentId: EnvironmentKey) {
+    private fun publishDraft(handle: Handle, tenantId: TenantId, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
         // Find the draft version
         val draftVersionId = handle.createQuery(
             """
@@ -304,14 +305,15 @@ class ImportTemplatesHandler(
         // Upsert activation
         handle.createUpdate(
             """
-            INSERT INTO environment_activations (tenant_key, environment_key, variant_key, version_key, activated_at)
-            VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
-            ON CONFLICT (tenant_key, environment_key, variant_key)
+            INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
+            VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
+            ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
             DO UPDATE SET version_key = :versionId, activated_at = NOW()
             """,
         )
             .bind("tenantId", tenantId.key)
             .bind("environmentId", environmentId)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
             .execute()
@@ -331,14 +333,15 @@ class ImportTemplatesHandler(
 
         handle.createUpdate(
             """
-            INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
-            VALUES (:id, :tenantId, :variantId,
+            INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+            VALUES (:id, :tenantId, :templateId, :variantId,
                     (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
                     'draft', NOW())
             """,
         )
             .bind("id", VersionKey.of(nextVersionId))
             .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("publishedId", versionId)
             .execute()

@@ -9,6 +9,9 @@ import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -203,14 +206,15 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
     fun `delete asset blocked when used in draft template version`() {
         withMediator {
             val tenant = createTenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
             val asset = UploadAsset(tenant.id, "header.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
 
-            val templateId = TestIdHelpers.nextTemplateId()
-            CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Invoice").execute()
-            val variantId = VariantKey.of("${templateId.value}-default")
+            val templateKey = TestIdHelpers.nextTemplateId()
+            val templateId = TemplateId(templateKey, tenantId)
+            CreateDocumentTemplate(id = templateId, name = "Invoice").execute()
+            val variantKey = VariantKey.of("${templateKey.value}-default")
+            val variantId = VariantId(variantKey, templateId)
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = templateId,
                 variantId = variantId,
                 templateModel = buildTemplateModelWithAsset(asset.id),
             ).execute()
@@ -225,14 +229,15 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
     @Test
     fun `find asset usages returns template info for referenced asset`() = withMediator {
         val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
         val asset = UploadAsset(tenant.id, "logo.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
 
-        val templateId = TestIdHelpers.nextTemplateId()
-        CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Welcome Letter").execute()
-        val variantId = VariantKey.of("${templateId.value}-default")
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, tenantId)
+        CreateDocumentTemplate(id = templateId, name = "Welcome Letter").execute()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
-            tenantId = tenant.id,
-            templateId = templateId,
             variantId = variantId,
             templateModel = buildTemplateModelWithAsset(asset.id),
         ).execute()
@@ -256,22 +261,21 @@ class AssetIntegrationTest : CoreIntegrationTestBase() {
     @Test
     fun `delete asset succeeds when asset removed from template`() = withMediator {
         val tenant = createTenant("Test Tenant")
+        val tenantId = TenantId(tenant.id)
         val asset = UploadAsset(tenant.id, "temp.png", AssetMediaType.PNG, testPngBytes, 1, 1).execute()
 
-        val templateId = TestIdHelpers.nextTemplateId()
-        CreateDocumentTemplate(id = templateId, tenantId = tenant.id, name = "Receipt").execute()
-        val variantId = VariantKey.of("${templateId.value}-default")
+        val templateKey = TestIdHelpers.nextTemplateId()
+        val templateId = TemplateId(templateKey, tenantId)
+        CreateDocumentTemplate(id = templateId, name = "Receipt").execute()
+        val variantKey = VariantKey.of("${templateKey.value}-default")
+        val variantId = VariantId(variantKey, templateId)
         UpdateDraft(
-            tenantId = tenant.id,
-            templateId = templateId,
             variantId = variantId,
             templateModel = buildTemplateModelWithAsset(asset.id),
         ).execute()
 
         // Remove asset from template by updating with empty model
         UpdateDraft(
-            tenantId = tenant.id,
-            templateId = templateId,
             variantId = variantId,
             templateModel = buildEmptyTemplateModel(),
         ).execute()

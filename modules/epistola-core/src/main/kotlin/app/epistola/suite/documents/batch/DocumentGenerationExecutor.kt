@@ -71,9 +71,9 @@ class DocumentGenerationExecutor(
         logger.info(
             "Processing request {} for template {}/{}/{}",
             request.id.value,
-            request.templateId.value,
-            request.variantId.value,
-            request.versionId?.value ?: request.environmentId?.value,
+            request.templateKey.value,
+            request.variantKey.value,
+            request.versionKey?.value ?: request.environmentKey?.value,
         )
 
         try {
@@ -82,7 +82,7 @@ class DocumentGenerationExecutor(
 
             // Store content first — orphaned blob is harmless, missing content is not
             contentStore.put(
-                ContentKey.document(document.tenantId, document.id),
+                ContentKey.document(document.tenantKey, document.id),
                 ByteArrayInputStream(pdfBytes),
                 document.contentType,
                 document.sizeBytes,
@@ -116,27 +116,27 @@ class DocumentGenerationExecutor(
         logger.debug(
             "Generating document for request {} (template {}/{}/{})",
             request.id.value,
-            request.templateId.value,
-            request.variantId.value,
-            request.versionId?.value ?: request.environmentId?.value,
+            request.templateKey.value,
+            request.variantKey.value,
+            request.versionKey?.value ?: request.environmentKey?.value,
         )
 
         // Build composite IDs
-        val tenantId = TenantId(request.tenantId)
-        val templateId = TemplateId(request.templateId, tenantId)
-        val variantId = VariantId(request.variantId, templateId)
+        val tenantId = TenantId(request.tenantKey)
+        val templateId = TemplateId(request.templateKey, tenantId)
+        val variantId = VariantId(request.variantKey, templateId)
 
         // 1. Resolve template version
-        val version = if (request.versionId != null) {
+        val version = if (request.versionKey != null) {
             // Use explicit version
-            val versionId = VersionId(request.versionId, variantId)
+            val versionId = VersionId(request.versionKey, variantId)
             mediator.query(GetVersion(versionId))
-                ?: throw IllegalStateException("Version ${request.versionId} not found")
+                ?: throw IllegalStateException("Version ${request.versionKey} not found")
         } else {
             // Use environment to determine active version
-            val environmentId = EnvironmentId(request.environmentId!!, tenantId)
+            val environmentId = EnvironmentId(request.environmentKey!!, tenantId)
             mediator.query(GetActiveVersion(variantId, environmentId))
-                ?: throw IllegalStateException("No active version for environment ${request.environmentId}")
+                ?: throw IllegalStateException("No active version for environment ${request.environmentKey}")
         }
 
         // 2. Get template model
@@ -144,11 +144,11 @@ class DocumentGenerationExecutor(
 
         // 3. Fetch template to get default theme
         val template = mediator.query(GetDocumentTemplate(templateId))
-            ?: throw IllegalStateException("Template ${request.templateId} not found")
+            ?: throw IllegalStateException("Template ${request.templateKey} not found")
 
         // 4. Fetch tenant to get default theme (ultimate fallback)
-        val tenant = mediator.query(GetTenant(id = request.tenantId))
-            ?: throw IllegalStateException("Tenant ${request.tenantId} not found")
+        val tenant = mediator.query(GetTenant(id = request.tenantKey))
+            ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
         // 5. Generate PDF
         val outputStream = ByteArrayOutputStream()
@@ -160,10 +160,10 @@ class DocumentGenerationExecutor(
             author = tenant.name,
         )
         val assetResolver = AssetResolver { assetId ->
-            mediator.query(GetAssetContent(request.tenantId, AssetKey.of(assetId)))
+            mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
-        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
+        generationService.renderPdf(request.tenantKey, templateModel, dataMap, outputStream, template.themeKey, tenant.defaultThemeKey, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()
@@ -180,12 +180,12 @@ class DocumentGenerationExecutor(
         // 8. Create Document entity (metadata only — content stored separately)
         val document = Document(
             id = DocumentKey.generate(),
-            tenantId = request.tenantId,
-            templateId = request.templateId,
-            variantId = request.variantId,
-            versionId = version.id,
+            tenantKey = request.tenantKey,
+            templateKey = request.templateKey,
+            variantKey = request.variantKey,
+            versionKey = version.id,
             filename = filename,
-            correlationId = request.correlationId,
+            correlationId = request.correlationKey,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
             createdAt = OffsetDateTime.now(),
@@ -238,10 +238,10 @@ class DocumentGenerationExecutor(
                 """,
             )
                 .bind("id", document.id)
-                .bind("tenantId", document.tenantId)
-                .bind("templateId", document.templateId)
-                .bind("variantId", document.variantId)
-                .bind("versionId", document.versionId)
+                .bind("tenantId", document.tenantKey)
+                .bind("templateId", document.templateKey)
+                .bind("variantId", document.variantKey)
+                .bind("versionId", document.versionKey)
                 .bind("filename", document.filename)
                 .bind("correlationId", document.correlationId)
                 .bind("contentType", document.contentType)
@@ -250,7 +250,7 @@ class DocumentGenerationExecutor(
                 .bind("createdBy", document.createdBy?.value)
                 .execute()
 
-            logger.debug("Created document {} for tenant {}", document.id.value, document.tenantId.value)
+            logger.debug("Created document {} for tenant {}", document.id.value, document.tenantKey.value)
         }
     }
 

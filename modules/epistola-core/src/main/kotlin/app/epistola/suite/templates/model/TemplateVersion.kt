@@ -22,8 +22,8 @@ enum class VersionStatus {
  */
 data class TemplateVersion(
     val id: VersionKey,
-    val tenantId: TenantKey,
-    val variantId: VariantKey,
+    val tenantKey: TenantKey,
+    val variantKey: VariantKey,
     @Json val templateModel: TemplateDocument,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,
@@ -37,8 +37,8 @@ data class TemplateVersion(
  */
 data class VersionSummary(
     val id: VersionKey,
-    val tenantId: TenantKey,
-    val variantId: VariantKey,
+    val tenantKey: TenantKey,
+    val variantKey: VariantKey,
     val status: VersionStatus,
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,

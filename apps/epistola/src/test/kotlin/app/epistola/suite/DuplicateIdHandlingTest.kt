@@ -1,9 +1,14 @@
 package app.epistola.suite
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
@@ -60,9 +65,9 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         given {
             tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
             CreateEnvironment(
-                id = EnvironmentKey.of("production"),
-                tenantId = tenant.id,
+                id = EnvironmentId(EnvironmentKey.of("production"), tenantId),
                 name = "Production",
             ).execute()
         }
@@ -94,9 +99,9 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         given {
             tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
             CreateTheme(
-                id = ThemeKey.of("my-theme"),
-                tenantId = tenant.id,
+                id = ThemeId(ThemeKey.of("my-theme"), tenantId),
                 name = "My Theme",
             ).execute()
         }
@@ -128,9 +133,9 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         given {
             tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
             CreateDocumentTemplate(
-                id = TemplateKey.of("my-template"),
-                tenantId = tenant.id,
+                id = TemplateId(TemplateKey.of("my-template"), tenantId),
                 name = "My Template",
             ).execute()
         }
@@ -162,9 +167,9 @@ class DuplicateIdHandlingTest : BaseIntegrationTest() {
 
         given {
             tenant = tenant("Test Tenant")
+            val tenantId = TenantId(tenant.id)
             CreateAttributeDefinition(
-                id = AttributeKey.of("language"),
-                tenantId = tenant.id,
+                id = AttributeId(AttributeKey.of("language"), tenantId),
                 displayName = "Language",
             ).execute()
         }

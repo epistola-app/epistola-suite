@@ -4,6 +4,9 @@ import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
@@ -28,16 +31,17 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     @Test
     fun `GetGenerationJob returns job with items`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -59,9 +63,9 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
         assertThat(job).isNotNull
         assertThat(job!!.request.id).isEqualTo(request.id)
         assertThat(job.items).hasSize(1)
-        assertThat(job.items[0].templateId).isEqualTo(template.id)
-        assertThat(job.items[0].variantId).isEqualTo(variant.id)
-        assertThat(job.items[0].versionId).isEqualTo(version.id)
+        assertThat(job.items[0].templateKey).isEqualTo(template.id)
+        assertThat(job.items[0].variantKey).isEqualTo(variant.id)
+        assertThat(job.items[0].versionKey).isEqualTo(version.id)
     }
 
     @Test
@@ -79,16 +83,17 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant1.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant1.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId1 = TenantId(tenant1.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId1)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant1.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -113,16 +118,17 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     @Test
     fun `ListGenerationJobs filters by status`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -164,16 +170,17 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     @Test
     fun `ListGenerationJobs respects pagination`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -213,16 +220,17 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     @Test
     fun `GetDocument returns document with content`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -248,7 +256,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
             }
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
-        val documentId = job.items[0].documentId!!
+        val documentId = job.items[0].documentKey!!
 
         val document = mediator.query(GetDocument(tenant.id, documentId))
 
@@ -279,11 +287,17 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     @Test
     fun `ListDocuments filters by template`() {
         val tenant = createTenant("Test Tenant")
-        val template1 = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Template 1"))
-        val template2 = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Template 2"))
+        val tenantId = TenantId(tenant.id)
 
-        val variant1 = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template1.id, title = "Default", description = null, attributes = emptyMap()))!!
-        val variant2 = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template2.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val templateId1 = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template1 = mediator.send(CreateDocumentTemplate(id = templateId1, name = "Template 1"))
+        val templateId2 = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template2 = mediator.send(CreateDocumentTemplate(id = templateId2, name = "Template 2"))
+
+        val variantId1 = VariantId(TestIdHelpers.nextVariantId(), templateId1)
+        val variant1 = mediator.send(CreateVariant(id = variantId1, title = "Default", description = null, attributes = emptyMap()))!!
+        val variantId2 = VariantId(TestIdHelpers.nextVariantId(), templateId2)
+        val variant2 = mediator.send(CreateVariant(id = variantId2, title = "Default", description = null, attributes = emptyMap()))!!
 
         val templateModel1 = TestTemplateBuilder.buildMinimal(
             name = "Template 1",
@@ -293,17 +307,13 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
         )
         val version1 = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template1.id,
-                variantId = variant1.id,
+                variantId = variantId1,
                 templateModel = templateModel1,
             ),
         )!!
         val version2 = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template2.id,
-                variantId = variant2.id,
+                variantId = variantId2,
                 templateModel = templateModel2,
             ),
         )!!

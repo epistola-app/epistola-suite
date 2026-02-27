@@ -55,7 +55,7 @@ class JdbiApiKeyRepository(
                 """,
             )
                 .bind("id", apiKey.id)
-                .bind("tenantId", apiKey.tenantId)
+                .bind("tenantId", apiKey.tenantKey)
                 .bind("name", apiKey.name)
                 .bind("keyHash", keyHash)
                 .bind("keyPrefix", apiKey.keyPrefix)

@@ -1,5 +1,6 @@
 package app.epistola.suite.tenants
 
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.HxSwap
@@ -30,14 +31,15 @@ class TenantHandler {
      * Show tenant home page with navigation to templates, themes, load tests, etc.
      */
     fun home(request: ServerRequest): ServerResponse {
-        val tenantId = TenantKey.of(request.pathVariable("tenantId"))
-        val tenant = GetTenant(tenantId).query()
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val tenant = GetTenant(tenantKey).query()
             ?: return ServerResponse.notFound().build()
 
         // Get counts for each section
         val templateCount = ListDocumentTemplates(tenantId).query().size
         val themeCount = ListThemes(tenantId).query().size
-        val loadTestCount = ListLoadTestRuns(tenantId, limit = 100).query().size
+        val loadTestCount = ListLoadTestRuns(tenantKey, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 
         return ServerResponse.ok().render(
@@ -45,7 +47,7 @@ class TenantHandler {
             mapOf(
                 "contentView" to "tenants/home",
                 "pageTitle" to "${tenant.name} - Epistola",
-                "tenantId" to tenantId,
+                "tenantId" to tenantKey,
                 "tenant" to tenant,
                 "templateCount" to templateCount,
                 "themeCount" to themeCount,

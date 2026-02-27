@@ -54,11 +54,11 @@ import java.time.OffsetDateTime
 data class LoadTestRun(
     val id: LoadTestRunKey,
     val batchId: BatchKey?,
-    val tenantId: TenantKey,
-    val templateId: TemplateKey,
-    val variantId: VariantKey,
-    val versionId: VersionKey?,
-    val environmentId: EnvironmentKey?,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
+    val variantKey: VariantKey,
+    val versionKey: VersionKey?,
+    val environmentKey: EnvironmentKey?,
     val targetCount: Int,
     val concurrencyLevel: Int,
     @Json val testData: ObjectNode,
@@ -83,8 +83,8 @@ data class LoadTestRun(
     val completedAt: OffsetDateTime?,
 ) {
     init {
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
+        require((versionKey != null) xor (environmentKey != null)) {
+            "Exactly one of versionKey or environmentKey must be set"
         }
         require(targetCount in 1..10000) {
             "Target count must be between 1 and 10000, got $targetCount"

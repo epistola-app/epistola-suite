@@ -96,13 +96,14 @@ class CreateVersionHandler(
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_key, variant_key, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
             .bind("id", versionId)
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()

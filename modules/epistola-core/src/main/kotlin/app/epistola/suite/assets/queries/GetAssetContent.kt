@@ -62,7 +62,7 @@ class GetAssetContentHandler(
 
         return AssetContent(
             id = metadata.id,
-            tenantId = metadata.tenantId,
+            tenantKey = metadata.tenantId,
             mediaType = metadata.mediaType,
             content = stored.content.readAllBytes(),
         )

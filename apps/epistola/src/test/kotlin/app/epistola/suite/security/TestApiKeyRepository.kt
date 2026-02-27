@@ -19,7 +19,7 @@ class TestApiKeyRepository(
         keys[keyHash] = apiKey
     }
 
-    override fun listByTenantId(tenantId: TenantKey): List<ApiKey> = keys.values.filter { it.tenantId == tenantId }
+    override fun listByTenantId(tenantId: TenantKey): List<ApiKey> = keys.values.filter { it.tenantKey == tenantId }
 
     override fun disable(id: ApiKeyKey): Boolean {
         val entry = keys.entries.find { it.value.id == id } ?: return false

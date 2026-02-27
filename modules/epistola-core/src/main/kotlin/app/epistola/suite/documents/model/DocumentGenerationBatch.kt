@@ -20,7 +20,7 @@ import java.time.OffsetDateTime
  */
 data class DocumentGenerationBatch(
     val id: BatchKey,
-    val tenantId: TenantKey,
+    val tenantKey: TenantKey,
     val totalCount: Int,
     val completedCount: Int,
     val failedCount: Int,
