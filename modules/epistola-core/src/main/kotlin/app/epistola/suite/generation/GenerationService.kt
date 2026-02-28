@@ -13,6 +13,7 @@ import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.templates.validation.ValidationError
+import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.suite.themes.ThemeStyleResolver
 import app.epistola.template.model.TemplateDocument
 import org.springframework.stereotype.Service
@@ -84,6 +85,39 @@ class GenerationService(
             outputStream = outputStream,
             blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
             resolvedDocumentStyles = resolvedStyles.documentStyles,
+            metadata = metadata,
+            pdfaCompliant = pdfaCompliant,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+        )
+    }
+
+    /**
+     * Renders a PDF using a pre-resolved theme snapshot (for published versions).
+     * Bypasses live theme resolution entirely for deterministic output.
+     *
+     * @param templateModel The template document
+     * @param data The data context for expression evaluation
+     * @param outputStream The output stream to write the PDF to
+     * @param themeSnapshot The frozen theme snapshot from publish time
+     * @param renderingDefaults The versioned rendering defaults from publish time
+     */
+    fun renderPdfWithSnapshot(
+        templateModel: TemplateDocument,
+        data: Map<String, Any?>,
+        outputStream: OutputStream,
+        themeSnapshot: ResolvedThemeSnapshot,
+        renderingDefaults: RenderingDefaults,
+        metadata: PdfMetadata = PdfMetadata(),
+        pdfaCompliant: Boolean = false,
+        assetResolver: AssetResolver? = null,
+    ) {
+        pdfRenderer.render(
+            document = templateModel,
+            data = data,
+            outputStream = outputStream,
+            blockStylePresets = themeSnapshot.blockStylePresets,
+            resolvedDocumentStyles = themeSnapshot.documentStyles,
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,

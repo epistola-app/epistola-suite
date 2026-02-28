@@ -3,6 +3,7 @@ package app.epistola.suite.templates.model
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.themes.ResolvedThemeSnapshot
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
@@ -29,6 +30,10 @@ data class TemplateVersion(
     val createdAt: OffsetDateTime,
     val publishedAt: OffsetDateTime?,
     val archivedAt: OffsetDateTime?,
+    /** Version of RenderingDefaults frozen at publish time. Null for drafts and legacy published versions. */
+    val renderingDefaultsVersion: Int? = null,
+    /** Theme snapshot frozen at publish time. Null for drafts and legacy published versions. */
+    @Json val resolvedTheme: ResolvedThemeSnapshot? = null,
 )
 
 /**
