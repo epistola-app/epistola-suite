@@ -1,0 +1,7 @@
+--- PAGE 1 ---
+Main Title
+This is a paragraph with regular text content.
+Section Header
+Another paragraph with different content to verify spacing.
+Subsection
+Final paragraph in the text regression test.
