@@ -175,6 +175,7 @@ class DirectPdfRenderer(
         metadata.author?.let { info.setAuthor(it) }
         metadata.subject?.let { info.setSubject(it) }
         info.setCreator(metadata.creator)
+        metadata.engineVersion?.let { info.setMoreInfo("EngineVersion", it) }
     }
 
     private fun getPageSize(format: PageFormat, orientation: Orientation): PageSize {

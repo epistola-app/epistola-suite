@@ -56,6 +56,9 @@ data class RenderingDefaults(
     val baseFontSizePt: Float,
 ) {
     companion object {
+        /** iText Core version used at build time. Update when upgrading iText. */
+        private const val ITEXT_VERSION = "9.5.0"
+
         /**
          * V1: Initial rendering defaults capturing all hardcoded values as of the first release.
          * These values must NEVER be changed — create V2 instead.
@@ -119,4 +122,10 @@ data class RenderingDefaults(
 
     /** Component default styles for the given component type, or null if not defined. */
     fun componentDefaults(componentType: String): Map<String, Any>? = componentSpacing[componentType]
+
+    /**
+     * Engine version string for embedding in PDF metadata.
+     * Format: `"epistola-gen-<version>+itext-<itext-version>"`.
+     */
+    fun engineVersionString(): String = "epistola-gen-$version+itext-$ITEXT_VERSION"
 }

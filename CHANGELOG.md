@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **Deterministic PDF rendering**: Three-layer defense ensuring same template + same data = same PDF output, even across Epistola upgrades.
+  - **Versioned rendering defaults**: All hardcoded rendering constants (font sizes, margins, spacing, borders) centralized in `RenderingDefaults`. Published template versions record which defaults version was in effect. Old versions render with their original defaults forever.
+  - **Theme snapshot at publish time**: When a template version is published, the full resolved theme cascade is frozen as a `ResolvedThemeSnapshot`. Published documents render with the theme as it was at publish time, not the current live theme.
+  - **Visual regression tests**: Canonical templates rendered against stored baselines catch accidental rendering changes from code modifications, library upgrades, or constant changes. Run with `-DupdateBaselines=true` to regenerate baselines after deliberate changes.
+  - **Engine version tracking**: Every generated PDF embeds an `EngineVersion` metadata field (e.g., `epistola-gen-1+itext-9.5.0`) for traceability.
+- **Rendering upgrade documentation**: `docs/rendering-upgrades.md` documents procedures for iText upgrades, rendering defaults changes, and engine version tracking.
+
 ### Fixed
 - **GetEditorContext query**: Added missing `template_key` to the LEFT JOIN on `template_versions`, preventing potential cross-template draft version matching when two templates share a variant slug.
 

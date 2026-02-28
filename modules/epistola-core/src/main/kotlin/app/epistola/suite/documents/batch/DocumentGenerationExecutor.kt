@@ -171,18 +171,22 @@ class DocumentGenerationExecutor(
         if (resolvedTheme != null && renderingDefaultsVersion != null) {
             // Deterministic path: use frozen theme + rendering defaults from publish time
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
+            val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
             generationService.renderPdfWithSnapshot(
                 templateModel,
                 dataMap,
                 outputStream,
                 resolvedTheme,
                 renderingDefaults,
-                metadata,
+                metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
             )
         } else {
             // Legacy path: live theme resolution (backward compatible for pre-V16 published versions)
+            val metadataWithEngine = metadata.copy(
+                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
+            )
             generationService.renderPdf(
                 request.tenantKey,
                 templateModel,
@@ -190,7 +194,7 @@ class DocumentGenerationExecutor(
                 outputStream,
                 template.themeKey,
                 tenant.defaultThemeKey,
-                metadata,
+                metadataWithEngine,
                 pdfaCompliant = template.pdfaEnabled,
                 assetResolver = assetResolver,
             )
