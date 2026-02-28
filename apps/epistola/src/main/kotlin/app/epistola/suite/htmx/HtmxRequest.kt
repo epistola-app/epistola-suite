@@ -1,5 +1,19 @@
 package app.epistola.suite.htmx
 
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import org.springframework.web.servlet.function.ServerRequest
 
 /**
@@ -51,6 +65,68 @@ val ServerRequest.htmxBoosted: Boolean
  * ```
  */
 fun <T> ServerRequest.pathId(name: String, parse: (String) -> T?): T? = parse(pathVariable(name))
+
+// -- Composite ID extraction from path variables ---------------------------------------------------
+
+/**
+ * Extract a [TenantId] from the `tenantId` path variable.
+ */
+fun ServerRequest.tenantId(): TenantId = TenantId(TenantKey.of(pathVariable("tenantId")))
+
+/**
+ * Extract and validate a [TemplateId] from the `id` path variable.
+ * Returns null if the template key is invalid.
+ */
+fun ServerRequest.templateId(tenantId: TenantId): TemplateId? {
+    val key = TemplateKey.validateOrNull(pathVariable("id")) ?: return null
+    return TemplateId(key, tenantId)
+}
+
+/**
+ * Extract and validate a [VariantId] from the `variantId` path variable.
+ * Returns null if the variant key is invalid.
+ */
+fun ServerRequest.variantId(templateId: TemplateId): VariantId? {
+    val key = VariantKey.validateOrNull(pathVariable("variantId")) ?: return null
+    return VariantId(key, templateId)
+}
+
+/**
+ * Extract and validate a [VersionId] from the `versionId` path variable.
+ * Returns null if the version number is invalid or out of range.
+ */
+fun ServerRequest.versionId(variantId: VariantId): VersionId? {
+    val versionInt = pathVariable("versionId").toIntOrNull() ?: return null
+    if (versionInt !in VersionKey.MIN_VERSION..VersionKey.MAX_VERSION) return null
+    return VersionId(VersionKey.of(versionInt), variantId)
+}
+
+/**
+ * Extract and validate a [ThemeId] from the `themeId` path variable.
+ * Returns null if the theme key is invalid.
+ */
+fun ServerRequest.themeId(tenantId: TenantId): ThemeId? {
+    val key = ThemeKey.validateOrNull(pathVariable("themeId")) ?: return null
+    return ThemeId(key, tenantId)
+}
+
+/**
+ * Extract and validate an [EnvironmentId] from the `environmentId` path variable.
+ * Returns null if the environment key is invalid.
+ */
+fun ServerRequest.environmentId(tenantId: TenantId): EnvironmentId? {
+    val key = EnvironmentKey.validateOrNull(pathVariable("environmentId")) ?: return null
+    return EnvironmentId(key, tenantId)
+}
+
+/**
+ * Extract and validate an [AttributeId] from the `attributeId` path variable.
+ * Returns null if the attribute key is invalid.
+ */
+fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
+    val key = AttributeKey.validateOrNull(pathVariable("attributeId")) ?: return null
+    return AttributeId(key, tenantId)
+}
 
 /**
  * Get a query parameter with optional default value.

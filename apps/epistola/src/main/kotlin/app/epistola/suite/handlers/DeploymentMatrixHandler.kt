@@ -12,6 +12,8 @@ import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.templateId
+import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.activations.RemoveActivation
@@ -30,23 +32,17 @@ import org.springframework.web.servlet.function.ServerResponse
 class DeploymentMatrixHandler {
 
     fun deploymentMatrix(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateIdStr = request.pathVariable("id")
-        val templateKey = TemplateKey.validateOrNull(templateIdStr)
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
 
-        return renderMatrix(request, tenantKey, templateKey, templateId)
+        return renderMatrix(request, tenantId.key, templateId.key, templateId)
     }
 
     fun updateDeployment(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateIdStr = request.pathVariable("id")
-        val templateKey = TemplateKey.validateOrNull(templateIdStr)
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
 
         val variantIdStr = request.params().getFirst("variantId")
             ?: return ServerResponse.badRequest().build()
@@ -80,7 +76,7 @@ class DeploymentMatrixHandler {
             ).execute()
         }
 
-        return renderMatrix(request, tenantKey, templateKey, templateId)
+        return renderMatrix(request, tenantId.key, templateId.key, templateId)
     }
 
     private fun renderMatrix(

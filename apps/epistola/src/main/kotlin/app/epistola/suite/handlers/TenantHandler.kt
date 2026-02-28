@@ -1,6 +1,5 @@
 package app.epistola.suite.tenants
 
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.HxSwap
@@ -8,6 +7,7 @@ import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -31,15 +31,14 @@ class TenantHandler {
      * Show tenant home page with navigation to templates, themes, load tests, etc.
      */
     fun home(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val tenant = GetTenant(tenantKey).query()
+        val tenantId = request.tenantId()
+        val tenant = GetTenant(tenantId.key).query()
             ?: return ServerResponse.notFound().build()
 
         // Get counts for each section
         val templateCount = ListDocumentTemplates(tenantId).query().size
         val themeCount = ListThemes(tenantId).query().size
-        val loadTestCount = ListLoadTestRuns(tenantKey, limit = 100).query().size
+        val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 
         return ServerResponse.ok().render(
@@ -47,7 +46,7 @@ class TenantHandler {
             mapOf(
                 "contentView" to "tenants/home",
                 "pageTitle" to "${tenant.name} - Epistola",
-                "tenantId" to tenantKey,
+                "tenantId" to tenantId.key,
                 "tenant" to tenant,
                 "templateCount" to templateCount,
                 "themeCount" to themeCount,

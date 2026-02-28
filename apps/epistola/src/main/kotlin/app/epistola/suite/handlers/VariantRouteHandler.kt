@@ -2,12 +2,13 @@ package app.epistola.suite.templates
 
 import app.epistola.suite.attributes.queries.ListAttributeDefinitions
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.htmx.htmx
+import app.epistola.suite.htmx.templateId
+import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -31,11 +32,9 @@ import org.springframework.web.servlet.function.ServerResponse
 class VariantRouteHandler {
 
     fun createVariant(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
 
         val slug = request.params().getFirst("slug")?.trim()
         val variantKey = if (slug != null) VariantKey.validateOrNull(slug) else null
@@ -62,14 +61,11 @@ class VariantRouteHandler {
     }
 
     fun editVariantForm(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
-        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
+        val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
-        val variantId = VariantId(variantKey, templateId)
 
         val variant = GetVariant(variantId = variantId).query()
             ?: return ServerResponse.notFound().build()
@@ -78,8 +74,8 @@ class VariantRouteHandler {
 
         return request.htmx {
             fragment("templates/detail", "edit-variant-form") {
-                "tenantId" to tenantKey.value
-                "templateId" to templateKey
+                "tenantId" to tenantId.key.value
+                "templateId" to templateId.key
                 "variant" to variant
                 "attributeDefinitions" to attributeDefinitions
             }
@@ -87,14 +83,11 @@ class VariantRouteHandler {
     }
 
     fun updateVariant(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
-        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
+        val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
-        val variantId = VariantId(variantKey, templateId)
 
         val title = request.params().getFirst("title")?.trim()?.takeIf { it.isNotEmpty() }
         val attributes = readAttributesFromForm(request, tenantId)
@@ -112,24 +105,21 @@ class VariantRouteHandler {
 
         return request.htmx {
             fragment("templates/detail", "variants-section") {
-                "tenantId" to tenantKey.value
+                "tenantId" to tenantId.key.value
                 "template" to template
                 "variants" to variants
                 "attributeDefinitions" to attributeDefinitions
             }
-            onNonHtmx { redirect("/tenants/${tenantKey.value}/templates/$templateKey") }
+            onNonHtmx { redirect("/tenants/${tenantId.key.value}/templates/${templateId.key}") }
         }
     }
 
     fun setDefaultVariant(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
-        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
+        val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
-        val variantId = VariantId(variantKey, templateId)
 
         SetDefaultVariant(variantId = variantId).execute()
 
@@ -137,14 +127,11 @@ class VariantRouteHandler {
     }
 
     fun deleteVariant(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
-        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
+        val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
-        val variantId = VariantId(variantKey, templateId)
 
         try {
             DeleteVariant(variantId = variantId).execute()

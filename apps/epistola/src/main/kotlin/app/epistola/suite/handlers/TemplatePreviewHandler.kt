@@ -4,13 +4,10 @@ import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TemplateKey
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.htmx.templateId
+import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.versions.GetPreviewContext
 import org.springframework.http.HttpHeaders
@@ -49,14 +46,11 @@ class TemplatePreviewHandler(
      * instead of fetching from the database. This enables live preview of unsaved changes.
      */
     fun preview(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val templateKey = TemplateKey.validateOrNull(request.pathVariable("id"))
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val templateId = TemplateId(templateKey, tenantId)
-        val variantKey = VariantKey.validateOrNull(request.pathVariable("variantId"))
+        val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
-        val variantId = VariantId(variantKey, templateId)
 
         // Parse the request body
         val previewRequest: PreviewRequest = try {
@@ -74,8 +68,8 @@ class TemplatePreviewHandler(
 
         // Validate data against schema BEFORE starting the streaming response
         val validationResult = generationService.validatePreviewData(
-            tenantKey,
-            templateKey,
+            tenantId.key,
+            templateId.key,
             data,
         )
         if (!validationResult.valid) {
@@ -105,7 +99,7 @@ class TemplatePreviewHandler(
         }
 
         val assetResolver = AssetResolver { assetIdStr ->
-            GetAssetContent(tenantKey, AssetKey.of(assetIdStr)).query()
+            GetAssetContent(tenantId.key, AssetKey.of(assetIdStr)).query()
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
 
@@ -114,7 +108,7 @@ class TemplatePreviewHandler(
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
             .build { _, response ->
                 generationService.renderPdf(
-                    tenantKey,
+                    tenantId.key,
                     templateModel,
                     data,
                     response.outputStream,

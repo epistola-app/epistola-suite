@@ -1,15 +1,14 @@
 package app.epistola.suite.themes
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
-import app.epistola.suite.htmx.pathId
 import app.epistola.suite.htmx.queryParam
+import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.themeId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.DocumentStyles
@@ -46,45 +45,42 @@ class ThemeHandler(
     private val objectMapper: ObjectMapper,
 ) {
     fun list(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val tenant = GetTenant(id = tenantKey).query()
+        val tenantId = request.tenantId()
+        val tenant = GetTenant(id = tenantId.key).query()
         val themes = ListThemes(tenantId = tenantId).query()
         return ServerResponse.ok().page("themes/list") {
             "pageTitle" to "Themes - Epistola"
-            "tenantId" to tenantKey
+            "tenantId" to tenantId.key
             "tenant" to tenant
             "themes" to themes
         }
     }
 
     fun search(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
+        val tenantId = request.tenantId()
         val searchTerm = request.queryParam("q")
-        val tenant = GetTenant(id = tenantKey).query()
+        val tenant = GetTenant(id = tenantId.key).query()
         val themes = ListThemes(tenantId = tenantId, searchTerm = searchTerm).query()
         return request.htmx {
             fragment("themes/list", "rows") {
-                "tenantId" to tenantKey
+                "tenantId" to tenantId.key
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/$tenantKey/themes") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
         }
     }
 
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = request.tenantId()
         return ServerResponse.ok().page("themes/new") {
             "pageTitle" to "New Theme - Epistola"
-            "tenantId" to tenantKey
+            "tenantId" to tenantId.key
         }
     }
 
     fun create(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
+        val tenantId = request.tenantId()
 
         val form = request.form {
             field("slug") {
@@ -103,7 +99,7 @@ class ThemeHandler(
         if (form.hasErrors()) {
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
-                "tenantId" to tenantKey
+                "tenantId" to tenantId.key
                 "formData" to form.formData
                 "errors" to form.errors
             }
@@ -115,7 +111,7 @@ class ThemeHandler(
             val errors = mapOf("slug" to "Invalid theme ID format")
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
-                "tenantId" to tenantKey
+                "tenantId" to tenantId.key
                 "formData" to form.formData
                 "errors" to errors
             }
@@ -135,24 +131,23 @@ class ThemeHandler(
         if (result.hasErrors()) {
             return ServerResponse.ok().page("themes/new") {
                 "pageTitle" to "New Theme - Epistola"
-                "tenantId" to tenantKey
+                "tenantId" to tenantId.key
                 "formData" to result.formData
                 "errors" to result.errors
             }
         }
 
         return ServerResponse.status(303)
-            .header("Location", "/tenants/$tenantKey/themes/$themeKey")
+            .header("Location", "/tenants/${tenantId.key}/themes/$themeKey")
             .build()
     }
 
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val themeKey = request.pathId("themeId") { ThemeKey.validateOrNull(it) }
+        val tenantId = request.tenantId()
+        val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
-        val theme = GetTheme(id = ThemeId(themeKey, tenantId)).query()
+        val theme = GetTheme(id = themeId).query()
             ?: return ServerResponse.notFound().build()
 
         // Serialize theme data as JSON for the Lit component
@@ -167,23 +162,22 @@ class ThemeHandler(
 
         return ServerResponse.ok().page("themes/detail") {
             "pageTitle" to "${theme.name} - Epistola"
-            "tenantId" to tenantKey
+            "tenantId" to tenantId.key
             "theme" to theme
             "themeJson" to themeJson
         }
     }
 
     fun update(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val themeKey = ThemeKey.validateOrNull(request.pathVariable("themeId"))
+        val tenantId = request.tenantId()
+        val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
         val body = request.body(String::class.java)
         val updateRequest = objectMapper.readValue(body, UpdateThemeRequest::class.java)
 
         val theme = UpdateTheme(
-            id = ThemeId(themeKey, tenantId),
+            id = themeId,
             name = updateRequest.name,
             description = updateRequest.description,
             clearDescription = updateRequest.clearDescription,
@@ -211,13 +205,12 @@ class ThemeHandler(
     }
 
     fun delete(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
-        val themeKey = ThemeKey.validateOrNull(request.pathVariable("themeId"))
+        val tenantId = request.tenantId()
+        val themeId = request.themeId(tenantId)
             ?: return ServerResponse.badRequest().build()
 
         try {
-            DeleteTheme(id = ThemeId(themeKey, tenantId)).execute()
+            DeleteTheme(id = themeId).execute()
         } catch (e: ThemeInUseException) {
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -229,15 +222,15 @@ class ThemeHandler(
         }
 
         // Return updated rows for HTMX
-        val tenant = GetTenant(id = tenantKey).query()
+        val tenant = GetTenant(id = tenantId.key).query()
         val themes = ListThemes(tenantId = tenantId).query()
         return request.htmx {
             fragment("themes/list", "rows") {
-                "tenantId" to tenantKey
+                "tenantId" to tenantId.key
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/$tenantKey/themes") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
         }
     }
 
@@ -245,8 +238,7 @@ class ThemeHandler(
      * Sets the default theme for a tenant.
      */
     fun setDefault(request: ServerRequest): ServerResponse {
-        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
-        val tenantId = TenantId(tenantKey)
+        val tenantId = request.tenantId()
         val themeIdStr = request.params().getFirst("themeId")
             ?: return ServerResponse.badRequest().build()
         val themeKey = ThemeKey.validateOrNull(themeIdStr)
@@ -254,7 +246,7 @@ class ThemeHandler(
 
         try {
             SetTenantDefaultTheme(
-                tenantId = tenantKey,
+                tenantId = tenantId.key,
                 themeId = themeKey,
             ).execute()
         } catch (e: ThemeNotFoundException) {
@@ -262,15 +254,15 @@ class ThemeHandler(
         }
 
         // Return updated rows for HTMX
-        val tenant = GetTenant(id = tenantKey).query()
+        val tenant = GetTenant(id = tenantId.key).query()
         val themes = ListThemes(tenantId = tenantId).query()
         return request.htmx {
             fragment("themes/list", "rows") {
-                "tenantId" to tenantKey
+                "tenantId" to tenantId.key
                 "tenant" to tenant
                 "themes" to themes
             }
-            onNonHtmx { redirect("/tenants/$tenantKey/themes") }
+            onNonHtmx { redirect("/tenants/${tenantId.key}/themes") }
         }
     }
 }
