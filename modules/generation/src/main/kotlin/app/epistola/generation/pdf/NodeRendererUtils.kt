@@ -3,6 +3,9 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.BorderStyle
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
+import com.itextpdf.kernel.colors.Color
+import com.itextpdf.kernel.colors.ColorConstants
+import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.borders.Border
 import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.layout.element.Cell
@@ -90,4 +93,23 @@ internal fun applyCellBorder(
             cell.setBorder(Border.NO_BORDER)
         }
     }
+}
+
+/**
+ * Parses a hex color string (e.g. "#808080") into an iText [Color].
+ * Returns [ColorConstants.GRAY] if parsing fails.
+ */
+internal fun parseHexBorderColor(hex: String): Color = try {
+    val clean = hex.removePrefix("#")
+    if (clean.length == 6) {
+        DeviceRgb(
+            clean.substring(0, 2).toInt(16),
+            clean.substring(2, 4).toInt(16),
+            clean.substring(4, 6).toInt(16),
+        )
+    } else {
+        ColorConstants.GRAY
+    }
+} catch (_: Exception) {
+    ColorConstants.GRAY
 }

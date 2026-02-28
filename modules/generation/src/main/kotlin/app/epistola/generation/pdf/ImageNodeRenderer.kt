@@ -84,7 +84,7 @@ class ImageNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
-            StyleApplicator.COMPONENT_DEFAULTS["image"],
+            context.renderingDefaults.componentDefaults("image"),
         )
         div.add(image)
 

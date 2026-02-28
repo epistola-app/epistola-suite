@@ -25,4 +25,6 @@ data class RenderContext(
     val document: TemplateDocument,
     /** Optional asset resolver for loading image content during rendering */
     val assetResolver: AssetResolver? = null,
+    /** Versioned rendering defaults (font sizes, spacing, borders, etc.) */
+    val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
 )

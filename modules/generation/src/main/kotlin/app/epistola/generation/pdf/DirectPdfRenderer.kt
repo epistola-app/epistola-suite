@@ -4,10 +4,8 @@ import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
 import app.epistola.template.model.ExpressionLanguage
-import app.epistola.template.model.Margins
 import app.epistola.template.model.Orientation
 import app.epistola.template.model.PageFormat
-import app.epistola.template.model.PageSettings
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.PageSize
 import com.itextpdf.kernel.pdf.PdfAConformance
@@ -18,15 +16,6 @@ import com.itextpdf.kernel.pdf.event.PdfDocumentEvent
 import com.itextpdf.layout.Document
 import com.itextpdf.pdfa.PdfADocument
 import java.io.OutputStream
-
-/**
- * Default page settings used when a template document does not specify overrides.
- */
-private val DEFAULT_PAGE_SETTINGS = PageSettings(
-    format = PageFormat.A4,
-    orientation = Orientation.portrait,
-    margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
-)
 
 /**
  * Main PDF renderer that orchestrates node rendering and outputs to a stream.
@@ -69,6 +58,7 @@ class DirectPdfRenderer(
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
+        renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     ) {
         val writer = PdfWriter(outputStream)
         val pdfDocument = if (pdfaCompliant) {
@@ -81,8 +71,8 @@ class DirectPdfRenderer(
         // Set document metadata
         applyMetadata(pdfDocument, metadata)
 
-        // Resolve page settings: template override, or default
-        val pageSettings = document.pageSettingsOverride ?: DEFAULT_PAGE_SETTINGS
+        // Resolve page settings: template override, or versioned default
+        val pageSettings = document.pageSettingsOverride ?: renderingDefaults.defaultPageSettings
         val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
         val iTextDocument = Document(pdfDocument, pageSize)
 
@@ -102,7 +92,7 @@ class DirectPdfRenderer(
 
         // Create render context
         val fontCache = FontCache(pdfaCompliant)
-        val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage)
+        val tipTapConverter = TipTapConverter(expressionEvaluator, defaultExpressionLanguage, renderingDefaults)
         val context = RenderContext(
             data = data,
             loopContext = emptyMap(),
@@ -114,6 +104,7 @@ class DirectPdfRenderer(
             blockStylePresets = blockStylePresets,
             document = document,
             assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
         )
 
         // Set default font on the document so all text uses embedded Liberation Sans

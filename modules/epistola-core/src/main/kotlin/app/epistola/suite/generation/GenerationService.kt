@@ -3,6 +3,7 @@ package app.epistola.suite.generation
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -67,6 +68,7 @@ class GenerationService(
         metadata: PdfMetadata = PdfMetadata(),
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
+        renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     ) {
         // Resolve styles from theme (variant-level > template-level > tenant-level)
         val resolvedStyles = themeStyleResolver.resolveStyles(
@@ -85,6 +87,7 @@ class GenerationService(
             metadata = metadata,
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
         )
     }
 

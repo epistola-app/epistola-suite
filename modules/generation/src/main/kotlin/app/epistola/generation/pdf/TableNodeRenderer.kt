@@ -2,7 +2,6 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
-import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Table
@@ -56,14 +55,14 @@ class TableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
-            StyleApplicator.COMPONENT_DEFAULTS["table"],
+            context.renderingDefaults.componentDefaults("table"),
         )
 
         // Border style
         val borderStyle = parseBorderStyle(node.props?.get("borderStyle") as? String)
 
-        val borderColor = ColorConstants.GRAY
-        val borderWidth = 0.5f
+        val borderColor = parseHexBorderColor(context.renderingDefaults.tableBorderColorHex)
+        val borderWidth = context.renderingDefaults.tableBorderWidth
         val headerRows = (node.props?.get("headerRows") as? Number)?.toInt() ?: 0
 
         // Parse merge definitions and build a set of covered cells
@@ -89,7 +88,7 @@ class TableNodeRenderer : NodeRenderer {
                 val colSpan = merge?.colSpan ?: 1
 
                 val cell = Cell(rowSpan, colSpan)
-                cell.setPadding(8f)
+                cell.setPadding(context.renderingDefaults.tableCellPadding)
 
                 // Apply border based on border style
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)
