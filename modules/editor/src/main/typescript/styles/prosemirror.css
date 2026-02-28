@@ -94,7 +94,9 @@
    * ----------------------------------------------------------------------- */
 
   .expression-chip {
-    display: inline;
+    display: inline-flex;
+    align-items: baseline;
+    max-width: 100%;
     padding: 1px 8px;
     border-radius: var(--ep-radius-full);
     background: var(--ep-blue-50);
@@ -115,6 +117,17 @@
       background: var(--ep-blue-100);
       box-shadow: var(--ep-shadow-sm);
     }
+  }
+
+  .expression-chip-brace {
+    flex-shrink: 0;
+  }
+
+  .expression-chip-content {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* -----------------------------------------------------------------------

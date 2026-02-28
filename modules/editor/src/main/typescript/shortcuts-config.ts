@@ -36,6 +36,7 @@ export type LeaderShortcutCommandId =
   | 'duplicate-selected-block'
   | 'open-insert-dialog'
   | 'open-shortcuts-help'
+  | 'open-data-preview'
   | 'focus-blocks-panel'
   | 'focus-structure-panel'
   | 'focus-inspector-panel'
@@ -205,6 +206,14 @@ export const EDITOR_SHORTCUTS_CONFIG = {
         action: 'Open shortcuts help',
         successMessage: 'Opened shortcuts help',
         idleToken: '?',
+      },
+      {
+        id: 'open-data-preview',
+        keys: ['e'],
+        helpKeys: 'Leader + E',
+        action: 'Open current data example',
+        successMessage: 'Opened data example viewer',
+        idleToken: 'E',
       },
       {
         id: 'focus-blocks-panel',
