@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+- **GetEditorContext query**: Added missing `template_key` to the LEFT JOIN on `template_versions`, preventing potential cross-template draft version matching when two templates share a variant slug.
+
 ### Changed
+- **Handler ID extraction**: Added `ServerRequest` extension functions (`tenantId()`, `templateId()`, `variantId()`, `versionId()`, `themeId()`, `environmentId()`, `attributeId()`) that replace repetitive composite ID construction boilerplate across all 9 handler files.
 - **Load test form upgrade**: Replaced static text inputs with dynamic HTMX-driven dropdowns for variant, version, data example, and environment selection. Variants, versions, and data examples load dynamically based on template and variant selection. Selecting a data example pre-fills the test data JSON. Version and environment fields are now dropdowns. Fixed blank test data submission bug.
 
 ### Added
