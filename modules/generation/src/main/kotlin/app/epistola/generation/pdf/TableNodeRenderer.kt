@@ -56,6 +56,7 @@ class TableNodeRenderer : NodeRenderer {
             context.documentStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults("table"),
+            context.renderingDefaults.baseFontSizePt,
         )
 
         // Border style

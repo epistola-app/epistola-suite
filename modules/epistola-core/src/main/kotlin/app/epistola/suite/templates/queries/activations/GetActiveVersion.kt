@@ -32,7 +32,9 @@ class GetActiveVersionHandler(
                     ver.status,
                     ver.created_at,
                     ver.published_at,
-                    ver.archived_at
+                    ver.archived_at,
+                    ver.rendering_defaults_version,
+                    ver.resolved_theme
                 FROM environment_activations ea
                 JOIN template_versions ver ON ver.tenant_key = ea.tenant_key AND ver.variant_key = ea.variant_key AND ver.id = ea.version_key
                 JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.id = ea.variant_key

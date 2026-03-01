@@ -27,19 +27,6 @@ object StyleApplicator {
     )
 
     /**
-     * Default styles per component type, matching the editor's ComponentDefinition.defaultStyles.
-     * Provides sensible baseline spacing without requiring explicit configuration.
-     */
-    val COMPONENT_DEFAULTS: Map<String, Map<String, Any>> = mapOf(
-        "text" to mapOf("marginBottom" to "0.5em"),
-        "container" to mapOf("marginBottom" to "0.5em"),
-        "columns" to mapOf("marginBottom" to "0.5em"),
-        "table" to mapOf("marginBottom" to "0.5em"),
-        "datatable" to mapOf("marginBottom" to "0.5em"),
-        "image" to mapOf("marginBottom" to "0.5em"),
-    )
-
-    /**
      * Applies styles from block styles and document styles to an iText element.
      */
     fun <T : BlockElement<T>> applyStyles(

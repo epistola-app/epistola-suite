@@ -29,6 +29,7 @@ class ContainerNodeRenderer : NodeRenderer {
             context.documentStyles,
             context.fontCache,
             context.renderingDefaults.componentDefaults(node.type),
+            context.renderingDefaults.baseFontSizePt,
         )
 
         // Render all slots
