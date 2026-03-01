@@ -71,7 +71,7 @@ const RESIZE_SHORTCUT_COMMANDS: readonly CommandDefinition<ResizeShortcutRuntime
   },
 ]
 
-const RESIZE_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
+const RESIZE_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition<ResizeShortcutRuntimeContext>[] = [
   {
     commandId: RESIZE_SHORTCUT_COMMAND_IDS.growPreviewWidth,
     context: 'resizeHandle',
@@ -84,10 +84,7 @@ const RESIZE_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
     context: 'resizeHandle',
     keys: [SHRINK_PREVIEW_WIDTH_SHORTCUT.key],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as ResizeShortcutRuntimeContext
-      return typed.currentWidth > typed.minWidth
-    },
+    when: (context) => context.currentWidth > context.minWidth,
     display: SHRINK_PREVIEW_WIDTH_SHORTCUT.helpKeys,
   },
   {
@@ -95,10 +92,7 @@ const RESIZE_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
     context: 'resizeHandle',
     keys: [CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.key],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as ResizeShortcutRuntimeContext
-      return typed.currentWidth <= typed.minWidth
-    },
+    when: (context) => context.currentWidth <= context.minWidth,
     display: CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.helpKeys,
   },
 ]

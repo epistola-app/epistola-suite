@@ -60,20 +60,20 @@ export interface CommandDefinition<TContext = unknown> {
   metadata?: Record<string, unknown>;
 }
 
-export interface KeybindingDefinition {
+export interface KeybindingDefinition<TContext = unknown> {
   commandId: CommandId;
   context: ShortcutContextId;
   keys: readonly string[];
   matchBy?: "key" | "code";
   preventDefault?: boolean;
   stopPropagation?: boolean;
-  when?: (context: unknown) => boolean;
+  when?: (context: TContext) => boolean;
   display?: string;
 }
 
 export interface ShortcutRegistryDefinition<TContext = unknown> {
   commands: readonly CommandDefinition<TContext>[];
-  keybindings: readonly KeybindingDefinition[];
+  keybindings: readonly KeybindingDefinition<TContext>[];
 }
 
 export type ShortcutRegistryValidationIssueCode =

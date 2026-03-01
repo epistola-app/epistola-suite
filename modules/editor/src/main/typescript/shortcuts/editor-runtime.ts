@@ -279,7 +279,7 @@ function toLeaderCommandDefinitions(): CommandDefinition<EditorShortcutRuntimeCo
   })
 }
 
-function toCoreKeybindingDefinitions(): KeybindingDefinition[] {
+function toCoreKeybindingDefinitions(): KeybindingDefinition<EditorShortcutRuntimeContext>[] {
   return [
     {
       commandId: EDITOR_SHORTCUT_COMMAND_IDS.save,
@@ -307,20 +307,20 @@ function toCoreKeybindingDefinitions(): KeybindingDefinition[] {
       context: 'editor',
       keys: toCoreBindingKeys('delete-selected-block'),
       preventDefault: true,
-      when: (context) => (context as EditorShortcutRuntimeContext).canDeleteSelectedBlock,
+      when: (context) => context.canDeleteSelectedBlock,
       display: getCoreShortcut('delete-selected-block').helpKeys,
     },
     {
       commandId: EDITOR_SHORTCUT_COMMAND_IDS.deselectSelectedBlock,
       context: 'editor',
       keys: toCoreBindingKeys('deselect-selected-block'),
-      when: (context) => (context as EditorShortcutRuntimeContext).canDeselectSelectedBlock,
+      when: (context) => context.canDeselectSelectedBlock,
       display: getCoreShortcut('deselect-selected-block').helpKeys,
     },
   ]
 }
 
-function toLeaderKeybindingDefinitions(): KeybindingDefinition[] {
+function toLeaderKeybindingDefinitions(): KeybindingDefinition<EditorShortcutRuntimeContext>[] {
   return LEADER_RUNTIME_DEFINITIONS.map((definition) => {
     const shortcut = getLeaderShortcut(definition.legacyId)
     return {
@@ -338,7 +338,7 @@ const EDITOR_SHORTCUT_COMMANDS: readonly CommandDefinition<EditorShortcutRuntime
   ...toLeaderCommandDefinitions(),
 ]
 
-const EDITOR_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
+const EDITOR_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition<EditorShortcutRuntimeContext>[] = [
   ...toCoreKeybindingDefinitions(),
   ...toLeaderKeybindingDefinitions(),
 ]

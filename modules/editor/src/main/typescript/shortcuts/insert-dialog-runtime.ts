@@ -167,7 +167,7 @@ for (const [index, key] of EDITOR_SHORTCUTS_CONFIG.insertDialog.navigation.quick
 const placement = EDITOR_SHORTCUTS_CONFIG.insertDialog.placement
 const navigation = EDITOR_SHORTCUTS_CONFIG.insertDialog.navigation
 
-const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
+const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntimeContext>[] = [
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack,
     context: 'insertDialog',
@@ -180,10 +180,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [placement.document.start],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && typed.isDocumentContext
-    },
+    when: (context) => context.hasPlacementMode && context.isDocumentContext,
     display: placement.document.start.toUpperCase(),
   },
   {
@@ -191,10 +188,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [placement.document.end],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && typed.isDocumentContext
-    },
+    when: (context) => context.hasPlacementMode && context.isDocumentContext,
     display: placement.document.end.toUpperCase(),
   },
   {
@@ -202,10 +196,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [placement.selected.after],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && !typed.isDocumentContext
-    },
+    when: (context) => context.hasPlacementMode && !context.isDocumentContext,
     display: placement.selected.after.toUpperCase(),
   },
   {
@@ -213,10 +204,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [placement.selected.before],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && !typed.isDocumentContext
-    },
+    when: (context) => context.hasPlacementMode && !context.isDocumentContext,
     display: placement.selected.before.toUpperCase(),
   },
   {
@@ -224,10 +212,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [placement.selected.inside],
     preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && !typed.isDocumentContext
-    },
+    when: (context) => context.hasPlacementMode && !context.isDocumentContext,
     display: placement.selected.inside.toUpperCase(),
   },
   {
@@ -235,7 +220,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [navigation.previous],
     preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
+    when: (context) => context.hasSelectionMode,
     display: 'Arrow Up',
   },
   {
@@ -243,7 +228,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [navigation.next],
     preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
+    when: (context) => context.hasSelectionMode,
     display: 'Arrow Down',
   },
   {
@@ -251,7 +236,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
     context: 'insertDialog',
     keys: [navigation.confirm],
     preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
+    when: (context) => context.hasSelectionMode,
     display: 'Enter',
   },
 ]
@@ -263,7 +248,7 @@ for (const [index, key] of navigation.quickSelect.entries()) {
     context: 'insertDialog',
     keys: [key],
     preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
+    when: (context) => context.hasSelectionMode,
     display: key,
   })
 }
