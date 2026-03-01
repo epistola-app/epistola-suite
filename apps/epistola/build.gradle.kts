@@ -112,6 +112,9 @@ springBoot {
 
 // Configure CycloneDX SBOM generation for backend dependencies
 tasks.cyclonedxDirectBom {
+    // CycloneDx resolves the runtime classpath which includes :modules:editor outputs,
+    // but the plugin doesn't declare this implicit dependency automatically.
+    dependsOn(":modules:editor:jar")
     projectType = Component.Type.APPLICATION
     includeBomSerialNumber = true
     includeLicenseText = false
