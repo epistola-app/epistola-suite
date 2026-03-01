@@ -31,12 +31,15 @@ const INITIAL_STATE: LeaderModeState = {
 }
 
 export class LeaderModeController {
+  private readonly _options: LeaderModeControllerOptions
   private _state: LeaderModeState = { ...INITIAL_STATE }
   private _idleTimeout: ReturnType<typeof setTimeout> | null = null
   private _resultTimeout: ReturnType<typeof setTimeout> | null = null
   private _clearTimeout: ReturnType<typeof setTimeout> | null = null
 
-  constructor(private readonly _options: LeaderModeControllerOptions) {}
+  constructor(options: LeaderModeControllerOptions) {
+    this._options = options
+  }
 
   get state(): LeaderModeState {
     return this._state

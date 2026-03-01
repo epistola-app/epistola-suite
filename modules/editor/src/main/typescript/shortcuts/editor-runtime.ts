@@ -209,7 +209,7 @@ assertValidShortcutRegistry(EDITOR_SHORTCUT_REGISTRY)
 // Lookups
 // ---------------------------------------------------------------------------
 
-const KEYBINDINGS_BY_COMMAND_ID = new Map<CommandId, KeybindingDefinition[]>()
+const KEYBINDINGS_BY_COMMAND_ID = new Map<CommandId, KeybindingDefinition<EditorShortcutRuntimeContext>[]>()
 for (const binding of EDITOR_SHORTCUT_REGISTRY.keybindings) {
   const current = KEYBINDINGS_BY_COMMAND_ID.get(binding.commandId)
   if (current) {
