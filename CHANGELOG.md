@@ -11,6 +11,7 @@
 - **Rendering upgrade documentation**: `docs/rendering-upgrades.md` documents procedures for iText upgrades, rendering defaults changes, and engine version tracking.
 
 ### Fixed
+- **Version queries missing rendering columns**: `GetVersion`, `GetDraft`, and `GetActiveVersion` queries now include `rendering_defaults_version` and `resolved_theme` columns. Without these, published versions always fell back to live theme resolution instead of using the frozen snapshot.
 - **GetEditorContext query**: Added missing `template_key` to the LEFT JOIN on `template_versions`, preventing potential cross-template draft version matching when two templates share a variant slug.
 
 ### Changed
