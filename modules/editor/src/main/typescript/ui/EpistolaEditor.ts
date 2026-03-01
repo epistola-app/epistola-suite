@@ -14,12 +14,14 @@ import type { EpistolaToolbar } from './EpistolaToolbar.js'
 import { nanoid } from 'nanoid'
 import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js'
 import {
+  getAllLeaderIdleTokens,
   getEditorShortcutRegistry,
   getLeaderIdleTokensForCommandIds,
   type EditorShortcutRuntimeContext,
 } from '../shortcuts/editor-runtime.js'
 import {
   getInsertDialogShortcutRegistry,
+  INSERT_DIALOG_KEYS,
   type InsertDialogShortcutRuntimeContext,
 } from '../shortcuts/insert-dialog-runtime.js'
 import {
@@ -49,7 +51,7 @@ interface InsertTarget {
   parentType: string
 }
 
-const INSERT_DIALOG_SHORTCUTS = EDITOR_SHORTCUTS_CONFIG.insertDialog
+const INSERT_DIALOG_SHORTCUTS = INSERT_DIALOG_KEYS
 
 const EDITABLE_TARGET_SELECTOR = 'input, textarea, select, [contenteditable="true"], .ProseMirror'
 
@@ -93,7 +95,7 @@ export class EpistolaEditor extends LitElement {
   private readonly _leaderController = new LeaderModeController({
     timing: EDITOR_SHORTCUTS_CONFIG.leader.timeout,
     getIdleTokens: getLeaderIdleTokensForCommandIds,
-    fallbackTokens: EDITOR_SHORTCUTS_CONFIG.leader.commands.map((c) => c.idleToken),
+    fallbackTokens: getAllLeaderIdleTokens(),
     onStateChange: (state) => this._applyLeaderState(state),
     cancelActiveChord: () => this._shortcutResolver.cancelActiveChord(),
     blurEditingTarget: () => {

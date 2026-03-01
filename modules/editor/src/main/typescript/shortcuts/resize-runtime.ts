@@ -1,9 +1,4 @@
 import {
-  EDITOR_SHORTCUTS_CONFIG,
-  type ResizeKeyboardShortcutConfig,
-  type ResizeShortcutId,
-} from '../shortcuts-config.js'
-import {
   assertValidShortcutRegistry,
   defineShortcutRegistry,
   type CommandDefinition,
@@ -11,21 +6,19 @@ import {
   type ShortcutRegistryDefinition,
 } from './foundation.js'
 
-const RESIZE_SHORTCUTS_BY_ID = new Map(
-  EDITOR_SHORTCUTS_CONFIG.resize.keyboard.map((shortcut) => [shortcut.id, shortcut] as const),
-)
+// ---------------------------------------------------------------------------
+// Command IDs
+// ---------------------------------------------------------------------------
 
-function getResizeShortcut(shortcutId: ResizeShortcutId): ResizeKeyboardShortcutConfig {
-  const shortcut = RESIZE_SHORTCUTS_BY_ID.get(shortcutId)
-  if (!shortcut) {
-    throw new Error(`Missing resize shortcut config for "${shortcutId}"`)
-  }
-  return shortcut
-}
+export const RESIZE_SHORTCUT_COMMAND_IDS = {
+  growPreviewWidth: 'resize.preview.grow',
+  shrinkPreviewWidth: 'resize.preview.shrink',
+  closePreviewWhenMinWidth: 'resize.preview.close-when-min-width',
+} as const
 
-const GROW_PREVIEW_WIDTH_SHORTCUT = getResizeShortcut('grow-preview-width')
-const SHRINK_PREVIEW_WIDTH_SHORTCUT = getResizeShortcut('shrink-preview-width')
-const CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT = getResizeShortcut('close-preview-when-min-width')
+// ---------------------------------------------------------------------------
+// Runtime context
+// ---------------------------------------------------------------------------
 
 export interface ResizeShortcutRuntimeContext {
   currentWidth: number
@@ -35,67 +28,44 @@ export interface ResizeShortcutRuntimeContext {
   closePreview: () => void
 }
 
-export const RESIZE_SHORTCUT_COMMAND_IDS = {
-  growPreviewWidth: 'resize.preview.grow',
-  shrinkPreviewWidth: 'resize.preview.shrink',
-  closePreviewWhenMinWidth: 'resize.preview.close-when-min-width',
-} as const
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
 
 const RESIZE_SHORTCUT_COMMANDS: readonly CommandDefinition<ResizeShortcutRuntimeContext>[] = [
   {
     id: RESIZE_SHORTCUT_COMMAND_IDS.growPreviewWidth,
-    label: GROW_PREVIEW_WIDTH_SHORTCUT.action,
+    label: 'Grow preview width',
     category: 'Resize',
-    run: (context) => {
-      context.setWidth(context.currentWidth + context.step)
-      return { ok: true }
-    },
+    run: (ctx) => { ctx.setWidth(ctx.currentWidth + ctx.step); return { ok: true } },
   },
   {
     id: RESIZE_SHORTCUT_COMMAND_IDS.shrinkPreviewWidth,
-    label: SHRINK_PREVIEW_WIDTH_SHORTCUT.action,
+    label: 'Shrink preview width',
     category: 'Resize',
-    run: (context) => {
-      context.setWidth(context.currentWidth - context.step)
-      return { ok: true }
-    },
+    run: (ctx) => { ctx.setWidth(ctx.currentWidth - ctx.step); return { ok: true } },
   },
   {
     id: RESIZE_SHORTCUT_COMMAND_IDS.closePreviewWhenMinWidth,
-    label: CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.action,
+    label: 'Close preview',
     category: 'Resize',
-    run: (context) => {
-      context.closePreview()
-      return { ok: true }
-    },
+    run: (ctx) => { ctx.closePreview(); return { ok: true } },
   },
 ]
 
+// ---------------------------------------------------------------------------
+// Keybindings
+// ---------------------------------------------------------------------------
+
 const RESIZE_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition<ResizeShortcutRuntimeContext>[] = [
-  {
-    commandId: RESIZE_SHORTCUT_COMMAND_IDS.growPreviewWidth,
-    context: 'resizeHandle',
-    keys: [GROW_PREVIEW_WIDTH_SHORTCUT.key],
-    preventDefault: true,
-    display: GROW_PREVIEW_WIDTH_SHORTCUT.helpKeys,
-  },
-  {
-    commandId: RESIZE_SHORTCUT_COMMAND_IDS.shrinkPreviewWidth,
-    context: 'resizeHandle',
-    keys: [SHRINK_PREVIEW_WIDTH_SHORTCUT.key],
-    preventDefault: true,
-    when: (context) => context.currentWidth > context.minWidth,
-    display: SHRINK_PREVIEW_WIDTH_SHORTCUT.helpKeys,
-  },
-  {
-    commandId: RESIZE_SHORTCUT_COMMAND_IDS.closePreviewWhenMinWidth,
-    context: 'resizeHandle',
-    keys: [CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.key],
-    preventDefault: true,
-    when: (context) => context.currentWidth <= context.minWidth,
-    display: CLOSE_PREVIEW_AT_MIN_WIDTH_SHORTCUT.helpKeys,
-  },
+  { commandId: RESIZE_SHORTCUT_COMMAND_IDS.growPreviewWidth, context: 'resizeHandle', keys: ['ArrowLeft'], preventDefault: true, display: '\u2190 (focused handle)' },
+  { commandId: RESIZE_SHORTCUT_COMMAND_IDS.shrinkPreviewWidth, context: 'resizeHandle', keys: ['ArrowRight'], preventDefault: true, when: (ctx) => ctx.currentWidth > ctx.minWidth, display: '\u2192 (focused handle)' },
+  { commandId: RESIZE_SHORTCUT_COMMAND_IDS.closePreviewWhenMinWidth, context: 'resizeHandle', keys: ['ArrowRight'], preventDefault: true, when: (ctx) => ctx.currentWidth <= ctx.minWidth, display: '\u2192 at min width' },
 ]
+
+// ---------------------------------------------------------------------------
+// Registry
+// ---------------------------------------------------------------------------
 
 export const RESIZE_SHORTCUT_REGISTRY: ShortcutRegistryDefinition<ResizeShortcutRuntimeContext> =
   defineShortcutRegistry({
