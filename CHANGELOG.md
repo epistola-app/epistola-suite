@@ -9,6 +9,11 @@
   - **Visual regression tests**: Canonical templates rendered against stored baselines catch accidental rendering changes from code modifications, library upgrades, or constant changes. Run with `-DupdateBaselines=true` to regenerate baselines after deliberate changes.
   - **Engine version tracking**: Every generated PDF embeds an `EngineVersion` metadata field (e.g., `epistola-gen-1+itext-9.5.0`) for traceability.
 - **Rendering upgrade documentation**: `docs/rendering-upgrades.md` documents procedures for iText upgrades, rendering defaults changes, and engine version tracking.
+- **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.page.number`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
+- **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.page.number` previews as "1").
+
+### Changed
+- **Registry-driven system parameters**: `SystemParameterRegistry` is now the runtime source of truth for system parameter injection. Adding a new system parameter only requires adding a descriptor (with `mockValue`) to the registry and updating `buildPageParams()`/`buildGlobalParams()` — no scattered code changes needed. Mock data injection for the editor is centralised in `EditorEngine.getExampleData()`, eliminating duplication across UI call sites.
 
 ### Fixed
 - **Version queries missing rendering columns**: `GetVersion`, `GetDraft`, and `GetActiveVersion` queries now include `rendering_defaults_version` and `resolved_theme` columns. Without these, published versions always fell back to live theme resolution instead of using the frozen snapshot.
@@ -17,6 +22,7 @@
 ### Changed
 - **Handler ID extraction**: Added `ServerRequest` extension functions (`tenantId()`, `templateId()`, `variantId()`, `versionId()`, `themeId()`, `environmentId()`, `attributeId()`) that replace repetitive composite ID construction boilerplate across all 9 handler files.
 - **Load test form upgrade**: Replaced static text inputs with dynamic HTMX-driven dropdowns for variant, version, data example, and environment selection. Variants, versions, and data examples load dynamically based on template and variant selection. Selecting a data example pre-fills the test data JSON. Version and environment fields are now dropdowns. Fixed blank test data submission bug.
+- **Editor shortcuts architecture refactoring**: Major simplification of the keyboard shortcuts system — extracted LeaderModeController into a standalone testable class (17 new tests), made KeybindingDefinition generic to eliminate 13 type casts, collapsed the dual config/foundation type system by making runtime files self-contained (removing ~570 lines of translation boilerplate), unified the two ShortcutResolver instances into one using context-based routing, and slimmed shortcuts-config.ts from ~395 to ~70 lines. Adding a new shortcut now requires 1-2 files instead of 3.
 
 ### Added
 - **Bulk template import endpoint** `POST /api/tenants/{tenantId}/templates/import`

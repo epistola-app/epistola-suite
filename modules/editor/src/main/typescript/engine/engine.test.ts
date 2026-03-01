@@ -1616,12 +1616,32 @@ describe('fieldPaths', () => {
     expect(paths.find(p => p.path === 'address.city')).toBeDefined()
   })
 
-  it('returns empty array when no data model', () => {
+  it('returns only system params when no data model', () => {
     const registry = testRegistry()
     const doc = createTestDocument()
     const engine = new EditorEngine(doc, registry)
 
-    expect(engine.fieldPaths).toEqual([])
+    const paths = engine.fieldPaths
+    // Should contain system params even without data model
+    expect(paths.length).toBeGreaterThan(0)
+    expect(paths.every(p => p.system === true)).toBe(true)
+    expect(paths.find(p => p.path === 'sys.page.number')).toBeDefined()
+  })
+
+  it('includes system params after data model fields', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const dataModel = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    }
+    const engine = new EditorEngine(doc, registry, { dataModel })
+
+    const paths = engine.fieldPaths
+    const nameIndex = paths.findIndex(p => p.path === 'name')
+    const sysIndex = paths.findIndex(p => p.path === 'sys.page.number')
+    expect(nameIndex).toBeLessThan(sysIndex)
+    expect(paths[sysIndex].system).toBe(true)
   })
 
   it('caches the result', () => {
@@ -1641,30 +1661,44 @@ describe('fieldPaths', () => {
 // ---------------------------------------------------------------------------
 
 describe('getExampleData', () => {
-  it('returns undefined when no examples', () => {
+  const systemMockData = { sys: { page: { number: 1 } } }
+
+  it('returns system mock data when no examples are set', () => {
     const registry = testRegistry()
     const doc = createTestDocument()
     const engine = new EditorEngine(doc, registry)
 
-    expect(engine.getExampleData()).toBeUndefined()
+    expect(engine.getExampleData()).toEqual(systemMockData)
   })
 
-  it('unwraps backend DataExample format', () => {
+  it('unwraps backend DataExample format and merges system mock data', () => {
     const registry = testRegistry()
     const doc = createTestDocument()
     const examples = [{ id: 'ex1', name: 'Test', data: { customer: 'John' } }]
     const engine = new EditorEngine(doc, registry, { dataExamples: examples })
 
-    expect(engine.getExampleData()).toEqual({ customer: 'John' })
+    expect(engine.getExampleData()).toEqual({ customer: 'John', ...systemMockData })
   })
 
-  it('returns flat format directly', () => {
+  it('returns flat format with system mock data merged', () => {
     const registry = testRegistry()
     const doc = createTestDocument()
     const examples = [{ customer: 'John', age: 30 }]
     const engine = new EditorEngine(doc, registry, { dataExamples: examples })
 
-    expect(engine.getExampleData()).toEqual({ customer: 'John', age: 30 })
+    expect(engine.getExampleData()).toEqual({ customer: 'John', age: 30, ...systemMockData })
+  })
+
+  it('system params do not overwrite user example data', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const examples = [{ name: 'Test', amount: 42 }]
+    const engine = new EditorEngine(doc, registry, { dataExamples: examples })
+
+    const result = engine.getExampleData()
+    expect(result.name).toBe('Test')
+    expect(result.amount).toBe(42)
+    expect(result.sys).toEqual({ page: { number: 1 } })
   })
 })
 

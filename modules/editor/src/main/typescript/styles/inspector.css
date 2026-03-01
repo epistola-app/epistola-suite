@@ -309,4 +309,34 @@
     border-left: 2px solid var(--ep-blue-400);
     padding-left: var(--ep-space-1);
   }
+
+  /* System parameters section header */
+  .expression-dialog-section-header {
+    padding: var(--ep-space-1) var(--ep-space-2);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ep-gray-500);
+    border-top: 1px solid var(--ep-gray-200);
+    margin-top: var(--ep-space-1);
+    list-style: none;
+  }
+
+  /* System parameter items (subtle visual distinction) */
+  .expression-dialog-path-item.system {
+    opacity: 0.85;
+  }
+
+  .expression-dialog-path-item.system .expression-dialog-path-type::after {
+    content: 'sys';
+    margin-left: var(--ep-space-1);
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--ep-purple-500, #8b5cf6);
+    background: var(--ep-purple-50, #f5f3ff);
+    padding: 0 4px;
+    border-radius: 2px;
+  }
 }

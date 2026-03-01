@@ -10,6 +10,10 @@ export interface FieldPath {
   path: string
   /** JSON Schema type at this path */
   type: string
+  /** Whether this is a system parameter (injected by the rendering engine). */
+  system?: boolean
+  /** Human-readable description (used for system parameter tooltips). */
+  description?: string
 }
 
 const MAX_DEPTH = 5

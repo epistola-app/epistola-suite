@@ -1,28 +1,14 @@
 import {
-  EDITOR_SHORTCUTS_CONFIG,
-  type TextShortcutConfig,
-  type TextShortcutId,
-} from '../shortcuts-config.js'
-import {
   assertValidShortcutRegistry,
   defineShortcutRegistry,
   type CommandDefinition,
   type KeybindingDefinition,
   type ShortcutRegistryDefinition,
 } from './foundation.js'
-import { toShortcutStrokesFromBindings } from './key-strokes.js'
 
-const TEXT_SHORTCUTS_BY_ID = new Map(
-  EDITOR_SHORTCUTS_CONFIG.text.map((shortcut) => [shortcut.id, shortcut] as const),
-)
-
-function getTextShortcut(shortcutId: TextShortcutId): TextShortcutConfig {
-  const shortcut = TEXT_SHORTCUTS_BY_ID.get(shortcutId)
-  if (!shortcut) {
-    throw new Error(`Missing text shortcut config for "${shortcutId}"`)
-  }
-  return shortcut
-}
+// ---------------------------------------------------------------------------
+// Command IDs
+// ---------------------------------------------------------------------------
 
 export const TEXT_SHORTCUT_COMMAND_IDS = {
   bold: 'text.mark.bold',
@@ -35,68 +21,33 @@ export const TEXT_SHORTCUT_COMMAND_IDS = {
 export type TextShortcutCommandId =
   (typeof TEXT_SHORTCUT_COMMAND_IDS)[keyof typeof TEXT_SHORTCUT_COMMAND_IDS]
 
-interface TextShortcutRuntimeDefinition {
-  commandId: TextShortcutCommandId
-  shortcutId: TextShortcutId
-}
+// ---------------------------------------------------------------------------
+// Commands — text shortcuts are marker-only (ProseMirror handles execution)
+// ---------------------------------------------------------------------------
 
-const TEXT_SHORTCUT_RUNTIME_DEFINITIONS: readonly TextShortcutRuntimeDefinition[] = [
-  {
-    commandId: TEXT_SHORTCUT_COMMAND_IDS.bold,
-    shortcutId: 'bold',
-  },
-  {
-    commandId: TEXT_SHORTCUT_COMMAND_IDS.italic,
-    shortcutId: 'italic',
-  },
-  {
-    commandId: TEXT_SHORTCUT_COMMAND_IDS.underline,
-    shortcutId: 'underline',
-  },
-  {
-    commandId: TEXT_SHORTCUT_COMMAND_IDS.lineBreakShiftEnter,
-    shortcutId: 'line-break-shift-enter',
-  },
-  {
-    commandId: TEXT_SHORTCUT_COMMAND_IDS.lineBreakModEnter,
-    shortcutId: 'line-break-mod-enter',
-  },
+const TEXT_SHORTCUT_COMMANDS: readonly CommandDefinition<unknown>[] = [
+  { id: TEXT_SHORTCUT_COMMAND_IDS.bold, label: 'Bold', category: 'Text', run: () => ({ ok: true }) },
+  { id: TEXT_SHORTCUT_COMMAND_IDS.italic, label: 'Italic', category: 'Text', run: () => ({ ok: true }) },
+  { id: TEXT_SHORTCUT_COMMAND_IDS.underline, label: 'Underline', category: 'Text', run: () => ({ ok: true }) },
+  { id: TEXT_SHORTCUT_COMMAND_IDS.lineBreakShiftEnter, label: 'Line break', category: 'Text', run: () => ({ ok: true }) },
+  { id: TEXT_SHORTCUT_COMMAND_IDS.lineBreakModEnter, label: 'Line break', category: 'Text', run: () => ({ ok: true }) },
 ]
 
-const COMMAND_ID_BY_SHORTCUT_ID = new Map<TextShortcutId, TextShortcutCommandId>()
-for (const definition of TEXT_SHORTCUT_RUNTIME_DEFINITIONS) {
-  COMMAND_ID_BY_SHORTCUT_ID.set(definition.shortcutId, definition.commandId)
-}
+// ---------------------------------------------------------------------------
+// Keybindings
+// ---------------------------------------------------------------------------
 
-const SHORTCUT_ID_BY_COMMAND_ID = new Map<TextShortcutCommandId, TextShortcutId>()
-for (const definition of TEXT_SHORTCUT_RUNTIME_DEFINITIONS) {
-  SHORTCUT_ID_BY_COMMAND_ID.set(definition.commandId, definition.shortcutId)
-}
+const TEXT_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
+  { commandId: TEXT_SHORTCUT_COMMAND_IDS.bold, context: 'text', keys: ['mod+b'], display: '{cmd} + B' },
+  { commandId: TEXT_SHORTCUT_COMMAND_IDS.italic, context: 'text', keys: ['mod+i'], display: '{cmd} + I' },
+  { commandId: TEXT_SHORTCUT_COMMAND_IDS.underline, context: 'text', keys: ['mod+u'], display: '{cmd} + U' },
+  { commandId: TEXT_SHORTCUT_COMMAND_IDS.lineBreakShiftEnter, context: 'text', keys: ['shift+enter'], display: 'Shift + Enter' },
+  { commandId: TEXT_SHORTCUT_COMMAND_IDS.lineBreakModEnter, context: 'text', keys: ['mod+enter'], display: '{cmd} + Enter' },
+]
 
-const TEXT_SHORTCUT_COMMANDS: readonly CommandDefinition<unknown>[] =
-  TEXT_SHORTCUT_RUNTIME_DEFINITIONS.map((definition) => {
-    const shortcut = getTextShortcut(definition.shortcutId)
-    return {
-      id: definition.commandId,
-      label: shortcut.action,
-      category: 'Text',
-      run: () => ({ ok: true }),
-      metadata: {
-        shortcutId: definition.shortcutId,
-      },
-    }
-  })
-
-const TEXT_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] =
-  TEXT_SHORTCUT_RUNTIME_DEFINITIONS.map((definition) => {
-    const shortcut = getTextShortcut(definition.shortcutId)
-    return {
-      commandId: definition.commandId,
-      context: 'text',
-      keys: toShortcutStrokesFromBindings(shortcut.bindings, { wildcardUnspecifiedModifiers: false }),
-      display: shortcut.helpKeys,
-    }
-  })
+// ---------------------------------------------------------------------------
+// Registry
+// ---------------------------------------------------------------------------
 
 export const TEXT_SHORTCUT_REGISTRY: ShortcutRegistryDefinition<unknown> = defineShortcutRegistry({
   commands: TEXT_SHORTCUT_COMMANDS,
@@ -105,18 +56,13 @@ export const TEXT_SHORTCUT_REGISTRY: ShortcutRegistryDefinition<unknown> = defin
 
 assertValidShortcutRegistry(TEXT_SHORTCUT_REGISTRY)
 
+// ---------------------------------------------------------------------------
+// Lookups
+// ---------------------------------------------------------------------------
+
 const BINDINGS_BY_COMMAND_ID = new Map<TextShortcutCommandId, KeybindingDefinition[]>()
 for (const binding of TEXT_SHORTCUT_REGISTRY.keybindings) {
-  const shortcutId = SHORTCUT_ID_BY_COMMAND_ID.get(binding.commandId as TextShortcutCommandId)
-  if (!shortcutId) {
-    continue
-  }
-
-  const commandId = COMMAND_ID_BY_SHORTCUT_ID.get(shortcutId)
-  if (!commandId) {
-    continue
-  }
-
+  const commandId = binding.commandId as TextShortcutCommandId
   const current = BINDINGS_BY_COMMAND_ID.get(commandId)
   if (current) {
     current.push(binding)
@@ -124,6 +70,10 @@ for (const binding of TEXT_SHORTCUT_REGISTRY.keybindings) {
     BINDINGS_BY_COMMAND_ID.set(commandId, [binding])
   }
 }
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 export function getTextShortcutRegistry(): ShortcutRegistryDefinition<unknown> {
   return TEXT_SHORTCUT_REGISTRY

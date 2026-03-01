@@ -1,4 +1,3 @@
-import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js'
 import {
   assertValidShortcutRegistry,
   defineShortcutRegistry,
@@ -7,7 +6,15 @@ import {
   type ShortcutRegistryDefinition,
 } from './foundation.js'
 
+// ---------------------------------------------------------------------------
+// Placement mode type
+// ---------------------------------------------------------------------------
+
 type InsertDialogPlacementMode = 'after' | 'before' | 'inside' | 'start' | 'end'
+
+// ---------------------------------------------------------------------------
+// Runtime context
+// ---------------------------------------------------------------------------
 
 export interface InsertDialogShortcutRuntimeContext {
   hasPlacementMode: boolean
@@ -21,6 +28,10 @@ export interface InsertDialogShortcutRuntimeContext {
   selectOption: (index: number) => void
   setOptionOutOfRange: () => void
 }
+
+// ---------------------------------------------------------------------------
+// Command IDs
+// ---------------------------------------------------------------------------
 
 export const INSERT_DIALOG_SHORTCUT_COMMAND_IDS = {
   closeOrBack: 'insertDialog.close-or-back',
@@ -37,6 +48,29 @@ export const INSERT_DIALOG_SHORTCUT_COMMAND_IDS = {
 function toQuickSelectCommandId(index: number): `insertDialog.quick-select.key-${number}` {
   return `insertDialog.quick-select.key-${index}`
 }
+
+// ---------------------------------------------------------------------------
+// Insert dialog key assignments (single source of truth)
+// ---------------------------------------------------------------------------
+
+/** Insert dialog key assignments, exported for UI display in EpistolaEditor. */
+export const INSERT_DIALOG_KEYS = {
+  placement: {
+    document: { start: 's', end: 'e' },
+    selected: { after: 'a', before: 'b', inside: 'i' },
+  },
+  navigation: {
+    quickSelect: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as readonly string[],
+    previous: 'arrowup',
+    next: 'arrowdown',
+    confirm: 'enter',
+    close: 'escape',
+  },
+} as const
+
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
 
 const INSERT_DIALOG_COMMANDS: CommandDefinition<InsertDialogShortcutRuntimeContext>[] = [
   {
@@ -143,7 +177,8 @@ const INSERT_DIALOG_COMMANDS: CommandDefinition<InsertDialogShortcutRuntimeConte
   },
 ]
 
-for (const [index, key] of EDITOR_SHORTCUTS_CONFIG.insertDialog.navigation.quickSelect.entries()) {
+// Generate quick-select commands for each key
+for (const [index, key] of INSERT_DIALOG_KEYS.navigation.quickSelect.entries()) {
   const optionIndex = index + 1
   INSERT_DIALOG_COMMANDS.push({
     id: toQuickSelectCommandId(optionIndex),
@@ -164,96 +199,22 @@ for (const [index, key] of EDITOR_SHORTCUTS_CONFIG.insertDialog.navigation.quick
   })
 }
 
-const placement = EDITOR_SHORTCUTS_CONFIG.insertDialog.placement
-const navigation = EDITOR_SHORTCUTS_CONFIG.insertDialog.navigation
+// ---------------------------------------------------------------------------
+// Keybindings
+// ---------------------------------------------------------------------------
 
-const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition[] = [
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack,
-    context: 'insertDialog',
-    keys: [navigation.close],
-    preventDefault: true,
-    display: 'Esc',
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeStart,
-    context: 'insertDialog',
-    keys: [placement.document.start],
-    preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && typed.isDocumentContext
-    },
-    display: placement.document.start.toUpperCase(),
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeEnd,
-    context: 'insertDialog',
-    keys: [placement.document.end],
-    preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && typed.isDocumentContext
-    },
-    display: placement.document.end.toUpperCase(),
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeAfter,
-    context: 'insertDialog',
-    keys: [placement.selected.after],
-    preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && !typed.isDocumentContext
-    },
-    display: placement.selected.after.toUpperCase(),
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeBefore,
-    context: 'insertDialog',
-    keys: [placement.selected.before],
-    preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && !typed.isDocumentContext
-    },
-    display: placement.selected.before.toUpperCase(),
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeInside,
-    context: 'insertDialog',
-    keys: [placement.selected.inside],
-    preventDefault: true,
-    when: (context) => {
-      const typed = context as InsertDialogShortcutRuntimeContext
-      return typed.hasPlacementMode && !typed.isDocumentContext
-    },
-    display: placement.selected.inside.toUpperCase(),
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigatePrevious,
-    context: 'insertDialog',
-    keys: [navigation.previous],
-    preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
-    display: 'Arrow Up',
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigateNext,
-    context: 'insertDialog',
-    keys: [navigation.next],
-    preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
-    display: 'Arrow Down',
-  },
-  {
-    commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.confirm,
-    context: 'insertDialog',
-    keys: [navigation.confirm],
-    preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
-    display: 'Enter',
-  },
+const { placement, navigation } = INSERT_DIALOG_KEYS
+
+const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntimeContext>[] = [
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack, context: 'insertDialog', keys: [navigation.close], preventDefault: true, display: 'Esc' },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeStart, context: 'insertDialog', keys: [placement.document.start], preventDefault: true, when: (ctx) => ctx.hasPlacementMode && ctx.isDocumentContext, display: placement.document.start.toUpperCase() },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeEnd, context: 'insertDialog', keys: [placement.document.end], preventDefault: true, when: (ctx) => ctx.hasPlacementMode && ctx.isDocumentContext, display: placement.document.end.toUpperCase() },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeAfter, context: 'insertDialog', keys: [placement.selected.after], preventDefault: true, when: (ctx) => ctx.hasPlacementMode && !ctx.isDocumentContext, display: placement.selected.after.toUpperCase() },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeBefore, context: 'insertDialog', keys: [placement.selected.before], preventDefault: true, when: (ctx) => ctx.hasPlacementMode && !ctx.isDocumentContext, display: placement.selected.before.toUpperCase() },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeInside, context: 'insertDialog', keys: [placement.selected.inside], preventDefault: true, when: (ctx) => ctx.hasPlacementMode && !ctx.isDocumentContext, display: placement.selected.inside.toUpperCase() },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigatePrevious, context: 'insertDialog', keys: [navigation.previous], preventDefault: true, when: (ctx) => ctx.hasSelectionMode, display: 'Arrow Up' },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigateNext, context: 'insertDialog', keys: [navigation.next], preventDefault: true, when: (ctx) => ctx.hasSelectionMode, display: 'Arrow Down' },
+  { commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.confirm, context: 'insertDialog', keys: [navigation.confirm], preventDefault: true, when: (ctx) => ctx.hasSelectionMode, display: 'Enter' },
 ]
 
 for (const [index, key] of navigation.quickSelect.entries()) {
@@ -263,10 +224,14 @@ for (const [index, key] of navigation.quickSelect.entries()) {
     context: 'insertDialog',
     keys: [key],
     preventDefault: true,
-    when: (context) => (context as InsertDialogShortcutRuntimeContext).hasSelectionMode,
+    when: (ctx) => ctx.hasSelectionMode,
     display: key,
   })
 }
+
+// ---------------------------------------------------------------------------
+// Registry
+// ---------------------------------------------------------------------------
 
 export const INSERT_DIALOG_SHORTCUT_REGISTRY: ShortcutRegistryDefinition<InsertDialogShortcutRuntimeContext> =
   defineShortcutRegistry({

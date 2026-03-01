@@ -132,9 +132,7 @@ export class EpistolaTextEditor extends LitElement {
     const fieldPaths = this.engine?.fieldPaths ?? []
 
     const engine = this.engine
-    const getExampleData = engine
-      ? () => engine.getExampleData()
-      : undefined
+    const getExampleData = engine ? () => engine.getExampleData() : undefined
 
     const plugins = createPlugins(epistolaSchema, {
       expressionNodeViewOptions: { fieldPaths, getExampleData },
