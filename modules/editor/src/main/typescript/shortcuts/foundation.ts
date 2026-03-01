@@ -151,6 +151,22 @@ export function defineShortcutRegistry<TContext>(
   return registry;
 }
 
+/**
+ * Merges multiple registries into a single registry with type-erased context.
+ * Use when creating a unified resolver that handles commands from different
+ * context types — context filtering via `activeContexts` ensures only the
+ * right commands match at runtime.
+ */
+export function mergeRegistries(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...registries: readonly ShortcutRegistryDefinition<any>[]
+): ShortcutRegistryDefinition<unknown> {
+  return {
+    commands: registries.flatMap((r) => r.commands),
+    keybindings: registries.flatMap((r) => r.keybindings),
+  };
+}
+
 export function validateShortcutRegistry<TContext>(
   registry: ShortcutRegistryDefinition<TContext>,
 ): ShortcutRegistryValidationResult {

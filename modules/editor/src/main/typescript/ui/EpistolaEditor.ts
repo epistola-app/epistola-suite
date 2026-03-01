@@ -24,6 +24,7 @@ import {
   INSERT_DIALOG_KEYS,
   type InsertDialogShortcutRuntimeContext,
 } from '../shortcuts/insert-dialog-runtime.js'
+import { mergeRegistries } from '../shortcuts/foundation.js'
 import {
   ShortcutResolver,
   applyResolutionEventPolicy,
@@ -77,19 +78,14 @@ export class EpistolaEditor extends LitElement {
   private _pluginDisposers: PluginDisposeFn[] = []
   private _onKeydown = this._handleKeydown.bind(this)
   private _onBeforeUnload = this._handleBeforeUnload.bind(this)
-  private readonly _shortcutResolver = new ShortcutResolver<EditorShortcutRuntimeContext>(
-    getEditorShortcutRegistry(),
+  private readonly _shortcutResolver = new ShortcutResolver<unknown>(
+    mergeRegistries(getEditorShortcutRegistry(), getInsertDialogShortcutRegistry()),
     {
+      fallbackContexts: [],
       chord: {
         timeoutMs: EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs,
         cancelKeys: ['escape'],
       },
-    },
-  )
-  private readonly _insertDialogShortcutResolver = new ShortcutResolver<InsertDialogShortcutRuntimeContext>(
-    getInsertDialogShortcutRegistry(),
-    {
-      fallbackContexts: ['insertDialog'],
     },
   )
   private readonly _leaderController = new LeaderModeController({
@@ -245,7 +241,6 @@ export class EpistolaEditor extends LitElement {
     this._unsubSelection?.()
     this._saveService?.dispose()
     this._shortcutResolver.cancelActiveChord()
-    this._insertDialogShortcutResolver.cancelActiveChord()
     this._leaderController.dispose()
   }
 
@@ -322,16 +317,16 @@ export class EpistolaEditor extends LitElement {
 
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
-    if (this._insertDialogOpen) {
-      this._handleInsertDialogKeydown(e)
-      return
-    }
 
-    const target = e.target as HTMLElement | null
-    const activeContexts = this._isShortcutEditingTarget(target)
-      ? ['global'] as const
-      : ['global', 'editor'] as const
-    const runtimeContext = this._buildShortcutRuntimeContext()
+    const inInsertDialog = this._insertDialogOpen
+    const activeContexts = inInsertDialog
+      ? ['insertDialog'] as const
+      : this._isShortcutEditingTarget(e.target as HTMLElement | null)
+        ? ['global'] as const
+        : ['global', 'editor'] as const
+    const runtimeContext: unknown = inInsertDialog
+      ? this._buildInsertDialogShortcutRuntimeContext()
+      : this._buildShortcutRuntimeContext()
 
     const resolution = this._shortcutResolver.resolve({
       event: e,
@@ -343,28 +338,34 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    if (resolution.kind === 'chord-cancelled' && (resolution.reason === 'cancel-key' || resolution.reason === 'mismatch')) {
+    // Leader mode chord handling (editor mode only — insert dialog has no chords)
+    if (!inInsertDialog && resolution.kind === 'chord-cancelled' && (resolution.reason === 'cancel-key' || resolution.reason === 'mismatch')) {
       e.preventDefault()
     } else {
       applyResolutionEventPolicy(e, resolution)
     }
 
-    if (resolution.kind === 'chord-awaiting') {
+    if (!inInsertDialog && resolution.kind === 'chord-awaiting') {
       this._leaderController.showAwaiting(resolution.state.commandIds)
       return
     }
 
-    if (resolution.kind === 'chord-cancelled') {
+    if (!inInsertDialog && resolution.kind === 'chord-cancelled') {
       this._leaderController.handleChordCancelled(resolution.reason)
       return
     }
 
-    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
-    if (!resolution.fromChord) {
+    if (resolution.kind !== 'command') {
       return
     }
 
-    this._leaderController.handleCommandExecution(execution.initial, execution.completion)
+    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
+
+    if (!inInsertDialog && resolution.fromChord) {
+      this._leaderController.handleCommandExecution(execution.initial, execution.completion)
+    } else if (inInsertDialog && execution.initial.status === 'pending') {
+      void execution.completion
+    }
   }
 
   private _applyLeaderState(state: LeaderModeState): void {
@@ -514,30 +515,6 @@ export class EpistolaEditor extends LitElement {
       setOptionOutOfRange: () => {
         this._insertDialogError = 'Option out of range'
       },
-    }
-  }
-
-  private _handleInsertDialogKeydown(e: KeyboardEvent): void {
-    const runtimeContext = this._buildInsertDialogShortcutRuntimeContext()
-    const resolution = this._insertDialogShortcutResolver.resolve({
-      event: e,
-      activeContexts: ['insertDialog'],
-      runtimeContext,
-    })
-
-    if (resolution.kind === 'none') {
-      return
-    }
-
-    applyResolutionEventPolicy(e, resolution)
-
-    if (resolution.kind !== 'command') {
-      return
-    }
-
-    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
-    if (execution.initial.status === 'pending') {
-      void execution.completion
     }
   }
 
