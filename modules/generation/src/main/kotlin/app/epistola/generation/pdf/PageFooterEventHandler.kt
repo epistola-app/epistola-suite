@@ -46,10 +46,12 @@ class PageFooterEventHandler(
 
         val canvas = Canvas(pdfCanvas, footerRect)
 
-        // Render the footer node's slots
+        // Render the footer node's slots with page-scoped system parameters
         val footerNode = document.nodes[footerNodeId]
         if (footerNode != null) {
-            val elements = registry.renderSlots(footerNode, document, context)
+            val pageNumber = pdfDoc.getPageNumber(page)
+            val pageContext = context.withPageParams(pageNumber)
+            val elements = registry.renderSlots(footerNode, document, pageContext)
             for (element in elements) {
                 when (element) {
                     is IBlockElement -> canvas.add(element)

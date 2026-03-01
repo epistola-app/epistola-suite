@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.generation.SystemParameterRegistry
 import app.epistola.generation.TipTapConverter
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.template.model.DocumentStyles
@@ -25,4 +26,24 @@ data class RenderContext(
     val document: TemplateDocument,
     /** Optional asset resolver for loading image content during rendering */
     val assetResolver: AssetResolver? = null,
-)
+    /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
+    val systemParams: Map<String, Any?> = emptyMap(),
+) {
+    /**
+     * Data map with system parameters merged under the `sys` key.
+     * Returns the original [data] map when no system parameters are set.
+     *
+     * Note: If user data contains a top-level `sys` key, it will be
+     * overwritten by system parameters in page-scoped contexts (headers/footers).
+     * The `sys` namespace is reserved for engine-provided values.
+     */
+    val effectiveData: Map<String, Any?>
+        get() = if (systemParams.isEmpty()) data else data + mapOf("sys" to systemParams)
+
+    /**
+     * Returns a copy of this context with page-scoped system parameters injected.
+     */
+    fun withPageParams(pageNumber: Int): RenderContext = copy(
+        systemParams = systemParams + SystemParameterRegistry.buildPageParams(pageNumber),
+    )
+}

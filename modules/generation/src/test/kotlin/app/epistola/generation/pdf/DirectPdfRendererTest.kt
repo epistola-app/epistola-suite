@@ -628,6 +628,94 @@ class DirectPdfRendererTest {
     }
 
     @Test
+    fun `renders footer with sys page number expression`() {
+        // A body text node
+        val bodyText = Node(
+            id = "body-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "text", "text" to "Body content"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        // A footer text node with sys.page.number expression
+        val footerText = Node(
+            id = "footer-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf(
+                                    "type" to "expression",
+                                    "attrs" to mapOf("expression" to "sys.page.number"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val footerSlotId = "slot-footer-children"
+        val footerNode = Node(
+            id = "pagefooter1",
+            type = "pagefooter",
+            slots = listOf(footerSlotId),
+        )
+        val footerSlot = Slot(
+            id = footerSlotId,
+            nodeId = "pagefooter1",
+            name = "children",
+            children = listOf("footer-text"),
+        )
+
+        val rootNodeId = "root-1"
+        val rootSlotId = "slot-root"
+        val rootNode = Node(id = rootNodeId, type = "root", slots = listOf(rootSlotId))
+        val rootSlot = Slot(id = rootSlotId, nodeId = rootNodeId, name = "children", children = listOf("body-text"))
+
+        val document = TemplateDocument(
+            root = rootNodeId,
+            nodes = mapOf(
+                rootNodeId to rootNode,
+                "body-text" to bodyText,
+                "pagefooter1" to footerNode,
+                "footer-text" to footerText,
+            ),
+            slots = mapOf(
+                rootSlotId to rootSlot,
+                footerSlotId to footerSlot,
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+
+        // Verify the PDF has at least one page (footer handler was invoked)
+        val readDoc = PdfDocument(PdfReader(ByteArrayInputStream(pdfBytes)))
+        assertTrue(readDoc.numberOfPages >= 1, "PDF should have at least one page")
+        readDoc.close()
+    }
+
+    @Test
     fun `sets default creator when no metadata provided`() {
         val document = documentWithChildren(emptyMap(), emptyList())
 
