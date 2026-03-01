@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import jakarta.annotation.PreDestroy
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -68,8 +69,8 @@ class JobPoller(
     // Flag to coalesce multiple drain requests into one
     private val drainRequested = AtomicBoolean(false)
 
-    // Track job start times for duration calculation
-    private val jobStartTimes = ConcurrentHashMap<GenerationRequestKey, Long>()
+    // Track job timers for duration recording
+    private val jobTimers = ConcurrentHashMap<GenerationRequestKey, Timer.Sample>()
 
     // Cached pending count, updated each drain cycle
     private val pendingCount = AtomicInteger(0)
@@ -190,23 +191,32 @@ class JobPoller(
                         }
                     }
 
-                    // Track start time for duration calculation
-                    jobStartTimes[request.id] = System.currentTimeMillis()
+                    // Track timer sample for duration recording
+                    jobTimers[request.id] = Timer.start(meterRegistry)
 
                     logger.debug("Processing request {} (active jobs: {})", request.id.value, activeJobs.get())
 
                     // Execute on virtual thread, don't block the drain thread
                     jobThreadExecutor.submit {
+                        var jobOutcome = "success"
                         try {
                             jobExecutor.execute(request)
                             jobsCompletedCounter.increment()
                         } catch (e: Exception) {
+                            jobOutcome = "failure"
                             logger.error("Job execution failed for request {}: {}", request.id.value, e.message, e)
                             jobsFailedCounter.increment()
                             markRequestFailed(request.id, e.message)
                         } finally {
-                            // Calculate duration and report to adaptive batch sizer
-                            val startTime = jobStartTimes.remove(request.id)
+                            // Record duration via Micrometer timer and report to adaptive batch sizer
+                            val sample = jobTimers.remove(request.id)
+                            val durationMs = sample?.let {
+                                val timer = Timer.builder("epistola.jobs.duration")
+                                    .tag("outcome", jobOutcome)
+                                    .register(meterRegistry)
+                                val nanos = it.stop(timer)
+                                nanos / 1_000_000 // convert to ms for batch sizer
+                            }
                             val newActiveCount = synchronized(idleLatchLock) {
                                 val count = activeJobs.decrementAndGet()
                                 if (count == 0) {
@@ -214,13 +224,12 @@ class JobPoller(
                                 }
                                 count
                             }
-                            if (startTime != null) {
-                                val duration = System.currentTimeMillis() - startTime
-                                batchSizer.recordJobCompletion(duration)
+                            if (durationMs != null) {
+                                batchSizer.recordJobCompletion(durationMs)
                                 logger.info(
                                     "Job completed: {} in {}ms | Active: {}/{}",
                                     request.id.value,
-                                    duration,
+                                    durationMs,
                                     newActiveCount,
                                     properties.maxConcurrentJobs,
                                 )

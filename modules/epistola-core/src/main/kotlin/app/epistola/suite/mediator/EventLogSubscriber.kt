@@ -2,6 +2,9 @@ package app.epistola.suite.mediator
 
 import app.epistola.suite.common.EntityIdentifiable
 import app.epistola.suite.common.TenantScoped
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -25,12 +28,20 @@ import tools.jackson.databind.ObjectMapper
 class EventLogSubscriber(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
+    meterRegistry: MeterRegistry,
 ) {
 
     private val logger = LoggerFactory.getLogger(EventLogSubscriber::class.java)
+    private val persistTimer = Timer.builder("epistola.eventlog.persist.duration")
+        .description("Event log persistence latency")
+        .register(meterRegistry)
+    private val persistFailures = Counter.builder("epistola.eventlog.persist.failures")
+        .description("Event log persistence failures (audit trail gaps)")
+        .register(meterRegistry)
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun persist(event: CommandCompleted<*>) {
+        val sample = Timer.start()
         try {
             val command = event.command
             val eventType = command::class.simpleName ?: "Unknown"
@@ -53,8 +64,11 @@ class EventLogSubscriber(
                 }.execute()
             }
 
+            sample.stop(persistTimer)
             logger.debug("Event logged: {} (tenant={})", eventType, tenantId)
         } catch (e: Exception) {
+            sample.stop(persistTimer)
+            persistFailures.increment()
             // Failure to log should not affect the command
             logger.error("Failed to persist event log: {}", e.message, e)
         }
