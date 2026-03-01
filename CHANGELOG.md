@@ -8,6 +8,7 @@
 ### Changed
 - **Handler ID extraction**: Added `ServerRequest` extension functions (`tenantId()`, `templateId()`, `variantId()`, `versionId()`, `themeId()`, `environmentId()`, `attributeId()`) that replace repetitive composite ID construction boilerplate across all 9 handler files.
 - **Load test form upgrade**: Replaced static text inputs with dynamic HTMX-driven dropdowns for variant, version, data example, and environment selection. Variants, versions, and data examples load dynamically based on template and variant selection. Selecting a data example pre-fills the test data JSON. Version and environment fields are now dropdowns. Fixed blank test data submission bug.
+- **Editor shortcuts architecture refactoring**: Major simplification of the keyboard shortcuts system — extracted LeaderModeController into a standalone testable class (17 new tests), made KeybindingDefinition generic to eliminate 13 type casts, collapsed the dual config/foundation type system by making runtime files self-contained (removing ~570 lines of translation boilerplate), unified the two ShortcutResolver instances into one using context-based routing, and slimmed shortcuts-config.ts from ~395 to ~70 lines. Adding a new shortcut now requires 1-2 files instead of 3.
 
 ### Added
 - **Bulk template import endpoint** `POST /api/tenants/{tenantId}/templates/import`
