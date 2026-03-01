@@ -1,0 +1,281 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ include "epistola.fullname" . }}-overview
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  folder: {{ .Values.observability.grafana.folder | quote }}
+  json: |
+    {
+      "title": "Epistola — Overview",
+      "uid": "epistola-overview",
+      "tags": ["epistola"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-6h", "to": "now" },
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Datasource",
+            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Documents Generated (24h)",
+          "type": "stat",
+          "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "increase(epistola_jobs_completed_total[24h])",
+              "legendFormat": "Completed",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "fixed", "fixedColor": "blue" }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Generation Success Rate",
+          "type": "gauge",
+          "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_jobs_completed_total[5m]) / (rate(epistola_jobs_completed_total[5m]) + rate(epistola_jobs_failed_total[5m])) * 100",
+              "legendFormat": "Success Rate %",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "orange", "value": 95 },
+                  { "color": "green", "value": 99 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Queue Depth",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 0, "w": 8, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "epistola_generation_queue_depth",
+              "legendFormat": "Queue Depth",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Active Jobs",
+          "type": "stat",
+          "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "epistola_jobs_active",
+              "legendFormat": "Active",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "area"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "fixed", "fixedColor": "semi-dark-orange" }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "p95 Generation Time",
+          "type": "stat",
+          "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, rate(epistola_generation_document_duration_seconds_bucket[5m]))",
+              "legendFormat": "p95",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 10 },
+                  { "color": "red", "value": 30 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "title": "Command Error Rate",
+          "type": "gauge",
+          "gridPos": { "x": 0, "y": 4, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_commands_failures_total[5m]) / rate(epistola_commands_total[5m]) * 100",
+              "legendFormat": "Error Rate %",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "HTTP 5xx Rate",
+          "type": "gauge",
+          "gridPos": { "x": 4, "y": 4, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(http_server_requests_seconds_count{status=~\"5..\"}[5m]) / rate(http_server_requests_seconds_count[5m]) * 100",
+              "legendFormat": "5xx Rate %",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 8,
+          "title": "Uptime",
+          "type": "stat",
+          "gridPos": { "x": 8, "y": 4, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "process_uptime_seconds",
+              "legendFormat": "Uptime",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": { "mode": "fixed", "fixedColor": "green" }
+            }
+          }
+        }
+      ]
+    }
+{{- end }}

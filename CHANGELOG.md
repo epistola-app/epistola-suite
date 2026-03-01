@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- **Production observability**: Comprehensive metrics, Grafana dashboards, and alerting for production operations.
+  - **Prometheus endpoint**: Exposed `/actuator/prometheus` endpoint, making all auto-configured and custom metrics available to scrapers.
+  - **Mediator instrumentation**: All ~55 CQRS commands and queries are now timed via `epistola.mediator.command.duration` and `epistola.mediator.query.duration` (tags: operation name, outcome).
+  - **Generation pipeline metrics**: Document generation timer with template and render path tags, PDF size distribution summary, proper job duration timer replacing ad-hoc tracking, generation queue depth gauge, and active jobs gauge.
+  - **Event log metrics**: Audit trail persistence timer and failure counter for detecting audit gaps.
+  - **Storage metrics**: `InstrumentedContentStore` decorator adds latency timing and size tracking across all storage backends (Postgres, S3, filesystem).
+  - **API authentication metrics**: `epistola.api.auth.attempts` counter with result tags (success, invalid_key, disabled, expired, etc.) for security monitoring.
+  - **Grafana dashboards**: 5 dashboards deployed as Grafana Operator CRDs via Helm (Overview, Generation, Mediator, Infrastructure, API & Security). Feature-toggled via `observability.grafana.enabled`.
+  - **Alert rules**: 10 alert rules across 3 severity tiers (critical, warning, info) deployed as `GrafanaAlertRuleGroup` CRD, covering pipeline stalls, high failure rates, connection pool exhaustion, queue growth, and more.
 - **Deterministic PDF rendering**: Three-layer defense ensuring same template + same data = same PDF output, even across Epistola upgrades.
   - **Versioned rendering defaults**: All hardcoded rendering constants (font sizes, margins, spacing, borders) centralized in `RenderingDefaults`. Published template versions record which defaults version was in effect. Old versions render with their original defaults forever.
   - **Theme snapshot at publish time**: When a template version is published, the full resolved theme cascade is frozen as a `ResolvedThemeSnapshot`. Published documents render with the theme as it was at publish time, not the current live theme.

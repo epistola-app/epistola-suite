@@ -1,0 +1,211 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ include "epistola.fullname" . }}-api-security
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  folder: {{ .Values.observability.grafana.folder | quote }}
+  json: |
+    {
+      "title": "Epistola — API & Security",
+      "uid": "epistola-api-security",
+      "tags": ["epistola"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-6h", "to": "now" },
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Datasource",
+            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "API Request Rate",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum by (method, uri) (rate(http_server_requests_seconds_count{uri=~\"/api/.*\"}[5m]))",
+              "legendFormat": "{{`{{method}}`}} {{`{{uri}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "API Error Rate (4xx / 5xx)",
+          "type": "gauge",
+          "gridPos": { "x": 12, "y": 0, "w": 6, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum(rate(http_server_requests_seconds_count{uri=~\"/api/.*\", status=~\"[45]..\"}[5m])) / sum(rate(http_server_requests_seconds_count{uri=~\"/api/.*\"}[5m])) * 100",
+              "legendFormat": "Error Rate %",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "API Latency by Endpoint (p95)",
+          "type": "timeseries",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (uri, le) (rate(http_server_requests_seconds_bucket{uri=~\"/api/.*\"}[5m])))",
+              "legendFormat": "{{`{{uri}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Auth Attempts by Result",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum by (result) (rate(epistola_auth_attempts_total[5m]))",
+              "legendFormat": "{{`{{result}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "fillOpacity": 40,
+            "stacking": { "mode": "normal" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "Auth Failures (invalid_key + invalid_format)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_auth_attempts_total{result=\"invalid_key\"}[5m])",
+              "legendFormat": "Invalid Key",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(epistola_auth_attempts_total{result=\"invalid_format\"}[5m])",
+              "legendFormat": "Invalid Format",
+              "refId": "B"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Invalid Key" },
+                "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Invalid Format" },
+                "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }]
+              }
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "title": "Requests by Status Code",
+          "type": "piechart",
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum by (status) (increase(http_server_requests_seconds_count{uri=~\"/api/.*\"}[6h]))",
+              "legendFormat": "{{`{{status}}`}}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "options": {
+            "pieType": "pie",
+            "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+            "tooltip": { "mode": "single" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        }
+      ]
+    }
+{{- end }}

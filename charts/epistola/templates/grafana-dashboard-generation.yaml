@@ -1,0 +1,285 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ include "epistola.fullname" . }}-generation
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  folder: {{ .Values.observability.grafana.folder | quote }}
+  json: |
+    {
+      "title": "Epistola — Document Generation",
+      "uid": "epistola-generation",
+      "tags": ["epistola"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-6h", "to": "now" },
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Datasource",
+            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Generation Rate",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_jobs_completed_total[5m])",
+              "legendFormat": "Completed / sec",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Generation Duration Heatmap",
+          "type": "heatmap",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_generation_document_duration_seconds_bucket[5m])",
+              "legendFormat": "{{`{{le}}`}}",
+              "refId": "A",
+              "format": "heatmap"
+            }
+          ],
+          "options": {
+            "calculate": false,
+            "yAxis": { "unit": "s" },
+            "color": { "scheme": "Oranges" }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Duration by Template (p95)",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (template, le) (rate(epistola_generation_document_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{`{{template}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Queue Depth vs Generation Rate",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "epistola_generation_queue_depth",
+              "legendFormat": "Queue Depth",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(epistola_jobs_completed_total[5m])",
+              "legendFormat": "Generation Rate / sec",
+              "refId": "B"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Generation Rate / sec" },
+                "properties": [{ "id": "unit", "value": "ops" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "title": "Adaptive Batch Size",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 12, "w": 8, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "epistola_jobs_batch_size",
+              "legendFormat": "Batch Size",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "fixed", "fixedColor": "blue" }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "title": "Document Size Distribution",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 12, "w": 8, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, rate(epistola_generation_document_size_bytes_bucket[5m]))",
+              "legendFormat": "p50",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.90, rate(epistola_generation_document_size_bytes_bucket[5m]))",
+              "legendFormat": "p90",
+              "refId": "B"
+            },
+            {
+              "expr": "histogram_quantile(0.99, rate(epistola_generation_document_size_bytes_bucket[5m]))",
+              "legendFormat": "p99",
+              "refId": "C"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "Failed Jobs",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 12, "w": 8, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_jobs_failed_total[5m])",
+              "legendFormat": "Failed / sec",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "fixed", "fixedColor": "red" }
+            }
+          }
+        },
+        {
+          "id": 8,
+          "title": "Active vs Max Concurrent Jobs",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "epistola_jobs_active",
+              "legendFormat": "Active Jobs",
+              "refId": "A"
+            },
+            {
+              "expr": "epistola_jobs_max_concurrent",
+              "legendFormat": "Max Concurrent",
+              "refId": "B"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Max Concurrent" },
+                "properties": [
+                  { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+                  { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 9,
+          "title": "Snapshot vs Legacy Path",
+          "type": "barchart",
+          "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum by (path) (increase(epistola_jobs_completed_total[5m]))",
+              "legendFormat": "{{`{{path}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "xTickLabelRotation": 0,
+            "stacking": "normal",
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        }
+      ]
+    }
+{{- end }}
