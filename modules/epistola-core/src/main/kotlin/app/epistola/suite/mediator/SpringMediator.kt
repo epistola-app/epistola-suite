@@ -1,5 +1,7 @@
 package app.epistola.suite.mediator
 
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationEventPublisher
@@ -27,6 +29,7 @@ import kotlin.reflect.full.allSupertypes
 class SpringMediator(
     private val applicationContext: ApplicationContext,
     private val eventPublisher: ApplicationEventPublisher,
+    private val meterRegistry: MeterRegistry,
 ) : Mediator {
 
     private val logger = LoggerFactory.getLogger(SpringMediator::class.java)
@@ -42,7 +45,7 @@ class SpringMediator(
 
     @Suppress("UNCHECKED_CAST")
     override fun <R> send(command: Command<R>): R {
-        val commandName = command::class.simpleName
+        val commandName = command::class.simpleName ?: "Unknown"
         logger.debug("Dispatching command: {}", commandName)
 
         val handler = commandHandlersCache.computeIfAbsent(command::class) {
@@ -52,6 +55,8 @@ class SpringMediator(
                 logger.error("No handler found for command: {}", commandName)
             }
 
+        val sample = Timer.start(meterRegistry)
+        var outcome = "success"
         return try {
             val result = handler.handle(command)
             logger.debug("Command {} completed successfully", commandName)
@@ -64,14 +69,22 @@ class SpringMediator(
 
             result
         } catch (e: Exception) {
+            outcome = "failure"
             logger.warn("Command {} failed: {}", commandName, e.message)
             throw e
+        } finally {
+            sample.stop(
+                Timer.builder("epistola.mediator.command.duration")
+                    .tag("command", commandName)
+                    .tag("outcome", outcome)
+                    .register(meterRegistry),
+            )
         }
     }
 
     @Suppress("UNCHECKED_CAST")
     override fun <R> query(query: Query<R>): R {
-        val queryName = query::class.simpleName
+        val queryName = query::class.simpleName ?: "Unknown"
         logger.debug("Dispatching query: {}", queryName)
 
         val handler = queryHandlersCache.computeIfAbsent(query::class) {
@@ -81,13 +94,23 @@ class SpringMediator(
                 logger.error("No handler found for query: {}", queryName)
             }
 
+        val sample = Timer.start(meterRegistry)
+        var outcome = "success"
         return try {
             val result = handler.handle(query)
             logger.debug("Query {} completed successfully", queryName)
             result
         } catch (e: Exception) {
+            outcome = "failure"
             logger.warn("Query {} failed: {}", queryName, e.message)
             throw e
+        } finally {
+            sample.stop(
+                Timer.builder("epistola.mediator.query.duration")
+                    .tag("query", queryName)
+                    .tag("outcome", outcome)
+                    .register(meterRegistry),
+            )
         }
     }
 

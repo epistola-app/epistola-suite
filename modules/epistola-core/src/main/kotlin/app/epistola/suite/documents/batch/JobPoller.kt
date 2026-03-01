@@ -71,12 +71,19 @@ class JobPoller(
     // Track job start times for duration calculation
     private val jobStartTimes = ConcurrentHashMap<GenerationRequestKey, Long>()
 
+    // Cached pending count, updated each drain cycle
+    private val pendingCount = AtomicInteger(0)
+
     // Micrometer counters for observability
     private val jobsClaimedCounter = meterRegistry.counter("epistola.jobs.claimed.total")
     private val jobsCompletedCounter = meterRegistry.counter("epistola.jobs.completed.total")
     private val jobsFailedCounter = meterRegistry.counter("epistola.jobs.failed.total")
 
     init {
+        // Register gauges for active jobs and queue depth
+        meterRegistry.gauge("epistola.jobs.active", activeJobs) { it.get().toDouble() }
+        meterRegistry.gauge("epistola.generation.queue.depth", pendingCount) { it.get().toDouble() }
+
         logger.info(
             "Job poller started: instanceId={}, maxConcurrentJobs={}, pollInterval={}ms",
             instanceId,
@@ -138,6 +145,9 @@ class JobPoller(
         while (true) {
             drainRequested.set(false) // Reset flag, will be set again if more work needed
 
+            // Update pending count for metrics (lightweight query, piggybacks on poll cycle)
+            updatePendingCount()
+
             // Keep claiming until at capacity or no more work
             while (activeJobs.get() < properties.maxConcurrentJobs) {
                 val availableSlots = properties.maxConcurrentJobs - activeJobs.get()
@@ -150,6 +160,7 @@ class JobPoller(
 
                 val requests = claimPendingRequests(actualBatchSize)
                 if (requests.isEmpty()) {
+                    pendingCount.set(0)
                     logger.debug(
                         "No pending jobs available | Batch size: {}, Active: {}/{}",
                         requestedBatchSize,
@@ -225,6 +236,22 @@ class JobPoller(
             if (!drainRequested.get()) {
                 break // No more requests, exit drain loop
             }
+        }
+    }
+
+    /**
+     * Update the cached pending request count for metrics.
+     */
+    private fun updatePendingCount() {
+        try {
+            val count = jdbi.withHandle<Int, Exception> { handle ->
+                handle.createQuery("SELECT COUNT(*) FROM document_generation_requests WHERE status = 'PENDING'")
+                    .mapTo(Int::class.java)
+                    .one()
+            }
+            pendingCount.set(count)
+        } catch (e: Exception) {
+            logger.debug("Failed to update pending count: {}", e.message)
         }
     }
 
