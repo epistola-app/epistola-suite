@@ -6,6 +6,7 @@ import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
@@ -42,6 +43,7 @@ class SecurityConfig(
     private val apiKeyService: ApiKeyService,
     private val authProperties: AuthProperties,
     private val jwtAuthenticationConverter: EpistolaJwtAuthenticationConverter? = null,
+    private val meterRegistry: MeterRegistry,
 ) {
     private val popupAwareAuthenticationSuccessHandler = PopupAwareAuthenticationSuccessHandler()
 
@@ -69,6 +71,7 @@ class SecurityConfig(
         val apiKeyFilter = ApiKeyAuthenticationFilter(
             apiKeyRepository = apiKeyRepository,
             apiKeyService = apiKeyService,
+            meterRegistry = meterRegistry,
             headerName = authProperties.apiKey.headerName,
         )
 

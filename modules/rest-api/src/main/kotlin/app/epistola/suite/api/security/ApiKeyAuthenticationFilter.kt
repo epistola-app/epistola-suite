@@ -4,6 +4,8 @@ import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.security.EpistolaPrincipal
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -28,10 +30,15 @@ import org.springframework.web.filter.OncePerRequestFilter
 class ApiKeyAuthenticationFilter(
     private val apiKeyRepository: ApiKeyRepository,
     private val apiKeyService: ApiKeyService,
+    private val meterRegistry: MeterRegistry,
     private val headerName: String = DEFAULT_HEADER_NAME,
 ) : OncePerRequestFilter() {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    private fun authCounter(result: String): Counter = Counter.builder("epistola.api.auth.attempts")
+        .tag("result", result)
+        .register(meterRegistry)
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -41,11 +48,13 @@ class ApiKeyAuthenticationFilter(
         val apiKeyHeader = request.getHeader(headerName)
 
         if (apiKeyHeader.isNullOrBlank()) {
+            authCounter("no_header").increment()
             filterChain.doFilter(request, response)
             return
         }
 
         if (!apiKeyHeader.startsWith(ApiKeyService.KEY_PREFIX)) {
+            authCounter("invalid_format").increment()
             writeUnauthorized(response, "Invalid API key format")
             return
         }
@@ -54,12 +63,19 @@ class ApiKeyAuthenticationFilter(
         val apiKey = apiKeyRepository.findByKeyHash(keyHash)
 
         if (apiKey == null) {
+            authCounter("invalid_key").increment()
             writeUnauthorized(response, "Invalid API key")
             return
         }
 
         if (!apiKey.isUsable()) {
-            val reason = if (!apiKey.enabled) "API key is disabled" else "API key has expired"
+            val reason = if (!apiKey.enabled) {
+                authCounter("disabled").increment()
+                "API key is disabled"
+            } else {
+                authCounter("expired").increment()
+                "API key has expired"
+            }
             writeUnauthorized(response, reason)
             return
         }
@@ -81,6 +97,7 @@ class ApiKeyAuthenticationFilter(
         )
 
         SecurityContextHolder.getContext().authentication = ApiKeyAuthenticationToken(principal)
+        authCounter("success").increment()
 
         filterChain.doFilter(request, response)
     }

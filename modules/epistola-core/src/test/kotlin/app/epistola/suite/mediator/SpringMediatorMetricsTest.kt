@@ -33,9 +33,7 @@ class SpringMediatorMetricsTest {
     }
 
     class FailingCommandHandler : CommandHandler<FailingCommand, Unit> {
-        override fun handle(command: FailingCommand) {
-            throw IllegalStateException(command.message)
-        }
+        override fun handle(command: FailingCommand): Unit = throw IllegalStateException(command.message)
     }
 
     class LookupHandler : QueryHandler<LookupQuery, String?> {
@@ -43,9 +41,7 @@ class SpringMediatorMetricsTest {
     }
 
     class FailingQueryHandler : QueryHandler<FailingQuery, Nothing> {
-        override fun handle(query: FailingQuery): Nothing {
-            throw IllegalArgumentException(query.reason)
-        }
+        override fun handle(query: FailingQuery): Nothing = throw IllegalArgumentException(query.reason)
     }
 
     @BeforeEach

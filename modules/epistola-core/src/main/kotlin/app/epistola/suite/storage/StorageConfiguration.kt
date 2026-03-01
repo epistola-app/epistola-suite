@@ -1,5 +1,6 @@
 package app.epistola.suite.storage
 
+import io.micrometer.core.instrument.MeterRegistry
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -17,7 +18,8 @@ class StorageConfiguration {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Bean
-    fun contentStore(properties: StorageProperties, jdbi: Jdbi): ContentStore {
+    fun contentStore(properties: StorageProperties, jdbi: Jdbi, meterRegistry: MeterRegistry): ContentStore {
+        val backendName = properties.backend.name.lowercase()
         val store = when (properties.backend) {
             StorageBackend.POSTGRES -> {
                 logger.info("Using PostgreSQL content store")
@@ -44,6 +46,6 @@ class StorageConfiguration {
                 InMemoryContentStore()
             }
         }
-        return store
+        return InstrumentedContentStore(store, meterRegistry, backendName)
     }
 }
