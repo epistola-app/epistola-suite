@@ -42,7 +42,7 @@ interface NormalizedBindingSequence {
 
 interface PreparedBinding<TContext> {
   order: number;
-  binding: KeybindingDefinition;
+  binding: KeybindingDefinition<TContext>;
   command: CommandDefinition<TContext>;
   sequences: readonly NormalizedBindingSequence[];
 }
@@ -94,10 +94,10 @@ export interface ShortcutResolverOptions {
   chord?: Partial<ShortcutChordOptions>;
 }
 
-export interface ShortcutResolveInput {
+export interface ShortcutResolveInput<TContext = unknown> {
   event: ShortcutKeyboardEvent;
   activeContexts: readonly ShortcutContextId[];
-  runtimeContext: unknown;
+  runtimeContext: TContext;
   timestampMs?: number;
 }
 
@@ -105,7 +105,7 @@ export interface ShortcutResolutionMatch<TContext> {
   commandId: CommandId;
   context: ShortcutContextId;
   command: CommandDefinition<TContext>;
-  binding: KeybindingDefinition;
+  binding: KeybindingDefinition<TContext>;
   normalizedEvent: NormalizedShortcutEvent;
   matchedStroke: string;
   matchBy: ShortcutMatchBy;
@@ -290,8 +290,8 @@ function parseStrokeToken(
   };
 }
 
-function parseBindingSequence(
-  binding: KeybindingDefinition,
+function parseBindingSequence<TContext>(
+  binding: KeybindingDefinition<TContext>,
   rawSequence: string,
 ): NormalizedBindingSequence | null {
   const normalizedSequence = rawSequence
@@ -381,8 +381,8 @@ function matchesStroke(
   return eventStroke === stroke.stroke;
 }
 
-function eventPolicyFromBinding(
-  binding: KeybindingDefinition,
+function eventPolicyFromBinding<TContext>(
+  binding: KeybindingDefinition<TContext>,
 ): ShortcutEventPolicyResult {
   return {
     preventDefault: binding.preventDefault ?? false,
@@ -390,8 +390,8 @@ function eventPolicyFromBinding(
   };
 }
 
-function mergeEventPolicy(
-  bindings: readonly KeybindingDefinition[],
+function mergeEventPolicy<TContext>(
+  bindings: readonly KeybindingDefinition<TContext>[],
 ): ShortcutEventPolicyResult {
   return {
     preventDefault: bindings.some((binding) => binding.preventDefault ?? false),
@@ -570,7 +570,7 @@ export class ShortcutResolver<TContext> {
     }
   }
 
-  resolve(input: ShortcutResolveInput): ShortcutResolution<TContext> {
+  resolve(input: ShortcutResolveInput<TContext>): ShortcutResolution<TContext> {
     const nowMs = input.timestampMs ?? Date.now();
     const normalizedEvent = normalizeShortcutEvent(input.event);
     const contextPriority = buildContextPriority(
@@ -743,7 +743,7 @@ export class ShortcutResolver<TContext> {
   private resolveFresh(
     normalizedEvent: NormalizedShortcutEvent,
     contextPriority: readonly ShortcutContextId[],
-    runtimeContext: unknown,
+    runtimeContext: TContext,
     nowMs: number,
   ): ShortcutResolution<TContext> {
     for (const context of contextPriority) {
@@ -847,9 +847,9 @@ export class ShortcutResolver<TContext> {
   }
 }
 
-export function applyBindingEventPolicy(
+export function applyBindingEventPolicy<TContext>(
   event: ShortcutKeyboardEvent,
-  binding: KeybindingDefinition,
+  binding: KeybindingDefinition<TContext>,
 ): ShortcutEventPolicyResult {
   const policy = eventPolicyFromBinding(binding);
   if (policy.preventDefault) {

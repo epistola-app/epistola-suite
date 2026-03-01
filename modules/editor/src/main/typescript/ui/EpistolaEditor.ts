@@ -14,22 +14,23 @@ import type { EpistolaToolbar } from './EpistolaToolbar.js'
 import { nanoid } from 'nanoid'
 import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js'
 import {
+  getAllLeaderIdleTokens,
   getEditorShortcutRegistry,
   getLeaderIdleTokensForCommandIds,
   type EditorShortcutRuntimeContext,
 } from '../shortcuts/editor-runtime.js'
 import {
   getInsertDialogShortcutRegistry,
+  INSERT_DIALOG_KEYS,
   type InsertDialogShortcutRuntimeContext,
 } from '../shortcuts/insert-dialog-runtime.js'
+import { mergeRegistries } from '../shortcuts/foundation.js'
 import {
   ShortcutResolver,
   applyResolutionEventPolicy,
   startShortcutCommandExecution,
-  type ShortcutCommandExecutionResult,
-  type ShortcutChordCancelReason,
 } from '../shortcuts/resolver.js'
-import type { CommandId } from '../shortcuts/foundation.js'
+import { LeaderModeController, type LeaderModeState } from '../shortcuts/leader-controller.js'
 import { validateCoreShortcutRegistriesOnStartup } from '../shortcuts/startup-validation.js'
 
 import './EpistolaSidebar.js'
@@ -51,7 +52,7 @@ interface InsertTarget {
   parentType: string
 }
 
-const INSERT_DIALOG_SHORTCUTS = EDITOR_SHORTCUTS_CONFIG.insertDialog
+const INSERT_DIALOG_SHORTCUTS = INSERT_DIALOG_KEYS
 
 const EDITABLE_TARGET_SELECTOR = 'input, textarea, select, [contenteditable="true"], .ProseMirror'
 
@@ -77,21 +78,29 @@ export class EpistolaEditor extends LitElement {
   private _pluginDisposers: PluginDisposeFn[] = []
   private _onKeydown = this._handleKeydown.bind(this)
   private _onBeforeUnload = this._handleBeforeUnload.bind(this)
-  private readonly _shortcutResolver = new ShortcutResolver<EditorShortcutRuntimeContext>(
-    getEditorShortcutRegistry(),
+  private readonly _shortcutResolver = new ShortcutResolver<unknown>(
+    mergeRegistries(getEditorShortcutRegistry(), getInsertDialogShortcutRegistry()),
     {
+      fallbackContexts: [],
       chord: {
         timeoutMs: EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs,
         cancelKeys: ['escape'],
       },
     },
   )
-  private readonly _insertDialogShortcutResolver = new ShortcutResolver<InsertDialogShortcutRuntimeContext>(
-    getInsertDialogShortcutRegistry(),
-    {
-      fallbackContexts: ['insertDialog'],
+  private readonly _leaderController = new LeaderModeController({
+    timing: EDITOR_SHORTCUTS_CONFIG.leader.timeout,
+    getIdleTokens: getLeaderIdleTokensForCommandIds,
+    fallbackTokens: getAllLeaderIdleTokens(),
+    onStateChange: (state) => this._applyLeaderState(state),
+    cancelActiveChord: () => this._shortcutResolver.cancelActiveChord(),
+    blurEditingTarget: () => {
+      const active = document.activeElement as HTMLElement | null
+      if (active && this.contains(active) && active.matches(EDITABLE_TARGET_SELECTOR)) {
+        active.blur()
+      }
     },
-  )
+  })
 
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn
   @property({ attribute: false }) onSave?: SaveFn
@@ -113,14 +122,7 @@ export class EpistolaEditor extends LitElement {
 
   private _insertTarget: InsertTarget | null = null
 
-  private _leaderTimeout: ReturnType<typeof setTimeout> | null = null
-  private _leaderResultTimeout: ReturnType<typeof setTimeout> | null = null
-  private _leaderClearTimeout: ReturnType<typeof setTimeout> | null = null
-
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open'
-  private static readonly LEADER_TIMEOUT_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs
-  private static readonly LEADER_RESULT_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.resultHideMs
-  private static readonly LEADER_CLEAR_MS = EDITOR_SHORTCUTS_CONFIG.leader.timeout.messageClearMs
 
   get engine(): EditorEngine | undefined {
     return this._engine
@@ -239,8 +241,7 @@ export class EpistolaEditor extends LitElement {
     this._unsubSelection?.()
     this._saveService?.dispose()
     this._shortcutResolver.cancelActiveChord()
-    this._insertDialogShortcutResolver.cancelActiveChord()
-    this._clearLeaderTimers()
+    this._leaderController.dispose()
   }
 
   // ---------------------------------------------------------------------------
@@ -316,16 +317,16 @@ export class EpistolaEditor extends LitElement {
 
   private _handleKeydown(e: KeyboardEvent): void {
     if (!this._engine) return
-    if (this._insertDialogOpen) {
-      this._handleInsertDialogKeydown(e)
-      return
-    }
 
-    const target = e.target as HTMLElement | null
-    const activeContexts = this._isShortcutEditingTarget(target)
-      ? ['global'] as const
-      : ['global', 'editor'] as const
-    const runtimeContext = this._buildShortcutRuntimeContext()
+    const inInsertDialog = this._insertDialogOpen
+    const activeContexts = inInsertDialog
+      ? ['insertDialog'] as const
+      : this._isShortcutEditingTarget(e.target as HTMLElement | null)
+        ? ['global'] as const
+        : ['global', 'editor'] as const
+    const runtimeContext: unknown = inInsertDialog
+      ? this._buildInsertDialogShortcutRuntimeContext()
+      : this._buildShortcutRuntimeContext()
 
     const resolution = this._shortcutResolver.resolve({
       event: e,
@@ -337,124 +338,40 @@ export class EpistolaEditor extends LitElement {
       return
     }
 
-    if (resolution.kind === 'chord-cancelled' && (resolution.reason === 'cancel-key' || resolution.reason === 'mismatch')) {
+    // Leader mode chord handling (editor mode only — insert dialog has no chords)
+    if (!inInsertDialog && resolution.kind === 'chord-cancelled' && (resolution.reason === 'cancel-key' || resolution.reason === 'mismatch')) {
       e.preventDefault()
     } else {
       applyResolutionEventPolicy(e, resolution)
     }
 
-    if (resolution.kind === 'chord-awaiting') {
-      this._showLeaderAwaiting(resolution.state.commandIds)
+    if (!inInsertDialog && resolution.kind === 'chord-awaiting') {
+      this._leaderController.showAwaiting(resolution.state.commandIds)
       return
     }
 
-    if (resolution.kind === 'chord-cancelled') {
-      this._handleLeaderChordCancelled(resolution.reason)
+    if (!inInsertDialog && resolution.kind === 'chord-cancelled') {
+      this._leaderController.handleChordCancelled(resolution.reason)
+      return
+    }
+
+    if (resolution.kind !== 'command') {
       return
     }
 
     const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
-    if (!resolution.fromChord) {
-      return
-    }
 
-    this._handleLeaderCommandExecution(execution.initial, execution.completion)
+    if (!inInsertDialog && resolution.fromChord) {
+      this._leaderController.handleCommandExecution(execution.initial, execution.completion)
+    } else if (inInsertDialog && execution.initial.status === 'pending') {
+      void execution.completion
+    }
   }
 
-  private _showLeaderAwaiting(commandIds: readonly CommandId[]): void {
-    this._clearLeaderTimers()
-
-    const active = document.activeElement as HTMLElement | null
-    if (active && this.contains(active) && active.matches(EDITABLE_TARGET_SELECTOR)) {
-      active.blur()
-    }
-
-    this._leaderVisible = true
-    this._leaderStatus = 'idle'
-
-    const idleTokens = getLeaderIdleTokensForCommandIds(commandIds)
-    const fallbackTokens = EDITOR_SHORTCUTS_CONFIG.leader.commands.map((command) => command.idleToken)
-    const tokens = idleTokens.length > 0 ? idleTokens : fallbackTokens
-
-    this._leaderMessage = `Waiting: ${tokens.join(' ')}`
-    this._leaderTimeout = setTimeout(() => {
-      this._shortcutResolver.cancelActiveChord()
-      this._hideLeaderMode()
-    }, EpistolaEditor.LEADER_TIMEOUT_MS)
-  }
-
-  private _handleLeaderChordCancelled(reason: ShortcutChordCancelReason): void {
-    if (reason === 'mismatch') {
-      this._showLeaderResult(false, 'Unknown leader command')
-      return
-    }
-    this._hideLeaderMode()
-  }
-
-  private _handleLeaderCommandExecution(
-    initial: ShortcutCommandExecutionResult,
-    completion: Promise<ShortcutCommandExecutionResult>,
-  ): void {
-    if (initial.status !== 'pending') {
-      this._showLeaderCommandResult(initial)
-      return
-    }
-
-    this._clearLeaderTimers()
-    this._leaderVisible = true
-    this._leaderStatus = 'idle'
-    this._leaderMessage = 'Running command...'
-
-    void completion.then((result) => {
-      this._showLeaderCommandResult(result)
-    })
-  }
-
-  private _showLeaderCommandResult(result: ShortcutCommandExecutionResult): void {
-    if (result.status === 'cancelled') {
-      this._hideLeaderMode()
-      return
-    }
-
-    if (result.status === 'ok') {
-      this._showLeaderResult(true, result.message ?? 'Done')
-      return
-    }
-
-    const message = result.message ?? (result.status === 'rejected' ? 'Command rejected' : 'Command failed')
-    this._showLeaderResult(false, message)
-  }
-
-  private _showLeaderResult(ok: boolean, message: string): void {
-    this._clearLeaderTimers()
-    this._leaderVisible = true
-    this._leaderStatus = ok ? 'success' : 'error'
-    this._leaderMessage = message
-    this._leaderResultTimeout = setTimeout(() => this._hideLeaderMode(), EpistolaEditor.LEADER_RESULT_MS)
-  }
-
-  private _hideLeaderMode(): void {
-    this._clearLeaderTimers()
-    this._leaderVisible = false
-    this._leaderClearTimeout = setTimeout(() => {
-      this._leaderStatus = 'idle'
-      this._leaderMessage = ''
-    }, EpistolaEditor.LEADER_CLEAR_MS)
-  }
-
-  private _clearLeaderTimers(): void {
-    if (this._leaderTimeout) {
-      clearTimeout(this._leaderTimeout)
-      this._leaderTimeout = null
-    }
-    if (this._leaderResultTimeout) {
-      clearTimeout(this._leaderResultTimeout)
-      this._leaderResultTimeout = null
-    }
-    if (this._leaderClearTimeout) {
-      clearTimeout(this._leaderClearTimeout)
-      this._leaderClearTimeout = null
-    }
+  private _applyLeaderState(state: LeaderModeState): void {
+    this._leaderVisible = state.visible
+    this._leaderStatus = state.status
+    this._leaderMessage = state.message
   }
 
   private _focusCanvasBlock(nodeId: NodeId | null): void {
@@ -598,30 +515,6 @@ export class EpistolaEditor extends LitElement {
       setOptionOutOfRange: () => {
         this._insertDialogError = 'Option out of range'
       },
-    }
-  }
-
-  private _handleInsertDialogKeydown(e: KeyboardEvent): void {
-    const runtimeContext = this._buildInsertDialogShortcutRuntimeContext()
-    const resolution = this._insertDialogShortcutResolver.resolve({
-      event: e,
-      activeContexts: ['insertDialog'],
-      runtimeContext,
-    })
-
-    if (resolution.kind === 'none') {
-      return
-    }
-
-    applyResolutionEventPolicy(e, resolution)
-
-    if (resolution.kind !== 'command') {
-      return
-    }
-
-    const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext)
-    if (execution.initial.status === 'pending') {
-      void execution.completion
     }
   }
 

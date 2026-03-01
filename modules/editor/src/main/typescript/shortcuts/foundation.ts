@@ -60,20 +60,20 @@ export interface CommandDefinition<TContext = unknown> {
   metadata?: Record<string, unknown>;
 }
 
-export interface KeybindingDefinition {
+export interface KeybindingDefinition<TContext = unknown> {
   commandId: CommandId;
   context: ShortcutContextId;
   keys: readonly string[];
   matchBy?: "key" | "code";
   preventDefault?: boolean;
   stopPropagation?: boolean;
-  when?: (context: unknown) => boolean;
+  when?: (context: TContext) => boolean;
   display?: string;
 }
 
 export interface ShortcutRegistryDefinition<TContext = unknown> {
   commands: readonly CommandDefinition<TContext>[];
-  keybindings: readonly KeybindingDefinition[];
+  keybindings: readonly KeybindingDefinition<TContext>[];
 }
 
 export type ShortcutRegistryValidationIssueCode =
@@ -149,6 +149,22 @@ export function defineShortcutRegistry<TContext>(
   registry: ShortcutRegistryDefinition<TContext>,
 ): ShortcutRegistryDefinition<TContext> {
   return registry;
+}
+
+/**
+ * Merges multiple registries into a single registry with type-erased context.
+ * Use when creating a unified resolver that handles commands from different
+ * context types — context filtering via `activeContexts` ensures only the
+ * right commands match at runtime.
+ */
+export function mergeRegistries(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...registries: readonly ShortcutRegistryDefinition<any>[]
+): ShortcutRegistryDefinition<unknown> {
+  return {
+    commands: registries.flatMap((r) => r.commands),
+    keybindings: registries.flatMap((r) => r.keybindings),
+  };
 }
 
 export function validateShortcutRegistry<TContext>(
