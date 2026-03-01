@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- **Deterministic PDF rendering**: Three-layer defense ensuring same template + same data = same PDF output, even across Epistola upgrades.
+  - **Versioned rendering defaults**: All hardcoded rendering constants (font sizes, margins, spacing, borders) centralized in `RenderingDefaults`. Published template versions record which defaults version was in effect. Old versions render with their original defaults forever.
+  - **Theme snapshot at publish time**: When a template version is published, the full resolved theme cascade is frozen as a `ResolvedThemeSnapshot`. Published documents render with the theme as it was at publish time, not the current live theme.
+  - **Visual regression tests**: Canonical templates rendered against stored baselines catch accidental rendering changes from code modifications, library upgrades, or constant changes. Run with `-DupdateBaselines=true` to regenerate baselines after deliberate changes.
+  - **Engine version tracking**: Every generated PDF embeds an `EngineVersion` metadata field (e.g., `epistola-gen-1+itext-9.5.0`) for traceability.
+- **Rendering upgrade documentation**: `docs/rendering-upgrades.md` documents procedures for iText upgrades, rendering defaults changes, and engine version tracking.
 - **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.page.number`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
 - **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.page.number` previews as "1").
 
@@ -10,6 +16,7 @@
 - **Registry-driven system parameters**: `SystemParameterRegistry` is now the runtime source of truth for system parameter injection. Adding a new system parameter only requires adding a descriptor (with `mockValue`) to the registry and updating `buildPageParams()`/`buildGlobalParams()` — no scattered code changes needed. Mock data injection for the editor is centralised in `EditorEngine.getExampleData()`, eliminating duplication across UI call sites.
 
 ### Fixed
+- **Version queries missing rendering columns**: `GetVersion`, `GetDraft`, and `GetActiveVersion` queries now include `rendering_defaults_version` and `resolved_theme` columns. Without these, published versions always fell back to live theme resolution instead of using the frozen snapshot.
 - **GetEditorContext query**: Added missing `template_key` to the LEFT JOIN on `template_versions`, preventing potential cross-template draft version matching when two templates share a variant slug.
 
 ### Changed

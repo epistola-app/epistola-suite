@@ -9,4 +9,10 @@ data class PdfMetadata(
     val author: String? = null,
     val subject: String? = null,
     val creator: String = "Epistola Suite",
+    /**
+     * Engine version string embedded in PDF metadata for traceability.
+     * Format: `"epistola-gen-<defaults-version>+itext-<itext-version>"`
+     * e.g., `"epistola-gen-1+itext-9.5.0"`
+     */
+    val engineVersion: String? = null,
 )

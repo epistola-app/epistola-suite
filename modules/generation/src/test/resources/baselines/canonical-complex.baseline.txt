@@ -1,0 +1,14 @@
+--- PAGE 1 ---
+Acme Corporation Report
+This is the introduction paragraph for the report.
+Details
+- First point
+- Second point
+- Third point
+1. Step one
+2. Step two
+3. Step three
+Item: Alpha
+Item: Beta
+Item: Gamma
+This is the footer content.

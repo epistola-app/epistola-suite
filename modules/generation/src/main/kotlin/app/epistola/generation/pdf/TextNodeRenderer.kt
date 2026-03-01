@@ -28,7 +28,8 @@ class TextNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
-            StyleApplicator.COMPONENT_DEFAULTS["text"],
+            context.renderingDefaults.componentDefaults("text"),
+            context.renderingDefaults.baseFontSizePt,
         )
 
         // Convert TipTap content to iText elements

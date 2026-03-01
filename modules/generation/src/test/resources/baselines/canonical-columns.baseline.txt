@@ -1,0 +1,2 @@
+--- PAGE 1 ---
+Left column content with some text. Right column content with some text.

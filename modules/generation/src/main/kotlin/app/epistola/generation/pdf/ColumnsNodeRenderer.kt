@@ -63,11 +63,12 @@ class ColumnsNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
-            StyleApplicator.COMPONENT_DEFAULTS["columns"],
+            context.renderingDefaults.componentDefaults("columns"),
+            context.renderingDefaults.baseFontSizePt,
         )
 
         // Gap between columns (simulated via cell padding)
-        val gap = (node.props?.get("gap") as? Number)?.toFloat() ?: 8f
+        val gap = (node.props?.get("gap") as? Number)?.toFloat() ?: context.renderingDefaults.columnGap
         val cellPadding = gap / 2f
 
         // Render each column slot

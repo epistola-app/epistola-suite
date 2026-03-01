@@ -3,6 +3,7 @@ package app.epistola.suite.documents.batch
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
+import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.BatchKey
@@ -163,7 +164,41 @@ class DocumentGenerationExecutor(
             mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
-        generationService.renderPdf(request.tenantKey, templateModel, dataMap, outputStream, template.themeKey, tenant.defaultThemeKey, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
+
+        // Use frozen snapshot for published versions, live resolution for legacy versions
+        val resolvedTheme = version.resolvedTheme
+        val renderingDefaultsVersion = version.renderingDefaultsVersion
+        if (resolvedTheme != null && renderingDefaultsVersion != null) {
+            // Deterministic path: use frozen theme + rendering defaults from publish time
+            val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
+            val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
+            generationService.renderPdfWithSnapshot(
+                templateModel,
+                dataMap,
+                outputStream,
+                resolvedTheme,
+                renderingDefaults,
+                metadataWithEngine,
+                pdfaCompliant = template.pdfaEnabled,
+                assetResolver = assetResolver,
+            )
+        } else {
+            // Legacy path: live theme resolution (backward compatible for pre-V16 published versions)
+            val metadataWithEngine = metadata.copy(
+                engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
+            )
+            generationService.renderPdf(
+                request.tenantKey,
+                templateModel,
+                dataMap,
+                outputStream,
+                template.themeKey,
+                tenant.defaultThemeKey,
+                metadataWithEngine,
+                pdfaCompliant = template.pdfaEnabled,
+                assetResolver = assetResolver,
+            )
+        }
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()

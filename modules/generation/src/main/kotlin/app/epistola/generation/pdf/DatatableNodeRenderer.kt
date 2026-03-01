@@ -2,7 +2,6 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.Node
 import app.epistola.template.model.TemplateDocument
-import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.layout.element.Cell
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Paragraph
@@ -60,7 +59,7 @@ class DatatableNodeRenderer : NodeRenderer {
 
         // Calculate column widths
         val columnWidths = columnNodes.map { cn ->
-            val width = (cn.props?.get("width") as? Number)?.toFloat() ?: 33f
+            val width = (cn.props?.get("width") as? Number)?.toFloat() ?: context.renderingDefaults.datatableDefaultColumnWidthPercent
             UnitValue.createPercentValue(width)
         }.toTypedArray()
 
@@ -75,20 +74,21 @@ class DatatableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
-            StyleApplicator.COMPONENT_DEFAULTS["datatable"],
+            context.renderingDefaults.componentDefaults("datatable"),
+            context.renderingDefaults.baseFontSizePt,
         )
 
         // Border style
         val borderStyle = parseBorderStyle(node.props?.get("borderStyle") as? String)
-        val borderColor = ColorConstants.GRAY
-        val borderWidth = 0.5f
+        val borderColor = parseHexBorderColor(context.renderingDefaults.tableBorderColorHex)
+        val borderWidth = context.renderingDefaults.tableBorderWidth
 
         // Render header row
         if (headerEnabled) {
             for (columnNode in columnNodes) {
                 val headerText = columnNode.props?.get("header") as? String ?: ""
                 val cell = Cell()
-                cell.setPadding(8f)
+                cell.setPadding(context.renderingDefaults.tableCellPadding)
                 cell.setFont(context.fontCache.bold)
                 cell.add(Paragraph(headerText))
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)
@@ -122,7 +122,7 @@ class DatatableNodeRenderer : NodeRenderer {
             for (columnNode in columnNodes) {
                 val bodySlotId = columnNode.slots.firstOrNull()
                 val cell = Cell()
-                cell.setPadding(8f)
+                cell.setPadding(context.renderingDefaults.tableCellPadding)
                 applyCellBorder(cell, borderStyle, borderColor, borderWidth)
 
                 // Apply column-level styles
@@ -157,6 +157,7 @@ class DatatableNodeRenderer : NodeRenderer {
             context.blockStylePresets,
             context.documentStyles,
             context.fontCache,
+            baseFontSizePt = context.renderingDefaults.baseFontSizePt,
         )
     }
 }

@@ -26,6 +26,8 @@ data class RenderContext(
     val document: TemplateDocument,
     /** Optional asset resolver for loading image content during rendering */
     val assetResolver: AssetResolver? = null,
+    /** Versioned rendering defaults (font sizes, spacing, borders, etc.) */
+    val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
     /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
     val systemParams: Map<String, Any?> = emptyMap(),
 ) {

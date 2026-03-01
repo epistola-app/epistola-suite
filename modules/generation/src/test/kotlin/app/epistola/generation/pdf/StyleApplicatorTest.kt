@@ -37,23 +37,6 @@ class StyleApplicatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // COMPONENT_DEFAULTS
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun `COMPONENT_DEFAULTS contains entries for all block types`() {
-        val expectedTypes = setOf("text", "container", "columns", "table", "datatable", "image")
-        assertEquals(expectedTypes, StyleApplicator.COMPONENT_DEFAULTS.keys)
-    }
-
-    @Test
-    fun `COMPONENT_DEFAULTS all have marginBottom 0_5em`() {
-        for ((type, defaults) in StyleApplicator.COMPONENT_DEFAULTS) {
-            assertEquals("0.5em", defaults["marginBottom"], "Expected marginBottom for $type")
-        }
-    }
-
-    // -----------------------------------------------------------------------
     // resolveBlockStyles
     // -----------------------------------------------------------------------
 
