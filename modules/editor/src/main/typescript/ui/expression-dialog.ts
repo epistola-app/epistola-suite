@@ -204,6 +204,9 @@ function renderFieldPaths(
 ): void {
   if (fieldPaths.length === 0) return
 
+  const dataFields = fieldPaths.filter(fp => !fp.system)
+  const systemFields = fieldPaths.filter(fp => fp.system)
+
   const header = document.createElement('div')
   header.className = 'expression-dialog-paths-header'
 
@@ -224,34 +227,29 @@ function renderFieldPaths(
 
   const items: { li: HTMLLIElement; path: string }[] = []
 
-  for (const fp of fieldPaths) {
-    const li = document.createElement('li')
-    li.className = 'expression-dialog-path-item'
-
-    // Highlight items matching the filter function (e.g., array fields for loops)
-    if (fieldPathFilter?.(fp)) {
-      li.classList.add('highlighted')
-    }
-
-    const pathSpan = document.createElement('span')
-    pathSpan.className = 'expression-dialog-path-name'
-    pathSpan.textContent = fp.path
-
-    const typeSpan = document.createElement('span')
-    typeSpan.className = 'expression-dialog-path-type'
-    typeSpan.textContent = fp.type
-
-    li.appendChild(pathSpan)
-    li.appendChild(typeSpan)
-
-    li.addEventListener('click', () => {
-      input.value = fp.path
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-      input.focus()
-    })
-
+  // Render data fields
+  for (const fp of dataFields) {
+    const li = createFieldPathItem(fp, input, fieldPathFilter)
     list.appendChild(li)
     items.push({ li, path: fp.path })
+  }
+
+  // Render system parameters in a separate section
+  if (systemFields.length > 0) {
+    const sysHeader = document.createElement('li')
+    sysHeader.className = 'expression-dialog-section-header'
+    sysHeader.textContent = 'System parameters'
+    list.appendChild(sysHeader)
+
+    for (const fp of systemFields) {
+      const li = createFieldPathItem(fp, input, fieldPathFilter)
+      li.classList.add('system')
+      if (fp.description) {
+        li.title = fp.description
+      }
+      list.appendChild(li)
+      items.push({ li, path: fp.path })
+    }
   }
 
   // Filter field paths on typing
@@ -260,9 +258,49 @@ function renderFieldPaths(
     for (const item of items) {
       item.li.style.display = item.path.toLowerCase().includes(query) ? '' : 'none'
     }
+    // Show/hide the system section header based on whether any system items match
+    const sysHeaderEl = list.querySelector<HTMLElement>('.expression-dialog-section-header')
+    if (sysHeaderEl) {
+      const hasVisibleSystemItem = items.some(
+        item => item.li.classList.contains('system') && item.li.style.display !== 'none',
+      )
+      sysHeaderEl.style.display = hasVisibleSystemItem || !query ? '' : 'none'
+    }
   })
 
   container.appendChild(list)
+}
+
+function createFieldPathItem(
+  fp: FieldPath,
+  input: HTMLInputElement,
+  fieldPathFilter?: (fp: FieldPath) => boolean,
+): HTMLLIElement {
+  const li = document.createElement('li')
+  li.className = 'expression-dialog-path-item'
+
+  if (fieldPathFilter?.(fp)) {
+    li.classList.add('highlighted')
+  }
+
+  const pathSpan = document.createElement('span')
+  pathSpan.className = 'expression-dialog-path-name'
+  pathSpan.textContent = fp.path
+
+  const typeSpan = document.createElement('span')
+  typeSpan.className = 'expression-dialog-path-type'
+  typeSpan.textContent = fp.type
+
+  li.appendChild(pathSpan)
+  li.appendChild(typeSpan)
+
+  li.addEventListener('click', () => {
+    input.value = fp.path
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.focus()
+  })
+
+  return li
 }
 
 function renderQuickReference(container: HTMLElement, input: HTMLInputElement): void {

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- **System parameters for template engine**: Runtime values provided by the rendering engine (independent of template data model) are now available in expressions. The first system parameter is `sys.page.number`, which resolves to the current page number in page headers and footers. System parameters use a `sys.*` namespace that works across all expression evaluators (JSONata, JavaScript, SimplePath).
+- **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.page.number` previews as "1").
+
 ### Fixed
 - **GetEditorContext query**: Added missing `template_key` to the LEFT JOIN on `template_versions`, preventing potential cross-template draft version matching when two templates share a variant slug.
 

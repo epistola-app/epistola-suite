@@ -7,6 +7,7 @@
 
 import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js'
 import { type FieldPath, extractFieldPaths } from './schema-paths.js'
+import { SYSTEM_PARAMETER_PATHS } from './system-params.js'
 import type { Theme } from '@epistola/template-model/generated/theme.js'
 import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
@@ -155,12 +156,11 @@ export class EditorEngine {
     return this._dataExamples?.[this._currentExampleIndex]
   }
 
-  /** Extracted field paths from the data model, cached lazily. */
+  /** Extracted field paths from the data model + system parameters, cached lazily. */
   get fieldPaths(): FieldPath[] {
     if (!this._fieldPathsCache) {
-      this._fieldPathsCache = this._dataModel
-        ? extractFieldPaths(this._dataModel)
-        : []
+      const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : []
+      this._fieldPathsCache = [...dataFields, ...SYSTEM_PARAMETER_PATHS]
     }
     return this._fieldPathsCache
   }

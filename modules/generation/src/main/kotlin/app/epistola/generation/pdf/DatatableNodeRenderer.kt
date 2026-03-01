@@ -42,7 +42,7 @@ class DatatableNodeRenderer : NodeRenderer {
         // Get the iterable from the expression
         val iterable = context.expressionEvaluator.evaluateIterable(
             expression,
-            context.data,
+            context.effectiveData,
             context.loopContext,
         )
 

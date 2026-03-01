@@ -34,7 +34,7 @@ class TextNodeRenderer : NodeRenderer {
         // Convert TipTap content to iText elements
         @Suppress("UNCHECKED_CAST")
         val content = node.props?.get("content") as? Map<String, Any>
-        val elements = context.tipTapConverter.convert(content, context.data, context.loopContext, context.fontCache)
+        val elements = context.tipTapConverter.convert(content, context.effectiveData, context.loopContext, context.fontCache)
 
         for (element in elements) {
             div.add(element)

@@ -49,10 +49,12 @@ class PageHeaderEventHandler(
         // Constrain layout to the header rectangle
         val canvas = Canvas(pdfCanvas, headerRect)
 
-        // Render the header node's slots
+        // Render the header node's slots with page-scoped system parameters
         val headerNode = document.nodes[headerNodeId]
         if (headerNode != null) {
-            val elements = registry.renderSlots(headerNode, document, context)
+            val pageNumber = pdfDoc.getPageNumber(page)
+            val pageContext = context.withPageParams(pageNumber)
+            val elements = registry.renderSlots(headerNode, document, pageContext)
             for (element in elements) {
                 when (element) {
                     is IBlockElement -> canvas.add(element)

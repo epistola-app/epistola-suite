@@ -25,4 +25,20 @@ data class RenderContext(
     val document: TemplateDocument,
     /** Optional asset resolver for loading image content during rendering */
     val assetResolver: AssetResolver? = null,
-)
+    /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
+    val systemParams: Map<String, Any?> = emptyMap(),
+) {
+    /**
+     * Data map with system parameters merged under the `sys` key.
+     * Returns the original [data] map when no system parameters are set.
+     */
+    val effectiveData: Map<String, Any?>
+        get() = if (systemParams.isEmpty()) data else data + mapOf("sys" to systemParams)
+
+    /**
+     * Returns a copy of this context with page-scoped system parameters injected.
+     */
+    fun withPageParams(pageNumber: Int): RenderContext = copy(
+        systemParams = systemParams + mapOf("page" to mapOf("number" to pageNumber)),
+    )
+}

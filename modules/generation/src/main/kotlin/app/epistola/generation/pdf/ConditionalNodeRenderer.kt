@@ -29,7 +29,7 @@ class ConditionalNodeRenderer : NodeRenderer {
         // Evaluate the condition
         val conditionResult = context.expressionEvaluator.evaluateCondition(
             expression,
-            context.data,
+            context.effectiveData,
             context.loopContext,
         )
 

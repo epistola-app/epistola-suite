@@ -1616,12 +1616,32 @@ describe('fieldPaths', () => {
     expect(paths.find(p => p.path === 'address.city')).toBeDefined()
   })
 
-  it('returns empty array when no data model', () => {
+  it('returns only system params when no data model', () => {
     const registry = testRegistry()
     const doc = createTestDocument()
     const engine = new EditorEngine(doc, registry)
 
-    expect(engine.fieldPaths).toEqual([])
+    const paths = engine.fieldPaths
+    // Should contain system params even without data model
+    expect(paths.length).toBeGreaterThan(0)
+    expect(paths.every(p => p.system === true)).toBe(true)
+    expect(paths.find(p => p.path === 'sys.page.number')).toBeDefined()
+  })
+
+  it('includes system params after data model fields', () => {
+    const registry = testRegistry()
+    const doc = createTestDocument()
+    const dataModel = {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+    }
+    const engine = new EditorEngine(doc, registry, { dataModel })
+
+    const paths = engine.fieldPaths
+    const nameIndex = paths.findIndex(p => p.path === 'name')
+    const sysIndex = paths.findIndex(p => p.path === 'sys.page.number')
+    expect(nameIndex).toBeLessThan(sysIndex)
+    expect(paths[sysIndex].system).toBe(true)
   })
 
   it('caches the result', () => {
