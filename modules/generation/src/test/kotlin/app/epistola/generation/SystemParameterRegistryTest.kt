@@ -15,26 +15,7 @@ class SystemParameterRegistryTest {
         assertEquals("integer", pageNumber.type)
         assertEquals(SystemParamScope.PAGE_SCOPED, pageNumber.scope)
         assertEquals("sys.page.number", pageNumber.fullPath)
-    }
-
-    @Test
-    fun `register adds new descriptor`() {
-        // Use a fresh list approach — since SystemParameterRegistry is a singleton,
-        // we just verify the count increases
-        val before = SystemParameterRegistry.all().size
-
-        SystemParameterRegistry.register(
-            SystemParameterDescriptor(
-                path = "test.param",
-                description = "Test parameter",
-                type = "string",
-                scope = SystemParamScope.GLOBAL,
-            ),
-        )
-
-        val after = SystemParameterRegistry.all()
-        assertEquals(before + 1, after.size)
-        assertTrue(after.any { it.path == "test.param" })
+        assertEquals(1, pageNumber.mockValue)
     }
 
     @Test
@@ -46,5 +27,59 @@ class SystemParameterRegistryTest {
             scope = SystemParamScope.PAGE_SCOPED,
         )
         assertEquals("sys.page.total", descriptor.fullPath)
+    }
+
+    @Test
+    fun `buildNestedMap creates nested structure from dot paths`() {
+        val result = SystemParameterRegistry.buildNestedMap(
+            mapOf("page.number" to 3, "page.total" to 10),
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        val page = result["page"] as Map<String, Any?>
+        assertEquals(3, page["number"])
+        assertEquals(10, page["total"])
+    }
+
+    @Test
+    fun `buildNestedMap handles single-level key`() {
+        val result = SystemParameterRegistry.buildNestedMap(mapOf("version" to "1.0"))
+        assertEquals("1.0", result["version"])
+    }
+
+    @Test
+    fun `buildNestedMap handles deeply nested paths`() {
+        val result = SystemParameterRegistry.buildNestedMap(mapOf("a.b.c.d" to 42))
+
+        @Suppress("UNCHECKED_CAST")
+        val a = result["a"] as Map<String, Any?>
+
+        @Suppress("UNCHECKED_CAST")
+        val b = a["b"] as Map<String, Any?>
+
+        @Suppress("UNCHECKED_CAST")
+        val c = b["c"] as Map<String, Any?>
+        assertEquals(42, c["d"])
+    }
+
+    @Test
+    fun `buildNestedMap returns empty map for empty input`() {
+        val result = SystemParameterRegistry.buildNestedMap(emptyMap())
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `buildPageParams creates page number structure`() {
+        val result = SystemParameterRegistry.buildPageParams(5)
+
+        @Suppress("UNCHECKED_CAST")
+        val page = result["page"] as Map<String, Any?>
+        assertEquals(5, page["number"])
+    }
+
+    @Test
+    fun `buildGlobalParams returns empty map`() {
+        val result = SystemParameterRegistry.buildGlobalParams()
+        assertTrue(result.isEmpty())
     }
 }

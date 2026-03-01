@@ -8,7 +8,6 @@ import type { BlockStylePreset } from '@epistola/template-model/generated/theme.
 import { getNestedValue, setNestedValue } from '../engine/props.js'
 import { isValidExpression, validateArrayResult, validateBooleanResult } from '../engine/resolve-expression.js'
 import { openExpressionDialog } from './expression-dialog.js'
-import { SYSTEM_PARAM_MOCK_DATA } from '../engine/system-params.js'
 import {
   renderUnitInput,
   renderColorInput,
@@ -595,10 +594,7 @@ export class EpistolaInspector extends LitElement {
     openExpressionDialog({
       initialValue: currentValue,
       fieldPaths: this.engine.fieldPaths,
-      getExampleData: () => {
-        const data = this.engine?.getExampleData()
-        return data ? { ...data, ...SYSTEM_PARAM_MOCK_DATA } : SYSTEM_PARAM_MOCK_DATA as Record<string, unknown>
-      },
+      getExampleData: () => this.engine?.getExampleData(),
       label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',
       placeholder,
       fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,

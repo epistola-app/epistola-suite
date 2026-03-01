@@ -37,7 +37,6 @@ import type { EditorEngine } from '../engine/EditorEngine.js'
 import { TextChange } from '../engine/text-change.js'
 import type { TextChangeOps } from '../engine/undo.js'
 import type { NodeId } from '../types/index.js'
-import { SYSTEM_PARAM_MOCK_DATA } from '../engine/system-params.js'
 
 const DEBOUNCE_MS = 300
 
@@ -133,12 +132,7 @@ export class EpistolaTextEditor extends LitElement {
     const fieldPaths = this.engine?.fieldPaths ?? []
 
     const engine = this.engine
-    const getExampleData = engine
-      ? () => {
-          const data = engine.getExampleData()
-          return data ? { ...data, ...SYSTEM_PARAM_MOCK_DATA } : SYSTEM_PARAM_MOCK_DATA as Record<string, unknown>
-        }
-      : undefined
+    const getExampleData = engine ? () => engine.getExampleData() : undefined
 
     const plugins = createPlugins(epistolaSchema, {
       expressionNodeViewOptions: { fieldPaths, getExampleData },

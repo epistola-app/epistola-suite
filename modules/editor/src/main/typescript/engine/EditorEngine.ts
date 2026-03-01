@@ -7,7 +7,7 @@
 
 import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js'
 import { type FieldPath, extractFieldPaths } from './schema-paths.js'
-import { SYSTEM_PARAMETER_PATHS } from './system-params.js'
+import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js'
 import type { Theme } from '@epistola/template-model/generated/theme.js'
 import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
@@ -168,15 +168,19 @@ export class EditorEngine {
   /**
    * Get the current example's data, unwrapping the backend DataExample wrapper
    * format `{ id, name, data: {...} }` if present.
+   *
+   * Always includes system parameter mock data (e.g., `sys.page.number`)
+   * for expression preview in the editor. When no example data is set,
+   * returns just the system mock data.
    */
-  getExampleData(): Record<string, unknown> | undefined {
+  getExampleData(): Record<string, unknown> {
     const example = this.currentExample as Record<string, unknown> | undefined
-    if (!example) return undefined
-    // Backend DataExample format: { id: string, name: string, data: {...} }
-    if (typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null) {
-      return example.data as Record<string, unknown>
-    }
-    return example
+    const data = example
+      ? (typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null
+          ? example.data as Record<string, unknown>
+          : example)
+      : {}
+    return { ...data, ...SYSTEM_PARAM_MOCK_DATA }
   }
 
   /** Switch the active data example by index. Notifies example listeners. */

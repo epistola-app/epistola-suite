@@ -24,6 +24,8 @@ data class SystemParameterDescriptor(
     val description: String,
     val type: String,
     val scope: SystemParamScope,
+    /** Mock value used by the editor for expression preview. */
+    val mockValue: Any? = null,
 ) {
     /** Full dotted path including the `sys.` prefix (e.g., "sys.page.number"). */
     val fullPath: String get() = "sys.$path"
@@ -45,6 +47,7 @@ object SystemParameterRegistry {
                 description = "Current page number. Available in page headers/footers only.",
                 type = "integer",
                 scope = SystemParamScope.PAGE_SCOPED,
+                mockValue = 1,
             ),
         )
     }
@@ -54,4 +57,25 @@ object SystemParameterRegistry {
     }
 
     fun all(): List<SystemParameterDescriptor> = descriptors.toList()
+
+    /** Build a nested map from dot-path keys and their values. */
+    fun buildNestedMap(values: Map<String, Any?>): Map<String, Any?> {
+        val result = mutableMapOf<String, Any?>()
+        for ((path, value) in values) {
+            val parts = path.split(".")
+            var current = result
+            for (i in 0 until parts.size - 1) {
+                @Suppress("UNCHECKED_CAST")
+                current = current.getOrPut(parts[i]) { mutableMapOf<String, Any?>() } as MutableMap<String, Any?>
+            }
+            current[parts.last()] = value
+        }
+        return result
+    }
+
+    /** Build page-scoped system parameters (for headers/footers). */
+    fun buildPageParams(pageNumber: Int): Map<String, Any?> = buildNestedMap(mapOf("page.number" to pageNumber))
+
+    /** Build global system parameters (currently empty, but extensible). */
+    fun buildGlobalParams(): Map<String, Any?> = emptyMap()
 }
