@@ -1,10 +1,8 @@
 package app.epistola.suite.templates.commands.versions
 
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.EnvironmentActivation
@@ -27,9 +25,6 @@ import org.springframework.stereotype.Component
  * - The environment doesn't belong to the tenant
  */
 data class PublishToEnvironment(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
     val versionId: VersionId,
     val environmentId: EnvironmentId,
 ) : Command<PublishToEnvironmentResult?>
@@ -50,11 +45,11 @@ class PublishToEnvironmentHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM environments
-                WHERE id = :environmentId AND tenant_id = :tenantId
+                WHERE id = :environmentId AND tenant_key = :tenantId
                 """,
         )
-            .bind("environmentId", command.environmentId)
-            .bind("tenantId", command.tenantId)
+            .bind("environmentId", command.environmentId.key)
+            .bind("tenantId", command.environmentId.tenantKey)
             .mapTo<Boolean>()
             .one()
 
@@ -67,12 +62,12 @@ class PublishToEnvironmentHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null) ?: return@inTransaction null
@@ -89,12 +84,12 @@ class PublishToEnvironmentHandler(
                 """
                     UPDATE template_versions
                     SET status = 'published', published_at = NOW()
-                    WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                     """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
-                .bind("versionId", command.versionId)
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("versionId", command.versionId.key)
                 .execute()
         }
         // If already published, no-op on version (idempotent)
@@ -102,17 +97,18 @@ class PublishToEnvironmentHandler(
         // 5. Upsert activation
         val activation = handle.createQuery(
             """
-                INSERT INTO environment_activations (tenant_id, environment_id, variant_id, version_id, activated_at)
-                VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
-                ON CONFLICT (tenant_id, environment_id, variant_id)
-                DO UPDATE SET version_id = :versionId, activated_at = NOW()
+                INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
+                VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
+                ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
+                DO UPDATE SET version_key = :versionId, activated_at = NOW()
                 RETURNING *
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("environmentId", command.environmentId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("environmentId", command.environmentId.key)
+            .bind("templateId", command.versionId.templateKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<EnvironmentActivation>()
             .one()
 
@@ -121,12 +117,12 @@ class PublishToEnvironmentHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
             .one()
 
@@ -136,27 +132,28 @@ class PublishToEnvironmentHandler(
                 """
                     SELECT COALESCE(MAX(id), 0) + 1
                     FROM template_versions
-                    WHERE tenant_id = :tenantId AND variant_id = :variantId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId
                     """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("variantId", command.versionId.variantKey)
                 .mapTo(Int::class.java)
                 .one()
 
             handle.createQuery(
                 """
-                    INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                    VALUES (:id, :tenantId, :variantId,
-                            (SELECT template_model FROM template_versions WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :publishedId),
+                    INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                    VALUES (:id, :tenantId, :templateId, :variantId,
+                            (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
                             'draft', NOW())
                     RETURNING *
                     """,
             )
-                .bind("id", VersionId.of(nextVersionId))
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
-                .bind("publishedId", command.versionId)
+                .bind("id", VersionKey.of(nextVersionId))
+                .bind("tenantId", command.versionId.tenantKey)
+                .bind("templateId", command.versionId.templateKey)
+                .bind("variantId", command.versionId.variantKey)
+                .bind("publishedId", command.versionId.key)
                 .mapTo<TemplateVersion>()
                 .one()
         } else {

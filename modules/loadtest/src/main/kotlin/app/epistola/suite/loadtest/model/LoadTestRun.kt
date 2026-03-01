@@ -1,11 +1,11 @@
 package app.epistola.suite.loadtest.model
 
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import org.jdbi.v3.json.Json
 import tools.jackson.databind.node.ObjectNode
 import java.time.OffsetDateTime
@@ -52,13 +52,13 @@ import java.time.OffsetDateTime
  * @property completedAt When the load test execution finished
  */
 data class LoadTestRun(
-    val id: LoadTestRunId,
-    val batchId: BatchId?,
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId?,
-    val environmentId: EnvironmentId?,
+    val id: LoadTestRunKey,
+    val batchId: BatchKey?,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
+    val variantKey: VariantKey,
+    val versionKey: VersionKey?,
+    val environmentKey: EnvironmentKey?,
     val targetCount: Int,
     val concurrencyLevel: Int,
     @Json val testData: ObjectNode,
@@ -83,8 +83,8 @@ data class LoadTestRun(
     val completedAt: OffsetDateTime?,
 ) {
     init {
-        require((versionId != null) xor (environmentId != null)) {
-            "Exactly one of versionId or environmentId must be set"
+        require((versionKey != null) xor (environmentKey != null)) {
+            "Exactly one of versionKey or environmentKey must be set"
         }
         require(targetCount in 1..10000) {
             "Target count must be between 1 and 10000, got $targetCount"

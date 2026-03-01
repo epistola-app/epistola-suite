@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component
  * @property requestId The generation request ID to cancel
  */
 data class CancelGenerationJob(
-    val tenantId: TenantId,
-    val requestId: GenerationRequestId,
+    val tenantId: TenantKey,
+    val requestId: GenerationRequestKey,
 ) : Command<Boolean>
 
 @Component
@@ -36,7 +36,7 @@ class CancelGenerationJobHandler(
                 """
                 SELECT status
                 FROM document_generation_requests
-                WHERE id = :requestId AND tenant_id = :tenantId
+                WHERE id = :requestId AND tenant_key = :tenantId
                 """,
             )
                 .bind("requestId", command.requestId)
@@ -65,7 +65,7 @@ class CancelGenerationJobHandler(
                 SET status = :status,
                     completed_at = NOW()
                 WHERE id = :requestId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                   AND status IN ('PENDING', 'IN_PROGRESS')
                 """,
             )

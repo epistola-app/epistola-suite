@@ -198,38 +198,38 @@ if [[ $DELETE_PACKAGES == true ]]; then
                           gh api "/users/$REPO_OWNER/packages/container/$pkg_name_encoded/versions?per_page=100" 2>/dev/null || echo "[]")
 
             # Get all version IDs for this package
-            version_ids=()
+            version_keys=()
             version_names=()
-            while IFS='|' read -r version_id version_tags; do
-                [[ -z "$version_id" ]] && continue
-                version_ids+=("$version_id")
+            while IFS='|' read -r version_key version_tags; do
+                [[ -z "$version_key" ]] && continue
+                version_keys+=("$version_key")
                 # Use first meaningful tag or show as "untagged"
                 version_names+=("$version_tags")
                 ((TOTAL_PACKAGE_VERSIONS++))
             done < <(echo "$pkg_versions" | jq -r '.[] | "\(.id)|\(if (.metadata.container.tags | length) > 0 then .metadata.container.tags[0] else "untagged" end)"')
 
             # Determine which versions to keep/delete (same as releases)
-            if [[ $KEEP_LATEST -gt 0 ]] && [[ ${#version_ids[@]} -gt $KEEP_LATEST ]]; then
+            if [[ $KEEP_LATEST -gt 0 ]] && [[ ${#version_keys[@]} -gt $KEEP_LATEST ]]; then
                 # Keep first N versions
                 for ((i=0; i<KEEP_LATEST; i++)); do
-                    PACKAGE_VERSIONS_TO_KEEP+=("${pkg_name}|${pkg_type}|${version_ids[$i]}|${version_names[$i]}")
+                    PACKAGE_VERSIONS_TO_KEEP+=("${pkg_name}|${pkg_type}|${version_keys[$i]}|${version_names[$i]}")
                     ((PACKAGE_VERSIONS_KEEP_COUNT++))
                 done
                 # Delete the rest
-                for ((i=KEEP_LATEST; i<${#version_ids[@]}; i++)); do
-                    PACKAGE_VERSIONS_TO_DELETE+=("${pkg_name}|${pkg_type}|${version_ids[$i]}|${version_names[$i]}")
+                for ((i=KEEP_LATEST; i<${#version_keys[@]}; i++)); do
+                    PACKAGE_VERSIONS_TO_DELETE+=("${pkg_name}|${pkg_type}|${version_keys[$i]}|${version_names[$i]}")
                     ((PACKAGE_VERSIONS_DELETE_COUNT++))
                 done
             elif [[ $KEEP_LATEST -eq 0 ]]; then
                 # Delete all versions
-                for ((i=0; i<${#version_ids[@]}; i++)); do
-                    PACKAGE_VERSIONS_TO_DELETE+=("${pkg_name}|${pkg_type}|${version_ids[$i]}|${version_names[$i]}")
+                for ((i=0; i<${#version_keys[@]}; i++)); do
+                    PACKAGE_VERSIONS_TO_DELETE+=("${pkg_name}|${pkg_type}|${version_keys[$i]}|${version_names[$i]}")
                     ((PACKAGE_VERSIONS_DELETE_COUNT++))
                 done
             else
                 # Keep all versions (KEEP_LATEST >= total versions)
-                for ((i=0; i<${#version_ids[@]}; i++)); do
-                    PACKAGE_VERSIONS_TO_KEEP+=("${pkg_name}|${pkg_type}|${version_ids[$i]}|${version_names[$i]}")
+                for ((i=0; i<${#version_keys[@]}; i++)); do
+                    PACKAGE_VERSIONS_TO_KEEP+=("${pkg_name}|${pkg_type}|${version_keys[$i]}|${version_names[$i]}")
                     ((PACKAGE_VERSIONS_KEEP_COUNT++))
                 done
             fi
@@ -343,7 +343,7 @@ fi
 if [[ $PACKAGE_VERSIONS_KEEP_COUNT -gt 0 ]]; then
     echo -e "${GREEN}Package versions to KEEP:${NC}"
     for entry in "${PACKAGE_VERSIONS_TO_KEEP[@]}"; do
-        IFS='|' read -r pkg_name pkg_type version_id version_name <<< "$entry"
+        IFS='|' read -r pkg_name pkg_type version_key version_name <<< "$entry"
         echo -e "  ${GREEN}✓${NC} $pkg_name:$version_name ($pkg_type)"
     done
     echo ""
@@ -353,7 +353,7 @@ fi
 if [[ $PACKAGE_VERSIONS_DELETE_COUNT -gt 0 ]]; then
     echo -e "${RED}Package versions to DELETE:${NC}"
     for entry in "${PACKAGE_VERSIONS_TO_DELETE[@]}"; do
-        IFS='|' read -r pkg_name pkg_type version_id version_name <<< "$entry"
+        IFS='|' read -r pkg_name pkg_type version_key version_name <<< "$entry"
         echo -e "  ${RED}✗${NC} $pkg_name:$version_name ($pkg_type)"
     done
     echo ""
@@ -443,15 +443,15 @@ if [[ $PACKAGE_VERSIONS_DELETE_COUNT -gt 0 ]]; then
     echo ""
     echo -e "${BLUE}Deleting package versions...${NC}"
     for entry in "${PACKAGE_VERSIONS_TO_DELETE[@]}"; do
-        IFS='|' read -r pkg_name pkg_type version_id version_name <<< "$entry"
+        IFS='|' read -r pkg_name pkg_type version_key version_name <<< "$entry"
 
         # URL-encode package name (replace / with %2F)
         pkg_name_encoded="${pkg_name//\//%2F}"
 
         echo -n "Deleting $pkg_name:$version_name... "
         # Try org endpoint first, then user endpoint
-        if gh api --method DELETE "/orgs/$REPO_OWNER/packages/$pkg_type/$pkg_name_encoded/versions/$version_id" 2>/dev/null || \
-           gh api --method DELETE "/users/$REPO_OWNER/packages/$pkg_type/$pkg_name_encoded/versions/$version_id" 2>/dev/null; then
+        if gh api --method DELETE "/orgs/$REPO_OWNER/packages/$pkg_type/$pkg_name_encoded/versions/$version_key" 2>/dev/null || \
+           gh api --method DELETE "/users/$REPO_OWNER/packages/$pkg_type/$pkg_name_encoded/versions/$version_key" 2>/dev/null; then
             echo -e "${GREEN}✓${NC}"
             ((PACKAGES_DELETED++))
         else

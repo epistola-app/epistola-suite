@@ -19,7 +19,7 @@ class ListThemesHandler(
 ) : QueryHandler<ListThemes, List<Theme>> {
     override fun handle(query: ListThemes): List<Theme> = jdbi.withHandle<List<Theme>, Exception> { handle ->
         val sql = buildString {
-            append("SELECT * FROM themes WHERE tenant_id = :tenantId")
+            append("SELECT * FROM themes WHERE tenant_key = :tenantId")
             if (!query.searchTerm.isNullOrBlank()) {
                 append(" AND name ILIKE :searchTerm")
             }
@@ -27,7 +27,7 @@ class ListThemesHandler(
         }
 
         val jdbiQuery = handle.createQuery(sql)
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
         if (!query.searchTerm.isNullOrBlank()) {
             jdbiQuery.bind("searchTerm", "%${query.searchTerm}%")
         }

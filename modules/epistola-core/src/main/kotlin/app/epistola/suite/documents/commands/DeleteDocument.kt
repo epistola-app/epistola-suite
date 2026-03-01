@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.storage.ContentKey
@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component
  * @property documentId The document ID to delete
  */
 data class DeleteDocument(
-    val tenantId: TenantId,
-    val documentId: DocumentId,
+    val tenantId: TenantKey,
+    val documentId: DocumentKey,
 ) : Command<Boolean>
 
 @Component
@@ -38,7 +38,7 @@ class DeleteDocumentHandler(
                 """
                 DELETE FROM documents
                 WHERE id = :documentId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                 """,
             )
                 .bind("documentId", command.documentId)

@@ -1,9 +1,7 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateDocument
@@ -18,8 +16,6 @@ import tools.jackson.databind.ObjectMapper
  * If no draft exists, creates one. If a draft exists, updates it.
  */
 data class UpdateDraft(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
     val variantId: VariantId,
     val templateModel: TemplateDocument,
 ) : Command<TemplateVersion?>
@@ -35,12 +31,12 @@ class UpdateDraftHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM template_variants
-                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 """,
         )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("tenantId", command.variantId.tenantKey)
             .mapTo<Boolean>()
             .one()
 
@@ -55,12 +51,12 @@ class UpdateDraftHandler(
             """
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                   AND status = 'draft'
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .execute()
 
@@ -70,12 +66,12 @@ class UpdateDraftHandler(
                 """
                     SELECT *
                     FROM template_versions
-                    WHERE tenant_id = :tenantId AND variant_id = :variantId
+                    WHERE tenant_key = :tenantId AND variant_key = :variantId
                       AND status = 'draft'
                     """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("variantId", command.variantId.key)
                 .mapTo<TemplateVersion>()
                 .one()
         }
@@ -86,31 +82,32 @@ class UpdateDraftHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo(Int::class.java)
             .one()
 
         // Enforce max version limit
-        require(nextVersionId <= VersionId.MAX_VERSION) {
-            "Maximum version limit (${VersionId.MAX_VERSION}) reached for variant ${command.variantId}"
+        require(nextVersionId <= VersionKey.MAX_VERSION) {
+            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
         }
 
-        val versionId = VersionId.of(nextVersionId)
+        val versionId = VersionKey.of(nextVersionId)
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
             .bind("id", versionId)
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()
             .one()

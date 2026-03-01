@@ -1,9 +1,12 @@
 package app.epistola.suite.tenants.commands
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.EntityIdentifiable
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.mediator.Routable
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -18,9 +21,13 @@ import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 
 data class CreateTenant(
-    val id: TenantId,
+    val id: TenantKey,
     val name: String,
-) : Command<Tenant> {
+) : Command<Tenant>,
+    EntityIdentifiable,
+    Routable {
+    override val entityId: String get() = id.value
+    override val routingKey: String get() = id.value
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= 255) { "Name must be 255 characters or less" }
@@ -35,12 +42,9 @@ class CreateTenantHandler(
     @Transactional
     override fun handle(command: CreateTenant): Tenant = executeOrThrowDuplicate("tenant", command.id.value) {
         jdbi.withHandle<Tenant, Exception> { handle ->
-            // 1. Insert tenant with NULL default_theme_id
+            // 1. Insert tenant with NULL default_theme_key
             handle.createUpdate(
-                """
-            INSERT INTO tenants (id, name, created_at)
-            VALUES (:id, :name, NOW())
-            """,
+                "INSERT INTO tenants (id, name, created_at) VALUES (:id, :name, NOW())",
             )
                 .bind("id", command.id)
                 .bind("name", command.name)
@@ -59,7 +63,7 @@ class CreateTenantHandler(
                 command.id.value.take(maxTenantIdLength).trimEnd('-')
             }
             val themeSlug = "$prefix$suffix"
-            val themeId = ThemeId.of(themeSlug)
+            val themeId = ThemeKey.of(themeSlug)
             val documentStyles = mapOf(
                 "fontFamily" to "Helvetica, Arial, sans-serif",
                 "fontSize" to "11pt",
@@ -74,26 +78,26 @@ class CreateTenantHandler(
 
             handle.createUpdate(
                 """
-            INSERT INTO themes (id, tenant_id, name, description, document_styles, page_settings, created_at, last_modified)
-            VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW())
-            """,
+                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, created_at, last_modified)
+                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, NOW(), NOW())
+                """,
             )
                 .bind("id", themeId)
                 .bind("tenantId", command.id)
                 .bind("name", TENANT_DEFAULT_THEME_NAME)
                 .bind("description", "Default theme automatically created for this tenant")
-                .bind("documentStyles", objectMapper.writeValueAsString(documentStyles))
-                .bind("pageSettings", objectMapper.writeValueAsString(pageSettings))
+                .bindJsonb("documentStyles", documentStyles, objectMapper)
+                .bindJsonb("pageSettings", pageSettings, objectMapper)
                 .execute()
 
-            // 3. Update tenant's default_theme_id to point to the new theme
+            // 3. Update tenant's default_theme_key to point to the new theme
             handle.createQuery(
                 """
-            UPDATE tenants
-            SET default_theme_id = :themeId
-            WHERE id = :id
-            RETURNING *
-            """,
+                UPDATE tenants
+                SET default_theme_key = :themeId
+                WHERE id = :id
+                RETURNING *
+                """,
             )
                 .bind("id", command.id)
                 .bind("themeId", themeId)

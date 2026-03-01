@@ -231,9 +231,9 @@ CREATE TABLE users (
 -- Tenant memberships (many-to-many)
 CREATE TABLE tenant_memberships (
     user_id UUID REFERENCES users(id),
-    tenant_id VARCHAR(63) REFERENCES tenants(id),
+    tenant_key VARCHAR(63) REFERENCES tenants(id),
     joined_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    PRIMARY KEY (user_id, tenant_id)
+    PRIMARY KEY (user_id, tenant_key)
 );
 ```
 

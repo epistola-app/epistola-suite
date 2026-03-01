@@ -1,6 +1,6 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Query
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component
  * @property offset Pagination offset (default: 0)
  */
 data class ListGenerationJobs(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val status: RequestStatus? = null,
     val limit: Int = 50,
     val offset: Int = 0,
@@ -32,11 +32,11 @@ class ListGenerationJobsHandler(
     override fun handle(query: ListGenerationJobs): List<DocumentGenerationRequest> = jdbi.withHandle<List<DocumentGenerationRequest>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
-                   data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+            SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                   data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
                    error_message, created_at, started_at, completed_at, expires_at
             FROM document_generation_requests
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             """,
         )
 

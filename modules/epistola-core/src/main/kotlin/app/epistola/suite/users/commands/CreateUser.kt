@@ -1,6 +1,6 @@
 package app.epistola.suite.users.commands
 
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.users.AuthProvider
@@ -27,7 +27,7 @@ class CreateUserHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<CreateUser, User> {
     override fun handle(command: CreateUser): User {
-        val userId = UserId.generate()
+        val userId = UserKey.generate()
 
         jdbi.withHandleUnchecked { handle ->
             handle.createUpdate(

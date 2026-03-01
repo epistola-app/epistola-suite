@@ -1,6 +1,5 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -20,7 +19,6 @@ import org.springframework.stereotype.Component
  * Templates referencing this theme will gracefully fall back to their own styles.
  */
 data class DeleteTheme(
-    val tenantId: TenantId,
     val id: ThemeId,
 ) : Command<Boolean>
 
@@ -39,40 +37,40 @@ class DeleteThemeHandler(
         val isDefaultTheme = handle.createQuery(
             """
             SELECT COUNT(*) FROM tenants
-            WHERE id = :tenantId AND default_theme_id = :themeId
+            WHERE id = :tenantId AND default_theme_key = :themeId
             """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("themeId", command.id)
+            .bind("tenantId", command.id.tenantKey)
+            .bind("themeId", command.id.key)
             .mapTo<Long>()
             .one() > 0
 
         if (isDefaultTheme) {
-            throw ThemeInUseException(command.id, "it is the tenant's default theme")
+            throw ThemeInUseException(command.id.key, "it is the tenant's default theme")
         }
 
         // Check if this is the last theme for the tenant
         val themeCount = handle.createQuery(
             """
-            SELECT COUNT(*) FROM themes WHERE tenant_id = :tenantId
+            SELECT COUNT(*) FROM themes WHERE tenant_key = :tenantId
             """,
         )
-            .bind("tenantId", command.tenantId)
+            .bind("tenantId", command.id.tenantKey)
             .mapTo<Long>()
             .one()
 
         if (themeCount <= 1) {
-            throw LastThemeException(command.id)
+            throw LastThemeException(command.id.key)
         }
 
         // Delete the theme
         val deleted = handle.createUpdate(
             """
-            DELETE FROM themes WHERE id = :id AND tenant_id = :tenantId
+            DELETE FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .execute()
         deleted > 0
     }

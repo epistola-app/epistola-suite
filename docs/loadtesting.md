@@ -78,7 +78,7 @@ SELECT
     dgr.completed_at,
     dgr.status,
     dgr.error_message,
-    dgi.document_id
+    dgi.document_key
 FROM document_generation_requests dgr
 LEFT JOIN document_generation_items dgi ON dgi.request_id = dgr.id
 WHERE dgr.id IN (<jobIds>)
@@ -122,11 +122,11 @@ Stores load test configuration and aggregated metrics.
 ```sql
 CREATE TABLE load_test_runs (
     id UUID PRIMARY KEY,                        -- UUIDv7
-    tenant_id VARCHAR(63) NOT NULL,
-    template_id VARCHAR(50) NOT NULL,
-    variant_id VARCHAR(50) NOT NULL,
-    version_id INTEGER,                         -- Explicit version
-    environment_id VARCHAR(30),                 -- Or environment
+    tenant_key VARCHAR(63) NOT NULL,
+    template_key VARCHAR(50) NOT NULL,
+    variant_key VARCHAR(50) NOT NULL,
+    version_key INTEGER,                         -- Explicit version
+    environment_key VARCHAR(30),                 -- Or environment
     target_count INTEGER NOT NULL,              -- Documents to generate (1-10000)
     concurrency_level INTEGER NOT NULL,         -- Concurrent requests (1-500)
     test_data JSONB NOT NULL,                   -- Test data for all requests
@@ -175,7 +175,7 @@ SELECT
     EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 as duration_ms,
     CASE WHEN status = 'COMPLETED' THEN true ELSE false END as success,
     error_message,
-    document_id,
+    document_key,
     ROW_NUMBER() OVER (ORDER BY created_at) as sequence_number
 FROM document_generation_requests
 WHERE batch_id = :batchId

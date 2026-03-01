@@ -43,17 +43,17 @@
                     <dt>Template</dt>
                     <dd>
                         <span th:if="${template != null}" th:text="${template.name}"></span>
-                        <code class="text-muted" th:text="${run.templateId}" style="font-size: var(--ep-text-xs);"></code>
+                        <code class="text-muted" th:text="${run.templateKey}" style="font-size: var(--ep-text-xs);"></code>
                     </dd>
                     <dt>Variant</dt>
-                    <dd th:text="${run.variantId}"></dd>
+                    <dd th:text="${run.variantKey}"></dd>
                     <dt>Version</dt>
                     <dd>
-                        <span th:if="${run.versionId != null}" th:text="${run.versionId}"></span>
-                        <span th:if="${run.environmentId != null}">
-                            Environment: <code th:text="${run.environmentId}"></code>
+                        <span th:if="${run.versionKey != null}" th:text="${run.versionKey}"></span>
+                        <span th:if="${run.environmentKey != null}">
+                            Environment: <code th:text="${run.environmentKey}"></code>
                         </span>
-                        <span th:if="${run.versionId == null and run.environmentId == null}" class="text-muted">-</span>
+                        <span th:if="${run.versionKey == null and run.environmentKey == null}" class="text-muted">-</span>
                     </dd>
                     <dt>Target Count</dt>
                     <dd th:text="${run.targetCount}"></dd>

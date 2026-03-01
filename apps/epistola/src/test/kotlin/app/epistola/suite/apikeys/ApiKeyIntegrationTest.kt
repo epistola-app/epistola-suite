@@ -45,7 +45,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
             val found = apiKeyRepository.findByKeyHash(keyHash)
             assertThat(found).isNotNull()
             assertThat(found!!.id).isEqualTo(created.apiKey.id)
-            assertThat(found.tenantId).isEqualTo(created.apiKey.tenantId)
+            assertThat(found.tenantKey).isEqualTo(created.apiKey.tenantKey)
         }
     }
 
@@ -95,8 +95,8 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
     @Test
     fun `API key domain model expiry and usability checks`() {
         val activeKey = ApiKey(
-            id = app.epistola.suite.common.ids.ApiKeyId.generate(),
-            tenantId = app.epistola.suite.common.ids.TenantId.of("test-tenant"),
+            id = app.epistola.suite.common.ids.ApiKeyKey.generate(),
+            tenantKey = app.epistola.suite.common.ids.TenantKey.of("test-tenant"),
             name = "Active",
             keyPrefix = "epk_test1234...",
             enabled = true,

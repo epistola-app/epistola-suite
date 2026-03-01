@@ -2,8 +2,11 @@ package app.epistola.suite.documents.commands
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -30,16 +33,17 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
         }
 
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
         val templateModel = TestTemplateBuilder.buildMinimal(
             name = "Test Template",
         )
         val version = mediator.send(
             UpdateDraft(
-                tenantId = tenant.id,
-                templateId = template.id,
-                variantId = variant.id,
+                variantId = variantId,
                 templateModel = templateModel,
             ),
         )!!
@@ -59,7 +63,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
         )
 
         assertThat(request.id).isNotNull()
-        assertThat(request.tenantId).isEqualTo(tenant.id)
+        assertThat(request.tenantKey).isEqualTo(tenant.id)
         assertThat(request.status).isIn(RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
     }
 
@@ -74,7 +78,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = TestIdHelpers.nextTemplateId(),
                     variantId = TestIdHelpers.nextVariantId(),
-                    versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                    versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -87,8 +91,11 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     @Test
     fun `fails with non-existent version`() {
         val tenant = createTenant("Test Tenant")
-        val template = mediator.send(CreateDocumentTemplate(id = TestIdHelpers.nextTemplateId(), tenantId = tenant.id, name = "Test Template"))
-        val variant = mediator.send(CreateVariant(id = TestIdHelpers.nextVariantId(), tenantId = tenant.id, templateId = template.id, title = "Default", description = null, attributes = emptyMap()))!!
+        val tenantId = TenantId(tenant.id)
+        val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
+        val template = mediator.send(CreateDocumentTemplate(id = templateId, name = "Test Template"))
+        val variantId = VariantId(TestIdHelpers.nextVariantId(), templateId)
+        val variant = mediator.send(CreateVariant(id = variantId, title = "Default", description = null, attributes = emptyMap()))!!
 
         val data = objectMapper.createObjectNode().put("test", "value")
 
@@ -98,7 +105,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
                     tenantId = tenant.id,
                     templateId = template.id,
                     variantId = variant.id,
-                    versionId = VersionId.of(100), // Non-existent version for testing (valid range but doesn't exist)
+                    versionId = VersionKey.of(100), // Non-existent version for testing (valid range but doesn't exist)
                     environmentId = null,
                     data = data,
                     filename = "test.pdf",
@@ -112,10 +119,10 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     fun `validates versionId and environmentId are mutually exclusive`() {
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = TenantId.of("dummy-tenant"),
+                tenantId = TenantKey.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
-                versionId = VersionId.of(1),
+                versionId = VersionKey.of(1),
                 environmentId = TestIdHelpers.nextEnvironmentId(), // Both set - should fail
                 data = objectMapper.createObjectNode(),
                 filename = "test.pdf",
@@ -128,7 +135,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     fun `validates either versionId or environmentId is set`() {
         assertThatThrownBy {
             GenerateDocument(
-                tenantId = TenantId.of("dummy-tenant"),
+                tenantId = TenantKey.of("dummy-tenant"),
                 templateId = TestIdHelpers.nextTemplateId(),
                 variantId = TestIdHelpers.nextVariantId(),
                 versionId = null,

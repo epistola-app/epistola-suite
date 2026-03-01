@@ -1,12 +1,12 @@
 package app.epistola.suite.tenants
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import java.time.OffsetDateTime
 
 data class Tenant(
-    val id: TenantId,
+    val id: TenantKey,
     val name: String,
-    val defaultThemeId: ThemeId?,
+    val defaultThemeKey: ThemeKey?,
     val createdAt: OffsetDateTime,
 )

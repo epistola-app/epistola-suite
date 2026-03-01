@@ -1,10 +1,10 @@
 package app.epistola.suite.templates.commands
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.DataExample
@@ -83,8 +83,8 @@ class ImportTemplatesHandler(
     }
 
     private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
-        val templateId = TemplateId.of(input.slug)
-        val defaultVariantId = VariantId.of("${input.slug}-default")
+        val templateId = TemplateKey.of(input.slug)
+        val defaultVariantId = VariantKey.of("${input.slug}-default")
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
         val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
 
@@ -93,11 +93,11 @@ class ImportTemplatesHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM document_templates
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
             .bind("id", templateId)
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .mapTo<Boolean>()
             .one()
 
@@ -105,14 +105,14 @@ class ImportTemplatesHandler(
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
-                    INSERT INTO document_templates (id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
+                    INSERT INTO document_templates (id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
                     VALUES (:id, :tenantId, :name, NULL, NULL, :dataModel::jsonb, :dataExamples::jsonb, FALSE, NOW(), NOW())
-                    ON CONFLICT (tenant_id, id) DO UPDATE
+                    ON CONFLICT (tenant_key, id) DO UPDATE
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
                     """,
             )
                 .bind("id", templateId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -123,11 +123,11 @@ class ImportTemplatesHandler(
                 """
                     UPDATE document_templates
                     SET name = :name, data_model = :dataModel::jsonb, data_examples = :dataExamples::jsonb, last_modified = NOW()
-                    WHERE id = :id AND tenant_id = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId
                     """,
             )
                 .bind("id", templateId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("name", input.name)
                 .bind("dataModel", dataModelJson)
                 .bind("dataExamples", dataExamplesJson)
@@ -138,40 +138,40 @@ class ImportTemplatesHandler(
         // Upsert default variant
         handle.createUpdate(
             """
-                INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
+                INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
                 VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
-                ON CONFLICT (tenant_id, id) DO UPDATE SET template_id = :templateId, last_modified = NOW()
+                ON CONFLICT (tenant_key, id) DO UPDATE SET template_key = :templateId, last_modified = NOW()
                 """,
         )
             .bind("id", defaultVariantId)
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("templateId", templateId)
             .execute()
 
         // Upsert draft for default variant (unless an explicit variant overrides it)
         val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
         if (!hasExplicitDefault) {
-            upsertDraft(handle, tenantId, defaultVariantId, input.templateModel)
+            upsertDraft(handle, tenantId, templateId, defaultVariantId, input.templateModel)
         }
 
         // 2. Process explicit variants
         val allVariantIds = mutableSetOf(defaultVariantId)
         for (variantInput in input.variants) {
-            val variantId = VariantId.of(variantInput.id)
+            val variantId = VariantKey.of(variantInput.id)
             allVariantIds.add(variantId)
 
             val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
 
             handle.createUpdate(
                 """
-                    INSERT INTO template_variants (id, tenant_id, template_id, title, attributes, is_default, created_at, last_modified)
+                    INSERT INTO template_variants (id, tenant_key, template_key, title, attributes, is_default, created_at, last_modified)
                     VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
-                    ON CONFLICT (tenant_id, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, template_id = :templateId, last_modified = NOW()
+                    ON CONFLICT (tenant_key, id) DO UPDATE
+                    SET title = :title, attributes = :attributes::jsonb, template_key = :templateId, last_modified = NOW()
                     """,
             )
                 .bind("id", variantId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("templateId", templateId)
                 .bind("title", variantInput.title)
                 .bind("attributes", attributesJson)
@@ -179,23 +179,23 @@ class ImportTemplatesHandler(
 
             // Upsert the draft with the variant-specific or top-level templateModel
             val variantTemplateModel = variantInput.templateModel ?: input.templateModel
-            upsertDraft(handle, tenantId, variantId, variantTemplateModel)
+            upsertDraft(handle, tenantId, templateId, variantId, variantTemplateModel)
         }
 
         // 3. Publish to environments
         val publishedTo = mutableListOf<String>()
         for (envSlug in input.publishTo) {
-            val environmentId = EnvironmentId.of(envSlug)
+            val environmentId = EnvironmentKey.of(envSlug)
 
             val environmentExists = handle.createQuery(
                 """
                     SELECT COUNT(*) > 0
                     FROM environments
-                    WHERE id = :environmentId AND tenant_id = :tenantId
+                    WHERE id = :environmentId AND tenant_key = :tenantId
                     """,
             )
                 .bind("environmentId", environmentId)
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .mapTo<Boolean>()
                 .one()
 
@@ -205,7 +205,7 @@ class ImportTemplatesHandler(
             }
 
             for (variantId in allVariantIds) {
-                publishDraft(handle, tenantId, variantId, environmentId)
+                publishDraft(handle, tenantId, templateId, variantId, environmentId)
             }
             publishedTo.add(envSlug)
         }
@@ -224,17 +224,17 @@ class ImportTemplatesHandler(
      * Updates the existing draft if one exists, otherwise creates a new one
      * with the next available version ID.
      */
-    private fun upsertDraft(handle: Handle, tenantId: TenantId, variantId: VariantId, templateModel: TemplateDocument) {
+    private fun upsertDraft(handle: Handle, tenantId: TenantId, templateId: TemplateKey, variantId: VariantKey, templateModel: TemplateDocument) {
         val templateModelJson = objectMapper.writeValueAsString(templateModel)
 
         val updated = handle.createUpdate(
             """
             UPDATE template_versions
             SET template_model = :templateModel::jsonb
-            WHERE tenant_id = :tenantId AND variant_id = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
             .execute()
@@ -244,22 +244,23 @@ class ImportTemplatesHandler(
                 """
                 SELECT COALESCE(MAX(id), 0) + 1
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
             )
-                .bind("tenantId", tenantId)
+                .bind("tenantId", tenantId.key)
                 .bind("variantId", variantId)
                 .mapTo(Int::class.java)
                 .one()
 
             handle.createUpdate(
                 """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
             )
-                .bind("id", VersionId.of(nextVersionId))
-                .bind("tenantId", tenantId)
+                .bind("id", VersionKey.of(nextVersionId))
+                .bind("tenantId", tenantId.key)
+                .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .bind("templateModel", templateModelJson)
                 .execute()
@@ -271,32 +272,32 @@ class ImportTemplatesHandler(
      * Freezes the draft (status -> published), upserts the activation,
      * and auto-creates a new draft so the variant remains editable.
      */
-    private fun publishDraft(handle: Handle, tenantId: TenantId, variantId: VariantId, environmentId: EnvironmentId) {
+    private fun publishDraft(handle: Handle, tenantId: TenantId, templateId: TemplateKey, variantId: VariantKey, environmentId: EnvironmentKey) {
         // Find the draft version
         val draftVersionId = handle.createQuery(
             """
             SELECT id
             FROM template_versions
-            WHERE tenant_id = :tenantId AND variant_id = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
             .findOne()
             .orElse(null) ?: return
 
-        val versionId = VersionId.of(draftVersionId)
+        val versionId = VersionKey.of(draftVersionId)
 
         // Freeze the draft
         handle.createUpdate(
             """
             UPDATE template_versions
             SET status = 'published', published_at = NOW()
-            WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+            WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
             .execute()
@@ -304,14 +305,15 @@ class ImportTemplatesHandler(
         // Upsert activation
         handle.createUpdate(
             """
-            INSERT INTO environment_activations (tenant_id, environment_id, variant_id, version_id, activated_at)
-            VALUES (:tenantId, :environmentId, :variantId, :versionId, NOW())
-            ON CONFLICT (tenant_id, environment_id, variant_id)
-            DO UPDATE SET version_id = :versionId, activated_at = NOW()
+            INSERT INTO environment_activations (tenant_key, environment_key, template_key, variant_key, version_key, activated_at)
+            VALUES (:tenantId, :environmentId, :templateId, :variantId, :versionId, NOW())
+            ON CONFLICT (tenant_key, environment_key, template_key, variant_key)
+            DO UPDATE SET version_key = :versionId, activated_at = NOW()
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("environmentId", environmentId)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
             .execute()
@@ -321,24 +323,25 @@ class ImportTemplatesHandler(
             """
             SELECT COALESCE(MAX(id), 0) + 1
             FROM template_versions
-            WHERE tenant_id = :tenantId AND variant_id = :variantId
+            WHERE tenant_key = :tenantId AND variant_key = :variantId
             """,
         )
-            .bind("tenantId", tenantId)
+            .bind("tenantId", tenantId.key)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
             .one()
 
         handle.createUpdate(
             """
-            INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-            VALUES (:id, :tenantId, :variantId,
-                    (SELECT template_model FROM template_versions WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :publishedId),
+            INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+            VALUES (:id, :tenantId, :templateId, :variantId,
+                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
                     'draft', NOW())
             """,
         )
-            .bind("id", VersionId.of(nextVersionId))
-            .bind("tenantId", tenantId)
+            .bind("id", VersionKey.of(nextVersionId))
+            .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("publishedId", versionId)
             .execute()

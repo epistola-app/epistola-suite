@@ -1,12 +1,12 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.KotlinPlugin
 import org.jdbi.v3.core.mapper.ColumnMapper
@@ -39,15 +39,15 @@ class JdbiConfig {
             registerArgument(SlugIdArgumentFactory())
 
             // Register column mappers for all slug-based ID types
-            registerColumnMapper(TenantId::class.java, SlugIdColumnMapper(TenantId::of))
-            registerColumnMapper(ThemeId::class.java, SlugIdColumnMapper(ThemeId::of))
-            registerColumnMapper(TemplateId::class.java, SlugIdColumnMapper(TemplateId::of))
-            registerColumnMapper(VariantId::class.java, SlugIdColumnMapper(VariantId::of))
-            registerColumnMapper(EnvironmentId::class.java, SlugIdColumnMapper(EnvironmentId::of))
+            registerColumnMapper(TenantKey::class.java, SlugIdColumnMapper(TenantKey::of))
+            registerColumnMapper(ThemeKey::class.java, SlugIdColumnMapper(ThemeKey::of))
+            registerColumnMapper(TemplateKey::class.java, SlugIdColumnMapper(TemplateKey::of))
+            registerColumnMapper(VariantKey::class.java, SlugIdColumnMapper(VariantKey::of))
+            registerColumnMapper(EnvironmentKey::class.java, SlugIdColumnMapper(EnvironmentKey::of))
 
             // Register VersionId argument factory and column mapper for integer-based version IDs
             registerArgument(VersionIdArgumentFactory())
-            registerColumnMapper(VersionId::class.java, IntIdColumnMapper(VersionId::of))
+            registerColumnMapper(VersionKey::class.java, IntIdColumnMapper(VersionKey::of))
 
             // Register AssetMediaType column mapper (varchar mime type → enum)
             registerColumnMapper(

@@ -38,9 +38,9 @@
                 <tr th:each="run : ${runs}">
                     <td th:text="${#temporals.format(run.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                     <td>
-                        <strong th:text="${run.templateId}"></strong>
+                        <strong th:text="${run.templateKey}"></strong>
                         <span class="text-muted">/</span>
-                        <span th:text="${run.variantId}"></span>
+                        <span th:text="${run.variantKey}"></span>
                     </td>
                     <td>
                         <span class="badge"

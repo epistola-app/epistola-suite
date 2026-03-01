@@ -1,7 +1,7 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.documents.batch.DocumentGenerationExecutor
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.storage.ContentKey
@@ -64,12 +64,12 @@ class FakeDocumentGenerationExecutor(
 
         try {
             // Generate fake document
-            val documentId = DocumentId.generate()
+            val documentId = DocumentKey.generate()
             val filename = request.filename ?: "document-${request.id.value}.pdf"
 
             // Store fake PDF content in ContentStore
             localContentStore.put(
-                ContentKey.document(request.tenantId, documentId),
+                ContentKey.document(request.tenantKey, documentId),
                 ByteArrayInputStream(fakePdfBytes),
                 "application/pdf",
                 fakePdfBytes.size.toLong(),
@@ -82,7 +82,7 @@ class FakeDocumentGenerationExecutor(
                     """
                     UPDATE document_generation_requests
                     SET status = 'COMPLETED',
-                        document_id = :documentId,
+                        document_key = :documentId,
                         completed_at = NOW(),
                         expires_at = NOW() + :expiresAt::interval
                     WHERE id = :requestId
@@ -103,7 +103,7 @@ class FakeDocumentGenerationExecutor(
                 handle.createUpdate(
                     """
                     INSERT INTO documents (
-                        id, tenant_id, template_id, variant_id, version_id,
+                        id, tenant_key, template_key, variant_key, version_key,
                         filename, correlation_id, content_type, size_bytes,
                         created_at, created_by
                     )
@@ -115,12 +115,12 @@ class FakeDocumentGenerationExecutor(
                     """,
                 )
                     .bind("id", documentId)
-                    .bind("tenantId", request.tenantId)
-                    .bind("templateId", request.templateId)
-                    .bind("variantId", request.variantId)
-                    .bind("versionId", request.versionId ?: request.environmentId) // Use either
+                    .bind("tenantId", request.tenantKey)
+                    .bind("templateId", request.templateKey)
+                    .bind("variantId", request.variantKey)
+                    .bind("versionId", request.versionKey ?: request.environmentKey) // Use either
                     .bind("filename", filename)
-                    .bind("correlationId", request.correlationId)
+                    .bind("correlationId", request.correlationKey)
                     .bind("sizeBytes", fakePdfBytes.size.toLong())
                     .execute()
             }
@@ -138,7 +138,7 @@ class FakeDocumentGenerationExecutor(
         }
     }
 
-    private fun markRequestFailed(requestId: app.epistola.suite.common.ids.GenerationRequestId, errorMessage: String?) {
+    private fun markRequestFailed(requestId: app.epistola.suite.common.ids.GenerationRequestKey, errorMessage: String?) {
         val expiresAtInterval = "$localRetentionDays days"
         localJdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
@@ -168,7 +168,7 @@ class FakeDocumentGenerationExecutor(
         val isComplete: Boolean get() = pending == 0 && inProgress == 0
     }
 
-    private fun getBatchCounts(batchId: BatchId): BatchCounts = localJdbi.withHandle<BatchCounts, Exception> { handle ->
+    private fun getBatchCounts(batchId: BatchKey): BatchCounts = localJdbi.withHandle<BatchCounts, Exception> { handle ->
         val results = handle.createQuery(
             """
                 SELECT
@@ -192,7 +192,7 @@ class FakeDocumentGenerationExecutor(
         )
     }
 
-    private fun finalizeBatchIfComplete(batchId: BatchId) {
+    private fun finalizeBatchIfComplete(batchId: BatchKey) {
         val counts = getBatchCounts(batchId)
 
         if (counts.isComplete) {

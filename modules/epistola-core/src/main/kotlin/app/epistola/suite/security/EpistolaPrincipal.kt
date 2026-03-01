@@ -1,7 +1,7 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import java.io.Serializable
 
 /**
@@ -15,12 +15,12 @@ import java.io.Serializable
  * class from Spring Security authentication tokens (OAuth2User, UserDetails, etc.).
  */
 data class EpistolaPrincipal(
-    val userId: UserId,
+    val userId: UserKey,
     val externalId: String,
     val email: String,
     val displayName: String,
-    val tenantMemberships: Set<TenantId>,
-    val currentTenantId: TenantId?, // Can be set per-request via tenant selector
+    val tenantMemberships: Set<TenantKey>,
+    val currentTenantId: TenantKey?, // Can be set per-request via tenant selector
 ) : Serializable {
 
     companion object {
@@ -30,10 +30,10 @@ data class EpistolaPrincipal(
     /**
      * Check if the user has access to the specified tenant.
      */
-    fun hasAccessToTenant(tenantId: TenantId): Boolean = tenantMemberships.contains(tenantId)
+    fun hasAccessToTenant(tenantId: TenantKey): Boolean = tenantMemberships.contains(tenantId)
 
     /**
      * Get the effective tenant ID (current or first membership if current is null).
      */
-    fun effectiveTenantId(): TenantId? = currentTenantId ?: tenantMemberships.firstOrNull()
+    fun effectiveTenantId(): TenantKey? = currentTenantId ?: tenantMemberships.firstOrNull()
 }

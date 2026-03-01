@@ -1,6 +1,6 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -13,7 +13,7 @@ import java.time.OffsetDateTime
  * Summary of a template with variant statistics for list views.
  */
 data class TemplateSummary(
-    val id: TemplateId,
+    val id: TemplateKey,
     val name: String,
     val lastModified: OffsetDateTime,
     val variantCount: Int,
@@ -40,17 +40,17 @@ class ListTemplateSummariesHandler(
                     dt.id,
                     dt.name,
                     dt.last_modified,
-                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_id = dt.tenant_id AND tv.template_id = dt.id), 0)::int as variant_count,
+                    COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), 0)::int as variant_count,
                     COALESCE((SELECT bool_or(ver.status = 'draft')
                               FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id
-                              WHERE tv.tenant_id = dt.tenant_id AND tv.template_id = dt.id), false) as has_draft,
+                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id
+                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), false) as has_draft,
                     COALESCE((SELECT COUNT(*)
                               FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_id = tv.tenant_id AND ver.variant_id = tv.id
-                              WHERE tv.tenant_id = dt.tenant_id AND tv.template_id = dt.id AND ver.status = 'published'), 0)::int as published_version_count
+                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id
+                              WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count
                 FROM document_templates dt
-                WHERE dt.tenant_id = :tenantId
+                WHERE dt.tenant_key = :tenantId
                 """.trimIndent(),
             )
             if (!query.searchTerm.isNullOrBlank()) {
@@ -61,7 +61,7 @@ class ListTemplateSummariesHandler(
         }
 
         val jdbiQuery = handle.createQuery(sql)
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
         if (!query.searchTerm.isNullOrBlank()) {
             val escaped = query.searchTerm.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             jdbiQuery.bind("searchTerm", "%$escaped%")

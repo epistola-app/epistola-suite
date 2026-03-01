@@ -20,22 +20,22 @@ class ListEnvironmentsHandler(
     override fun handle(query: ListEnvironments): List<Environment> = jdbi.withHandle<List<Environment>, Exception> { handle ->
         val sql = if (query.searchTerm != null) {
             """
-                SELECT id, tenant_id, name, created_at
+                SELECT id, tenant_key, name, created_at
                 FROM environments
-                WHERE tenant_id = :tenantId
+                WHERE tenant_key = :tenantId
                   AND (LOWER(name) LIKE LOWER(:searchTerm) OR LOWER(id) LIKE LOWER(:searchTerm))
                 ORDER BY name ASC
                 """
         } else {
             """
-                SELECT id, tenant_id, name, created_at
+                SELECT id, tenant_key, name, created_at
                 FROM environments
-                WHERE tenant_id = :tenantId
+                WHERE tenant_key = :tenantId
                 ORDER BY name ASC
                 """
         }
 
-        val q = handle.createQuery(sql).bind("tenantId", query.tenantId)
+        val q = handle.createQuery(sql).bind("tenantId", query.tenantId.key)
 
         if (query.searchTerm != null) {
             q.bind("searchTerm", "%${query.searchTerm}%")

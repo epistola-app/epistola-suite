@@ -1,9 +1,7 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.model.TemplateDocument
@@ -23,8 +21,6 @@ import tools.jackson.databind.ObjectMapper
  * Throws exception if maximum version limit (200) is reached.
  */
 data class CreateVersion(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
     val variantId: VariantId,
     val templateModel: TemplateDocument? = null,
 ) : Command<TemplateVersion?>
@@ -40,14 +36,14 @@ class CreateVersionHandler(
             """
                 SELECT dt.name as template_name
                 FROM template_variants tv
-                JOIN document_templates dt ON dt.tenant_id = tv.tenant_id AND dt.id = tv.template_id
-                WHERE tv.tenant_id = :tenantId AND tv.id = :variantId
-                  AND tv.template_id = :templateId
+                JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
+                WHERE tv.tenant_key = :tenantId AND tv.id = :variantId
+                  AND tv.template_key = :templateId
                 """,
         )
-            .bind("variantId", command.variantId)
-            .bind("templateId", command.templateId)
-            .bind("tenantId", command.tenantId)
+            .bind("variantId", command.variantId.key)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("tenantId", command.variantId.tenantKey)
             .mapToMap()
             .findOne()
             .orElse(null) ?: return@inTransaction null
@@ -59,12 +55,12 @@ class CreateVersionHandler(
             """
                 SELECT *
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                   AND status = 'draft'
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)
@@ -79,35 +75,36 @@ class CreateVersionHandler(
             """
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
-                WHERE tenant_id = :tenantId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("variantId", command.variantId.key)
             .mapTo(Int::class.java)
             .one()
 
         // Enforce max version limit
-        require(nextVersionId <= VersionId.MAX_VERSION) {
-            "Maximum version limit (${VersionId.MAX_VERSION}) reached for variant ${command.variantId}"
+        require(nextVersionId <= VersionKey.MAX_VERSION) {
+            "Maximum version limit (${VersionKey.MAX_VERSION}) reached for variant ${command.variantId.key}"
         }
 
-        val versionId = VersionId.of(nextVersionId)
+        val versionId = VersionKey.of(nextVersionId)
 
         // Use provided model or create default empty template structure
-        val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId)
+        val modelToSave = command.templateModel ?: createDefaultTemplateModel(templateName, command.variantId.key)
         val templateModelJson = objectMapper.writeValueAsString(modelToSave)
 
         handle.createQuery(
             """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 RETURNING *
                 """,
         )
             .bind("id", versionId)
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .mapTo<TemplateVersion>()
             .one()

@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.queries.activations
 
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -15,8 +13,6 @@ import org.springframework.stereotype.Component
  * Gets the active version for a variant in a specific environment.
  */
 data class GetActiveVersion(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
     val variantId: VariantId,
     val environmentId: EnvironmentId,
 ) : Query<TemplateVersion?>
@@ -30,26 +26,26 @@ class GetActiveVersionHandler(
             """
                 SELECT
                     ver.id,
-                    ver.tenant_id,
-                    ver.variant_id,
+                    ver.tenant_key,
+                    ver.variant_key,
                     ver.template_model,
                     ver.status,
                     ver.created_at,
                     ver.published_at,
                     ver.archived_at
                 FROM environment_activations ea
-                JOIN template_versions ver ON ver.tenant_id = ea.tenant_id AND ver.variant_id = ea.variant_id AND ver.id = ea.version_id
-                JOIN template_variants tv ON tv.tenant_id = ea.tenant_id AND tv.id = ea.variant_id
-                WHERE ea.environment_id = :environmentId
-                  AND ea.variant_id = :variantId
-                  AND ea.tenant_id = :tenantId
-                  AND tv.template_id = :templateId
+                JOIN template_versions ver ON ver.tenant_key = ea.tenant_key AND ver.variant_key = ea.variant_key AND ver.id = ea.version_key
+                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.id = ea.variant_key
+                WHERE ea.environment_key = :environmentId
+                  AND ea.variant_key = :variantId
+                  AND ea.tenant_key = :tenantId
+                  AND tv.template_key = :templateId
                 """,
         )
-            .bind("environmentId", query.environmentId)
-            .bind("variantId", query.variantId)
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("environmentId", query.environmentId.key)
+            .bind("variantId", query.variantId.key)
+            .bind("templateId", query.variantId.templateKey)
+            .bind("tenantId", query.variantId.tenantKey)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)

@@ -1,7 +1,7 @@
 package app.epistola.suite.themes
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import org.jdbi.v3.json.Json
@@ -97,8 +97,8 @@ class BlockStylePresetsSerializer : ValueSerializer<BlockStylePresets>() {
  * 4. Block inline styles (highest priority)
  */
 data class Theme(
-    val id: ThemeId,
-    val tenantId: TenantId,
+    val id: ThemeKey,
+    val tenantKey: TenantKey,
     val name: String,
     val description: String?,
     @Json val documentStyles: DocumentStyles,

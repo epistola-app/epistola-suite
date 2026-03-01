@@ -1,9 +1,8 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -23,7 +22,6 @@ import tools.jackson.databind.ObjectMapper
 
 data class CreateDocumentTemplate(
     val id: TemplateId,
-    val tenantId: TenantId,
     val name: String,
     val schema: String? = null,
 ) : Command<DocumentTemplate> {
@@ -48,33 +46,33 @@ class CreateDocumentTemplateHandler(
             }
         }
 
-        return executeOrThrowDuplicate("template", command.id.value) {
+        return executeOrThrowDuplicate("template", command.id.key.value) {
             jdbi.inTransaction<DocumentTemplate, Exception> { handle ->
                 // 1. Create the template
                 val template = handle.createQuery(
                     """
-                INSERT INTO document_templates (id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
+                INSERT INTO document_templates (id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified)
                 VALUES (:id, :tenantId, :name, NULL, :schema::jsonb, NULL, '[]'::jsonb, FALSE, NOW(), NOW())
-                RETURNING id, tenant_id, name, theme_id, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
+                RETURNING id, tenant_key, name, theme_key, schema, data_model, data_examples, pdfa_enabled, created_at, last_modified
                 """,
                 )
-                    .bind("id", command.id)
-                    .bind("tenantId", command.tenantId)
+                    .bind("id", command.id.key)
+                    .bind("tenantId", command.id.tenantKey)
                     .bind("name", command.name)
                     .bind("schema", command.schema)
                     .mapTo<DocumentTemplate>()
                     .one()
 
                 // 2. Create default variant with template-specific ID to avoid conflicts
-                val variantId = VariantId.of("${command.id}-default")
+                val variantId = VariantKey.of("${command.id.key}-default")
                 handle.createUpdate(
                     """
-                INSERT INTO template_variants (id, tenant_id, template_id, attributes, is_default, created_at, last_modified)
+                INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
                 VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
                 """,
                 )
                     .bind("id", variantId)
-                    .bind("tenantId", command.tenantId)
+                    .bind("tenantId", command.id.tenantKey)
                     .bind("templateId", template.id)
                     .execute()
 
@@ -102,16 +100,17 @@ class CreateDocumentTemplateHandler(
                     themeRef = ThemeRef.Inherit,
                 )
                 val templateModelJson = objectMapper.writeValueAsString(templateModel)
-                val versionId = VersionId.of(1) // First version is always 1
+                val versionId = VersionKey.of(1) // First version is always 1
 
                 handle.createUpdate(
                     """
-                INSERT INTO template_versions (id, tenant_id, variant_id, template_model, status, created_at)
-                VALUES (:id, :tenantId, :variantId, :templateModel::jsonb, 'draft', NOW())
+                INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
+                VALUES (:id, :tenantId, :templateId, :variantId, :templateModel::jsonb, 'draft', NOW())
                 """,
                 )
                     .bind("id", versionId)
-                    .bind("tenantId", command.tenantId)
+                    .bind("tenantId", command.id.tenantKey)
+                    .bind("templateId", command.id.key)
                     .bind("variantId", variantId)
                     .bind("templateModel", templateModelJson)
                     .execute()

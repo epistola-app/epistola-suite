@@ -28,7 +28,7 @@ is_default BOOLEAN NOT NULL DEFAULT FALSE,
 Add partial unique index after the table:
 ```sql
 CREATE UNIQUE INDEX idx_one_default_variant_per_template
-    ON template_variants (tenant_id, template_id) WHERE is_default = TRUE;
+    ON template_variants (tenant_key, template_key) WHERE is_default = TRUE;
 ```
 
 This enforces exactly one default variant per template at the database level.
@@ -65,7 +65,7 @@ All queries selecting from `template_variants` must include `is_default`.
 ### CreateVariant — auto-default if first variant
 
 **Modify**: `modules/epistola-core/.../templates/commands/variants/CreateVariant.kt`
-- Before INSERT: `SELECT COUNT(*) FROM template_variants WHERE tenant_id = :tenantId AND template_id = :templateId`
+- Before INSERT: `SELECT COUNT(*) FROM template_variants WHERE tenant_key = :tenantId AND template_key = :templateId`
 - If count is 0, set `is_default = TRUE`; otherwise `FALSE`
 - Add `is_default` to INSERT SQL
 
@@ -89,8 +89,8 @@ data class SetDefaultVariant(
 
 Handler (in transaction):
 1. Verify variant belongs to template owned by tenant
-2. `UPDATE SET is_default = FALSE WHERE tenant_id = :tenantId AND template_id = :templateId AND is_default = TRUE`
-3. `UPDATE SET is_default = TRUE WHERE tenant_id = :tenantId AND id = :variantId RETURNING *`
+2. `UPDATE SET is_default = FALSE WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE`
+3. `UPDATE SET is_default = TRUE WHERE tenant_key = :tenantId AND id = :variantId RETURNING *`
 
 Returns null if variant not found.
 

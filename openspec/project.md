@@ -46,7 +46,7 @@ Epistola Suite is a document generation platform enabling users to create, manag
 - Command/Query Bus (Mediator pattern) for all state changes
 - Functional routing (Spring WebMvc.fn) instead of annotated controllers
 - JDBI with SQL queries (no ORM)
-- Multi-tenant: All queries filter by `tenant_id`
+- Multi-tenant: All queries filter by `tenant_key`
 
 **Frontend:**
 - Server-side rendering with Thymeleaf for navigation

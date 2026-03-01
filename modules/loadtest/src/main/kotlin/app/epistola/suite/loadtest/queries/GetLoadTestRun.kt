@@ -1,8 +1,8 @@
 package app.epistola.suite.loadtest.queries
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -17,8 +17,8 @@ import org.springframework.stereotype.Component
  * @return LoadTestRun if found, null otherwise
  */
 data class GetLoadTestRun(
-    val tenantId: TenantId,
-    val runId: LoadTestRunId,
+    val tenantId: TenantKey,
+    val runId: LoadTestRunKey,
 ) : Query<LoadTestRun?>
 
 @Component
@@ -31,11 +31,11 @@ class GetLoadTestRunHandler(
             SELECT
                 r.id,
                 r.batch_id,
-                r.tenant_id,
-                r.template_id,
-                r.variant_id,
-                r.version_id,
-                r.environment_id,
+                r.tenant_key,
+                r.template_key,
+                r.variant_key,
+                r.version_key,
+                r.environment_key,
                 r.target_count,
                 r.concurrency_level,
                 r.test_data,
@@ -75,7 +75,7 @@ class GetLoadTestRunHandler(
                 END as failed_count
             FROM load_test_runs r
             WHERE r.id = :runId
-              AND r.tenant_id = :tenantId
+              AND r.tenant_key = :tenantId
             """,
         )
             .bind("runId", query.runId)

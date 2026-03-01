@@ -2,7 +2,11 @@ package app.epistola.suite.loadtest
 
 import app.epistola.suite.BaseIntegrationTest
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
@@ -124,14 +128,14 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
+                val tenantId = TenantId(testTenant.id)
+                val tplId = TemplateId(template.id, tenantId)
                 templateId = template.id.value
                 CreateVersion(
-                    tenantId = testTenant.id,
-                    templateId = template.id,
-                    variantId = VariantId.of("${template.id}-default"),
+                    variantId = VariantId(VariantKey.of("${template.id}-default"), tplId),
                 ).execute()
-                val envId = TestIdHelpers.nextEnvironmentId()
-                CreateEnvironment(id = envId, tenantId = testTenant.id, name = "Production").execute()
+                val envKey = TestIdHelpers.nextEnvironmentId()
+                CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
             }
 
             whenever {
@@ -170,15 +174,15 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
+                val tenantId = TenantId(testTenant.id)
+                val tplId = TemplateId(template.id, tenantId)
                 templateId = template.id.value
-                val defaultVariantId = VariantId.of("${template.id}-default")
+                val defaultVariantId = VariantKey.of("${template.id}-default")
                 CreateVersion(
-                    tenantId = testTenant.id,
-                    templateId = template.id,
-                    variantId = defaultVariantId,
+                    variantId = VariantId(defaultVariantId, tplId),
                 ).execute()
-                val envId = TestIdHelpers.nextEnvironmentId()
-                CreateEnvironment(id = envId, tenantId = testTenant.id, name = "Production").execute()
+                val envKey = TestIdHelpers.nextEnvironmentId()
+                CreateEnvironment(id = EnvironmentId(envKey, tenantId), name = "Production").execute()
             }
 
             whenever {
@@ -214,14 +218,14 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
             given {
                 testTenant = tenant("Test Tenant")
                 val template = template(testTenant, "Invoice Template")
+                val tenantId = TenantId(testTenant.id)
+                val tplId = TemplateId(template.id, tenantId)
                 templateId = template.id.value
                 val customVariant = variant(testTenant, template, title = "Dutch")
                 customVariantId = customVariant.id.value
                 // Create a draft version for the custom variant
                 CreateVersion(
-                    tenantId = testTenant.id,
-                    templateId = template.id,
-                    variantId = customVariant.id,
+                    variantId = VariantId(customVariant.id, tplId),
                 ).execute()
             }
 
@@ -266,8 +270,7 @@ class LoadTestHandlerTest : BaseIntegrationTest() {
                 val example = DataExample(id = "example-1", name = "Sample Invoice", data = exampleData)
                 exampleId = example.id
                 UpdateDocumentTemplate(
-                    tenantId = testTenant.id,
-                    id = template.id,
+                    id = TemplateId(template.id, TenantId(testTenant.id)),
                     dataExamples = listOf(example),
                 ).execute()
             }

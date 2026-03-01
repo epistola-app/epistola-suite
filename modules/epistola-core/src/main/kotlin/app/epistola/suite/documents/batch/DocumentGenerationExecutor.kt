@@ -4,10 +4,15 @@ import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
@@ -66,9 +71,9 @@ class DocumentGenerationExecutor(
         logger.info(
             "Processing request {} for template {}/{}/{}",
             request.id.value,
-            request.templateId.value,
-            request.variantId.value,
-            request.versionId?.value ?: request.environmentId?.value,
+            request.templateKey.value,
+            request.variantKey.value,
+            request.versionKey?.value ?: request.environmentKey?.value,
         )
 
         try {
@@ -77,7 +82,7 @@ class DocumentGenerationExecutor(
 
             // Store content first — orphaned blob is harmless, missing content is not
             contentStore.put(
-                ContentKey.document(document.tenantId, document.id),
+                ContentKey.document(document.tenantKey, document.id),
                 ByteArrayInputStream(pdfBytes),
                 document.contentType,
                 document.sizeBytes,
@@ -111,48 +116,39 @@ class DocumentGenerationExecutor(
         logger.debug(
             "Generating document for request {} (template {}/{}/{})",
             request.id.value,
-            request.templateId.value,
-            request.variantId.value,
-            request.versionId?.value ?: request.environmentId?.value,
+            request.templateKey.value,
+            request.variantKey.value,
+            request.versionKey?.value ?: request.environmentKey?.value,
         )
 
+        // Build composite IDs
+        val tenantId = TenantId(request.tenantKey)
+        val templateId = TemplateId(request.templateKey, tenantId)
+        val variantId = VariantId(request.variantKey, templateId)
+
         // 1. Resolve template version
-        val version = if (request.versionId != null) {
+        val version = if (request.versionKey != null) {
             // Use explicit version
-            mediator.query(
-                GetVersion(
-                    tenantId = request.tenantId,
-                    templateId = request.templateId,
-                    variantId = request.variantId,
-                    versionId = request.versionId,
-                ),
-            ) ?: throw IllegalStateException("Version ${request.versionId} not found")
+            val versionId = VersionId(request.versionKey, variantId)
+            mediator.query(GetVersion(versionId))
+                ?: throw IllegalStateException("Version ${request.versionKey} not found")
         } else {
             // Use environment to determine active version
-            mediator.query(
-                GetActiveVersion(
-                    tenantId = request.tenantId,
-                    templateId = request.templateId,
-                    variantId = request.variantId,
-                    environmentId = request.environmentId!!,
-                ),
-            ) ?: throw IllegalStateException("No active version for environment ${request.environmentId}")
+            val environmentId = EnvironmentId(request.environmentKey!!, tenantId)
+            mediator.query(GetActiveVersion(variantId, environmentId))
+                ?: throw IllegalStateException("No active version for environment ${request.environmentKey}")
         }
 
         // 2. Get template model
         val templateModel = version.templateModel
 
         // 3. Fetch template to get default theme
-        val template = mediator.query(
-            GetDocumentTemplate(
-                tenantId = request.tenantId,
-                id = request.templateId,
-            ),
-        ) ?: throw IllegalStateException("Template ${request.templateId} not found")
+        val template = mediator.query(GetDocumentTemplate(templateId))
+            ?: throw IllegalStateException("Template ${request.templateKey} not found")
 
         // 4. Fetch tenant to get default theme (ultimate fallback)
-        val tenant = mediator.query(GetTenant(id = request.tenantId))
-            ?: throw IllegalStateException("Tenant ${request.tenantId} not found")
+        val tenant = mediator.query(GetTenant(id = request.tenantKey))
+            ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
         // 5. Generate PDF
         val outputStream = ByteArrayOutputStream()
@@ -164,10 +160,10 @@ class DocumentGenerationExecutor(
             author = tenant.name,
         )
         val assetResolver = AssetResolver { assetId ->
-            mediator.query(GetAssetContent(request.tenantId, AssetId.of(assetId)))
+            mediator.query(GetAssetContent(request.tenantKey, AssetKey.of(assetId)))
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
-        generationService.renderPdf(request.tenantId, templateModel, dataMap, outputStream, template.themeId, tenant.defaultThemeId, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
+        generationService.renderPdf(request.tenantKey, templateModel, dataMap, outputStream, template.themeKey, tenant.defaultThemeKey, metadata, pdfaCompliant = template.pdfaEnabled, assetResolver = assetResolver)
 
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()
@@ -183,13 +179,13 @@ class DocumentGenerationExecutor(
 
         // 8. Create Document entity (metadata only — content stored separately)
         val document = Document(
-            id = DocumentId.generate(),
-            tenantId = request.tenantId,
-            templateId = request.templateId,
-            variantId = request.variantId,
-            versionId = version.id,
+            id = DocumentKey.generate(),
+            tenantKey = request.tenantKey,
+            templateKey = request.templateKey,
+            variantKey = request.variantKey,
+            versionKey = version.id,
             filename = filename,
-            correlationId = request.correlationId,
+            correlationId = request.correlationKey,
             contentType = "application/pdf",
             sizeBytes = sizeBytes,
             createdAt = OffsetDateTime.now(),
@@ -201,7 +197,7 @@ class DocumentGenerationExecutor(
     /**
      * Save the generated document and mark the request as completed.
      */
-    private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestId, document: Document) {
+    private fun saveDocumentAndMarkCompleted(requestId: GenerationRequestKey, document: Document) {
         jdbi.useTransaction<Exception> { handle ->
             // 1. Claim completion — skip if the request was cancelled during processing
             val expiresAtInterval = "$retentionDays days"
@@ -209,7 +205,7 @@ class DocumentGenerationExecutor(
                 """
                 UPDATE document_generation_requests
                 SET status = 'COMPLETED',
-                    document_id = :documentId,
+                    document_key = :documentId,
                     completed_at = NOW(),
                     expires_at = NOW() + :expiresAt::interval
                 WHERE id = :requestId
@@ -230,7 +226,7 @@ class DocumentGenerationExecutor(
             handle.createUpdate(
                 """
                 INSERT INTO documents (
-                    id, tenant_id, template_id, variant_id, version_id,
+                    id, tenant_key, template_key, variant_key, version_key,
                     filename, correlation_id, content_type, size_bytes,
                     created_at, created_by
                 )
@@ -242,10 +238,10 @@ class DocumentGenerationExecutor(
                 """,
             )
                 .bind("id", document.id)
-                .bind("tenantId", document.tenantId)
-                .bind("templateId", document.templateId)
-                .bind("variantId", document.variantId)
-                .bind("versionId", document.versionId)
+                .bind("tenantId", document.tenantKey)
+                .bind("templateId", document.templateKey)
+                .bind("variantId", document.variantKey)
+                .bind("versionId", document.versionKey)
                 .bind("filename", document.filename)
                 .bind("correlationId", document.correlationId)
                 .bind("contentType", document.contentType)
@@ -254,14 +250,14 @@ class DocumentGenerationExecutor(
                 .bind("createdBy", document.createdBy?.value)
                 .execute()
 
-            logger.debug("Created document {} for tenant {}", document.id.value, document.tenantId.value)
+            logger.debug("Created document {} for tenant {}", document.id.value, document.tenantKey.value)
         }
     }
 
     /**
      * Mark a request as failed with an error message.
      */
-    private fun markRequestFailed(requestId: GenerationRequestId, errorMessage: String) {
+    private fun markRequestFailed(requestId: GenerationRequestKey, errorMessage: String) {
         val expiresAtInterval = "$retentionDays days"
         jdbi.useHandle<Exception> { handle ->
             val updated = handle.createUpdate(
@@ -299,7 +295,7 @@ class DocumentGenerationExecutor(
         val isComplete: Boolean get() = pending == 0 && inProgress == 0
     }
 
-    private fun getBatchCounts(batchId: BatchId): BatchCounts = jdbi.withHandle<BatchCounts, Exception> { handle ->
+    private fun getBatchCounts(batchId: BatchKey): BatchCounts = jdbi.withHandle<BatchCounts, Exception> { handle ->
         val results = handle.createQuery(
             """
                 SELECT
@@ -329,7 +325,7 @@ class DocumentGenerationExecutor(
      * Calculates final counts and stores them when all requests are done.
      * Only finalizes once (idempotent - checks completed_at IS NULL).
      */
-    private fun finalizeBatchIfComplete(batchId: BatchId) {
+    private fun finalizeBatchIfComplete(batchId: BatchKey) {
         val counts = getBatchCounts(batchId)
 
         if (counts.isComplete) {

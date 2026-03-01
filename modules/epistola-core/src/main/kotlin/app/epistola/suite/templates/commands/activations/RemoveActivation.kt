@@ -1,8 +1,6 @@
 package app.epistola.suite.templates.commands.activations
 
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -18,8 +16,6 @@ import org.springframework.stereotype.Component
  * - The environment or variant doesn't belong to the tenant
  */
 data class RemoveActivation(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
     val variantId: VariantId,
     val environmentId: EnvironmentId,
 ) : Command<Boolean>
@@ -34,11 +30,11 @@ class RemoveActivationHandler(
             """
                 SELECT COUNT(*) > 0
                 FROM environments
-                WHERE id = :environmentId AND tenant_id = :tenantId
+                WHERE id = :environmentId AND tenant_key = :tenantId
                 """,
         )
-            .bind("environmentId", command.environmentId)
-            .bind("tenantId", command.tenantId)
+            .bind("environmentId", command.environmentId.key)
+            .bind("tenantId", command.environmentId.tenantKey)
             .mapTo<Boolean>()
             .one()
 
@@ -49,12 +45,14 @@ class RemoveActivationHandler(
         val rowsDeleted = handle.createUpdate(
             """
                 DELETE FROM environment_activations
-                WHERE tenant_id = :tenantId AND environment_id = :environmentId AND variant_id = :variantId
+                WHERE tenant_key = :tenantId AND environment_key = :environmentId
+                  AND template_key = :templateId AND variant_key = :variantId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("environmentId", command.environmentId)
-            .bind("variantId", command.variantId)
+            .bind("tenantId", command.variantId.tenantKey)
+            .bind("environmentId", command.environmentId.key)
+            .bind("templateId", command.variantId.templateKey)
+            .bind("variantId", command.variantId.key)
             .execute()
 
         rowsDeleted > 0

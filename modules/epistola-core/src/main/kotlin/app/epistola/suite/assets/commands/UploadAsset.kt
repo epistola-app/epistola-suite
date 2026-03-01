@@ -4,8 +4,8 @@ import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.AssetTooLargeException
 import app.epistola.suite.assets.MAX_ASSET_SIZE_BYTES
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.storage.ContentKey
@@ -28,13 +28,13 @@ import java.time.OffsetDateTime
  * @property id Optional pre-defined asset ID (generated if null)
  */
 data class UploadAsset(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val name: String,
     val mediaType: AssetMediaType,
     val content: ByteArray,
     val width: Int?,
     val height: Int?,
-    val id: AssetId? = null,
+    val id: AssetKey? = null,
 ) : Command<Asset> {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -61,7 +61,7 @@ class UploadAssetHandler(
             throw AssetTooLargeException(sizeBytes)
         }
 
-        val id = command.id ?: AssetId.generate()
+        val id = command.id ?: AssetKey.generate()
         val now = OffsetDateTime.now()
 
         logger.info(
@@ -83,7 +83,7 @@ class UploadAssetHandler(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO assets (id, tenant_id, name, media_type, size_bytes, width, height, created_at)
+                INSERT INTO assets (id, tenant_key, name, media_type, size_bytes, width, height, created_at)
                 VALUES (:id, :tenantId, :name, :mediaType, :sizeBytes, :width, :height, :createdAt)
                 """,
             )
@@ -100,7 +100,7 @@ class UploadAssetHandler(
 
         return Asset(
             id = id,
-            tenantId = command.tenantId,
+            tenantKey = command.tenantId,
             name = command.name,
             mediaType = command.mediaType,
             sizeBytes = sizeBytes,

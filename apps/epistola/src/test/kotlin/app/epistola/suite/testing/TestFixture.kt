@@ -1,7 +1,10 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -53,7 +56,7 @@ class TestFixtureFactory(
 
 @TestFixtureDsl
 class TestFixture(private val namespace: String) {
-    private val createdTenants = mutableListOf<TenantId>()
+    private val createdTenants = mutableListOf<TenantKey>()
     private var givenContext: GivenContext? = null
     private var result: Any? = null
     private var tenantCounter = 0
@@ -92,7 +95,7 @@ class TestFixture(private val namespace: String) {
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+            val tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
@@ -101,8 +104,7 @@ class TestFixture(private val namespace: String) {
             tenant: Tenant,
             name: String,
         ): DocumentTemplate = CreateDocumentTemplate(
-            id = TestIdHelpers.nextTemplateId(),
-            tenantId = tenant.id,
+            id = TemplateId(TestIdHelpers.nextTemplateId(), TenantId(tenant.id)),
             name = name,
         ).execute()
 
@@ -112,9 +114,7 @@ class TestFixture(private val namespace: String) {
             title: String? = null,
             attributes: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
-            id = TestIdHelpers.nextVariantId(),
-            tenantId = tenant.id,
-            templateId = template.id,
+            id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, TenantId(tenant.id))),
             title = title,
             description = null,
             attributes = attributes,
@@ -128,14 +128,14 @@ class TestFixture(private val namespace: String) {
     @TestFixtureDsl
     inner class WhenContext {
         fun createTenant(name: String): Tenant {
-            val tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+            val tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
             this@TestFixture.createdTenants.add(tenant.id)
             return tenant
         }
 
-        fun deleteTenant(id: TenantId): Boolean = DeleteTenant(id).execute()
+        fun deleteTenant(id: TenantKey): Boolean = DeleteTenant(id).execute()
 
-        fun listTemplates(tenant: Tenant): List<DocumentTemplate> = ListDocumentTemplates(tenant.id).query()
+        fun listTemplates(tenant: Tenant): List<DocumentTemplate> = ListDocumentTemplates(TenantId(tenant.id)).query()
 
         fun listTenants(searchTerm: String? = null): List<Tenant> = ListTenants(searchTerm).query()
     }

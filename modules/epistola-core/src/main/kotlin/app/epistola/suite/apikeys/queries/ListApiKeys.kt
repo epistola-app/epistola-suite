@@ -2,13 +2,13 @@ package app.epistola.suite.apikeys.queries
 
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyRepository
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.springframework.stereotype.Component
 
 data class ListApiKeys(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
 ) : Query<List<ApiKey>>
 
 @Component

@@ -2,8 +2,8 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -18,8 +18,8 @@ import java.util.UUID
  * @property assetId The asset ID
  */
 data class GetAsset(
-    val tenantId: TenantId,
-    val assetId: AssetId,
+    val tenantId: TenantKey,
+    val assetId: AssetKey,
 ) : Query<Asset?>
 
 @Component
@@ -30,18 +30,18 @@ class GetAssetHandler(
     override fun handle(query: GetAsset): Asset? = jdbi.withHandle<Asset?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, media_type, size_bytes, width, height, created_at
+            SELECT id, tenant_key, name, media_type, size_bytes, width, height, created_at
             FROM assets
             WHERE id = :assetId
-              AND tenant_id = :tenantId
+              AND tenant_key = :tenantId
             """,
         )
             .bind("assetId", query.assetId.value)
             .bind("tenantId", query.tenantId)
             .map { rs, _ ->
                 Asset(
-                    id = AssetId(rs.getObject("id", UUID::class.java)),
-                    tenantId = TenantId(rs.getString("tenant_id")),
+                    id = AssetKey(rs.getObject("id", UUID::class.java)),
+                    tenantKey = TenantKey(rs.getString("tenant_key")),
                     name = rs.getString("name"),
                     mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     sizeBytes = rs.getLong("size_bytes"),

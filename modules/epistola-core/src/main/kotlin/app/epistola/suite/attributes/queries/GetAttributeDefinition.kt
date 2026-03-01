@@ -2,7 +2,6 @@ package app.epistola.suite.attributes.queries
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Component
 
 data class GetAttributeDefinition(
     val id: AttributeId,
-    val tenantId: TenantId,
 ) : Query<VariantAttributeDefinition?>
 
 @Component
@@ -21,13 +19,13 @@ class GetAttributeDefinitionHandler(
     override fun handle(query: GetAttributeDefinition): VariantAttributeDefinition? = jdbi.withHandle<VariantAttributeDefinition?, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_id, display_name, allowed_values, created_at, last_modified
+                SELECT id, tenant_key, display_name, allowed_values, created_at, last_modified
                 FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", query.id)
-            .bind("tenantId", query.tenantId)
+            .bind("id", query.id.key)
+            .bind("tenantId", query.id.tenantKey)
             .mapTo<VariantAttributeDefinition>()
             .findOne()
             .orElse(null)

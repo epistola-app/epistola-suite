@@ -1,6 +1,6 @@
 package app.epistola.suite.documents.batch
 
-import app.epistola.suite.common.ids.GenerationRequestId
+import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import io.micrometer.core.instrument.MeterRegistry
@@ -69,7 +69,7 @@ class JobPoller(
     private val drainRequested = AtomicBoolean(false)
 
     // Track job start times for duration calculation
-    private val jobStartTimes = ConcurrentHashMap<GenerationRequestId, Long>()
+    private val jobStartTimes = ConcurrentHashMap<GenerationRequestKey, Long>()
 
     // Micrometer counters for observability
     private val jobsClaimedCounter = meterRegistry.counter("epistola.jobs.claimed.total")
@@ -255,15 +255,15 @@ class JobPoller(
                 WHERE document_generation_requests.id = claimed.id
                 RETURNING document_generation_requests.id,
                           document_generation_requests.batch_id,
-                          document_generation_requests.tenant_id,
-                          document_generation_requests.template_id,
-                          document_generation_requests.variant_id,
-                          document_generation_requests.version_id,
-                          document_generation_requests.environment_id,
+                          document_generation_requests.tenant_key,
+                          document_generation_requests.template_key,
+                          document_generation_requests.variant_key,
+                          document_generation_requests.version_key,
+                          document_generation_requests.environment_key,
                           document_generation_requests.data,
                           document_generation_requests.filename,
-                          document_generation_requests.correlation_id,
-                          document_generation_requests.document_id,
+                          document_generation_requests.correlation_key,
+                          document_generation_requests.document_key,
                           document_generation_requests.status,
                           document_generation_requests.claimed_by,
                           document_generation_requests.claimed_at,
@@ -283,7 +283,7 @@ class JobPoller(
     /**
      * Mark a request as failed when job execution throws an exception.
      */
-    private fun markRequestFailed(requestId: GenerationRequestId, errorMessage: String?) {
+    private fun markRequestFailed(requestId: GenerationRequestKey, errorMessage: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

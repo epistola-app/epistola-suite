@@ -1,7 +1,7 @@
 package app.epistola.suite.apikeys
 
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantKey
 
 /**
  * Repository for API key persistence.
@@ -11,8 +11,8 @@ import app.epistola.suite.common.ids.TenantId
  */
 interface ApiKeyRepository {
     fun findByKeyHash(keyHash: String): ApiKey?
-    fun updateLastUsed(id: ApiKeyId)
+    fun updateLastUsed(id: ApiKeyKey)
     fun insert(apiKey: ApiKey, keyHash: String)
-    fun listByTenantId(tenantId: TenantId): List<ApiKey>
-    fun disable(id: ApiKeyId): Boolean
+    fun listByTenantId(tenantId: TenantKey): List<ApiKey>
+    fun disable(id: ApiKeyKey): Boolean
 }

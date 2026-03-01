@@ -2,8 +2,8 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.AssetContent
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.storage.ContentKey
@@ -22,8 +22,8 @@ import java.util.UUID
  * @property assetId The asset ID
  */
 data class GetAssetContent(
-    val tenantId: TenantId,
-    val assetId: AssetId,
+    val tenantId: TenantKey,
+    val assetId: AssetKey,
 ) : Query<AssetContent?>
 
 @Component
@@ -37,18 +37,18 @@ class GetAssetContentHandler(
         val metadata = jdbi.withHandle<AssetMeta?, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_id, media_type
+                SELECT id, tenant_key, media_type
                 FROM assets
                 WHERE id = :assetId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                 """,
             )
                 .bind("assetId", query.assetId.value)
                 .bind("tenantId", query.tenantId)
                 .map { rs, _ ->
                     AssetMeta(
-                        id = AssetId(rs.getObject("id", UUID::class.java)),
-                        tenantId = TenantId(rs.getString("tenant_id")),
+                        id = AssetKey(rs.getObject("id", UUID::class.java)),
+                        tenantId = TenantKey(rs.getString("tenant_key")),
                         mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                     )
                 }
@@ -62,15 +62,15 @@ class GetAssetContentHandler(
 
         return AssetContent(
             id = metadata.id,
-            tenantId = metadata.tenantId,
+            tenantKey = metadata.tenantId,
             mediaType = metadata.mediaType,
             content = stored.content.readAllBytes(),
         )
     }
 
     private data class AssetMeta(
-        val id: AssetId,
-        val tenantId: TenantId,
+        val id: AssetKey,
+        val tenantId: TenantKey,
         val mediaType: AssetMediaType,
     )
 }

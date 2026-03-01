@@ -1,13 +1,13 @@
 package app.epistola.suite.loadtest.commands
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.loadtest.batch.LoadTestCreatedEvent
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -31,11 +31,11 @@ import tools.jackson.databind.node.ObjectNode
  * @property testData JSON data to use for all document generation requests
  */
 data class StartLoadTest(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId?,
-    val environmentId: EnvironmentId?,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey,
+    val variantId: VariantKey,
+    val versionId: VersionKey?,
+    val environmentId: EnvironmentKey?,
     val targetCount: Int,
     val concurrencyLevel: Int,
     val testData: ObjectNode,
@@ -74,7 +74,7 @@ class StartLoadTestHandler(
                 SELECT EXISTS (
                     SELECT 1
                     FROM template_variants
-                    WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                    WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 )
                 """,
             )
@@ -95,7 +95,7 @@ class StartLoadTestHandler(
                     SELECT EXISTS (
                         SELECT 1
                         FROM template_versions
-                        WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                        WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                     )
                     """,
                 )
@@ -115,7 +115,7 @@ class StartLoadTestHandler(
                         SELECT 1
                         FROM environments
                         WHERE id = :environmentId
-                          AND tenant_id = :tenantId
+                          AND tenant_key = :tenantId
                     )
                     """,
                 )
@@ -130,16 +130,16 @@ class StartLoadTestHandler(
             }
 
             // 3. Create load test run (stays in PENDING status for poller to pick up)
-            val runId = LoadTestRunId.generate()
+            val runId = LoadTestRunKey.generate()
             val run = handle.createQuery(
                 """
                 INSERT INTO load_test_runs (
-                    id, tenant_id, template_id, variant_id, version_id, environment_id,
+                    id, tenant_key, template_key, variant_key, version_key, environment_key,
                     target_count, concurrency_level, test_data, status
                 )
                 VALUES (:id, :tenantId, :templateId, :variantId, :versionId, :environmentId,
                         :targetCount, :concurrencyLevel, :testData::jsonb, :status)
-                RETURNING id, tenant_id, template_id, variant_id, version_id, environment_id,
+                RETURNING id, tenant_key, template_key, variant_key, version_key, environment_key,
                           target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                           completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                           min_response_time_ms, max_response_time_ms, p50_response_time_ms,

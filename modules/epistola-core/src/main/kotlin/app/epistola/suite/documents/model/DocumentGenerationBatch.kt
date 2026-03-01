@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.model
 
-import app.epistola.suite.common.ids.BatchId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.BatchKey
+import app.epistola.suite.common.ids.TenantKey
 import java.time.OffsetDateTime
 
 /**
@@ -19,8 +19,8 @@ import java.time.OffsetDateTime
  * @property completedAt When all requests in the batch completed (success or failure)
  */
 data class DocumentGenerationBatch(
-    val id: BatchId,
-    val tenantId: TenantId,
+    val id: BatchKey,
+    val tenantKey: TenantKey,
     val totalCount: Int,
     val completedCount: Int,
     val failedCount: Int,

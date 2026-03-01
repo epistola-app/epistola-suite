@@ -1,6 +1,5 @@
 package app.epistola.suite.themes.commands
 
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -18,7 +17,6 @@ import tools.jackson.databind.ObjectMapper
  * Updates a theme with partial updates (only provided fields are updated).
  */
 data class UpdateTheme(
-    val tenantId: TenantId,
     val id: ThemeId,
     val name: String? = null,
     val description: String? = null,
@@ -79,7 +77,7 @@ class UpdateThemeHandler(
 
         if (updates.isEmpty()) {
             // No updates to apply, return existing theme
-            return getExisting(command.tenantId, command.id)
+            return getExisting(command.id)
         }
 
         updates.add("last_modified = NOW()")
@@ -87,14 +85,14 @@ class UpdateThemeHandler(
         val sql = """
             UPDATE themes
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_id = :tenantId
+            WHERE id = :id AND tenant_key = :tenantId
             RETURNING *
         """
 
         return jdbi.withHandle<Theme?, Exception> { handle ->
             val query = handle.createQuery(sql)
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }
 
@@ -104,14 +102,14 @@ class UpdateThemeHandler(
         }
     }
 
-    private fun getExisting(tenantId: TenantId, id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
+    private fun getExisting(id: ThemeId): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT * FROM themes WHERE id = :id AND tenant_id = :tenantId
+            SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId
             """,
         )
-            .bind("id", id)
-            .bind("tenantId", tenantId)
+            .bind("id", id.key)
+            .bind("tenantId", id.tenantKey)
             .mapTo<Theme>()
             .findOne()
             .orElse(null)

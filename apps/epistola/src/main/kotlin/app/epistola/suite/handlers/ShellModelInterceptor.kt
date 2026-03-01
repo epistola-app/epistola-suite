@@ -1,6 +1,6 @@
 package app.epistola.suite.handlers
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.tenants.queries.GetTenant
 import jakarta.servlet.http.HttpServletRequest
@@ -35,7 +35,7 @@ class ShellModelInterceptor : HandlerInterceptor {
 
         // Resolve tenant name for any view that has a tenantId but no tenantName yet
         if (tenantId != null && modelAndView.model["tenantName"] == null) {
-            val tenant = GetTenant(TenantId.of(tenantId)).query()
+            val tenant = GetTenant(TenantKey.of(tenantId)).query()
             modelAndView.addObject("tenantName", tenant?.name ?: tenantId)
         }
 

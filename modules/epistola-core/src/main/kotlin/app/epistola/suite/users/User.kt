@@ -1,7 +1,7 @@
 package app.epistola.suite.users
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import java.time.OffsetDateTime
 
 /**
@@ -12,12 +12,12 @@ import java.time.OffsetDateTime
  * in-memory storage for local development.
  */
 data class User(
-    val id: UserId,
+    val id: UserKey,
     val externalId: String,
     val email: String,
     val displayName: String,
     val provider: AuthProvider,
-    val tenantMemberships: Set<TenantId>,
+    val tenantMemberships: Set<TenantKey>,
     val enabled: Boolean,
     val createdAt: OffsetDateTime,
     val lastLoginAt: OffsetDateTime?,

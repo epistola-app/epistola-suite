@@ -1,7 +1,5 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -12,8 +10,6 @@ import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
 data class UpdateVariant(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
     val variantId: VariantId,
     val title: String?,
     val attributes: Map<String, String>,
@@ -26,7 +22,7 @@ class UpdateVariantHandler(
 ) : CommandHandler<UpdateVariant, TemplateVariant?> {
     override fun handle(command: UpdateVariant): TemplateVariant? {
         // Validate attributes against the tenant's attribute definitions
-        validateAttributes(command.tenantId, command.attributes)
+        validateAttributes(command.variantId.tenantId, command.attributes)
 
         return jdbi.inTransaction<TemplateVariant?, Exception> { handle ->
             val attributesJson = objectMapper.writeValueAsString(command.attributes)
@@ -35,13 +31,13 @@ class UpdateVariantHandler(
                 """
                 UPDATE template_variants
                 SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
-                WHERE tenant_id = :tenantId AND id = :variantId AND template_id = :templateId
+                WHERE tenant_key = :tenantId AND id = :variantId AND template_key = :templateId
                 RETURNING *
                 """,
             )
-                .bind("tenantId", command.tenantId)
-                .bind("variantId", command.variantId)
-                .bind("templateId", command.templateId)
+                .bind("tenantId", command.variantId.tenantKey)
+                .bind("variantId", command.variantId.key)
+                .bind("templateId", command.variantId.templateKey)
                 .bind("title", command.title)
                 .bind("attributes", attributesJson)
                 .mapTo<TemplateVariant>()

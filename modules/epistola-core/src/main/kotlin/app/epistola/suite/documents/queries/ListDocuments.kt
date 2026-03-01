@@ -1,11 +1,11 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -23,8 +23,8 @@ import java.util.UUID
  * @property offset Pagination offset (default: 0)
  */
 data class ListDocuments(
-    val tenantId: TenantId,
-    val templateId: TemplateId? = null,
+    val tenantId: TenantKey,
+    val templateId: TemplateKey? = null,
     val correlationId: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
@@ -38,16 +38,16 @@ class ListDocumentsHandler(
     override fun handle(query: ListDocuments): List<DocumentMetadata> = jdbi.withHandle<List<DocumentMetadata>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_id, template_id, variant_id, version_id,
+            SELECT id, tenant_key, template_key, variant_key, version_key,
                    filename, correlation_id, content_type, size_bytes,
                    created_at, created_by
             FROM documents
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             """,
         )
 
         if (query.templateId != null) {
-            sql.append(" AND template_id = :templateId")
+            sql.append(" AND template_key = :templateId")
         }
 
         if (query.correlationId != null) {
@@ -72,17 +72,17 @@ class ListDocumentsHandler(
 
         q.map { rs, _ ->
             DocumentMetadata(
-                id = DocumentId(rs.getObject("id", UUID::class.java)),
-                tenantId = TenantId(rs.getString("tenant_id")),
-                templateId = TemplateId(rs.getString("template_id")),
-                variantId = VariantId(rs.getString("variant_id")),
-                versionId = VersionId(rs.getInt("version_id")),
+                id = DocumentKey(rs.getObject("id", UUID::class.java)),
+                tenantId = TenantKey(rs.getString("tenant_key")),
+                templateId = TemplateKey(rs.getString("template_key")),
+                variantId = VariantKey(rs.getString("variant_key")),
+                versionId = VersionKey(rs.getInt("version_key")),
                 filename = rs.getString("filename"),
                 correlationId = rs.getString("correlation_id"),
                 contentType = rs.getString("content_type"),
                 sizeBytes = rs.getLong("size_bytes"),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
-                createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserId(it) },
+                createdBy = rs.getObject("created_by", UUID::class.java)?.let { UserKey(it) },
             )
         }
             .list()

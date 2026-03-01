@@ -1,10 +1,13 @@
 package app.epistola.suite.loadtest
 
-import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -15,7 +18,7 @@ import app.epistola.suite.htmx.queryParamInt
 import app.epistola.suite.htmx.redirect
 import app.epistola.suite.loadtest.commands.CancelLoadTest
 import app.epistola.suite.loadtest.commands.StartLoadTest
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.queries.GetLoadTestRequests
 import app.epistola.suite.loadtest.queries.GetLoadTestRun
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
@@ -40,14 +43,14 @@ class LoadTestHandler(
      * List all load test runs for a tenant.
      */
     fun list(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val tenant = GetTenant(tenantId).query() ?: return ServerResponse.notFound().build()
-        val runs = ListLoadTestRuns(tenantId = tenantId, limit = 50).query()
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenant = GetTenant(tenantKey).query() ?: return ServerResponse.notFound().build()
+        val runs = ListLoadTestRuns(tenantId = tenantKey, limit = 50).query()
 
         return ServerResponse.ok().page("loadtest/list") {
             "pageTitle" to "Load Tests - Epistola"
             "tenant" to tenant
-            "tenantId" to tenantId
+            "tenantId" to tenantKey
             "runs" to runs
         }
     }
@@ -62,19 +65,20 @@ class LoadTestHandler(
      *   which field triggered the request (templateId, variantId, or exampleId).
      */
     fun newForm(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
 
         // Check if this is a template selection (HTMX cascade update)
         val templateIdStr = request.param("templateId").orElse("")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
+        val templateKey = TemplateKey.validateOrNull(templateIdStr)
 
         // If no template selected, return empty fragment for HTMX or full page for non-HTMX
-        if (templateId == null) {
+        if (templateKey == null) {
             return request.htmx {
                 onNonHtmx {
                     page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantId
+                        "tenantId" to tenantKey
                         "templates" to ListDocumentTemplates(tenantId = tenantId).query()
                         "environments" to ListEnvironments(tenantId = tenantId).query()
                     }
@@ -83,9 +87,11 @@ class LoadTestHandler(
             }
         }
 
+        val templateId = TemplateId(templateKey, tenantId)
+
         // Template selected - prepare cascade data
-        val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
-        val template = GetDocumentTemplate(tenantId = tenantId, id = templateId).query()
+        val variants = ListVariants(templateId = templateId).query()
+        val template = GetDocumentTemplate(id = templateId).query()
         val dataExamples = template?.dataExamples ?: emptyList()
         val environments = ListEnvironments(tenantId = tenantId).query()
 
@@ -106,11 +112,8 @@ class LoadTestHandler(
 
         // Load versions for the selected variant
         val versions = if (selectedVariantId.isNotBlank()) {
-            ListVersions(
-                tenantId = tenantId,
-                templateId = templateId,
-                variantId = VariantId.of(selectedVariantId),
-            ).query()
+            val variantId = VariantId(VariantKey.of(selectedVariantId), templateId)
+            ListVersions(variantId = variantId).query()
         } else {
             emptyList()
         }
@@ -143,7 +146,7 @@ class LoadTestHandler(
             onNonHtmx {
                 page("loadtest/new") {
                     "pageTitle" to "Start Load Test - Epistola"
-                    "tenantId" to tenantId
+                    "tenantId" to tenantKey
                     "templates" to ListDocumentTemplates(tenantId = tenantId).query()
                     "environments" to ListEnvironments(tenantId = tenantId).query()
                 }
@@ -158,7 +161,7 @@ class LoadTestHandler(
                 "selectedExampleId" to selectedExampleId
                 "selectedEnvironmentId" to selectedEnvironmentId
                 "testData" to testData
-                "tenantId" to tenantId
+                "tenantId" to tenantKey
             }
         }
     }
@@ -167,7 +170,8 @@ class LoadTestHandler(
      * Start a new load test.
      */
     fun start(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
 
         val form = request.form {
             field("templateId") {
@@ -191,7 +195,7 @@ class LoadTestHandler(
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     ServerResponse.badRequest().page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantId
+                        "tenantId" to tenantKey
                         "templates" to templates
                         "environments" to environments
                         "error" to errorMessage
@@ -200,16 +204,16 @@ class LoadTestHandler(
             }
         }
 
-        val templateId = form.getTemplateId("templateId")!!
-        val variantId = form.getVariantId("variantId")!!
+        val templateKey = form.getTemplateId("templateId")!!
+        val variantKey = form.getVariantId("variantId")!!
 
         // Parse version or environment
         val params = request.params()
         val versionIdStr = params.getFirst("versionId")
         val environmentIdStr = params.getFirst("environmentId")
 
-        val versionId = if (!versionIdStr.isNullOrBlank()) VersionId.of(versionIdStr.toInt()) else null
-        val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentId.of(environmentIdStr) else null
+        val versionId = if (!versionIdStr.isNullOrBlank()) VersionKey.of(versionIdStr.toInt()) else null
+        val environmentId = if (!environmentIdStr.isNullOrBlank()) EnvironmentKey.of(environmentIdStr) else null
 
         val targetCount = request.queryParamInt("targetCount", 100)
 
@@ -219,9 +223,9 @@ class LoadTestHandler(
 
         try {
             val run = StartLoadTest(
-                tenantId = tenantId,
-                templateId = templateId,
-                variantId = variantId,
+                tenantId = tenantKey,
+                templateId = templateKey,
+                variantId = variantKey,
                 versionId = versionId,
                 environmentId = environmentId,
                 targetCount = targetCount,
@@ -229,7 +233,7 @@ class LoadTestHandler(
                 testData = testData,
             ).execute()
 
-            val url = "/tenants/$tenantId/load-tests/${run.id}"
+            val url = "/tenants/$tenantKey/load-tests/${run.id}"
             return if (request.isHtmx) {
                 ServerResponse.ok().header("HX-Redirect", url).build()
             } else {
@@ -247,7 +251,7 @@ class LoadTestHandler(
                     val environments = ListEnvironments(tenantId = tenantId).query()
                     ServerResponse.badRequest().page("loadtest/new") {
                         "pageTitle" to "Start Load Test - Epistola"
-                        "tenantId" to tenantId
+                        "tenantId" to tenantKey
                         "templates" to templates
                         "environments" to environments
                         "error" to errorMessage
@@ -261,18 +265,20 @@ class LoadTestHandler(
      * Show load test run detail with metrics.
      */
     fun detail(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val tenantId = TenantId(tenantKey)
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
-        val run = GetLoadTestRun(tenantId = tenantId, runId = runId).query()
+        val run = GetLoadTestRun(tenantId = tenantKey, runId = runId).query()
             ?: return ServerResponse.notFound().build()
 
         // Fetch template name for display
-        val template = GetDocumentTemplate(tenantId = tenantId, id = run.templateId).query()
+        val templateId = TemplateId(run.templateKey, tenantId)
+        val template = GetDocumentTemplate(id = templateId).query()
 
         return ServerResponse.ok().page("loadtest/detail") {
             "pageTitle" to "Load Test Details - Epistola"
-            "tenantId" to tenantId
+            "tenantId" to tenantKey
             "run" to run
             "template" to template
         }
@@ -282,17 +288,17 @@ class LoadTestHandler(
      * HTMX fragment endpoint for polling metrics during test execution.
      */
     fun metrics(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
-        val run = GetLoadTestRun(tenantId = tenantId, runId = runId).query()
+        val run = GetLoadTestRun(tenantId = tenantKey, runId = runId).query()
             ?: return ServerResponse.notFound().build()
 
         return request.htmx {
             fragment("loadtest/detail", "metrics-section") {
                 "run" to run
             }
-            onNonHtmx { redirect("/tenants/$tenantId/load-tests/$runId") }
+            onNonHtmx { redirect("/tenants/$tenantKey/load-tests/$runId") }
         }
     }
 
@@ -300,10 +306,10 @@ class LoadTestHandler(
      * Show detailed request log for a load test run.
      */
     fun requests(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
-        val run = GetLoadTestRun(tenantId = tenantId, runId = runId).query()
+        val run = GetLoadTestRun(tenantId = tenantKey, runId = runId).query()
             ?: return ServerResponse.notFound().build()
 
         // Parse pagination params
@@ -311,7 +317,7 @@ class LoadTestHandler(
         val limit = request.queryParamInt("limit", 100)
 
         val requests = GetLoadTestRequests(
-            tenantId = tenantId,
+            tenantId = tenantKey,
             runId = runId,
             offset = offset,
             limit = limit,
@@ -319,7 +325,7 @@ class LoadTestHandler(
 
         return ServerResponse.ok().page("loadtest/requests") {
             "pageTitle" to "Load Test Request Log - Epistola"
-            "tenantId" to tenantId
+            "tenantId" to tenantKey
             "run" to run
             "requests" to requests
             "offset" to offset
@@ -331,16 +337,16 @@ class LoadTestHandler(
      * Cancel a running load test.
      */
     fun cancel(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val runId = LoadTestRunId.of(UUID.fromString(request.pathVariable("runId")))
+        val tenantKey = TenantKey.of(request.pathVariable("tenantId"))
+        val runId = LoadTestRunKey.of(UUID.fromString(request.pathVariable("runId")))
 
         try {
-            CancelLoadTest(tenantId = tenantId, runId = runId).execute()
+            CancelLoadTest(tenantId = tenantKey, runId = runId).execute()
         } catch (e: Exception) {
             // Ignore errors (e.g., test already completed)
         }
 
         // Redirect back to detail page (both HTMX and non-HTMX)
-        return redirect("/tenants/$tenantId/load-tests/$runId")
+        return redirect("/tenants/$tenantKey/load-tests/$runId")
     }
 }

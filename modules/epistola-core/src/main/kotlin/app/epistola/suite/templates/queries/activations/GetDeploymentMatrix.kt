@@ -1,10 +1,9 @@
 package app.epistola.suite.templates.queries.activations
 
-import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -17,14 +16,13 @@ import java.time.OffsetDateTime
  * across all variants, joined with variant and environment info.
  */
 data class GetDeploymentMatrix(
-    val tenantId: TenantId,
     val templateId: TemplateId,
 ) : Query<List<DeploymentMatrixCell>>
 
 data class DeploymentMatrixCell(
-    val variantId: VariantId,
-    val environmentId: EnvironmentId,
-    val versionId: VersionId,
+    val variantKey: VariantKey,
+    val environmentKey: EnvironmentKey,
+    val versionKey: VersionKey,
     val activatedAt: OffsetDateTime,
 )
 
@@ -36,19 +34,19 @@ class GetDeploymentMatrixHandler(
         handle.createQuery(
             """
                 SELECT
-                    ea.variant_id,
-                    ea.environment_id,
-                    ea.version_id,
+                    ea.variant_key,
+                    ea.environment_key,
+                    ea.version_key,
                     ea.activated_at
                 FROM environment_activations ea
-                JOIN template_variants tv ON tv.tenant_id = ea.tenant_id AND tv.id = ea.variant_id
-                WHERE tv.template_id = :templateId
-                  AND ea.tenant_id = :tenantId
-                ORDER BY tv.created_at ASC, ea.environment_id ASC
+                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.id = ea.variant_key
+                WHERE tv.template_key = :templateId
+                  AND ea.tenant_key = :tenantId
+                ORDER BY tv.created_at ASC, ea.environment_key ASC
                 """,
         )
-            .bind("templateId", query.templateId)
-            .bind("tenantId", query.tenantId)
+            .bind("templateId", query.templateId.key)
+            .bind("tenantId", query.templateId.tenantKey)
             .mapTo<DeploymentMatrixCell>()
             .list()
     }

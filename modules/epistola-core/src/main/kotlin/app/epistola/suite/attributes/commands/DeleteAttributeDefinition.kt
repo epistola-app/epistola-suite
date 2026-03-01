@@ -1,7 +1,6 @@
 package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
@@ -14,13 +13,12 @@ class AttributeInUseException(
     val attributeId: AttributeId,
     val variantCount: Long,
 ) : RuntimeException(
-    "Cannot delete attribute '${attributeId.value}': it is still referenced by $variantCount variant(s). " +
+    "Cannot delete attribute '${attributeId.key.value}': it is still referenced by $variantCount variant(s). " +
         "Remove the attribute from all variants first.",
 )
 
 data class DeleteAttributeDefinition(
     val id: AttributeId,
-    val tenantId: TenantId,
 ) : Command<Boolean>
 
 @Component
@@ -32,11 +30,11 @@ class DeleteAttributeDefinitionHandler(
         val variantCount = handle.createQuery(
             """
                 SELECT COUNT(*) FROM template_variants
-                WHERE tenant_id = :tenantId AND jsonb_exists(attributes, :attributeKey)
+                WHERE tenant_key = :tenantId AND jsonb_exists(attributes, :attributeKey)
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("attributeKey", command.id.value)
+            .bind("tenantId", command.id.tenantKey)
+            .bind("attributeKey", command.id.key.value)
             .mapTo(Long::class.java)
             .one()
 
@@ -47,11 +45,11 @@ class DeleteAttributeDefinitionHandler(
         val rowsAffected = handle.createUpdate(
             """
                 DELETE FROM variant_attribute_definitions
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .execute()
         rowsAffected > 0
     }

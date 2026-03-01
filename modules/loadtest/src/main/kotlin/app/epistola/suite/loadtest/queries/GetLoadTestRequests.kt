@@ -1,9 +1,9 @@
 package app.epistola.suite.loadtest.queries
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRequest
-import app.epistola.suite.loadtest.model.LoadTestRequestId
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRequestKey
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -21,8 +21,8 @@ import java.time.OffsetDateTime
  * @return List of load test requests, ordered by sequence number
  */
 data class GetLoadTestRequests(
-    val tenantId: TenantId,
-    val runId: LoadTestRunId,
+    val tenantId: TenantKey,
+    val runId: LoadTestRunKey,
     val offset: Int = 0,
     val limit: Int = 100,
 ) : Query<List<LoadTestRequest>> {
@@ -47,7 +47,7 @@ class GetLoadTestRequestsHandler(
             SELECT batch_id
             FROM load_test_runs
             WHERE id = :runId
-              AND tenant_id = :tenantId
+              AND tenant_key = :tenantId
             """,
         )
             .bind("runId", query.runId)
@@ -84,7 +84,7 @@ class GetLoadTestRequestsHandler(
                         END
                     ELSE NULL
                 END as error_type,
-                document_id,
+                document_key,
                 ROW_NUMBER() OVER (ORDER BY created_at) as sequence_number
             FROM document_generation_requests
             WHERE batch_id = :batchId
@@ -98,7 +98,7 @@ class GetLoadTestRequestsHandler(
             .bind("offset", query.offset)
             .map { rs, _ ->
                 LoadTestRequest(
-                    id = LoadTestRequestId(rs.getObject("id", java.util.UUID::class.java)),
+                    id = LoadTestRequestKey(rs.getObject("id", java.util.UUID::class.java)),
                     runId = query.runId,
                     sequenceNumber = rs.getInt("sequence_number"),
                     startedAt = rs.getObject("started_at", OffsetDateTime::class.java),
@@ -107,7 +107,7 @@ class GetLoadTestRequestsHandler(
                     success = rs.getBoolean("success"),
                     errorMessage = rs.getString("error_message"),
                     errorType = rs.getString("error_type"),
-                    documentId = rs.getObject("document_id", java.util.UUID::class.java)?.let { app.epistola.suite.common.ids.DocumentId.of(it) },
+                    documentId = rs.getObject("document_key", java.util.UUID::class.java)?.let { app.epistola.suite.common.ids.DocumentKey.of(it) },
                 )
             }
             .list()

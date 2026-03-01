@@ -1,7 +1,7 @@
 package app.epistola.suite.loadtest.batch
 
 import app.epistola.suite.loadtest.model.LoadTestRun
-import app.epistola.suite.loadtest.model.LoadTestRunId
+import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -95,7 +95,7 @@ class LoadTestPoller(
                 started_at = NOW()
             FROM claimed
             WHERE load_test_runs.id = claimed.id
-            RETURNING load_test_runs.id, tenant_id, template_id, variant_id, version_id, environment_id,
+            RETURNING load_test_runs.id, tenant_key, template_key, variant_key, version_key, environment_key,
                       target_count, concurrency_level, test_data, status, claimed_by, claimed_at,
                       completed_count, failed_count, total_duration_ms, avg_response_time_ms,
                       min_response_time_ms, max_response_time_ms, p50_response_time_ms,
@@ -113,7 +113,7 @@ class LoadTestPoller(
     /**
      * Mark a load test run as failed.
      */
-    private fun markRunFailed(runId: LoadTestRunId, errorMessage: String?) {
+    private fun markRunFailed(runId: LoadTestRunKey, errorMessage: String?) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """

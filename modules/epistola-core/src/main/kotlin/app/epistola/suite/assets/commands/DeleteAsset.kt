@@ -2,8 +2,8 @@ package app.epistola.suite.assets.commands
 
 import app.epistola.suite.assets.AssetInUseException
 import app.epistola.suite.assets.queries.FindAssetUsagesHandler
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.storage.ContentKey
@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component
  * @property assetId The asset ID to delete
  */
 data class DeleteAsset(
-    val tenantId: TenantId,
-    val assetId: AssetId,
+    val tenantId: TenantKey,
+    val assetId: AssetKey,
 ) : Command<Boolean>
 
 @Component
@@ -44,7 +44,7 @@ class DeleteAssetHandler(
                 """
                 DELETE FROM assets
                 WHERE id = :assetId
-                  AND tenant_id = :tenantId
+                  AND tenant_key = :tenantId
                 """,
             )
                 .bind("assetId", command.assetId.value)

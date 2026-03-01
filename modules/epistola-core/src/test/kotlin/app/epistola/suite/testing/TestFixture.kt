@@ -1,8 +1,11 @@
 package app.epistola.suite.testing
 
 import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
@@ -31,7 +34,7 @@ class TestFixtureFactory(
      * Test user for authenticated operations.
      */
     private val testUser = EpistolaPrincipal(
-        userId = UserId.of("00000000-0000-0000-0000-000000000099"),
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
@@ -91,14 +94,13 @@ class TestFixture(private val namespace: String) {
 
     @TestFixtureDsl
     inner class GivenContext {
-        fun tenant(name: String): Tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+        fun tenant(name: String): Tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
 
         fun template(
             tenant: Tenant,
             name: String,
         ): DocumentTemplate = CreateDocumentTemplate(
-            id = TestIdHelpers.nextTemplateId(),
-            tenantId = tenant.id,
+            id = TemplateId(TestIdHelpers.nextTemplateId(), TenantId(tenant.id)),
             name = name,
         ).execute()
 
@@ -108,9 +110,7 @@ class TestFixture(private val namespace: String) {
             title: String? = null,
             attributes: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
-            id = TestIdHelpers.nextVariantId(),
-            tenantId = tenant.id,
-            templateId = template.id,
+            id = VariantId(TestIdHelpers.nextVariantId(), template.id as TemplateId),
             title = title,
             description = null,
             attributes = attributes,
@@ -119,11 +119,11 @@ class TestFixture(private val namespace: String) {
 
     @TestFixtureDsl
     inner class WhenContext {
-        fun createTenant(name: String): Tenant = CreateTenant(id = TenantId.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+        fun createTenant(name: String): Tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
 
-        fun deleteTenant(id: TenantId): Boolean = DeleteTenant(id).execute()
+        fun deleteTenant(id: TenantKey): Boolean = DeleteTenant(id).execute()
 
-        fun listTemplates(tenant: Tenant): List<DocumentTemplate> = ListDocumentTemplates(tenant.id).query()
+        fun listTemplates(tenantId: TenantId): List<DocumentTemplate> = ListDocumentTemplates(tenantId).query()
 
         fun listTenants(searchTerm: String? = null): List<Tenant> = ListTenants(searchTerm).query()
     }

@@ -1,13 +1,13 @@
 package app.epistola.suite.tenants
 
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.queryParam
-import app.epistola.suite.htmx.redirect
+import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -31,14 +31,14 @@ class TenantHandler {
      * Show tenant home page with navigation to templates, themes, load tests, etc.
      */
     fun home(request: ServerRequest): ServerResponse {
-        val tenantId = TenantId.of(request.pathVariable("tenantId"))
-        val tenant = GetTenant(tenantId).query()
+        val tenantId = request.tenantId()
+        val tenant = GetTenant(tenantId.key).query()
             ?: return ServerResponse.notFound().build()
 
         // Get counts for each section
         val templateCount = ListDocumentTemplates(tenantId).query().size
         val themeCount = ListThemes(tenantId).query().size
-        val loadTestCount = ListLoadTestRuns(tenantId, limit = 100).query().size
+        val loadTestCount = ListLoadTestRuns(tenantId.key, limit = 100).query().size
         val environmentCount = ListEnvironments(tenantId).query().size
 
         return ServerResponse.ok().render(
@@ -46,7 +46,7 @@ class TenantHandler {
             mapOf(
                 "contentView" to "tenants/home",
                 "pageTitle" to "${tenant.name} - Epistola",
-                "tenantId" to tenantId,
+                "tenantId" to tenantId.key,
                 "tenant" to tenant,
                 "templateCount" to templateCount,
                 "themeCount" to themeCount,
@@ -93,7 +93,7 @@ class TenantHandler {
             }
         }
 
-        val tenantId = TenantId.validateOrNull(form["slug"])
+        val tenantId = TenantKey.validateOrNull(form["slug"])
         if (tenantId == null) {
             val errors = mapOf("slug" to "Invalid tenant ID format")
             return request.htmx {

@@ -1,7 +1,7 @@
 package app.epistola.suite.apikeys
 
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantKey
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Repository
@@ -17,7 +17,7 @@ class JdbiApiKeyRepository(
     override fun findByKeyHash(keyHash: String): ApiKey? = jdbi.withHandle<ApiKey?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, key_prefix, enabled, created_at,
+            SELECT id, tenant_key, name, key_prefix, enabled, created_at,
                    last_used_at, expires_at, created_by
             FROM api_keys
             WHERE key_hash = :keyHash
@@ -29,7 +29,7 @@ class JdbiApiKeyRepository(
             .orElse(null)
     }
 
-    override fun updateLastUsed(id: ApiKeyId) {
+    override fun updateLastUsed(id: ApiKeyKey) {
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
@@ -48,14 +48,14 @@ class JdbiApiKeyRepository(
         jdbi.useHandle<Exception> { handle ->
             handle.createUpdate(
                 """
-                INSERT INTO api_keys (id, tenant_id, name, key_hash, key_prefix, enabled,
+                INSERT INTO api_keys (id, tenant_key, name, key_hash, key_prefix, enabled,
                                       created_at, expires_at, created_by)
                 VALUES (:id, :tenantId, :name, :keyHash, :keyPrefix, :enabled,
                         :createdAt, :expiresAt, :createdBy)
                 """,
             )
                 .bind("id", apiKey.id)
-                .bind("tenantId", apiKey.tenantId)
+                .bind("tenantId", apiKey.tenantKey)
                 .bind("name", apiKey.name)
                 .bind("keyHash", keyHash)
                 .bind("keyPrefix", apiKey.keyPrefix)
@@ -67,13 +67,13 @@ class JdbiApiKeyRepository(
         }
     }
 
-    override fun listByTenantId(tenantId: TenantId): List<ApiKey> = jdbi.withHandle<List<ApiKey>, Exception> { handle ->
+    override fun listByTenantId(tenantId: TenantKey): List<ApiKey> = jdbi.withHandle<List<ApiKey>, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, key_prefix, enabled, created_at,
+            SELECT id, tenant_key, name, key_prefix, enabled, created_at,
                    last_used_at, expires_at, created_by
             FROM api_keys
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             ORDER BY created_at DESC
             """,
         )
@@ -82,7 +82,7 @@ class JdbiApiKeyRepository(
             .list()
     }
 
-    override fun disable(id: ApiKeyId): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
+    override fun disable(id: ApiKeyKey): Boolean = jdbi.withHandle<Boolean, Exception> { handle ->
         handle.createUpdate(
             """
             UPDATE api_keys SET enabled = false WHERE id = :id

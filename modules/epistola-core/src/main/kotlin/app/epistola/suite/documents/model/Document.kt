@@ -1,11 +1,11 @@
 package app.epistola.suite.documents.model
 
-import app.epistola.suite.common.ids.DocumentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
-import app.epistola.suite.common.ids.VariantId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.DocumentKey
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionKey
 import java.time.OffsetDateTime
 
 /**
@@ -27,15 +27,15 @@ import java.time.OffsetDateTime
  * @property createdBy User who created this document
  */
 data class Document(
-    val id: DocumentId,
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
-    val versionId: VersionId,
+    val id: DocumentKey,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
+    val variantKey: VariantKey,
+    val versionKey: VersionKey,
     val filename: String,
     val correlationId: String?,
     val contentType: String,
     val sizeBytes: Long,
     val createdAt: OffsetDateTime,
-    val createdBy: UserId?,
+    val createdBy: UserKey?,
 )

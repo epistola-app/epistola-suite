@@ -4,8 +4,8 @@ import app.epistola.suite.api.security.ApiKeyAuthenticationFilter
 import app.epistola.suite.api.security.ApiKeyAuthenticationToken
 import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyService
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.TenantKey
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -126,7 +126,7 @@ class ApiKeyAuthenticationFilterTest {
 
         @Test
         fun `creates principal with correct tenant membership`() {
-            val tenantId = TenantId.of("test-tenant")
+            val tenantId = TenantKey.of("test-tenant")
             val key = createApiKey(tenantId = tenantId)
             request.addHeader("X-API-Key", key)
 
@@ -165,7 +165,7 @@ class ApiKeyAuthenticationFilterTest {
     }
 
     private fun createApiKey(
-        tenantId: TenantId = TenantId.of("test-tenant"),
+        tenantId: TenantKey = TenantKey.of("test-tenant"),
         name: String = "Test Key",
         enabled: Boolean = true,
         expiresAt: Instant? = null,
@@ -175,8 +175,8 @@ class ApiKeyAuthenticationFilterTest {
         val keyPrefix = apiKeyService.extractPrefix(plaintextKey)
 
         val apiKey = ApiKey(
-            id = ApiKeyId.of(UUID.randomUUID()),
-            tenantId = tenantId,
+            id = ApiKeyKey.of(UUID.randomUUID()),
+            tenantKey = tenantId,
             name = name,
             keyPrefix = keyPrefix,
             enabled = enabled,

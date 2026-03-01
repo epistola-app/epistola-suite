@@ -1,8 +1,8 @@
 package app.epistola.suite.templates.model
 
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TemplateKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
@@ -10,9 +10,9 @@ import java.time.OffsetDateTime
  * Template variant representing a presentation variation (language, brand, audience).
  */
 data class TemplateVariant(
-    val id: VariantId,
-    val tenantId: TenantId,
-    val templateId: TemplateId,
+    val id: VariantKey,
+    val tenantKey: TenantKey,
+    val templateKey: TemplateKey,
     val title: String?,
     val description: String?,
     @Json val attributes: Map<String, String> = emptyMap(),
@@ -25,7 +25,7 @@ data class TemplateVariant(
  * Summary of a variant with version statistics.
  */
 data class VariantSummary(
-    val id: VariantId,
+    val id: VariantKey,
     val title: String?,
     @Json val attributes: Map<String, String>,
     val isDefault: Boolean,

@@ -1,8 +1,7 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.templates.DocumentTemplate
@@ -24,10 +23,9 @@ import tools.jackson.databind.node.ObjectNode
  *                       Warnings are returned in the result instead of throwing.
  */
 data class UpdateDocumentTemplate(
-    val tenantId: TenantId,
     val id: TemplateId,
     val name: String? = null,
-    val themeId: ThemeId? = null,
+    val themeId: ThemeKey? = null,
     val clearThemeId: Boolean = false,
     val dataModel: ObjectNode? = null,
     val dataExamples: List<DataExample>? = null,
@@ -71,7 +69,7 @@ class UpdateDocumentTemplateHandler(
 
         // If only schema is being updated, validate existing examples against new schema
         if (schemaToValidate != null && examplesToValidate == null) {
-            val existing = getExisting(command.tenantId, command.id) ?: return null
+            val existing = getExisting(command.id) ?: return null
             if (existing.dataExamples.isNotEmpty()) {
                 val errors = jsonSchemaValidator.validateExamples(schemaToValidate, existing.dataExamples)
                 if (errors.isNotEmpty()) {
@@ -86,7 +84,7 @@ class UpdateDocumentTemplateHandler(
 
         // If only examples are being updated, validate against existing schema
         if (schemaToValidate == null && examplesToValidate != null && examplesToValidate.isNotEmpty()) {
-            val existing = getExisting(command.tenantId, command.id) ?: return null
+            val existing = getExisting(command.id) ?: return null
             val existingSchema = existing.dataModel
             if (existingSchema != null) {
                 val errors = jsonSchemaValidator.validateExamples(existingSchema, examplesToValidate)
@@ -109,9 +107,9 @@ class UpdateDocumentTemplateHandler(
             bindings["name"] = command.name
         }
         if (command.clearThemeId) {
-            updates.add("theme_id = NULL")
+            updates.add("theme_key = NULL")
         } else if (command.themeId != null) {
-            updates.add("theme_id = :themeId")
+            updates.add("theme_key = :themeId")
             bindings["themeId"] = command.themeId
         }
         if (command.dataModel != null) {
@@ -128,7 +126,7 @@ class UpdateDocumentTemplateHandler(
         }
 
         if (updates.isEmpty()) {
-            val existing = getExisting(command.tenantId, command.id) ?: return null
+            val existing = getExisting(command.id) ?: return null
             return UpdateDocumentTemplateResult(template = existing, warnings = warnings)
         }
 
@@ -137,14 +135,14 @@ class UpdateDocumentTemplateHandler(
         val sql = """
             UPDATE document_templates
             SET ${updates.joinToString(", ")}
-            WHERE id = :id AND tenant_id = :tenantId
-            RETURNING id, tenant_id, name, theme_id, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            WHERE id = :id AND tenant_key = :tenantId
+            RETURNING id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
         """
 
         val updated = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
             val query = handle.createQuery(sql)
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
 
             bindings.forEach { (key, value) -> query.bind(key, value) }
 
@@ -156,16 +154,16 @@ class UpdateDocumentTemplateHandler(
         return UpdateDocumentTemplateResult(template = updated, warnings = warnings)
     }
 
-    private fun getExisting(tenantId: TenantId, id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
+    private fun getExisting(id: TemplateId): DocumentTemplate? = jdbi.withHandle<DocumentTemplate?, Exception> { handle ->
         handle.createQuery(
             """
-            SELECT id, tenant_id, name, theme_id, data_model, data_examples, pdfa_enabled, created_at, last_modified
+            SELECT id, tenant_key, name, theme_key, data_model, data_examples, pdfa_enabled, created_at, last_modified
             FROM document_templates
-            WHERE id = :id AND tenant_id = :tenantId
+            WHERE id = :id AND tenant_key = :tenantId
             """,
         )
-            .bind("id", id)
-            .bind("tenantId", tenantId)
+            .bind("id", id.key)
+            .bind("tenantId", id.tenantKey)
             .mapTo<DocumentTemplate>()
             .findOne()
             .orElse(null)

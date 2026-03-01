@@ -1,7 +1,7 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 
 /**
  * Get current authenticated user (throws if not authenticated).
@@ -15,13 +15,13 @@ fun currentUser(): EpistolaPrincipal = SecurityContext.current()
  *
  * @throws IllegalStateException if no user is authenticated
  */
-fun currentUserId(): UserId = SecurityContext.current().userId
+fun currentUserId(): UserKey = SecurityContext.current().userId
 
 /**
  * Get current user ID or null if not authenticated.
  * Useful for audit fields in contexts where authentication is optional.
  */
-fun currentUserIdOrNull(): UserId? = SecurityContext.currentOrNull()?.userId
+fun currentUserIdOrNull(): UserKey? = SecurityContext.currentOrNull()?.userId
 
 /**
  * Check if current user has access to the specified tenant.
@@ -29,7 +29,7 @@ fun currentUserIdOrNull(): UserId? = SecurityContext.currentOrNull()?.userId
  * @throws TenantAccessDeniedException if user does not have access
  * @throws IllegalStateException if no user is authenticated
  */
-fun requireTenantAccess(tenantId: TenantId) {
+fun requireTenantAccess(tenantId: TenantKey) {
     val principal = SecurityContext.current()
     if (!principal.hasAccessToTenant(tenantId)) {
         throw TenantAccessDeniedException(tenantId = tenantId, userEmail = principal.email)
@@ -42,10 +42,10 @@ fun requireTenantAccess(tenantId: TenantId) {
  *
  * @throws IllegalStateException if no user is authenticated or user has no tenant memberships
  */
-fun currentTenantId(): TenantId = SecurityContext.current().effectiveTenantId()
+fun currentTenantId(): TenantKey = SecurityContext.current().effectiveTenantId()
     ?: throw IllegalStateException("User has no tenant memberships")
 
 /**
  * Get the effective tenant ID or null if not authenticated or no memberships.
  */
-fun currentTenantIdOrNull(): TenantId? = SecurityContext.currentOrNull()?.effectiveTenantId()
+fun currentTenantIdOrNull(): TenantKey? = SecurityContext.currentOrNull()?.effectiveTenantId()

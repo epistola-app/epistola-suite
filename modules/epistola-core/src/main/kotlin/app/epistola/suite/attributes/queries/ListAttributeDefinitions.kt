@@ -19,13 +19,13 @@ class ListAttributeDefinitionsHandler(
     override fun handle(query: ListAttributeDefinitions): List<VariantAttributeDefinition> = jdbi.withHandle<List<VariantAttributeDefinition>, Exception> { handle ->
         handle.createQuery(
             """
-                SELECT id, tenant_id, display_name, allowed_values, created_at, last_modified
+                SELECT id, tenant_key, display_name, allowed_values, created_at, last_modified
                 FROM variant_attribute_definitions
-                WHERE tenant_id = :tenantId
+                WHERE tenant_key = :tenantId
                 ORDER BY display_name ASC
                 """,
         )
-            .bind("tenantId", query.tenantId)
+            .bind("tenantId", query.tenantId.key)
             .mapTo<VariantAttributeDefinition>()
             .list()
     }

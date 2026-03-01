@@ -3,11 +3,11 @@ package app.epistola.suite.templates
 import app.epistola.generation.pdf.AssetResolution
 import app.epistola.generation.pdf.AssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.generation.GenerationService
+import app.epistola.suite.htmx.templateId
+import app.epistola.suite.htmx.tenantId
+import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.versions.GetPreviewContext
 import org.springframework.http.HttpHeaders
@@ -46,12 +46,10 @@ class TemplatePreviewHandler(
      * instead of fetching from the database. This enables live preview of unsaved changes.
      */
     fun preview(request: ServerRequest): ServerResponse {
-        val tenantId = request.pathVariable("tenantId")
-        val templateIdStr = request.pathVariable("id")
-        val templateId = TemplateId.validateOrNull(templateIdStr)
+        val tenantId = request.tenantId()
+        val templateId = request.templateId(tenantId)
             ?: return ServerResponse.badRequest().build()
-        val variantIdStr = request.pathVariable("variantId")
-        val variantId = VariantId.validateOrNull(variantIdStr)
+        val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
 
         // Parse the request body
@@ -70,8 +68,8 @@ class TemplatePreviewHandler(
 
         // Validate data against schema BEFORE starting the streaming response
         val validationResult = generationService.validatePreviewData(
-            TenantId.of(tenantId),
-            templateId,
+            tenantId.key,
+            templateId.key,
             data,
         )
         if (!validationResult.valid) {
@@ -90,11 +88,8 @@ class TemplatePreviewHandler(
         }
 
         // Get preview context: draft template model and template's default theme
-        val previewContext = GetPreviewContext(
-            tenantId = TenantId.of(tenantId),
-            templateId = templateId,
-            variantId = variantId,
-        ).query() ?: return ServerResponse.notFound().build()
+        val previewContext = GetPreviewContext(variantId = variantId).query()
+            ?: return ServerResponse.notFound().build()
 
         // Resolve the template model - either from request (live preview) or from draft
         val templateModel = if (previewRequest.templateModel != null) {
@@ -103,9 +98,8 @@ class TemplatePreviewHandler(
             previewContext.draftTemplateModel ?: return ServerResponse.notFound().build()
         }
 
-        val resolvedTenantId = TenantId.of(tenantId)
         val assetResolver = AssetResolver { assetIdStr ->
-            GetAssetContent(resolvedTenantId, AssetId.of(assetIdStr)).query()
+            GetAssetContent(tenantId.key, AssetKey.of(assetIdStr)).query()
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
 
@@ -114,7 +108,7 @@ class TemplatePreviewHandler(
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
             .build { _, response ->
                 generationService.renderPdf(
-                    resolvedTenantId,
+                    tenantId.key,
                     templateModel,
                     data,
                     response.outputStream,

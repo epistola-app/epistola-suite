@@ -30,38 +30,38 @@ class TenantIdTest {
         )
         fun `should accept valid slugs`(slug: String) {
             if (slug.length >= 3) {
-                assertDoesNotThrow { TenantId.of(slug) }
+                assertDoesNotThrow { TenantKey.of(slug) }
             }
         }
 
         @Test
         fun `should accept minimum length slug`() {
-            val id = TenantId.of("abc")
+            val id = TenantKey.of("abc")
             assertEquals("abc", id.value)
         }
 
         @Test
         fun `should accept maximum length slug`() {
             val slug = "a" + "b".repeat(62) // 63 characters
-            val id = TenantId.of(slug)
+            val id = TenantKey.of(slug)
             assertEquals(63, id.value.length)
         }
 
         @Test
         fun `should accept slug with hyphens`() {
-            val id = TenantId.of("acme-corp-international")
+            val id = TenantKey.of("acme-corp-international")
             assertEquals("acme-corp-international", id.value)
         }
 
         @Test
         fun `should accept slug with numbers`() {
-            val id = TenantId.of("company123")
+            val id = TenantKey.of("company123")
             assertEquals("company123", id.value)
         }
 
         @Test
         fun `validateOrNull should return TenantId for valid slug`() {
-            val result = TenantId.validateOrNull("valid-slug")
+            val result = TenantKey.validateOrNull("valid-slug")
             assertNotNull(result)
             assertEquals("valid-slug", result.value)
         }
@@ -71,70 +71,70 @@ class TenantIdTest {
     inner class InvalidSlugs {
         @Test
         fun `should reject slug shorter than 3 characters`() {
-            val exception = assertThrows<IllegalArgumentException> { TenantId.of("ab") }
+            val exception = assertThrows<IllegalArgumentException> { TenantKey.of("ab") }
             assertEquals("Tenant ID must be 3-63 characters, got 2", exception.message)
         }
 
         @Test
         fun `should reject slug longer than 63 characters`() {
             val slug = "a" + "b".repeat(63) // 64 characters
-            val exception = assertThrows<IllegalArgumentException> { TenantId.of(slug) }
+            val exception = assertThrows<IllegalArgumentException> { TenantKey.of(slug) }
             assertEquals("Tenant ID must be 3-63 characters, got 64", exception.message)
         }
 
         @Test
         fun `should reject slug starting with number`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("123abc") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("123abc") }
         }
 
         @Test
         fun `should reject slug starting with hyphen`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("-abc") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("-abc") }
         }
 
         @Test
         fun `should reject slug ending with hyphen`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("abc-") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("abc-") }
         }
 
         @Test
         fun `should reject slug with consecutive hyphens`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("abc--def") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("abc--def") }
         }
 
         @Test
         fun `should reject slug with uppercase letters`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("AcmeCorp") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("AcmeCorp") }
         }
 
         @Test
         fun `should reject slug with spaces`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("acme corp") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("acme corp") }
         }
 
         @Test
         fun `should reject slug with underscores`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("acme_corp") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("acme_corp") }
         }
 
         @Test
         fun `should reject slug with special characters`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("acme.corp") }
-            assertThrows<IllegalArgumentException> { TenantId.of("acme@corp") }
-            assertThrows<IllegalArgumentException> { TenantId.of("acme!corp") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("acme.corp") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("acme@corp") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("acme!corp") }
         }
 
         @Test
         fun `should reject empty slug`() {
-            assertThrows<IllegalArgumentException> { TenantId.of("") }
+            assertThrows<IllegalArgumentException> { TenantKey.of("") }
         }
 
         @Test
         fun `validateOrNull should return null for invalid slug`() {
-            assertNull(TenantId.validateOrNull(""))
-            assertNull(TenantId.validateOrNull("ab"))
-            assertNull(TenantId.validateOrNull("ABC"))
-            assertNull(TenantId.validateOrNull("admin"))
+            assertNull(TenantKey.validateOrNull(""))
+            assertNull(TenantKey.validateOrNull("ab"))
+            assertNull(TenantKey.validateOrNull("ABC"))
+            assertNull(TenantKey.validateOrNull("admin"))
         }
     }
 
@@ -153,15 +153,15 @@ class TenantIdTest {
             ],
         )
         fun `should reject reserved words`(reserved: String) {
-            val exception = assertThrows<IllegalArgumentException> { TenantId.of(reserved) }
+            val exception = assertThrows<IllegalArgumentException> { TenantKey.of(reserved) }
             assertEquals("Tenant ID '$reserved' is reserved and cannot be used", exception.message)
         }
 
         @Test
         fun `should accept slugs that contain reserved words as substrings`() {
-            assertDoesNotThrow { TenantId.of("admin-panel") }
-            assertDoesNotThrow { TenantId.of("my-api") }
-            assertDoesNotThrow { TenantId.of("www-company") }
+            assertDoesNotThrow { TenantKey.of("admin-panel") }
+            assertDoesNotThrow { TenantKey.of("my-api") }
+            assertDoesNotThrow { TenantKey.of("www-company") }
         }
     }
 
@@ -169,20 +169,20 @@ class TenantIdTest {
     inner class ValueClassBehavior {
         @Test
         fun `toString should return the slug value`() {
-            val id = TenantId.of("acme-corp")
+            val id = TenantKey.of("acme-corp")
             assertEquals("acme-corp", id.toString())
         }
 
         @Test
         fun `value property should return the slug`() {
-            val id = TenantId.of("my-tenant")
+            val id = TenantKey.of("my-tenant")
             assertEquals("my-tenant", id.value)
         }
 
         @Test
         fun `equal slugs should be equal`() {
-            val id1 = TenantId.of("same-slug")
-            val id2 = TenantId.of("same-slug")
+            val id1 = TenantKey.of("same-slug")
+            val id2 = TenantKey.of("same-slug")
             assertEquals(id1, id2)
         }
     }

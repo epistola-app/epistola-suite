@@ -1,8 +1,10 @@
 package app.epistola.suite.templates.services
 
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.queries.variants.ListVariants
@@ -23,7 +25,7 @@ data class VariantSelectionCriteria(
  * Thrown when no variant matches the required attributes and no default variant exists.
  */
 class NoMatchingVariantException(
-    val templateId: TemplateId,
+    val templateId: TemplateKey,
     val criteria: VariantSelectionCriteria,
 ) : RuntimeException(
     "No variant found for template '$templateId' matching required attributes: ${criteria.requiredAttributes}",
@@ -33,8 +35,8 @@ class NoMatchingVariantException(
  * Thrown when multiple variants have the same score and cannot be disambiguated.
  */
 class AmbiguousVariantResolutionException(
-    val templateId: TemplateId,
-    val tiedVariantIds: List<VariantId>,
+    val templateId: TemplateKey,
+    val tiedVariantIds: List<VariantKey>,
     val score: Int,
 ) : RuntimeException(
     "Ambiguous variant resolution for template '$templateId': variants ${tiedVariantIds.joinToString(", ")} " +
@@ -62,11 +64,11 @@ class VariantResolver {
      * @throws AmbiguousVariantResolutionException if multiple variants tie on score
      */
     fun resolve(
-        tenantId: TenantId,
-        templateId: TemplateId,
+        tenantId: TenantKey,
+        templateId: TemplateKey,
         criteria: VariantSelectionCriteria,
-    ): VariantId {
-        val variants = ListVariants(tenantId = tenantId, templateId = templateId).query()
+    ): VariantKey {
+        val variants = ListVariants(TemplateId(templateId, TenantId(tenantId))).query()
 
         // Filter variants that match ALL required attributes
         val candidates = variants.filter { variant ->

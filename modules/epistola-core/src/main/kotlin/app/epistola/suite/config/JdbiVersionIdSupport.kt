@@ -1,7 +1,7 @@
 package app.epistola.suite.config
 
-import app.epistola.suite.common.ids.EntityId
-import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.common.ids.EntityKey
+import app.epistola.suite.common.ids.VersionKey
 import org.jdbi.v3.core.argument.AbstractArgumentFactory
 import org.jdbi.v3.core.argument.Argument
 import org.jdbi.v3.core.config.ConfigRegistry
@@ -14,8 +14,8 @@ import java.sql.Types
  * JDBI ArgumentFactory for VersionId.
  * Converts VersionId values to INTEGER when binding to SQL statements.
  */
-class VersionIdArgumentFactory : AbstractArgumentFactory<VersionId>(Types.INTEGER) {
-    override fun build(value: VersionId, config: ConfigRegistry): Argument = Argument { position, statement, _ -> statement.setInt(position, value.value) }
+class VersionIdArgumentFactory : AbstractArgumentFactory<VersionKey>(Types.INTEGER) {
+    override fun build(value: VersionKey, config: ConfigRegistry): Argument = Argument { position, statement, _ -> statement.setInt(position, value.value) }
 }
 
 /**
@@ -25,7 +25,7 @@ class VersionIdArgumentFactory : AbstractArgumentFactory<VersionId>(Types.INTEGE
  * @param T The concrete ID type (e.g., VersionId)
  * @param factory Function that constructs T from an Int value
  */
-class IntIdColumnMapper<T : EntityId<T, Int>>(
+class IntIdColumnMapper<T : EntityKey<T, Int>>(
     private val factory: (Int) -> T,
 ) : ColumnMapper<T> {
     override fun map(r: ResultSet, columnNumber: Int, ctx: StatementContext): T? {

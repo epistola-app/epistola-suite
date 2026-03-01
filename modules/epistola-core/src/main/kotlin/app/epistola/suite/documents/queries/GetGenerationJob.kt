@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.common.ids.GenerationRequestId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -27,8 +27,8 @@ data class GenerationJobResult(
  * @property requestId The generation request ID
  */
 data class GetGenerationJob(
-    val tenantId: TenantId,
-    val requestId: GenerationRequestId,
+    val tenantId: TenantKey,
+    val requestId: GenerationRequestKey,
 ) : Query<GenerationJobResult?>
 
 @Component
@@ -40,12 +40,12 @@ class GetGenerationJobHandler(
         // Get request with all data (in flattened structure, request IS the item)
         val request = handle.createQuery(
             """
-            SELECT id, batch_id, tenant_id, template_id, variant_id, version_id, environment_id,
-                   data, filename, correlation_id, document_id, status, claimed_by, claimed_at,
+            SELECT id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
+                   data, filename, correlation_key, document_key, status, claimed_by, claimed_at,
                    error_message, created_at, started_at, completed_at, expires_at
             FROM document_generation_requests
             WHERE id = :requestId
-              AND tenant_id = :tenantId
+              AND tenant_key = :tenantId
             """,
         )
             .bind("requestId", query.requestId)

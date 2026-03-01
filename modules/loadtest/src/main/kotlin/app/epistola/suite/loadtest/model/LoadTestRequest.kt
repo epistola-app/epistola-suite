@@ -1,6 +1,6 @@
 package app.epistola.suite.loadtest.model
 
-import app.epistola.suite.common.ids.DocumentId
+import app.epistola.suite.common.ids.DocumentKey
 import java.time.OffsetDateTime
 
 /**
@@ -21,8 +21,8 @@ import java.time.OffsetDateTime
  * @property documentId Reference to the generated document (deleted after test completes)
  */
 data class LoadTestRequest(
-    val id: LoadTestRequestId,
-    val runId: LoadTestRunId,
+    val id: LoadTestRequestKey,
+    val runId: LoadTestRunKey,
     val sequenceNumber: Int,
     val startedAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,
@@ -30,7 +30,7 @@ data class LoadTestRequest(
     val success: Boolean,
     val errorMessage: String?,
     val errorType: String?,
-    val documentId: DocumentId?,
+    val documentId: DocumentKey?,
 ) {
     init {
         require(sequenceNumber > 0) {

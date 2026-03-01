@@ -1,9 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
-import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TemplateId
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -23,9 +20,6 @@ import org.springframework.stereotype.Component
  * - The tenant doesn't own the template
  */
 data class ArchiveVersion(
-    val tenantId: TenantId,
-    val templateId: TemplateId,
-    val variantId: VariantId,
     val versionId: VersionId,
 ) : Command<TemplateVersion?>
 
@@ -37,22 +31,22 @@ class ArchiveVersionHandler(
         // Check if the version is still active in any environment
         val activeEnvironments = handle.createQuery(
             """
-                SELECT environment_id
+                SELECT environment_key
                 FROM environment_activations
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND version_id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND version_key = :versionId
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<String>()
             .list()
-            .map { EnvironmentId.of(it) }
+            .map { EnvironmentKey.of(it) }
 
         if (activeEnvironments.isNotEmpty()) {
             throw VersionStillActiveException(
-                versionId = command.versionId,
-                variantId = command.variantId,
+                versionId = command.versionId.key,
+                variantId = command.versionId.variantKey,
                 activeEnvironments = activeEnvironments,
             )
         }
@@ -62,14 +56,14 @@ class ArchiveVersionHandler(
             """
                 UPDATE template_versions
                 SET status = 'archived', archived_at = NOW()
-                WHERE tenant_id = :tenantId AND variant_id = :variantId AND id = :versionId
+                WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
                   AND status = 'published'
                 RETURNING *
                 """,
         )
-            .bind("tenantId", command.tenantId)
-            .bind("variantId", command.variantId)
-            .bind("versionId", command.versionId)
+            .bind("tenantId", command.versionId.tenantKey)
+            .bind("variantId", command.versionId.variantKey)
+            .bind("versionId", command.versionId.key)
             .mapTo<TemplateVersion>()
             .findOne()
             .orElse(null)

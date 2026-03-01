@@ -2,8 +2,8 @@ package app.epistola.suite.assets.queries
 
 import app.epistola.suite.assets.Asset
 import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.common.ids.AssetId
-import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
 import org.jdbi.v3.core.Jdbi
@@ -18,7 +18,7 @@ import java.util.UUID
  * @property searchTerm Optional search filter on asset name
  */
 data class ListAssets(
-    val tenantId: TenantId,
+    val tenantId: TenantKey,
     val searchTerm: String? = null,
 ) : Query<List<Asset>>
 
@@ -30,9 +30,9 @@ class ListAssetsHandler(
     override fun handle(query: ListAssets): List<Asset> = jdbi.withHandle<List<Asset>, Exception> { handle ->
         val sql = StringBuilder(
             """
-            SELECT id, tenant_id, name, media_type, size_bytes, width, height, created_at
+            SELECT id, tenant_key, name, media_type, size_bytes, width, height, created_at
             FROM assets
-            WHERE tenant_id = :tenantId
+            WHERE tenant_key = :tenantId
             """,
         )
 
@@ -51,8 +51,8 @@ class ListAssetsHandler(
 
         q.map { rs, _ ->
             Asset(
-                id = AssetId(rs.getObject("id", UUID::class.java)),
-                tenantId = TenantId(rs.getString("tenant_id")),
+                id = AssetKey(rs.getObject("id", UUID::class.java)),
+                tenantKey = TenantKey(rs.getString("tenant_key")),
                 name = rs.getString("name"),
                 mediaType = AssetMediaType.fromMimeType(rs.getString("media_type")),
                 sizeBytes = rs.getLong("size_bytes"),

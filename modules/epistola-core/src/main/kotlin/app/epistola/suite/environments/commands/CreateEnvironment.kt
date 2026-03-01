@@ -1,7 +1,6 @@
 package app.epistola.suite.environments.commands
 
 import app.epistola.suite.common.ids.EnvironmentId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Component
 
 data class CreateEnvironment(
     val id: EnvironmentId,
-    val tenantId: TenantId,
     val name: String,
 ) : Command<Environment> {
     init {
@@ -26,17 +24,17 @@ data class CreateEnvironment(
 class CreateEnvironmentHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<CreateEnvironment, Environment> {
-    override fun handle(command: CreateEnvironment): Environment = executeOrThrowDuplicate("environment", command.id.value) {
+    override fun handle(command: CreateEnvironment): Environment = executeOrThrowDuplicate("environment", command.id.key.value) {
         jdbi.withHandle<Environment, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO environments (id, tenant_id, name, created_at)
+                INSERT INTO environments (id, tenant_key, name, created_at)
                 VALUES (:id, :tenantId, :name, NOW())
                 RETURNING *
                 """,
             )
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
                 .bind("name", command.name)
                 .mapTo<Environment>()
                 .one()

@@ -2,7 +2,6 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.validation.validate
@@ -14,7 +13,6 @@ import tools.jackson.databind.ObjectMapper
 
 data class UpdateAttributeDefinition(
     val id: AttributeId,
-    val tenantId: TenantId,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
 ) : Command<VariantAttributeDefinition?> {
@@ -33,7 +31,7 @@ class AllowedValuesInUseException(
     val attributeId: AttributeId,
     val removedValues: Set<String>,
 ) : RuntimeException(
-    "Cannot remove allowed values ${removedValues.joinToString(", ") { "'$it'" }} from attribute '${attributeId.value}': " +
+    "Cannot remove allowed values ${removedValues.joinToString(", ") { "'$it'" }} from attribute '${attributeId.key.value}': " +
         "existing variants still use these values. Update the variants first.",
 )
 
@@ -48,11 +46,11 @@ class UpdateAttributeDefinitionHandler(
             val currentAllowedValues = handle.createQuery(
                 """
                     SELECT allowed_values FROM variant_attribute_definitions
-                    WHERE id = :id AND tenant_id = :tenantId
+                    WHERE id = :id AND tenant_key = :tenantId
                     """,
             )
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
                 .mapTo(String::class.java)
                 .findOne()
                 .orElse(null) ?: return@withHandle null
@@ -69,12 +67,12 @@ class UpdateAttributeDefinitionHandler(
                     handle.createQuery(
                         """
                             SELECT COUNT(*) FROM template_variants
-                            WHERE tenant_id = :tenantId
+                            WHERE tenant_key = :tenantId
                               AND attributes ->> :attributeKey = :value
                             """,
                     )
-                        .bind("tenantId", command.tenantId)
-                        .bind("attributeKey", command.id.value)
+                        .bind("tenantId", command.id.tenantKey)
+                        .bind("attributeKey", command.id.key.value)
                         .bind("value", value)
                         .mapTo(Long::class.java)
                         .one() > 0
@@ -94,12 +92,12 @@ class UpdateAttributeDefinitionHandler(
                 SET display_name = :displayName,
                     allowed_values = :allowedValues::jsonb,
                     last_modified = NOW()
-                WHERE id = :id AND tenant_id = :tenantId
+                WHERE id = :id AND tenant_key = :tenantId
                 RETURNING *
                 """,
         )
-            .bind("id", command.id)
-            .bind("tenantId", command.tenantId)
+            .bind("id", command.id.key)
+            .bind("tenantId", command.id.tenantKey)
             .bind("displayName", command.displayName)
             .bind("allowedValues", allowedValuesJson)
             .mapTo<VariantAttributeDefinition>()

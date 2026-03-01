@@ -2,7 +2,6 @@ package app.epistola.suite.attributes.commands
 
 import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.validation.executeOrThrowDuplicate
@@ -14,7 +13,6 @@ import tools.jackson.databind.ObjectMapper
 
 data class CreateAttributeDefinition(
     val id: AttributeId,
-    val tenantId: TenantId,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
 ) : Command<VariantAttributeDefinition> {
@@ -31,19 +29,19 @@ class CreateAttributeDefinitionHandler(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
 ) : CommandHandler<CreateAttributeDefinition, VariantAttributeDefinition> {
-    override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition = executeOrThrowDuplicate("attribute", command.id.value) {
+    override fun handle(command: CreateAttributeDefinition): VariantAttributeDefinition = executeOrThrowDuplicate("attribute", command.id.key.value) {
         jdbi.withHandle<VariantAttributeDefinition, Exception> { handle ->
             val allowedValuesJson = objectMapper.writeValueAsString(command.allowedValues)
 
             handle.createQuery(
                 """
-                INSERT INTO variant_attribute_definitions (id, tenant_id, display_name, allowed_values, created_at, last_modified)
+                INSERT INTO variant_attribute_definitions (id, tenant_key, display_name, allowed_values, created_at, last_modified)
                 VALUES (:id, :tenantId, :displayName, :allowedValues::jsonb, NOW(), NOW())
                 RETURNING *
                 """,
             )
-                .bind("id", command.id)
-                .bind("tenantId", command.tenantId)
+                .bind("id", command.id.key)
+                .bind("tenantId", command.id.tenantKey)
                 .bind("displayName", command.displayName)
                 .bind("allowedValues", allowedValuesJson)
                 .mapTo<VariantAttributeDefinition>()

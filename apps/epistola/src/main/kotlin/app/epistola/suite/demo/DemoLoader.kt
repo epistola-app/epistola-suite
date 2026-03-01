@@ -6,14 +6,21 @@ import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.assets.AssetMediaType
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.common.ids.ApiKeyId
-import app.epistola.suite.common.ids.AssetId
+import app.epistola.suite.common.ids.ApiKeyKey
+import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
+import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
+import app.epistola.suite.common.ids.VariantKey
+import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
@@ -95,16 +102,17 @@ class DemoLoader(
                 }
 
                 // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
-                val tenant = mediator.send(CreateTenant(id = TenantId.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
+                val tenant = mediator.send(CreateTenant(id = TenantKey.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
                 log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
-                log.info("Tenant has default theme: {}", tenant.defaultThemeId)
+                log.info("Tenant has default theme: {}", tenant.defaultThemeKey)
 
                 // Upload demo logo asset with well-known ID
                 val logoBytes = generateDemoLogoPng()
+                val tenantId = TenantId(tenant.id)
                 mediator.send(
                     UploadAsset(
-                        id = AssetId.of(DEMO_LOGO_ASSET_ID),
                         tenantId = tenant.id,
+                        id = AssetKey.of(DEMO_LOGO_ASSET_ID),
                         name = "Epistola Logo",
                         mediaType = AssetMediaType.PNG,
                         content = logoBytes,
@@ -115,7 +123,7 @@ class DemoLoader(
                 log.info("Uploaded demo logo asset (id={})", DEMO_LOGO_ASSET_ID)
 
                 // Create additional demo themes
-                val corporateThemeId = createDemoThemes(tenant.id)
+                val corporateThemeId = createDemoThemes(tenantId)
 
                 // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
                 if (corporateThemeId != null) {
@@ -124,18 +132,17 @@ class DemoLoader(
                 }
 
                 // Create demo API key
-                createDemoApiKey(tenant.id)
+                createDemoApiKey(tenantId)
 
                 // Create environments
-                val staging = mediator.send(CreateEnvironment(id = EnvironmentId.of("staging"), tenantId = tenant.id, name = "Staging"))
-                val production = mediator.send(CreateEnvironment(id = EnvironmentId.of("production"), tenantId = tenant.id, name = "Production"))
+                val staging = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("staging"), tenantId), name = "Staging"))
+                val production = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
                 log.info("Created environments: staging, production")
 
                 // Create attribute definitions
                 mediator.send(
                     CreateAttributeDefinition(
-                        id = AttributeId.of("language"),
-                        tenantId = tenant.id,
+                        id = AttributeId(AttributeKey.of("language"), tenantId),
                         displayName = "Language",
                         allowedValues = listOf("nl", "en"),
                     ),
@@ -147,7 +154,7 @@ class DemoLoader(
                 log.info("Loaded {} template definitions", definitions.size)
 
                 definitions.forEach { definition ->
-                    createTemplateFromDefinition(tenant.id, definition, staging.id, production.id)
+                    createTemplateFromDefinition(tenantId, definition, EnvironmentId(staging.id, tenantId), EnvironmentId(production.id, tenantId))
                 }
 
                 log.info("Created {} demo templates with environments and variants", definitions.size)
@@ -163,8 +170,8 @@ class DemoLoader(
         val keyPrefix = apiKeyService.extractPrefix(DEMO_API_KEY)
 
         val apiKey = ApiKey(
-            id = ApiKeyId.of(DEMO_API_KEY_ID),
-            tenantId = tenantId,
+            id = ApiKeyKey.of(DEMO_API_KEY_ID),
+            tenantKey = tenantId.key,
             name = "Demo API Key",
             keyPrefix = keyPrefix,
             enabled = true,
@@ -181,12 +188,11 @@ class DemoLoader(
     /**
      * Creates demo themes and returns the ID of the Corporate theme.
      */
-    private fun createDemoThemes(tenantId: TenantId): ThemeId? {
+    private fun createDemoThemes(tenantId: TenantId): ThemeKey? {
         // Corporate Theme - professional styling
         val corporateTheme = mediator.send(
             CreateTheme(
-                id = ThemeId.of("demo-corp"),
-                tenantId = tenantId,
+                id = ThemeId(ThemeKey.of("demo-corp"), tenantId),
                 name = "Corporate",
                 description = "Professional corporate styling with clean typography",
                 documentStyles = mapOf(
@@ -236,8 +242,7 @@ class DemoLoader(
         // Modern Theme - contemporary design
         mediator.send(
             CreateTheme(
-                id = ThemeId.of("demo-modern"),
-                tenantId = tenantId,
+                id = ThemeId(ThemeKey.of("demo-modern"), tenantId),
                 name = "Modern",
                 description = "Contemporary design with bold accents",
                 documentStyles = mapOf(
@@ -292,10 +297,10 @@ class DemoLoader(
         productionId: EnvironmentId,
     ) {
         // 1. Create template with basic metadata
+        val templateId = TemplateId(TemplateKey.of(definition.slug), tenantId)
         val template = mediator.send(
             CreateDocumentTemplate(
-                id = TemplateId.of(definition.slug),
-                tenantId = tenantId,
+                id = templateId,
                 name = definition.name,
             ),
         )
@@ -304,8 +309,7 @@ class DemoLoader(
         // 2. Update template with data model and examples
         mediator.send(
             UpdateDocumentTemplate(
-                tenantId = tenantId,
-                id = template.id,
+                id = templateId,
                 dataModel = definition.dataModel,
                 dataExamples = definition.dataExamples,
                 forceUpdate = true, // Skip validation warnings for demo data
@@ -314,16 +318,15 @@ class DemoLoader(
         log.debug("Updated template metadata for: {}", template.name)
 
         // 3. Get the default variant (first variant, auto-created by CreateDocumentTemplate)
-        val variants = mediator.query(ListVariants(tenantId = tenantId, templateId = template.id))
+        val variants = mediator.query(ListVariants(templateId = templateId))
         val defaultVariant = variants.firstOrNull()
             ?: error("No default variant found for template ${template.id}")
+        val defaultVariantId = VariantId(defaultVariant.id, templateId)
 
         // 4. Set language attribute on default variant (Dutch)
         mediator.send(
             UpdateVariant(
-                tenantId = tenantId,
-                templateId = template.id,
-                variantId = defaultVariant.id,
+                variantId = defaultVariantId,
                 title = defaultVariant.title,
                 attributes = mapOf("language" to "nl"),
             ),
@@ -333,46 +336,37 @@ class DemoLoader(
         // 5. Update the draft version with visual content
         mediator.send(
             UpdateDraft(
-                tenantId = tenantId,
-                templateId = template.id,
-                variantId = defaultVariant.id,
+                variantId = defaultVariantId,
                 templateModel = definition.templateModel,
             ),
         )
         log.debug("Updated draft template model for: {}", template.name)
 
         // 6. Get the draft version ID for publishing
-        val defaultVersions = mediator.query(ListVersions(tenantId = tenantId, templateId = template.id, variantId = defaultVariant.id))
+        val defaultVersions = mediator.query(ListVersions(variantId = defaultVariantId))
         val defaultDraft = defaultVersions.first()
 
         // 7. Publish default variant to staging and production
         mediator.send(
             PublishToEnvironment(
-                tenantId = tenantId,
-                templateId = template.id,
-                variantId = defaultVariant.id,
-                versionId = defaultDraft.id,
+                versionId = VersionId(defaultDraft.id, defaultVariantId),
                 environmentId = stagingId,
             ),
         )
         mediator.send(
             PublishToEnvironment(
-                tenantId = tenantId,
-                templateId = template.id,
-                variantId = defaultVariant.id,
-                versionId = defaultDraft.id,
+                versionId = VersionId(defaultDraft.id, defaultVariantId),
                 environmentId = productionId,
             ),
         )
         log.debug("Published default variant to staging and production")
 
         // 8. Create English variant
-        val englishVariantId = VariantId.of("${definition.slug}-en")
+        val englishVariantKey = VariantKey.of("${definition.slug}-en")
+        val englishVariantId = VariantId(englishVariantKey, templateId)
         val englishVariant = mediator.send(
             CreateVariant(
                 id = englishVariantId,
-                tenantId = tenantId,
-                templateId = template.id,
                 title = "${definition.name} (English)",
                 description = "English version",
                 attributes = mapOf("language" to "en"),
@@ -382,23 +376,18 @@ class DemoLoader(
         // 9. Update English variant draft with template model
         mediator.send(
             UpdateDraft(
-                tenantId = tenantId,
-                templateId = template.id,
-                variantId = englishVariant.id,
+                variantId = englishVariantId,
                 templateModel = definition.templateModel,
             ),
         )
 
         // 10. Get English draft version and publish to staging only
-        val englishVersions = mediator.query(ListVersions(tenantId = tenantId, templateId = template.id, variantId = englishVariant.id))
+        val englishVersions = mediator.query(ListVersions(variantId = englishVariantId))
         val englishDraft = englishVersions.first()
 
         mediator.send(
             PublishToEnvironment(
-                tenantId = tenantId,
-                templateId = template.id,
-                variantId = englishVariant.id,
-                versionId = englishDraft.id,
+                versionId = VersionId(englishDraft.id, englishVariantId),
                 environmentId = stagingId,
             ),
         )

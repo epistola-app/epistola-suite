@@ -1,7 +1,7 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.common.ids.TenantId
-import app.epistola.suite.common.ids.UserId
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import org.springframework.context.annotation.Profile
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
@@ -29,18 +29,18 @@ class LocalUserDetailsService : UserDetailsService {
     // In-memory users for local development
     private val localUsers = mapOf(
         "admin@local" to LocalUser(
-            userId = UserId.of("00000000-0000-0000-0000-000000000001"),
+            userId = UserKey.of("00000000-0000-0000-0000-000000000001"),
             email = "admin@local",
             displayName = "Local Admin",
             password = "admin",
             tenantIds = emptySet(), // Admin has access to all tenants
         ),
         "user@local" to LocalUser(
-            userId = UserId.of("00000000-0000-0000-0000-000000000002"),
+            userId = UserKey.of("00000000-0000-0000-0000-000000000002"),
             email = "user@local",
             displayName = "Local User",
             password = "user",
-            tenantIds = setOf(TenantId.of("demo-tenant")),
+            tenantIds = setOf(TenantKey.of("demo-tenant")),
         ),
     )
 
@@ -70,11 +70,11 @@ class LocalUserDetailsService : UserDetailsService {
      * Local user configuration.
      */
     private data class LocalUser(
-        val userId: UserId,
+        val userId: UserKey,
         val email: String,
         val displayName: String,
         val password: String,
-        val tenantIds: Set<TenantId>,
+        val tenantIds: Set<TenantKey>,
     )
 
     /**
