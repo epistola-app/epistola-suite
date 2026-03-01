@@ -7,6 +7,6 @@
     "generate:icons": "node icons/generate-sprite.js"
   },
   "devDependencies": {
-    "lucide-static": "^0.564.0"
+    "lucide-static": "^0.575.0"
   }
 }
