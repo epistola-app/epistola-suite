@@ -84,16 +84,43 @@ jobs:
           echo "message=$MESSAGE" >> $GITHUB_OUTPUT
 
       - name: Commit badge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/trivy.json
-          if git diff --staged --quiet; then
-            echo "No changes to badge"
-          else
-            git commit -m "chore: update security badge [skip ci]"
-            git push
+          FILE_PATH=".github/badges/trivy.json"
+
+          # Get current file SHA if it exists (required for updates)
+          CURRENT_SHA=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.sha' 2>/dev/null || echo "")
+
+          # Read new content and base64 encode it
+          NEW_CONTENT=$(base64 -w0 ${FILE_PATH})
+
+          # Check if content has changed by comparing with existing
+          if [ -n "$CURRENT_SHA" ]; then
+            EXISTING_CONTENT=$(gh api repos/${{ github.repository }}/contents/${FILE_PATH} --jq '.content' | tr -d '\n')
+            if [ "$NEW_CONTENT" = "$EXISTING_CONTENT" ]; then
+              echo "No changes to security badge"
+              exit 0
+            fi
           fi
+
+          # Create or update the file via GitHub API (commits are automatically signed)
+          if [ -n "$CURRENT_SHA" ]; then
+            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
+              --method PUT \
+              -f message="chore: update security badge [skip ci]" \
+              -f content="${NEW_CONTENT}" \
+              -f branch="main" \
+              -f sha="${CURRENT_SHA}"
+          else
+            gh api repos/${{ github.repository }}/contents/${FILE_PATH} \
+              --method PUT \
+              -f message="chore: update security badge [skip ci]" \
+              -f content="${NEW_CONTENT}" \
+              -f branch="main"
+          fi
+
+          echo "Security badge updated and committed (signed by GitHub)"
 
       - name: Create issue if critical vulnerabilities found
         if: steps.badge.outputs.critical > 0
