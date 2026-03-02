@@ -81,8 +81,9 @@ class JobPoller(
     private val jobsFailedCounter = meterRegistry.counter("epistola.jobs.failed.total")
 
     init {
-        // Register gauges for active jobs and queue depth
+        // Register gauges for active jobs, max concurrent limit, and queue depth
         meterRegistry.gauge("epistola.jobs.active", activeJobs) { it.get().toDouble() }
+        meterRegistry.gauge("epistola.jobs.max_concurrent", properties) { it.maxConcurrentJobs.toDouble() }
         meterRegistry.gauge("epistola.generation.queue.depth", pendingCount) { it.get().toDouble() }
 
         logger.info(

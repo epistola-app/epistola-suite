@@ -40,7 +40,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "topk(10, sum by (command) (rate(epistola_commands_total[5m])))",
+              "expr": "topk(10, sum by (command) (rate(epistola_mediator_command_duration_seconds_count[5m])))",
               "legendFormat": "{{`{{command}}`}}",
               "refId": "A",
               "instant": true
@@ -66,7 +66,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "topk(10, sum by (query) (rate(epistola_queries_total[5m])))",
+              "expr": "topk(10, sum by (query) (rate(epistola_mediator_query_duration_seconds_count[5m])))",
               "legendFormat": "{{`{{query}}`}}",
               "refId": "A",
               "instant": true
@@ -92,7 +92,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "topk(10, histogram_quantile(0.95, sum by (command, le) (rate(epistola_commands_duration_seconds_bucket[5m]))))",
+              "expr": "topk(10, histogram_quantile(0.95, sum by (command, le) (rate(epistola_mediator_command_duration_seconds_bucket[5m]))))",
               "legendFormat": "{{`{{command}}`}}",
               "refId": "A",
               "instant": true,
@@ -127,7 +127,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "topk(10, histogram_quantile(0.95, sum by (query, le) (rate(epistola_queries_duration_seconds_bucket[5m]))))",
+              "expr": "topk(10, histogram_quantile(0.95, sum by (query, le) (rate(epistola_mediator_query_duration_seconds_bucket[5m]))))",
               "legendFormat": "{{`{{query}}`}}",
               "refId": "A",
               "instant": true,
@@ -162,7 +162,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "sum by (command) (rate(epistola_commands_failures_total[5m]))",
+              "expr": "sum by (command) (rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m]))",
               "legendFormat": "{{`{{command}}`}}",
               "refId": "A"
             }

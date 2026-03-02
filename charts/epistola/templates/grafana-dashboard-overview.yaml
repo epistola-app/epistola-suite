@@ -187,7 +187,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "rate(epistola_commands_failures_total[5m]) / rate(epistola_commands_total[5m]) * 100",
+              "expr": "sum(rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m])) / sum(rate(epistola_mediator_command_duration_seconds_count[5m])) * 100",
               "legendFormat": "Error Rate %",
               "refId": "A"
             }

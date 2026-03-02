@@ -263,7 +263,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "sum by (path) (increase(epistola_jobs_completed_total[5m]))",
+              "expr": "sum by (path) (increase(epistola_generation_document_duration_seconds_count[5m]))",
               "legendFormat": "{{`{{path}}`}}",
               "refId": "A"
             }

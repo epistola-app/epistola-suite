@@ -123,7 +123,7 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "sum by (result) (rate(epistola_auth_attempts_total[5m]))",
+              "expr": "sum by (result) (rate(epistola_api_auth_attempts_total[5m]))",
               "legendFormat": "{{`{{result}}`}}",
               "refId": "A"
             }
@@ -149,12 +149,12 @@ spec:
           "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
           "targets": [
             {
-              "expr": "rate(epistola_auth_attempts_total{result=\"invalid_key\"}[5m])",
+              "expr": "rate(epistola_api_auth_attempts_total{result=\"invalid_key\"}[5m])",
               "legendFormat": "Invalid Key",
               "refId": "A"
             },
             {
-              "expr": "rate(epistola_auth_attempts_total{result=\"invalid_format\"}[5m])",
+              "expr": "rate(epistola_api_auth_attempts_total{result=\"invalid_format\"}[5m])",
               "legendFormat": "Invalid Format",
               "refId": "B"
             }
