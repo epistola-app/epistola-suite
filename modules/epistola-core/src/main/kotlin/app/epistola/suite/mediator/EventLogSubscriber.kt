@@ -28,13 +28,10 @@ import tools.jackson.databind.ObjectMapper
 class EventLogSubscriber(
     private val jdbi: Jdbi,
     private val objectMapper: ObjectMapper,
-    meterRegistry: MeterRegistry,
+    private val meterRegistry: MeterRegistry,
 ) {
 
     private val logger = LoggerFactory.getLogger(EventLogSubscriber::class.java)
-    private val persistTimer = Timer.builder("epistola.eventlog.persist.duration")
-        .description("Event log persistence latency")
-        .register(meterRegistry)
     private val persistFailures = Counter.builder("epistola.eventlog.persist.failures")
         .description("Event log persistence failures (audit trail gaps)")
         .register(meterRegistry)
@@ -42,6 +39,7 @@ class EventLogSubscriber(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun persist(event: CommandCompleted<*>) {
         val sample = Timer.start()
+        var outcome = "success"
         try {
             val command = event.command
             val eventType = command::class.simpleName ?: "Unknown"
@@ -64,13 +62,19 @@ class EventLogSubscriber(
                 }.execute()
             }
 
-            sample.stop(persistTimer)
             logger.debug("Event logged: {} (tenant={})", eventType, tenantId)
         } catch (e: Exception) {
-            sample.stop(persistTimer)
+            outcome = "failure"
             persistFailures.increment()
             // Failure to log should not affect the command
             logger.error("Failed to persist event log: {}", e.message, e)
+        } finally {
+            sample.stop(
+                Timer.builder("epistola.eventlog.persist.duration")
+                    .description("Event log persistence latency")
+                    .tag("outcome", outcome)
+                    .register(meterRegistry),
+            )
         }
     }
 
