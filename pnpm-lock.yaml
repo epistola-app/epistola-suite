@@ -27,14 +27,14 @@ importers:
   modules/design-system:
     devDependencies:
       lucide-static:
-        specifier: ^0.575.0
-        version: 0.575.0
+        specifier: ^0.576.0
+        version: 0.576.0
 
   modules/editor:
     dependencies:
       '@atlaskit/pragmatic-drag-and-drop':
         specifier: ^1.7.7
-        version: 1.7.7
+        version: 1.7.8
       '@atlaskit/pragmatic-drag-and-drop-hitbox':
         specifier: ^1.1.0
         version: 1.1.0
@@ -128,7 +128,7 @@ importers:
     devDependencies:
       '@redocly/cli':
         specifier: ^2.0.0
-        version: 2.20.0(@opentelemetry/api@1.9.0)(core-js@3.48.0)
+        version: 2.20.1(@opentelemetry/api@1.9.0)(core-js@3.48.0)
 
   modules/template-model:
     devDependencies:
@@ -163,8 +163,8 @@ packages:
   '@atlaskit/pragmatic-drag-and-drop-hitbox@1.1.0':
     resolution: {integrity: sha512-JWt6eVp6Br2FPHRM8s0dUIHQk/jFInGP1f3ti5CdtM1Ji5/pt8Akm44wDC063Gv2i5RGseixtbW0z/t6RYtbdg==}
 
-  '@atlaskit/pragmatic-drag-and-drop@1.7.7':
-    resolution: {integrity: sha512-jX+68AoSTqO/fhCyJDTZ38Ey6/wyL2Iq+J/moanma0YyktpnoHxevjY1UNJHYp0NCburdQDZSL1ZFac1mO1osQ==}
+  '@atlaskit/pragmatic-drag-and-drop@1.7.8':
+    resolution: {integrity: sha512-EPme96Yh1bGRTWAQiIUebchFHX0ZxU0QuoFUSmEL0nz1v3bcVn1nBktKyCs5mh24XdxD1EkVnhMC2u6b3bboHA==}
 
   '@babel/code-frame@7.29.0':
     resolution: {integrity: sha512-9NhCeYjq9+3uxgdtp20LSiJXJvN0FeCtNGpJxuMFZ1Kv3cWUNb6DOhJwUvcVCzKGR66cw4njwM6hrJLqgOwbcw==}
@@ -288,8 +288,8 @@ packages:
     peerDependencies:
       '@csstools/css-tokenizer': ^4.0.0
 
-  '@csstools/css-syntax-patches-for-csstree@1.0.28':
-    resolution: {integrity: sha512-1NRf1CUBjnr3K7hu8BLxjQrKCxEe8FP/xmPTenAxCRZWVLbmGotkFvG9mfNpjA6k7Bw1bw4BilZq9cu19RA5pg==}
+  '@csstools/css-syntax-patches-for-csstree@1.0.29':
+    resolution: {integrity: sha512-jx9GjkkP5YHuTmko2eWAvpPnb0mB4mGRr2U7XwVNwevm8nlpobZEVk+GNmiYMk2VuA75v+plfXWyroWKmICZXg==}
 
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
@@ -669,11 +669,11 @@ packages:
   '@redocly/ajv@8.11.2':
     resolution: {integrity: sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==}
 
-  '@redocly/ajv@8.17.4':
-    resolution: {integrity: sha512-BieiCML/IgP6x99HZByJSt7fJE4ipgzO7KAFss92Bs+PEI35BhY7vGIysFXLT+YmS7nHtQjZjhOQyPPEf7xGHA==}
+  '@redocly/ajv@8.18.0':
+    resolution: {integrity: sha512-F+LMD2IDIXuHxgpLJh3nkLj9+tSaEzoUWd+7fONGq5pe2169FUDjpEkOfEpoGLz1sbZni/69p07OsecNfAOpqA==}
 
-  '@redocly/cli@2.20.0':
-    resolution: {integrity: sha512-8R+NzB2RnT0PacozLRfdKymqWb6YtD1IbrW74e9Q63lhRcLUHYJWtHNoxT98C0k0R/7gViKhBJIygUecybIn0A==}
+  '@redocly/cli@2.20.1':
+    resolution: {integrity: sha512-bBP6NmMMyHW2+7AJxAhKq0jRBg6eNGX7DGBOipW0TWQexaIh7+KJLR+pv15SgK57J8zAJSyAC53CeqJ2DVA4hg==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
     hasBin: true
 
@@ -687,12 +687,12 @@ packages:
     resolution: {integrity: sha512-/oy8sXi5xK4+HvcFR7xS1A74zJ5aS6rtacNEr91SczLqvtxz79opxp7yYpdYtfGQAp6igx9eU9alwSC/R/X3Cg==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
-  '@redocly/openapi-core@2.20.0':
-    resolution: {integrity: sha512-cyMqjFt0jKp0FDYX5MYGbg+jdUXVvrtSMadRaviaoq1o4JmuejIaK7+fnhJhBZD389ui6ihJp2//nI2MIgQWMw==}
+  '@redocly/openapi-core@2.20.1':
+    resolution: {integrity: sha512-ZwrvkLg8SdPiLvv1P/CLHR6vuZ+Qjor65sVxHPo8HSzVr1Tce50jPGLU6Z/tF6j61hwSp4GpdzHCXuDMOWIfsw==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
 
-  '@redocly/respect-core@2.20.0':
-    resolution: {integrity: sha512-bslonUVnd2hPr1UbZnBCghB7gaoddBcYq6pSIL025N0xQT5s93ZU6zufJtJzm2c2RNWUBHyL6pfmZrrlb2nm+A==}
+  '@redocly/respect-core@2.20.1':
+    resolution: {integrity: sha512-FELZyfDwBLow37k6C2V3eqUXpsslv+gKnSuqR0ureZisSFmUp0Ey7hEcscrV9FiKPOLDeVITlIYKRKGa6PTAJw==}
     engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
 
   '@rollup/rollup-android-arm-eabi@4.57.0':
@@ -1382,6 +1382,7 @@ packages:
   git-raw-commits@4.0.0:
     resolution: {integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==}
     engines: {node: '>=16'}
+    deprecated: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
     hasBin: true
 
   github-from-package@0.0.0:
@@ -1714,8 +1715,8 @@ packages:
     resolution: {integrity: sha512-ESL2CrkS/2wTPfuend7Zhkzo2u0daGJ/A2VucJOgQ/C48S/zB8MMeMHSGKYpXhIjbPxfuezITkaBH1wqv00DDQ==}
     engines: {node: 20 || >=22}
 
-  lucide-static@0.575.0:
-    resolution: {integrity: sha512-XbHfIufz9ZDW6iLjUphffUmcEWg6gLjufIQOb6heDjYZCRk+ePRbkp8Ax/Rq3Ek4OkT8tyBO/gTCOPDvFMuC4w==}
+  lucide-static@0.576.0:
+    resolution: {integrity: sha512-0LPnsw/0/PC8Diu0neT6lSsR/ZaCQRu2B4d15joy5OFlSrhyJi5Jc8p1aYOn2wqb4dUECxQ/fk1s4iSlKYvqqA==}
 
   lunr@2.3.9:
     resolution: {integrity: sha512-zTU3DaZaF3Rt9rhN3uBMGQD3dD2/vFQqnvZCDv4dl5iOzq2IZQqTxu90r4E5J+nP70J3ilqVCrbho2eWaeW8Ow==}
@@ -1871,8 +1872,8 @@ packages:
   once@1.4.0:
     resolution: {integrity: sha512-lNaJgI+2Q5URQBkccEKHTQOPaXdUxnZZElQTZY0MFUAuaEqe1E+Nyvgdz/aIyNi6Z9MzO5dv1H8n58/GELp3+w==}
 
-  openapi-sampler@1.7.0:
-    resolution: {integrity: sha512-fWq32F5vqGpgRJYIarC/9Y1wC9tKnRDcCOjsDJ7MIcSv2HsE7kNifcXIZ8FVtNStBUWxYrEk/MKqVF0SwZ5gog==}
+  openapi-sampler@1.7.1:
+    resolution: {integrity: sha512-pKFRROcYyxRt9GIn0NmS+GkWPS19l0CLQRYAnHk4m1Qp+G43ssVNcfRMs1sLkGrVMuFWO4P4F6YMXeXnfyFGuQ==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -2554,10 +2555,10 @@ snapshots:
 
   '@atlaskit/pragmatic-drag-and-drop-hitbox@1.1.0':
     dependencies:
-      '@atlaskit/pragmatic-drag-and-drop': 1.7.7
+      '@atlaskit/pragmatic-drag-and-drop': 1.7.8
       '@babel/runtime': 7.28.6
 
-  '@atlaskit/pragmatic-drag-and-drop@1.7.7':
+  '@atlaskit/pragmatic-drag-and-drop@1.7.8':
     dependencies:
       '@babel/runtime': 7.28.6
       bind-event-listener: 3.0.0
@@ -2717,7 +2718,7 @@ snapshots:
       '@csstools/css-tokenizer': 4.0.0
     optional: true
 
-  '@csstools/css-syntax-patches-for-csstree@1.0.28':
+  '@csstools/css-syntax-patches-for-csstree@1.0.29':
     optional: true
 
   '@csstools/css-tokenizer@4.0.0':
@@ -3009,24 +3010,24 @@ snapshots:
       require-from-string: 2.0.2
       uri-js-replace: 1.0.1
 
-  '@redocly/ajv@8.17.4':
+  '@redocly/ajv@8.18.0':
     dependencies:
       fast-deep-equal: 3.1.3
       fast-uri: 3.1.0
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  '@redocly/cli@2.20.0(@opentelemetry/api@1.9.0)(core-js@3.48.0)':
+  '@redocly/cli@2.20.1(@opentelemetry/api@1.9.0)(core-js@3.48.0)':
     dependencies:
       '@opentelemetry/exporter-trace-otlp-http': 0.202.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/resources': 2.0.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-trace-node': 2.0.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.34.0
-      '@redocly/openapi-core': 2.20.0
-      '@redocly/respect-core': 2.20.0
+      '@redocly/openapi-core': 2.20.1
+      '@redocly/respect-core': 2.20.1
       abort-controller: 3.0.0
-      ajv: '@redocly/ajv@8.17.4'
-      ajv-formats: 3.0.1(@redocly/ajv@8.17.4)
+      ajv: '@redocly/ajv@8.18.0'
+      ajv-formats: 3.0.1(@redocly/ajv@8.18.0)
       colorette: 1.4.0
       cookie: 0.7.2
       dotenv: 16.4.7
@@ -3075,12 +3076,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@redocly/openapi-core@2.20.0':
+  '@redocly/openapi-core@2.20.1':
     dependencies:
-      '@redocly/ajv': 8.17.4
+      '@redocly/ajv': 8.18.0
       '@redocly/config': 0.43.0
-      ajv: '@redocly/ajv@8.17.4'
-      ajv-formats: 3.0.1(@redocly/ajv@8.17.4)
+      ajv: '@redocly/ajv@8.18.0'
+      ajv-formats: 3.0.1(@redocly/ajv@8.18.0)
       colorette: 1.4.0
       js-levenshtein: 1.1.6
       js-yaml: 4.1.1
@@ -3088,18 +3089,18 @@ snapshots:
       pluralize: 8.0.0
       yaml-ast-parser: 0.0.43
 
-  '@redocly/respect-core@2.20.0':
+  '@redocly/respect-core@2.20.1':
     dependencies:
       '@faker-js/faker': 7.6.0
       '@noble/hashes': 1.8.0
-      '@redocly/ajv': 8.17.4
-      '@redocly/openapi-core': 2.20.0
-      ajv: '@redocly/ajv@8.17.4'
-      better-ajv-errors: 1.2.0(@redocly/ajv@8.17.4)
+      '@redocly/ajv': 8.18.0
+      '@redocly/openapi-core': 2.20.1
+      ajv: '@redocly/ajv@8.18.0'
+      better-ajv-errors: 1.2.0(@redocly/ajv@8.18.0)
       colorette: 2.0.20
       json-pointer: 0.6.2
       jsonpath-rfc9535: 1.3.0
-      openapi-sampler: 1.7.0
+      openapi-sampler: 1.7.1
       outdent: 0.8.0
       picomatch: 4.0.3
 
@@ -3363,9 +3364,9 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  ajv-formats@3.0.1(@redocly/ajv@8.17.4):
+  ajv-formats@3.0.1(@redocly/ajv@8.18.0):
     optionalDependencies:
-      ajv: '@redocly/ajv@8.17.4'
+      ajv: '@redocly/ajv@8.18.0'
 
   ajv@6.14.0:
     dependencies:
@@ -3405,11 +3406,11 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  better-ajv-errors@1.2.0(@redocly/ajv@8.17.4):
+  better-ajv-errors@1.2.0(@redocly/ajv@8.18.0):
     dependencies:
       '@babel/code-frame': 7.29.0
       '@humanwhocodes/momoa': 2.0.4
-      ajv: '@redocly/ajv@8.17.4'
+      ajv: '@redocly/ajv@8.18.0'
       chalk: 4.1.2
       jsonpointer: 5.0.1
       leven: 3.1.0
@@ -3547,7 +3548,7 @@ snapshots:
   cssstyle@5.3.7:
     dependencies:
       '@asamuzakjp/css-color': 4.1.2
-      '@csstools/css-syntax-patches-for-csstree': 1.0.28
+      '@csstools/css-syntax-patches-for-csstree': 1.0.29
       css-tree: 3.1.0
       lru-cache: 11.2.6
     optional: true
@@ -4080,7 +4081,7 @@ snapshots:
 
   lru-cache@11.2.6: {}
 
-  lucide-static@0.575.0: {}
+  lucide-static@0.576.0: {}
 
   lunr@2.3.9: {}
 
@@ -4212,7 +4213,7 @@ snapshots:
     dependencies:
       wrappy: 1.0.2
 
-  openapi-sampler@1.7.0:
+  openapi-sampler@1.7.1:
     dependencies:
       '@types/json-schema': 7.0.15
       fast-xml-parser: 5.4.1
@@ -4459,7 +4460,7 @@ snapshots:
       marked: 4.3.0
       mobx: 6.15.0
       mobx-react: 9.2.0(mobx@6.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      openapi-sampler: 1.7.0
+      openapi-sampler: 1.7.1
       path-browserify: 1.0.1
       perfect-scrollbar: 1.5.6
       polished: 4.3.1
