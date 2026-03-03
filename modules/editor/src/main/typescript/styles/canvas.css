@@ -27,16 +27,16 @@
 
   .canvas-slot.empty {
     min-height: 3rem;
-    border: 1px dashed var(--ep-gray-300);
-    border-radius: var(--ep-radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
   .canvas-slot-hint {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
     font-size: var(--ep-text-xs);
     color: var(--ep-gray-400);
+    pointer-events: none;
   }
 
   .canvas-block {

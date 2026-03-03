@@ -13,6 +13,7 @@ import { getNodeDepth, findAncestorAtLevel } from '../engine/indexes.js'
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, resolveDropInsideNode, canDropHere, type Edge } from '../dnd/drop-logic.js'
 import { handleDrop } from '../dnd/drop-handler.js'
+import { setEditorDragPreview } from '../dnd/native-drag-preview.js'
 import { icon, type IconName, ICONS } from './icons.js'
 
 const INDENT_PER_LEVEL = 16
@@ -63,12 +64,22 @@ export class EpistolaTree extends LitElement {
 
       const isRoot = nodeId === this.doc.root
       const isFixedPageBlock = node.type === 'pageheader' || node.type === 'pagefooter'
+      const blockLabel = this.engine.registry.get(node.type)?.label ?? node.type
 
       // Drag source (skip root — can't drag the document root)
       if (!isRoot && !isFixedPageBlock) {
         cleanups.push(draggable({
           element: labelEl,
           getInitialData: (): DragData => ({ source: 'block', nodeId, blockType: node.type }),
+          onGenerateDragPreview: ({ nativeSetDragImage, location }) => {
+            setEditorDragPreview({
+              nativeSetDragImage,
+              sourceElement: labelEl,
+              input: location.current.input,
+              label: blockLabel,
+              intent: 'move',
+            })
+          },
           onDragStart: () => labelEl.classList.add('dragging'),
           onDrop: () => labelEl.classList.remove('dragging'),
         }))

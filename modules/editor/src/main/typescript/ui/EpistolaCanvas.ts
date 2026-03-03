@@ -4,20 +4,24 @@ import { styleMap } from "lit/directives/style-map.js";
 import {
   draggable,
   dropTargetForElements,
+  monitorForElements,
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import {
-  attachClosestEdge,
-  extractClosestEdge,
-} from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
+  attachInstruction as attachListItemInstruction,
+  extractInstruction as extractListItemInstruction,
+  type Instruction as ListItemInstruction,
+} from "@atlaskit/pragmatic-drag-and-drop-hitbox/list-item";
 import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
 import type { EditorEngine } from "../engine/EditorEngine.js";
 import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
 import {
   resolveDropOnBlockEdge,
   canDropHere,
+  type DropLocation,
   type Edge,
 } from "../dnd/drop-logic.js";
 import { handleDrop } from "../dnd/drop-handler.js";
+import { setEditorDragPreview } from "../dnd/native-drag-preview.js";
 import { icon } from "./icons.js";
 import "../ui/EpistolaTextEditor.js";
 
@@ -34,6 +38,8 @@ export class EpistolaCanvas extends LitElement {
   private _dndCleanup: (() => void) | null = null;
   private _unsubComponentState?: () => void;
   private _subscribedEngine?: EditorEngine;
+  private _insertMarkerByKey = new Map<string, HTMLElement>();
+  private _activeInsertMarkerKey: string | null = null;
 
   private _handleSelect(e: Event, nodeId: NodeId) {
     e.stopPropagation();
@@ -109,6 +115,8 @@ export class EpistolaCanvas extends LitElement {
     if (!this.engine || !this.doc) return null;
 
     const cleanups: (() => void)[] = [];
+    this._insertMarkerByKey.clear();
+    this._clearActiveInsertMarker();
 
     // Setup drag sources on canvas blocks (skip root)
     const blocks = this.querySelectorAll<HTMLElement>(
@@ -121,6 +129,7 @@ export class EpistolaCanvas extends LitElement {
       const node = this.doc.nodes[nodeId];
       if (!node) continue;
       const isFixedPageBlock = node.type === "pageheader" || node.type === "pagefooter";
+      const blockLabel = this.engine.registry.get(node.type)?.label ?? node.type;
 
       // Drag source
       if (!isFixedPageBlock) {
@@ -135,20 +144,39 @@ export class EpistolaCanvas extends LitElement {
               nodeId,
               blockType: node.type,
             }),
+            onGenerateDragPreview: ({ nativeSetDragImage, location }) => {
+              setEditorDragPreview({
+                nativeSetDragImage,
+                sourceElement: blockEl,
+                input: location.current.input,
+                label: blockLabel,
+                intent: "move",
+              });
+            },
             onDragStart: () => blockEl.classList.add("dragging"),
             onDrop: () => blockEl.classList.remove("dragging"),
           }),
         );
       }
 
-      // Drop target on each block (edge detection for inserting before/after in parent slot)
+      // Drop target on each block (list-item instruction for before / after)
       cleanups.push(
         dropTargetForElements({
           element: blockEl,
+          getIsSticky: () => true,
           getData: ({ input, element }) =>
-            attachClosestEdge(
+            attachListItemInstruction(
               { nodeId },
-              { element, input, allowedEdges: ["top", "bottom"] },
+              {
+                element,
+                input,
+                axis: "vertical",
+                operations: {
+                  "reorder-before": "available",
+                  "reorder-after": "available",
+                  combine: "not-available",
+                },
+              },
             ),
           canDrop: ({ source }) => {
             const dragData = source.data as Record<string, unknown>;
@@ -171,48 +199,62 @@ export class EpistolaCanvas extends LitElement {
               this.engine!.registry,
             );
           },
-          onDragEnter: ({ self, location }) => {
-            // Only show edge indicator if this block is the innermost drop target.
-            // A nested slot (inside this block) takes priority.
+          onDragEnter: ({ self, source, location }) => {
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return;
+
+            // Only handle if this block is the innermost drop target.
             if (location.current.dropTargets[0]?.element !== blockEl) return;
-            const edge = extractClosestEdge(self.data);
-            if (edge === "top" || edge === "bottom") {
-              blockEl.setAttribute("data-drop-edge", edge);
-            }
+
+            const dropLocation = this._resolveDropLocationFromInstruction(
+              nodeId,
+              extractListItemInstruction(self.data),
+            );
+            if (!dropLocation) return;
+
+            this._setActiveInsertMarker(
+              dropLocation.targetSlotId,
+              dropLocation.index,
+              dragData,
+            );
           },
-          onDrag: ({ self, location }) => {
-            if (location.current.dropTargets[0]?.element !== blockEl) {
-              blockEl.removeAttribute("data-drop-edge");
-              return;
-            }
-            const edge = extractClosestEdge(self.data);
-            if (edge === "top" || edge === "bottom") {
-              blockEl.setAttribute("data-drop-edge", edge);
-            }
+          onDrag: ({ self, source, location }) => {
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return;
+
+            if (location.current.dropTargets[0]?.element !== blockEl) return;
+
+            const dropLocation = this._resolveDropLocationFromInstruction(
+              nodeId,
+              extractListItemInstruction(self.data),
+            );
+            if (!dropLocation) return;
+
+            this._setActiveInsertMarker(
+              dropLocation.targetSlotId,
+              dropLocation.index,
+              dragData,
+            );
           },
-          onDragLeave: () => {
-            blockEl.removeAttribute("data-drop-edge");
+          onDragLeave: ({ location }) => {
+            if (location.current.dropTargets.length === 0) {
+              this._clearActiveInsertMarker();
+            }
           },
           onDrop: ({ self, source, location }) => {
-            blockEl.removeAttribute("data-drop-edge");
-
             // If a deeper target (nested slot) is innermost, skip — it handles the drop
             if (location.current.dropTargets[0]?.element !== blockEl) return;
 
             const dragData = source.data as Record<string, unknown>;
             if (!isDragData(dragData)) return;
 
-            const edge = extractClosestEdge(self.data) as Edge | null;
-            if (!edge) return;
-
-            const dropLocation = resolveDropOnBlockEdge(
+            const dropLocation = this._resolveDropLocationFromInstruction(
               nodeId,
-              edge,
-              this.doc!,
-              this.engine!.indexes,
+              extractListItemInstruction(self.data),
             );
             if (!dropLocation) return;
 
+            this._clearActiveInsertMarker();
             this._handleDrop(
               dragData,
               dropLocation.targetSlotId,
@@ -223,22 +265,31 @@ export class EpistolaCanvas extends LitElement {
       );
     }
 
-    // Setup drop targets on ALL slots (empty and non-empty).
-    // Empty slots accept drops at index 0.
-    // Non-empty slots accept drops in the empty space below children (append).
-    const slots = this.querySelectorAll<HTMLElement>(
-      ".canvas-slot[data-slot-id]",
+    // Setup drop targets on canonical insertion markers.
+    // Markers are rendered for every slot index (before / between / after),
+    // so there is exactly one visual destination for each insertion point.
+    const insertMarkers = this.querySelectorAll<HTMLElement>(
+      ".canvas-insert-marker[data-slot-id][data-insert-index]",
     );
-    for (const slotEl of slots) {
-      const slotId = slotEl.dataset.slotId as SlotId | undefined;
+    for (const markerEl of insertMarkers) {
+      const slotId = markerEl.dataset.slotId as SlotId | undefined;
       if (!slotId) continue;
 
-      const slot = this.doc.slots[slotId];
-      if (!slot) continue;
+      const insertIndexRaw = markerEl.dataset.insertIndex;
+      if (insertIndexRaw == null) continue;
+
+      const insertIndex = Number.parseInt(insertIndexRaw, 10);
+      if (!Number.isInteger(insertIndex) || insertIndex < 0) continue;
+
+      this._insertMarkerByKey.set(
+        this._insertMarkerKey(slotId, insertIndex),
+        markerEl,
+      );
 
       cleanups.push(
         dropTargetForElements({
-          element: slotEl,
+          element: markerEl,
+          getIsSticky: () => true,
           canDrop: ({ source }) => {
             const dragData = source.data as Record<string, unknown>;
             if (!isDragData(dragData)) return false;
@@ -250,41 +301,120 @@ export class EpistolaCanvas extends LitElement {
               this.engine!.registry,
             );
           },
-          onDragEnter: ({ location }) => {
-            if (location.current.dropTargets[0]?.element === slotEl) {
-              slotEl.classList.add("drag-over");
-            }
+          onDragEnter: ({ source, location }) => {
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return;
+            if (location.current.dropTargets[0]?.element !== markerEl) return;
+
+            this._setActiveInsertMarker(slotId, insertIndex, dragData);
           },
-          onDrag: ({ location }) => {
-            if (location.current.dropTargets[0]?.element === slotEl) {
-              slotEl.classList.add("drag-over");
-            } else {
-              slotEl.classList.remove("drag-over");
-            }
+          onDrag: ({ source, location }) => {
+            const dragData = source.data as Record<string, unknown>;
+            if (!isDragData(dragData)) return;
+            if (location.current.dropTargets[0]?.element !== markerEl) return;
+
+            this._setActiveInsertMarker(slotId, insertIndex, dragData);
           },
-          onDragLeave: () => {
-            slotEl.classList.remove("drag-over");
+          onDragLeave: ({ location }) => {
+            if (location.current.dropTargets.length === 0) {
+              this._clearActiveInsertMarker();
+            }
           },
           onDrop: ({ source, location }) => {
-            slotEl.classList.remove("drag-over");
-
-            // Only handle if this slot is the innermost target.
-            // If a child block is innermost, its edge handler takes care of it.
-            if (location.current.dropTargets[0]?.element !== slotEl) return;
+            if (location.current.dropTargets[0]?.element !== markerEl) return;
 
             const dragData = source.data as Record<string, unknown>;
             if (!isDragData(dragData)) return;
 
-            // Append at end of slot
-            const currentSlot = this.doc!.slots[slotId];
-            const index = currentSlot ? currentSlot.children.length : 0;
-            this._handleDrop(dragData, slotId, index);
+            this._clearActiveInsertMarker();
+            this._handleDrop(dragData, slotId, insertIndex);
           },
         }),
       );
     }
 
-    return () => cleanups.forEach((fn) => fn());
+    cleanups.push(
+      monitorForElements({
+        canMonitor: ({ source }) => {
+          const dragData = source.data as Record<string, unknown>;
+          return isDragData(dragData);
+        },
+        onDrop: () => {
+          this._clearActiveInsertMarker();
+        },
+      }),
+    );
+
+    return () => {
+      this._clearActiveInsertMarker();
+      this._insertMarkerByKey.clear();
+      cleanups.forEach((fn) => fn());
+    };
+  }
+
+  private _insertMarkerKey(slotId: SlotId, index: number): string {
+    return `${slotId}:${String(index)}`;
+  }
+
+  private _toDropEdge(instruction: ListItemInstruction | null): Edge | null {
+    if (!instruction) return null;
+    if (instruction.operation === "reorder-before") return "top";
+    if (instruction.operation === "reorder-after") return "bottom";
+    return null;
+  }
+
+  private _resolveDropLocationFromInstruction(
+    nodeId: NodeId,
+    instruction: ListItemInstruction | null,
+  ): DropLocation | null {
+    const edge = this._toDropEdge(instruction);
+    if (!edge) return null;
+
+    return resolveDropOnBlockEdge(nodeId, edge, this.doc!, this.engine!.indexes);
+  }
+
+  private _setActiveInsertMarker(
+    slotId: SlotId,
+    index: number,
+    dragData: DragData,
+  ): void {
+    const key = this._insertMarkerKey(slotId, index);
+    const markerEl = this._insertMarkerByKey.get(key);
+    if (!markerEl) return;
+
+    const previewLabel = this._resolveDropPreviewLabel(dragData);
+
+    if (this._activeInsertMarkerKey === key) {
+      markerEl.setAttribute("data-drop-preview", previewLabel);
+      return;
+    }
+
+    this._clearActiveInsertMarker();
+
+    markerEl.classList.add("active");
+    markerEl.setAttribute("data-drop-preview", previewLabel);
+    this._activeInsertMarkerKey = key;
+  }
+
+  private _clearActiveInsertMarker(): void {
+    if (!this._activeInsertMarkerKey) return;
+
+    const markerEl = this._insertMarkerByKey.get(this._activeInsertMarkerKey);
+    markerEl?.classList.remove("active");
+    markerEl?.removeAttribute("data-drop-preview");
+
+    this._activeInsertMarkerKey = null;
+  }
+
+  private _resolveDropPreviewLabel(dragData: DragData): string {
+    const action = dragData.source === "palette" ? "Insert" : "Move";
+
+    const blockType = dragData.source === "palette"
+      ? dragData.blockType
+      : this.doc?.nodes[dragData.nodeId]?.type ?? dragData.blockType;
+
+    const label = this.engine?.registry.get(blockType)?.label ?? blockType;
+    return `${action} ${label}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -340,6 +470,7 @@ export class EpistolaCanvas extends LitElement {
 
     const parentNode = doc.nodes[slot.nodeId];
     const isMultiSlot = parentNode && parentNode.slots.length > 1;
+    const emptySlotHint = isMultiSlot ? slot.name : "Drop blocks here";
 
     return html`
       <div
@@ -348,10 +479,44 @@ export class EpistolaCanvas extends LitElement {
         data-slot-name=${slot.name}
       >
         ${slot.children.length === 0
-          ? html`<span class="canvas-slot-hint"
-              >${isMultiSlot ? slot.name : "Drop blocks here"}</span
-            >`
-          : slot.children.map((childId) => this._renderBlock(childId))}
+          ? this._renderInsertMarker(slotId, 0, {
+              hint: emptySlotHint,
+              empty: true,
+              tail: true,
+            })
+          : html`
+              ${slot.children.map(
+                (childId, index) => html`
+                  ${this._renderInsertMarker(slotId, index)}
+                  ${this._renderBlock(childId)}
+                `,
+              )}
+              ${this._renderInsertMarker(slotId, slot.children.length, {
+                tail: true,
+              })}
+            `}
+      </div>
+    `;
+  }
+
+  private _renderInsertMarker(
+    slotId: SlotId,
+    insertIndex: number,
+    options?: { hint?: string; tail?: boolean; empty?: boolean },
+  ): unknown {
+    const markerClasses = ["canvas-insert-marker"];
+    if (options?.tail) markerClasses.push("tail");
+    if (options?.empty) markerClasses.push("empty");
+
+    return html`
+      <div
+        class=${markerClasses.join(" ")}
+        data-slot-id=${slotId}
+        data-insert-index=${String(insertIndex)}
+      >
+        ${options?.hint
+          ? html`<span class="canvas-slot-hint">${options.hint}</span>`
+          : nothing}
       </div>
     `;
   }

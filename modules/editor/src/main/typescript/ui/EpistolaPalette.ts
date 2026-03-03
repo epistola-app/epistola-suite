@@ -4,6 +4,7 @@ import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, ComponentCategory } from '../engine/registry.js'
 import type { DragData } from '../dnd/types.js'
+import { setEditorDragPreview } from '../dnd/native-drag-preview.js'
 import { icon, type IconName, ICONS } from './icons.js'
 
 const CATEGORY_ORDER: ComponentCategory[] = ['content', 'layout', 'logic', 'page']
@@ -116,10 +117,20 @@ export class EpistolaPalette extends LitElement {
     for (const item of items) {
       const blockType = item.dataset.blockType
       if (!blockType) continue
+      const blockLabel = this.engine?.registry.get(blockType)?.label ?? blockType
 
       const cleanup = draggable({
         element: item,
         getInitialData: (): DragData => ({ source: 'palette', blockType }),
+        onGenerateDragPreview: ({ nativeSetDragImage, location }) => {
+          setEditorDragPreview({
+            nativeSetDragImage,
+            sourceElement: item,
+            input: location.current.input,
+            label: blockLabel,
+            intent: 'insert',
+          })
+        },
         onDragStart: () => item.classList.add('dragging'),
         onDrop: () => item.classList.remove('dragging'),
       })

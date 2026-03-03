@@ -6,38 +6,58 @@
  */
 
 @layer states {
-  /* Drop indicator line on block edges */
-  .canvas-block[data-drop-edge='top']::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--ep-blue-500);
-    border-radius: 1px;
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .canvas-block[data-drop-edge='bottom']::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--ep-blue-500);
-    border-radius: 1px;
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  /* Slot highlight when dragging over (empty or non-empty) */
-  .canvas-slot.drag-over {
-    border: 1px dashed var(--ep-blue-400);
+  /* Canonical insertion marker preview (one per slot index) */
+  .canvas-insert-marker {
+    min-height: var(--ep-space-2);
+    margin-inline: var(--ep-space-2);
     border-radius: var(--ep-radius-sm);
-    background: color-mix(in srgb, var(--ep-blue-100) 50%, transparent);
+    transition: min-height var(--ep-transition-fast);
+  }
+
+  .canvas-insert-marker.tail {
+    min-height: var(--ep-space-3);
+    margin-bottom: var(--ep-space-2);
+  }
+
+  .canvas-insert-marker.empty {
+    min-height: 3rem;
+    margin-inline: 0;
+    border: 1px dashed var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .canvas-insert-marker.active {
+    min-height: calc(var(--ep-h-8) + var(--ep-space-2));
+  }
+
+  .canvas-insert-marker.active::before {
+    content: attr(data-drop-preview);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    min-height: calc(var(--ep-h-8) + var(--ep-space-2));
+    width: 100%;
+    padding-inline: var(--ep-space-2);
+    border: 1px dashed color-mix(in srgb, var(--ep-blue-400) 70%, transparent);
+    border-radius: var(--ep-radius-sm);
+    background: color-mix(in srgb, var(--ep-blue-50) 92%, var(--ep-white));
+    color: var(--ep-blue-800);
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    letter-spacing: var(--ep-tracking-wide);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: var(--ep-shadow-xs);
+    pointer-events: none;
+  }
+
+  .canvas-insert-marker.active .canvas-slot-hint {
+    display: none;
   }
 
   /* Dimmed drag source */
