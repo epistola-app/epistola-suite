@@ -10,7 +10,7 @@
         </div>
 
         <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback(tenantId=${tenantId})}"
-              hx-target="#feedback-dialog-content"
+              hx-target="closest .feedback-dialog-content"
               hx-swap="innerHTML">
 
             <div class="ep-dialog-body" style="display: flex; flex-direction: column; gap: var(--ep-space-4);">
@@ -54,9 +54,32 @@
                     <span class="form-error" th:if="${errors?.containsKey('description')}" th:text="${errors.description}"></span>
                 </div>
 
+                <!-- Screenshot capture -->
+                <div class="form-group">
+                    <label class="ep-label">Screenshot (optional)</label>
+                    <div id="fb-screenshot-zone"
+                         style="border: 2px dashed var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-4); text-align: center; cursor: pointer; min-height: 80px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: var(--ep-space-2);"
+                         onclick="document.getElementById('fb-screenshot-file').click()">
+                        <div id="fb-screenshot-preview" style="display: none; width: 100%; max-height: 200px;">
+                            <img id="fb-screenshot-img" style="max-width: 100%; max-height: 180px; border-radius: var(--ep-radius);" alt="Screenshot preview">
+                            <button type="button" class="btn btn-ghost btn-sm" id="fb-screenshot-remove"
+                                    style="margin-top: var(--ep-space-1);">Remove</button>
+                        </div>
+                        <div id="fb-screenshot-placeholder">
+                            <th:block th:replace="~{fragments/icon :: icon(name='camera', class='ep-icon')}" />
+                            <div style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
+                                Click to upload or paste (Ctrl+V) a screenshot
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" id="fb-screenshot-file" accept="image/png,image/jpeg,image/webp" style="display: none;">
+                </div>
+
                 <!-- Auto-captured fields (hidden) -->
                 <input type="hidden" name="sourceUrl" id="fb-sourceUrl">
                 <input type="hidden" name="consoleLogs" id="fb-consoleLogs">
+                <input type="hidden" name="metadata" id="fb-metadata">
+                <input type="hidden" name="screenshotData" id="fb-screenshotData">
             </div>
 
             <div class="ep-dialog-footer">
@@ -65,18 +88,110 @@
             </div>
         </form>
 
-        <script>
-            // Auto-capture URL and console logs when form is loaded
+        <script th:inline="javascript">
             (function() {
+                const appVersion = /*[[${appVersion}]]*/ 'dev';
+
+                // Auto-capture URL
                 const sourceUrlField = document.getElementById('fb-sourceUrl');
                 if (sourceUrlField) {
                     sourceUrlField.value = window.location.href;
                 }
 
+                // Auto-capture console logs
                 const consoleLogsField = document.getElementById('fb-consoleLogs');
                 if (consoleLogsField && window.__epistola_console_buffer) {
                     consoleLogsField.value = JSON.stringify(window.__epistola_console_buffer.slice(-100));
                 }
+
+                // Auto-capture metadata
+                const metadataField = document.getElementById('fb-metadata');
+                if (metadataField) {
+                    metadataField.value = JSON.stringify({
+                        appVersion: appVersion,
+                        userAgent: navigator.userAgent,
+                        language: navigator.language,
+                        platform: navigator.platform,
+                        viewport: {
+                            width: window.innerWidth,
+                            height: window.innerHeight,
+                        },
+                        screen: {
+                            width: screen.width,
+                            height: screen.height,
+                            pixelRatio: window.devicePixelRatio,
+                        },
+                        url: window.location.href,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+
+                // Screenshot handling
+                const screenshotZone = document.getElementById('fb-screenshot-zone');
+                const screenshotFile = document.getElementById('fb-screenshot-file');
+                const screenshotData = document.getElementById('fb-screenshotData');
+                const screenshotPreview = document.getElementById('fb-screenshot-preview');
+                const screenshotImg = document.getElementById('fb-screenshot-img');
+                const screenshotPlaceholder = document.getElementById('fb-screenshot-placeholder');
+                const screenshotRemove = document.getElementById('fb-screenshot-remove');
+
+                function setScreenshot(dataUrl) {
+                    screenshotData.value = dataUrl;
+                    screenshotImg.src = dataUrl;
+                    screenshotPreview.style.display = 'block';
+                    screenshotPlaceholder.style.display = 'none';
+                }
+
+                function clearScreenshot(e) {
+                    if (e) { e.stopPropagation(); e.preventDefault(); }
+                    screenshotData.value = '';
+                    screenshotImg.src = '';
+                    screenshotPreview.style.display = 'none';
+                    screenshotPlaceholder.style.display = 'block';
+                }
+
+                function readFileAsDataUrl(file) {
+                    if (!file || !file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = () => setScreenshot(reader.result);
+                    reader.readAsDataURL(file);
+                }
+
+                // File input
+                screenshotFile.addEventListener('change', () => {
+                    readFileAsDataUrl(screenshotFile.files?.[0]);
+                    screenshotFile.value = '';
+                });
+
+                // Remove button
+                screenshotRemove.addEventListener('click', clearScreenshot);
+
+                // Paste handler (Ctrl+V)
+                document.addEventListener('paste', (e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+                    for (const item of items) {
+                        if (item.type.startsWith('image/')) {
+                            e.preventDefault();
+                            readFileAsDataUrl(item.getAsFile());
+                            return;
+                        }
+                    }
+                });
+
+                // Drag and drop
+                screenshotZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    screenshotZone.style.borderColor = 'var(--ep-primary)';
+                });
+                screenshotZone.addEventListener('dragleave', () => {
+                    screenshotZone.style.borderColor = 'var(--ep-border)';
+                });
+                screenshotZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    screenshotZone.style.borderColor = 'var(--ep-border)';
+                    readFileAsDataUrl(e.dataTransfer?.files?.[0]);
+                });
             })();
         </script>
     </th:block>

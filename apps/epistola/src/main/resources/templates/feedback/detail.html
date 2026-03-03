@@ -54,6 +54,25 @@
                     </div>
                 </div>
 
+                <!-- Screenshot -->
+                <div th:if="${feedback.screenshotKey != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Screenshot</h3>
+                        <img th:src="@{/tenants/{tenantId}/assets/{assetId}/content(tenantId=${tenantId},assetId=${feedback.screenshotKey})}"
+                             alt="Feedback screenshot"
+                             style="max-width: 100%; border-radius: var(--ep-radius); border: 1px solid var(--ep-border);">
+                    </div>
+                </div>
+
+                <!-- Client Metadata -->
+                <div th:if="${feedback.metadata != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+                    <div class="card-content">
+                        <h3 style="margin-bottom: var(--ep-space-3);">Client Information</h3>
+                        <pre style="font-size: var(--ep-text-xs); max-height: 200px; overflow-y: auto; background: var(--ep-muted); padding: var(--ep-space-3); border-radius: var(--ep-radius);"
+                             th:text="${feedback.metadata}">Metadata</pre>
+                    </div>
+                </div>
+
                 <!-- Console Logs -->
                 <div th:if="${feedback.consoleLogs != null}" class="card" style="margin-bottom: var(--ep-space-6);">
                     <div class="card-content">

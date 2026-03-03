@@ -1,5 +1,7 @@
 package app.epistola.suite.handlers
 
+import app.epistola.suite.assets.AssetMediaType
+import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.common.ids.FeedbackCommentKey
@@ -25,12 +27,18 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
+import org.slf4j.LoggerFactory
+import org.springframework.boot.info.BuildProperties
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
+import java.util.Base64
 
 @Component
-class FeedbackHandler {
+class FeedbackHandler(
+    private val buildProperties: BuildProperties?,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
 
     fun list(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
@@ -127,6 +135,7 @@ class FeedbackHandler {
                 "errors" to form.errors
                 "categories" to FeedbackCategory.entries
                 "priorities" to FeedbackPriority.entries
+                "appVersion" to (buildProperties?.version ?: "dev")
             }
         }
 
@@ -135,9 +144,13 @@ class FeedbackHandler {
         val priority = FeedbackPriority.valueOf(form["priority"])
         val sourceUrl = form.formData["sourceUrl"]
         val consoleLogs = form.formData["consoleLogs"]
-        val screenshotKey = form.formData["screenshotKey"]
-            ?.takeIf { it.isNotBlank() }
-            ?.let { AssetKey.of(it) }
+        val metadata = form.formData["metadata"]
+        val screenshotData = form.formData["screenshotData"]
+
+        // Upload screenshot if provided (base64 data URL)
+        val screenshotKey = screenshotData
+            ?.takeIf { it.startsWith("data:image/") }
+            ?.let { uploadScreenshot(tenantId.key, it) }
 
         val feedbackId = FeedbackId(FeedbackKey.generate(), TenantId(tenantId.key))
 
@@ -150,6 +163,7 @@ class FeedbackHandler {
             sourceUrl = sourceUrl,
             screenshotKey = screenshotKey,
             consoleLogs = consoleLogs,
+            metadata = metadata,
             createdBy = principal.userId,
         ).execute()
 
@@ -245,8 +259,38 @@ class FeedbackHandler {
                 "tenantId" to tenantId.key
                 "categories" to FeedbackCategory.entries
                 "priorities" to FeedbackPriority.entries
+                "appVersion" to (buildProperties?.version ?: "dev")
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+        }
+    }
+
+    /**
+     * Decode a base64 data URL and upload it as an asset.
+     * Format: data:image/png;base64,iVBOR...
+     */
+    private fun uploadScreenshot(tenantKey: app.epistola.suite.common.ids.TenantKey, dataUrl: String): AssetKey? {
+        return try {
+            val parts = dataUrl.split(",", limit = 2)
+            if (parts.size != 2) return null
+
+            val mimeType = parts[0].removePrefix("data:").removeSuffix(";base64")
+            val mediaType = AssetMediaType.fromMimeType(mimeType)
+            val imageBytes = Base64.getDecoder().decode(parts[1])
+
+            val asset = UploadAsset(
+                tenantId = tenantKey,
+                name = "feedback-screenshot.${mediaType.name.lowercase()}",
+                mediaType = mediaType,
+                content = imageBytes,
+                width = null,
+                height = null,
+            ).execute()
+
+            asset.id
+        } catch (e: Exception) {
+            log.warn("Failed to upload feedback screenshot: {}", e.message)
+            null
         }
     }
 }

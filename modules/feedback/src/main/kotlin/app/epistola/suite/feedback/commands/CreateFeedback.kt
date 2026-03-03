@@ -26,6 +26,7 @@ data class CreateFeedback(
     val sourceUrl: String?,
     val screenshotKey: AssetKey?,
     val consoleLogs: String?,
+    val metadata: String?,
     val createdBy: UserKey,
 ) : Command<Feedback> {
     init {
@@ -55,12 +56,12 @@ class CreateFeedbackHandler(
                 """
                 INSERT INTO feedback (
                     tenant_key, id, title, description, category, status, priority,
-                    source_url, screenshot_key, console_logs, created_by,
+                    source_url, screenshot_key, console_logs, metadata, created_by,
                     created_at, updated_at, sync_status
                 )
                 VALUES (
                     :tenantKey, :id, :title, :description, :category, :status, :priority,
-                    :sourceUrl, :screenshotKey, :consoleLogs, :createdBy,
+                    :sourceUrl, :screenshotKey, :consoleLogs, CAST(:metadata AS JSONB), :createdBy,
                     NOW(), NOW(), :syncStatus
                 )
                 RETURNING *
@@ -76,6 +77,7 @@ class CreateFeedbackHandler(
                 .bind("sourceUrl", command.sourceUrl)
                 .bind("screenshotKey", command.screenshotKey?.value)
                 .bind("consoleLogs", command.consoleLogs)
+                .bind("metadata", command.metadata)
                 .bind("createdBy", command.createdBy.value)
                 .bind("syncStatus", syncStatus.name)
                 .mapTo(Feedback::class.java)

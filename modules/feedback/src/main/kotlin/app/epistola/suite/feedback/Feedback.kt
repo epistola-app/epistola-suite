@@ -17,6 +17,7 @@ data class Feedback(
     val sourceUrl: String?,
     val screenshotKey: AssetKey?,
     val consoleLogs: String?,
+    val metadata: String?,
     val createdBy: UserKey,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
