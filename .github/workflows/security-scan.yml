@@ -21,6 +21,9 @@ jobs:
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v5
 
+      - name: Build frontend
+        run: pnpm install && pnpm build
+
       - name: Generate backend SBOM
         run: gradle :apps:epistola:generateSbom
 
