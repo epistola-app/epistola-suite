@@ -136,6 +136,14 @@ observability:
     enabled: false
     port: 4000
     path: /actuator/prometheus
+  # Grafana Operator CRDs (dashboards + alerts)
+  grafana:
+    enabled: false
+    instanceSelector:
+      matchLabels:
+        dashboards: "grafana"
+    datasourceName: "Prometheus"
+    folder: "Epistola"
 
 # Keycloak / OAuth2 configuration (optional, requires config.profiles to include "prod")
 keycloak:

@@ -25,6 +25,9 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
 import app.epistola.suite.tenants.queries.GetTenant
+import io.micrometer.core.instrument.DistributionSummary
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -48,6 +51,7 @@ class DocumentGenerationExecutor(
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
     private val contentStore: ContentStore,
+    private val meterRegistry: MeterRegistry,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -69,17 +73,24 @@ class DocumentGenerationExecutor(
             return
         }
 
+        val templateName = request.templateKey.value
+        val path = "unknown" // will be determined during generation
+
         logger.info(
             "Processing request {} for template {}/{}/{}",
             request.id.value,
-            request.templateKey.value,
+            templateName,
             request.variantKey.value,
             request.versionKey?.value ?: request.environmentKey?.value,
         )
 
+        val sample = Timer.start(meterRegistry)
+        var outcome = "success"
+        var renderPath = "unknown"
         try {
             // Generate the document
-            val (document, pdfBytes) = generateDocument(request)
+            val (document, pdfBytes, usedPath) = generateDocument(request)
+            renderPath = usedPath
 
             // Store content first — orphaned blob is harmless, missing content is not
             contentStore.put(
@@ -88,6 +99,12 @@ class DocumentGenerationExecutor(
                 document.contentType,
                 document.sizeBytes,
             )
+
+            // Record document size
+            DistributionSummary.builder("epistola.generation.document.size.bytes")
+                .tag("template", templateName)
+                .register(meterRegistry)
+                .record(document.sizeBytes.toDouble())
 
             // Save document metadata and mark request as completed
             saveDocumentAndMarkCompleted(request.id, document)
@@ -99,6 +116,7 @@ class DocumentGenerationExecutor(
 
             logger.info("Request {} completed successfully: document {}", request.id.value, document.id.value)
         } catch (e: Exception) {
+            outcome = "failure"
             logger.error("Failed to process request {}: {}", request.id.value, e.message, e)
             markRequestFailed(request.id, e.message ?: "Unknown error")
 
@@ -106,14 +124,22 @@ class DocumentGenerationExecutor(
             request.batchId?.let { batchId ->
                 finalizeBatchIfComplete(batchId)
             }
+        } finally {
+            sample.stop(
+                Timer.builder("epistola.generation.document.duration")
+                    .tag("outcome", outcome)
+                    .tag("template", templateName)
+                    .tag("path", renderPath)
+                    .register(meterRegistry),
+            )
         }
     }
 
     /**
      * Generate a PDF document for the given request.
-     * Returns the document metadata and the raw PDF bytes.
+     * Returns the document metadata, raw PDF bytes, and the render path used (snapshot/legacy).
      */
-    private fun generateDocument(request: DocumentGenerationRequest): Pair<Document, ByteArray> {
+    private fun generateDocument(request: DocumentGenerationRequest): Triple<Document, ByteArray, String> {
         logger.debug(
             "Generating document for request {} (template {}/{}/{})",
             request.id.value,
@@ -168,7 +194,9 @@ class DocumentGenerationExecutor(
         // Use frozen snapshot for published versions, live resolution for legacy versions
         val resolvedTheme = version.resolvedTheme
         val renderingDefaultsVersion = version.renderingDefaultsVersion
+        val renderPath: String
         if (resolvedTheme != null && renderingDefaultsVersion != null) {
+            renderPath = "snapshot"
             // Deterministic path: use frozen theme + rendering defaults from publish time
             val renderingDefaults = RenderingDefaults.forVersion(renderingDefaultsVersion)
             val metadataWithEngine = metadata.copy(engineVersion = renderingDefaults.engineVersionString())
@@ -183,6 +211,7 @@ class DocumentGenerationExecutor(
                 assetResolver = assetResolver,
             )
         } else {
+            renderPath = "legacy"
             // Legacy path: live theme resolution (backward compatible for pre-V16 published versions)
             val metadataWithEngine = metadata.copy(
                 engineVersion = RenderingDefaults.CURRENT.engineVersionString(),
@@ -226,7 +255,7 @@ class DocumentGenerationExecutor(
             createdAt = OffsetDateTime.now(),
             createdBy = null, // TODO: Get from security context when auth is implemented
         )
-        return document to pdfBytes
+        return Triple(document, pdfBytes, renderPath)
     }
 
     /**

@@ -6,6 +6,7 @@ import app.epistola.suite.apikeys.ApiKey
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.common.ids.ApiKeyKey
 import app.epistola.suite.common.ids.TenantKey
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -24,7 +25,8 @@ class ApiKeyAuthenticationFilterTest {
     private val apiKeyService = ApiKeyService()
     private val storedKeys = mutableMapOf<String, ApiKey>()
     private val repository = TestApiKeyRepository(storedKeys)
-    private val filter = ApiKeyAuthenticationFilter(repository, apiKeyService)
+    private val meterRegistry = SimpleMeterRegistry()
+    private val filter = ApiKeyAuthenticationFilter(repository, apiKeyService, meterRegistry)
     private lateinit var request: MockHttpServletRequest
     private lateinit var response: MockHttpServletResponse
     private var filterChainCalled = false

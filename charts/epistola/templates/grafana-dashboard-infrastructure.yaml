@@ -1,0 +1,358 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ include "epistola.fullname" . }}-infrastructure
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  folder: {{ .Values.observability.grafana.folder | quote }}
+  json: |
+    {
+      "title": "Epistola — Infrastructure (JVM & Database)",
+      "uid": "epistola-infrastructure",
+      "tags": ["epistola"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-6h", "to": "now" },
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Datasource",
+            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "JVM Heap Usage",
+          "type": "gauge",
+          "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum(jvm_memory_used_bytes{area=\"heap\"}) / sum(jvm_memory_max_bytes{area=\"heap\"}) * 100",
+              "legendFormat": "Heap %",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "reduceOptions": { "calcs": ["lastNotNull"] },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 70 },
+                  { "color": "red", "value": 85 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "JVM Heap Over Time",
+          "type": "timeseries",
+          "gridPos": { "x": 4, "y": 0, "w": 14, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})",
+              "legendFormat": "Used",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(jvm_memory_committed_bytes{area=\"heap\"})",
+              "legendFormat": "Committed",
+              "refId": "B"
+            },
+            {
+              "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})",
+              "legendFormat": "Max",
+              "refId": "C"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Max" },
+                "properties": [
+                  { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+                  { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 3,
+          "title": "GC Pause Duration (avg)",
+          "type": "timeseries",
+          "gridPos": { "x": 18, "y": 0, "w": 6, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(jvm_gc_pause_seconds_sum[5m]) / rate(jvm_gc_pause_seconds_count[5m])",
+              "legendFormat": "{{`{{action}}`}} {{`{{cause}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 4,
+          "title": "Thread Count",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 6, "w": 8, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "jvm_threads_live_threads",
+              "legendFormat": "Live Threads",
+              "refId": "A"
+            },
+            {
+              "expr": "jvm_threads_daemon_threads",
+              "legendFormat": "Daemon Threads",
+              "refId": "B"
+            },
+            {
+              "expr": "jvm_threads_peak_threads",
+              "legendFormat": "Peak Threads",
+              "refId": "C"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 5,
+          "title": "HikariCP Active vs Max Pool Size",
+          "type": "timeseries",
+          "gridPos": { "x": 8, "y": 6, "w": 8, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "hikaricp_connections_active",
+              "legendFormat": "Active",
+              "refId": "A"
+            },
+            {
+              "expr": "hikaricp_connections_max",
+              "legendFormat": "Max",
+              "refId": "B"
+            },
+            {
+              "expr": "hikaricp_connections_idle",
+              "legendFormat": "Idle",
+              "refId": "C"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "palette-classic" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Max" },
+                "properties": [
+                  { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+                  { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": 6,
+          "title": "HikariCP Pending Connections",
+          "type": "timeseries",
+          "gridPos": { "x": 16, "y": 6, "w": 4, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "hikaricp_connections_pending",
+              "legendFormat": "Pending",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "color": { "mode": "fixed", "fixedColor": "orange" }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "HikariCP Connection Timeouts",
+          "type": "timeseries",
+          "gridPos": { "x": 20, "y": 6, "w": 4, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(hikaricp_connections_timeout_total[5m])",
+              "legendFormat": "Timeouts / sec",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "fixed", "fixedColor": "red" }
+            }
+          }
+        },
+        {
+          "id": 8,
+          "title": "CPU Usage",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 12, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "process_cpu_usage",
+              "legendFormat": "Process CPU",
+              "refId": "A"
+            },
+            {
+              "expr": "system_cpu_usage",
+              "legendFormat": "System CPU",
+              "refId": "B"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 9,
+          "title": "Storage Latency p95 (by operation & backend)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 12, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (operation, backend, le) (rate(epistola_storage_operation_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{`{{operation}}`}} / {{`{{backend}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 10,
+          "title": "Slowest HTTP Endpoints (p95)",
+          "type": "table",
+          "gridPos": { "x": 0, "y": 18, "w": 24, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "topk(15, histogram_quantile(0.95, sum by (uri, method, le) (rate(http_server_requests_seconds_bucket[5m]))))",
+              "legendFormat": "{{`{{method}}`}} {{`{{uri}}`}}",
+              "refId": "A",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "options": {
+            "sortBy": [{ "displayName": "Value", "desc": true }],
+            "footer": { "show": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "uri" },
+                "properties": [{ "id": "displayName", "value": "Endpoint" }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "method" },
+                "properties": [{ "id": "displayName", "value": "Method" }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Value" },
+                "properties": [{ "id": "displayName", "value": "p95 Latency" }]
+              }
+            ]
+          }
+        }
+      ]
+    }
+{{- end }}

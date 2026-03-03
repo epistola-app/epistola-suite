@@ -1,0 +1,239 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: {{ include "epistola.fullname" . }}-mediator
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  folder: {{ .Values.observability.grafana.folder | quote }}
+  json: |
+    {
+      "title": "Epistola — CQRS Mediator",
+      "uid": "epistola-mediator",
+      "tags": ["epistola"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "time": { "from": "now-6h", "to": "now" },
+      "refresh": "30s",
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Datasource",
+            "current": { "text": "{{ .Values.observability.grafana.datasourceName }}", "value": "{{ .Values.observability.grafana.datasourceName }}" },
+            "hide": 0
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Top 10 Commands by Rate",
+          "type": "barchart",
+          "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "topk(10, sum by (command) (rate(epistola_mediator_command_duration_seconds_count[5m])))",
+              "legendFormat": "{{`{{command}}`}}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "options": {
+            "xTickLabelRotation": -45,
+            "stacking": "none",
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 2,
+          "title": "Top 10 Queries by Rate",
+          "type": "barchart",
+          "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "topk(10, sum by (query) (rate(epistola_mediator_query_duration_seconds_count[5m])))",
+              "legendFormat": "{{`{{query}}`}}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "options": {
+            "xTickLabelRotation": -45,
+            "stacking": "none",
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 3,
+          "title": "Slowest Commands (p95)",
+          "type": "table",
+          "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "topk(10, histogram_quantile(0.95, sum by (command, le) (rate(epistola_mediator_command_duration_seconds_bucket[5m]))))",
+              "legendFormat": "{{`{{command}}`}}",
+              "refId": "A",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "options": {
+            "sortBy": [{ "displayName": "Value", "desc": true }],
+            "footer": { "show": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "command" },
+                "properties": [{ "id": "displayName", "value": "Command" }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Value" },
+                "properties": [{ "id": "displayName", "value": "p95 Duration" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": 4,
+          "title": "Slowest Queries (p95)",
+          "type": "table",
+          "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "topk(10, histogram_quantile(0.95, sum by (query, le) (rate(epistola_mediator_query_duration_seconds_bucket[5m]))))",
+              "legendFormat": "{{`{{query}}`}}",
+              "refId": "A",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "options": {
+            "sortBy": [{ "displayName": "Value", "desc": true }],
+            "footer": { "show": false }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "query" },
+                "properties": [{ "id": "displayName", "value": "Query" }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Value" },
+                "properties": [{ "id": "displayName", "value": "p95 Duration" }]
+              }
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "title": "Command Failures by Type",
+          "type": "timeseries",
+          "gridPos": { "x": 0, "y": 16, "w": 12, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "sum by (command) (rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m]))",
+              "legendFormat": "{{`{{command}}`}}",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "multi" },
+            "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "palette-classic" }
+            }
+          }
+        },
+        {
+          "id": 6,
+          "title": "Event Log Write Duration (p95)",
+          "type": "timeseries",
+          "gridPos": { "x": 12, "y": 16, "w": 6, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, rate(epistola_eventlog_persist_duration_seconds_bucket[5m]))",
+              "legendFormat": "p95 Write Duration",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": { "mode": "fixed", "fixedColor": "blue" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 0.1 },
+                  { "color": "red", "value": 0.5 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": 7,
+          "title": "Event Log Persistence Failures",
+          "type": "timeseries",
+          "gridPos": { "x": 18, "y": 16, "w": 6, "h": 6 },
+          "datasource": { "type": "prometheus", "uid": "{{ .Values.observability.grafana.datasourceName }}" },
+          "targets": [
+            {
+              "expr": "rate(epistola_eventlog_persist_failures_total[5m])",
+              "legendFormat": "Failures / sec",
+              "refId": "A"
+            }
+          ],
+          "options": {
+            "tooltip": { "mode": "single" },
+            "legend": { "displayMode": "list", "placement": "bottom" }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ops",
+              "color": { "mode": "fixed", "fixedColor": "red" }
+            }
+          }
+        }
+      ]
+    }
+{{- end }}

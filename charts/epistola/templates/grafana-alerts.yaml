@@ -1,0 +1,352 @@
+{{- if .Values.observability.grafana.enabled }}
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaAlertRuleGroup
+metadata:
+  name: {{ include "epistola.fullname" . }}-alerts
+  labels:
+    {{- include "epistola.labels" . | nindent 4 }}
+spec:
+  instanceSelector:
+    {{- toYaml .Values.observability.grafana.instanceSelector | nindent 4 }}
+  folderRef: {{ .Values.observability.grafana.folder | quote }}
+  interval: 60s
+  rules:
+    # -------------------------------------------------------------------------
+    # Critical — Page Immediately
+    # -------------------------------------------------------------------------
+    - uid: epistola-alert-pipeline-stalled
+      title: GenerationPipelineStalled
+      condition: C
+      for: 10m
+      labels:
+        severity: critical
+        team: epistola
+      annotations:
+        summary: "Document generation pipeline has stalled"
+        description: "Queue depth is non-zero but no jobs are completing or failing. The worker process may be hung or deadlocked."
+        runbook_url: "https://github.com/epistola-app/epistola-suite/blob/main/docs/runbooks/generation-pipeline-stalled.md"
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "epistola_generation_queue_depth"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "rate(epistola_jobs_completed_total[5m]) == 0"
+            instant: true
+            refId: B
+        - refId: C
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 0 && $B == 1"
+            refId: C
+
+    - uid: epistola-alert-high-failure-rate
+      title: HighJobFailureRate
+      condition: C
+      for: 5m
+      labels:
+        severity: critical
+        team: epistola
+      annotations:
+        summary: "Document generation failure rate exceeds 10%"
+        description: "More than 10% of generation jobs are failing over the last 5 minutes. Current failure rate: {{ `{{ $C | humanizePercentage }}` }}"
+        runbook_url: "https://github.com/epistola-app/epistola-suite/blob/main/docs/runbooks/high-job-failure-rate.md"
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "rate(epistola_jobs_failed_total[5m])"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "rate(epistola_jobs_completed_total[5m]) + rate(epistola_jobs_failed_total[5m])"
+            instant: true
+            refId: B
+        - refId: C
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A / $B > 0.1"
+            refId: C
+
+    - uid: epistola-alert-db-pool-exhausted
+      title: DatabaseConnectionPoolExhausted
+      condition: B
+      for: 5m
+      labels:
+        severity: critical
+        team: epistola
+      annotations:
+        summary: "HikariCP connection pool is nearly exhausted"
+        description: "Active database connections exceed 90% of the maximum pool size. New requests may start timing out. Current utilization: {{ `{{ $B | humanizePercentage }}` }}"
+        runbook_url: "https://github.com/epistola-app/epistola-suite/blob/main/docs/runbooks/db-pool-exhausted.md"
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "hikaricp_connections_active / hikaricp_connections_max"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 0.9"
+            refId: B
+
+    # -------------------------------------------------------------------------
+    # Warning — Investigate Within Hours
+    # -------------------------------------------------------------------------
+    - uid: epistola-alert-queue-growing
+      title: GenerationQueueGrowing
+      condition: B
+      for: 15m
+      labels:
+        severity: warning
+        team: epistola
+      annotations:
+        summary: "Document generation queue depth is elevated"
+        description: "Queue depth has been above 100 for more than 15 minutes. Generation throughput may not be keeping up with demand. Current depth: {{ `{{ $B }}` }}"
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "epistola_generation_queue_depth"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 100"
+            refId: B
+
+    - uid: epistola-alert-slow-generation
+      title: SlowDocumentGeneration
+      condition: B
+      for: 15m
+      labels:
+        severity: warning
+        team: epistola
+      annotations:
+        summary: "Document generation p95 latency exceeds 30 seconds"
+        description: "The 95th percentile generation duration has been above 30s for 15 minutes. Users may be experiencing timeouts. Current p95: {{ `{{ $A }}` }}s"
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "histogram_quantile(0.95, rate(epistola_generation_document_duration_seconds_bucket[5m]))"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 30"
+            refId: B
+
+    - uid: epistola-alert-high-command-error-rate
+      title: HighCommandErrorRate
+      condition: C
+      for: 10m
+      labels:
+        severity: warning
+        team: epistola
+      annotations:
+        summary: "CQRS command error rate exceeds 5%"
+        description: "More than 5% of commands are failing over the last 5 minutes, indicating application-level errors. Check logs for exception details."
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "sum(rate(epistola_mediator_command_duration_seconds_count{outcome=\"failure\"}[5m]))"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "sum(rate(epistola_mediator_command_duration_seconds_count[5m]))"
+            instant: true
+            refId: B
+        - refId: C
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A / $B > 0.05"
+            refId: C
+
+    - uid: epistola-alert-eventlog-failures
+      title: EventLogPersistenceFailures
+      condition: B
+      for: 5m
+      labels:
+        severity: warning
+        team: epistola
+      annotations:
+        summary: "Event log persistence is failing"
+        description: "The event log is experiencing write failures. Audit trail may be incomplete. Check database connectivity and disk space."
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "rate(epistola_eventlog_persist_failures_total[5m])"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 0"
+            refId: B
+
+    - uid: epistola-alert-high-auth-failure-rate
+      title: HighApiAuthFailureRate
+      condition: B
+      for: 5m
+      labels:
+        severity: warning
+        team: epistola
+      annotations:
+        summary: "High rate of API authentication failures"
+        description: "Combined invalid_key and invalid_format auth failures exceed 5 per second. This may indicate a misconfigured client, credential rotation issue, or brute-force attempt."
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "rate(epistola_api_auth_attempts_total{result=\"invalid_key\"}[5m]) + rate(epistola_api_auth_attempts_total{result=\"invalid_format\"}[5m])"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 5"
+            refId: B
+
+    - uid: epistola-alert-jvm-heap-pressure
+      title: JvmHeapPressure
+      condition: B
+      for: 10m
+      labels:
+        severity: warning
+        team: epistola
+      annotations:
+        summary: "JVM heap usage exceeds 85%"
+        description: "JVM heap utilization has been above 85% for 10 minutes. The application may be approaching an OutOfMemoryError. Consider increasing memory limits or investigating for memory leaks."
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "sum(jvm_memory_used_bytes{area=\"heap\"}) / sum(jvm_memory_max_bytes{area=\"heap\"})"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 0.85"
+            refId: B
+
+    # -------------------------------------------------------------------------
+    # Info — Dashboard Only
+    # -------------------------------------------------------------------------
+    - uid: epistola-alert-storage-backend-slow
+      title: StorageBackendSlow
+      condition: B
+      for: 10m
+      labels:
+        severity: info
+        team: epistola
+      annotations:
+        summary: "Storage backend p95 latency exceeds 5 seconds"
+        description: "The 95th percentile storage operation latency has been above 5s for 10 minutes. Document generation times will be degraded. Check the storage backend health."
+      data:
+        - refId: A
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "{{ .Values.observability.grafana.datasourceName }}"
+          model:
+            expr: "histogram_quantile(0.95, sum by (operation, backend, le) (rate(epistola_storage_operation_duration_seconds_bucket[5m])))"
+            instant: true
+            refId: A
+        - refId: B
+          relativeTimeRange:
+            from: 600
+            to: 0
+          datasourceUid: "__expr__"
+          model:
+            type: math
+            expression: "$A > 5"
+            refId: B
+{{- end }}

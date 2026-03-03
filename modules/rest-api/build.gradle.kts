@@ -28,6 +28,9 @@ dependencies {
     // Spring Security (for exception types in ApiExceptionHandler)
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // Micrometer (for API authentication metrics)
+    implementation("io.micrometer:micrometer-core")
+
     // JSON serialization
     implementation("tools.jackson.module:jackson-module-kotlin")
 
