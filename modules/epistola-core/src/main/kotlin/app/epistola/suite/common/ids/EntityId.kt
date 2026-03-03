@@ -99,3 +99,14 @@ class ApiKeyId(key: ApiKeyKey, tenantId: TenantId) : EntityId<ApiKeyKey, UUID, T
     override val type = "api-key"
     val tenantKey = tenantId.key
 }
+
+class FeedbackId(key: FeedbackKey, tenantId: TenantId) : EntityId<FeedbackKey, UUID, TenantId>(key, tenantId) {
+    override val type = "feedback"
+    val tenantKey = tenantId.key
+}
+
+class FeedbackCommentId(key: FeedbackCommentKey, feedbackId: FeedbackId) : EntityId<FeedbackCommentKey, UUID, FeedbackId>(key, feedbackId) {
+    override val type = "feedback-comment"
+    val feedbackKey = feedbackId.key
+    val tenantKey = feedbackId.tenantKey
+}

@@ -366,3 +366,39 @@ value class UserKey(@JsonValue override val value: UUID) : UuidKey<UserKey> {
 
     override fun toString(): String = value.toString()
 }
+
+/**
+ * Typed key for Feedback entities.
+ */
+@JvmInline
+value class FeedbackKey(@JsonValue override val value: UUID) : UuidKey<FeedbackKey> {
+    companion object {
+        fun generate(): FeedbackKey = FeedbackKey(UUIDv7.generate())
+        fun of(value: UUID): FeedbackKey = FeedbackKey(value)
+        fun of(value: String): FeedbackKey = FeedbackKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeedbackKey = FeedbackKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
+ * Typed key for FeedbackComment entities.
+ */
+@JvmInline
+value class FeedbackCommentKey(@JsonValue override val value: UUID) : UuidKey<FeedbackCommentKey> {
+    companion object {
+        fun generate(): FeedbackCommentKey = FeedbackCommentKey(UUIDv7.generate())
+        fun of(value: UUID): FeedbackCommentKey = FeedbackCommentKey(value)
+        fun of(value: String): FeedbackCommentKey = FeedbackCommentKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeedbackCommentKey = FeedbackCommentKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}

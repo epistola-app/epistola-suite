@@ -20,6 +20,9 @@ dependencies {
     // Core business logic module (includes template-model, generation transitively)
     implementation(project(":modules:epistola-core"))
 
+    // Feedback module (feedback system with GitHub integration)
+    implementation(project(":modules:feedback"))
+
     // Load test module (load testing functionality)
     implementation(project(":modules:loadtest"))
 
