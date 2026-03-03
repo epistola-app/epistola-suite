@@ -140,7 +140,7 @@ class ImportTemplatesHandler(
             """
                 INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
                 VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
-                ON CONFLICT (tenant_key, id) DO UPDATE SET template_key = :templateId, last_modified = NOW()
+                ON CONFLICT (tenant_key, template_key, id) DO UPDATE SET last_modified = NOW()
                 """,
         )
             .bind("id", defaultVariantId)
@@ -166,8 +166,8 @@ class ImportTemplatesHandler(
                 """
                     INSERT INTO template_variants (id, tenant_key, template_key, title, attributes, is_default, created_at, last_modified)
                     VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
-                    ON CONFLICT (tenant_key, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, template_key = :templateId, last_modified = NOW()
+                    ON CONFLICT (tenant_key, template_key, id) DO UPDATE
+                    SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
                     """,
             )
                 .bind("id", variantId)
