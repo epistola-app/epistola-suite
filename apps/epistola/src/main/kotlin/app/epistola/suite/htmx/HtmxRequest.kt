@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
+import app.epistola.suite.common.ids.FeedbackId
+import app.epistola.suite.common.ids.FeedbackKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -126,6 +128,15 @@ fun ServerRequest.environmentId(tenantId: TenantId): EnvironmentId? {
 fun ServerRequest.attributeId(tenantId: TenantId): AttributeId? {
     val key = AttributeKey.validateOrNull(pathVariable("attributeId")) ?: return null
     return AttributeId(key, tenantId)
+}
+
+/**
+ * Extract and validate a [FeedbackId] from the `feedbackId` path variable.
+ * Returns null if the feedback UUID is invalid.
+ */
+fun ServerRequest.feedbackId(tenantId: TenantId): FeedbackId? {
+    val uuid = runCatching { java.util.UUID.fromString(pathVariable("feedbackId")) }.getOrNull() ?: return null
+    return FeedbackId(FeedbackKey.of(uuid), tenantId)
 }
 
 /**

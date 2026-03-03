@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="ep-dialog-header">
+            <h2>Submit Feedback</h2>
+            <button type="button" class="btn btn-ghost btn-icon" onclick="this.closest('dialog').close()">
+                <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon')}" />
+            </button>
+        </div>
+
+        <form hx-post th:hx-post="@{/tenants/{tenantId}/feedback(tenantId=${tenantId})}"
+              hx-target="#feedback-dialog-content"
+              hx-swap="innerHTML">
+
+            <div class="ep-dialog-body" style="display: flex; flex-direction: column; gap: var(--ep-space-4);">
+                <div class="form-group" th:classappend="${errors?.containsKey('title')} ? 'error' : ''">
+                    <label class="ep-label" for="fb-title">Title</label>
+                    <input type="text" id="fb-title" name="title" class="ep-input"
+                           required placeholder="Brief summary of the issue"
+                           th:value="${formData?.title}">
+                    <span class="form-error" th:if="${errors?.containsKey('title')}" th:text="${errors.title}"></span>
+                </div>
+
+                <div style="display: flex; gap: var(--ep-space-3);">
+                    <div class="form-group" style="flex: 1;" th:classappend="${errors?.containsKey('category')} ? 'error' : ''">
+                        <label class="ep-label" for="fb-category">Category</label>
+                        <select id="fb-category" name="category" class="ep-input" required>
+                            <option value="" disabled selected>Select...</option>
+                            <option th:each="c : ${categories}" th:value="${c.name()}"
+                                    th:text="${c.name()}"
+                                    th:selected="${formData?.category == c.name()}">CATEGORY</option>
+                        </select>
+                        <span class="form-error" th:if="${errors?.containsKey('category')}" th:text="${errors.category}"></span>
+                    </div>
+
+                    <div class="form-group" style="flex: 1;" th:classappend="${errors?.containsKey('priority')} ? 'error' : ''">
+                        <label class="ep-label" for="fb-priority">Priority</label>
+                        <select id="fb-priority" name="priority" class="ep-input" required>
+                            <option th:each="p : ${priorities}" th:value="${p.name()}"
+                                    th:text="${p.name()}"
+                                    th:selected="${formData?.priority == p.name() || (formData == null && p.name() == 'MEDIUM')}">PRIORITY</option>
+                        </select>
+                        <span class="form-error" th:if="${errors?.containsKey('priority')}" th:text="${errors.priority}"></span>
+                    </div>
+                </div>
+
+                <div class="form-group" th:classappend="${errors?.containsKey('description')} ? 'error' : ''">
+                    <label class="ep-label" for="fb-description">Description</label>
+                    <textarea id="fb-description" name="description" class="ep-input"
+                              required rows="5"
+                              placeholder="Describe the issue in detail..."
+                              th:text="${formData?.description}"></textarea>
+                    <span class="form-error" th:if="${errors?.containsKey('description')}" th:text="${errors.description}"></span>
+                </div>
+
+                <!-- Auto-captured fields (hidden) -->
+                <input type="hidden" name="sourceUrl" id="fb-sourceUrl">
+                <input type="hidden" name="consoleLogs" id="fb-consoleLogs">
+            </div>
+
+            <div class="ep-dialog-footer">
+                <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Submit Feedback</button>
+            </div>
+        </form>
+
+        <script>
+            // Auto-capture URL and console logs when form is loaded
+            (function() {
+                const sourceUrlField = document.getElementById('fb-sourceUrl');
+                if (sourceUrlField) {
+                    sourceUrlField.value = window.location.href;
+                }
+
+                const consoleLogsField = document.getElementById('fb-consoleLogs');
+                if (consoleLogsField && window.__epistola_console_buffer) {
+                    consoleLogsField.value = JSON.stringify(window.__epistola_console_buffer.slice(-100));
+                }
+            })();
+        </script>
+    </th:block>
+</body>
+</html>

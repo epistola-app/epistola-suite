@@ -24,6 +24,29 @@
                 initSessionMonitor();
             </script>
         </th:block>
+
+        <!-- Feedback FAB + console capture (tenant-scoped pages only) -->
+        <th:block th:if="${tenantId != null}" sec:authorize="isAuthenticated()">
+            <script th:src="@{/js/modules/feedback-capture.js}"></script>
+            <button type="button" class="feedback-fab"
+                    title="Submit Feedback"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
+                    hx-target="#feedback-fab-dialog-content"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('feedback-fab-dialog').showModal()">
+                <th:block th:replace="~{fragments/icon :: icon(name='message-square-plus', class='ep-icon')}" />
+            </button>
+            <dialog id="feedback-fab-dialog" class="ep-dialog ep-dialog-wide">
+                <div id="feedback-fab-dialog-content">
+                    <!-- Loaded via HTMX -->
+                </div>
+            </dialog>
+            <script>
+                document.getElementById('feedback-fab-dialog')?.addEventListener('click', function(e) {
+                    if (e.target === this) this.close();
+                });
+            </script>
+        </th:block>
     </th:block>
 </body>
 </html>

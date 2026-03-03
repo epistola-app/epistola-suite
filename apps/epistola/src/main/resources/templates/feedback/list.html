@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Feedback</h1>
+            <div class="page-actions">
+                <button type="button" class="btn btn-primary"
+                        hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
+                        hx-target="#feedback-dialog-content"
+                        hx-swap="innerHTML"
+                        onclick="document.getElementById('feedback-dialog').showModal()">
+                    <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
+                    New Feedback
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="ep-filters" style="margin-bottom: var(--ep-space-4); display: flex; gap: var(--ep-space-3);">
+            <select class="ep-input ep-input-sm" style="width: auto;"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
+                    hx-target="#feedback-rows"
+                    hx-swap="innerHTML"
+                    hx-include="[name='category']"
+                    name="status">
+                <option value="">All Statuses</option>
+                <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}"
+                        th:selected="${selectedStatus != null && selectedStatus.name() == s.name()}">STATUS</option>
+            </select>
+            <select class="ep-input ep-input-sm" style="width: auto;"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/feedback/search(tenantId=${tenantId})}"
+                    hx-target="#feedback-rows"
+                    hx-swap="innerHTML"
+                    hx-include="[name='status']"
+                    name="category">
+                <option value="">All Categories</option>
+                <option th:each="c : ${categories}" th:value="${c.name()}" th:text="${c.name()}"
+                        th:selected="${selectedCategory != null && selectedCategory.name() == c.name()}">CATEGORY</option>
+            </select>
+        </div>
+
+        <div th:if="${#lists.isEmpty(feedbackItems)}" class="empty-state">
+            <div class="empty-state-icon">
+                <th:block th:replace="~{fragments/icon :: icon(name='message-square', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <div class="empty-state-title">No feedback yet</div>
+            <div class="empty-state-description">Submit feedback to report issues, request features, or ask questions.</div>
+        </div>
+
+        <table th:if="${!#lists.isEmpty(feedbackItems)}" class="ep-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Submitted by</th>
+                    <th>Comments</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody id="feedback-rows">
+                <th:block th:fragment="rows">
+                    <tr th:each="item : ${feedbackItems}">
+                        <td>
+                            <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
+                               style="font-weight: 500;"
+                               th:text="${item.title}">Title</a>
+                        </td>
+                        <td>
+                            <span class="ep-badge ep-badge-outline" th:text="${item.category.name()}">BUG</span>
+                        </td>
+                        <td>
+                            <span class="ep-badge"
+                                  th:classappend="${item.status.name() == 'OPEN'} ? 'ep-badge-info' : (${item.status.name() == 'IN_PROGRESS'} ? 'ep-badge-warning' : (${item.status.name() == 'RESOLVED'} ? 'ep-badge-success' : 'ep-badge-muted'))"
+                                  th:text="${item.status.name()}">OPEN</span>
+                        </td>
+                        <td>
+                            <span class="ep-badge"
+                                  th:classappend="${item.priority.name() == 'CRITICAL'} ? 'ep-badge-destructive' : (${item.priority.name() == 'HIGH'} ? 'ep-badge-warning' : 'ep-badge-outline')"
+                                  th:text="${item.priority.name()}">MEDIUM</span>
+                        </td>
+                        <td th:text="${item.createdByName}">User</td>
+                        <td th:text="${item.commentCount}">0</td>
+                        <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                    </tr>
+                </th:block>
+            </tbody>
+        </table>
+
+        <!-- Submit dialog -->
+        <dialog id="feedback-dialog" class="ep-dialog ep-dialog-wide">
+            <div id="feedback-dialog-content">
+                <!-- Loaded via HTMX -->
+            </div>
+        </dialog>
+
+        <script>
+            // Close dialog on backdrop click
+            document.getElementById('feedback-dialog')?.addEventListener('click', function(e) {
+                if (e.target === this) this.close();
+            });
+        </script>
+    </th:block>
+</body>
+</html>
