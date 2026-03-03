@@ -74,6 +74,8 @@ epistola:
 #      enabled: true                           # Enable outbound sync scheduler
 #      retry-interval-ms: 60000                # Retry interval for failed syncs
 #      max-retries: 3                          # Max retry attempts before marking FAILED
+#    webhooks:
+#      enabled: false                          # Enable inbound webhook endpoint (requires external access)
 
 management:
   endpoints:

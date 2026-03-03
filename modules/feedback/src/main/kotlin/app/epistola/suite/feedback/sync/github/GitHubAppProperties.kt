@@ -17,10 +17,15 @@ data class GitHubAppProperties(
     val privateKeyPath: String,
     val webhookSecret: String,
     val sync: SyncProperties = SyncProperties(),
+    val webhooks: WebhookProperties = WebhookProperties(),
 ) {
     data class SyncProperties(
         val enabled: Boolean = true,
         val retryIntervalMs: Long = 60_000,
         val maxRetries: Int = 3,
+    )
+
+    data class WebhookProperties(
+        val enabled: Boolean = false,
     )
 }

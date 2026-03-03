@@ -77,6 +77,25 @@ class SecurityConfig(
     }
 
     /**
+     * Webhook security filter chain for paths under /webhooks.
+     *
+     * Stateless, no CSRF, no session. Authentication is handled by
+     * HMAC-SHA256 signature verification in the webhook controller itself.
+     * Only active when the webhook controller bean is present.
+     */
+    @Bean
+    @Order(1)
+    @Profile("!test")
+    fun webhookSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http
+            .securityMatcher("/feedback/github/webhooks")
+            .authorizeHttpRequests { it.anyRequest().permitAll() }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .csrf { it.disable() }
+        return http.build()
+    }
+
+    /**
      * API security filter chain for paths under /api.
      *
      * Stateless, no CSRF, no form login. Supports:
@@ -84,7 +103,7 @@ class SecurityConfig(
      * - JWT bearer tokens when OAuth2 is configured
      */
     @Bean
-    @Order(1)
+    @Order(2)
     @Profile("!test")
     fun apiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         val apiKeyFilter = ApiKeyAuthenticationFilter(
@@ -120,7 +139,7 @@ class SecurityConfig(
      * and/or OAuth2 based on available beans.
      */
     @Bean
-    @Order(2)
+    @Order(3)
     @Profile("!test")
     fun uiSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
         val formLogin = hasFormLogin()
