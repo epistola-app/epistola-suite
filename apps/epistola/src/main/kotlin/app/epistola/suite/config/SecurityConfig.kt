@@ -7,6 +7,7 @@ import app.epistola.suite.security.AuthProperties
 import app.epistola.suite.security.EpistolaJwtAuthenticationConverter
 import app.epistola.suite.security.PopupAwareAuthenticationSuccessHandler
 import io.micrometer.core.instrument.MeterRegistry
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
@@ -56,6 +57,24 @@ class SecurityConfig(
      * Check if form login is available (a UserDetailsService is registered).
      */
     private fun hasFormLogin(): Boolean = userDetailsService != null
+
+    /**
+     * Management security filter chain for actuator endpoints.
+     *
+     * Runs on a separate port (management.server.port) so all endpoints are
+     * permitted without authentication. Network-level access control should
+     * be used to restrict access to the management port in production.
+     */
+    @Bean
+    @Order(0)
+    @Profile("!test")
+    fun managementSecurityFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http
+            .securityMatcher(EndpointRequest.toAnyEndpoint())
+            .authorizeHttpRequests { it.anyRequest().permitAll() }
+            .csrf { it.disable() }
+        return http.build()
+    }
 
     /**
      * API security filter chain for paths under /api.
