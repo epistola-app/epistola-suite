@@ -18,6 +18,8 @@ spec:
       title: GenerationPipelineStalled
       condition: C
       for: 10m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: critical
         team: epistola
@@ -58,6 +60,8 @@ spec:
       title: HighJobFailureRate
       condition: C
       for: 5m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: critical
         team: epistola
@@ -98,6 +102,8 @@ spec:
       title: DatabaseConnectionPoolExhausted
       condition: B
       for: 5m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: critical
         team: epistola
@@ -132,6 +138,8 @@ spec:
       title: GenerationQueueGrowing
       condition: B
       for: 15m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: warning
         team: epistola
@@ -162,6 +170,8 @@ spec:
       title: SlowDocumentGeneration
       condition: B
       for: 15m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: warning
         team: epistola
@@ -192,6 +202,8 @@ spec:
       title: HighCommandErrorRate
       condition: C
       for: 10m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: warning
         team: epistola
@@ -231,6 +243,8 @@ spec:
       title: EventLogPersistenceFailures
       condition: B
       for: 5m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: warning
         team: epistola
@@ -261,6 +275,8 @@ spec:
       title: HighApiAuthFailureRate
       condition: B
       for: 5m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: warning
         team: epistola
@@ -291,6 +307,8 @@ spec:
       title: JvmHeapPressure
       condition: B
       for: 10m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: warning
         team: epistola
@@ -324,6 +342,8 @@ spec:
       title: StorageBackendSlow
       condition: B
       for: 10m
+      execErrState: Error
+      noDataState: OK
       labels:
         severity: info
         team: epistola
