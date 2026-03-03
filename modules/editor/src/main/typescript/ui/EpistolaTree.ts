@@ -199,17 +199,7 @@ export class EpistolaTree extends LitElement {
 
   private _applyDrop(dragData: DragData, targetSlotId: SlotId, index: number): void {
     if (!this.engine) return
-    const result = handleDrop(this.engine, dragData, targetSlotId, index)
-    if (!result.ok && result.error) {
-      this.dispatchEvent(new CustomEvent('editor-notice', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          tone: 'error',
-          message: result.error,
-        },
-      }))
-    }
+    handleDrop(this.engine, dragData, targetSlotId, index)
   }
 
   private _nodeIcon(iconName?: string) {

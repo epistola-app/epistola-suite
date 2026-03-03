@@ -45,17 +45,11 @@ export class EpistolaPalette extends LitElement {
 
     const doc = this.engine.doc
     const rootNode = doc.nodes[doc.root]
-    if (!rootNode || rootNode.slots.length === 0) {
-      this._emitNotice('Cannot insert block: document root slot is missing')
-      return
-    }
+    if (!rootNode || rootNode.slots.length === 0) return
 
     const targetSlotId = rootNode.slots[0]
     const targetSlot = doc.slots[targetSlotId]
-    if (!targetSlot) {
-      this._emitNotice('Cannot insert block: root slot is missing')
-      return
-    }
+    if (!targetSlot) return
 
     const footerIndex = targetSlot.children.findIndex((id) => doc.nodes[id]?.type === 'pagefooter')
     const insertIndex = type === 'pageheader'
@@ -77,10 +71,7 @@ export class EpistolaPalette extends LitElement {
       _restoreNodes: extraNodes,
     })
 
-    if (!result.ok) {
-      this._emitNotice(result.error)
-      return
-    }
+    if (!result.ok) return
 
     // Select the newly inserted node
     this.engine.selectNode(node.id)
@@ -101,17 +92,6 @@ export class EpistolaPalette extends LitElement {
     this._dndCleanup?.()
     this._dndCleanup = null
     super.disconnectedCallback()
-  }
-
-  private _emitNotice(message: string): void {
-    this.dispatchEvent(new CustomEvent('editor-notice', {
-      bubbles: true,
-      composed: true,
-      detail: {
-        tone: 'error',
-        message,
-      },
-    }))
   }
 
   private _subscribeToEngine(): void {

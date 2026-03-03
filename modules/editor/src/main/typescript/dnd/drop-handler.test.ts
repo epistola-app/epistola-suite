@@ -9,29 +9,32 @@ describe('handleDrop', () => {
     const doc = createTestDocument()
     const engine = new EditorEngine(doc, registry)
     const rootSlotId = doc.nodes[doc.root].slots[0]
+    const previousChildren = engine.doc.slots[rootSlotId].children.length
 
-    const result = handleDrop(engine, { source: 'palette', blockType: 'text' }, rootSlotId, -1)
+    handleDrop(engine, { source: 'palette', blockType: 'text' }, rootSlotId, -1)
 
-    expect(result.ok).toBe(true)
-    expect(result.insertedNodeId).toBeDefined()
-    if (result.insertedNodeId) {
-      expect(engine.selectedNodeId).toBe(result.insertedNodeId)
-      expect(engine.doc.slots[rootSlotId].children).toContain(result.insertedNodeId)
-    }
+    expect(engine.selectedNodeId).toBeTruthy()
+    expect(engine.doc.slots[rootSlotId].children).toHaveLength(previousChildren + 1)
+    expect(engine.doc.slots[rootSlotId].children).toContain(engine.selectedNodeId!)
   })
 
-  it('returns error when palette insert is rejected', () => {
+  it('keeps document unchanged when palette insert is rejected', () => {
     const registry = testRegistry()
     const doc = createTestDocument()
     const engine = new EditorEngine(doc, registry)
     const rootSlotId = doc.nodes[doc.root].slots[0]
 
-    const first = handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1)
-    expect(first.ok).toBe(true)
+    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1)
+    const headerCountAfterFirst = engine.doc.slots[rootSlotId].children
+      .map((id) => engine.doc.nodes[id])
+      .filter((node) => node?.type === 'pageheader').length
+    expect(headerCountAfterFirst).toBe(1)
 
-    const second = handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1)
-    expect(second.ok).toBe(false)
-    expect(second.error).toContain("Only 1 'pageheader' block allowed per document")
+    handleDrop(engine, { source: 'palette', blockType: 'pageheader' }, rootSlotId, -1)
+    const headerCountAfterSecond = engine.doc.slots[rootSlotId].children
+      .map((id) => engine.doc.nodes[id])
+      .filter((node) => node?.type === 'pageheader').length
+    expect(headerCountAfterSecond).toBe(1)
   })
 
   it('moves block drag data between slots', () => {
@@ -39,19 +42,18 @@ describe('handleDrop', () => {
     const { doc, textNodeId, rootSlotId, containerSlotId } = createTestDocumentWithChildren()
     const engine = new EditorEngine(doc, registry)
 
-    const result = handleDrop(
+    handleDrop(
       engine,
       { source: 'block', nodeId: textNodeId, blockType: 'text' },
       containerSlotId,
       0,
     )
 
-    expect(result.ok).toBe(true)
     expect(engine.doc.slots[rootSlotId].children).not.toContain(textNodeId)
     expect(engine.doc.slots[containerSlotId].children[0]).toBe(textNodeId)
   })
 
-  it('returns error when moving anchored page block', () => {
+  it('keeps anchored page block in place when move is rejected', () => {
     const registry = testRegistry()
     const { doc, rootSlotId } = createTestDocumentWithChildren()
     const engine = new EditorEngine(doc, registry)
@@ -65,15 +67,16 @@ describe('handleDrop', () => {
       index: -1,
     })
     expect(insert.ok).toBe(true)
+    const childrenBeforeMove = [...engine.doc.slots[rootSlotId].children]
 
-    const result = handleDrop(
+    handleDrop(
       engine,
       { source: 'block', nodeId: footer.node.id, blockType: 'pagefooter' },
       rootSlotId,
       0,
     )
 
-    expect(result.ok).toBe(false)
-    expect(result.error).toContain('cannot be moved')
+    expect(engine.doc.slots[rootSlotId].children).toEqual(childrenBeforeMove)
+    expect(engine.doc.slots[rootSlotId].children[engine.doc.slots[rootSlotId].children.length - 1]).toBe(footer.node.id)
   })
 })

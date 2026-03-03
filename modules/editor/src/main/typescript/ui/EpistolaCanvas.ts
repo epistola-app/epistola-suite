@@ -293,17 +293,7 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleDrop(dragData: DragData, targetSlotId: SlotId, index: number) {
     if (!this.engine) return;
-    const result = handleDrop(this.engine, dragData, targetSlotId, index);
-    if (!result.ok && result.error) {
-      this.dispatchEvent(new CustomEvent('editor-notice', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          tone: 'error',
-          message: result.error,
-        },
-      }));
-    }
+    handleDrop(this.engine, dragData, targetSlotId, index);
   }
 
   // ---------------------------------------------------------------------------
