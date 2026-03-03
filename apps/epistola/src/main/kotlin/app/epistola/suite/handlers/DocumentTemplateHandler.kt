@@ -30,7 +30,6 @@ import app.epistola.suite.templates.validation.MigrationSuggestion
 import app.epistola.suite.templates.validation.SchemaCompatibilityResult
 import app.epistola.suite.templates.validation.ValidationError
 import app.epistola.suite.themes.queries.ListThemes
-import org.springframework.boot.info.BuildProperties
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
@@ -101,7 +100,6 @@ data class ValidateSchemaResponse(
 @Component
 class DocumentTemplateHandler(
     private val objectMapper: ObjectMapper,
-    private val buildProperties: BuildProperties?,
     private val jsonSchemaValidator: JsonSchemaValidator,
 ) {
     fun list(request: ServerRequest): ServerResponse {
@@ -218,8 +216,6 @@ class DocumentTemplateHandler(
                 "templateModel" to context.templateModel,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
-                "appVersion" to (buildProperties?.version ?: "dev"),
-                "appName" to (buildProperties?.name ?: "Epistola"),
             ),
         )
     }

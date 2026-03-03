@@ -6,9 +6,14 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 
 @Configuration
-class WebMvcConfig(private val shellModelInterceptor: ShellModelInterceptor) : WebMvcConfigurer {
+class WebMvcConfig(
+    private val shellModelInterceptor: ShellModelInterceptor,
+    private val versionInterceptor: VersionInterceptor,
+) : WebMvcConfigurer {
 
     override fun addInterceptors(registry: InterceptorRegistry) {
+        registry.addInterceptor(versionInterceptor)
+            .addPathPatterns("/**")
         registry.addInterceptor(shellModelInterceptor)
             .addPathPatterns("/tenants/**")
     }
