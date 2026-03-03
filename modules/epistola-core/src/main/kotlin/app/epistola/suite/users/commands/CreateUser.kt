@@ -50,7 +50,7 @@ class CreateUserHandler(
             email = command.email,
             displayName = command.displayName,
             provider = command.provider,
-            tenantMemberships = emptySet(),
+            tenantMemberships = emptyMap(),
             enabled = true,
             createdAt = OffsetDateTime.now(),
             lastLoginAt = null,

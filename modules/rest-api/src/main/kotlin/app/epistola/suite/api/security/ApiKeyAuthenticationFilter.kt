@@ -4,6 +4,7 @@ import app.epistola.suite.apikeys.ApiKeyRepository
 import app.epistola.suite.apikeys.ApiKeyService
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.servlet.FilterChain
@@ -92,7 +93,7 @@ class ApiKeyAuthenticationFilter(
             externalId = "apikey:${apiKey.id}",
             email = "apikey-${apiKey.keyPrefix}@npa.epistola",
             displayName = apiKey.name,
-            tenantMemberships = setOf(apiKey.tenantKey),
+            tenantMemberships = mapOf(apiKey.tenantKey to TenantRole.ADMIN),
             currentTenantId = apiKey.tenantKey,
         )
 

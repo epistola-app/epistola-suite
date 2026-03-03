@@ -19,21 +19,31 @@ data class EpistolaPrincipal(
     val externalId: String,
     val email: String,
     val displayName: String,
-    val tenantMemberships: Set<TenantKey>,
+    val tenantMemberships: Map<TenantKey, TenantRole>,
     val currentTenantId: TenantKey?, // Can be set per-request via tenant selector
 ) : Serializable {
 
     companion object {
-        private const val serialVersionUID: Long = 1L
+        private const val serialVersionUID: Long = 2L
     }
 
     /**
-     * Check if the user has access to the specified tenant.
+     * Check if the user has access to the specified tenant (any role).
      */
-    fun hasAccessToTenant(tenantId: TenantKey): Boolean = tenantMemberships.contains(tenantId)
+    fun hasAccessToTenant(tenantId: TenantKey): Boolean = tenantMemberships.containsKey(tenantId)
+
+    /**
+     * Check if the user is an admin of the specified tenant.
+     */
+    fun isAdmin(tenantId: TenantKey): Boolean = tenantMemberships[tenantId] == TenantRole.ADMIN
+
+    /**
+     * Get the user's role for a specific tenant, or null if not a member.
+     */
+    fun roleFor(tenantId: TenantKey): TenantRole? = tenantMemberships[tenantId]
 
     /**
      * Get the effective tenant ID (current or first membership if current is null).
      */
-    fun effectiveTenantId(): TenantKey? = currentTenantId ?: tenantMemberships.firstOrNull()
+    fun effectiveTenantId(): TenantKey? = currentTenantId ?: tenantMemberships.keys.firstOrNull()
 }

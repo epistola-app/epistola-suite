@@ -63,7 +63,7 @@ abstract class CoreIntegrationTestBase {
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
-        tenantMemberships = emptySet(), // Will be updated as tenants are created
+        tenantMemberships = emptyMap(), // Will be updated as tenants are created
         currentTenantId = null,
     )
 
