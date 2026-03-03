@@ -4,7 +4,8 @@
 
 ### Added
 - **Production observability**: Comprehensive metrics, Grafana dashboards, and alerting for production operations.
-  - **Prometheus endpoint**: Exposed `/actuator/prometheus` endpoint, making all auto-configured and custom metrics available to scrapers.
+  - **Separate management port**: Actuator endpoints (health, info, Prometheus metrics) run on port 4040, isolated from application traffic on port 4000.
+  - **Prometheus endpoint**: Exposed `/actuator/prometheus` on management port, making all auto-configured and custom metrics available to scrapers.
   - **Mediator instrumentation**: All ~55 CQRS commands and queries are now timed via `epistola.mediator.command.duration` and `epistola.mediator.query.duration` (tags: operation name, outcome).
   - **Generation pipeline metrics**: Document generation timer with template and render path tags, PDF size distribution summary, proper job duration timer replacing ad-hoc tracking, generation queue depth gauge, and active jobs gauge.
   - **Event log metrics**: Audit trail persistence timer and failure counter for detecting audit gaps.
