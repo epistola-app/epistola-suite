@@ -6,32 +6,39 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.resttestclient.TestRestTemplate
-import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.web.server.LocalManagementPort
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpStatus
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.web.client.RestClient
 
 @Import(TestcontainersConfiguration::class, UnloggedTablesTestConfiguration::class)
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "epistola.demo.enabled=false",
+        "management.server.port=0",
         "management.prometheus.metrics.export.enabled=true",
     ],
 )
-@AutoConfigureTestRestTemplate
 @ActiveProfiles("test")
 @Tag("integration")
 class PrometheusEndpointTest {
 
+    @LocalManagementPort
+    private var managementPort: Int = 0
+
     @Autowired
-    private lateinit var restTemplate: TestRestTemplate
+    private lateinit var restClientBuilder: RestClient.Builder
 
     @Test
     fun `prometheus endpoint returns metrics`() {
-        val response = restTemplate.getForEntity("/actuator/prometheus", String::class.java)
+        val client = restClientBuilder.baseUrl("http://localhost:$managementPort").build()
+        val response = client.get()
+            .uri("/actuator/prometheus")
+            .retrieve()
+            .toEntity(String::class.java)
 
         assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
         assertThat(response.headers.contentType.toString()).startsWith("text/plain")

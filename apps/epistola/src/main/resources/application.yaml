@@ -63,6 +63,8 @@ epistola:
       max-size-mb: 50            # Max document size
 
 management:
+  server:
+    port: 4040
   endpoints:
     web:
       exposure:

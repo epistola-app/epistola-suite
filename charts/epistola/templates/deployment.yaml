@@ -47,6 +47,9 @@ spec:
             - name: http
               containerPort: 4000
               protocol: TCP
+            - name: management
+              containerPort: {{ .Values.management.port }}
+              protocol: TCP
           env:
             {{- if .Values.jvm.options }}
             - name: JAVA_TOOL_OPTIONS

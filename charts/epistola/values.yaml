@@ -71,11 +71,11 @@ resources:
     cpu: 100m
     memory: 256Mi
 
-# Liveness and readiness probes using Spring Boot Actuator
+# Liveness and readiness probes using Spring Boot Actuator (management port)
 startupProbe:
   httpGet:
     path: /actuator/health/liveness
-    port: http
+    port: management
   initialDelaySeconds: 5
   periodSeconds: 5
   failureThreshold: 30
@@ -84,7 +84,7 @@ startupProbe:
 livenessProbe:
   httpGet:
     path: /actuator/health/liveness
-    port: http
+    port: management
   periodSeconds: 15
   failureThreshold: 3
   timeoutSeconds: 5
@@ -92,7 +92,7 @@ livenessProbe:
 readinessProbe:
   httpGet:
     path: /actuator/health/readiness
-    port: http
+    port: management
   periodSeconds: 10
   failureThreshold: 3
   timeoutSeconds: 5
@@ -127,14 +127,18 @@ jvm:
   # JAVA_TOOL_OPTIONS passed to the JVM
   options: "-XX:MaxRAMPercentage=75 -XX:+UseG1GC"
 
+# Management server (Spring Boot Actuator) — runs on a separate port
+management:
+  port: 4040
+
 # Observability configuration
 observability:
   # OpenTelemetry exporter endpoint (e.g., http://otel-collector:4318)
   otlpEndpoint: ""
-  # Prometheus scrape annotations on pods
+  # Prometheus scrape annotations on pods (uses management port)
   prometheus:
     enabled: false
-    port: 4000
+    port: 4040
     path: /actuator/prometheus
   # Grafana Operator CRDs (dashboards + alerts)
   grafana:

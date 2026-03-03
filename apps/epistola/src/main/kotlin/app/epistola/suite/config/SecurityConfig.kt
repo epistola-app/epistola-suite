@@ -110,8 +110,7 @@ class SecurityConfig(
         http
             .authorizeHttpRequests { authorize ->
                 authorize
-                    // Public endpoints
-                    .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                    // Public endpoints (actuator runs on separate management port)
                     .requestMatchers("/login", "/login-popup-success", "/error").permitAll()
                     .requestMatchers("/css/**", "/js/**", "/images/**", "/design-system/**", "/favicon.ico").permitAll()
                 // OAuth2 endpoints need to be public when OAuth2 is enabled
