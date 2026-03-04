@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- **Feedback system**: In-app feedback submission with optional GitHub Issues integration for tracking bugs, feature requests, and questions.
+  - **Per-tenant roles**: JWT `epistola_tenants` claim now supports structured role objects (`MEMBER`, `ADMIN`) alongside legacy flat list format. Roles control feedback access (detail/comments visible to admin or creator only).
+  - **Feedback module**: New `modules/feedback` module with full CQRS domain model — `Feedback`, `FeedbackComment`, `FeedbackConfig` entities with commands for create, status update, comment, and sync operations.
+  - **Feedback UI**: List page with status/category filters, detail page with comments timeline, submit dialog with title/category/priority/description fields. Floating action button (FAB) on every tenant-scoped page for quick submission.
+  - **Screenshot capture**: Upload, paste (Ctrl+V), or drag-and-drop screenshots in the feedback form. Screenshots stored as assets and displayed in detail view.
+  - **Client metadata**: Auto-captured browser info (user agent, viewport, screen size, pixel ratio), app version, platform, language, URL, and timestamp stored as JSONB.
+  - **Console log capture**: Monkey-patches `console.log/warn/error/info` to buffer last 100 entries, attached to feedback submissions for debugging context.
+  - **GitHub App integration**: Port/adapter pattern (`IssueSyncPort`) with `GitHubIssueSyncAdapter` for syncing feedback to GitHub Issues. Pure JDK crypto for GitHub App JWT auth (RS256). Installation token caching with 50-minute refresh. Tenant label support for shared repositories.
+  - **Outbound sync**: `OnFeedbackCreated` event handler triggers sync after commit. `FeedbackSyncScheduler` retries pending items on configurable interval. Issues created with category/priority labels.
+  - **Inbound webhooks** (optional): `GitHubWebhookController` at `/feedback/github/webhooks` receives `issue_comment` and `issues` events. HMAC-SHA256 signature verification. Disabled by default for firewall-protected deployments.
 - **Production observability**: Comprehensive metrics, Grafana dashboards, and alerting for production operations.
   - **Separate management port**: Actuator endpoints (health, info, Prometheus metrics) run on port 4040, isolated from application traffic on port 4000. A dedicated security filter chain permits all management endpoints without authentication (network-level access control should restrict the management port in production).
   - **Prometheus endpoint**: Exposed `/actuator/prometheus` on management port, making all auto-configured and custom metrics available to scrapers.
