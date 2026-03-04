@@ -33,6 +33,7 @@ class SettingsHandler(
                 formData["repoName"] = github.repoName
                 formData["label"] = github.label.orEmpty()
             }
+            config.lastPolledAt?.let { formData["lastPolledAt"] = it.toString() }
         }
 
         return ServerResponse.ok().page("settings/feedback-sync") {
@@ -40,7 +41,6 @@ class SettingsHandler(
             "tenantId" to tenantId.key
             "activeNavSection" to "settings"
             "formData" to formData
-            config?.lastPolledAt?.let { "lastPolledAt" to it }
         }
     }
 
