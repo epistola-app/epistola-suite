@@ -5,21 +5,19 @@
  * showing open feedback items for the current page. All data loading is
  * declarative HTMX — JS only handles DOM creation and visibility toggling.
  *
- * Usage: <script type="module" src="/feedback/feedback-fab.js" data-tenant-id="acme"></script>
+ * Usage (inline module script in footer):
+ *   const { initFeedbackFab } = await import('/feedback/feedback-fab.js');
+ *   initFeedbackFab('acme');
  */
-// document.currentScript is null in ES modules — find by src attribute instead
-const script = document.querySelector('script[src*="feedback-fab.js"]');
-const tenantId = script?.getAttribute('data-tenant-id');
-if (!tenantId) throw new Error('feedback-fab.js: missing data-tenant-id');
 
-const pathname = window.location.pathname;
-const searchUrl = `/tenants/${tenantId}/feedback/search?url=${encodeURIComponent(pathname)}`;
-const submitFormUrl = `/tenants/${tenantId}/feedback/submit-form`;
+// Lucide message-square-plus icon
+const fabIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>`;
 
-// -- CSS ------------------------------------------------------------------
-
-const style = document.createElement('style');
-style.textContent = `
+function injectStyles() {
+    if (document.getElementById('feedback-fab-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'feedback-fab-styles';
+    style.textContent = `
 .feedback-fab {
     position: fixed;
     bottom: var(--ep-space-5, 1.25rem);
@@ -47,8 +45,6 @@ style.textContent = `
     width: 22px;
     height: 22px;
 }
-
-/* Badge */
 .feedback-fab-badge {
     position: absolute;
     top: -4px;
@@ -70,8 +66,6 @@ style.textContent = `
 .feedback-fab-badge--hidden {
     display: none;
 }
-
-/* Popover */
 .feedback-popover {
     position: fixed;
     bottom: calc(var(--ep-space-5, 1.25rem) + 56px);
@@ -89,8 +83,6 @@ style.textContent = `
 .feedback-popover--open {
     display: block;
 }
-
-/* Popover content (rendered by server) */
 .feedback-popover-header {
     display: flex;
     align-items: center;
@@ -139,17 +131,26 @@ style.textContent = `
     gap: var(--ep-space-2, 0.5rem);
 }
 `;
-document.head.appendChild(style);
+    document.head.appendChild(style);
+}
 
-// -- DOM ------------------------------------------------------------------
+export function initFeedbackFab(tenantId) {
+    if (!tenantId) return;
 
-const container = document.createElement('div');
-container.id = 'feedback-fab-container';
+    // Clean up previous instance (boosted navigation re-init)
+    document.getElementById('feedback-fab-container')?.remove();
 
-// Lucide message-square-plus icon (inline SVG)
-const fabIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>`;
+    injectStyles();
 
-container.innerHTML = `
+    const pathname = window.location.pathname;
+    const searchUrl = `/tenants/${tenantId}/feedback/search?url=${encodeURIComponent(pathname)}`;
+
+    // -- DOM --------------------------------------------------------------
+
+    const container = document.createElement('div');
+    container.id = 'feedback-fab-container';
+
+    container.innerHTML = `
 <button id="feedback-fab" class="feedback-fab" type="button" title="Page Feedback">
     ${fabIcon}
     <span id="feedback-fab-badge" class="feedback-fab-badge feedback-fab-badge--hidden"></span>
@@ -168,41 +169,58 @@ container.innerHTML = `
 </dialog>
 `;
 
-document.body.appendChild(container);
+    document.body.appendChild(container);
 
-// Let HTMX discover the hx-* attributes and fire the "load" trigger
-if (window.htmx) {
-    htmx.process(container);
-}
-
-// -- Interactions ---------------------------------------------------------
-
-const fab = document.getElementById('feedback-fab');
-const popover = document.getElementById('feedback-popover');
-const dialog = document.getElementById('feedback-fab-dialog');
-
-fab.addEventListener('click', (e) => {
-    e.stopPropagation();
-    popover.classList.toggle('feedback-popover--open');
-});
-
-document.addEventListener('click', (e) => {
-    if (!popover.contains(e.target) && e.target !== fab && !fab.contains(e.target)) {
-        popover.classList.remove('feedback-popover--open');
+    // Let HTMX discover the hx-* attributes and fire the "load" trigger
+    if (window.htmx) {
+        htmx.process(container);
     }
-});
 
-dialog?.addEventListener('click', (e) => {
-    if (e.target === dialog) dialog.close();
-});
+    // -- Interactions -----------------------------------------------------
 
-// After successful feedback submission, refresh the popover content
-document.body.addEventListener('htmx:afterSwap', (e) => {
-    const target = e.detail?.target;
-    if (target?.id === 'feedback-fab-dialog-content' && target.querySelector('.ep-dialog-body')?.textContent?.includes('Thank you')) {
-        const content = document.getElementById('feedback-popover-content');
-        if (content && window.htmx) {
-            htmx.trigger(content, 'load');
+    const fab = document.getElementById('feedback-fab');
+    const popover = document.getElementById('feedback-popover');
+    const dialog = document.getElementById('feedback-fab-dialog');
+
+    fab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popover.classList.toggle('feedback-popover--open');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!popover.contains(e.target) && e.target !== fab && !fab.contains(e.target)) {
+            popover.classList.remove('feedback-popover--open');
         }
+    });
+
+    dialog?.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close();
+    });
+
+    // Update badge count when popover content is swapped in
+    const badge = document.getElementById('feedback-fab-badge');
+
+    function updateBadge() {
+        const header = document.querySelector('#feedback-popover-content .feedback-popover-header');
+        const count = parseInt(header?.dataset?.feedbackCount ?? '0', 10);
+        badge.textContent = count;
+        badge.classList.toggle('feedback-fab-badge--hidden', count === 0);
     }
-});
+
+    document.body.addEventListener('htmx:afterSwap', (e) => {
+        const target = e.detail?.target;
+
+        // Badge update after page-issues content loads
+        if (target?.id === 'feedback-popover-content') {
+            updateBadge();
+        }
+
+        // After successful feedback submission, refresh the popover content
+        if (target?.id === 'feedback-fab-dialog-content' && target.querySelector('.ep-dialog-body')?.textContent?.includes('Thank you')) {
+            const content = document.getElementById('feedback-popover-content');
+            if (content && window.htmx) {
+                htmx.trigger(content, 'load');
+            }
+        }
+    });
+}
