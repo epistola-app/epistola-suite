@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Feedback FAB with page issues popover**: The feedback floating action button now shows a popover with open feedback items for the current page (matched by URL pathname). Includes a badge count, inline links to feedback detail, and a "New" button to submit feedback. The FAB is a self-contained JS module loaded from the feedback module. The `/search` endpoint now accepts a `url` query parameter to filter feedback by source URL.
+
 ### Changed
 - **Feedback sync: PAT-based auth**: Replaced GitHub App authentication (JWT + installation tokens) with per-tenant Personal Access Token (PAT) authentication. Tenant admins now enter a fine-grained PAT in the settings page instead of a server-level GitHub App installation ID. Removed `GitHubAppAuthService`, `app-id`, and `private-key-path` configuration. PAT is masked in the UI for security.
 

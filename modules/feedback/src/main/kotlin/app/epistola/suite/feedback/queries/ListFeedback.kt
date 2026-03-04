@@ -14,6 +14,7 @@ data class ListFeedback(
     val tenantKey: TenantKey,
     val status: FeedbackStatus? = null,
     val category: FeedbackCategory? = null,
+    val sourceUrl: String? = null,
 ) : Query<List<FeedbackSummary>>
 
 @Component
@@ -22,8 +23,19 @@ class ListFeedbackHandler(
 ) : QueryHandler<ListFeedback, List<FeedbackSummary>> {
     override fun handle(query: ListFeedback): List<FeedbackSummary> = jdbi.withHandleUnchecked { handle ->
         val conditions = mutableListOf("f.tenant_key = :tenantKey")
-        if (query.status != null) conditions.add("f.status = :status")
+        if (query.status != null) {
+            conditions.add("f.status = :status")
+        } else if (query.sourceUrl != null) {
+            conditions.add("f.status IN ('OPEN', 'IN_PROGRESS')")
+        }
         if (query.category != null) conditions.add("f.category = :category")
+        if (query.sourceUrl != null) {
+            conditions.add(
+                """(f.source_url LIKE '%' || :pathname
+                    OR f.source_url LIKE '%' || :pathname || '?%'
+                    OR f.source_url LIKE '%' || :pathname || '#%')""",
+            )
+        }
 
         val where = conditions.joinToString(" AND ")
 
@@ -48,6 +60,7 @@ class ListFeedbackHandler(
 
         if (query.status != null) q.bind("status", query.status.name)
         if (query.category != null) q.bind("category", query.category.name)
+        if (query.sourceUrl != null) q.bind("pathname", query.sourceUrl)
 
         q.mapTo(FeedbackSummary::class.java).list()
     }

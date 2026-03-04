@@ -70,6 +70,7 @@ class FeedbackHandler(
 
     fun search(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
+        val sourceUrl = request.param("url").orElse(null)
 
         val statusFilter = request.param("status").orElse(null)
             ?.let { runCatching { FeedbackStatus.valueOf(it) }.getOrNull() }
@@ -80,7 +81,21 @@ class FeedbackHandler(
             tenantKey = tenantId.key,
             status = statusFilter,
             category = categoryFilter,
+            sourceUrl = sourceUrl,
         ).query()
+
+        if (sourceUrl != null) {
+            return request.htmx {
+                fragment("feedback/page-issues") {
+                    "tenantId" to tenantId.key
+                    "feedbackItems" to feedbackItems
+                }
+                oob("feedback/page-issues", "badge") {
+                    "feedbackItems" to feedbackItems
+                }
+                onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
+            }
+        }
 
         return request.htmx {
             fragment("feedback/list", "rows") {

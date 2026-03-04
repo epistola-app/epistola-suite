@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="feedback-popover-header">
+            <span class="feedback-popover-title">Page Feedback</span>
+            <button type="button" class="btn btn-primary btn-sm"
+                    hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
+                    hx-target="#feedback-fab-dialog-content"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('feedback-fab-dialog').showModal()">
+                New
+            </button>
+        </div>
+
+        <div th:if="${#lists.isEmpty(feedbackItems)}" class="feedback-popover-empty">
+            No feedback for this page
+        </div>
+
+        <ul th:if="${!#lists.isEmpty(feedbackItems)}" class="feedback-popover-list">
+            <li th:each="item : ${feedbackItems}" class="feedback-popover-item">
+                <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
+                   class="feedback-popover-item-title"
+                   th:text="${item.title}">Title</a>
+                <div class="feedback-popover-item-meta">
+                    <span class="ep-badge"
+                          th:classappend="${item.status.name() == 'OPEN'} ? 'ep-badge-info' : 'ep-badge-warning'"
+                          th:text="${item.status.name()}">OPEN</span>
+                    <span class="ep-badge"
+                          th:classappend="${item.priority.name() == 'CRITICAL'} ? 'ep-badge-destructive' : (${item.priority.name() == 'HIGH'} ? 'ep-badge-warning' : 'ep-badge-outline')"
+                          th:text="${item.priority.name()}">MEDIUM</span>
+                </div>
+            </li>
+        </ul>
+    </th:block>
+
+    <th:block th:fragment="badge">
+        <span id="feedback-fab-badge" hx-swap-oob="true"
+              class="feedback-fab-badge"
+              th:classappend="${#lists.isEmpty(feedbackItems)} ? 'feedback-fab-badge--hidden' : ''"
+              th:text="${#lists.size(feedbackItems)}">0</span>
+    </th:block>
+</body>
+</html>
