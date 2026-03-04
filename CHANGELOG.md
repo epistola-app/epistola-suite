@@ -2,15 +2,25 @@
 
 ## [Unreleased]
 
+### Changed
+- **Feedback sync generalization**: Refactored the feedback sync layer from GitHub-specific to provider-agnostic architecture.
+  - **Port renamed**: `IssueSyncPort` → `FeedbackSyncPort` with `createTicket` (was `createIssue`), `fetchUpdates` (new), and `verifyWebhookSignature` removed from the interface.
+  - **Generic config model**: `FeedbackConfig` replaced by `FeedbackSyncConfig` with `providerType` enum and `settings` JSONB column. Provider-specific settings (repo, installation ID, label) parsed by each adapter from the JSONB payload.
+  - **Backend-agnostic comments**: `CommentSource.GITHUB` → `CommentSource.EXTERNAL`, `external_comment_id` column changed from `BIGINT` to `TEXT` (supports GitHub numeric IDs, Jira string IDs, etc.).
+  - **Database table renamed**: `feedback_config` → `feedback_sync_config` with new `provider_type`, `settings` JSONB, and `last_polled_at` columns.
+  - **Property namespace**: Sync properties moved from `epistola.github.sync.*` to `epistola.feedback.sync.*`. GitHub-specific properties remain under `epistola.github.*`.
+  - **Inbound polling**: New `FeedbackPollScheduler` polls external trackers for comments and status changes — alternative to webhooks for firewall-protected deployments. Controlled via `epistola.feedback.sync.polling.enabled`.
+  - **Webhook verification extracted**: `GitHubWebhookVerifier` utility replaces the port interface method, keeping webhook auth adapter-specific.
+
 ### Added
 - **Feedback system**: In-app feedback submission with optional GitHub Issues integration for tracking bugs, feature requests, and questions.
   - **Per-tenant roles**: JWT `epistola_tenants` claim now supports structured role objects (`MEMBER`, `ADMIN`) alongside legacy flat list format. Roles control feedback access (detail/comments visible to admin or creator only).
-  - **Feedback module**: New `modules/feedback` module with full CQRS domain model — `Feedback`, `FeedbackComment`, `FeedbackConfig` entities with commands for create, status update, comment, and sync operations.
+  - **Feedback module**: New `modules/feedback` module with full CQRS domain model — `Feedback`, `FeedbackComment`, `FeedbackSyncConfig` entities with commands for create, status update, comment, and sync operations.
   - **Feedback UI**: List page with status/category filters, detail page with comments timeline, submit dialog with title/category/priority/description fields. Floating action button (FAB) on every tenant-scoped page for quick submission.
   - **Screenshot capture**: Upload, paste (Ctrl+V), or drag-and-drop screenshots in the feedback form. Screenshots stored as assets and displayed in detail view.
   - **Client metadata**: Auto-captured browser info (user agent, viewport, screen size, pixel ratio), app version, platform, language, URL, and timestamp stored as JSONB.
   - **Console log capture**: Monkey-patches `console.log/warn/error/info` to buffer last 100 entries, attached to feedback submissions for debugging context.
-  - **GitHub App integration**: Port/adapter pattern (`IssueSyncPort`) with `GitHubIssueSyncAdapter` for syncing feedback to GitHub Issues. Pure JDK crypto for GitHub App JWT auth (RS256). Installation token caching with 50-minute refresh. Tenant label support for shared repositories.
+  - **GitHub App integration**: Port/adapter pattern (`FeedbackSyncPort`) with `GitHubIssueSyncAdapter` for syncing feedback to GitHub Issues. Pure JDK crypto for GitHub App JWT auth (RS256). Installation token caching with 50-minute refresh. Tenant label support for shared repositories.
   - **Outbound sync**: `OnFeedbackCreated` event handler triggers sync after commit. `FeedbackSyncScheduler` retries pending items on configurable interval. Issues created with category/priority labels.
   - **Inbound webhooks** (optional): `GitHubWebhookController` at `/feedback/github/webhooks` receives `issue_comment` and `issues` events. HMAC-SHA256 signature verification. Disabled by default for firewall-protected deployments.
 - **Production observability**: Comprehensive metrics, Grafana dashboards, and alerting for production operations.

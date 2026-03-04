@@ -2,43 +2,45 @@ package app.epistola.suite.feedback.sync.github
 
 import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackComment
-import app.epistola.suite.feedback.FeedbackConfig
 import app.epistola.suite.feedback.FeedbackStatus
+import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.feedback.sync.ExternalCommentRef
-import app.epistola.suite.feedback.sync.IssueSyncPort
+import app.epistola.suite.feedback.sync.ExternalUpdate
+import app.epistola.suite.feedback.sync.FeedbackSyncPort
 import app.epistola.suite.feedback.sync.SyncResult
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.ObjectMapper
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import java.time.Instant
 
 /**
- * GitHub App implementation of [IssueSyncPort].
+ * GitHub App implementation of [FeedbackSyncPort].
  *
- * Creates issues, adds comments, and updates status via the GitHub REST API v3.
+ * Creates issues, adds comments, updates status, and polls for updates via the GitHub REST API v3.
  * Authentication uses installation access tokens obtained via [GitHubAppAuthService].
+ *
+ * Provider-specific settings are parsed from [FeedbackSyncConfig.settings] JSONB
+ * into [GitHubSyncSettings] at the start of each method call.
  */
 class GitHubIssueSyncAdapter(
     private val authService: GitHubAppAuthService,
     private val restClient: RestClient,
     private val objectMapper: ObjectMapper,
-) : IssueSyncPort {
+) : FeedbackSyncPort {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun createIssue(config: FeedbackConfig, feedback: Feedback, screenshot: ByteArray?): SyncResult {
-        val installationId = config.installationId
-            ?: throw IllegalArgumentException("GitHub not configured for tenant ${config.tenantKey}")
-        val token = authService.getInstallationToken(installationId)
+    override fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, screenshot: ByteArray?): SyncResult {
+        val settings = parseSettings(config)
+        val token = authService.getInstallationToken(settings.installationId)
 
         val body = buildIssueBody(feedback)
         val labels = buildList {
             add("feedback")
             add(feedback.category.name.lowercase().replace('_', '-'))
             add("priority:${feedback.priority.name.lowercase()}")
-            config.label?.let { add(it) }
+            settings.label?.let { add(it) }
         }
 
         val requestBody = mapOf(
@@ -48,7 +50,7 @@ class GitHubIssueSyncAdapter(
         )
 
         val response = restClient.post()
-            .uri("/repos/{owner}/{repo}/issues", config.repoOwner, config.repoName)
+            .uri("/repos/{owner}/{repo}/issues", settings.repoOwner, settings.repoName)
             .header("Authorization", "Bearer $token")
             .contentType(MediaType.APPLICATION_JSON)
             .body(requestBody)
@@ -67,7 +69,7 @@ class GitHubIssueSyncAdapter(
             "Created GitHub issue #{} for feedback {} in {}",
             issueNumber,
             feedback.id,
-            config.repoFullName,
+            settings.repoFullName,
         )
 
         return SyncResult(
@@ -77,13 +79,12 @@ class GitHubIssueSyncAdapter(
     }
 
     override fun addComment(
-        config: FeedbackConfig,
+        config: FeedbackSyncConfig,
         externalRef: String,
         comment: FeedbackComment,
     ): ExternalCommentRef {
-        val installationId = config.installationId
-            ?: throw IllegalArgumentException("GitHub not configured for tenant ${config.tenantKey}")
-        val token = authService.getInstallationToken(installationId)
+        val settings = parseSettings(config)
+        val token = authService.getInstallationToken(settings.installationId)
 
         val body = "**${comment.authorName}** commented:\n\n${comment.body}"
 
@@ -92,8 +93,8 @@ class GitHubIssueSyncAdapter(
         val response = restClient.post()
             .uri(
                 "/repos/{owner}/{repo}/issues/{issueNumber}/comments",
-                config.repoOwner,
-                config.repoName,
+                settings.repoOwner,
+                settings.repoName,
                 externalRef,
             )
             .header("Authorization", "Bearer $token")
@@ -108,15 +109,14 @@ class GitHubIssueSyncAdapter(
             .takeIf { it > 0 }
             ?: throw GitHubSyncException("No comment ID in response")
 
-        log.info("Added comment {} to GitHub issue #{} in {}", commentId, externalRef, config.repoFullName)
+        log.info("Added comment {} to GitHub issue #{} in {}", commentId, externalRef, settings.repoFullName)
 
-        return ExternalCommentRef(externalCommentId = commentId)
+        return ExternalCommentRef(externalCommentId = commentId.toString())
     }
 
-    override fun updateStatus(config: FeedbackConfig, externalRef: String, status: FeedbackStatus) {
-        val installationId = config.installationId
-            ?: throw IllegalArgumentException("GitHub not configured for tenant ${config.tenantKey}")
-        val token = authService.getInstallationToken(installationId)
+    override fun updateStatus(config: FeedbackSyncConfig, externalRef: String, status: FeedbackStatus) {
+        val settings = parseSettings(config)
+        val token = authService.getInstallationToken(settings.installationId)
 
         val state = when (status) {
             FeedbackStatus.CLOSED, FeedbackStatus.RESOLVED -> "closed"
@@ -128,8 +128,8 @@ class GitHubIssueSyncAdapter(
         restClient.patch()
             .uri(
                 "/repos/{owner}/{repo}/issues/{issueNumber}",
-                config.repoOwner,
-                config.repoName,
+                settings.repoOwner,
+                settings.repoName,
                 externalRef,
             )
             .header("Authorization", "Bearer $token")
@@ -142,20 +142,112 @@ class GitHubIssueSyncAdapter(
             "Updated GitHub issue #{} to state '{}' in {}",
             externalRef,
             state,
-            config.repoFullName,
+            settings.repoFullName,
         )
     }
 
-    override fun verifyWebhookSignature(payload: ByteArray, signature: String, secret: String): Boolean {
-        if (!signature.startsWith("sha256=")) return false
+    override fun fetchUpdates(config: FeedbackSyncConfig, since: Instant): List<ExternalUpdate> {
+        val settings = parseSettings(config)
+        val token = authService.getInstallationToken(settings.installationId)
+        val sinceIso = since.toString()
 
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(secret.toByteArray(), "HmacSHA256"))
-        val computed = mac.doFinal(payload)
-        val expected = signature.removePrefix("sha256=").hexToByteArray()
+        val updates = mutableListOf<ExternalUpdate>()
 
-        return computed.contentEquals(expected)
+        // Fetch issue state changes (closed/reopened) since the given timestamp
+        fetchIssueStateChanges(settings, token, sinceIso, updates)
+
+        // Fetch new comments since the given timestamp
+        fetchIssueComments(settings, token, sinceIso, updates)
+
+        return updates
     }
+
+    private fun fetchIssueStateChanges(
+        settings: GitHubSyncSettings,
+        token: String,
+        since: String,
+        updates: MutableList<ExternalUpdate>,
+    ) {
+        try {
+            val uri = buildString {
+                append("/repos/${settings.repoOwner}/${settings.repoName}/issues")
+                append("?state=all&since=$since&sort=updated&direction=asc&per_page=100")
+                settings.label?.let { append("&labels=$it") }
+            }
+
+            val response = restClient.get()
+                .uri(uri)
+                .header("Authorization", "Bearer $token")
+                .retrieve()
+                .body(String::class.java) ?: return
+
+            val issues = objectMapper.readTree(response)
+            for (issue in issues) {
+                val issueNumber = issue.path("number").intValue().toString()
+                val state = issue.path("state").stringValue() ?: continue
+                val updatedAt = issue.path("updated_at").stringValue() ?: continue
+
+                val newStatus = when (state) {
+                    "closed" -> FeedbackStatus.RESOLVED
+                    "open" -> FeedbackStatus.OPEN
+                    else -> continue
+                }
+
+                updates.add(
+                    ExternalUpdate.StatusChange(
+                        externalRef = issueNumber,
+                        occurredAt = Instant.parse(updatedAt),
+                        newStatus = newStatus,
+                    ),
+                )
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to fetch issue state changes from {}: {}", settings.repoFullName, e.message)
+        }
+    }
+
+    private fun fetchIssueComments(
+        settings: GitHubSyncSettings,
+        token: String,
+        since: String,
+        updates: MutableList<ExternalUpdate>,
+    ) {
+        try {
+            val uri = "/repos/${settings.repoOwner}/${settings.repoName}/issues/comments" +
+                "?since=$since&sort=created&direction=asc&per_page=100"
+
+            val response = restClient.get()
+                .uri(uri)
+                .header("Authorization", "Bearer $token")
+                .retrieve()
+                .body(String::class.java) ?: return
+
+            val comments = objectMapper.readTree(response)
+            for (comment in comments) {
+                val commentId = comment.path("id").longValue().toString()
+                val issueUrl = comment.path("issue_url").stringValue() ?: continue
+                val issueNumber = issueUrl.substringAfterLast("/")
+                val createdAt = comment.path("created_at").stringValue() ?: continue
+                val authorName = comment.path("user").path("login").stringValue() ?: "Unknown"
+                val body = comment.path("body").stringValue() ?: ""
+
+                updates.add(
+                    ExternalUpdate.Comment(
+                        externalRef = issueNumber,
+                        occurredAt = Instant.parse(createdAt),
+                        externalCommentId = commentId,
+                        authorName = authorName,
+                        authorEmail = null,
+                        body = body,
+                    ),
+                )
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to fetch issue comments from {}: {}", settings.repoFullName, e.message)
+        }
+    }
+
+    private fun parseSettings(config: FeedbackSyncConfig): GitHubSyncSettings = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
 
     private fun buildIssueBody(feedback: Feedback): String = buildString {
         appendLine(feedback.description)
@@ -181,11 +273,6 @@ class GitHubIssueSyncAdapter(
 
         appendLine()
         appendLine("*Submitted via Epistola*")
-    }
-
-    private fun String.hexToByteArray(): ByteArray {
-        check(length % 2 == 0) { "Hex string must have even length" }
-        return chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     }
 }
 

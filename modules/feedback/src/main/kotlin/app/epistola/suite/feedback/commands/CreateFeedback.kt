@@ -5,11 +5,10 @@ import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackCategory
-import app.epistola.suite.feedback.FeedbackConfig
 import app.epistola.suite.feedback.FeedbackPriority
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.SyncStatus
-import app.epistola.suite.feedback.queries.GetFeedbackConfig
+import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
@@ -43,9 +42,9 @@ class CreateFeedbackHandler(
         val feedbackKey = command.id.key
         val tenantKey = command.id.tenantKey
 
-        // Check if GitHub sync is configured for this tenant
-        val config: FeedbackConfig? = GetFeedbackConfig(tenantKey).query()
-        val syncStatus = if (config?.enabled == true && config.isGitHubConfigured) {
+        // Check if external sync is configured for this tenant
+        val config = GetFeedbackSyncConfig(tenantKey).query()
+        val syncStatus = if (config?.enabled == true) {
             SyncStatus.PENDING
         } else {
             SyncStatus.NOT_CONFIGURED

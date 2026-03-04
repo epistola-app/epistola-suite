@@ -62,20 +62,25 @@ epistola:
       retention-days: 30         # Auto-delete documents after 30 days
       max-size-mb: 50            # Max document size
 
-# GitHub App integration for feedback sync (optional)
-# Uncomment and configure to enable syncing feedback to GitHub Issues.
+# Feedback sync configuration (optional, provider-agnostic)
+# Controls outbound sync, inbound polling, and webhook reception.
+#  feedback:
+#    sync:
+#      enabled: true                           # Enable outbound sync scheduler
+#      retry-interval-ms: 60000                # Retry interval for failed syncs
+#      polling:
+#        enabled: false                        # Enable inbound polling (alternative to webhooks)
+#        interval-ms: 300000                   # Poll interval (default 5 min)
+#      webhooks:
+#        enabled: false                        # Enable inbound webhook endpoint
+
+# GitHub App integration (optional, only needed when using GitHub as sync provider)
 # Requires a GitHub App with Issues: Read & Write permissions.
 # See docs/feedback.md for setup instructions.
 #  github:
 #    app-id: 123456                           # GitHub App ID
 #    private-key-path: /path/to/private-key.pem  # PEM-encoded PKCS#8 RSA key
 #    webhook-secret: your-webhook-secret       # Webhook signature verification
-#    sync:
-#      enabled: true                           # Enable outbound sync scheduler
-#      retry-interval-ms: 60000                # Retry interval for failed syncs
-#      max-retries: 3                          # Max retry attempts before marking FAILED
-#    webhooks:
-#      enabled: false                          # Enable inbound webhook endpoint (requires external access)
 
 management:
   endpoints:

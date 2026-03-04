@@ -5,7 +5,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
-import app.epistola.suite.feedback.queries.GetFeedbackConfig
+import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -20,23 +20,23 @@ import org.springframework.stereotype.Component
 /**
  * Periodically retries syncing feedback items that failed initial sync.
  *
- * Only active when `epistola.github.sync.enabled` is true (requires GitHub App configured).
+ * Only active when `epistola.feedback.sync.enabled` is true (requires a sync provider configured).
  * Items that exceed max retries are marked as FAILED and no longer retried.
  */
 @Component
 @EnableScheduling
 @ConditionalOnProperty(
-    name = ["epistola.github.sync.enabled"],
+    name = ["epistola.feedback.sync.enabled"],
     havingValue = "true",
     matchIfMissing = false,
 )
 class FeedbackSyncScheduler(
-    private val issueSyncPort: IssueSyncPort,
+    private val feedbackSyncPort: FeedbackSyncPort,
     private val jdbi: Jdbi,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Scheduled(fixedDelayString = "\${epistola.github.sync.retry-interval-ms:60000}")
+    @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
     fun retryPendingSync() {
         val pending = ListPendingSyncFeedback(limit = 20).query()
         if (pending.isEmpty()) return
@@ -54,19 +54,19 @@ class FeedbackSyncScheduler(
     }
 
     private fun syncFeedback(feedback: Feedback) {
-        val config = GetFeedbackConfig(feedback.tenantKey).query() ?: run {
-            log.warn("No feedback config for tenant {}, marking as NOT_CONFIGURED", feedback.tenantKey)
+        val config = GetFeedbackSyncConfig(feedback.tenantKey).query() ?: run {
+            log.warn("No feedback sync config for tenant {}, marking as NOT_CONFIGURED", feedback.tenantKey)
             markNotConfigured(feedback)
             return
         }
 
-        if (!config.enabled || !config.isGitHubConfigured) {
-            log.warn("GitHub not configured/enabled for tenant {}, marking as NOT_CONFIGURED", feedback.tenantKey)
+        if (!config.enabled) {
+            log.warn("Sync not enabled for tenant {}, marking as NOT_CONFIGURED", feedback.tenantKey)
             markNotConfigured(feedback)
             return
         }
 
-        val syncResult = issueSyncPort.createIssue(config, feedback, screenshot = null)
+        val syncResult = feedbackSyncPort.createTicket(config, feedback, screenshot = null)
 
         val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
         UpdateFeedbackSyncRef(
@@ -75,7 +75,7 @@ class FeedbackSyncScheduler(
             externalUrl = syncResult.externalUrl,
         ).execute()
 
-        log.info("Successfully synced feedback {} to external issue {}", feedback.id, syncResult.externalRef)
+        log.info("Successfully synced feedback {} to external ticket {}", feedback.id, syncResult.externalRef)
     }
 
     private fun markFailed(feedback: Feedback) {

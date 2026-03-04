@@ -17,7 +17,7 @@ data class SyncFeedbackComment(
     val body: String,
     val authorName: String,
     val authorEmail: String?,
-    val externalCommentId: Long,
+    val externalCommentId: String,
 ) : Command<FeedbackComment?>
 
 @Component
@@ -60,7 +60,7 @@ class SyncFeedbackCommentHandler(
             .bind("body", command.body)
             .bind("authorName", command.authorName)
             .bind("authorEmail", command.authorEmail)
-            .bind("source", CommentSource.GITHUB.name)
+            .bind("source", CommentSource.EXTERNAL.name)
             .bind("externalCommentId", command.externalCommentId)
             .mapTo(FeedbackComment::class.java)
             .one()

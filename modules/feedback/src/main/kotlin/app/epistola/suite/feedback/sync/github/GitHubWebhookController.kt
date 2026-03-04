@@ -4,11 +4,11 @@ import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.FeedbackKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.feedback.FeedbackConfig
 import app.epistola.suite.feedback.FeedbackStatus
+import app.epistola.suite.feedback.FeedbackSyncConfig
+import app.epistola.suite.feedback.SyncProviderType
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
-import app.epistola.suite.feedback.sync.IssueSyncPort
 import app.epistola.suite.mediator.execute
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -26,9 +26,8 @@ import tools.jackson.databind.ObjectMapper
 /**
  * Receives GitHub webhook events for feedback sync.
  *
- * This endpoint is optional and only active when `epistola.github.webhooks.enabled=true`.
- * Deployments behind a firewall that cannot receive webhooks will work fine with
- * outbound-only sync (feedback is created in GitHub but comments are not synced back).
+ * This endpoint is optional and only active when `epistola.feedback.sync.webhooks.enabled=true`.
+ * Deployments behind a firewall that cannot receive webhooks can use polling instead.
  *
  * Handles:
  * - `issue_comment` events: syncs GitHub comments back to Epistola feedback
@@ -39,9 +38,8 @@ import tools.jackson.databind.ObjectMapper
  */
 @RestController
 @RequestMapping("/feedback/github/webhooks")
-@ConditionalOnProperty("epistola.github.webhooks.enabled", havingValue = "true")
+@ConditionalOnProperty("epistola.feedback.sync.webhooks.enabled", havingValue = "true")
 class GitHubWebhookController(
-    private val issueSyncPort: IssueSyncPort,
     private val objectMapper: ObjectMapper,
     private val properties: GitHubAppProperties,
     private val jdbi: Jdbi,
@@ -59,7 +57,7 @@ class GitHubWebhookController(
             return ResponseEntity.status(401).build()
         }
 
-        if (!issueSyncPort.verifyWebhookSignature(body, signature, properties.requireWebhookSecret())) {
+        if (!GitHubWebhookVerifier.verify(body, signature, properties.requireWebhookSecret())) {
             log.warn("Webhook signature verification failed")
             return ResponseEntity.status(401).build()
         }
@@ -95,7 +93,7 @@ class GitHubWebhookController(
         }
 
         val comment = payload.path("comment")
-        val externalCommentId = comment.path("id").longValue()
+        val externalCommentId = comment.path("id").longValue().toString()
         val authorName = comment.path("user").path("login").stringValue() ?: "Unknown"
         val body = comment.path("body").stringValue() ?: ""
 
@@ -109,6 +107,7 @@ class GitHubWebhookController(
                 externalCommentId = externalCommentId,
             ).execute()
 
+            updateLastPolledAt(config.tenantKey)
             log.info("Synced GitHub comment {} to feedback {}", externalCommentId, feedbackId.key)
         } catch (e: Exception) {
             log.error("Failed to sync comment {} for feedback {}: {}", externalCommentId, feedbackId.key, e.message)
@@ -135,6 +134,7 @@ class GitHubWebhookController(
 
         try {
             UpdateFeedbackStatus(id = feedbackId, status = newStatus).execute()
+            updateLastPolledAt(config.tenantKey)
             log.info("Updated feedback {} status to {} from GitHub issue state change", feedbackId.key, newStatus)
         } catch (e: Exception) {
             log.error("Failed to update feedback {} status: {}", feedbackId.key, e.message)
@@ -143,28 +143,44 @@ class GitHubWebhookController(
 
     /**
      * Find the tenant config by matching repo full name and labels.
-     * The webhook payload's repo + tenant label must match a configured feedback_config row.
+     * Queries feedback_sync_config for GitHub providers and parses settings to match.
      */
-    private fun findTenantConfig(repoFullName: String, issueLabels: List<String>): FeedbackConfig? {
+    private fun findTenantConfig(repoFullName: String, issueLabels: List<String>): FeedbackSyncConfig? {
         val configs = jdbi.withHandleUnchecked { handle ->
             handle.createQuery(
                 """
-                SELECT * FROM feedback_config
+                SELECT * FROM feedback_sync_config
                 WHERE enabled = true
-                  AND repo_owner || '/' || repo_name = :repoFullName
+                  AND provider_type = :providerType
                 """,
             )
-                .bind("repoFullName", repoFullName)
-                .mapTo(FeedbackConfig::class.java)
+                .bind("providerType", SyncProviderType.GITHUB.name)
+                .mapTo(FeedbackSyncConfig::class.java)
                 .list()
         }
 
-        if (configs.isEmpty()) return null
-        if (configs.size == 1) return configs.first()
+        // Filter by matching repo from parsed settings
+        val matching = configs.filter { config ->
+            try {
+                val settings = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
+                settings.repoFullName == repoFullName
+            } catch (e: Exception) {
+                log.warn("Failed to parse GitHub settings for tenant {}: {}", config.tenantKey, e.message)
+                false
+            }
+        }
+
+        if (matching.isEmpty()) return null
+        if (matching.size == 1) return matching.first()
 
         // Multiple tenants share the same repo — match by label
-        return configs.firstOrNull { config ->
-            config.label != null && issueLabels.contains(config.label)
+        return matching.firstOrNull { config ->
+            try {
+                val settings = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
+                settings.label != null && issueLabels.contains(settings.label)
+            } catch (e: Exception) {
+                false
+            }
         }
     }
 
@@ -190,5 +206,19 @@ class GitHubWebhookController(
         }
 
         return feedbackKey?.let { FeedbackId(it, TenantId(tenantKey)) }
+    }
+
+    private fun updateLastPolledAt(tenantKey: TenantKey) {
+        jdbi.withHandleUnchecked { handle ->
+            handle.createUpdate(
+                """
+                UPDATE feedback_sync_config
+                SET last_polled_at = NOW()
+                WHERE tenant_key = :tenantKey
+                """,
+            )
+                .bind("tenantKey", tenantKey)
+                .execute()
+        }
     }
 }

@@ -4,7 +4,7 @@ import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.CreateFeedback
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
-import app.epistola.suite.feedback.queries.GetFeedbackConfig
+import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class OnFeedbackCreated(
-    private val issueSyncPort: IssueSyncPort,
+    private val feedbackSyncPort: FeedbackSyncPort,
 ) : EventHandler<CreateFeedback> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -31,10 +31,10 @@ class OnFeedbackCreated(
             return
         }
 
-        val config = GetFeedbackConfig(event.id.tenantKey).query() ?: return
+        val config = GetFeedbackSyncConfig(event.id.tenantKey).query() ?: return
 
         try {
-            val syncResult = issueSyncPort.createIssue(config, feedback, screenshot = null)
+            val syncResult = feedbackSyncPort.createTicket(config, feedback, screenshot = null)
 
             UpdateFeedbackSyncRef(
                 id = event.id,
@@ -42,7 +42,7 @@ class OnFeedbackCreated(
                 externalUrl = syncResult.externalUrl,
             ).execute()
 
-            log.info("Synced feedback {} to external issue {}", feedback.id, syncResult.externalRef)
+            log.info("Synced feedback {} to external ticket {}", feedback.id, syncResult.externalRef)
         } catch (e: Exception) {
             log.error("Failed to sync feedback {} to external issue tracker: {}", feedback.id, e.message, e)
         }

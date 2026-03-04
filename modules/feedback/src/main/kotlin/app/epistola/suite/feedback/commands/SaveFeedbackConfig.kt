@@ -1,47 +1,42 @@
 package app.epistola.suite.feedback.commands
 
 import app.epistola.suite.common.ids.TenantKey
-import app.epistola.suite.feedback.FeedbackConfig
+import app.epistola.suite.feedback.FeedbackSyncConfig
+import app.epistola.suite.feedback.SyncProviderType
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
-data class SaveFeedbackConfig(
+data class SaveFeedbackSyncConfig(
     val tenantKey: TenantKey,
     val enabled: Boolean,
-    val installationId: Long?,
-    val repoOwner: String?,
-    val repoName: String?,
-    val label: String?,
-) : Command<FeedbackConfig>
+    val providerType: SyncProviderType,
+    val settings: String,
+) : Command<FeedbackSyncConfig>
 
 @Component
-class SaveFeedbackConfigHandler(
+class SaveFeedbackSyncConfigHandler(
     private val jdbi: Jdbi,
-) : CommandHandler<SaveFeedbackConfig, FeedbackConfig> {
-    override fun handle(command: SaveFeedbackConfig): FeedbackConfig = jdbi.withHandleUnchecked { handle ->
+) : CommandHandler<SaveFeedbackSyncConfig, FeedbackSyncConfig> {
+    override fun handle(command: SaveFeedbackSyncConfig): FeedbackSyncConfig = jdbi.withHandleUnchecked { handle ->
         handle.createQuery(
             """
-            INSERT INTO feedback_config (tenant_key, enabled, installation_id, repo_owner, repo_name, label)
-            VALUES (:tenantKey, :enabled, :installationId, :repoOwner, :repoName, :label)
+            INSERT INTO feedback_sync_config (tenant_key, enabled, provider_type, settings)
+            VALUES (:tenantKey, :enabled, :providerType, CAST(:settings AS JSONB))
             ON CONFLICT (tenant_key) DO UPDATE SET
                 enabled = EXCLUDED.enabled,
-                installation_id = EXCLUDED.installation_id,
-                repo_owner = EXCLUDED.repo_owner,
-                repo_name = EXCLUDED.repo_name,
-                label = EXCLUDED.label
+                provider_type = EXCLUDED.provider_type,
+                settings = EXCLUDED.settings
             RETURNING *
             """,
         )
             .bind("tenantKey", command.tenantKey)
             .bind("enabled", command.enabled)
-            .bind("installationId", command.installationId)
-            .bind("repoOwner", command.repoOwner)
-            .bind("repoName", command.repoName)
-            .bind("label", command.label)
-            .mapTo(FeedbackConfig::class.java)
+            .bind("providerType", command.providerType.name)
+            .bind("settings", command.settings)
+            .mapTo(FeedbackSyncConfig::class.java)
             .one()
     }
 }

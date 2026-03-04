@@ -13,11 +13,11 @@ data class FeedbackComment(
     val authorName: String,
     val authorEmail: String?,
     val source: CommentSource,
-    val externalCommentId: Long?,
+    val externalCommentId: String?,
     val createdAt: OffsetDateTime,
 )
 
 enum class CommentSource {
     LOCAL,
-    GITHUB,
+    EXTERNAL,
 }
