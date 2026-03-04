@@ -74,12 +74,9 @@ epistola:
 #      webhooks:
 #        enabled: false                        # Enable inbound webhook endpoint
 
-# GitHub App integration (optional, only needed when using GitHub as sync provider)
-# Requires a GitHub App with Issues: Read & Write permissions.
-# See docs/feedback.md for setup instructions.
+# GitHub webhook integration (optional, only needed when using inbound webhooks)
+# Authentication with the GitHub API uses per-tenant PATs configured in the settings UI.
 #  github:
-#    app-id: 123456                           # GitHub App ID
-#    private-key-path: /path/to/private-key.pem  # PEM-encoded PKCS#8 RSA key
 #    webhook-secret: your-webhook-secret       # Webhook signature verification
 
 management:

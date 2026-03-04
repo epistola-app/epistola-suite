@@ -40,13 +40,13 @@
                     <fieldset>
                         <legend>GitHub Settings</legend>
 
-                        <div class="form-group" th:classappend="${errors?.containsKey('installationId')} ? 'error' : ''">
-                            <label class="ep-label" for="installationId">Installation ID</label>
-                            <input type="number" id="installationId" name="installationId" class="ep-input"
-                                   placeholder="12345678"
-                                   th:value="${formData?.get('installationId')}">
-                            <span class="form-hint">The GitHub App installation ID for your organization.</span>
-                            <span class="form-error" th:if="${errors?.containsKey('installationId')}" th:text="${errors.installationId}"></span>
+                        <div class="form-group" th:classappend="${errors?.containsKey('personalAccessToken')} ? 'error' : ''">
+                            <label class="ep-label" for="personalAccessToken">Personal Access Token</label>
+                            <input type="password" id="personalAccessToken" name="personalAccessToken" class="ep-input"
+                                   autocomplete="off"
+                                   th:value="${formData?.get('personalAccessToken')}">
+                            <span class="form-hint">Create a <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">fine-grained PAT</a> with Issues read/write access to your repository.</span>
+                            <span class="form-error" th:if="${errors?.containsKey('personalAccessToken')}" th:text="${errors.personalAccessToken}"></span>
                         </div>
 
                         <div class="form-group" th:classappend="${errors?.containsKey('repoOwner')} ? 'error' : ''">

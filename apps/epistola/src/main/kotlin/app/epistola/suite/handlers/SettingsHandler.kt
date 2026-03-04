@@ -28,7 +28,7 @@ class SettingsHandler(
             formData["providerType"] = config.providerType.name
             if (config.providerType == SyncProviderType.GITHUB) {
                 val github = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
-                formData["installationId"] = github.installationId.toString()
+                formData["personalAccessToken"] = maskToken(github.personalAccessToken)
                 formData["repoOwner"] = github.repoOwner
                 formData["repoName"] = github.repoName
                 formData["label"] = github.label.orEmpty()
@@ -59,9 +59,9 @@ class SettingsHandler(
                     required()
                     maxLength(100)
                 }
-                field("installationId") {
+                field("personalAccessToken") {
                     required()
-                    asInt()
+                    maxLength(500)
                 }
                 field("label") { maxLength(100) }
             }
@@ -79,10 +79,26 @@ class SettingsHandler(
         }
 
         val providerType = SyncProviderType.valueOf(form["providerType"])
+
+        // Resolve the actual PAT: if the submitted value matches the masked pattern, preserve
+        // the existing token from the database instead of storing the masked value.
+        val submittedToken = form["personalAccessToken"]
+        val resolvedToken = if (enabled && isMaskedToken(submittedToken)) {
+            val existing = GetFeedbackSyncConfig(tenantId.key).query()
+            if (existing != null && existing.providerType == SyncProviderType.GITHUB) {
+                val existingSettings = objectMapper.readValue(existing.settings, GitHubSyncSettings::class.java)
+                existingSettings.personalAccessToken
+            } else {
+                submittedToken
+            }
+        } else {
+            submittedToken
+        }
+
         val settingsJson = if (enabled) {
             objectMapper.writeValueAsString(
                 GitHubSyncSettings(
-                    installationId = form.getInt("installationId")!!.toLong(),
+                    personalAccessToken = resolvedToken,
                     repoOwner = form["repoOwner"],
                     repoName = form["repoName"],
                     label = form["label"].ifBlank { null },
@@ -102,5 +118,26 @@ class SettingsHandler(
         return ServerResponse.status(303)
             .header("Location", "/tenants/${tenantId.key}/settings/feedback-sync?saved=true")
             .build()
+    }
+
+    companion object {
+        private val MASKED_PATTERN = Regex("""^[a-z]{3,4}_\*{4}\w{4}$""")
+
+        /** Masks a PAT for display: "ghp_abc123XYZ" → "ghp_****cXYZ" */
+        fun maskToken(token: String): String {
+            val underscoreIdx = token.indexOf('_')
+            return if (underscoreIdx > 0 && token.length > underscoreIdx + 5) {
+                val prefix = token.substring(0, underscoreIdx + 1)
+                val lastFour = token.takeLast(4)
+                "$prefix****$lastFour"
+            } else if (token.length > 8) {
+                "${token.take(4)}****${token.takeLast(4)}"
+            } else {
+                "****"
+            }
+        }
+
+        /** Checks if a value looks like a masked token (not an actual PAT). */
+        fun isMaskedToken(value: String): Boolean = MASKED_PATTERN.matches(value)
     }
 }

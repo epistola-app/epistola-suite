@@ -14,6 +14,7 @@ import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -39,6 +40,7 @@ import tools.jackson.databind.ObjectMapper
 @RestController
 @RequestMapping("/feedback/github/webhooks")
 @ConditionalOnProperty("epistola.feedback.sync.webhooks.enabled", havingValue = "true")
+@EnableConfigurationProperties(GitHubAppProperties::class)
 class GitHubWebhookController(
     private val objectMapper: ObjectMapper,
     private val properties: GitHubAppProperties,

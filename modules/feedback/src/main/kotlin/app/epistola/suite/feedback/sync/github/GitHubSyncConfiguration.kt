@@ -1,23 +1,22 @@
 package app.epistola.suite.feedback.sync.github
 
 import app.epistola.suite.feedback.sync.FeedbackSyncPort
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Primary
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Configuration for GitHub App integration.
+ * Configuration for GitHub feedback sync.
  *
- * Only active when `epistola.github.app-id` is set. When inactive, the
- * [app.epistola.suite.feedback.sync.NoOpFeedbackSyncAdapter] is used instead
- * (via `@ConditionalOnMissingBean`).
+ * Always active — authentication is handled per-tenant via Personal Access Tokens
+ * stored in [GitHubSyncSettings]. When no tenant has configured a PAT, no API calls are made.
+ *
+ * When the adapter bean exists, it takes precedence over the
+ * [app.epistola.suite.feedback.sync.NoOpFeedbackSyncAdapter] (via `@ConditionalOnMissingBean`).
  */
 @Configuration
-@ConditionalOnProperty("epistola.github.app-id")
-@EnableConfigurationProperties(GitHubAppProperties::class)
 class GitHubSyncConfiguration {
 
     @Bean
@@ -28,15 +27,9 @@ class GitHubSyncConfiguration {
         .build()
 
     @Bean
-    fun gitHubAppAuthService(
-        properties: GitHubAppProperties,
-        gitHubRestClient: RestClient,
-    ): GitHubAppAuthService = GitHubAppAuthService(properties, gitHubRestClient)
-
-    @Bean
+    @Primary
     fun gitHubFeedbackSyncAdapter(
-        authService: GitHubAppAuthService,
         gitHubRestClient: RestClient,
         objectMapper: ObjectMapper,
-    ): FeedbackSyncPort = GitHubIssueSyncAdapter(authService, gitHubRestClient, objectMapper)
+    ): FeedbackSyncPort = GitHubIssueSyncAdapter(gitHubRestClient, objectMapper)
 }

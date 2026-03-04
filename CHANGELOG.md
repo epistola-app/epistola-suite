@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+- **Feedback sync: PAT-based auth**: Replaced GitHub App authentication (JWT + installation tokens) with per-tenant Personal Access Token (PAT) authentication. Tenant admins now enter a fine-grained PAT in the settings page instead of a server-level GitHub App installation ID. Removed `GitHubAppAuthService`, `app-id`, and `private-key-path` configuration. PAT is masked in the UI for security.
+
 ### Added
-- **Feedback sync settings UI**: New settings page at `/tenants/{id}/settings/feedback-sync` for configuring per-tenant feedback sync. Supports enabling/disabling sync, selecting provider (GitHub), and entering provider-specific settings (installation ID, repository owner/name, optional label). Includes form validation and persistence via existing `SaveFeedbackSyncConfig` / `GetFeedbackSyncConfig` commands.
+- **Feedback sync settings UI**: New settings page at `/tenants/{id}/settings/feedback-sync` for configuring per-tenant feedback sync. Supports enabling/disabling sync, selecting provider (GitHub), and entering provider-specific settings (PAT, repository owner/name, optional label). Includes form validation and persistence via existing `SaveFeedbackSyncConfig` / `GetFeedbackSyncConfig` commands.
 
 ### Changed
 - **Feedback sync generalization**: Refactored the feedback sync layer from GitHub-specific to provider-agnostic architecture.

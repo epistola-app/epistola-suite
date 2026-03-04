@@ -15,16 +15,15 @@ import tools.jackson.databind.ObjectMapper
 import java.time.Instant
 
 /**
- * GitHub App implementation of [FeedbackSyncPort].
+ * GitHub implementation of [FeedbackSyncPort].
  *
  * Creates issues, adds comments, updates status, and polls for updates via the GitHub REST API v3.
- * Authentication uses installation access tokens obtained via [GitHubAppAuthService].
+ * Authentication uses a per-tenant Personal Access Token (PAT) stored in [GitHubSyncSettings].
  *
  * Provider-specific settings are parsed from [FeedbackSyncConfig.settings] JSONB
  * into [GitHubSyncSettings] at the start of each method call.
  */
 class GitHubIssueSyncAdapter(
-    private val authService: GitHubAppAuthService,
     private val restClient: RestClient,
     private val objectMapper: ObjectMapper,
 ) : FeedbackSyncPort {
@@ -33,7 +32,7 @@ class GitHubIssueSyncAdapter(
 
     override fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, screenshot: ByteArray?): SyncResult {
         val settings = parseSettings(config)
-        val token = authService.getInstallationToken(settings.installationId)
+        val token = settings.personalAccessToken
 
         val body = buildIssueBody(feedback)
         val labels = buildList {
@@ -84,7 +83,7 @@ class GitHubIssueSyncAdapter(
         comment: FeedbackComment,
     ): ExternalCommentRef {
         val settings = parseSettings(config)
-        val token = authService.getInstallationToken(settings.installationId)
+        val token = settings.personalAccessToken
 
         val body = "**${comment.authorName}** commented:\n\n${comment.body}"
 
@@ -116,7 +115,7 @@ class GitHubIssueSyncAdapter(
 
     override fun updateStatus(config: FeedbackSyncConfig, externalRef: String, status: FeedbackStatus) {
         val settings = parseSettings(config)
-        val token = authService.getInstallationToken(settings.installationId)
+        val token = settings.personalAccessToken
 
         val state = when (status) {
             FeedbackStatus.CLOSED, FeedbackStatus.RESOLVED -> "closed"
@@ -148,7 +147,7 @@ class GitHubIssueSyncAdapter(
 
     override fun fetchUpdates(config: FeedbackSyncConfig, since: Instant): List<ExternalUpdate> {
         val settings = parseSettings(config)
-        val token = authService.getInstallationToken(settings.installationId)
+        val token = settings.personalAccessToken
         val sinceIso = since.toString()
 
         val updates = mutableListOf<ExternalUpdate>()
