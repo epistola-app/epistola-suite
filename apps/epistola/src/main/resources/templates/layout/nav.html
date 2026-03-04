@@ -44,6 +44,11 @@
                    th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
                     Feedback
                 </a>
+                <a th:href="@{/tenants/{id}/settings/feedback-sync(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'settings'} ? ' active' : ''">
+                    Settings
+                </a>
             </div>
 
             <!-- Mobile hamburger toggle -->

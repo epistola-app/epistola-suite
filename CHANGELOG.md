@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Feedback sync settings UI**: New settings page at `/tenants/{id}/settings/feedback-sync` for configuring per-tenant feedback sync. Supports enabling/disabling sync, selecting provider (GitHub), and entering provider-specific settings (installation ID, repository owner/name, optional label). Includes form validation and persistence via existing `SaveFeedbackSyncConfig` / `GetFeedbackSyncConfig` commands.
+
 ### Changed
 - **Feedback sync generalization**: Refactored the feedback sync layer from GitHub-specific to provider-agnostic architecture.
   - **Port renamed**: `IssueSyncPort` → `FeedbackSyncPort` with `createTicket` (was `createIssue`), `fetchUpdates` (new), and `verifyWebhookSignature` removed from the interface.
