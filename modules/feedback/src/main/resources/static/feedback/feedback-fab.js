@@ -7,7 +7,8 @@
  *
  * Usage: <script type="module" src="/feedback/feedback-fab.js" data-tenant-id="acme"></script>
  */
-const script = document.currentScript;
+// document.currentScript is null in ES modules — find by src attribute instead
+const script = document.querySelector('script[src*="feedback-fab.js"]');
 const tenantId = script?.getAttribute('data-tenant-id');
 if (!tenantId) throw new Error('feedback-fab.js: missing data-tenant-id');
 
