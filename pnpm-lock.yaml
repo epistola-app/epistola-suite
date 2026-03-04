@@ -27,8 +27,8 @@ importers:
   modules/design-system:
     devDependencies:
       lucide-static:
-        specifier: ^0.576.0
-        version: 0.576.0
+        specifier: ^0.577.0
+        version: 0.577.0
 
   modules/editor:
     dependencies:
@@ -1535,8 +1535,8 @@ packages:
     resolution: {integrity: sha512-ESL2CrkS/2wTPfuend7Zhkzo2u0daGJ/A2VucJOgQ/C48S/zB8MMeMHSGKYpXhIjbPxfuezITkaBH1wqv00DDQ==}
     engines: {node: 20 || >=22}
 
-  lucide-static@0.576.0:
-    resolution: {integrity: sha512-0LPnsw/0/PC8Diu0neT6lSsR/ZaCQRu2B4d15joy5OFlSrhyJi5Jc8p1aYOn2wqb4dUECxQ/fk1s4iSlKYvqqA==}
+  lucide-static@0.577.0:
+    resolution: {integrity: sha512-hx39J5Tq4JWF2ALY+5YRg+SxQLpeAmLJDXNcqiBJH/UuVwp43it9fyki/onZO7AVFgG5ZbB+fWwZR9mwGHE2XQ==}
 
   lunr@2.3.9:
     resolution: {integrity: sha512-zTU3DaZaF3Rt9rhN3uBMGQD3dD2/vFQqnvZCDv4dl5iOzq2IZQqTxu90r4E5J+nP70J3ilqVCrbho2eWaeW8Ow==}
@@ -3622,7 +3622,7 @@ snapshots:
 
   lru-cache@11.2.6: {}
 
-  lucide-static@0.576.0: {}
+  lucide-static@0.577.0: {}
 
   lunr@2.3.9: {}
 
