@@ -39,16 +39,24 @@ class SecurityFilter : OncePerRequestFilter() {
         filterChain: FilterChain,
     ) {
         val authentication = SecurityContextHolder.getContext().authentication
+        val authPrincipal = authentication?.principal
 
         val principal = when {
             authentication == null || !authentication.isAuthenticated -> null
-            authentication.principal is EpistolaPrincipal -> authentication.principal as EpistolaPrincipal
-            authentication.principal is EpistolaPrincipalHolder ->
-                (authentication.principal as EpistolaPrincipalHolder).epistolaPrincipal
+            authPrincipal is String -> null // AnonymousAuthenticationToken
+            authPrincipal is EpistolaPrincipal -> authPrincipal
+            authPrincipal is EpistolaPrincipalHolder -> try {
+                authPrincipal.epistolaPrincipal
+            } catch (e: Exception) {
+                log.warn("Failed to extract principal from stale session — invalidating", e)
+                request.session?.invalidate()
+                null
+            }
             else -> {
                 log.warn(
-                    "Authenticated but unrecognized principal type: {}",
-                    authentication.principal?.javaClass?.name,
+                    "Authenticated but unrecognized principal type: {} (interfaces: {})",
+                    authPrincipal?.javaClass?.name,
+                    authPrincipal?.javaClass?.interfaces?.map { it.name },
                 )
                 null
             }

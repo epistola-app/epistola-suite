@@ -95,7 +95,7 @@ class LocalUserDetailsService : UserDetailsService {
         override fun isAccountNonLocked() = true
 
         companion object {
-            private const val serialVersionUID: Long = 2L
+            private const val serialVersionUID: Long = 3L
         }
     }
 }

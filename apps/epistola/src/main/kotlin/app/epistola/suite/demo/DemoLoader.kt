@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.common.ids.ThemeKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionId
@@ -69,6 +70,7 @@ class DemoLoader(
     private val transactionTemplate: TransactionTemplate,
     private val apiKeyRepository: ApiKeyRepository,
     private val apiKeyService: ApiKeyService,
+    private val jdbcClient: org.springframework.jdbc.core.simple.JdbcClient,
 ) : ApplicationRunner {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -105,6 +107,9 @@ class DemoLoader(
                 val tenant = mediator.send(CreateTenant(id = TenantKey.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
                 log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
                 log.info("Tenant has default theme: {}", tenant.defaultThemeKey)
+
+                // Create local dev users in the database (matches LocalUserDetailsService)
+                seedLocalUsers(tenant.id)
 
                 // Upload demo logo asset with well-known ID
                 val logoBytes = generateDemoLogoPng()
@@ -160,6 +165,46 @@ class DemoLoader(
                 log.info("Created {} demo templates with environments and variants", definitions.size)
             }
         }
+    }
+
+    /**
+     * Seeds local dev users into the database so that foreign key constraints
+     * (e.g., feedback.created_by) are satisfied. These users match the in-memory
+     * users defined in LocalUserDetailsService.
+     */
+    private fun seedLocalUsers(tenantKey: TenantKey) {
+        val users = listOf(
+            Triple(DEMO_ADMIN_USER_ID, "admin@local", "Local Admin"),
+            Triple(DEMO_MEMBER_USER_ID, "user@local", "Local User"),
+        )
+
+        for ((userId, email, displayName) in users) {
+            jdbcClient.sql(
+                """
+                INSERT INTO users (id, external_id, email, display_name, provider, enabled, created_at)
+                VALUES (?, ?, ?, ?, 'LOCAL', true, NOW())
+                ON CONFLICT (external_id, provider) DO NOTHING
+                """,
+            )
+                .param(UserKey.of(userId).value)
+                .param(email)
+                .param(email)
+                .param(displayName)
+                .update()
+
+            jdbcClient.sql(
+                """
+                INSERT INTO tenant_memberships (user_id, tenant_key)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+            )
+                .param(UserKey.of(userId).value)
+                .param(tenantKey.value)
+                .update()
+        }
+
+        log.info("Seeded {} local dev users with tenant membership", users.size)
     }
 
     /**
@@ -449,12 +494,14 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "9.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "10.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
         private const val DEMO_TENANT_ID = "demo-tenant"
         private const val DEMO_TENANT_NAME = "Demo Tenant"
-        private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-000000000001"
-        private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-000000000002"
+        private const val DEMO_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000001"
+        private const val DEMO_MEMBER_USER_ID = "00000000-0000-0000-0000-000000000002"
+        private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-100000000001"
+        private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-200000000001"
         const val DEMO_API_KEY = "epk_demo_000000000000000000000000000000000000"
     }
 }
