@@ -2,7 +2,7 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <body>
     <th:block th:fragment="content">
-        <div class="feedback-popover-header">
+        <div class="feedback-popover-header" th:data-feedback-count="${#lists.size(feedbackItems)}">
             <span class="feedback-popover-title">Page Feedback</span>
             <button type="button" class="btn btn-primary btn-sm"
                     hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
@@ -32,13 +32,6 @@
                 </div>
             </li>
         </ul>
-    </th:block>
-
-    <th:block th:fragment="badge">
-        <span id="feedback-fab-badge" hx-swap-oob="true"
-              class="feedback-fab-badge"
-              th:classappend="${#lists.isEmpty(feedbackItems)} ? 'feedback-fab-badge--hidden' : ''"
-              th:text="${#lists.size(feedbackItems)}">0</span>
     </th:block>
 </body>
 </html>

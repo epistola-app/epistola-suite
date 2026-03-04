@@ -11,6 +11,7 @@ data class FeedbackSummary(
     val category: FeedbackCategory,
     val status: FeedbackStatus,
     val priority: FeedbackPriority,
+    val sourceUrl: String?,
     val createdByName: String,
     val commentCount: Int,
     val createdAt: OffsetDateTime,

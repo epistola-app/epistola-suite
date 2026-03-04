@@ -52,6 +52,7 @@
             <thead>
                 <tr>
                     <th>Title</th>
+                    <th>Page</th>
                     <th>Category</th>
                     <th>Status</th>
                     <th>Priority</th>
@@ -67,6 +68,12 @@
                             <a th:href="@{/tenants/{tenantId}/feedback/{id}(tenantId=${tenantId},id=${item.id})}"
                                style="font-weight: 500;"
                                th:text="${item.title}">Title</a>
+                        </td>
+                        <td>
+                            <a th:if="${item.sourceUrl != null}" th:href="${item.sourceUrl}"
+                               class="ep-text-muted ep-text-sm" style="text-decoration: none;"
+                               th:text="${T(java.net.URI).create(item.sourceUrl).getPath()}">/path</a>
+                            <span th:if="${item.sourceUrl == null}" class="ep-text-muted">—</span>
                         </td>
                         <td>
                             <span class="ep-badge ep-badge-outline" th:text="${item.category.name()}">BUG</span>

@@ -42,6 +42,7 @@ class ListFeedbackHandler(
         val q = handle.createQuery(
             """
             SELECT f.id, f.tenant_key, f.title, f.category, f.status, f.priority,
+                   f.source_url,
                    u.display_name AS created_by_name,
                    COALESCE(c.comment_count, 0) AS comment_count,
                    f.created_at, f.updated_at

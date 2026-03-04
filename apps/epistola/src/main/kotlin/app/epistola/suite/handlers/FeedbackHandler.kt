@@ -86,11 +86,8 @@ class FeedbackHandler(
 
         if (sourceUrl != null) {
             return request.htmx {
-                fragment("feedback/page-issues") {
+                fragment("feedback/page-issues", "content") {
                     "tenantId" to tenantId.key
-                    "feedbackItems" to feedbackItems
-                }
-                oob("feedback/page-issues", "badge") {
                     "feedbackItems" to feedbackItems
                 }
                 onNonHtmx { redirect("/tenants/${tenantId.key}/feedback") }
