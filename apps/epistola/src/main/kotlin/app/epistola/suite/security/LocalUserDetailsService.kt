@@ -60,7 +60,7 @@ class LocalUserDetailsService : UserDetailsService {
         return LocalUserDetails(
             username = localUser.email,
             password = passwordEncoder.encode(localUser.password) ?: throw IllegalStateException("Password encoding failed"),
-            principal = principal,
+            epistolaPrincipal = principal,
         )
     }
 
@@ -82,8 +82,9 @@ class LocalUserDetailsService : UserDetailsService {
     private class LocalUserDetails(
         private val username: String,
         private val password: String,
-        val principal: EpistolaPrincipal,
+        override val epistolaPrincipal: EpistolaPrincipal,
     ) : UserDetails,
+        EpistolaPrincipalHolder,
         java.io.Serializable {
         override fun getUsername() = username
         override fun getPassword() = password

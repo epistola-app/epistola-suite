@@ -151,10 +151,10 @@ class OAuth2UserProvisioningService(
      */
     private class OAuth2UserWrapper(
         private val delegate: OAuth2User,
-        private val epistolaPrincipal: app.epistola.suite.security.EpistolaPrincipal,
+        override val epistolaPrincipal: app.epistola.suite.security.EpistolaPrincipal,
     ) : OAuth2User by delegate,
+        EpistolaPrincipalHolder,
         java.io.Serializable {
-        fun getPrincipal() = epistolaPrincipal
 
         companion object {
             private const val serialVersionUID: Long = 1L

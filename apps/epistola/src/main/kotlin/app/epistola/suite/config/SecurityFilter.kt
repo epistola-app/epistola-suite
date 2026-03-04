@@ -1,10 +1,12 @@
 package app.epistola.suite.config
 
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.EpistolaPrincipalHolder
 import app.epistola.suite.security.SecurityContext
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
@@ -29,6 +31,8 @@ import org.springframework.web.filter.OncePerRequestFilter
 @Order(-99) // Run after Spring Security (-100) but before other filters
 class SecurityFilter : OncePerRequestFilter() {
 
+    private val log = LoggerFactory.getLogger(javaClass)
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -36,49 +40,25 @@ class SecurityFilter : OncePerRequestFilter() {
     ) {
         val authentication = SecurityContextHolder.getContext().authentication
 
-        // Extract EpistolaPrincipal from authentication
         val principal = when {
             authentication == null || !authentication.isAuthenticated -> null
-
-            // Direct EpistolaPrincipal (shouldn't happen normally, but support it)
-            authentication.principal is EpistolaPrincipal ->
-                authentication.principal as EpistolaPrincipal
-
-            // Local development: Extract from UserDetails
-            authentication.principal is org.springframework.security.core.userdetails.UserDetails -> {
-                val userDetails = authentication.principal as org.springframework.security.core.userdetails.UserDetails
-                // Try to extract EpistolaPrincipal via reflection (from LocalUserDetails)
-                try {
-                    val method = userDetails.javaClass.getDeclaredMethod("getPrincipal")
-                    method.invoke(userDetails) as? EpistolaPrincipal
-                } catch (e: Exception) {
-                    null
-                }
+            authentication.principal is EpistolaPrincipal -> authentication.principal as EpistolaPrincipal
+            authentication.principal is EpistolaPrincipalHolder ->
+                (authentication.principal as EpistolaPrincipalHolder).epistolaPrincipal
+            else -> {
+                log.warn(
+                    "Authenticated but unrecognized principal type: {}",
+                    authentication.principal?.javaClass?.name,
+                )
+                null
             }
-
-            // OAuth2: Extract from OAuth2User wrapper
-            authentication.principal is org.springframework.security.oauth2.core.user.OAuth2User -> {
-                val oauth2User = authentication.principal as org.springframework.security.oauth2.core.user.OAuth2User
-                // Try to extract EpistolaPrincipal via reflection (from OAuth2UserWrapper)
-                try {
-                    val method = oauth2User.javaClass.getDeclaredMethod("getPrincipal")
-                    method.invoke(oauth2User) as? EpistolaPrincipal
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
-            else -> null
         }
 
-        // Bind principal to SecurityContext if available
         if (principal != null) {
             SecurityContext.runWithPrincipal(principal) {
                 filterChain.doFilter(request, response)
             }
         } else {
-            // No authentication or couldn't extract principal
-            // Allow through - SecurityConfig will handle authorization
             filterChain.doFilter(request, response)
         }
     }
