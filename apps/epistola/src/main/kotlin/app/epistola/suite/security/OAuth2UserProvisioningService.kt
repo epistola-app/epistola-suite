@@ -147,12 +147,18 @@ class OAuth2UserProvisioningService(
 
     /**
      * Wrapper that combines OAuth2User (for Spring Security) with EpistolaPrincipal.
+     * Implements Serializable for JDBC session persistence.
      */
     private class OAuth2UserWrapper(
         private val delegate: OAuth2User,
         private val epistolaPrincipal: app.epistola.suite.security.EpistolaPrincipal,
-    ) : OAuth2User by delegate {
+    ) : OAuth2User by delegate,
+        java.io.Serializable {
         fun getPrincipal() = epistolaPrincipal
+
+        companion object {
+            private const val serialVersionUID: Long = 1L
+        }
     }
 
     /**

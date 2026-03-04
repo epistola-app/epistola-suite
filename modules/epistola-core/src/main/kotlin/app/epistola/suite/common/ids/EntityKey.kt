@@ -3,6 +3,7 @@ package app.epistola.suite.common.ids
 import app.epistola.suite.common.UUIDv7
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
+import java.io.Serializable
 import java.util.UUID
 
 /**
@@ -11,8 +12,10 @@ import java.util.UUID
  * (e.g., passing a TemplateKey where a TenantKey is expected).
  *
  * Generic over both the concrete key type (T) and the value type (V).
+ * Extends [Serializable] so keys can be stored in JDBC-backed HTTP sessions
+ * (e.g., as part of [EpistolaPrincipal] in the Spring Security context).
  */
-interface EntityKey<T : EntityKey<T, V>, V : Any> {
+interface EntityKey<T : EntityKey<T, V>, V : Any> : Serializable {
     val value: V
 }
 
