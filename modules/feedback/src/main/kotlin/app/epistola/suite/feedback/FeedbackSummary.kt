@@ -2,6 +2,7 @@ package app.epistola.suite.feedback
 
 import app.epistola.suite.common.ids.FeedbackKey
 import app.epistola.suite.common.ids.TenantKey
+import java.net.URI
 import java.time.OffsetDateTime
 
 data class FeedbackSummary(
@@ -16,4 +17,7 @@ data class FeedbackSummary(
     val commentCount: Int,
     val createdAt: OffsetDateTime,
     val updatedAt: OffsetDateTime,
-)
+) {
+    val sourcePath: String?
+        get() = sourceUrl?.let { runCatching { URI.create(it).path }.getOrNull() }
+}

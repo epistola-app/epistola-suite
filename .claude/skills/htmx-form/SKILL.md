@@ -204,3 +204,4 @@ UI deletes always use `POST /{id}/delete`. The `DELETE` HTTP verb is only used f
 - Templates inside the HTMX DSL `fragment()` use the `"key" to value` syntax (infix `ModelBuilder.to`), not `mapOf()`
 - The `renderFormWithErrors()` inner function is a standard pattern for re-rendering forms — keep it local to the `create`/`update` method
 - Full-page renders use `ServerResponse.ok().render("layout/shell", mapOf("contentView" to "...", ...))`, fragments just use `request.htmx { fragment(...) }`
+- **`form.formData` includes ALL submitted params**, not just fields declared via `field()`. Declared fields get trimmed and validated; undeclared fields (e.g., hidden inputs like `sourceUrl`, `consoleLogs`) are passed through as-is. Access them via `form.formData["fieldName"]`.
