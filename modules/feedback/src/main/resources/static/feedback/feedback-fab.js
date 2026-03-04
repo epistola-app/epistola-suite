@@ -215,11 +215,17 @@ export function initFeedbackFab(tenantId) {
             updateBadge();
         }
 
-        // After successful feedback submission, refresh the popover content
-        if (target?.id === 'feedback-fab-dialog-content' && target.querySelector('.ep-dialog-body')?.textContent?.includes('Thank you')) {
-            const content = document.getElementById('feedback-popover-content');
-            if (content && window.htmx) {
-                htmx.trigger(content, 'load');
+        // When submit form loads into the FAB dialog, populate the sourceUrl field
+        if (target?.id === 'feedback-fab-dialog-content') {
+            const sourceUrlField = target.querySelector('#fb-sourceUrl');
+            if (sourceUrlField) sourceUrlField.value = window.location.href;
+
+            // After successful feedback submission, refresh the popover content
+            if (target.querySelector('.ep-dialog-body')?.textContent?.includes('Thank you')) {
+                const content = document.getElementById('feedback-popover-content');
+                if (content && window.htmx) {
+                    htmx.trigger(content, 'load');
+                }
             }
         }
     });
