@@ -5,15 +5,13 @@ import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackConfig
 import app.epistola.suite.feedback.FeedbackStatus
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.stereotype.Component
 
 /**
  * No-op implementation used when no external issue sync is configured.
  * Logs sync attempts without performing any external calls.
+ *
+ * Registered as a fallback bean via [FeedbackSyncFallbackConfiguration].
  */
-@Component
-@ConditionalOnMissingBean(IssueSyncPort::class)
 class NoOpIssueSyncAdapter : IssueSyncPort {
 
     private val log = LoggerFactory.getLogger(javaClass)

@@ -26,7 +26,7 @@ class GitHubAppAuthService(
     private val restClient: RestClient,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val privateKey: RSAPrivateKey = loadPrivateKey(Path.of(properties.privateKeyPath))
+    private val privateKey: RSAPrivateKey = loadPrivateKey(Path.of(properties.requirePrivateKeyPath()))
     private val tokenCache = ConcurrentHashMap<Long, CachedToken>()
 
     fun getInstallationToken(installationId: Long): String {
@@ -59,7 +59,7 @@ class GitHubAppAuthService(
         val now = Instant.now()
         val header = base64UrlEncode("""{"alg":"RS256","typ":"JWT"}""".toByteArray())
         val payload = base64UrlEncode(
-            """{"iat":${now.epochSecond - 60},"exp":${now.epochSecond + 600},"iss":${properties.appId}}"""
+            """{"iat":${now.epochSecond - 60},"exp":${now.epochSecond + 600},"iss":${properties.requireAppId()}}"""
                 .toByteArray(),
         )
 

@@ -59,7 +59,7 @@ class GitHubWebhookController(
             return ResponseEntity.status(401).build()
         }
 
-        if (!issueSyncPort.verifyWebhookSignature(body, signature, properties.webhookSecret)) {
+        if (!issueSyncPort.verifyWebhookSignature(body, signature, properties.requireWebhookSecret())) {
             log.warn("Webhook signature verification failed")
             return ResponseEntity.status(401).build()
         }
