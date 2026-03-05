@@ -11,6 +11,8 @@ import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.jdbi.v3.core.Jdbi
@@ -36,14 +38,15 @@ import org.springframework.stereotype.Component
 )
 class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
+    private val mediator: Mediator,
     private val jdbi: Jdbi,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.retry-interval-ms:60000}")
-    fun retryPendingSync() {
+    fun retryPendingSync() = MediatorContext.runWithMediator(mediator) {
         val pending = ListPendingSyncFeedback(limit = 20).query()
-        if (pending.isEmpty()) return
+        if (pending.isEmpty()) return@runWithMediator
 
         log.debug("Retrying sync for {} pending feedback items", pending.size)
 

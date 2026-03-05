@@ -62,15 +62,15 @@ epistola:
       retention-days: 30         # Auto-delete documents after 30 days
       max-size-mb: 50            # Max document size
 
-# Feedback sync configuration (optional, provider-agnostic)
-# Controls outbound sync and inbound polling.
-#  feedback:
-#    sync:
-#      enabled: true                           # Enable outbound sync scheduler
-#      retry-interval-ms: 60000                # Retry interval for failed syncs
-#      polling:
-#        enabled: false                        # Enable inbound polling
-#        interval-ms: 300000                   # Poll interval (default 5 min)
+  # Feedback sync configuration (provider-agnostic)
+  # Controls outbound sync retry and inbound polling.
+  feedback:
+    sync:
+      enabled: true                           # Enable outbound sync scheduler
+      retry-interval-ms: 60000                # Retry interval for failed syncs
+      polling:
+        enabled: false                        # Enable inbound polling
+        interval-ms: 300000                   # Poll interval (default 5 min)
 
 management:
   endpoints:

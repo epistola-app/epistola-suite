@@ -7,6 +7,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
+import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -32,14 +34,15 @@ import java.time.Instant
 )
 class FeedbackPollScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
+    private val mediator: Mediator,
     private val jdbi: Jdbi,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.polling.interval-ms:300000}")
-    fun pollForUpdates() {
+    fun pollForUpdates() = MediatorContext.runWithMediator(mediator) {
         val configs = findEnabledConfigs()
-        if (configs.isEmpty()) return
+        if (configs.isEmpty()) return@runWithMediator
 
         for (config in configs) {
             try {

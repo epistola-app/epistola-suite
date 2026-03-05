@@ -152,6 +152,14 @@ epistola:
 
 Per-tenant GitHub settings (PAT, repo owner/name, label) are configured via the Settings UI at `/tenants/{id}/settings/feedback-sync`.
 
+## Future Improvements
+
+### Backfill sync for existing feedback
+Currently, feedback items created before sync is configured get `sync_status = NOT_CONFIGURED` and are never synced. When a tenant enables sync, all existing non-closed feedback items (OPEN, IN_PROGRESS) should be retroactively synced to GitHub. This could be triggered when saving the feedback sync config — update matching items to `PENDING` so the scheduler picks them up.
+
+### Bidirectional reconciliation (GitHub → Epistola)
+Issues created directly in the GitHub repository (not via Epistola) are currently invisible to the feedback system. The polling scheduler should detect issues in the configured repo that have no corresponding local feedback item and create them locally. This would allow developers to create issues in GitHub and have them appear in the Epistola feedback UI. Matching criteria: repo + label filter, excluding issues already tracked via `external_ref`.
+
 ## Implementation Phases
 
 1. **Phase 0**: Per-tenant roles from JWT (TenantRole enum, update EpistolaPrincipal)
