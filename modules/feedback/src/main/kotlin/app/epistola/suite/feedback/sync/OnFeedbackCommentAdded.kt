@@ -9,6 +9,8 @@ import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.query
+import org.jdbi.v3.core.Jdbi
+import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -18,10 +20,14 @@ import org.springframework.stereotype.Component
  * Only fires for [AddFeedbackComment] (local comments). Inbound comments via
  * [app.epistola.suite.feedback.commands.SyncFeedbackComment] do not trigger this,
  * avoiding a sync loop.
+ *
+ * After a successful sync, stores the external comment ID on the local record
+ * so the inbound poll scheduler can dedup and skip it.
  */
 @Component
 class OnFeedbackCommentAdded(
     private val feedbackSyncPort: FeedbackSyncPort,
+    private val jdbi: Jdbi,
 ) : EventHandler<AddFeedbackComment> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -39,7 +45,24 @@ class OnFeedbackCommentAdded(
         val config = GetFeedbackSyncConfig(event.id.tenantKey).query() ?: return
 
         try {
-            feedbackSyncPort.addComment(config, feedback.externalRef, comment)
+            val ref = feedbackSyncPort.addComment(config, feedback.externalRef, comment)
+
+            // Store external comment ID for dedup during inbound polling
+            jdbi.withHandleUnchecked { handle ->
+                handle.createUpdate(
+                    """
+                    UPDATE feedback_comments
+                    SET external_comment_id = :externalCommentId
+                    WHERE tenant_key = :tenantKey AND feedback_id = :feedbackId AND id = :id
+                    """,
+                )
+                    .bind("externalCommentId", ref.externalCommentId)
+                    .bind("tenantKey", event.id.tenantKey)
+                    .bind("feedbackId", event.id.feedbackKey.value)
+                    .bind("id", comment.id.value)
+                    .execute()
+            }
+
             log.info("Synced comment {} to external issue #{}", comment.id, feedback.externalRef)
         } catch (e: Exception) {
             log.error("Failed to sync comment {} to external issue #{}: {}", comment.id, feedback.externalRef, e.message, e)
