@@ -19,7 +19,11 @@ import org.springframework.stereotype.Component
  * - `sub`: user external ID
  * - `email`: user email
  * - `preferred_username` or `name`: display name
- * - `epistola_tenants`: optional array of tenant IDs the user has access to
+ * - `epistola_tenants`: tenant memberships with roles
+ *
+ * The `epistola_tenants` claim supports two formats:
+ * - **Structured** (preferred): `[{"id": "acme", "role": "ADMIN"}, {"id": "beta", "role": "MEMBER"}]`
+ * - **Legacy** (flat list): `["acme", "beta"]` — all users default to MEMBER role
  *
  * Only active when an OAuth2 ClientRegistrationRepository is present.
  */
@@ -36,16 +40,15 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
             ?: jwt.getClaimAsString("name")
             ?: subject
 
-        // Extract tenant memberships from custom claim or default to empty
-        val tenantIds = extractTenantIds(jwt)
+        val tenantMemberships = extractTenantMemberships(jwt)
 
         val principal = EpistolaPrincipal(
             userId = UserKey.of(deriveUserId(subject)),
             externalId = subject,
             email = email,
             displayName = displayName,
-            tenantMemberships = tenantIds,
-            currentTenantId = tenantIds.firstOrNull(),
+            tenantMemberships = tenantMemberships,
+            currentTenantId = tenantMemberships.keys.firstOrNull(),
         )
 
         val authorities = jwt.getClaimAsStringList("roles")
@@ -58,20 +61,63 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
     }
 
     /**
-     * Extracts tenant IDs from the `epistola_tenants` JWT claim.
-     * Falls back to empty set if the claim is not present.
+     * Extracts tenant memberships from the `epistola_tenants` JWT claim.
+     *
+     * Supports structured format `[{"id": "acme", "role": "ADMIN"}]` and
+     * falls back to legacy flat list `["acme"]` (defaulting to MEMBER role).
      */
     @Suppress("UNCHECKED_CAST")
-    private fun extractTenantIds(jwt: Jwt): Set<TenantKey> {
-        val tenants = jwt.getClaimAsStringList("epistola_tenants") ?: return emptySet()
-        return tenants.mapNotNull { tenantString ->
-            try {
-                TenantKey.of(tenantString)
-            } catch (e: IllegalArgumentException) {
-                log.warn("Invalid tenant ID in JWT claim: {}", tenantString)
-                null
+    private fun extractTenantMemberships(jwt: Jwt): Map<TenantKey, TenantRole> {
+        val claim = jwt.getClaim<Any>("epistola_tenants") ?: return emptyMap()
+
+        return when (claim) {
+            is List<*> -> parseClaimList(claim)
+            else -> {
+                log.warn("Unexpected epistola_tenants claim type: {}", claim::class.simpleName)
+                emptyMap()
             }
-        }.toSet()
+        }
+    }
+
+    private fun parseClaimList(items: List<*>): Map<TenantKey, TenantRole> {
+        val result = mutableMapOf<TenantKey, TenantRole>()
+
+        for (item in items) {
+            when (item) {
+                // Structured format: {"id": "acme", "role": "ADMIN"}
+                is Map<*, *> -> {
+                    val id = item["id"]?.toString()
+                    val role = item["role"]?.toString()
+                    if (id != null) {
+                        try {
+                            val tenantKey = TenantKey.of(id)
+                            val tenantRole = role?.let { parseTenantRole(it) } ?: TenantRole.MEMBER
+                            result[tenantKey] = tenantRole
+                        } catch (e: IllegalArgumentException) {
+                            log.warn("Invalid tenant ID in JWT claim: {}", id)
+                        }
+                    }
+                }
+                // Legacy format: plain string tenant ID
+                is String -> {
+                    try {
+                        result[TenantKey.of(item)] = TenantRole.MEMBER
+                    } catch (e: IllegalArgumentException) {
+                        log.warn("Invalid tenant ID in JWT claim: {}", item)
+                    }
+                }
+                else -> log.warn("Unexpected item type in epistola_tenants: {}", item?.javaClass?.simpleName)
+            }
+        }
+
+        return result
+    }
+
+    private fun parseTenantRole(role: String): TenantRole = try {
+        TenantRole.valueOf(role.uppercase())
+    } catch (e: IllegalArgumentException) {
+        log.warn("Unknown tenant role in JWT claim: {}, defaulting to MEMBER", role)
+        TenantRole.MEMBER
     }
 
     /**

@@ -3,6 +3,7 @@ package app.epistola.suite.common.ids
 import app.epistola.suite.common.UUIDv7
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonValue
+import java.io.Serializable
 import java.util.UUID
 
 /**
@@ -11,8 +12,10 @@ import java.util.UUID
  * (e.g., passing a TemplateKey where a TenantKey is expected).
  *
  * Generic over both the concrete key type (T) and the value type (V).
+ * Extends [Serializable] so keys can be stored in JDBC-backed HTTP sessions
+ * (e.g., as part of [EpistolaPrincipal] in the Spring Security context).
  */
-interface EntityKey<T : EntityKey<T, V>, V : Any> {
+interface EntityKey<T : EntityKey<T, V>, V : Any> : Serializable {
     val value: V
 }
 
@@ -362,6 +365,60 @@ value class UserKey(@JsonValue override val value: UUID) : UuidKey<UserKey> {
         @JvmStatic
         @JsonCreator
         fun fromJson(value: String): UserKey = UserKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
+ * Typed key for Feedback entities.
+ */
+@JvmInline
+value class FeedbackKey(@JsonValue override val value: UUID) : UuidKey<FeedbackKey> {
+    companion object {
+        fun generate(): FeedbackKey = FeedbackKey(UUIDv7.generate())
+        fun of(value: UUID): FeedbackKey = FeedbackKey(value)
+        fun of(value: String): FeedbackKey = FeedbackKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeedbackKey = FeedbackKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
+ * Typed key for FeedbackComment entities.
+ */
+@JvmInline
+value class FeedbackCommentKey(@JsonValue override val value: UUID) : UuidKey<FeedbackCommentKey> {
+    companion object {
+        fun generate(): FeedbackCommentKey = FeedbackCommentKey(UUIDv7.generate())
+        fun of(value: UUID): FeedbackCommentKey = FeedbackCommentKey(value)
+        fun of(value: String): FeedbackCommentKey = FeedbackCommentKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeedbackCommentKey = FeedbackCommentKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}
+
+/**
+ * Typed key for FeedbackAsset entities.
+ */
+@JvmInline
+value class FeedbackAssetKey(@JsonValue override val value: UUID) : UuidKey<FeedbackAssetKey> {
+    companion object {
+        fun generate(): FeedbackAssetKey = FeedbackAssetKey(UUIDv7.generate())
+        fun of(value: UUID): FeedbackAssetKey = FeedbackAssetKey(value)
+        fun of(value: String): FeedbackAssetKey = FeedbackAssetKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeedbackAssetKey = FeedbackAssetKey(UUID.fromString(value))
     }
 
     override fun toString(): String = value.toString()

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <span>Settings</span> &raquo; <span>Feedback Sync</span>
+        </nav>
+
+        <h1>Feedback Sync</h1>
+
+        <div class="alert alert-success" th:if="${param.saved}">
+            Feedback sync settings saved successfully.
+        </div>
+
+        <div class="card create-form-card">
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/settings/feedback-sync(tenantId=${tenantId})}" method="post">
+
+                    <div class="form-group">
+                        <label class="ep-checkbox-label">
+                            <input type="checkbox" id="enabled" name="enabled"
+                                   th:checked="${formData != null and formData['enabled'] == 'on'}">
+                            Enable feedback sync
+                        </label>
+                        <span class="form-hint">When enabled, feedback will be synced from the configured provider.</span>
+                    </div>
+
+                    <div class="form-group" th:classappend="${errors?.containsKey('providerType')} ? 'error' : ''">
+                        <label class="ep-label" for="providerType">Provider</label>
+                        <select id="providerType" name="providerType" class="ep-input">
+                            <option value="GITHUB"
+                                    th:selected="${formData == null or formData['providerType'] == null or formData['providerType'] == 'GITHUB'}">
+                                GitHub
+                            </option>
+                            <option value="JIRA" disabled="disabled">Jira (coming soon)</option>
+                        </select>
+                        <span class="form-error" th:if="${errors?.containsKey('providerType')}" th:text="${errors.providerType}"></span>
+                    </div>
+
+                    <fieldset>
+                        <legend>GitHub Settings</legend>
+
+                        <div class="form-group" th:classappend="${errors?.containsKey('personalAccessToken')} ? 'error' : ''">
+                            <label class="ep-label" for="personalAccessToken">Personal Access Token</label>
+                            <input type="password" id="personalAccessToken" name="personalAccessToken" class="ep-input"
+                                   autocomplete="off"
+                                   th:value="${formData?.get('personalAccessToken')}">
+                            <span class="form-hint">Create a <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">fine-grained PAT</a> with Issues read/write access to your repository.</span>
+                            <span class="form-error" th:if="${errors?.containsKey('personalAccessToken')}" th:text="${errors.personalAccessToken}"></span>
+                        </div>
+
+                        <div class="form-group" th:classappend="${errors?.containsKey('repoOwner')} ? 'error' : ''">
+                            <label class="ep-label" for="repoOwner">Repository Owner</label>
+                            <input type="text" id="repoOwner" name="repoOwner" class="ep-input"
+                                   placeholder="my-org"
+                                   th:value="${formData?.get('repoOwner')}">
+                            <span class="form-hint">GitHub organization or user that owns the repository.</span>
+                            <span class="form-error" th:if="${errors?.containsKey('repoOwner')}" th:text="${errors.repoOwner}"></span>
+                        </div>
+
+                        <div class="form-group" th:classappend="${errors?.containsKey('repoName')} ? 'error' : ''">
+                            <label class="ep-label" for="repoName">Repository Name</label>
+                            <input type="text" id="repoName" name="repoName" class="ep-input"
+                                   placeholder="feedback-repo"
+                                   th:value="${formData?.get('repoName')}">
+                            <span class="form-hint">The repository where feedback issues are created.</span>
+                            <span class="form-error" th:if="${errors?.containsKey('repoName')}" th:text="${errors.repoName}"></span>
+                        </div>
+
+                        <div class="form-group" th:classappend="${errors?.containsKey('label')} ? 'error' : ''">
+                            <label class="ep-label" for="label">Label <span class="form-hint-inline">(optional)</span></label>
+                            <input type="text" id="label" name="label" class="ep-input"
+                                   placeholder="feedback"
+                                   th:value="${formData?.get('label')}">
+                            <span class="form-hint">Only sync issues with this GitHub label. Leave empty to sync all issues.</span>
+                            <span class="form-error" th:if="${errors?.containsKey('label')}" th:text="${errors.label}"></span>
+                        </div>
+                    </fieldset>
+
+                    <div class="form-group" th:if="${formData != null and formData['lastPolledAt'] != null}">
+                        <label class="ep-label">Last Polled</label>
+                        <span class="form-static" th:text="${formData['lastPolledAt']}">-</span>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Settings</button>
+                        <a th:href="@{/tenants/{tenantId}(tenantId=${tenantId})}" class="btn btn-outline">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component
  * Provides hardcoded test users without requiring external OAuth2 providers or database setup.
  *
  * Users:
- * - admin@local / admin - Admin user with access to all tenants
- * - user@local / user - Regular user with access to demo-tenant
+ * - admin@local / admin - Admin user with access to demo-tenant (ADMIN role)
+ * - user@local / user - Regular user with access to demo-tenant (MEMBER role)
  *
  * Active when 'local' or 'demo' profile is active.
  */
@@ -33,14 +33,14 @@ class LocalUserDetailsService : UserDetailsService {
             email = "admin@local",
             displayName = "Local Admin",
             password = "admin",
-            tenantIds = emptySet(), // Admin has access to all tenants
+            tenantMemberships = mapOf(TenantKey.of("demo-tenant") to TenantRole.ADMIN),
         ),
         "user@local" to LocalUser(
             userId = UserKey.of("00000000-0000-0000-0000-000000000002"),
             email = "user@local",
             displayName = "Local User",
             password = "user",
-            tenantIds = setOf(TenantKey.of("demo-tenant")),
+            tenantMemberships = mapOf(TenantKey.of("demo-tenant") to TenantRole.MEMBER),
         ),
     )
 
@@ -48,21 +48,19 @@ class LocalUserDetailsService : UserDetailsService {
         val localUser = localUsers[username]
             ?: throw UsernameNotFoundException("User not found: $username")
 
-        // Create EpistolaPrincipal for the local user
-        val principal = app.epistola.suite.security.EpistolaPrincipal(
+        val principal = EpistolaPrincipal(
             userId = localUser.userId,
             externalId = localUser.email,
             email = localUser.email,
             displayName = localUser.displayName,
-            tenantMemberships = localUser.tenantIds,
-            currentTenantId = localUser.tenantIds.firstOrNull(),
+            tenantMemberships = localUser.tenantMemberships,
+            currentTenantId = localUser.tenantMemberships.keys.firstOrNull(),
         )
 
-        // Return Spring Security UserDetails with EpistolaPrincipal as principal
         return LocalUserDetails(
             username = localUser.email,
             password = passwordEncoder.encode(localUser.password) ?: throw IllegalStateException("Password encoding failed"),
-            principal = principal,
+            epistolaPrincipal = principal,
         )
     }
 
@@ -74,7 +72,7 @@ class LocalUserDetailsService : UserDetailsService {
         val email: String,
         val displayName: String,
         val password: String,
-        val tenantIds: Set<TenantKey>,
+        val tenantMemberships: Map<TenantKey, TenantRole>,
     )
 
     /**
@@ -84,8 +82,9 @@ class LocalUserDetailsService : UserDetailsService {
     private class LocalUserDetails(
         private val username: String,
         private val password: String,
-        val principal: app.epistola.suite.security.EpistolaPrincipal,
+        override val epistolaPrincipal: EpistolaPrincipal,
     ) : UserDetails,
+        EpistolaPrincipalHolder,
         java.io.Serializable {
         override fun getUsername() = username
         override fun getPassword() = password
@@ -96,7 +95,7 @@ class LocalUserDetailsService : UserDetailsService {
         override fun isAccountNonLocked() = true
 
         companion object {
-            private const val serialVersionUID: Long = 1L
+            private const val serialVersionUID: Long = 3L
         }
     }
 }

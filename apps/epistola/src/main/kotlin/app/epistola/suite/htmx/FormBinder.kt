@@ -273,7 +273,8 @@ class FormBuilder {
      */
     internal fun validate(params: Map<String, String>): FormData {
         val errors = mutableMapOf<String, String>()
-        val formData = mutableMapOf<String, String>()
+        // Start with all submitted params, then overlay validated fields
+        val formData = params.toMutableMap()
 
         for ((fieldName, spec) in specs) {
             val value = params[fieldName]?.trim().orEmpty()

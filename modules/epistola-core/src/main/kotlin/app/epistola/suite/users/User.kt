@@ -2,6 +2,7 @@ package app.epistola.suite.users
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.security.TenantRole
 import java.time.OffsetDateTime
 
 /**
@@ -17,7 +18,7 @@ data class User(
     val email: String,
     val displayName: String,
     val provider: AuthProvider,
-    val tenantMemberships: Set<TenantKey>,
+    val tenantMemberships: Map<TenantKey, TenantRole>,
     val enabled: Boolean,
     val createdAt: OffsetDateTime,
     val lastLoginAt: OffsetDateTime?,

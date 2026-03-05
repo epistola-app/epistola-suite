@@ -59,7 +59,7 @@ class ScenarioFactory(
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
-        tenantMemberships = emptySet(),
+        tenantMemberships = emptyMap(),
         currentTenantId = null,
     )
 

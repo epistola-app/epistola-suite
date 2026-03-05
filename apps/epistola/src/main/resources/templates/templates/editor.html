@@ -68,6 +68,12 @@
     </nav>
     <div id="editor-container" data-testid="editor-container" class="editor-container"></div>
 
+    <script th:src="@{/feedback/feedback-capture.js}"></script>
+    <script type="module" th:inline="javascript">
+        const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');
+        initFeedbackFab(/*[[${tenantId}]]*/ 'tenant');
+    </script>
+
     <script th:inline="javascript">
         /*<![CDATA[*/
         window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};

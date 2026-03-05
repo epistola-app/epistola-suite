@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import org.jdbi.v3.core.Jdbi
@@ -41,10 +42,10 @@ class GetUserByExternalIdHandler(
             .bind("externalId", query.externalId)
             .bind("provider", query.provider.name)
             .map { rs, _ ->
-                val tenantIds = (rs.getArray("tenant_keys").array as Array<*>)
+                val tenantMemberships = (rs.getArray("tenant_keys").array as Array<*>)
                     .filterIsInstance<String>()
                     .map { TenantKey.of(it) }
-                    .toSet()
+                    .associateWith { TenantRole.MEMBER }
 
                 User(
                     id = UserKey.of(rs.getObject("id") as java.util.UUID),
@@ -52,7 +53,7 @@ class GetUserByExternalIdHandler(
                     email = rs.getString("email"),
                     displayName = rs.getString("display_name"),
                     provider = AuthProvider.valueOf(rs.getString("provider")),
-                    tenantMemberships = tenantIds,
+                    tenantMemberships = tenantMemberships,
                     enabled = rs.getBoolean("enabled"),
                     createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
                     lastLoginAt = rs.getObject("last_login_at", OffsetDateTime::class.java),

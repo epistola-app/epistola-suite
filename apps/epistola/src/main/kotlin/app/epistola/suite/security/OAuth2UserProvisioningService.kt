@@ -1,5 +1,6 @@
 package app.epistola.suite.security
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
@@ -83,8 +84,18 @@ class OAuth2UserProvisioningService(
         // Update last login timestamp
         updateLastLogin(user.id)
 
-        // Convert to EpistolaPrincipal
-        val principal = user.toEpistolaPrincipal()
+        // Extract roles from OIDC token attributes (overrides DB-level memberships)
+        val tokenMemberships = extractTenantMemberships(oauth2User)
+
+        // Merge: token roles take precedence over DB-loaded roles
+        val mergedMemberships = if (tokenMemberships.isNotEmpty()) {
+            tokenMemberships
+        } else {
+            user.tenantMemberships
+        }
+
+        // Convert to EpistolaPrincipal with merged memberships
+        val principal = user.toEpistolaPrincipal(mergedMemberships)
 
         // Return OAuth2User wrapper that Spring Security can use
         return OAuth2UserWrapper(oauth2User, principal)
@@ -136,12 +147,66 @@ class OAuth2UserProvisioningService(
 
     /**
      * Wrapper that combines OAuth2User (for Spring Security) with EpistolaPrincipal.
+     * Implements Serializable for JDBC session persistence.
      */
     private class OAuth2UserWrapper(
         private val delegate: OAuth2User,
-        private val epistolaPrincipal: app.epistola.suite.security.EpistolaPrincipal,
-    ) : OAuth2User by delegate {
-        fun getPrincipal() = epistolaPrincipal
+        override val epistolaPrincipal: app.epistola.suite.security.EpistolaPrincipal,
+    ) : OAuth2User by delegate,
+        EpistolaPrincipalHolder,
+        java.io.Serializable {
+
+        companion object {
+            private const val serialVersionUID: Long = 1L
+        }
+    }
+
+    /**
+     * Extracts tenant memberships with roles from the OAuth2 user's `epistola_tenants` attribute.
+     *
+     * Supports structured format `[{"id": "acme", "role": "ADMIN"}]` and
+     * legacy flat list `["acme"]` (defaulting to MEMBER role).
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun extractTenantMemberships(oauth2User: OAuth2User): Map<TenantKey, TenantRole> {
+        val claim = oauth2User.getAttribute<Any>("epistola_tenants") ?: return emptyMap()
+
+        if (claim !is List<*>) {
+            logger.warn("Unexpected epistola_tenants attribute type: {}", claim::class.simpleName)
+            return emptyMap()
+        }
+
+        val result = mutableMapOf<TenantKey, TenantRole>()
+        for (item in claim) {
+            when (item) {
+                is Map<*, *> -> {
+                    val id = item["id"]?.toString() ?: continue
+                    val role = item["role"]?.toString()
+                    try {
+                        val tenantKey = TenantKey.of(id)
+                        val tenantRole = role?.let {
+                            try {
+                                TenantRole.valueOf(it.uppercase())
+                            } catch (e: IllegalArgumentException) {
+                                logger.warn("Unknown tenant role in OIDC claim: {}, defaulting to MEMBER", it)
+                                TenantRole.MEMBER
+                            }
+                        } ?: TenantRole.MEMBER
+                        result[tenantKey] = tenantRole
+                    } catch (e: IllegalArgumentException) {
+                        logger.warn("Invalid tenant ID in OIDC claim: {}", id)
+                    }
+                }
+                is String -> {
+                    try {
+                        result[TenantKey.of(item)] = TenantRole.MEMBER
+                    } catch (e: IllegalArgumentException) {
+                        logger.warn("Invalid tenant ID in OIDC claim: {}", item)
+                    }
+                }
+            }
+        }
+        return result
     }
 
     companion object {
@@ -158,11 +223,13 @@ class OAuth2UserProvisioningService(
 /**
  * Extension to convert User to EpistolaPrincipal.
  */
-private fun User.toEpistolaPrincipal() = app.epistola.suite.security.EpistolaPrincipal(
+private fun User.toEpistolaPrincipal(
+    memberships: Map<TenantKey, TenantRole> = tenantMemberships,
+) = EpistolaPrincipal(
     userId = id,
     externalId = externalId,
     email = email,
     displayName = displayName,
-    tenantMemberships = tenantMemberships,
+    tenantMemberships = memberships,
     currentTenantId = null, // Will be set by tenant selector later
 )
