@@ -315,5 +315,4 @@ class FeedbackHandler(
             .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable())
             .body(content.content)
     }
-
 }

@@ -3,7 +3,17 @@
 ## [Unreleased]
 
 ### Added
+- **Feedback integration tests**: 22 integration tests across 7 test groups covering CreateFeedback, GetFeedback, ListFeedback (with status/category filters), Comments (local + external dedup), Assets (storage + fromDataUrl), SyncStatus (updates, retry attempts, max attempts exclusion), SyncConfig, and tenant isolation.
 - **GitHubIssueSyncAdapter unit tests**: Comprehensive test suite (12 tests) covering issue creation, screenshot upload via Contents API, graceful degradation on upload failure, multiple asset handling, console logs rendering, comment posting with author attribution, and status updates. Uses `MockRestServiceServer` for HTTP layer mocking without Spring context.
+
+### Changed
+- **Feedback sync: mediator consistency**: Extracted all direct JDBI calls in sync handlers/schedulers into proper CQRS commands and queries (`UpdateFeedbackCommentExternalRef`, `UpdateFeedbackSyncStatus`, `GetFeedbackByExternalRef`, `UpdateFeedbackSyncConfigLastPolledAt`, `ListEnabledFeedbackSyncConfigs`). Sync code now follows the same mediator pattern as the rest of the codebase.
+- **Feedback sync: retry limit**: Added `sync_attempts` column to feedback table. After 5 failed sync attempts, feedback is marked as `FAILED` and excluded from retry. Prevents infinite retry loops when external service is misconfigured.
+- **Feedback sync: config check consistency**: `OnFeedbackCreated` and `OnFeedbackCommentAdded` now check both `config != null` and `config.enabled` before attempting sync.
+- **Feedback sync: safe lastPolledAt**: Poll scheduler now only advances `last_polled_at` to the timestamp of the last successfully processed update, not unconditionally to `now()`.
+- **Screenshot decoding**: Moved base64 data URL parsing from `FeedbackHandler` into `AddFeedbackAsset.fromDataUrl()` factory method for better separation of concerns.
+- **Event handler safety**: Added warning logging to `OnFeedbackCreated` and `OnFeedbackCommentAdded` when result type casting fails, instead of silently returning.
+- **Badge template fragments**: Extracted inline Thymeleaf ternary chains for status/priority/category badges into reusable `feedback/fragments/badges.html` fragments.
 
 ### Changed
 - **Feedback assets: dedicated storage with GitHub upload**: Screenshots are now stored in a dedicated `feedback_assets` table instead of the shared assets system. The `screenshot_key` column has been removed from the `feedback` table. When syncing feedback to GitHub, screenshots are uploaded to `.epistola/screenshots/` in the target repository and embedded as images in the issue body. The `FeedbackSyncPort.createTicket()` signature now accepts `List<FeedbackAssetContent>` instead of `ByteArray?`, enabling multiple attachments per feedback item in the future.

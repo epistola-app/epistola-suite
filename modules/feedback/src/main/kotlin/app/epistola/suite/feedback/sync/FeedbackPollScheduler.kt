@@ -3,8 +3,8 @@ package app.epistola.suite.feedback.sync
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
-import app.epistola.suite.feedback.commands.UpdateFeedbackSyncConfigLastPolledAt
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
+import app.epistola.suite.feedback.commands.UpdateFeedbackSyncConfigLastPolledAt
 import app.epistola.suite.feedback.queries.GetFeedbackByExternalRef
 import app.epistola.suite.feedback.queries.ListEnabledFeedbackSyncConfigs
 import app.epistola.suite.mediator.Mediator

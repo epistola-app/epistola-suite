@@ -28,9 +28,9 @@ class GetFeedbackByExternalRefHandler(
         )
             .bind("tenantKey", query.tenantKey)
             .bind("externalRef", query.externalRef)
-            .mapTo(FeedbackKey::class.java)
+            .mapTo(java.util.UUID::class.java)
             .findOne()
             .orElse(null)
-            ?.let { FeedbackId(it, TenantId(query.tenantKey)) }
+            ?.let { FeedbackId(FeedbackKey(it), TenantId(query.tenantKey)) }
     }
 }

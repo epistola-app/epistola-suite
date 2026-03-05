@@ -13,15 +13,14 @@ data object ListEnabledFeedbackSyncConfigs : Query<List<FeedbackSyncConfig>>
 class ListEnabledFeedbackSyncConfigsHandler(
     private val jdbi: Jdbi,
 ) : QueryHandler<ListEnabledFeedbackSyncConfigs, List<FeedbackSyncConfig>> {
-    override fun handle(query: ListEnabledFeedbackSyncConfigs): List<FeedbackSyncConfig> =
-        jdbi.withHandleUnchecked { handle ->
-            handle.createQuery(
-                """
+    override fun handle(query: ListEnabledFeedbackSyncConfigs): List<FeedbackSyncConfig> = jdbi.withHandleUnchecked { handle ->
+        handle.createQuery(
+            """
                 SELECT * FROM feedback_sync_config
                 WHERE enabled = true
                 """,
-            )
-                .mapTo(FeedbackSyncConfig::class.java)
-                .list()
-        }
+        )
+            .mapTo(FeedbackSyncConfig::class.java)
+            .list()
+    }
 }
