@@ -68,7 +68,7 @@
     </nav>
     <div id="editor-container" data-testid="editor-container" class="editor-container"></div>
 
-    <script th:src="@{/js/modules/feedback-capture.js}"></script>
+    <script th:src="@{/feedback/feedback-capture.js}"></script>
     <script type="module" th:inline="javascript">
         const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');
         initFeedbackFab(/*[[${tenantId}]]*/ 'tenant');
