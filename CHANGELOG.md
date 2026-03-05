@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **GitHubIssueSyncAdapter unit tests**: Comprehensive test suite (12 tests) covering issue creation, screenshot upload via Contents API, graceful degradation on upload failure, multiple asset handling, console logs rendering, comment posting with author attribution, and status updates. Uses `MockRestServiceServer` for HTTP layer mocking without Spring context.
+
 ### Changed
 - **Feedback assets: dedicated storage with GitHub upload**: Screenshots are now stored in a dedicated `feedback_assets` table instead of the shared assets system. The `screenshot_key` column has been removed from the `feedback` table. When syncing feedback to GitHub, screenshots are uploaded to `.epistola/screenshots/` in the target repository and embedded as images in the issue body. The `FeedbackSyncPort.createTicket()` signature now accepts `List<FeedbackAssetContent>` instead of `ByteArray?`, enabling multiple attachments per feedback item in the future.
 
