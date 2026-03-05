@@ -1,11 +1,15 @@
 package app.epistola.suite.feedback.sync
 
+import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.feedback.Feedback
+import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
+import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
+import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.feedback.queries.ListPendingSyncFeedback
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -66,9 +70,10 @@ class FeedbackSyncScheduler(
             return
         }
 
-        val syncResult = feedbackSyncPort.createTicket(config, feedback, screenshot = null)
-
         val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
+        val assets = loadAssetContents(feedbackId)
+        val syncResult = feedbackSyncPort.createTicket(config, feedback, assets)
+
         UpdateFeedbackSyncRef(
             id = feedbackId,
             externalRef = syncResult.externalRef,
@@ -76,6 +81,14 @@ class FeedbackSyncScheduler(
         ).execute()
 
         log.info("Successfully synced feedback {} to external ticket {}", feedback.id, syncResult.externalRef)
+    }
+
+    private fun loadAssetContents(feedbackId: FeedbackId): List<FeedbackAssetContent> {
+        val assets = ListFeedbackAssets(feedbackId).query()
+        return assets.mapNotNull { asset ->
+            val assetId = FeedbackAssetId(asset.id, feedbackId)
+            GetFeedbackAssetContent(assetId).query()
+        }
     }
 
     private fun markFailed(feedback: Feedback) {

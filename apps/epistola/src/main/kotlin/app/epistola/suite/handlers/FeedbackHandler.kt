@@ -1,8 +1,7 @@
 package app.epistola.suite.handlers
 
-import app.epistola.suite.assets.AssetMediaType
-import app.epistola.suite.assets.commands.UploadAsset
-import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.common.ids.FeedbackAssetId
+import app.epistola.suite.common.ids.FeedbackAssetKey
 import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.common.ids.FeedbackCommentKey
 import app.epistola.suite.common.ids.FeedbackId
@@ -12,12 +11,15 @@ import app.epistola.suite.feedback.FeedbackAccessDeniedException
 import app.epistola.suite.feedback.FeedbackCategory
 import app.epistola.suite.feedback.FeedbackPriority
 import app.epistola.suite.feedback.FeedbackStatus
+import app.epistola.suite.feedback.commands.AddFeedbackAsset
 import app.epistola.suite.feedback.commands.AddFeedbackComment
 import app.epistola.suite.feedback.commands.CreateFeedback
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
 import app.epistola.suite.feedback.queries.GetFeedback
+import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackComments
 import app.epistola.suite.feedback.queries.ListFeedback
+import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.htmx.feedbackId
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -29,10 +31,13 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
 import org.slf4j.LoggerFactory
 import org.springframework.boot.info.BuildProperties
+import org.springframework.http.CacheControl
+import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import java.util.Base64
+import java.util.concurrent.TimeUnit
 
 @Component
 class FeedbackHandler(
@@ -117,6 +122,7 @@ class FeedbackHandler(
 
         val comments = GetFeedbackComments(feedbackId).query()
         val tenant = GetTenant(tenantId.key).query()
+        val assets = ListFeedbackAssets(feedbackId).query()
 
         return ServerResponse.ok().page("feedback/detail") {
             "pageTitle" to "${feedback.title} - Feedback - Epistola"
@@ -124,6 +130,7 @@ class FeedbackHandler(
             "tenantId" to tenantId.key
             "feedback" to feedback
             "comments" to comments
+            "assets" to assets
             "activeNavSection" to "feedback"
             "statuses" to FeedbackStatus.entries
             "isAdmin" to principal.isAdmin(tenantId.key)
@@ -159,11 +166,6 @@ class FeedbackHandler(
         val metadata = form.formData["metadata"]
         val screenshotData = form.formData["screenshotData"]
 
-        // Upload screenshot if provided (base64 data URL)
-        val screenshotKey = screenshotData
-            ?.takeIf { it.startsWith("data:image/") }
-            ?.let { uploadScreenshot(tenantId.key, it) }
-
         val feedbackId = FeedbackId(FeedbackKey.generate(), TenantId(tenantId.key))
 
         CreateFeedback(
@@ -173,11 +175,29 @@ class FeedbackHandler(
             category = category,
             priority = priority,
             sourceUrl = sourceUrl,
-            screenshotKey = screenshotKey,
             consoleLogs = consoleLogs,
             metadata = metadata,
             createdBy = principal.userId,
         ).execute()
+
+        // Store screenshot as feedback asset if provided
+        screenshotData
+            ?.takeIf { it.startsWith("data:image/") }
+            ?.let { dataUrl -> decodeScreenshot(dataUrl) }
+            ?.let { (bytes, contentType) ->
+                try {
+                    val assetId = FeedbackAssetId(FeedbackAssetKey.generate(), feedbackId)
+                    val extension = contentType.substringAfter("image/", "png")
+                    AddFeedbackAsset(
+                        id = assetId,
+                        content = bytes,
+                        contentType = contentType,
+                        filename = "screenshot.$extension",
+                    ).execute()
+                } catch (e: Exception) {
+                    log.warn("Failed to store feedback screenshot: {}", e.message)
+                }
+            }
 
         return request.htmx {
             fragment("feedback/submit-success") {}
@@ -210,12 +230,14 @@ class FeedbackHandler(
         // Reload and return updated detail
         val updated = GetFeedback(feedbackId).query()!!
         val comments = GetFeedbackComments(feedbackId).query()
+        val assets = ListFeedbackAssets(feedbackId).query()
 
         return request.htmx {
             fragment("feedback/detail", "feedback-content") {
                 "tenantId" to tenantId.key
                 "feedback" to updated
                 "comments" to comments
+                "assets" to assets
                 "statuses" to FeedbackStatus.entries
                 "isAdmin" to principal.isAdmin(tenantId.key)
             }
@@ -277,31 +299,46 @@ class FeedbackHandler(
         }
     }
 
+    fun assetContent(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val feedbackId = request.feedbackId(tenantId) ?: return ServerResponse.badRequest().build()
+
+        val assetUuid = runCatching {
+            java.util.UUID.fromString(request.pathVariable("assetId"))
+        }.getOrNull() ?: return ServerResponse.badRequest().build()
+
+        val assetId = FeedbackAssetId(FeedbackAssetKey.of(assetUuid), feedbackId)
+
+        // Access control: admin or creator only
+        val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
+        val principal = SecurityContext.current()
+        if (principal.userId != feedback.createdBy && !principal.isAdmin(tenantId.key)) {
+            throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
+        }
+
+        val content = GetFeedbackAssetContent(assetId).query() ?: return ServerResponse.notFound().build()
+
+        return ServerResponse.ok()
+            .contentType(MediaType.parseMediaType(content.contentType))
+            .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable())
+            .body(content.content)
+    }
+
     /**
-     * Decode a base64 data URL and upload it as an asset.
+     * Decode a base64 data URL into bytes and content type.
      * Format: data:image/png;base64,iVBOR...
      */
-    private fun uploadScreenshot(tenantKey: app.epistola.suite.common.ids.TenantKey, dataUrl: String): AssetKey? {
+    private fun decodeScreenshot(dataUrl: String): Pair<ByteArray, String>? {
         return try {
             val parts = dataUrl.split(",", limit = 2)
             if (parts.size != 2) return null
 
-            val mimeType = parts[0].removePrefix("data:").removeSuffix(";base64")
-            val mediaType = AssetMediaType.fromMimeType(mimeType)
+            val contentType = parts[0].removePrefix("data:").removeSuffix(";base64")
             val imageBytes = Base64.getDecoder().decode(parts[1])
 
-            val asset = UploadAsset(
-                tenantId = tenantKey,
-                name = "feedback-screenshot.${mediaType.name.lowercase()}",
-                mediaType = mediaType,
-                content = imageBytes,
-                width = null,
-                height = null,
-            ).execute()
-
-            asset.id
+            imageBytes to contentType
         } catch (e: Exception) {
-            log.warn("Failed to upload feedback screenshot: {}", e.message)
+            log.warn("Failed to decode feedback screenshot: {}", e.message)
             null
         }
     }

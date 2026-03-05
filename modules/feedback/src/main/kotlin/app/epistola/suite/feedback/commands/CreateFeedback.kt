@@ -1,6 +1,5 @@
 package app.epistola.suite.feedback.commands
 
-import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.feedback.Feedback
@@ -23,7 +22,6 @@ data class CreateFeedback(
     val category: FeedbackCategory,
     val priority: FeedbackPriority,
     val sourceUrl: String?,
-    val screenshotKey: AssetKey?,
     val consoleLogs: String?,
     val metadata: String?,
     val createdBy: UserKey,
@@ -55,15 +53,17 @@ class CreateFeedbackHandler(
                 """
                 INSERT INTO feedback (
                     tenant_key, id, title, description, category, status, priority,
-                    source_url, screenshot_key, console_logs, metadata, created_by,
+                    source_url, console_logs, metadata, created_by,
                     created_at, updated_at, sync_status
                 )
                 VALUES (
                     :tenantKey, :id, :title, :description, :category, :status, :priority,
-                    :sourceUrl, :screenshotKey, :consoleLogs, CAST(:metadata AS JSONB), :createdBy,
+                    :sourceUrl, :consoleLogs, CAST(:metadata AS JSONB), :createdBy,
                     NOW(), NOW(), :syncStatus
                 )
-                RETURNING *
+                RETURNING tenant_key, id, title, description, category, status, priority,
+                          source_url, console_logs, metadata, created_by,
+                          created_at, updated_at, external_ref, external_url, sync_status
                 """,
             )
                 .bind("tenantKey", tenantKey)
@@ -74,7 +74,6 @@ class CreateFeedbackHandler(
                 .bind("status", FeedbackStatus.OPEN.name)
                 .bind("priority", command.priority.name)
                 .bind("sourceUrl", command.sourceUrl)
-                .bind("screenshotKey", command.screenshotKey?.value)
                 .bind("consoleLogs", command.consoleLogs)
                 .bind("metadata", command.metadata)
                 .bind("createdBy", command.createdBy.value)

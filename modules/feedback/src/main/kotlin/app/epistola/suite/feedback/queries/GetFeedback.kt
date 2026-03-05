@@ -19,7 +19,10 @@ class GetFeedbackHandler(
     override fun handle(query: GetFeedback): Feedback? = jdbi.withHandleUnchecked { handle ->
         handle.createQuery(
             """
-            SELECT * FROM feedback
+            SELECT tenant_key, id, title, description, category, status, priority,
+                   source_url, console_logs, metadata, created_by,
+                   created_at, updated_at, external_ref, external_url, sync_status
+            FROM feedback
             WHERE tenant_key = :tenantKey AND id = :id
             """,
         )

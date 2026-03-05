@@ -1,6 +1,7 @@
 package app.epistola.suite.feedback.sync
 
 import app.epistola.suite.feedback.Feedback
+import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.FeedbackSyncConfig
@@ -17,7 +18,7 @@ class NoOpFeedbackSyncAdapter : FeedbackSyncPort {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, screenshot: ByteArray?): SyncResult {
+    override fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult {
         log.info("No-op sync: would create ticket for feedback {} (provider: {})", feedback.id, config.providerType)
         return SyncResult(externalRef = "noop", externalUrl = "")
     }

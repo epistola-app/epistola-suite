@@ -1,6 +1,7 @@
 package app.epistola.suite.feedback.sync.github
 
 import app.epistola.suite.feedback.Feedback
+import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.FeedbackSyncConfig
@@ -13,6 +14,8 @@ import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
 import tools.jackson.databind.ObjectMapper
 import java.time.Instant
+import java.util.Base64
+import java.util.UUID
 
 /**
  * GitHub implementation of [FeedbackSyncPort].
@@ -30,11 +33,21 @@ class GitHubIssueSyncAdapter(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, screenshot: ByteArray?): SyncResult {
+    override fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult {
         val settings = parseSettings(config)
         val token = settings.personalAccessToken
 
-        val body = buildIssueBody(feedback)
+        // Upload assets to GitHub and collect download URLs
+        val assetUrls = assets.mapNotNull { asset ->
+            try {
+                uploadAsset(settings, token, feedback.id.value, asset)
+            } catch (e: Exception) {
+                log.warn("Failed to upload asset for feedback {}: {}", feedback.id, e.message)
+                null
+            }
+        }
+
+        val body = buildIssueBody(feedback, assetUrls)
         val labels = buildList {
             add("feedback")
             add(feedback.category.name.lowercase().replace('_', '-'))
@@ -161,6 +174,60 @@ class GitHubIssueSyncAdapter(
         return updates
     }
 
+    /**
+     * Upload an asset to the GitHub repository under `.epistola/screenshots/`.
+     *
+     * Uses the GitHub Contents API (PUT /repos/{owner}/{repo}/contents/{path})
+     * to create a file with the asset content encoded as base64.
+     *
+     * @return The raw download URL of the uploaded file
+     */
+    private fun uploadAsset(
+        settings: GitHubSyncSettings,
+        token: String,
+        feedbackId: UUID,
+        asset: FeedbackAssetContent,
+    ): String {
+        val extension = mimeTypeToExtension(asset.contentType)
+        val filename = "$feedbackId.$extension"
+        val path = ".epistola/screenshots/$filename"
+
+        val requestBody = mapOf(
+            "message" to "Add feedback screenshot $filename",
+            "content" to Base64.getEncoder().encodeToString(asset.content),
+        )
+
+        val response = restClient.put()
+            .uri(
+                "/repos/{owner}/{repo}/contents/{path}",
+                settings.repoOwner,
+                settings.repoName,
+                path,
+            )
+            .header("Authorization", "Bearer $token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(requestBody)
+            .retrieve()
+            .body(String::class.java)
+            ?: throw GitHubSyncException("Empty response when uploading asset")
+
+        val json = objectMapper.readTree(response)
+        val downloadUrl = json.path("content").path("download_url").stringValue()
+            ?: throw GitHubSyncException("No download_url in upload response")
+
+        log.info("Uploaded screenshot to {} in {}", path, settings.repoFullName)
+
+        return downloadUrl
+    }
+
+    private fun mimeTypeToExtension(contentType: String): String = when (contentType) {
+        "image/png" -> "png"
+        "image/jpeg" -> "jpg"
+        "image/gif" -> "gif"
+        "image/webp" -> "webp"
+        else -> "png"
+    }
+
     private fun fetchIssueStateChanges(
         settings: GitHubSyncSettings,
         token: String,
@@ -248,7 +315,7 @@ class GitHubIssueSyncAdapter(
 
     private fun parseSettings(config: FeedbackSyncConfig): GitHubSyncSettings = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
 
-    private fun buildIssueBody(feedback: Feedback): String = buildString {
+    private fun buildIssueBody(feedback: Feedback, screenshotUrls: List<String> = emptyList()): String = buildString {
         appendLine(feedback.description)
         appendLine()
         appendLine("---")
@@ -257,6 +324,15 @@ class GitHubIssueSyncAdapter(
 
         feedback.sourceUrl?.let {
             appendLine("**Source URL:** $it")
+        }
+
+        if (screenshotUrls.isNotEmpty()) {
+            appendLine()
+            appendLine("### Screenshots")
+            screenshotUrls.forEachIndexed { index, url ->
+                val label = if (screenshotUrls.size == 1) "Screenshot" else "Screenshot ${index + 1}"
+                appendLine("![$label]($url)")
+            }
         }
 
         feedback.consoleLogs?.let { logs ->

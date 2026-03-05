@@ -16,6 +16,7 @@ class FeedbackRoutes(private val handler: FeedbackHandler) {
             GET("/submit-form", handler::submitForm)
             POST("", handler::create)
             GET("/{feedbackId}", handler::detail)
+            GET("/{feedbackId}/assets/{assetId}/content", handler::assetContent)
             POST("/{feedbackId}/status", handler::updateStatus)
             POST("/{feedbackId}/comments", handler::addComment)
         }

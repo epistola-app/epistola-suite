@@ -1,6 +1,7 @@
 package app.epistola.suite.feedback.sync
 
 import app.epistola.suite.feedback.Feedback
+import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.FeedbackSyncConfig
@@ -13,7 +14,7 @@ import java.time.Instant
  * This abstraction allows swapping backends (e.g., GitHub, Jira, Linear) without changing business logic.
  */
 interface FeedbackSyncPort {
-    fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, screenshot: ByteArray?): SyncResult
+    fun createTicket(config: FeedbackSyncConfig, feedback: Feedback, assets: List<FeedbackAssetContent>): SyncResult
     fun addComment(config: FeedbackSyncConfig, externalRef: String, comment: FeedbackComment): ExternalCommentRef
     fun updateStatus(config: FeedbackSyncConfig, externalRef: String, status: FeedbackStatus)
     fun fetchUpdates(config: FeedbackSyncConfig, since: Instant): List<ExternalUpdate>

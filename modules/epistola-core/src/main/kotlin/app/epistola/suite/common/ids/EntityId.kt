@@ -110,3 +110,9 @@ class FeedbackCommentId(key: FeedbackCommentKey, feedbackId: FeedbackId) : Entit
     val feedbackKey = feedbackId.key
     val tenantKey = feedbackId.tenantKey
 }
+
+class FeedbackAssetId(key: FeedbackAssetKey, feedbackId: FeedbackId) : EntityId<FeedbackAssetKey, UUID, FeedbackId>(key, feedbackId) {
+    override val type = "feedback-asset"
+    val feedbackKey = feedbackId.key
+    val tenantKey = feedbackId.tenantKey
+}

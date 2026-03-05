@@ -30,7 +30,6 @@ CREATE TABLE feedback (
     status          VARCHAR(30) NOT NULL DEFAULT 'OPEN',
     priority        VARCHAR(30) NOT NULL DEFAULT 'MEDIUM',
     source_url      TEXT,
-    screenshot_key  UUID,        -- soft reference to assets table
     console_logs    TEXT,
     metadata        JSONB,       -- client metadata: browser, viewport, app version, etc.
     created_by      UUID        NOT NULL REFERENCES users(id),
@@ -50,7 +49,6 @@ CREATE INDEX idx_feedback_sync_status ON feedback(sync_status) WHERE sync_status
 CREATE INDEX idx_feedback_external_ref ON feedback(tenant_key, external_ref) WHERE external_ref IS NOT NULL;
 
 COMMENT ON TABLE feedback IS 'User-submitted feedback items (bugs, feature requests, questions)';
-COMMENT ON COLUMN feedback.screenshot_key IS 'Soft reference to assets.id — no FK to avoid cross-concern coupling';
 COMMENT ON COLUMN feedback.external_ref IS 'External ticket reference after sync (e.g., GitHub issue number)';
 COMMENT ON COLUMN feedback.external_url IS 'External ticket URL after sync';
 COMMENT ON COLUMN feedback.metadata IS 'Client metadata captured at submission: browser, viewport, app version, etc.';
@@ -83,3 +81,23 @@ CREATE UNIQUE INDEX idx_feedback_comments_external
 COMMENT ON TABLE feedback_comments IS 'Comments on feedback items, from local users or synced from external trackers';
 COMMENT ON COLUMN feedback_comments.source IS 'LOCAL (user via UI) or EXTERNAL (synced from external tracker)';
 COMMENT ON COLUMN feedback_comments.external_comment_id IS 'External comment ID used for dedup during sync';
+
+-- ============================================================================
+-- FEEDBACK ASSETS (attachments: screenshots, files)
+-- ============================================================================
+
+CREATE TABLE feedback_assets (
+    tenant_key   VARCHAR(63) NOT NULL,
+    feedback_id  UUID        NOT NULL,
+    id           UUID        NOT NULL,
+    content      BYTEA       NOT NULL,
+    content_type VARCHAR(100) NOT NULL,
+    filename     VARCHAR(255),
+    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (tenant_key, feedback_id, id),
+    FOREIGN KEY (tenant_key, feedback_id) REFERENCES feedback(tenant_key, id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE feedback_assets IS 'Attachments for feedback items (screenshots, files). Stored as blobs.';
+COMMENT ON COLUMN feedback_assets.content_type IS 'MIME type of the asset (e.g., image/png, image/jpeg)';

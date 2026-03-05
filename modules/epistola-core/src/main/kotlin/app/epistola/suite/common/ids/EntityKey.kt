@@ -405,3 +405,21 @@ value class FeedbackCommentKey(@JsonValue override val value: UUID) : UuidKey<Fe
 
     override fun toString(): String = value.toString()
 }
+
+/**
+ * Typed key for FeedbackAsset entities.
+ */
+@JvmInline
+value class FeedbackAssetKey(@JsonValue override val value: UUID) : UuidKey<FeedbackAssetKey> {
+    companion object {
+        fun generate(): FeedbackAssetKey = FeedbackAssetKey(UUIDv7.generate())
+        fun of(value: UUID): FeedbackAssetKey = FeedbackAssetKey(value)
+        fun of(value: String): FeedbackAssetKey = FeedbackAssetKey(UUID.fromString(value))
+
+        @JvmStatic
+        @JsonCreator
+        fun fromJson(value: String): FeedbackAssetKey = FeedbackAssetKey(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}

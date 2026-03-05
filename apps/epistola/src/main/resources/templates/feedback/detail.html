@@ -54,13 +54,15 @@
                     </div>
                 </div>
 
-                <!-- Screenshot -->
-                <div th:if="${feedback.screenshotKey != null}" class="card" style="margin-bottom: var(--ep-space-6);">
+                <!-- Screenshots -->
+                <div th:if="${!#lists.isEmpty(assets)}" class="card" style="margin-bottom: var(--ep-space-6);">
                     <div class="card-content">
-                        <h3 style="margin-bottom: var(--ep-space-3);">Screenshot</h3>
-                        <img th:src="@{/tenants/{tenantId}/assets/{assetId}/content(tenantId=${tenantId},assetId=${feedback.screenshotKey})}"
-                             alt="Feedback screenshot"
-                             style="max-width: 100%; border-radius: var(--ep-radius); border: 1px solid var(--ep-border);">
+                        <h3 style="margin-bottom: var(--ep-space-3);" th:text="${#lists.size(assets) == 1} ? 'Screenshot' : 'Screenshots'">Screenshot</h3>
+                        <div th:each="asset : ${assets}" style="margin-bottom: var(--ep-space-3);">
+                            <img th:src="@{/tenants/{tenantId}/feedback/{feedbackId}/assets/{assetId}/content(tenantId=${tenantId},feedbackId=${feedback.id},assetId=${asset.id})}"
+                                 alt="Feedback screenshot"
+                                 style="max-width: 100%; border-radius: var(--ep-radius); border: 1px solid var(--ep-border);">
+                        </div>
                     </div>
                 </div>
 

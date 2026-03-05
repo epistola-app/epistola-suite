@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **Feedback assets: dedicated storage with GitHub upload**: Screenshots are now stored in a dedicated `feedback_assets` table instead of the shared assets system. The `screenshot_key` column has been removed from the `feedback` table. When syncing feedback to GitHub, screenshots are uploaded to `.epistola/screenshots/` in the target repository and embedded as images in the issue body. The `FeedbackSyncPort.createTicket()` signature now accepts `List<FeedbackAssetContent>` instead of `ByteArray?`, enabling multiple attachments per feedback item in the future.
+
 ### Added
 - **Feedback FAB with page issues popover**: The feedback floating action button now shows a popover with open feedback items for the current page (matched by URL pathname). Includes a badge count, inline links to feedback detail, and a "New" button to submit feedback. The FAB is a self-contained JS module loaded from the feedback module. The `/search` endpoint now accepts a `url` query parameter to filter feedback by source URL.
 
