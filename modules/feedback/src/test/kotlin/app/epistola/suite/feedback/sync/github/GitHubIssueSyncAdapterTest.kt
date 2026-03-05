@@ -57,7 +57,7 @@ class GitHubIssueSyncAdapterTest {
     inner class CreateTicket {
 
         @Test
-        fun `creates issue with correct body and labels when no assets`() {
+        fun `creates issue with correct body and default tenant label when no assets`() {
             val feedback = buildFeedback()
             val config = buildConfig()
 
@@ -66,6 +66,11 @@ class GitHubIssueSyncAdapterTest {
                 .andExpect(header("Authorization", "Bearer test-token"))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(content().json("""{"title": "Test feedback title"}"""))
+                .andExpect(
+                    content().json(
+                        """{"labels": ["feedback", "bug", "priority:medium", "etk-test-tenant"]}""",
+                    ),
+                )
                 .andRespond(
                     withSuccess(
                         """{"number": 42, "html_url": "https://github.com/test-owner/test-repo/issues/42"}""",
@@ -81,17 +86,17 @@ class GitHubIssueSyncAdapterTest {
         }
 
         @Test
-        fun `includes correct labels for category and priority`() {
+        fun `uses custom label override when configured`() {
             val feedback = buildFeedback(
                 category = FeedbackCategory.FEATURE_REQUEST,
                 priority = FeedbackPriority.CRITICAL,
             )
-            val config = buildConfig(label = "epistola")
+            val config = buildConfig(label = "my-custom-label")
 
             mockServer.expect(requestTo("$BASE_URL/repos/test-owner/test-repo/issues"))
                 .andExpect(
                     content().json(
-                        """{"labels": ["feedback", "feature-request", "priority:critical", "epistola"]}""",
+                        """{"labels": ["feedback", "feature-request", "priority:critical", "my-custom-label"]}""",
                     ),
                 )
                 .andRespond(
