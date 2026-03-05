@@ -36,7 +36,6 @@ import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
-import java.util.Base64
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -181,23 +180,16 @@ class FeedbackHandler(
         ).execute()
 
         // Store screenshot as feedback asset if provided
-        screenshotData
-            ?.takeIf { it.startsWith("data:image/") }
-            ?.let { dataUrl -> decodeScreenshot(dataUrl) }
-            ?.let { (bytes, contentType) ->
+        screenshotData?.let { dataUrl ->
+            val assetId = FeedbackAssetId(FeedbackAssetKey.generate(), feedbackId)
+            AddFeedbackAsset.fromDataUrl(assetId, dataUrl)?.let { command ->
                 try {
-                    val assetId = FeedbackAssetId(FeedbackAssetKey.generate(), feedbackId)
-                    val extension = contentType.substringAfter("image/", "png")
-                    AddFeedbackAsset(
-                        id = assetId,
-                        content = bytes,
-                        contentType = contentType,
-                        filename = "screenshot.$extension",
-                    ).execute()
+                    command.execute()
                 } catch (e: Exception) {
                     log.warn("Failed to store feedback screenshot: {}", e.message)
                 }
             }
+        }
 
         return request.htmx {
             fragment("feedback/submit-success") {}
@@ -324,22 +316,4 @@ class FeedbackHandler(
             .body(content.content)
     }
 
-    /**
-     * Decode a base64 data URL into bytes and content type.
-     * Format: data:image/png;base64,iVBOR...
-     */
-    private fun decodeScreenshot(dataUrl: String): Pair<ByteArray, String>? {
-        return try {
-            val parts = dataUrl.split(",", limit = 2)
-            if (parts.size != 2) return null
-
-            val contentType = parts[0].removePrefix("data:").removeSuffix(";base64")
-            val imageBytes = Base64.getDecoder().decode(parts[1])
-
-            imageBytes to contentType
-        } catch (e: Exception) {
-            log.warn("Failed to decode feedback screenshot: {}", e.message)
-            null
-        }
-    }
 }

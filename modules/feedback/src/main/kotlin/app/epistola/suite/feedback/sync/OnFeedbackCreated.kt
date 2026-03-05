@@ -1,5 +1,6 @@
 package app.epistola.suite.feedback.sync
 
+import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackAssetContent
@@ -32,7 +33,10 @@ class OnFeedbackCreated(
     override val phase = EventPhase.IMMEDIATE
 
     override fun on(event: CreateFeedback, result: Any?) {
-        val feedback = result as? Feedback ?: return
+        val feedback = result as? Feedback ?: run {
+            log.warn("Expected Feedback result from CreateFeedback but got {}", result?.javaClass?.name)
+            return
+        }
 
         if (feedback.syncStatus != SyncStatus.PENDING) {
             return
@@ -60,10 +64,7 @@ class OnFeedbackCreated(
     private fun loadAssetContents(feedbackId: FeedbackId): List<FeedbackAssetContent> {
         val assets = ListFeedbackAssets(feedbackId).query()
         return assets.mapNotNull { asset ->
-            val assetId = app.epistola.suite.common.ids.FeedbackAssetId(
-                asset.id,
-                feedbackId,
-            )
+            val assetId = FeedbackAssetId(asset.id, feedbackId)
             GetFeedbackAssetContent(assetId).query()
         }
     }

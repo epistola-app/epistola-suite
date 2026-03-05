@@ -7,6 +7,7 @@ import app.epistola.suite.mediator.CommandHandler
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
+import java.util.Base64
 
 data class AddFeedbackAsset(
     val id: FeedbackAssetId,
@@ -17,6 +18,35 @@ data class AddFeedbackAsset(
     init {
         require(content.isNotEmpty()) { "Asset content must not be empty" }
         require(contentType.isNotBlank()) { "Content type is required" }
+    }
+
+    companion object {
+        /**
+         * Creates an [AddFeedbackAsset] from a base64 data URL (e.g., `data:image/png;base64,iVBOR...`).
+         *
+         * @return the command, or null if the data URL is malformed
+         */
+        fun fromDataUrl(id: FeedbackAssetId, dataUrl: String): AddFeedbackAsset? {
+            if (!dataUrl.startsWith("data:")) return null
+            val parts = dataUrl.split(",", limit = 2)
+            if (parts.size != 2) return null
+
+            val contentType = parts[0].removePrefix("data:").removeSuffix(";base64")
+            val bytes = try {
+                Base64.getDecoder().decode(parts[1])
+            } catch (_: IllegalArgumentException) {
+                return null
+            }
+            if (bytes.isEmpty()) return null
+
+            val extension = contentType.substringAfter("image/", "png")
+            return AddFeedbackAsset(
+                id = id,
+                content = bytes,
+                contentType = contentType,
+                filename = "screenshot.$extension",
+            )
+        }
     }
 
     override fun equals(other: Any?): Boolean {
