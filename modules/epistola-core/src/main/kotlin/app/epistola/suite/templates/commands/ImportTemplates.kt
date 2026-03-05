@@ -40,6 +40,7 @@ data class ImportVariantInput(
     val title: String?,
     val attributes: Map<String, String>,
     val templateModel: TemplateDocument?,
+    val isDefault: Boolean = false,
 )
 
 data class ImportTemplateResult(
@@ -84,9 +85,13 @@ class ImportTemplatesHandler(
 
     private fun importSingleTemplate(tenantId: TenantId, input: ImportTemplateInput): ImportTemplateResult = jdbi.inTransaction<ImportTemplateResult, Exception> { handle ->
         val templateId = TemplateKey.of(input.slug)
-        val defaultVariantId = VariantKey.of("${input.slug}-default")
         val dataModelJson = input.dataModel?.let { objectMapper.writeValueAsString(it) }
         val dataExamplesJson = objectMapper.writeValueAsString(input.dataExamples)
+
+        // Validate: exactly one variant must be marked as default
+        val defaultCount = input.variants.count { it.isDefault }
+        require(input.variants.isNotEmpty()) { "Template '${input.slug}': at least one variant is required" }
+        require(defaultCount == 1) { "Template '${input.slug}': exactly one variant must have isDefault=true, found $defaultCount" }
 
         // 1. Check if template exists
         val templateExists = handle.createQuery(
@@ -101,7 +106,7 @@ class ImportTemplatesHandler(
             .mapTo<Boolean>()
             .one()
 
-        // 1. Upsert template
+        // 2. Upsert template
         val status: ImportStatus = if (!templateExists) {
             handle.createUpdate(
                 """
@@ -135,39 +140,31 @@ class ImportTemplatesHandler(
             ImportStatus.UPDATED
         }
 
-        // Upsert default variant
+        // 3. Clear existing default flag to avoid unique partial index conflict during upserts
         handle.createUpdate(
             """
-                INSERT INTO template_variants (id, tenant_key, template_key, attributes, is_default, created_at, last_modified)
-                VALUES (:id, :tenantId, :templateId, '{}'::jsonb, TRUE, NOW(), NOW())
-                ON CONFLICT (tenant_key, template_key, id) DO UPDATE SET last_modified = NOW()
+                UPDATE template_variants SET is_default = FALSE
+                WHERE tenant_key = :tenantId AND template_key = :templateId AND is_default = TRUE
                 """,
         )
-            .bind("id", defaultVariantId)
             .bind("tenantId", tenantId.key)
             .bind("templateId", templateId)
             .execute()
 
-        // Upsert draft for default variant (unless an explicit variant overrides it)
-        val hasExplicitDefault = input.variants.any { it.id == defaultVariantId.value }
-        if (!hasExplicitDefault) {
-            upsertDraft(handle, tenantId, templateId, defaultVariantId, input.templateModel)
-        }
-
-        // 2. Process explicit variants
-        val allVariantIds = mutableSetOf(defaultVariantId)
+        // 4. Upsert each variant with caller's is_default value
+        val importedVariantIds = mutableSetOf<VariantKey>()
         for (variantInput in input.variants) {
             val variantId = VariantKey.of(variantInput.id)
-            allVariantIds.add(variantId)
+            importedVariantIds.add(variantId)
 
             val attributesJson = objectMapper.writeValueAsString(variantInput.attributes)
 
             handle.createUpdate(
                 """
                     INSERT INTO template_variants (id, tenant_key, template_key, title, attributes, is_default, created_at, last_modified)
-                    VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, FALSE, NOW(), NOW())
+                    VALUES (:id, :tenantId, :templateId, :title, :attributes::jsonb, :isDefault, NOW(), NOW())
                     ON CONFLICT (tenant_key, template_key, id) DO UPDATE
-                    SET title = :title, attributes = :attributes::jsonb, last_modified = NOW()
+                    SET title = :title, attributes = :attributes::jsonb, is_default = :isDefault, last_modified = NOW()
                     """,
             )
                 .bind("id", variantId)
@@ -175,6 +172,7 @@ class ImportTemplatesHandler(
                 .bind("templateId", templateId)
                 .bind("title", variantInput.title)
                 .bind("attributes", attributesJson)
+                .bind("isDefault", variantInput.isDefault)
                 .execute()
 
             // Upsert the draft with the variant-specific or top-level templateModel
@@ -182,7 +180,20 @@ class ImportTemplatesHandler(
             upsertDraft(handle, tenantId, templateId, variantId, variantTemplateModel)
         }
 
-        // 3. Publish to environments
+        // 5. Delete orphan variants not in the import (CASCADE cleans up versions + activations)
+        handle.createUpdate(
+            """
+                DELETE FROM template_variants
+                WHERE tenant_key = :tenantId AND template_key = :templateId
+                  AND id NOT IN (<variantIds>)
+                """,
+        )
+            .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
+            .bindList("variantIds", importedVariantIds.toList())
+            .execute()
+
+        // 6. Publish to environments (only imported variants)
         val publishedTo = mutableListOf<String>()
         for (envSlug in input.publishTo) {
             val environmentId = EnvironmentKey.of(envSlug)
@@ -204,7 +215,7 @@ class ImportTemplatesHandler(
                 continue
             }
 
-            for (variantId in allVariantIds) {
+            for (variantId in importedVariantIds) {
                 publishDraft(handle, tenantId, templateId, variantId, environmentId)
             }
             publishedTo.add(envSlug)
