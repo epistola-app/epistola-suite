@@ -23,12 +23,8 @@
                    class="feedback-popover-item-title"
                    th:text="${item.title}">Title</a>
                 <div class="feedback-popover-item-meta">
-                    <span class="ep-badge"
-                          th:classappend="${item.status.name() == 'OPEN'} ? 'ep-badge-info' : 'ep-badge-warning'"
-                          th:text="${item.status.name()}">OPEN</span>
-                    <span class="ep-badge"
-                          th:classappend="${item.priority.name() == 'CRITICAL'} ? 'ep-badge-destructive' : (${item.priority.name() == 'HIGH'} ? 'ep-badge-warning' : 'ep-badge-outline')"
-                          th:text="${item.priority.name()}">MEDIUM</span>
+                    <th:block th:insert="~{feedback/fragments/badges :: status-badge(${item.status})}" />
+                    <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${item.priority})}" />
                 </div>
             </li>
         </ul>

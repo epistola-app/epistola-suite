@@ -75,19 +75,9 @@
                                th:text="${item.sourcePath}">/path</a>
                             <span th:if="${item.sourcePath == null}" class="ep-text-muted">—</span>
                         </td>
-                        <td>
-                            <span class="ep-badge ep-badge-outline" th:text="${item.category.name()}">BUG</span>
-                        </td>
-                        <td>
-                            <span class="ep-badge"
-                                  th:classappend="${item.status.name() == 'OPEN'} ? 'ep-badge-info' : (${item.status.name() == 'IN_PROGRESS'} ? 'ep-badge-warning' : (${item.status.name() == 'RESOLVED'} ? 'ep-badge-success' : 'ep-badge-muted'))"
-                                  th:text="${item.status.name()}">OPEN</span>
-                        </td>
-                        <td>
-                            <span class="ep-badge"
-                                  th:classappend="${item.priority.name() == 'CRITICAL'} ? 'ep-badge-destructive' : (${item.priority.name() == 'HIGH'} ? 'ep-badge-warning' : 'ep-badge-outline')"
-                                  th:text="${item.priority.name()}">MEDIUM</span>
-                        </td>
+                        <td><th:block th:insert="~{feedback/fragments/badges :: category-badge(${item.category})}" /></td>
+                        <td><th:block th:insert="~{feedback/fragments/badges :: status-badge(${item.status})}" /></td>
+                        <td><th:block th:insert="~{feedback/fragments/badges :: priority-badge(${item.priority})}" /></td>
                         <td th:text="${item.createdByName}">User</td>
                         <td th:text="${item.commentCount}">0</td>
                         <td th:text="${#temporals.format(item.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>

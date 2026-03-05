@@ -27,13 +27,9 @@
                 </div>
 
                 <div style="display: flex; gap: var(--ep-space-3); margin-bottom: var(--ep-space-6); flex-wrap: wrap;">
-                    <span class="ep-badge"
-                          th:classappend="${feedback.status.name() == 'OPEN'} ? 'ep-badge-info' : (${feedback.status.name() == 'IN_PROGRESS'} ? 'ep-badge-warning' : (${feedback.status.name() == 'RESOLVED'} ? 'ep-badge-success' : 'ep-badge-muted'))"
-                          th:text="${feedback.status.name()}">OPEN</span>
-                    <span class="ep-badge ep-badge-outline" th:text="${feedback.category.name()}">BUG</span>
-                    <span class="ep-badge"
-                          th:classappend="${feedback.priority.name() == 'CRITICAL'} ? 'ep-badge-destructive' : (${feedback.priority.name() == 'HIGH'} ? 'ep-badge-warning' : 'ep-badge-outline')"
-                          th:text="${feedback.priority.name()}">MEDIUM</span>
+                    <th:block th:insert="~{feedback/fragments/badges :: status-badge(${feedback.status})}" />
+                    <th:block th:insert="~{feedback/fragments/badges :: category-badge(${feedback.category})}" />
+                    <th:block th:insert="~{feedback/fragments/badges :: priority-badge(${feedback.priority})}" />
                     <span style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);"
                           th:text="'Submitted ' + ${#temporals.format(feedback.createdAt, 'yyyy-MM-dd HH:mm')}">Submitted 2026-01-01</span>
                 </div>
