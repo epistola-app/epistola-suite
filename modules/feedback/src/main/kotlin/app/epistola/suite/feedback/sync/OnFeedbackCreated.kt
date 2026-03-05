@@ -10,6 +10,7 @@ import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
 import app.epistola.suite.mediator.EventHandler
+import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import org.slf4j.LoggerFactory
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Component
 /**
  * Reacts to feedback creation by syncing to the configured external issue tracker.
  *
- * Runs after the creating transaction commits (AFTER_COMMIT phase).
+ * Runs in the IMMEDIATE phase (same call stack as the command).
  * If sync fails, the feedback remains with sync_status=PENDING for the retry scheduler.
  */
 @Component
@@ -27,6 +28,8 @@ class OnFeedbackCreated(
 ) : EventHandler<CreateFeedback> {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    override val phase = EventPhase.IMMEDIATE
 
     override fun on(event: CreateFeedback, result: Any?) {
         val feedback = result as? Feedback ?: return

@@ -8,6 +8,7 @@ import app.epistola.suite.feedback.commands.AddFeedbackComment
 import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.EventHandler
+import app.epistola.suite.mediator.EventPhase
 import app.epistola.suite.mediator.query
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -31,6 +32,8 @@ class OnFeedbackCommentAdded(
 ) : EventHandler<AddFeedbackComment> {
 
     private val log = LoggerFactory.getLogger(javaClass)
+
+    override val phase = EventPhase.IMMEDIATE
 
     override fun on(event: AddFeedbackComment, result: Any?) {
         val comment = result as? FeedbackComment ?: return
