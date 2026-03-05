@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component
 data class UpdateFeedbackSyncStatus(
     val id: FeedbackId,
     val syncStatus: SyncStatus,
+    val incrementAttempts: Boolean = false,
 ) : Command<Boolean>
 
 @Component
@@ -18,10 +19,11 @@ class UpdateFeedbackSyncStatusHandler(
     private val jdbi: Jdbi,
 ) : CommandHandler<UpdateFeedbackSyncStatus, Boolean> {
     override fun handle(command: UpdateFeedbackSyncStatus): Boolean = jdbi.withHandleUnchecked { handle ->
+        val attemptsClause = if (command.incrementAttempts) ", sync_attempts = sync_attempts + 1" else ""
         val rows = handle.createUpdate(
             """
             UPDATE feedback
-            SET sync_status = :syncStatus, updated_at = NOW()
+            SET sync_status = :syncStatus, updated_at = NOW()$attemptsClause
             WHERE tenant_key = :tenantKey AND id = :id
             """,
         )

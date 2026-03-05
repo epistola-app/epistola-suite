@@ -10,7 +10,12 @@ import org.springframework.stereotype.Component
 
 data class ListPendingSyncFeedback(
     val limit: Int = 50,
-) : Query<List<Feedback>>
+    val maxAttempts: Int = MAX_SYNC_ATTEMPTS,
+) : Query<List<Feedback>> {
+    companion object {
+        const val MAX_SYNC_ATTEMPTS = 5
+    }
+}
 
 @Component
 class ListPendingSyncFeedbackHandler(
@@ -21,14 +26,15 @@ class ListPendingSyncFeedbackHandler(
             """
             SELECT tenant_key, id, title, description, category, status, priority,
                    source_url, console_logs, metadata, created_by,
-                   created_at, updated_at, external_ref, external_url, sync_status
+                   created_at, updated_at, external_ref, external_url, sync_status, sync_attempts
             FROM feedback
-            WHERE sync_status = :syncStatus
+            WHERE sync_status = :syncStatus AND sync_attempts < :maxAttempts
             ORDER BY created_at ASC
             LIMIT :limit
             """,
         )
             .bind("syncStatus", SyncStatus.PENDING.name)
+            .bind("maxAttempts", query.maxAttempts)
             .bind("limit", query.limit)
             .mapTo(Feedback::class.java)
             .list()

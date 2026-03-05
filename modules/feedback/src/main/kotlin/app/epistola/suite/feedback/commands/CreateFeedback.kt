@@ -63,7 +63,7 @@ class CreateFeedbackHandler(
                 )
                 RETURNING tenant_key, id, title, description, category, status, priority,
                           source_url, console_logs, metadata, created_by,
-                          created_at, updated_at, external_ref, external_url, sync_status
+                          created_at, updated_at, external_ref, external_url, sync_status, sync_attempts
                 """,
             )
                 .bind("tenantKey", tenantKey)

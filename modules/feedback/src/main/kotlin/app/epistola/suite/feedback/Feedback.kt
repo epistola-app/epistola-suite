@@ -22,4 +22,5 @@ data class Feedback(
     val externalRef: String?,
     val externalUrl: String?,
     val syncStatus: SyncStatus,
+    val syncAttempts: Int = 0,
 )

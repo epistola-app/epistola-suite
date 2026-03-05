@@ -38,6 +38,7 @@ CREATE TABLE feedback (
     external_ref    TEXT,        -- external ticket reference (e.g., GitHub issue number)
     external_url    TEXT,        -- external ticket URL
     sync_status     VARCHAR(30) NOT NULL DEFAULT 'NOT_CONFIGURED',
+    sync_attempts   INT         NOT NULL DEFAULT 0,
 
     PRIMARY KEY (tenant_key, id)
 );
@@ -53,6 +54,7 @@ COMMENT ON COLUMN feedback.external_ref IS 'External ticket reference after sync
 COMMENT ON COLUMN feedback.external_url IS 'External ticket URL after sync';
 COMMENT ON COLUMN feedback.metadata IS 'Client metadata captured at submission: browser, viewport, app version, etc.';
 COMMENT ON COLUMN feedback.sync_status IS 'PENDING, SYNCED, FAILED, or NOT_CONFIGURED';
+COMMENT ON COLUMN feedback.sync_attempts IS 'Number of sync attempts made. Items exceeding max retries are marked FAILED.';
 
 -- ============================================================================
 -- FEEDBACK COMMENTS

@@ -53,7 +53,7 @@ class FeedbackSyncScheduler(
                 syncFeedback(feedback)
             } catch (e: Exception) {
                 log.error("Failed to sync feedback {}: {}", feedback.id, e.message)
-                markFailed(feedback)
+                recordSyncAttemptFailure(feedback)
             }
         }
     }
@@ -92,9 +92,16 @@ class FeedbackSyncScheduler(
         }
     }
 
-    private fun markFailed(feedback: Feedback) {
+    private fun recordSyncAttemptFailure(feedback: Feedback) {
         val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
-        UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.FAILED).execute()
+        val nextAttempt = feedback.syncAttempts + 1
+        if (nextAttempt >= ListPendingSyncFeedback.MAX_SYNC_ATTEMPTS) {
+            log.warn("Feedback {} exceeded max sync attempts ({}), marking as FAILED", feedback.id, nextAttempt)
+            UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.FAILED, incrementAttempts = true).execute()
+        } else {
+            log.debug("Feedback {} sync attempt {} failed, will retry", feedback.id, nextAttempt)
+            UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.PENDING, incrementAttempts = true).execute()
+        }
     }
 
     private fun markNotConfigured(feedback: Feedback) {
