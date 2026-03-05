@@ -121,8 +121,6 @@ class SettingsHandler(
     }
 
     companion object {
-        private val MASKED_PATTERN = Regex("""^[a-z]{3,4}_\*{4}\w{4}$""")
-
         /** Masks a PAT for display: "ghp_abc123XYZ" → "ghp_****cXYZ" */
         fun maskToken(token: String): String {
             val underscoreIdx = token.indexOf('_')
@@ -138,6 +136,6 @@ class SettingsHandler(
         }
 
         /** Checks if a value looks like a masked token (not an actual PAT). */
-        fun isMaskedToken(value: String): Boolean = MASKED_PATTERN.matches(value)
+        fun isMaskedToken(value: String): Boolean = "****" in value
     }
 }
