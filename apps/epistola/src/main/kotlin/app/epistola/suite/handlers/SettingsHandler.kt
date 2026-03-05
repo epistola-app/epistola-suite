@@ -26,7 +26,7 @@ class SettingsHandler(
         if (config != null) {
             formData["enabled"] = if (config.enabled) "on" else ""
             formData["providerType"] = config.providerType.name
-            if (config.providerType == SyncProviderType.GITHUB) {
+            if (config.enabled && config.providerType == SyncProviderType.GITHUB) {
                 val github = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
                 formData["personalAccessToken"] = maskToken(github.personalAccessToken)
                 formData["repoOwner"] = github.repoOwner
