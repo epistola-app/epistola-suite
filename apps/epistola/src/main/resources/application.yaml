@@ -63,21 +63,14 @@ epistola:
       max-size-mb: 50            # Max document size
 
 # Feedback sync configuration (optional, provider-agnostic)
-# Controls outbound sync, inbound polling, and webhook reception.
+# Controls outbound sync and inbound polling.
 #  feedback:
 #    sync:
 #      enabled: true                           # Enable outbound sync scheduler
 #      retry-interval-ms: 60000                # Retry interval for failed syncs
 #      polling:
-#        enabled: false                        # Enable inbound polling (alternative to webhooks)
+#        enabled: false                        # Enable inbound polling
 #        interval-ms: 300000                   # Poll interval (default 5 min)
-#      webhooks:
-#        enabled: false                        # Enable inbound webhook endpoint
-
-# GitHub webhook integration (optional, only needed when using inbound webhooks)
-# Authentication with the GitHub API uses per-tenant PATs configured in the settings UI.
-#  github:
-#    webhook-secret: your-webhook-secret       # Webhook signature verification
 
 management:
   endpoints:

@@ -2,18 +2,18 @@
 
 ## Overview
 
-Users can report issues, request features, and ask questions from within Epistola. Feedback is stored locally in PostgreSQL (source of truth) and optionally synced to a tenant-configured GitHub repository via a GitHub App. Users are unaware of the GitHub backend. Admins and developers reply via GitHub; responses sync back to Epistola via webhooks.
+Users can report issues, request features, and ask questions from within Epistola. Feedback is stored locally in PostgreSQL (source of truth) and optionally synced to a tenant-configured GitHub repository using per-tenant Personal Access Tokens (PATs). Users are unaware of the GitHub backend. Admins and developers reply via GitHub; responses sync back to Epistola via polling.
 
 ## Architecture Decisions
 
 ### Local-first storage
 The local Postgres database is the primary data store. GitHub is a sync target, not the source of truth. This is implemented via a port/adapter pattern (`IssueSyncPort`) to allow future backends (e.g., Jira, Linear).
 
-### GitHub App authentication
-Authentication with GitHub uses a GitHub App (not personal access tokens). The app is installed per-organization and generates short-lived installation tokens. This provides:
-- Fine-grained repository permissions
-- No dependency on individual user accounts
-- Webhook support for inbound sync
+### PAT authentication
+Authentication with GitHub uses per-tenant Personal Access Tokens (PATs) configured by tenant admins in the settings UI. This provides:
+- Fine-grained repository permissions (scoped to specific repos)
+- Simple setup without requiring a GitHub App installation
+- Works behind firewalls (no inbound webhook endpoint needed)
 
 ### Shared repos via labels
 Multiple tenants can share a single GitHub repository. Issues are distinguished by tenant-specific labels (e.g., `tenant:acme`). This avoids requiring a separate repo per tenant.
@@ -131,28 +131,26 @@ JavaScript module that monkey-patches `console.*` methods to buffer the last 100
 - On failure: sync_status stays PENDING, retried by scheduled job
 
 ### Inbound Sync (GitHub → Epistola)
-- Webhook endpoint at `/webhooks/github` (infrastructure endpoint, separate security filter chain)
-- HMAC-SHA256 signature verification
-- Processes `issue_comment` events → `SyncFeedbackComment`
-- Processes `issues` closed/reopened → `UpdateFeedbackStatus`
-- Tenant lookup: match repo + label against `feedback_config`
-
-### GitHub App Auth
-- RS256 JWT signed with app private key
-- Exchanged for installation access token (1 hour TTL)
-- Token cached with auto-refresh at 50 minutes
+- Polling-based: `FeedbackPollScheduler` periodically fetches comments and status changes from GitHub
+- Processes new comments → `SyncFeedbackComment`
+- Processes issue state changes (closed/reopened) → `UpdateFeedbackStatus`
+- Tenant lookup: match repo + label against `feedback_sync_config`
+- Controlled via `epistola.feedback.sync.polling.enabled`
 
 ## Configuration
 
 ```yaml
 epistola:
   feedback:
-    github:
-      enabled: false
-      app-id: ${GITHUB_APP_ID:}
-      private-key-path: ${GITHUB_APP_PRIVATE_KEY_PATH:}
-      webhook-secret: ${GITHUB_WEBHOOK_SECRET:}
+    sync:
+      enabled: false                  # Enable outbound sync scheduler
+      retry-interval-ms: 60000       # Retry interval for failed syncs
+      polling:
+        enabled: false                # Enable inbound polling
+        interval-ms: 300000           # Poll interval (default 5 min)
 ```
+
+Per-tenant GitHub settings (PAT, repo owner/name, label) are configured via the Settings UI at `/tenants/{id}/settings/feedback-sync`.
 
 ## Implementation Phases
 
@@ -160,5 +158,5 @@ epistola:
 2. **Phase 1**: Core feedback domain (models, DB migration, CQRS commands/queries)
 3. **Phase 2**: Feedback UI (FAB, dialog, list page, detail page)
 4. **Phase 3**: GitHub App integration (port/adapter, outbound sync, admin config)
-5. **Phase 4**: GitHub webhooks (inbound sync)
+5. **Phase 4**: Inbound polling (GitHub → Epistola comment/status sync)
 6. **Phase 5**: Polish (pagination, toasts, error handling, rate limiting)

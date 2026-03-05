@@ -7,6 +7,7 @@
 
 ### Changed
 - **Feedback sync: PAT-based auth**: Replaced GitHub App authentication (JWT + installation tokens) with per-tenant Personal Access Token (PAT) authentication. Tenant admins now enter a fine-grained PAT in the settings page instead of a server-level GitHub App installation ID. Removed `GitHubAppAuthService`, `app-id`, and `private-key-path` configuration. PAT is masked in the UI for security.
+- **Removed webhook support**: Removed `GitHubWebhookController`, `GitHubWebhookVerifier`, and `GitHubAppProperties`. Inbound sync now uses polling exclusively. PAT-based auth does not support inbound webhooks.
 
 ### Added
 - **Feedback sync settings UI**: New settings page at `/tenants/{id}/settings/feedback-sync` for configuring per-tenant feedback sync. Supports enabling/disabling sync, selecting provider (GitHub), and entering provider-specific settings (PAT, repository owner/name, optional label). Includes form validation and persistence via existing `SaveFeedbackSyncConfig` / `GetFeedbackSyncConfig` commands.
@@ -18,8 +19,7 @@
   - **Backend-agnostic comments**: `CommentSource.GITHUB` → `CommentSource.EXTERNAL`, `external_comment_id` column changed from `BIGINT` to `TEXT` (supports GitHub numeric IDs, Jira string IDs, etc.).
   - **Database table renamed**: `feedback_config` → `feedback_sync_config` with new `provider_type`, `settings` JSONB, and `last_polled_at` columns.
   - **Property namespace**: Sync properties moved from `epistola.github.sync.*` to `epistola.feedback.sync.*`. GitHub-specific properties remain under `epistola.github.*`.
-  - **Inbound polling**: New `FeedbackPollScheduler` polls external trackers for comments and status changes — alternative to webhooks for firewall-protected deployments. Controlled via `epistola.feedback.sync.polling.enabled`.
-  - **Webhook verification extracted**: `GitHubWebhookVerifier` utility replaces the port interface method, keeping webhook auth adapter-specific.
+  - **Inbound polling**: New `FeedbackPollScheduler` polls external trackers for comments and status changes. Controlled via `epistola.feedback.sync.polling.enabled`.
 
 ### Added
 - **Feedback system**: In-app feedback submission with optional GitHub Issues integration for tracking bugs, feature requests, and questions.
@@ -31,7 +31,7 @@
   - **Console log capture**: Monkey-patches `console.log/warn/error/info` to buffer last 100 entries, attached to feedback submissions for debugging context.
   - **GitHub App integration**: Port/adapter pattern (`FeedbackSyncPort`) with `GitHubIssueSyncAdapter` for syncing feedback to GitHub Issues. Pure JDK crypto for GitHub App JWT auth (RS256). Installation token caching with 50-minute refresh. Tenant label support for shared repositories.
   - **Outbound sync**: `OnFeedbackCreated` event handler triggers sync after commit. `FeedbackSyncScheduler` retries pending items on configurable interval. Issues created with category/priority labels.
-  - **Inbound webhooks** (optional): `GitHubWebhookController` at `/feedback/github/webhooks` receives `issue_comment` and `issues` events. HMAC-SHA256 signature verification. Disabled by default for firewall-protected deployments.
+  - **Inbound polling**: Periodic polling of external trackers for new comments and status changes as alternative to real-time sync.
 - **Production observability**: Comprehensive metrics, Grafana dashboards, and alerting for production operations.
   - **Separate management port**: Actuator endpoints (health, info, Prometheus metrics) run on port 4040, isolated from application traffic on port 4000. A dedicated security filter chain permits all management endpoints without authentication (network-level access control should restrict the management port in production).
   - **Prometheus endpoint**: Exposed `/actuator/prometheus` on management port, making all auto-configured and custom metrics available to scrapers.
