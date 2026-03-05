@@ -1,17 +1,16 @@
 package app.epistola.suite.feedback.sync
 
-import app.epistola.suite.common.ids.FeedbackId
-import app.epistola.suite.common.ids.FeedbackKey
-import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.feedback.commands.SyncFeedbackComment
+import app.epistola.suite.feedback.commands.UpdateFeedbackSyncConfigLastPolledAt
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
+import app.epistola.suite.feedback.queries.GetFeedbackByExternalRef
+import app.epistola.suite.feedback.queries.ListEnabledFeedbackSyncConfigs
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
-import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.withHandleUnchecked
+import app.epistola.suite.mediator.query
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -35,13 +34,12 @@ import java.time.Instant
 class FeedbackPollScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
-    private val jdbi: Jdbi,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelayString = "\${epistola.feedback.sync.polling.interval-ms:300000}")
     fun pollForUpdates() = MediatorContext.runWithMediator(mediator) {
-        val configs = findEnabledConfigs()
+        val configs = ListEnabledFeedbackSyncConfigs.query()
         if (configs.isEmpty()) return@runWithMediator
 
         for (config in configs) {
@@ -58,15 +56,19 @@ class FeedbackPollScheduler(
         val updates = feedbackSyncPort.fetchUpdates(config, since)
 
         if (updates.isEmpty()) {
-            updateLastPolledAt(config.tenantKey)
+            UpdateFeedbackSyncConfigLastPolledAt(config.tenantKey, Instant.now()).execute()
             return
         }
 
         log.info("Fetched {} updates for tenant {} since {}", updates.size, config.tenantKey, since)
 
+        var lastSuccessfulTimestamp = since
         for (update in updates) {
             try {
                 processUpdate(config.tenantKey, update)
+                if (update.occurredAt.isAfter(lastSuccessfulTimestamp)) {
+                    lastSuccessfulTimestamp = update.occurredAt
+                }
             } catch (e: Exception) {
                 log.error(
                     "Failed to process update for tenant {} (ref={}): {}",
@@ -77,11 +79,14 @@ class FeedbackPollScheduler(
             }
         }
 
-        updateLastPolledAt(config.tenantKey)
+        // Only advance the poll cursor to the last successfully processed update
+        if (lastSuccessfulTimestamp.isAfter(since)) {
+            UpdateFeedbackSyncConfigLastPolledAt(config.tenantKey, lastSuccessfulTimestamp).execute()
+        }
     }
 
     private fun processUpdate(tenantKey: TenantKey, update: ExternalUpdate) {
-        val feedbackId = findFeedbackByExternalRef(tenantKey, update.externalRef) ?: run {
+        val feedbackId = GetFeedbackByExternalRef(tenantKey, update.externalRef).query() ?: run {
             log.debug("No feedback found for external ref {} in tenant {}", update.externalRef, tenantKey)
             return
         }
@@ -103,49 +108,6 @@ class FeedbackPollScheduler(
                 UpdateFeedbackStatus(id = feedbackId, status = update.newStatus).execute()
                 log.debug("Updated feedback {} status to {}", feedbackId.key, update.newStatus)
             }
-        }
-    }
-
-    private fun findEnabledConfigs(): List<FeedbackSyncConfig> = jdbi.withHandleUnchecked { handle ->
-        handle.createQuery(
-            """
-            SELECT * FROM feedback_sync_config
-            WHERE enabled = true
-            """,
-        )
-            .mapTo(FeedbackSyncConfig::class.java)
-            .list()
-    }
-
-    private fun findFeedbackByExternalRef(tenantKey: TenantKey, externalRef: String): FeedbackId? {
-        val feedbackKey = jdbi.withHandleUnchecked { handle ->
-            handle.createQuery(
-                """
-                SELECT id FROM feedback
-                WHERE tenant_key = :tenantKey AND external_ref = :externalRef
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .bind("externalRef", externalRef)
-                .mapTo(FeedbackKey::class.java)
-                .findOne()
-                .orElse(null)
-        }
-
-        return feedbackKey?.let { FeedbackId(it, TenantId(tenantKey)) }
-    }
-
-    private fun updateLastPolledAt(tenantKey: TenantKey) {
-        jdbi.withHandleUnchecked { handle ->
-            handle.createUpdate(
-                """
-                UPDATE feedback_sync_config
-                SET last_polled_at = NOW()
-                WHERE tenant_key = :tenantKey
-                """,
-            )
-                .bind("tenantKey", tenantKey)
-                .execute()
         }
     }
 }

@@ -5,13 +5,13 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.AddFeedbackComment
+import app.epistola.suite.feedback.commands.UpdateFeedbackCommentExternalRef
 import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.EventHandler
 import app.epistola.suite.mediator.EventPhase
+import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -28,7 +28,6 @@ import org.springframework.stereotype.Component
 @Component
 class OnFeedbackCommentAdded(
     private val feedbackSyncPort: FeedbackSyncPort,
-    private val jdbi: Jdbi,
 ) : EventHandler<AddFeedbackComment> {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -36,7 +35,10 @@ class OnFeedbackCommentAdded(
     override val phase = EventPhase.IMMEDIATE
 
     override fun on(event: AddFeedbackComment, result: Any?) {
-        val comment = result as? FeedbackComment ?: return
+        val comment = result as? FeedbackComment ?: run {
+            log.warn("Expected FeedbackComment result from AddFeedbackComment but got {}", result?.javaClass?.name)
+            return
+        }
 
         val feedbackId = FeedbackId(event.id.feedbackKey, TenantId(event.id.tenantKey))
         val feedback = GetFeedback(feedbackId).query() ?: return
@@ -45,26 +47,16 @@ class OnFeedbackCommentAdded(
             return
         }
 
-        val config = GetFeedbackSyncConfig(event.id.tenantKey).query() ?: return
+        val config = GetFeedbackSyncConfig(event.id.tenantKey).query()
+            ?.takeIf { it.enabled } ?: return
 
         try {
             val ref = feedbackSyncPort.addComment(config, feedback.externalRef, comment)
 
-            // Store external comment ID for dedup during inbound polling
-            jdbi.withHandleUnchecked { handle ->
-                handle.createUpdate(
-                    """
-                    UPDATE feedback_comments
-                    SET external_comment_id = :externalCommentId
-                    WHERE tenant_key = :tenantKey AND feedback_id = :feedbackId AND id = :id
-                    """,
-                )
-                    .bind("externalCommentId", ref.externalCommentId)
-                    .bind("tenantKey", event.id.tenantKey)
-                    .bind("feedbackId", event.id.feedbackKey.value)
-                    .bind("id", comment.id.value)
-                    .execute()
-            }
+            UpdateFeedbackCommentExternalRef(
+                id = event.id,
+                externalCommentId = ref.externalCommentId,
+            ).execute()
 
             log.info("Synced comment {} to external issue #{}", comment.id, feedback.externalRef)
         } catch (e: Exception) {

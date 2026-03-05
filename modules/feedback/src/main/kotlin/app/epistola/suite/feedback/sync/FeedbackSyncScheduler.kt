@@ -7,6 +7,7 @@ import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.FeedbackAssetContent
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.feedback.commands.UpdateFeedbackSyncRef
+import app.epistola.suite.feedback.commands.UpdateFeedbackSyncStatus
 import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
@@ -15,8 +16,6 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import org.jdbi.v3.core.Jdbi
-import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -39,7 +38,6 @@ import org.springframework.stereotype.Component
 class FeedbackSyncScheduler(
     private val feedbackSyncPort: FeedbackSyncPort,
     private val mediator: Mediator,
-    private val jdbi: Jdbi,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -95,26 +93,12 @@ class FeedbackSyncScheduler(
     }
 
     private fun markFailed(feedback: Feedback) {
-        updateSyncStatus(feedback, SyncStatus.FAILED)
+        val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
+        UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.FAILED).execute()
     }
 
     private fun markNotConfigured(feedback: Feedback) {
-        updateSyncStatus(feedback, SyncStatus.NOT_CONFIGURED)
-    }
-
-    private fun updateSyncStatus(feedback: Feedback, status: SyncStatus) {
-        jdbi.withHandleUnchecked { handle ->
-            handle.createUpdate(
-                """
-                UPDATE feedback
-                SET sync_status = :syncStatus, updated_at = NOW()
-                WHERE tenant_key = :tenantKey AND id = :id
-                """,
-            )
-                .bind("syncStatus", status.name)
-                .bind("tenantKey", feedback.tenantKey)
-                .bind("id", feedback.id.value)
-                .execute()
-        }
+        val feedbackId = FeedbackId(feedback.id, TenantId(feedback.tenantKey))
+        UpdateFeedbackSyncStatus(id = feedbackId, syncStatus = SyncStatus.NOT_CONFIGURED).execute()
     }
 }
