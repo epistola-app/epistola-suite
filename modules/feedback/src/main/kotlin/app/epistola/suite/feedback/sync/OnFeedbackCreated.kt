@@ -38,7 +38,8 @@ class OnFeedbackCreated(
             return
         }
 
-        val config = GetFeedbackSyncConfig(event.id.tenantKey).query() ?: return
+        val config = GetFeedbackSyncConfig(event.id.tenantKey).query()
+            ?.takeIf { it.enabled } ?: return
 
         try {
             val assets = loadAssetContents(event.id)
