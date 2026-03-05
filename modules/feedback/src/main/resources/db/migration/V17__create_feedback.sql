@@ -32,6 +32,7 @@ CREATE TABLE feedback (
     source_url      TEXT,
     screenshot_key  UUID,        -- soft reference to assets table
     console_logs    TEXT,
+    metadata        JSONB,       -- client metadata: browser, viewport, app version, etc.
     created_by      UUID        NOT NULL REFERENCES users(id),
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -52,6 +53,7 @@ COMMENT ON TABLE feedback IS 'User-submitted feedback items (bugs, feature reque
 COMMENT ON COLUMN feedback.screenshot_key IS 'Soft reference to assets.id — no FK to avoid cross-concern coupling';
 COMMENT ON COLUMN feedback.external_ref IS 'External ticket reference after sync (e.g., GitHub issue number)';
 COMMENT ON COLUMN feedback.external_url IS 'External ticket URL after sync';
+COMMENT ON COLUMN feedback.metadata IS 'Client metadata captured at submission: browser, viewport, app version, etc.';
 COMMENT ON COLUMN feedback.sync_status IS 'PENDING, SYNCED, FAILED, or NOT_CONFIGURED';
 
 -- ============================================================================
