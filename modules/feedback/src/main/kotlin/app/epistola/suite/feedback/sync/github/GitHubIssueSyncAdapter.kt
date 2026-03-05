@@ -48,12 +48,11 @@ class GitHubIssueSyncAdapter(
         }
 
         val body = buildIssueBody(feedback, assetUrls)
-        val tenantLabel = resolveLabel(settings, config)
         val labels = buildList {
             add("feedback")
             add(feedback.category.name.lowercase().replace('_', '-'))
             add("priority:${feedback.priority.name.lowercase()}")
-            add(tenantLabel)
+            add(settings.label)
         }
 
         val requestBody = mapOf(
@@ -162,13 +161,12 @@ class GitHubIssueSyncAdapter(
     override fun fetchUpdates(config: FeedbackSyncConfig, since: Instant): List<ExternalUpdate> {
         val settings = parseSettings(config)
         val token = settings.personalAccessToken
-        val tenantLabel = resolveLabel(settings, config)
         val sinceIso = since.toString()
 
         val updates = mutableListOf<ExternalUpdate>()
 
         // Fetch issue state changes (closed/reopened) since the given timestamp
-        fetchIssueStateChanges(settings, token, tenantLabel, sinceIso, updates)
+        fetchIssueStateChanges(settings, token, sinceIso, updates)
 
         // Fetch new comments since the given timestamp
         fetchIssueComments(settings, token, sinceIso, updates)
@@ -233,7 +231,6 @@ class GitHubIssueSyncAdapter(
     private fun fetchIssueStateChanges(
         settings: GitHubSyncSettings,
         token: String,
-        tenantLabel: String,
         since: String,
         updates: MutableList<ExternalUpdate>,
     ) {
@@ -241,7 +238,7 @@ class GitHubIssueSyncAdapter(
             val uri = buildString {
                 append("/repos/${settings.repoOwner}/${settings.repoName}/issues")
                 append("?state=all&since=$since&sort=updated&direction=asc&per_page=100")
-                append("&labels=$tenantLabel")
+                append("&labels=${settings.label}")
             }
 
             val response = restClient.get()
@@ -317,8 +314,6 @@ class GitHubIssueSyncAdapter(
     }
 
     private fun parseSettings(config: FeedbackSyncConfig): GitHubSyncSettings = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
-
-    private fun resolveLabel(settings: GitHubSyncSettings, config: FeedbackSyncConfig): String = settings.label ?: "etk-${config.tenantKey}"
 
     private fun buildIssueBody(feedback: Feedback, screenshotUrls: List<String> = emptyList()): String = buildString {
         appendLine(feedback.description)

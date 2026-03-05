@@ -10,7 +10,7 @@ data class GitHubSyncSettings(
     val personalAccessToken: String,
     val repoOwner: String,
     val repoName: String,
-    val label: String? = null,
+    val label: String,
 ) {
     val repoFullName: String get() = "$repoOwner/$repoName"
 }

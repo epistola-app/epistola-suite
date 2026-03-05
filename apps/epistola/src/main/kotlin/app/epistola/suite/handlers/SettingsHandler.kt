@@ -31,7 +31,7 @@ class SettingsHandler(
                 formData["personalAccessToken"] = maskToken(github.personalAccessToken)
                 formData["repoOwner"] = github.repoOwner
                 formData["repoName"] = github.repoName
-                formData["label"] = github.label.orEmpty()
+                formData["label"] = github.label
             }
             config.lastPolledAt?.let { formData["lastPolledAt"] = it.toString() }
         }
@@ -101,7 +101,7 @@ class SettingsHandler(
                     personalAccessToken = resolvedToken,
                     repoOwner = form["repoOwner"],
                     repoName = form["repoName"],
-                    label = form["label"].ifBlank { null },
+                    label = form["label"].ifBlank { "etk-${tenantId.key}" },
                 ),
             )
         } else {

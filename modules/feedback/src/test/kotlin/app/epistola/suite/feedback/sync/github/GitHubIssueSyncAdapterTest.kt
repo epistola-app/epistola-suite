@@ -397,7 +397,7 @@ class GitHubIssueSyncAdapterTest {
 
     private fun contentsUrl(feedbackId: UUID, extension: String): String = "$BASE_URL/repos/test-owner/test-repo/contents/.epistola%2Fscreenshots%2F$feedbackId.$extension"
 
-    private fun buildConfig(label: String? = null): FeedbackSyncConfig {
+    private fun buildConfig(label: String = "etk-test-tenant"): FeedbackSyncConfig {
         val settings = GitHubSyncSettings(
             personalAccessToken = "test-token",
             repoOwner = "test-owner",
