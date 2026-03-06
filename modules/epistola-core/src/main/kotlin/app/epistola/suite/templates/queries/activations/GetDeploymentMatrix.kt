@@ -39,8 +39,8 @@ class GetDeploymentMatrixHandler(
                     ea.version_key,
                     ea.activated_at
                 FROM environment_activations ea
-                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.id = ea.variant_key
-                WHERE tv.template_key = :templateId
+                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.template_key = ea.template_key AND tv.id = ea.variant_key
+                WHERE ea.template_key = :templateId
                   AND ea.tenant_key = :tenantId
                 ORDER BY tv.created_at ASC, ea.environment_key ASC
                 """,

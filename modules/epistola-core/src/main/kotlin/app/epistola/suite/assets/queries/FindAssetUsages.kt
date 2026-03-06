@@ -34,7 +34,7 @@ class FindAssetUsagesHandler(
             """
                 SELECT DISTINCT dt.name AS template_name, tv.title AS variant_title
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.id = ver.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
                 CROSS JOIN LATERAL jsonb_each(ver.template_model -> 'nodes') AS n(key, value)
                 WHERE ver.tenant_key = :tenantId

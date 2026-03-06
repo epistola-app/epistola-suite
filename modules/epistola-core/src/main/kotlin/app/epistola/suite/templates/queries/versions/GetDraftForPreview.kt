@@ -56,7 +56,7 @@ class GetPreviewContextHandler(
             FROM template_variants tv
             JOIN document_templates dt ON dt.tenant_key = tv.tenant_key AND dt.id = tv.template_key
             JOIN tenants t ON t.id = tv.tenant_key
-            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id AND ver.status = 'draft'
+            LEFT JOIN template_versions ver ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id AND ver.status = 'draft'
             WHERE tv.id = :variantId
               AND tv.template_key = :templateId
               AND tv.tenant_key = :tenantId
