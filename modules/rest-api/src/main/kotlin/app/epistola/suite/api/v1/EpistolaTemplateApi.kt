@@ -132,7 +132,7 @@ class EpistolaTemplateApi(
                         objectMapper.valueToTree(dto.templateModel),
                         app.epistola.suite.templates.model.TemplateDocument::class.java,
                     ),
-                     variants = dto.variants.map { v ->
+                    variants = dto.variants.map { v ->
                         ImportVariantInput(
                             id = v.id,
                             title = v.title,
