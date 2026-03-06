@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Template import: cross-template version collision**: When importing multiple templates that share the same variant key (e.g., `"default"`), SQL queries in `upsertDraft` and `publishDraft` filtered by `(tenant_key, variant_key)` without `template_key`, causing them to match version rows from other templates. This resulted in FK violations on `environment_activations` for all but the first template. Added `template_key` filter to all 6 affected queries.
+
 ### Added
 - **Feedback integration tests**: 22 integration tests across 7 test groups covering CreateFeedback, GetFeedback, ListFeedback (with status/category filters), Comments (local + external dedup), Assets (storage + fromDataUrl), SyncStatus (updates, retry attempts, max attempts exclusion), SyncConfig, and tenant isolation.
 - **GitHubIssueSyncAdapter unit tests**: Comprehensive test suite (12 tests) covering issue creation, screenshot upload via Contents API, graceful degradation on upload failure, multiple asset handling, console logs rendering, comment posting with author attribution, and status updates. Uses `MockRestServiceServer` for HTTP layer mocking without Spring context.

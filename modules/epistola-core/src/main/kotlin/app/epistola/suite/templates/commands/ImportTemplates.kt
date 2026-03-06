@@ -242,10 +242,11 @@ class ImportTemplatesHandler(
             """
             UPDATE template_versions
             SET template_model = :templateModel::jsonb
-            WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("templateModel", templateModelJson)
             .execute()
@@ -255,10 +256,11 @@ class ImportTemplatesHandler(
                 """
                 SELECT COALESCE(MAX(id), 0) + 1
                 FROM template_versions
-                WHERE tenant_key = :tenantId AND variant_key = :variantId
+                WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId
                 """,
             )
                 .bind("tenantId", tenantId.key)
+                .bind("templateId", templateId)
                 .bind("variantId", variantId)
                 .mapTo(Int::class.java)
                 .one()
@@ -289,10 +291,11 @@ class ImportTemplatesHandler(
             """
             SELECT id
             FROM template_versions
-            WHERE tenant_key = :tenantId AND variant_key = :variantId AND status = 'draft'
+            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND status = 'draft'
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
             .findOne()
@@ -305,10 +308,11 @@ class ImportTemplatesHandler(
             """
             UPDATE template_versions
             SET status = 'published', published_at = NOW()
-            WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :versionId
+            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND id = :versionId
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .bind("versionId", versionId)
             .execute()
@@ -334,10 +338,11 @@ class ImportTemplatesHandler(
             """
             SELECT COALESCE(MAX(id), 0) + 1
             FROM template_versions
-            WHERE tenant_key = :tenantId AND variant_key = :variantId
+            WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId
             """,
         )
             .bind("tenantId", tenantId.key)
+            .bind("templateId", templateId)
             .bind("variantId", variantId)
             .mapTo(Int::class.java)
             .one()
@@ -346,7 +351,7 @@ class ImportTemplatesHandler(
             """
             INSERT INTO template_versions (id, tenant_key, template_key, variant_key, template_model, status, created_at)
             VALUES (:id, :tenantId, :templateId, :variantId,
-                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND variant_key = :variantId AND id = :publishedId),
+                    (SELECT template_model FROM template_versions WHERE tenant_key = :tenantId AND template_key = :templateId AND variant_key = :variantId AND id = :publishedId),
                     'draft', NOW())
             """,
         )

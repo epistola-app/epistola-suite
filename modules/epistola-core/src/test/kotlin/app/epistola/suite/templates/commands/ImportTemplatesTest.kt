@@ -238,6 +238,72 @@ class ImportTemplatesTest : CoreIntegrationTestBase() {
     }
 
     @Test
+    fun `import multiple templates with same variant key and publish succeeds`() {
+        val tenant = createTenant("Import Test")
+        val tenantId = TenantId(tenant.id)
+
+        withMediator {
+            val envKey = TestIdHelpers.nextEnvironmentId()
+            CreateEnvironment(
+                id = EnvironmentId(envKey, tenantId),
+                name = "Production",
+            ).execute()
+
+            val slug1 = TestIdHelpers.nextTemplateId().value
+            val slug2 = TestIdHelpers.nextTemplateId().value
+            val slug3 = TestIdHelpers.nextTemplateId().value
+
+            val results = ImportTemplates(
+                tenantId = tenantId,
+                templates = listOf(
+                    ImportTemplateInput(
+                        slug = slug1,
+                        name = "Template One",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = listOf(envKey.value),
+                    ),
+                    ImportTemplateInput(
+                        slug = slug2,
+                        name = "Template Two",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = listOf(envKey.value),
+                    ),
+                    ImportTemplateInput(
+                        slug = slug3,
+                        name = "Template Three",
+                        version = "1.0.0",
+                        dataModel = null,
+                        dataExamples = emptyList(),
+                        templateModel = templateModel,
+                        variants = listOf(
+                            ImportVariantInput(id = "default", title = "Default", attributes = emptyMap(), templateModel = null, isDefault = true),
+                        ),
+                        publishTo = listOf(envKey.value),
+                    ),
+                ),
+            ).execute()
+
+            assertThat(results).hasSize(3)
+            assertThat(results).allSatisfy { result ->
+                assertThat(result.status).isNotEqualTo(ImportStatus.FAILED)
+                assertThat(result.publishedTo).containsExactly(envKey.value)
+            }
+        }
+    }
+
+    @Test
     fun `import and publish works end-to-end`() {
         val tenant = createTenant("Import Test")
         val tenantId = TenantId(tenant.id)
