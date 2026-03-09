@@ -66,7 +66,7 @@
             <div class="app-nav-user" sec:authorize="isAuthenticated()">
                 <span class="app-nav-username" sec:authentication="name">user</span>
                 <span class="app-nav-separator">|</span>
-                <a th:href="@{/api-docs/index.html}" class="app-nav-link-sm" hx-boost="false">API Docs</a>
+                <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
                 <span class="app-nav-separator">|</span>
                 <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
                     <button type="submit" class="app-nav-link-sm app-nav-logout">Logout</button>
