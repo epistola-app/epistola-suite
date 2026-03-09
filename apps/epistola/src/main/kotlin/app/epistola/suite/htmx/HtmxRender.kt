@@ -22,7 +22,7 @@ fun ServerRequest.render(
     model: Map<String, Any> = emptyMap(),
     redirectOnSuccess: String? = null,
 ): ServerResponse = when {
-    isHtmx && fragment != null -> {
+    isHtmx && !htmxBoosted && fragment != null -> {
         ServerResponse.ok().render("$template :: $fragment", model)
     }
     !isHtmx && redirectOnSuccess != null -> {
@@ -49,7 +49,7 @@ fun ServerRequest.renderTemplate(
     fragment: String? = null,
     model: Map<String, Any> = emptyMap(),
 ): ServerResponse {
-    val templatePath = if (isHtmx && fragment != null) {
+    val templatePath = if (isHtmx && !htmxBoosted && fragment != null) {
         "$template :: $fragment"
     } else {
         template
