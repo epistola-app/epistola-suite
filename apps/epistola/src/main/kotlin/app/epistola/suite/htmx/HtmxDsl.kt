@@ -285,7 +285,7 @@ class HtmxResponseBuilder(private val request: ServerRequest) {
      * For non-HTMX requests: executes the nonHtmxHandler or renders full template.
      */
     internal fun build(): ServerResponse {
-        if (!request.isHtmx) {
+        if (!request.isHtmx || request.htmxBoosted) {
             return nonHtmxHandler?.invoke()
                 ?: fullTemplate?.let { ServerResponse.ok().render(it, mergedModel()) }
                 ?: throw IllegalStateException("No fragment or nonHtmxHandler defined")

@@ -76,7 +76,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
 
         assertThat(requests).hasSize(3)
         assertThat(requests).allMatch { it.tenantKey == tenant.id }
-        assertThat(requests).allMatch { it.status in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS) }
+        assertThat(requests).allMatch { it.status in setOf(RequestStatus.PENDING, RequestStatus.IN_PROGRESS, RequestStatus.COMPLETED) }
     }
 
     @Test

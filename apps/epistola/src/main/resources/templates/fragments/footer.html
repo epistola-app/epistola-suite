@@ -5,7 +5,7 @@
         <footer class="app-footer">
             <span th:text="${appName} ?: 'Epistola'">Epistola</span> <span class="version" th:text="'v' + (${appVersion} ?: 'dev')">v0.0.0</span>
             <span class="separator">|</span>
-            <a th:href="@{/api-docs/index.html}">API Docs</a>
+            <a th:href="@{/api-docs}" target="_blank" rel="noopener">API Docs</a>
             <span sec:authorize="isAuthenticated()" class="user-info">
                 <span class="separator">|</span>
                 <span sec:authentication="name">username</span>
@@ -22,6 +22,15 @@
             <script type="module" th:inline="javascript">
                 const { initSessionMonitor } = await import(/*[[@{/js/modules/session-monitor.js}]]*/ '/js/modules/session-monitor.js');
                 initSessionMonitor();
+            </script>
+        </th:block>
+
+        <!-- Feedback FAB + console capture (tenant-scoped pages only) -->
+        <th:block th:if="${tenantId != null}" sec:authorize="isAuthenticated()">
+            <script th:src="@{/feedback/feedback-capture.js}"></script>
+            <script type="module" th:inline="javascript">
+                const { initFeedbackFab } = await import(/*[[@{/feedback/feedback-fab.js}]]*/ '/feedback/feedback-fab.js');
+                initFeedbackFab(/*[[${tenantId}]]*/ 'tenant');
             </script>
         </th:block>
     </th:block>

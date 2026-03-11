@@ -115,6 +115,7 @@ dependencies {
     kover(project(":modules:template-model"))
     kover(project(":modules:rest-api"))
     kover(project(":modules:loadtest"))
+    kover(project(":modules:feedback"))
 }
 
 kover {

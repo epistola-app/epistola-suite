@@ -3,6 +3,7 @@ package app.epistola.suite.config
 import app.epistola.suite.handlers.ShellModelInterceptor
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 
 @Configuration
@@ -16,5 +17,11 @@ class WebMvcConfig(
             .addPathPatterns("/**")
         registry.addInterceptor(shellModelInterceptor)
             .addPathPatterns("/tenants/**")
+    }
+
+    override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
+        registry.addResourceHandler("/api-docs/epistola-contract.yaml")
+            .addResourceLocations("classpath:/openapi/")
+            .resourceChain(true)
     }
 }

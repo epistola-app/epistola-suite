@@ -136,7 +136,7 @@ class ApiKeyAuthenticationFilterTest {
 
             val auth = SecurityContextHolder.getContext().authentication as ApiKeyAuthenticationToken
             val principal = auth.principal
-            assertThat(principal.tenantMemberships).containsExactly(tenantId)
+            assertThat(principal.tenantMemberships.keys).containsExactly(tenantId)
             assertThat(principal.currentTenantId).isEqualTo(tenantId)
         }
 

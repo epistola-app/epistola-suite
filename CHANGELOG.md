@@ -2,7 +2,61 @@
 
 ## [Unreleased]
 
+### Fixed
+- **API docs link broken**: The nav and footer links to `/api-docs/index.html` pointed to a page that no longer existed since the OpenAPI spec moved to the `epistola-contract` repo. Replaced with an `/api-docs` page powered by Scalar that loads the bundled spec from the contract artifact. Removed the stale `rest-api` `package.json` (no longer needed).
+
+### Changed
+- **epistola-contract updated to 0.1.14**: The server artifact now bundles `epistola-contract.yaml` on the classpath, served at `/api-docs/epistola-contract.yaml`.
+
+### Fixed
+- **Template import: cross-template version collision**: When importing multiple templates that share the same variant key (e.g., `"default"`), SQL queries in `upsertDraft` and `publishDraft` filtered by `(tenant_key, variant_key)` without `template_key`, causing them to match version rows from other templates. This resulted in FK violations on `environment_activations` for all but the first template. Added `template_key` filter to all 6 affected queries.
+
 ### Added
+- **Feedback integration tests**: 22 integration tests across 7 test groups covering CreateFeedback, GetFeedback, ListFeedback (with status/category filters), Comments (local + external dedup), Assets (storage + fromDataUrl), SyncStatus (updates, retry attempts, max attempts exclusion), SyncConfig, and tenant isolation.
+- **GitHubIssueSyncAdapter unit tests**: Comprehensive test suite (12 tests) covering issue creation, screenshot upload via Contents API, graceful degradation on upload failure, multiple asset handling, console logs rendering, comment posting with author attribution, and status updates. Uses `MockRestServiceServer` for HTTP layer mocking without Spring context.
+
+### Changed
+- **Feedback sync: mediator consistency**: Extracted all direct JDBI calls in sync handlers/schedulers into proper CQRS commands and queries (`UpdateFeedbackCommentExternalRef`, `UpdateFeedbackSyncStatus`, `GetFeedbackByExternalRef`, `UpdateFeedbackSyncConfigLastPolledAt`, `ListEnabledFeedbackSyncConfigs`). Sync code now follows the same mediator pattern as the rest of the codebase.
+- **Feedback sync: retry limit**: Added `sync_attempts` column to feedback table. After 5 failed sync attempts, feedback is marked as `FAILED` and excluded from retry. Prevents infinite retry loops when external service is misconfigured.
+- **Feedback sync: config check consistency**: `OnFeedbackCreated` and `OnFeedbackCommentAdded` now check both `config != null` and `config.enabled` before attempting sync.
+- **Feedback sync: safe lastPolledAt**: Poll scheduler now only advances `last_polled_at` to the timestamp of the last successfully processed update, not unconditionally to `now()`.
+- **Screenshot decoding**: Moved base64 data URL parsing from `FeedbackHandler` into `AddFeedbackAsset.fromDataUrl()` factory method for better separation of concerns.
+- **Event handler safety**: Added warning logging to `OnFeedbackCreated` and `OnFeedbackCommentAdded` when result type casting fails, instead of silently returning.
+- **Badge template fragments**: Extracted inline Thymeleaf ternary chains for status/priority/category badges into reusable `feedback/fragments/badges.html` fragments.
+
+### Changed
+- **Feedback assets: dedicated storage with GitHub upload**: Screenshots are now stored in a dedicated `feedback_assets` table instead of the shared assets system. The `screenshot_key` column has been removed from the `feedback` table. When syncing feedback to GitHub, screenshots are uploaded to `.epistola/screenshots/` in the target repository and embedded as images in the issue body. The `FeedbackSyncPort.createTicket()` signature now accepts `List<FeedbackAssetContent>` instead of `ByteArray?`, enabling multiple attachments per feedback item in the future.
+
+### Added
+- **Feedback FAB with page issues popover**: The feedback floating action button now shows a popover with open feedback items for the current page (matched by URL pathname). Includes a badge count, inline links to feedback detail, and a "New" button to submit feedback. The FAB is a self-contained JS module loaded from the feedback module. The `/search` endpoint now accepts a `url` query parameter to filter feedback by source URL.
+
+### Changed
+- **Feedback sync: PAT-based auth**: Replaced GitHub App authentication (JWT + installation tokens) with per-tenant Personal Access Token (PAT) authentication. Tenant admins now enter a fine-grained PAT in the settings page instead of a server-level GitHub App installation ID. Removed `GitHubAppAuthService`, `app-id`, and `private-key-path` configuration. PAT is masked in the UI for security.
+- **Removed webhook support**: Removed `GitHubWebhookController`, `GitHubWebhookVerifier`, and `GitHubAppProperties`. Inbound sync now uses polling exclusively. PAT-based auth does not support inbound webhooks.
+
+### Added
+- **Feedback sync settings UI**: New settings page at `/tenants/{id}/settings/feedback-sync` for configuring per-tenant feedback sync. Supports enabling/disabling sync, selecting provider (GitHub), and entering provider-specific settings (PAT, repository owner/name, optional label). Includes form validation and persistence via existing `SaveFeedbackSyncConfig` / `GetFeedbackSyncConfig` commands.
+
+### Changed
+- **Feedback sync generalization**: Refactored the feedback sync layer from GitHub-specific to provider-agnostic architecture.
+  - **Port renamed**: `IssueSyncPort` → `FeedbackSyncPort` with `createTicket` (was `createIssue`), `fetchUpdates` (new), and `verifyWebhookSignature` removed from the interface.
+  - **Generic config model**: `FeedbackConfig` replaced by `FeedbackSyncConfig` with `providerType` enum and `settings` JSONB column. Provider-specific settings (repo, installation ID, label) parsed by each adapter from the JSONB payload.
+  - **Backend-agnostic comments**: `CommentSource.GITHUB` → `CommentSource.EXTERNAL`, `external_comment_id` column changed from `BIGINT` to `TEXT` (supports GitHub numeric IDs, Jira string IDs, etc.).
+  - **Database table renamed**: `feedback_config` → `feedback_sync_config` with new `provider_type`, `settings` JSONB, and `last_polled_at` columns.
+  - **Property namespace**: Sync properties moved from `epistola.github.sync.*` to `epistola.feedback.sync.*`. GitHub-specific properties remain under `epistola.github.*`.
+  - **Inbound polling**: New `FeedbackPollScheduler` polls external trackers for comments and status changes. Controlled via `epistola.feedback.sync.polling.enabled`.
+
+### Added
+- **Feedback system**: In-app feedback submission with optional GitHub Issues integration for tracking bugs, feature requests, and questions.
+  - **Per-tenant roles**: JWT `epistola_tenants` claim now supports structured role objects (`MEMBER`, `ADMIN`) alongside legacy flat list format. Roles control feedback access (detail/comments visible to admin or creator only).
+  - **Feedback module**: New `modules/feedback` module with full CQRS domain model — `Feedback`, `FeedbackComment`, `FeedbackSyncConfig` entities with commands for create, status update, comment, and sync operations.
+  - **Feedback UI**: List page with status/category filters, detail page with comments timeline, submit dialog with title/category/priority/description fields. Floating action button (FAB) on every tenant-scoped page for quick submission.
+  - **Screenshot capture**: Upload, paste (Ctrl+V), or drag-and-drop screenshots in the feedback form. Screenshots stored as assets and displayed in detail view.
+  - **Client metadata**: Auto-captured browser info (user agent, viewport, screen size, pixel ratio), app version, platform, language, URL, and timestamp stored as JSONB.
+  - **Console log capture**: Monkey-patches `console.log/warn/error/info` to buffer last 100 entries, attached to feedback submissions for debugging context.
+  - **GitHub App integration**: Port/adapter pattern (`FeedbackSyncPort`) with `GitHubIssueSyncAdapter` for syncing feedback to GitHub Issues. Pure JDK crypto for GitHub App JWT auth (RS256). Installation token caching with 50-minute refresh. Tenant label support for shared repositories.
+  - **Outbound sync**: `OnFeedbackCreated` event handler triggers sync after commit. `FeedbackSyncScheduler` retries pending items on configurable interval. Issues created with category/priority labels.
+  - **Inbound polling**: Periodic polling of external trackers for new comments and status changes as alternative to real-time sync.
 - **Production observability**: Comprehensive metrics, Grafana dashboards, and alerting for production operations.
   - **Separate management port**: Actuator endpoints (health, info, Prometheus metrics) run on port 4040, isolated from application traffic on port 4000. A dedicated security filter chain permits all management endpoints without authentication (network-level access control should restrict the management port in production).
   - **Prometheus endpoint**: Exposed `/actuator/prometheus` on management port, making all auto-configured and custom metrics available to scrapers.

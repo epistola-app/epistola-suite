@@ -39,6 +39,22 @@
                    th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
                     Load Tests
                 </a>
+                <a th:href="@{/tenants/{id}/feedback(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
+                    Feedback
+                </a>
+                <a th:href="@{/tenants/{id}/settings/feedback-sync(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'settings'} ? ' active' : ''">
+                    Settings
+                </a>
+                <a th:if="${isAdmin}"
+                   th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">
+                    Admin
+                </a>
             </div>
 
             <!-- Mobile hamburger toggle -->
@@ -56,7 +72,7 @@
             <div class="app-nav-user" sec:authorize="isAuthenticated()">
                 <span class="app-nav-username" sec:authentication="name">user</span>
                 <span class="app-nav-separator">|</span>
-                <a th:href="@{/api-docs/index.html}" class="app-nav-link-sm" hx-boost="false">API Docs</a>
+                <a th:href="@{/api-docs}" class="app-nav-link-sm" hx-boost="false" target="_blank" rel="noopener">API Docs</a>
                 <span class="app-nav-separator">|</span>
                 <form th:action="@{/logout}" method="post" style="display: inline;" hx-boost="false">
                     <button type="submit" class="app-nav-link-sm app-nav-logout">Logout</button>

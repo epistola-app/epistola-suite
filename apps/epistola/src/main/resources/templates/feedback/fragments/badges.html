@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Feedback status badge: OPEN=info, IN_PROGRESS=warning, RESOLVED=success, else=muted -->
+    <span th:fragment="status-badge(status)" class="ep-badge"
+          th:classappend="${status.name() == 'OPEN'} ? 'ep-badge-info' : (${status.name() == 'IN_PROGRESS'} ? 'ep-badge-warning' : (${status.name() == 'RESOLVED'} ? 'ep-badge-success' : 'ep-badge-muted'))"
+          th:text="${status.name()}">OPEN</span>
+
+    <!-- Feedback priority badge: CRITICAL=destructive, HIGH=warning, else=outline -->
+    <span th:fragment="priority-badge(priority)" class="ep-badge"
+          th:classappend="${priority.name() == 'CRITICAL'} ? 'ep-badge-destructive' : (${priority.name() == 'HIGH'} ? 'ep-badge-warning' : 'ep-badge-outline')"
+          th:text="${priority.name()}">MEDIUM</span>
+
+    <!-- Feedback category badge (always outline style) -->
+    <span th:fragment="category-badge(category)" class="ep-badge ep-badge-outline"
+          th:text="${category.name()}">BUG</span>
+</body>
+</html>

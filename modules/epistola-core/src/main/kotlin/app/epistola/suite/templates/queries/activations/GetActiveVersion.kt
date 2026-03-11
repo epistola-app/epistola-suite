@@ -36,12 +36,12 @@ class GetActiveVersionHandler(
                     ver.rendering_defaults_version,
                     ver.resolved_theme
                 FROM environment_activations ea
-                JOIN template_versions ver ON ver.tenant_key = ea.tenant_key AND ver.variant_key = ea.variant_key AND ver.id = ea.version_key
-                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.id = ea.variant_key
+                JOIN template_versions ver ON ver.tenant_key = ea.tenant_key AND ver.template_key = ea.template_key AND ver.variant_key = ea.variant_key AND ver.id = ea.version_key
+                JOIN template_variants tv ON tv.tenant_key = ea.tenant_key AND tv.template_key = ea.template_key AND tv.id = ea.variant_key
                 WHERE ea.environment_key = :environmentId
                   AND ea.variant_key = :variantId
                   AND ea.tenant_key = :tenantId
-                  AND tv.template_key = :templateId
+                  AND ea.template_key = :templateId
                 """,
         )
             .bind("environmentId", query.environmentId.key)

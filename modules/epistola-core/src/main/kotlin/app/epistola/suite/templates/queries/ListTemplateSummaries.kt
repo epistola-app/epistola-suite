@@ -43,11 +43,11 @@ class ListTemplateSummariesHandler(
                     COALESCE((SELECT COUNT(*) FROM template_variants tv WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), 0)::int as variant_count,
                     COALESCE((SELECT bool_or(ver.status = 'draft')
                               FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id
+                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
                               WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id), false) as has_draft,
                     COALESCE((SELECT COUNT(*)
                               FROM template_versions ver
-                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.variant_key = tv.id
+                              JOIN template_variants tv ON ver.tenant_key = tv.tenant_key AND ver.template_key = tv.template_key AND ver.variant_key = tv.id
                               WHERE tv.tenant_key = dt.tenant_key AND tv.template_key = dt.id AND ver.status = 'published'), 0)::int as published_version_count
                 FROM document_templates dt
                 WHERE dt.tenant_key = :tenantId

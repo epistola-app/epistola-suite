@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="ep-dialog-header">
+            <h2>Feedback Submitted</h2>
+            <button type="button" class="btn btn-ghost btn-icon" onclick="this.closest('dialog').close()">
+                <th:block th:replace="~{fragments/icon :: icon(name='x', class='ep-icon')}" />
+            </button>
+        </div>
+        <div class="ep-dialog-body" style="text-align: center; padding: var(--ep-space-8) var(--ep-space-4);">
+            <div style="color: var(--ep-success); margin-bottom: var(--ep-space-3);">
+                <th:block th:replace="~{fragments/icon :: icon(name='check-circle', class='ep-icon ep-icon-xl')}" />
+            </div>
+            <p style="font-weight: 500; margin-bottom: var(--ep-space-2);">Thank you for your feedback!</p>
+            <p style="color: var(--ep-muted-foreground);">Your submission has been recorded and will be reviewed.</p>
+        </div>
+        <div class="ep-dialog-footer">
+            <button type="button" class="btn btn-primary"
+                    onclick="this.closest('dialog').close(); window.location.reload();">Done</button>
+        </div>
+    </th:block>
+</body>
+</html>

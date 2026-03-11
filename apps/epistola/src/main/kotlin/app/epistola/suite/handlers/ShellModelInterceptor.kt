@@ -2,6 +2,7 @@ package app.epistola.suite.handlers
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.tenants.queries.GetTenant
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -39,6 +40,14 @@ class ShellModelInterceptor : HandlerInterceptor {
             modelAndView.addObject("tenantName", tenant?.name ?: tenantId)
         }
 
+        // Resolve isAdmin for the tenant
+        if (tenantId != null) {
+            val principal = SecurityContext.currentOrNull()
+            if (principal != null) {
+                modelAndView.addObject("isAdmin", principal.isAdmin(TenantKey.of(tenantId)))
+            }
+        }
+
         // Shell-specific attributes
         if (viewName != "layout/shell") return
         val path = request.requestURI
@@ -51,6 +60,10 @@ class ShellModelInterceptor : HandlerInterceptor {
         "/environments" in path -> "environments"
         "/attributes" in path -> "attributes"
         "/load-tests" in path -> "load-tests"
+        "/assets" in path -> "assets"
+        "/settings" in path -> "settings"
+        "/feedback" in path -> "feedback"
+        "/admin" in path -> "admin"
         else -> "home"
     }
 }

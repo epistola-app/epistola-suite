@@ -2,4 +2,4 @@
 java = "temurin-25.0.2+10.0.LTS"
 gradle = "9.2.1"
 node = "24.14.0"
-pnpm = "10.30.3"
+pnpm = "10.32.1"
