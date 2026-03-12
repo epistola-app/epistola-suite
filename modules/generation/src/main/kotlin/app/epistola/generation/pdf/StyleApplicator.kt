@@ -1,5 +1,6 @@
 package app.epistola.generation.pdf
 
+import app.epistola.template.model.DefaultStyleSystem
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.element.BlockElement
@@ -15,16 +16,7 @@ object StyleApplicator {
      * Style property keys that cascade from document styles to block elements.
      * Non-inheritable properties (like backgroundColor) are only applied at the document level.
      */
-    val INHERITABLE_KEYS = setOf(
-        "fontFamily",
-        "fontSize",
-        "fontWeight",
-        "fontStyle",
-        "color",
-        "lineHeight",
-        "letterSpacing",
-        "textAlign",
-    )
+    val INHERITABLE_KEYS: Set<String> = DefaultStyleSystem.inheritablePropertyKeys
 
     /**
      * Applies styles from block styles and document styles to an iText element.

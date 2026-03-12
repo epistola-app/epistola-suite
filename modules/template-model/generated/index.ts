@@ -22,3 +22,12 @@ export type {
 } from './component-manifest.js'
 
 export type { StyleRegistry, StyleGroup, StyleProperty } from './style-registry.js'
+
+export type {
+  StyleSystem,
+  CanonicalStyleProperty,
+  StyleFieldGroup,
+  StyleField,
+  SpacingProperties,
+  StyleOption,
+} from './style-system.js'

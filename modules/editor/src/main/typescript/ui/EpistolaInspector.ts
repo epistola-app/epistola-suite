@@ -13,10 +13,11 @@ import {
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
-  expandSpacingToStyles,
-  readSpacingFromStyles,
-  type SpacingValue,
 } from './inputs/style-inputs.js'
+import {
+  applyStyleFieldValue,
+  readStyleFieldValue,
+} from '../engine/style-registry.js'
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -281,10 +282,7 @@ export class EpistolaInspector extends LitElement {
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
               ${filteredProps.map(prop => {
-                // For spacing properties, reconstruct compound value from individual keys
-                const value = prop.type === 'spacing'
-                  ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
-                  : inlineStyles[prop.key]
+                const value = readStyleFieldValue(prop.key, inlineStyles)
                 return this._renderStyleProperty(
                   prop,
                   value,
@@ -508,15 +506,7 @@ export class EpistolaInspector extends LitElement {
     if (!node) return
 
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>
-
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles)
-    } else if (value === undefined || value === '') {
-      delete newStyles[key]
-    } else {
-      newStyles[key] = value
-    }
+    applyStyleFieldValue(key, value, newStyles)
 
     this.engine.dispatch({
       type: 'UpdateNodeStyles',
@@ -529,15 +519,7 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine || !this.doc) return
 
     const newStyles = structuredClone(this.doc.documentStylesOverride ?? {}) as Record<string, unknown>
-
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles)
-    } else if (value === undefined || value === '') {
-      delete newStyles[key]
-    } else {
-      newStyles[key] = value
-    }
+    applyStyleFieldValue(key, value, newStyles)
 
     this.engine.dispatch({
       type: 'UpdateDocumentStyles',

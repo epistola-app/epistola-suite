@@ -5,11 +5,13 @@
   "type": "module",
   "exports": {
     ".": "./ts/index.ts",
+    "./style-system": "./ts/style-system.ts",
+    "./data/*": "./data/*",
     "./schemas/*": "./schemas/*",
     "./generated/*": "./generated/*"
   },
   "scripts": {
-    "generate:types": "cd schemas && json2ts --input 'template-document.schema.json' --output '../generated/template-document.ts' --cwd . && json2ts --input 'template-shared.schema.json' --output '../generated/template-shared.ts' --cwd . && json2ts --input 'theme.schema.json' --output '../generated/theme.ts' --cwd . && json2ts --input 'component-manifest.schema.json' --output '../generated/component-manifest.ts' --cwd . && json2ts --input 'style-registry.schema.json' --output '../generated/style-registry.ts' --cwd .",
+    "generate:types": "cd schemas && json2ts --input 'template-document.schema.json' --output '../generated/template-document.ts' --cwd . && json2ts --input 'template-shared.schema.json' --output '../generated/template-shared.ts' --cwd . && json2ts --input 'theme.schema.json' --output '../generated/theme.ts' --cwd . && json2ts --input 'component-manifest.schema.json' --output '../generated/component-manifest.ts' --cwd . && json2ts --input 'style-registry.schema.json' --output '../generated/style-registry.ts' --cwd . && json2ts --input 'style-system.schema.json' --output '../generated/style-system.ts' --cwd .",
     "build": "echo 'No build step needed — types are consumed as source.'"
   },
   "devDependencies": {
@@ -17,6 +19,7 @@
   },
   "files": [
     "ts/**/*.ts",
+    "data/**/*.json",
     "schemas/**/*.json",
     "generated/**/*.ts"
   ]

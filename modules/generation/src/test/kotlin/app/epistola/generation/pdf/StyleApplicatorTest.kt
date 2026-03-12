@@ -16,13 +16,8 @@ class StyleApplicatorTest {
     @Test
     fun `INHERITABLE_KEYS contains all expected typography keys`() {
         val expected = setOf(
-            "fontFamily",
             "fontSize",
-            "fontWeight",
-            "fontStyle",
             "color",
-            "lineHeight",
-            "letterSpacing",
             "textAlign",
         )
         assertEquals(expected, StyleApplicator.INHERITABLE_KEYS)

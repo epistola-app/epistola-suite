@@ -6,29 +6,16 @@
  */
 
 import { html, nothing } from 'lit'
+import {
+  formatValueWithUnit,
+  parseSpacingValue,
+  parseValueWithUnit,
+  type SpacingValue,
+} from '../../engine/style-values.js'
 
 // ---------------------------------------------------------------------------
 // Value + unit parsing
 // ---------------------------------------------------------------------------
-
-export interface ParsedUnit {
-  value: number
-  unit: string
-}
-
-/** Parse a CSS value like "16px" into { value: 16, unit: 'px' }. */
-export function parseValueWithUnit(raw: unknown, defaultUnit: string): ParsedUnit {
-  if (raw == null || raw === '') return { value: 0, unit: defaultUnit }
-  const str = String(raw)
-  const match = str.match(/^(-?[\d.]+)\s*([a-z%]+)?$/i)
-  if (!match) return { value: 0, unit: defaultUnit }
-  return { value: parseFloat(match[1]), unit: match[2] || defaultUnit }
-}
-
-/** Format a value + unit back to a CSS string. */
-export function formatValueWithUnit(value: number, unit: string): string {
-  return `${value}${unit}`
-}
 
 // ---------------------------------------------------------------------------
 // Unit input: number + unit dropdown
@@ -101,42 +88,6 @@ export function renderColorInput(
       />
     </div>
   `
-}
-
-// ---------------------------------------------------------------------------
-// Spacing input: 4-value (top/right/bottom/left)
-// ---------------------------------------------------------------------------
-
-export interface SpacingValue {
-  top: string
-  right: string
-  bottom: string
-  left: string
-}
-
-/** Parse a spacing value — can be a string shorthand or an object. */
-export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingValue {
-  if (raw == null) {
-    return { top: `0${defaultUnit}`, right: `0${defaultUnit}`, bottom: `0${defaultUnit}`, left: `0${defaultUnit}` }
-  }
-
-  if (typeof raw === 'object' && raw !== null) {
-    const obj = raw as Record<string, unknown>
-    return {
-      top: obj.top != null ? String(obj.top) : `0${defaultUnit}`,
-      right: obj.right != null ? String(obj.right) : `0${defaultUnit}`,
-      bottom: obj.bottom != null ? String(obj.bottom) : `0${defaultUnit}`,
-      left: obj.left != null ? String(obj.left) : `0${defaultUnit}`,
-    }
-  }
-
-  // CSS shorthand string: "10px" or "10px 20px" or "10px 20px 30px 40px"
-  const str = String(raw)
-  const parts = str.split(/\s+/)
-  if (parts.length === 1) return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] }
-  if (parts.length === 2) return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] }
-  if (parts.length === 3) return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] }
-  return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] }
 }
 
 export function renderSpacingInput(
@@ -214,14 +165,8 @@ export function expandSpacingToStyles(
     Left: value.left,
   }
   for (const [suffix, sideValue] of Object.entries(sides)) {
-    const key = `${prefix}${suffix}`
-    if (sideValue && sideValue !== '0px' && sideValue !== '0em' && sideValue !== '0rem') {
-      styles[key] = sideValue
-    } else {
-      delete styles[key]
-    }
+    styles[`${prefix}${suffix}`] = sideValue
   }
-  // Remove the compound key if it exists
   delete styles[prefix]
 }
 
@@ -250,8 +195,7 @@ export function readSpacingFromStyles(
     return undefined
   }
 
-  // If a legacy compound object is present, read from it
-  if (compound != null && typeof compound === 'object') {
+  if (compound != null) {
     return parseSpacingValue(compound, defaultUnit)
   }
 

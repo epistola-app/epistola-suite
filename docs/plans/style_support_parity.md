@@ -1,0 +1,376 @@
+# Style Support Parity (`#193`)
+
+## Context
+
+Issue `#193` is the main problem to solve first. The current styling system drifts because the editor and the PDF renderer do not share one canonical runtime contract.
+
+Today:
+
+- The editable style vocabulary lives in `modules/editor/src/main/typescript/engine/style-registry.ts`
+- Browser rendering mostly applies resolved keys as CSS in `modules/editor/src/main/typescript/ui/EpistolaCanvas.ts` and `modules/editor/src/main/typescript/ui/EpistolaTextEditor.ts`
+- PDF rendering applies a separate hardcoded subset in `modules/generation/src/main/kotlin/app/epistola/generation/pdf/StyleApplicator.kt`
+- Inheritable keys are derived in TypeScript but hardcoded again in Kotlin
+
+This is the root cause of styling bugs where a field appears in the editor but does not actually work in browser preview or PDF output.
+
+UI polish for the theme editor (`#191`) is explicitly deferred until this foundation is fixed.
+
+## Goal
+
+Create one schema-first shared style contract so that:
+
+- a supported style property has one canonical meaning
+- browser preview and PDF rendering support the same canonical properties
+- the editor can render fields dynamically from shared metadata
+- composite editor controls such as `margin` and `padding` map cleanly to canonical stored properties
+- drift is caught by tests instead of being discovered manually
+
+## Design Decisions
+
+- **Schema-first**: the source of truth lives in `modules/template-model`, not in editor-only TypeScript or Kotlin-only code
+- **Two layers**:
+  - canonical style properties: the real stored and rendered keys
+  - editor field metadata: labels, groups, widgets, options, units, and field-to-property mappings
+- **Canonical properties are explicit**: use longhand storage/rendering keys such as `marginTop`, `marginRight`, `marginBottom`, `marginLeft` rather than ambiguous shorthand semantics
+- **Composite controls stay in the UI layer**: a `margin` field is acceptable as an editor abstraction, but it must map to canonical properties defined in the shared contract
+- **No duplicate Kotlin allowlist**: if a canonical property is present in the shared contract, it is expected to be supported; we should not maintain a second manual support list that can drift
+- **No aspirational fields**: do not expose style properties in the shared contract unless both browser and PDF behavior are defined
+- **No storage migration in the first pass**: keep `documentStyles` and preset `styles` as open maps for now; refactor the contract first, then consider storage cleanup later if still needed
+
+## Where To Start
+
+Start with an audit, not implementation.
+
+Before changing the contract, build a support matrix for all currently known style keys and classify each one as:
+
+- editor field exists
+- browser preview works
+- PDF rendering works
+- inheritable
+- hidden or unsupported
+
+This audit should cover at least:
+
+- `modules/editor/src/main/typescript/engine/style-registry.ts`
+- `modules/editor/src/main/typescript/ui/inputs/style-inputs.ts`
+- `modules/editor/src/main/typescript/ui/EpistolaInspector.ts`
+- `modules/editor/src/main/typescript/theme-editor/sections/DocumentStylesSection.ts`
+- `modules/editor/src/main/typescript/theme-editor/sections/PresetItem.ts`
+- `modules/editor/src/main/typescript/ui/EpistolaCanvas.ts`
+- `modules/editor/src/main/typescript/ui/EpistolaTextEditor.ts`
+- `modules/generation/src/main/kotlin/app/epistola/generation/pdf/StyleApplicator.kt`
+
+The point of the audit is to discover every mismatch before we move the source of truth.
+
+## Audit: Current Gap Matrix
+
+Status legend used below:
+
+- `yes`: present and behaves as expected in that layer
+- `partial`: present, but semantics or value handling are incomplete
+- `no`: not supported in that layer
+- `hidden`: supported in runtime data/code, but not exposed in the editor registry
+
+### Current editor-exposed fields
+
+| Field | UI contexts | Current stored key(s) | Browser preview | PDF rendering | Inheritable | Audit notes |
+|------|-------------|-----------------------|-----------------|---------------|-------------|-------------|
+| `fontFamily` | document, node, preset | `fontFamily` | yes | no | yes | The UI field exists, but its select options do not include the tenant default value `Helvetica, Arial, sans-serif`; PDF ignores this key entirely and still uses `FontCache` defaults. |
+| `fontSize` | document, node, preset | `fontSize` | yes | yes | yes | This is the cleanest current candidate for a canonical shared property. |
+| `fontWeight` | document, node, preset | `fontWeight` | yes | partial | yes | The UI only offers numeric weights, but existing demo data uses `bold`; PDF treats only `bold` or numeric `>= 700` as bold, so `500` and `600` collapse to regular. |
+| `color` | document, node, preset | `color` | yes | yes | yes | Stable candidate for the shared canonical set. |
+| `lineHeight` | document, node, preset | `lineHeight` | yes | no | yes | PDF explicitly skips `lineHeight`; the unit input also reinterprets unitless values like the tenant default `1.5` as `px` when edited. |
+| `letterSpacing` | document, node, preset | `letterSpacing` | yes | no | yes | Exposed everywhere in the editor, but not applied by the generic PDF renderer. |
+| `textAlign` | document, node, preset | `textAlign` | yes | yes | yes | Stable candidate for the shared canonical set. |
+| `padding` | node, preset | `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft` | partial | partial | no | This is already a composite editor field, not a real stored property; zero values are deleted during expansion, so explicit `0` cannot reliably override preset or component defaults. |
+| `margin` | node, preset | `marginTop`, `marginRight`, `marginBottom`, `marginLeft` | partial | partial | no | Same composite-field behavior as `padding`; deleting zero values means `marginBottom: 0` cannot reliably override the built-in `0.5em` component default. |
+| `backgroundColor` | node, preset | `backgroundColor` | yes | yes | no | Works as a block style, but it is not available as a document style; page background is modeled separately in page settings. |
+| `borderWidth` | node, preset | `borderWidth` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. Visual effect in browser also depends on a matching border style. |
+| `borderStyle` | node, preset | `borderStyle` | partial | no | no | CSS border style works in browser, but this key also collides with table/datatable props named `borderStyle` that mean `all`, `horizontal`, `vertical`, or `none` instead of CSS values. |
+| `borderColor` | node, preset | `borderColor` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. |
+| `borderRadius` | node, preset | `borderRadius` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. |
+
+### Hidden or runtime-only keys discovered during audit
+
+| Key | Editor registry field | Current stored key(s) | Browser preview | PDF rendering | Inheritable | Audit notes |
+|-----|------------------------|-----------------------|-----------------|---------------|-------------|-------------|
+| `fontStyle` | hidden | `fontStyle` | yes | partial | yes | Present in `StyleApplicator.kt` and used by demo preset data, but not exposed in the editor registry; PDF only handles `italic`. |
+| `borderLeft` | hidden | `borderLeft` | partial | no | no | Present in demo preset data; browser can apply it on components with `applicableStyles: 'all'`, but it is not modeled in the registry or PDF renderer. |
+| `width` | hidden | `width` | partial | yes | no | The generic PDF renderer supports `width`, but the editor registry does not model it as a style property and browser support depends on component applicability. |
+
+### Additional findings from the audit
+
+- Composite spacing behavior is currently encoded in `modules/editor/src/main/typescript/ui/inputs/style-inputs.ts`, not in a shared contract. That is the current source of truth for expanding `margin` and `padding` into longhand keys.
+- Composite spacing fields drop zero values on write. Combined with component defaults in `modules/editor/src/main/typescript/engine/registry.ts` and PDF defaults in `modules/generation/src/main/kotlin/app/epistola/generation/pdf/RenderingDefaults.kt`, this means explicit zero cannot always override an existing default.
+- Existing stored values already fail to round-trip cleanly through the current editor widgets:
+  - `modules/epistola-core/src/main/kotlin/app/epistola/suite/tenants/commands/CreateTenant.kt` stores `fontFamily = "Helvetica, Arial, sans-serif"`, which is not one of the current select options.
+  - `modules/epistola-core/src/main/kotlin/app/epistola/suite/tenants/commands/CreateTenant.kt` stores `lineHeight = "1.5"`, which the current unit input treats like a value with the default unit.
+  - `apps/epistola/src/main/kotlin/app/epistola/suite/demo/DemoLoader.kt` stores `fontWeight = "bold"`, `fontStyle = "italic"`, and `borderLeft = "3px solid #cccccc"`, but the current registry cannot represent all of them.
+- `borderStyle` already has a semantic collision today. In the style registry it means CSS border style, but in `modules/editor/src/main/typescript/components/table/table-registration.ts` and `modules/editor/src/main/typescript/components/datatable/datatable-registration.ts` it also exists as a prop with table-border-mode semantics.
+- Inheritance is duplicated today: TypeScript derives inheritable keys from the registry, while Kotlin hardcodes them in `modules/generation/src/main/kotlin/app/epistola/generation/pdf/StyleApplicator.kt`.
+- Component default styles are duplicated today: editor defaults live in `modules/editor/src/main/typescript/engine/registry.ts`, while PDF defaults live in `modules/generation/src/main/kotlin/app/epistola/generation/pdf/RenderingDefaults.kt`.
+
+## First Canonical Property List
+
+The first shared canonical contract should be intentionally strict.
+
+### Admit now
+
+- `fontSize`
+- `color`
+- `textAlign`
+- `backgroundColor`
+- `marginTop`
+- `marginRight`
+- `marginBottom`
+- `marginLeft`
+- `paddingTop`
+- `paddingRight`
+- `paddingBottom`
+- `paddingLeft`
+
+### Fix before admit
+
+- `fontFamily`
+- `fontWeight`
+- `fontStyle`
+- `lineHeight`
+- `letterSpacing`
+
+### Defer
+
+- generic CSS border properties
+- any new style properties beyond the strict list above
+
+### Editor fields for the first pass
+
+The editor should expose the admitted canonical properties through these first-pass fields:
+
+- `fontSize`
+- `color`
+- `textAlign`
+- `backgroundColor`
+- `margin` -> maps to `marginTop`, `marginRight`, `marginBottom`, `marginLeft`
+- `padding` -> maps to `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`
+
+## Implementation Notes (2026-03-12)
+
+### What was implemented in the first pass
+
+- Added the shared schema-first contract in `modules/template-model/schemas/style-system.schema.json`
+- Added the first strict runtime data set in `modules/template-model/data/style-system/default-style-system.json`
+- Added TypeScript access through `modules/template-model/ts/style-system.ts`
+- Added Kotlin access through `modules/template-model/src/main/kotlin/app/epistola/template/model/DefaultStyleSystem.kt`
+- Replaced the editor-only registry source of truth in `modules/editor/src/main/typescript/engine/style-registry.ts` with a compatibility adapter derived from the shared contract
+- Moved shared parsing helpers into `modules/editor/src/main/typescript/engine/style-values.ts` so spacing/value behavior is not trapped inside a single input file
+- Updated editor consumers to use shared field mapping instead of hardcoded `margin` / `padding` special cases:
+  - `modules/editor/src/main/typescript/ui/EpistolaInspector.ts`
+  - `modules/editor/src/main/typescript/theme-editor/ThemeEditorState.ts`
+  - `modules/editor/src/main/typescript/theme-editor/sections/PresetItem.ts`
+- Updated `modules/editor/src/main/typescript/ui/inputs/style-inputs.ts` so spacing writes preserve explicit zero values instead of deleting them
+- Updated `modules/generation/src/main/kotlin/app/epistola/generation/pdf/StyleApplicator.kt` so inheritable keys come from the shared contract instead of a hardcoded Kotlin set
+- Added focused regression coverage for the adapter and spacing behavior in:
+  - `modules/editor/src/main/typescript/engine/style-registry.test.ts`
+  - `modules/editor/src/main/typescript/ui/inputs/style-inputs.test.ts`
+  - `modules/editor/src/main/typescript/theme-editor/ThemeEditorState.test.ts`
+  - `modules/generation/src/test/kotlin/app/epistola/generation/pdf/StyleApplicatorTest.kt`
+
+### Problems encountered and how they were resolved
+
+#### 1. Kotlin shared-contract loading needed runtime JSON support
+
+Once the style system moved into shared `template-model` data, Kotlin needed a reliable way to load `default-style-system.json`.
+
+What we considered:
+
+- **Reuse the existing Spring BOM pattern** used by modules like `epistola-core`, `feedback`, and `editor`
+- **Move the JSON loader into a consumer module** so `template-model` stayed schema-only
+- **Add an explicit library version in the version catalog** and keep the loader in `template-model`
+
+What we tried first:
+
+- We tried the Spring dependency-management plugin + Boot BOM approach because that matches several other modules in the repo
+
+Why that was not enough:
+
+- `template-model` is a library consumed transitively by modules that do not import the Spring BOM in the same way at resolution time
+- A versionless `tools.jackson.module:jackson-module-kotlin` declaration in `template-model` still caused downstream resolution failures during full builds
+
+Chosen solution:
+
+- Add `jackson3-kotlin` to `gradle/libs.versions.toml` and use `implementation(libs.jackson3.kotlin)` in `modules/template-model/build.gradle.kts`
+
+Why this solution was chosen:
+
+- The shared loader belongs with the shared contract data
+- `template-model` is a library module, so its exported dependencies need explicit, stable resolution outside Spring Boot application modules
+- This keeps the contract and its loader together without relying on downstream BOM behavior
+
+#### 2. Full root builds surfaced a pre-existing generated-override task-order bug
+
+Targeted editor tests and targeted generation tests passed, but the full `./gradlew ktlintCheck build` exposed a different problem.
+
+What happened:
+
+- `template-model` already generated Kotlin classes that must be deleted because the codegen tool cannot correctly model `DocumentStyles`, `TemplateDocument`, `Expression`, and `ThemeRef`
+- The existing wiring used `generate.finalizedBy(removeGeneratedOverrides)` plus `compileKotlin.dependsOn("generate")`
+- In the full multi-module build, downstream compilation still observed the bad generated classes before cleanup had taken effect
+
+How we confirmed it:
+
+- The resulting `template-model` jar contained generated `TemplateDocument$Nodes`, `TemplateDocument$Slots`, and generated `DocumentStyles` classes, which should never survive when handwritten overrides are intended to win
+
+What we considered:
+
+- **Leave the existing `finalizedBy` wiring alone** and treat the failure as incidental
+- **Use ordering-only hints such as `mustRunAfter`**
+- **Make cleanup part of the actual compilation dependency chain**
+
+Chosen solution:
+
+- Change the task wiring so `removeGeneratedOverrides` depends on `generate`
+- Make `compileKotlin` depend directly on `removeGeneratedOverrides`
+
+Why this solution was chosen:
+
+- It guarantees generated override cleanup happens before Kotlin compilation starts
+- It fixes the real build contract instead of hoping Gradle finalizer timing is strong enough in a multi-module graph
+- A comment was added in `modules/template-model/build.gradle.kts` explaining why the old behavior was too weak and why the direct dependency is required
+
+### Why the first pass stays strict
+
+- The goal of this pass is to remove drift, not to expand styling surface area
+- Admitting only the clean subset keeps browser behavior, PDF behavior, shared metadata, and tests aligned
+- The deferred typography properties (`fontFamily`, `fontWeight`, `fontStyle`, `lineHeight`, `letterSpacing`) need a second pass because their current semantics, stored values, or PDF behavior are still inconsistent
+- Border properties remain deferred because `borderStyle` already has a semantic collision with table/datatable props and should not be normalized hastily
+
+### Verification completed for this pass
+
+The following checks passed after the implementation and the task-order fix:
+
+- `pnpm test`
+- `pnpm build`
+- `./gradlew ktlintCheck build`
+
+Non-blocking warnings remain in the repo, including JDK 25 -> Kotlin JVM 24 fallback warnings, Kotlin compiler warnings in unrelated modules, and Playwright host warnings, but there were no test failures or lint failures.
+
+## Execution Plan
+
+### Phase 1: Define the shared contract in `template-model`
+
+Move the style system definition into `modules/template-model`.
+
+Introduce shared schema-backed definitions for:
+
+- canonical style properties
+- editor field metadata
+
+The canonical layer should define runtime meaning only, for example:
+
+- key
+- value kind
+- inheritable flag
+- allowed contexts if needed
+
+The editor metadata layer should define presentation and mapping only, for example:
+
+- group
+- label
+- widget type
+- units
+- options
+- mapped canonical property keys
+
+The generated types should continue to come from `modules/template-model` for both TypeScript and Kotlin.
+
+### Phase 2: Replace the TS-only registry with a compatibility adapter
+
+Do not rewrite the whole editor in one step.
+
+Instead:
+
+- keep the current editor runtime behavior stable
+- replace `modules/editor/src/main/typescript/engine/style-registry.ts` as the source of truth
+- adapt the shared contract into the shape needed by current editor consumers
+
+This adapter should feed:
+
+- `EditorEngine`
+- `EpistolaInspector`
+- theme editor document style rendering
+- theme editor preset style rendering
+
+The temporary adapter is allowed to preserve current spacing expansion behavior while the shared contract settles.
+
+### Phase 3: Align browser behavior to the canonical contract
+
+Once the contract is shared, update browser-side style resolution to rely on canonical property definitions instead of editor-only assumptions.
+
+Focus on:
+
+- inheritance derivation
+- applicable style filtering
+- composite field expansion to canonical properties
+- CSS application in preview/canvas
+
+The browser should no longer depend on a private TS registry that Kotlin cannot see.
+
+### Phase 4: Align PDF rendering to the canonical contract
+
+Update `StyleApplicator.kt` so it stops being a second source of truth.
+
+Specifically:
+
+- remove duplicated inheritable-key definitions
+- derive support from the shared canonical contract
+- implement application logic for every canonical property that remains in the contract
+
+If a property cannot be implemented correctly in PDF rendering yet, it should not stay in the canonical supported property list.
+
+### Phase 5: Add parity tests
+
+Add functional tests that fail when the browser/editor and PDF sides drift.
+
+At minimum, cover:
+
+- shared contract loading on both sides
+- inheritable key parity
+- style support parity
+- PDF application tests for each supported canonical property
+- editor mapping tests for composite fields such as `margin` and `padding`
+
+The goal is to make issue `#193` difficult to reintroduce.
+
+## Immediate Deliverables For `#193`
+
+This change should produce the following outcomes before any theme editor polish work begins:
+
+- one shared schema-first style contract in `modules/template-model`
+- no editor-only style vocabulary source of truth
+- no Kotlin-only inheritable style list
+- clear mapping from editor fields to canonical properties
+- supported properties behave consistently in browser and PDF
+- tests fail when support drifts
+
+## Explicitly Deferred
+
+The following work is not part of this first change:
+
+- theme editor layout and width improvements for `#191`
+- preview endpoint work
+- large UI polish passes unrelated to style support parity
+- new style features beyond what we can support consistently in both browser and PDF
+
+## Acceptance Criteria
+
+The refactor is complete when all of the following are true:
+
+- if a canonical style property exists in the shared contract, it is supported consistently by browser preview and PDF rendering
+- editor fields are generated from shared metadata instead of hardcoded editor-only definitions
+- composite fields map to canonical properties without hidden special cases
+- there is no second manual Kotlin allowlist that can silently drift
+- tests protect the contract and parity rules
+
+## Follow-Up After `#193`
+
+After the style contract is stable, return to `#191` and improve the theme editor UX on top of the new foundation.

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { expandSpacingToStyles, readSpacingFromStyles, type SpacingValue } from './style-inputs.js'
+import { type SpacingValue } from '../../engine/style-values.js'
+import { expandSpacingToStyles, readSpacingFromStyles } from './style-inputs.js'
 
 // ---------------------------------------------------------------------------
 // expandSpacingToStyles
@@ -44,28 +45,28 @@ describe('expandSpacingToStyles', () => {
     expect(styles.marginTop).toBe('10px')
   })
 
-  it('deletes zero-value keys instead of storing them', () => {
+  it('preserves zero-value keys so explicit zero can override defaults', () => {
     const styles: Record<string, unknown> = { marginTop: '10px', marginRight: '5px' }
     const spacing: SpacingValue = { top: '10px', right: '0px', bottom: '0px', left: '0px' }
 
     expandSpacingToStyles('margin', spacing, styles)
 
     expect(styles.marginTop).toBe('10px')
-    expect(styles.marginRight).toBeUndefined()
-    expect(styles.marginBottom).toBeUndefined()
-    expect(styles.marginLeft).toBeUndefined()
+    expect(styles.marginRight).toBe('0px')
+    expect(styles.marginBottom).toBe('0px')
+    expect(styles.marginLeft).toBe('0px')
   })
 
-  it('treats 0em and 0rem as zero values', () => {
+  it('preserves 0em and 0rem values', () => {
     const styles: Record<string, unknown> = {}
     const spacing: SpacingValue = { top: '0em', right: '0rem', bottom: '5px', left: '0px' }
 
     expandSpacingToStyles('margin', spacing, styles)
 
-    expect(styles.marginTop).toBeUndefined()
-    expect(styles.marginRight).toBeUndefined()
+    expect(styles.marginTop).toBe('0em')
+    expect(styles.marginRight).toBe('0rem')
     expect(styles.marginBottom).toBe('5px')
-    expect(styles.marginLeft).toBeUndefined()
+    expect(styles.marginLeft).toBe('0px')
   })
 })
 
@@ -120,5 +121,13 @@ describe('readSpacingFromStyles', () => {
     const result = readSpacingFromStyles('margin', styles)
 
     expect(result).toEqual({ top: '10px', right: '5px', bottom: '10px', left: '5px' })
+  })
+
+  it('handles legacy shorthand string as fallback', () => {
+    const styles = { padding: '12px 8px' }
+
+    const result = readSpacingFromStyles('padding', styles)
+
+    expect(result).toEqual({ top: '12px', right: '8px', bottom: '12px', left: '8px' })
   })
 })
