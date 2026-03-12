@@ -10,7 +10,7 @@
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js'
 import type { DocumentIndexes } from './indexes.js'
 import { isAncestor } from './indexes.js'
-import type { ComponentRegistry } from './registry.js'
+import { type ComponentRegistry, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, isAnchoredPageBlock } from './registry.js'
 import { nanoid } from 'nanoid'
 
 // ---------------------------------------------------------------------------
@@ -199,9 +199,6 @@ function applyComponentCommand(
   return { ok: false, error: `Unknown command type: ${commandType}` }
 }
 
-const PAGE_HEADER_TYPE = 'pageheader'
-const PAGE_FOOTER_TYPE = 'pagefooter'
-
 function getRootSlotId(doc: TemplateDocument): SlotId | null {
   const rootNode = doc.nodes[doc.root]
   if (!rootNode || rootNode.slots.length === 0) {
@@ -267,23 +264,11 @@ function applyInsertNode(
     return err(`Node ${cmd.node.id} already exists`)
   }
 
-  const nodeDef = registry.get(cmd.node.type)
-  const maxInstances = nodeDef?.maxInstancesPerDocument
-  if (typeof maxInstances === 'number') {
-    if (!Number.isInteger(maxInstances) || maxInstances < 1) {
-      return err(`Invalid maxInstancesPerDocument for node type '${cmd.node.type}'`)
-    }
-
-    let existingCount = 0
-    for (const node of Object.values(doc.nodes)) {
-      if (node.type === cmd.node.type) {
-        existingCount += 1
-        if (existingCount >= maxInstances) {
-          const noun = maxInstances === 1 ? 'block' : 'blocks'
-          return err(`Only ${maxInstances} '${cmd.node.type}' ${noun} allowed per document`)
-        }
-      }
-    }
+  if (!registry.canInsertInDocument(cmd.node.type, doc)) {
+    const nodeDef = registry.get(cmd.node.type)
+    const maxInstances = nodeDef?.maxInstancesPerDocument ?? 0
+    const noun = maxInstances === 1 ? 'block' : 'blocks'
+    return err(`Only ${maxInstances} '${cmd.node.type}' ${noun} allowed per document`)
   }
 
   const rootSlotId = getRootSlotId(doc)
@@ -438,11 +423,10 @@ function applyMoveNode(
 
   if (cmd.nodeId === doc.root) return err('Cannot move root node')
 
-  if (node.type === PAGE_HEADER_TYPE) {
-    return err('Page header is fixed at the top and cannot be moved')
-  }
-  if (node.type === PAGE_FOOTER_TYPE) {
-    return err('Page footer is fixed at the bottom and cannot be moved')
+  if (isAnchoredPageBlock(node.type)) {
+    const label = node.type === PAGE_HEADER_TYPE ? 'Page header' : 'Page footer'
+    const position = node.type === PAGE_HEADER_TYPE ? 'top' : 'bottom'
+    return err(`${label} is fixed at the ${position} and cannot be moved`)
   }
 
   const targetSlot = doc.slots[cmd.targetSlotId]

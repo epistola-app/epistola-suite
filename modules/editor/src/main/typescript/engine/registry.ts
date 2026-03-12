@@ -14,6 +14,18 @@ import { createDatatableDefinition } from '../components/datatable/datatable-reg
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js'
 
 // ---------------------------------------------------------------------------
+// Component type constants
+// ---------------------------------------------------------------------------
+
+export const PAGE_HEADER_TYPE = 'pageheader'
+export const PAGE_FOOTER_TYPE = 'pagefooter'
+
+/** Check whether a component type is an anchored page block (header or footer). */
+export function isAnchoredPageBlock(type: string): boolean {
+  return type === PAGE_HEADER_TYPE || type === PAGE_FOOTER_TYPE
+}
+
+// ---------------------------------------------------------------------------
 // Component definition
 // ---------------------------------------------------------------------------
 
@@ -169,11 +181,7 @@ export class ComponentRegistry {
       return true
     }
 
-    if (!Number.isInteger(limit) || limit < 0) {
-      return false
-    }
-
-    if (limit === 0) {
+    if (!Number.isInteger(limit) || limit < 1) {
       return false
     }
 
@@ -393,7 +401,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   })
 
   registry.register({
-    type: 'pageheader',
+    type: PAGE_HEADER_TYPE,
     label: 'Page Header',
     icon: 'panel-top',
     category: 'page',
@@ -405,7 +413,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   })
 
   registry.register({
-    type: 'pagefooter',
+    type: PAGE_FOOTER_TYPE,
     label: 'Page Footer',
     icon: 'panel-bottom',
     category: 'page',

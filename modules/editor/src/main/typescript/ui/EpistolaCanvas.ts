@@ -11,6 +11,7 @@ import {
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
 import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
 import type { EditorEngine } from "../engine/EditorEngine.js";
+import { isAnchoredPageBlock } from "../engine/registry.js";
 import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
 import {
   resolveDropOnBlockEdge,
@@ -120,7 +121,7 @@ export class EpistolaCanvas extends LitElement {
 
       const node = this.doc.nodes[nodeId];
       if (!node) continue;
-      const isFixedPageBlock = node.type === "pageheader" || node.type === "pagefooter";
+      const isFixedPageBlock = isAnchoredPageBlock(node.type);
 
       // Drag source
       if (!isFixedPageBlock) {

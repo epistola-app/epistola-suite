@@ -2,7 +2,7 @@ import { LitElement, html } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { EditorEngine } from '../engine/EditorEngine.js'
-import type { ComponentDefinition, ComponentCategory } from '../engine/registry.js'
+import { type ComponentDefinition, type ComponentCategory, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE } from '../engine/registry.js'
 import type { DragData } from '../dnd/types.js'
 import { icon, type IconName, ICONS } from './icons.js'
 
@@ -51,10 +51,10 @@ export class EpistolaPalette extends LitElement {
     const targetSlot = doc.slots[targetSlotId]
     if (!targetSlot) return
 
-    const footerIndex = targetSlot.children.findIndex((id) => doc.nodes[id]?.type === 'pagefooter')
-    const insertIndex = type === 'pageheader'
+    const footerIndex = targetSlot.children.findIndex((id) => doc.nodes[id]?.type === PAGE_FOOTER_TYPE)
+    const insertIndex = type === PAGE_HEADER_TYPE
       ? 0
-      : type === 'pagefooter'
+      : type === PAGE_FOOTER_TYPE
         ? targetSlot.children.length
         : footerIndex >= 0
           ? footerIndex

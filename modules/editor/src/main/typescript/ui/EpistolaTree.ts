@@ -9,6 +9,7 @@ import {
 } from '@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item'
 import type { TemplateDocument, NodeId, SlotId } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
+import { isAnchoredPageBlock } from '../engine/registry.js'
 import { getNodeDepth, findAncestorAtLevel } from '../engine/indexes.js'
 import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js'
 import { resolveDropOnBlockEdge, resolveDropInsideNode, canDropHere, type Edge } from '../dnd/drop-logic.js'
@@ -62,7 +63,7 @@ export class EpistolaTree extends LitElement {
       if (!node) continue
 
       const isRoot = nodeId === this.doc.root
-      const isFixedPageBlock = node.type === 'pageheader' || node.type === 'pagefooter'
+      const isFixedPageBlock = isAnchoredPageBlock(node.type)
 
       // Drag source (skip root — can't drag the document root)
       if (!isRoot && !isFixedPageBlock) {

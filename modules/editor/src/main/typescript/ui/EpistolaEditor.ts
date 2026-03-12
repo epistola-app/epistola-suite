@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js'
 import { keyed } from 'lit/directives/keyed.js'
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js'
 import { EditorEngine } from '../engine/EditorEngine.js'
-import { createDefaultRegistry } from '../engine/registry.js'
+import { createDefaultRegistry, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, isAnchoredPageBlock } from '../engine/registry.js'
 import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.js'
 import type { FetchPreviewFn } from './preview-service.js'
 import { SaveService, type SaveState, type SaveFn } from './save-service.js'
@@ -704,7 +704,7 @@ export class EpistolaEditor extends LitElement {
       .insertable(this._doc)
       // Root is the single document container and must never be insertable as a block.
       .filter((def) => def.type !== 'root')
-      .filter((def) => parentType === 'root' || (def.type !== 'pageheader' && def.type !== 'pagefooter'))
+      .filter((def) => parentType === 'root' || !isAnchoredPageBlock(def.type))
       .filter((def) => this._engine!.registry.canContain(parentType, def.type))
   }
 
@@ -786,8 +786,8 @@ export class EpistolaEditor extends LitElement {
     const rootSlot = this._doc.slots[slotId]
     if (!rootSlot) return null
 
-    const headerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === 'pageheader')
-    const footerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === 'pagefooter')
+    const headerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === PAGE_HEADER_TYPE)
+    const footerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === PAGE_FOOTER_TYPE)
     const startIndex = headerIndex >= 0 ? headerIndex + 1 : 0
     const endIndex = footerIndex >= 0 ? footerIndex : rootSlot.children.length
 

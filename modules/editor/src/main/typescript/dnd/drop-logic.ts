@@ -6,7 +6,7 @@
 
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js'
 import type { DocumentIndexes } from '../engine/indexes.js'
-import type { ComponentRegistry } from '../engine/registry.js'
+import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js'
 import type { DragData } from './types.js'
 
 export type Edge = 'top' | 'bottom'
@@ -98,7 +98,7 @@ export function canDropHere(
   const rootNode = doc.nodes[doc.root]
   const rootSlotId = rootNode?.slots[0]
 
-  if (dragData.blockType === 'pageheader' || dragData.blockType === 'pagefooter') {
+  if (isAnchoredPageBlock(dragData.blockType)) {
     if (!rootSlotId || targetSlotId !== rootSlotId) {
       return false
     }
@@ -108,10 +108,7 @@ export function canDropHere(
     return false
   }
 
-  if (
-    dragData.source === 'block'
-    && (dragData.blockType === 'pageheader' || dragData.blockType === 'pagefooter')
-  ) {
+  if (dragData.source === 'block' && isAnchoredPageBlock(dragData.blockType)) {
     return false
   }
 
