@@ -14,6 +14,18 @@ import { createDatatableDefinition } from '../components/datatable/datatable-reg
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js'
 
 // ---------------------------------------------------------------------------
+// Component type constants
+// ---------------------------------------------------------------------------
+
+export const PAGE_HEADER_TYPE = 'pageheader'
+export const PAGE_FOOTER_TYPE = 'pagefooter'
+
+/** Check whether a component type is an anchored page block (header or footer). */
+export function isAnchoredPageBlock(type: string): boolean {
+  return type === PAGE_HEADER_TYPE || type === PAGE_FOOTER_TYPE
+}
+
+// ---------------------------------------------------------------------------
 // Component definition
 // ---------------------------------------------------------------------------
 
@@ -113,6 +125,9 @@ export interface ComponentDefinition {
     indexes: DocumentIndexes,
     command: unknown,
   ) => CommandResult
+
+  /** Optional singleton-style guard (e.g. allow only one page header per document). */
+  maxInstancesPerDocument?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -144,9 +159,49 @@ export class ComponentRegistry {
     return Array.from(this._definitions.values())
   }
 
-  /** Get only components that can be inserted by the user (palette items). */
-  insertable(): ComponentDefinition[] {
-    return this.all().filter(d => !d.hidden)
+  /**
+   * Get components that can be inserted by the user.
+   *
+   * If a document is provided, this also applies per-document instance limits
+   * (e.g. singleton page header/footer blocks).
+   */
+  insertable(doc?: TemplateDocument): ComponentDefinition[] {
+    return this
+      .all()
+      .filter(d => !d.hidden)
+      .filter((d) => !doc || this.canInsertInDocument(d.type, doc))
+  }
+
+  /**
+   * Single source of truth for per-document instance limits (e.g. singleton
+   * page header/footer). All insertion paths — commands, palette, DnD, and
+   * any future features like block duplication — should call this method
+   * to check whether another instance of `type` is allowed.
+   */
+  canInsertInDocument(type: string, doc: TemplateDocument): boolean {
+    const def = this._definitions.get(type)
+    if (!def) return false
+
+    const limit = def.maxInstancesPerDocument
+    if (typeof limit !== 'number') {
+      return true
+    }
+
+    if (!Number.isInteger(limit) || limit < 1) {
+      return false
+    }
+
+    let count = 0
+    for (const node of Object.values(doc.nodes)) {
+      if (node.type === type) {
+        count += 1
+        if (count >= limit) {
+          return false
+        }
+      }
+    }
+
+    return true
   }
 
   /**
@@ -352,7 +407,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   })
 
   registry.register({
-    type: 'pageheader',
+    type: PAGE_HEADER_TYPE,
     label: 'Page Header',
     icon: 'panel-top',
     category: 'page',
@@ -360,10 +415,11 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
+    maxInstancesPerDocument: 1,
   })
 
   registry.register({
-    type: 'pagefooter',
+    type: PAGE_FOOTER_TYPE,
     label: 'Page Footer',
     icon: 'panel-bottom',
     category: 'page',
@@ -371,6 +427,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
+    maxInstancesPerDocument: 1,
   })
 
   return registry

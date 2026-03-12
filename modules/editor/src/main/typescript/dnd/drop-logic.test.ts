@@ -195,6 +195,27 @@ describe('canDropHere', () => {
     expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(false)
   })
 
+  it('rejects palette drag of page header into non-root slot', () => {
+    const indexes = buildIndexes(doc)
+    const dragData: DragData = { source: 'palette', blockType: 'pageheader' }
+
+    expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(false)
+  })
+
+  it('rejects palette drag of page header when one already exists', () => {
+    const header = registry.createNode('pageheader')
+    doc.nodes[header.node.id] = header.node
+    for (const slot of header.slots) {
+      doc.slots[slot.id] = slot
+    }
+    doc.slots[rootSlotId].children.unshift(header.node.id)
+
+    const indexes = buildIndexes(doc)
+    const dragData: DragData = { source: 'palette', blockType: 'pageheader' }
+
+    expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(false)
+  })
+
   it('allows block drag to different slot', () => {
     const { doc: d, textNodeId, containerSlotId: cSlotId } = createTestDocumentWithChildren()
     const indexes = buildIndexes(d)
@@ -209,6 +230,20 @@ describe('canDropHere', () => {
 
     // containerSlotId is owned by containerNodeId, so dropping there means dropping into itself
     expect(canDropHere(dragData, containerSlotId, doc, indexes, registry)).toBe(false)
+  })
+
+  it('rejects block drag of anchored page header', () => {
+    const header = registry.createNode('pageheader')
+    doc.nodes[header.node.id] = header.node
+    for (const slot of header.slots) {
+      doc.slots[slot.id] = slot
+    }
+    doc.slots[rootSlotId].children.unshift(header.node.id)
+
+    const indexes = buildIndexes(doc)
+    const dragData: DragData = { source: 'block', nodeId: header.node.id, blockType: 'pageheader' }
+
+    expect(canDropHere(dragData, rootSlotId, doc, indexes, registry)).toBe(false)
   })
 
   it('rejects block drag into a descendant slot', () => {

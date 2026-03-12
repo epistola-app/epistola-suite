@@ -11,6 +11,7 @@ import {
 } from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
 import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
 import type { EditorEngine } from "../engine/EditorEngine.js";
+import { isAnchoredPageBlock } from "../engine/registry.js";
 import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
 import {
   resolveDropOnBlockEdge,
@@ -120,23 +121,26 @@ export class EpistolaCanvas extends LitElement {
 
       const node = this.doc.nodes[nodeId];
       if (!node) continue;
+      const isFixedPageBlock = isAnchoredPageBlock(node.type);
 
       // Drag source
-      cleanups.push(
-        draggable({
-          element: blockEl,
-          dragHandle:
-            blockEl.querySelector<HTMLElement>(".canvas-block-header") ??
-            blockEl,
-          getInitialData: (): DragData => ({
-            source: "block",
-            nodeId,
-            blockType: node.type,
+      if (!isFixedPageBlock) {
+        cleanups.push(
+          draggable({
+            element: blockEl,
+            dragHandle:
+              blockEl.querySelector<HTMLElement>(".canvas-block-header") ??
+              blockEl,
+            getInitialData: (): DragData => ({
+              source: "block",
+              nodeId,
+              blockType: node.type,
+            }),
+            onDragStart: () => blockEl.classList.add("dragging"),
+            onDrop: () => blockEl.classList.remove("dragging"),
           }),
-          onDragStart: () => blockEl.classList.add("dragging"),
-          onDrop: () => blockEl.classList.remove("dragging"),
-        }),
-      );
+        );
+      }
 
       // Drop target on each block (edge detection for inserting before/after in parent slot)
       cleanups.push(

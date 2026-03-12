@@ -10,7 +10,7 @@
 import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js'
 import type { DocumentIndexes } from './indexes.js'
 import { isAncestor } from './indexes.js'
-import type { ComponentRegistry } from './registry.js'
+import { type ComponentRegistry, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, isAnchoredPageBlock } from './registry.js'
 import { nanoid } from 'nanoid'
 
 // ---------------------------------------------------------------------------
@@ -199,6 +199,45 @@ function applyComponentCommand(
   return { ok: false, error: `Unknown command type: ${commandType}` }
 }
 
+function getRootSlotId(doc: TemplateDocument): SlotId | null {
+  const rootNode = doc.nodes[doc.root]
+  if (!rootNode || rootNode.slots.length === 0) {
+    return null
+  }
+  return rootNode.slots[0]
+}
+
+function normalizeInsertIndex(index: number, length: number): number {
+  return index < 0 || index >= length ? length : index
+}
+
+function findNodeIndexByType(
+  children: readonly NodeId[],
+  nodes: Record<NodeId, Node>,
+  type: string,
+): number {
+  return children.findIndex((id) => nodes[id]?.type === type)
+}
+
+function validateRootContentBoundaries(
+  children: readonly NodeId[],
+  nodes: Record<NodeId, Node>,
+  insertIndex: number,
+): string | null {
+  const headerIndex = findNodeIndexByType(children, nodes, PAGE_HEADER_TYPE)
+  const footerIndex = findNodeIndexByType(children, nodes, PAGE_FOOTER_TYPE)
+
+  if (headerIndex >= 0 && insertIndex <= headerIndex) {
+    return 'Cannot place blocks before the page header'
+  }
+
+  if (footerIndex >= 0 && insertIndex > footerIndex) {
+    return 'Cannot place blocks after the page footer'
+  }
+
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // InsertNode
 // ---------------------------------------------------------------------------
@@ -225,6 +264,33 @@ function applyInsertNode(
     return err(`Node ${cmd.node.id} already exists`)
   }
 
+  if (!registry.canInsertInDocument(cmd.node.type, doc)) {
+    const nodeDef = registry.get(cmd.node.type)
+    const maxInstances = nodeDef?.maxInstancesPerDocument ?? 0
+    const noun = maxInstances === 1 ? 'block' : 'blocks'
+    return err(`Only ${maxInstances} '${cmd.node.type}' ${noun} allowed per document`)
+  }
+
+  const rootSlotId = getRootSlotId(doc)
+  let insertIndex = normalizeInsertIndex(cmd.index, targetSlot.children.length)
+
+  if (cmd.node.type === PAGE_HEADER_TYPE) {
+    if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
+      return err('Page header can only be inserted at the top of the document')
+    }
+    insertIndex = 0
+  } else if (cmd.node.type === PAGE_FOOTER_TYPE) {
+    if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
+      return err('Page footer can only be inserted at the bottom of the document')
+    }
+    insertIndex = targetSlot.children.length
+  } else if (rootSlotId && cmd.targetSlotId === rootSlotId) {
+    const boundaryError = validateRootContentBoundaries(targetSlot.children, doc.nodes, insertIndex)
+    if (boundaryError) {
+      return err(boundaryError)
+    }
+  }
+
   // Build new document
   const newNodes: Record<NodeId, Node> = { ...doc.nodes, [cmd.node.id]: cmd.node }
   const newSlots: Record<SlotId, Slot> = { ...doc.slots }
@@ -241,9 +307,6 @@ function applyInsertNode(
 
   // Update target slot's children
   const children = [...targetSlot.children]
-  const insertIndex = cmd.index < 0 || cmd.index >= children.length
-    ? children.length
-    : cmd.index
   children.splice(insertIndex, 0, cmd.node.id)
   newSlots[cmd.targetSlotId] = { ...targetSlot, children }
 
@@ -360,6 +423,12 @@ function applyMoveNode(
 
   if (cmd.nodeId === doc.root) return err('Cannot move root node')
 
+  if (isAnchoredPageBlock(node.type)) {
+    const label = node.type === PAGE_HEADER_TYPE ? 'Page header' : 'Page footer'
+    const position = node.type === PAGE_HEADER_TYPE ? 'top' : 'bottom'
+    return err(`${label} is fixed at the ${position} and cannot be moved`)
+  }
+
   const targetSlot = doc.slots[cmd.targetSlotId]
   if (!targetSlot) return err(`Target slot ${cmd.targetSlotId} not found`)
 
@@ -388,6 +457,20 @@ function applyMoveNode(
 
   const currentIndex = currentSlot.children.indexOf(cmd.nodeId)
 
+  const movingWithinSameSlot = currentSlotId === cmd.targetSlotId
+  const targetChildrenBase = movingWithinSameSlot
+    ? currentSlot.children.filter(id => id !== cmd.nodeId)
+    : [...targetSlot.children]
+  const insertIndex = normalizeInsertIndex(cmd.index, targetChildrenBase.length)
+
+  const rootSlotId = getRootSlotId(doc)
+  if (rootSlotId && cmd.targetSlotId === rootSlotId) {
+    const boundaryError = validateRootContentBoundaries(targetChildrenBase, doc.nodes, insertIndex)
+    if (boundaryError) {
+      return err(boundaryError)
+    }
+  }
+
   // Build inverse
   const inverse: MoveNode = {
     type: 'MoveNode',
@@ -399,12 +482,9 @@ function applyMoveNode(
   // Build new document
   const newSlots = { ...doc.slots }
 
-  if (currentSlotId === cmd.targetSlotId) {
+  if (movingWithinSameSlot) {
     // Moving within the same slot
-    const children = currentSlot.children.filter(id => id !== cmd.nodeId)
-    const insertIndex = cmd.index < 0 || cmd.index >= children.length
-      ? children.length
-      : cmd.index
+    const children = [...targetChildrenBase]
     children.splice(insertIndex, 0, cmd.nodeId)
     newSlots[currentSlotId] = { ...currentSlot, children }
   } else {
@@ -414,10 +494,7 @@ function applyMoveNode(
       children: currentSlot.children.filter(id => id !== cmd.nodeId),
     }
 
-    const targetChildren = [...targetSlot.children]
-    const insertIndex = cmd.index < 0 || cmd.index >= targetChildren.length
-      ? targetChildren.length
-      : cmd.index
+    const targetChildren = [...targetChildrenBase]
     targetChildren.splice(insertIndex, 0, cmd.nodeId)
     newSlots[cmd.targetSlotId] = { ...targetSlot, children: targetChildren }
   }

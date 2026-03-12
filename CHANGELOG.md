@@ -78,6 +78,7 @@
 
 ### Changed
 - **Registry-driven system parameters**: `SystemParameterRegistry` is now the runtime source of truth for system parameter injection. Adding a new system parameter only requires adding a descriptor (with `mockValue`) to the registry and updating `buildPageParams()`/`buildGlobalParams()` — no scattered code changes needed. Mock data injection for the editor is centralised in `EditorEngine.getExampleData()`, eliminating duplication across UI call sites.
+- **Editor feedback flow alignment after rebase**: Removed the temporary `editor-notice` event path and restored the mainline drag-and-drop handler contract (`handleDrop` returns `void`). Shortcut feedback remains centralized through `LeaderModeController`.
 
 ### Fixed
 - **CycloneDX SBOM generation fails in Gradle 9**: The `cyclonedxDirectBom` task used module jar outputs without declaring task dependencies, causing build failures with Gradle's strict task dependency validation. Fixed by declaring `runtimeClasspath` as a task input so Gradle infers dependencies automatically.

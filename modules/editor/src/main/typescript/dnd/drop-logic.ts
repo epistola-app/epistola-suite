@@ -6,7 +6,7 @@
 
 import type { NodeId, SlotId, TemplateDocument } from '../types/index.js'
 import type { DocumentIndexes } from '../engine/indexes.js'
-import type { ComponentRegistry } from '../engine/registry.js'
+import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js'
 import type { DragData } from './types.js'
 
 export type Edge = 'top' | 'bottom'
@@ -94,6 +94,23 @@ export function canDropHere(
 
   const parentNode = doc.nodes[targetSlot.nodeId]
   if (!parentNode) return false
+
+  const rootNode = doc.nodes[doc.root]
+  const rootSlotId = rootNode?.slots[0]
+
+  if (isAnchoredPageBlock(dragData.blockType)) {
+    if (!rootSlotId || targetSlotId !== rootSlotId) {
+      return false
+    }
+  }
+
+  if (dragData.source === 'palette' && !registry.canInsertInDocument(dragData.blockType, doc)) {
+    return false
+  }
+
+  if (dragData.source === 'block' && isAnchoredPageBlock(dragData.blockType)) {
+    return false
+  }
 
   // Check containment constraint
   if (!registry.canContain(parentNode.type, dragData.blockType)) {

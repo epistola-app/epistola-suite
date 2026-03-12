@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js'
 import { keyed } from 'lit/directives/keyed.js'
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js'
 import { EditorEngine } from '../engine/EditorEngine.js'
-import { createDefaultRegistry } from '../engine/registry.js'
+import { createDefaultRegistry, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE, isAnchoredPageBlock } from '../engine/registry.js'
 import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.js'
 import type { FetchPreviewFn } from './preview-service.js'
 import { SaveService, type SaveState, type SaveFn } from './save-service.js'
@@ -701,9 +701,10 @@ export class EpistolaEditor extends LitElement {
   private _buildInsertableOptions(parentType: string): ComponentDefinition[] {
     if (!this._engine) return []
     return this._engine.registry
-      .insertable()
+      .insertable(this._doc)
       // Root is the single document container and must never be insertable as a block.
       .filter((def) => def.type !== 'root')
+      .filter((def) => parentType === 'root' || !isAnchoredPageBlock(def.type))
       .filter((def) => this._engine!.registry.canContain(parentType, def.type))
   }
 
@@ -727,28 +728,27 @@ export class EpistolaEditor extends LitElement {
 
     const rootNode = this._doc.nodes[this._doc.root]
     if (!rootNode || rootNode.slots.length === 0) return null
-    const slotId = rootNode.slots[0]
-    const slot = this._doc.slots[slotId]
-    if (!slot) return null
-    return { slotId, index: slot.children.length, parentType: rootNode.type }
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.endIndex, parentType: rootNode.type }
   }
 
   private _getInsertTargetDocumentStart(): InsertTarget | null {
     if (!this._doc) return null
     const rootNode = this._doc.nodes[this._doc.root]
-    if (!rootNode || rootNode.slots.length === 0) return null
-    const slotId = rootNode.slots[0]
-    return { slotId, index: 0, parentType: rootNode.type }
+    if (!rootNode) return null
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.startIndex, parentType: rootNode.type }
   }
 
   private _getInsertTargetDocumentEnd(): InsertTarget | null {
     if (!this._doc) return null
     const rootNode = this._doc.nodes[this._doc.root]
-    if (!rootNode || rootNode.slots.length === 0) return null
-    const slotId = rootNode.slots[0]
-    const slot = this._doc.slots[slotId]
-    if (!slot) return null
-    return { slotId, index: slot.children.length, parentType: rootNode.type }
+    if (!rootNode) return null
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.endIndex, parentType: rootNode.type }
   }
 
   private _getInsertTargetBeforeSelected(): InsertTarget | null {
@@ -771,8 +771,31 @@ export class EpistolaEditor extends LitElement {
 
     const rootNode = this._doc.nodes[this._doc.root]
     if (!rootNode || rootNode.slots.length === 0) return null
+    const bounds = this._getRootInsertBounds()
+    if (!bounds) return null
+    return { slotId: bounds.slotId, index: bounds.startIndex, parentType: rootNode.type }
+  }
+
+  private _getRootInsertBounds(): { slotId: SlotId; startIndex: number; endIndex: number } | null {
+    if (!this._doc) return null
+
+    const rootNode = this._doc.nodes[this._doc.root]
+    if (!rootNode || rootNode.slots.length === 0) return null
+
     const slotId = rootNode.slots[0]
-    return { slotId, index: 0, parentType: rootNode.type }
+    const rootSlot = this._doc.slots[slotId]
+    if (!rootSlot) return null
+
+    const headerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === PAGE_HEADER_TYPE)
+    const footerIndex = rootSlot.children.findIndex((nodeId) => this._doc?.nodes[nodeId]?.type === PAGE_FOOTER_TYPE)
+    const startIndex = headerIndex >= 0 ? headerIndex + 1 : 0
+    const endIndex = footerIndex >= 0 ? footerIndex : rootSlot.children.length
+
+    return {
+      slotId,
+      startIndex,
+      endIndex: Math.max(startIndex, endIndex),
+    }
   }
 
   private _getInsertSlotOptionsForInside(): InsertSlotOption[] {
