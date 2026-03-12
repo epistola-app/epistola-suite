@@ -172,6 +172,12 @@ export class ComponentRegistry {
       .filter((d) => !doc || this.canInsertInDocument(d.type, doc))
   }
 
+  /**
+   * Single source of truth for per-document instance limits (e.g. singleton
+   * page header/footer). All insertion paths — commands, palette, DnD, and
+   * any future features like block duplication — should call this method
+   * to check whether another instance of `type` is allowed.
+   */
   canInsertInDocument(type: string, doc: TemplateDocument): boolean {
     const def = this._definitions.get(type)
     if (!def) return false
