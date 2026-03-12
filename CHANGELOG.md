@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Shared style-system contract foundation**: Added a schema-first `style-system` contract in `template-model` with canonical style properties plus editor field metadata. The first strict pass admits `fontSize`, `color`, `textAlign`, `backgroundColor`, and longhand `margin*` / `padding*` properties.
+
+### Changed
+- **Editor style registry now derives from shared contract**: The editor compatibility registry is now built from shared `template-model` data instead of a TS-only source of truth. This keeps editor field rendering and inheritable-style metadata aligned with the shared contract.
+
+### Fixed
+- **Spacing zero overrides are preserved**: Composite `margin` / `padding` edits no longer drop explicit zero values, so theme presets and inline styles can reliably override component defaults with `0`.
+- **Template-model generated override cleanup in full builds**: `compileKotlin` now depends on generated override cleanup directly instead of relying on `generate.finalizedBy(...)`. This prevents bad generated `TemplateDocument` / `DocumentStyles` classes from leaking into downstream module compilation during full multi-module builds.
+
 ### Fixed
 - **API docs link broken**: The nav and footer links to `/api-docs/index.html` pointed to a page that no longer existed since the OpenAPI spec moved to the `epistola-contract` repo. Replaced with an `/api-docs` page powered by Scalar that loads the bundled spec from the contract artifact. Removed the stale `rest-api` `package.json` (no longer needed).
 

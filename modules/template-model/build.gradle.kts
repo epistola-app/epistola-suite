@@ -39,6 +39,7 @@ configure<JSONSchemaCodegen> {
         inputFile(file("schemas/theme.schema.json"))
         inputFile(file("schemas/component-manifest.schema.json"))
         inputFile(file("schemas/style-registry.schema.json"))
+        inputFile(file("schemas/style-system.schema.json"))
     }
 }
 
@@ -54,19 +55,26 @@ val removeGeneratedOverrides by tasks.registering(Delete::class) {
     delete(generatedSrcDir.map { it.file("app/epistola/template/model/ThemeRef.kt") })
 }
 
-tasks.named("generate") {
-    finalizedBy(removeGeneratedOverrides)
+tasks.named("removeGeneratedOverrides") {
+    dependsOn("generate")
 }
 
 sourceSets.main {
     kotlin.srcDirs(generatedSrcDir)
+    resources.srcDir("data")
 }
 
 tasks.named("compileKotlin") {
-    dependsOn("generate")
+    // The generated overrides must be deleted before Kotlin compilation starts.
+    // `generate.finalizedBy(removeGeneratedOverrides)` is too weak for full multi-module
+    // builds because downstream modules can still observe the bad generated classes.
+    // Wire compilation to the cleanup task directly so only the handwritten overrides remain.
+    dependsOn(removeGeneratedOverrides)
 }
 
 dependencies {
     // Jackson annotations for JSON serialization (Jackson 3 uses Jackson 2 annotations)
     implementation("com.fasterxml.jackson.core:jackson-annotations:2.21")
+    implementation(libs.jackson3.kotlin)
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
 }

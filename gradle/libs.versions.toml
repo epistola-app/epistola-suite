@@ -12,6 +12,7 @@ json-schema-validator = "3.0.1"
 uuid-creator = "6.1.1"
 openapi-generator = "7.20.0"
 jackson2 = "2.21.1"
+jackson3 = "3.0.4"
 spring-web = "7.0.5"
 playwright = "1.58.0"
 epistola-contract = "0.1.14"
@@ -30,6 +31,7 @@ uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-
 jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }
 jackson2-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson2" }
 jackson2-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson2" }
+jackson3-kotlin = { module = "tools.jackson.module:jackson-module-kotlin", version.ref = "jackson3" }
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
