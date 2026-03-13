@@ -3,13 +3,14 @@ package app.epistola.suite.config
 import app.epistola.suite.security.AuthProperties
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties
-import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientPropertiesMapper
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.oauth2.client.registration.ClientRegistration
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository
+import org.springframework.security.oauth2.core.AuthorizationGrantType
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
@@ -22,11 +23,13 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
  * - Browser: http://localhost:8081 (external)
  * - Container: http://keycloak:8080 (internal)
  *
- * This configuration rewrites server-to-server endpoints (token, JWK, userinfo) to use
- * the internal URL, while keeping browser-facing endpoints (authorization, issuer) external.
+ * This configuration builds ClientRegistrations directly from properties (no OIDC discovery)
+ * and rewrites server-to-server endpoints (token, JWK, userinfo) to use the internal URL,
+ * while keeping browser-facing endpoints (authorization, issuer) external.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty("epistola.auth.oidc.backchannel-base-url")
+@EnableConfigurationProperties(OAuth2ClientProperties::class)
 class OidcBackchannelConfiguration(
     private val authProperties: AuthProperties,
     private val oauth2ClientProperties: OAuth2ClientProperties,
@@ -40,12 +43,36 @@ class OidcBackchannelConfiguration(
 
         log.info("Configuring OIDC backchannel: server-to-server calls will use {}", backchannelBaseUrl)
 
-        // Let Spring map all the properties (including issuer discovery) into ClientRegistrations
-        val mapper = OAuth2ClientPropertiesMapper(oauth2ClientProperties)
-        val original = mapper.asClientRegistrations()
+        val registrations = oauth2ClientProperties.registration.map { (registrationId, reg) ->
+            val providerName = reg.provider ?: registrationId
+            val provider = oauth2ClientProperties.provider[providerName]
+                ?: error("No provider '$providerName' configured for registration '$registrationId'")
 
-        val registrations = original.map { (registrationId, reg) ->
-            rewriteBackchannelEndpoints(registrationId, reg, backchannelBaseUrl)
+            val issuerUri = provider.issuerUri
+                ?: error("issuer-uri is required for provider '$providerName'")
+
+            val issuerPath = extractPath(issuerUri)
+            val oidcBase = "$issuerUri/protocol/openid-connect"
+            val backchannelOidcBase = "$backchannelBaseUrl$issuerPath/protocol/openid-connect"
+
+            ClientRegistration.withRegistrationId(registrationId)
+                .clientId(reg.clientId)
+                .clientSecret(reg.clientSecret)
+                .scope(reg.scope)
+                .redirectUri(reg.redirectUri ?: "{baseUrl}/login/oauth2/code/{registrationId}")
+                .authorizationGrantType(
+                    AuthorizationGrantType(reg.authorizationGrantType ?: "authorization_code"),
+                )
+                .clientName(reg.clientName ?: registrationId)
+                // Browser-facing: keep external issuer URL
+                .authorizationUri("$oidcBase/auth")
+                .issuerUri(issuerUri)
+                // Server-to-server: use backchannel URL
+                .tokenUri("$backchannelOidcBase/token")
+                .userInfoUri("$backchannelOidcBase/userinfo")
+                .jwkSetUri("$backchannelOidcBase/certs")
+                .userNameAttributeName(provider.userNameAttribute ?: "sub")
+                .build()
         }
 
         return InMemoryClientRegistrationRepository(registrations)
@@ -56,7 +83,6 @@ class OidcBackchannelConfiguration(
         val backchannelBaseUrl = authProperties.oidc.backchannelBaseUrl
             ?: error("backchannel-base-url must be set")
 
-        // Find the first provider with an issuer-uri to determine the external issuer
         val firstProvider = oauth2ClientProperties.provider.values.first()
         val issuerUri = firstProvider.issuerUri
             ?: error("issuer-uri is required for JWT decoder")
@@ -69,23 +95,6 @@ class OidcBackchannelConfiguration(
         return NimbusJwtDecoder.withJwkSetUri(backchannelJwkUri).build().apply {
             setJwtValidator(JwtValidators.createDefaultWithIssuer(issuerUri))
         }
-    }
-
-    private fun rewriteBackchannelEndpoints(
-        registrationId: String,
-        reg: ClientRegistration,
-        backchannelBaseUrl: String,
-    ): ClientRegistration {
-        val provider = reg.providerDetails
-        val tokenUri = provider.tokenUri
-        val userInfoUri = provider.userInfoEndpoint.uri
-        val jwkSetUri = provider.jwkSetUri
-
-        return ClientRegistration.withClientRegistration(reg)
-            .tokenUri(rewriteUrl(tokenUri, backchannelBaseUrl))
-            .userInfoUri(rewriteUrl(userInfoUri, backchannelBaseUrl))
-            .jwkSetUri(rewriteUrl(jwkSetUri, backchannelBaseUrl))
-            .build()
     }
 
     companion object {
@@ -101,9 +110,6 @@ class OidcBackchannelConfiguration(
 
         /**
          * Rewrites a URL to use the backchannel base URL, keeping the original path.
-         * e.g. rewriteUrl("http://localhost:8081/realms/valtimo/protocol/openid-connect/token",
-         *                  "http://keycloak:8080")
-         *      -> "http://keycloak:8080/realms/valtimo/protocol/openid-connect/token"
          */
         fun rewriteUrl(url: String?, backchannelBaseUrl: String): String? {
             if (url == null) return null
