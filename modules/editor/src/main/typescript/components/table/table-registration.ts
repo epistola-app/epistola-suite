@@ -26,7 +26,6 @@ import {
 const LAYOUT_STYLES = [
   'padding', 'margin',
   'backgroundColor',
-  'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
 ]
 
 export const TABLE_DEFAULT_PROPS = {

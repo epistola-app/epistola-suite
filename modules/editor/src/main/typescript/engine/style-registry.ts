@@ -4,7 +4,13 @@ import type {
   StyleProperty,
   StyleRegistry,
 } from '@epistola/template-model/generated/style-registry.js'
-import { parseSpacingValue } from './style-values.js'
+import {
+  expandBorderRadiusToStyles,
+  expandBorderToStyles,
+  parseSpacingValue,
+  readBorderFromStyles,
+  readBorderRadiusFromStyles,
+} from './style-values.js'
 
 type StyleFieldDefinition = StyleSystem['editorGroups'][number]['fields'][number]
 
@@ -43,7 +49,7 @@ function toLegacyStyleProperty(field: StyleFieldDefinition): StyleProperty {
   return {
     key: field.key,
     label: field.label,
-    type: field.control,
+    type: field.control as StyleProperty['type'],
     options: field.options?.map(option => ({
       label: option.label,
       value: option.value,
@@ -98,6 +104,14 @@ export function readStyleFieldValue(
     }
   }
 
+  if (field.borderProperties) {
+    return readBorderFromStyles('border', styles)
+  }
+
+  if (field.borderRadiusProperties) {
+    return readBorderRadiusFromStyles(styles)
+  }
+
   return styles[field.propertyKey ?? field.key]
 }
 
@@ -132,6 +146,57 @@ export function applyStyleFieldValue(
     styles[field.spacingProperties.bottom] = spacing.bottom
     styles[field.spacingProperties.left] = spacing.left
     delete styles[field.key]
+    return
+  }
+
+  if (field.borderProperties) {
+    // Check if value is empty/cleared (all sides have undefined width/style/color)
+    const isEmptyValue = (val: unknown): boolean => {
+      if (val === undefined || val === '' || val === null) return true
+      const bv = val as Record<string, { width?: string; style?: string; color?: string }>
+      return ['top', 'right', 'bottom', 'left'].every(side => {
+        const s = bv[side]
+        return !s || (s.width === undefined && s.style === undefined && s.color === undefined)
+      })
+    }
+
+    if (isEmptyValue(value)) {
+      // Clear all border properties
+      for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+        const mapping = field.borderProperties![side]
+        delete styles[mapping.width]
+        delete styles[mapping.style]
+        delete styles[mapping.color]
+      }
+      return
+    }
+    // Value should be a BorderValue
+    const borderValue = value as import('./style-values.js').BorderValue
+    expandBorderToStyles('border', borderValue, styles)
+    return
+  }
+
+  if (field.borderRadiusProperties) {
+    // Check if value is empty/cleared (all corners are undefined)
+    const isEmptyValue = (val: unknown): boolean => {
+      if (val === undefined || val === '' || val === null) return true
+      const rv = val as Record<string, string | undefined>
+      return ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'].every(
+        corner => rv[corner] === undefined
+      )
+    }
+
+    if (isEmptyValue(value)) {
+      // Clear all radius properties
+      delete styles[field.borderRadiusProperties.topLeft]
+      delete styles[field.borderRadiusProperties.topRight]
+      delete styles[field.borderRadiusProperties.bottomRight]
+      delete styles[field.borderRadiusProperties.bottomLeft]
+      return
+    }
+    // Value should be a BorderRadiusValue
+    const radiusValue = value as import('./style-values.js').BorderRadiusValue
+    expandBorderRadiusToStyles(radiusValue, styles)
     return
   }
 

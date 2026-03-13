@@ -11,7 +11,7 @@ import { openAssetPickerDialog, type AssetPickerCallbacks } from './asset-picker
 import { html } from 'lit'
 
 /** Layout-only style properties available on image nodes. */
-const IMAGE_STYLES = ['padding', 'margin', 'width']
+const IMAGE_STYLES = ['padding', 'margin', 'width', 'border', 'borderRadius']
 
 export interface ImageOptions {
   assetPicker: AssetPickerCallbacks

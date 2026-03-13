@@ -130,3 +130,139 @@ export function resolveBoxValue(value: BoxValue, defaults: BoxValue): BoxValue {
     left: value.left ?? defaults.left ?? '0px',
   }
 }
+
+// -----------------------------------------------------------------------------
+// Border value types and helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Border side value: width, style, and color together
+ */
+export interface BorderSideValue {
+  width: string | undefined
+  style: string | undefined
+  color: string | undefined
+}
+
+/**
+ * Complete border value for all four sides
+ */
+export interface BorderValue {
+  top: BorderSideValue
+  right: BorderSideValue
+  bottom: BorderSideValue
+  left: BorderSideValue
+}
+
+/**
+ * Border radius value for corners
+ */
+export interface BorderRadiusValue {
+  topLeft: string | undefined
+  topRight: string | undefined
+  bottomRight: string | undefined
+  bottomLeft: string | undefined
+}
+
+/**
+ * Check if a border side has all three values set (complete border definition)
+ */
+export function isBorderSideComplete(side: BorderSideValue): boolean {
+  return side.width !== undefined && side.style !== undefined && side.color !== undefined
+}
+
+/**
+ * Check if any border side has at least one value set
+ */
+export function hasBorderValues(border: BorderValue): boolean {
+  return isBorderSidePartiallySet(border.top) ||
+    isBorderSidePartiallySet(border.right) ||
+    isBorderSidePartiallySet(border.bottom) ||
+    isBorderSidePartiallySet(border.left)
+}
+
+function isBorderSidePartiallySet(side: BorderSideValue): boolean {
+  return side.width !== undefined || side.style !== undefined || side.color !== undefined
+}
+
+/**
+ * Read border values from individual style properties
+ */
+export function readBorderFromStyles(
+  prefix: string,
+  styles: Record<string, unknown>,
+): BorderValue {
+  const readSide = (side: string): BorderSideValue => ({
+    width: styles[`${prefix}${side}Width`] != null ? String(styles[`${prefix}${side}Width`]) : undefined,
+    style: styles[`${prefix}${side}Style`] != null ? String(styles[`${prefix}${side}Style`]) : undefined,
+    color: styles[`${prefix}${side}Color`] != null ? String(styles[`${prefix}${side}Color`]) : undefined,
+  })
+
+  return {
+    top: readSide('Top'),
+    right: readSide('Right'),
+    bottom: readSide('Bottom'),
+    left: readSide('Left'),
+  }
+}
+
+/**
+ * Expand border values to individual style properties
+ */
+export function expandBorderToStyles(
+  prefix: string,
+  value: BorderValue,
+  styles: Record<string, unknown>,
+): void {
+  const expandSide = (side: string, sideValue: BorderSideValue) => {
+    if (sideValue.width !== undefined) {
+      styles[`${prefix}${side}Width`] = sideValue.width
+    }
+    if (sideValue.style !== undefined) {
+      styles[`${prefix}${side}Style`] = sideValue.style
+    }
+    if (sideValue.color !== undefined) {
+      styles[`${prefix}${side}Color`] = sideValue.color
+    }
+  }
+
+  expandSide('Top', value.top)
+  expandSide('Right', value.right)
+  expandSide('Bottom', value.bottom)
+  expandSide('Left', value.left)
+}
+
+/**
+ * Read border radius from individual style properties
+ */
+export function readBorderRadiusFromStyles(
+  styles: Record<string, unknown>,
+): BorderRadiusValue {
+  return {
+    topLeft: styles['borderTopLeftRadius'] != null ? String(styles['borderTopLeftRadius']) : undefined,
+    topRight: styles['borderTopRightRadius'] != null ? String(styles['borderTopRightRadius']) : undefined,
+    bottomRight: styles['borderBottomRightRadius'] != null ? String(styles['borderBottomRightRadius']) : undefined,
+    bottomLeft: styles['borderBottomLeftRadius'] != null ? String(styles['borderBottomLeftRadius']) : undefined,
+  }
+}
+
+/**
+ * Expand border radius to individual style properties
+ */
+export function expandBorderRadiusToStyles(
+  value: BorderRadiusValue,
+  styles: Record<string, unknown>,
+): void {
+  if (value.topLeft !== undefined) {
+    styles['borderTopLeftRadius'] = value.topLeft
+  }
+  if (value.topRight !== undefined) {
+    styles['borderTopRightRadius'] = value.topRight
+  }
+  if (value.bottomRight !== undefined) {
+    styles['borderBottomRightRadius'] = value.bottomRight
+  }
+  if (value.bottomLeft !== undefined) {
+    styles['borderBottomLeftRadius'] = value.bottomLeft
+  }
+}

@@ -310,7 +310,7 @@ export class ComponentRegistry {
 const LAYOUT_STYLES = [
   'padding', 'margin',
   'backgroundColor',
-  'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
+  'border', 'borderRadius',
 ]
 
 export function createDefaultRegistry(): ComponentRegistry {

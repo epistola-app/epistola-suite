@@ -17,7 +17,23 @@
     { "key": "paddingTop", "label": "Padding Top", "valueKind": "unit", "inheritable": false },
     { "key": "paddingRight", "label": "Padding Right", "valueKind": "unit", "inheritable": false },
     { "key": "paddingBottom", "label": "Padding Bottom", "valueKind": "unit", "inheritable": false },
-    { "key": "paddingLeft", "label": "Padding Left", "valueKind": "unit", "inheritable": false }
+    { "key": "paddingLeft", "label": "Padding Left", "valueKind": "unit", "inheritable": false },
+    { "key": "borderTopWidth", "label": "Border Top Width", "valueKind": "unit", "inheritable": false },
+    { "key": "borderTopStyle", "label": "Border Top Style", "valueKind": "keyword", "inheritable": false },
+    { "key": "borderTopColor", "label": "Border Top Color", "valueKind": "color", "inheritable": false },
+    { "key": "borderRightWidth", "label": "Border Right Width", "valueKind": "unit", "inheritable": false },
+    { "key": "borderRightStyle", "label": "Border Right Style", "valueKind": "keyword", "inheritable": false },
+    { "key": "borderRightColor", "label": "Border Right Color", "valueKind": "color", "inheritable": false },
+    { "key": "borderBottomWidth", "label": "Border Bottom Width", "valueKind": "unit", "inheritable": false },
+    { "key": "borderBottomStyle", "label": "Border Bottom Style", "valueKind": "keyword", "inheritable": false },
+    { "key": "borderBottomColor", "label": "Border Bottom Color", "valueKind": "color", "inheritable": false },
+    { "key": "borderLeftWidth", "label": "Border Left Width", "valueKind": "unit", "inheritable": false },
+    { "key": "borderLeftStyle", "label": "Border Left Style", "valueKind": "keyword", "inheritable": false },
+    { "key": "borderLeftColor", "label": "Border Left Color", "valueKind": "color", "inheritable": false },
+    { "key": "borderTopLeftRadius", "label": "Border Top Left Radius", "valueKind": "unit", "inheritable": false },
+    { "key": "borderTopRightRadius", "label": "Border Top Right Radius", "valueKind": "unit", "inheritable": false },
+    { "key": "borderBottomRightRadius", "label": "Border Bottom Right Radius", "valueKind": "unit", "inheritable": false },
+    { "key": "borderBottomLeftRadius", "label": "Border Bottom Left Radius", "valueKind": "unit", "inheritable": false }
   ],
   "editorGroups": [
     {
@@ -148,6 +164,43 @@
           "label": "Background",
           "control": "color",
           "propertyKey": "backgroundColor"
+        }
+      ]
+    },
+    {
+      "name": "borders",
+      "label": "Borders",
+      "fields": [
+        {
+          "key": "border",
+          "label": "Border",
+          "control": "border",
+          "borderProperties": {
+            "top": { "width": "borderTopWidth", "style": "borderTopStyle", "color": "borderTopColor" },
+            "right": { "width": "borderRightWidth", "style": "borderRightStyle", "color": "borderRightColor" },
+            "bottom": { "width": "borderBottomWidth", "style": "borderBottomStyle", "color": "borderBottomColor" },
+            "left": { "width": "borderLeftWidth", "style": "borderLeftStyle", "color": "borderLeftColor" }
+          },
+          "units": ["px", "em", "rem", "pt"],
+          "options": [
+            { "label": "None", "value": "none" },
+            { "label": "Solid", "value": "solid" },
+            { "label": "Dashed", "value": "dashed" },
+            { "label": "Dotted", "value": "dotted" },
+            { "label": "Double", "value": "double" }
+          ]
+        },
+        {
+          "key": "borderRadius",
+          "label": "Border Radius",
+          "control": "borderRadius",
+          "borderRadiusProperties": {
+            "topLeft": "borderTopLeftRadius",
+            "topRight": "borderTopRightRadius",
+            "bottomRight": "borderBottomRightRadius",
+            "bottomLeft": "borderBottomLeftRadius"
+          },
+          "units": ["px", "em", "rem"]
         }
       ]
     }

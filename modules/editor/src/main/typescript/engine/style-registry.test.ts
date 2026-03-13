@@ -25,6 +25,8 @@ describe('defaultStyleRegistry', () => {
       'margin',
       'width',
       'backgroundColor',
+      'border',
+      'borderRadius',
     ])
   })
 

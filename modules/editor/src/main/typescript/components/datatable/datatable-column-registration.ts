@@ -20,7 +20,6 @@ export function createDatatableColumnDefinition(): ComponentDefinition {
     allowedChildren: { mode: 'all' },
     applicableStyles: [
       'padding', 'backgroundColor',
-      'borderWidth', 'borderStyle', 'borderColor',
     ],
     inspector: [
       { key: 'header', label: 'Header', type: 'text' },
