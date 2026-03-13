@@ -175,6 +175,16 @@ function renderPresetStyleInput(
         prop.units ?? ['px'],
         (v) => onChange(v),
       )
+    case 'number':
+      return html`
+        <input
+          type="number"
+          class="ep-input"
+          step="any"
+          .value=${String(value ?? '')}
+          @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
+        />
+      `
     default:
       return html`
         <input

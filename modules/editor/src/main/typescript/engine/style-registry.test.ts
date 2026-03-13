@@ -14,8 +14,13 @@ describe('defaultStyleRegistry', () => {
 
     expect(fieldKeys).toEqual([
       'fontSize',
+      'fontFamily',
+      'fontWeight',
+      'fontStyle',
       'color',
       'textAlign',
+      'lineHeight',
+      'letterSpacing',
       'padding',
       'margin',
       'backgroundColor',
@@ -25,8 +30,13 @@ describe('defaultStyleRegistry', () => {
   it('marks only the admitted typography fields as inheritable', () => {
     expect(Array.from(defaultInheritableStyleKeys)).toEqual([
       'fontSize',
+      'fontFamily',
+      'fontWeight',
+      'fontStyle',
       'color',
       'textAlign',
+      'lineHeight',
+      'letterSpacing',
     ])
   })
 })

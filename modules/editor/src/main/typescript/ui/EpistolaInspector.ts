@@ -349,6 +349,7 @@ export class EpistolaInspector extends LitElement {
           <input
             type="number"
             class="ep-input"
+            step="any"
             .value=${String(value ?? '')}
             @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
           />

@@ -33,7 +33,7 @@
         },
         "valueKind": {
           "type": "string",
-          "enum": ["unit", "color", "keyword"],
+          "enum": ["unit", "color", "keyword", "number"],
           "description": "Runtime value kind shared by browser preview and PDF rendering."
         },
         "inheritable": {
