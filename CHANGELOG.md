@@ -13,9 +13,13 @@
 
 ### Changed
 - **Composite spacing fields with default inheritance**: Refactored `margin` and `padding` editors to use a generic `BoxValue` pattern where `undefined` sides inherit from component defaults. Added sophisticated linking system with four modes: All, Horizontal, Vertical, None. Clear buttons appear on explicit values, allowing users to reset to defaults. This pattern is reusable for future composite properties like border-radius and border-width.
+- **Improved box input UI**: Compact single-letter labels (T, R, B, L, T/B, R/L, All), "×" icon for clear button, and full-width unit selector for better visual consistency with other inspector components.
+- **Checkbox-based linking for spacing**: Changed from mutually-exclusive radio buttons to independent checkboxes for All, Horizontal, and Vertical link modes. Users can now enable both Horizontal and Vertical simultaneously for fine-grained control over which sides are linked.
 
 ### Fixed
 - **Spacing zero overrides are preserved**: Composite `margin` / `padding` edits no longer drop explicit zero values, so theme presets and inline styles can reliably override component defaults with `0`.
+- **Margin/padding values now save correctly**: Fixed a bug where `margin` and `padding` values weren't being persisted to the document. The issue was in the style change handler which was passing the wrong value type to the expansion function.
+- **Double spacing in editor preview fixed**: Layout properties (margin, padding, width, etc.) are now filtered from text editor styles. These properties are already applied at the block container level; applying them again to the ProseMirror content caused double spacing in the editor preview while PDF rendering was correct.
 - **letterSpacing PDF support**: Now applied via `BlockElement.setCharacterSpacing()` in PDF rendering. Previously defined in the shared contract but not implemented in the PDF renderer.
 
 ### Known Limitations

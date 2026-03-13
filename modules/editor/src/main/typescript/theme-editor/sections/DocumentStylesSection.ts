@@ -83,6 +83,7 @@ function renderStyleInput(
       )
     case 'spacing':
       return renderSpacingInput(
+        prop.key,
         value,
         prop.units ?? ['px'],
         (v) => onChange(v),
