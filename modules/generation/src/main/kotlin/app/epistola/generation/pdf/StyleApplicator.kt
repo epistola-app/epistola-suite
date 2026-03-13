@@ -156,6 +156,12 @@ object StyleApplicator {
             parseSize(padding, baseFontSizePt)?.let { element.setPaddingLeft(it) }
         }
 
+        // Borders
+        applyBorder(element, "Top", styles, baseFontSizePt)
+        applyBorder(element, "Right", styles, baseFontSizePt)
+        applyBorder(element, "Bottom", styles, baseFontSizePt)
+        applyBorder(element, "Left", styles, baseFontSizePt)
+
         // Width
         (styles["width"] as? String)?.let { width ->
             if (width.endsWith("%")) {
@@ -264,5 +270,48 @@ object StyleApplicator {
         "right" -> TextAlignment.RIGHT
         "justify" -> TextAlignment.JUSTIFIED
         else -> TextAlignment.LEFT
+    }
+
+    /**
+     * Applies border to a specific side of the element.
+     * All three properties (width, style, color) must be present for the border to render.
+     */
+    private fun <T : BlockElement<T>> applyBorder(
+        element: T,
+        side: String,
+        styles: Map<String, Any>,
+        baseFontSizePt: Float = 12f,
+    ) {
+        val widthKey = "border${side}Width"
+        val styleKey = "border${side}Style"
+        val colorKey = "border${side}Color"
+
+        val width = (styles[widthKey] as? String)?.let { parseSize(it, baseFontSizePt) }
+        val style = styles[styleKey] as? String
+        val color = (styles[colorKey] as? String)?.let { parseColor(it) }
+
+        // Only apply border if all three properties are present
+        if (width == null || style == null || color == null) return
+        if (width <= 0 || style == "none") return
+
+        val border = createBorder(style, width, color) ?: return
+
+        when (side) {
+            "Top" -> element.setBorderTop(border)
+            "Right" -> element.setBorderRight(border)
+            "Bottom" -> element.setBorderBottom(border)
+            "Left" -> element.setBorderLeft(border)
+        }
+    }
+
+    /**
+     * Creates an iText Border instance based on the style string.
+     */
+    private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border? = when (style.lowercase()) {
+        "solid" -> com.itextpdf.layout.borders.SolidBorder(color, width)
+        "dashed" -> com.itextpdf.layout.borders.DashedBorder(color, width)
+        "dotted" -> com.itextpdf.layout.borders.DottedBorder(color, width)
+        "double" -> com.itextpdf.layout.borders.DoubleBorder(color, width)
+        else -> com.itextpdf.layout.borders.SolidBorder(color, width)
     }
 }

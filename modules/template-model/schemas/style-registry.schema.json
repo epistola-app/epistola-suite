@@ -51,7 +51,7 @@
         },
         "type": {
           "type": "string",
-          "enum": ["text", "number", "color", "select", "unit", "spacing"],
+          "enum": ["text", "number", "color", "select", "unit", "spacing", "border", "borderRadius"],
           "description": "Input type for the style editor."
         },
         "options": {

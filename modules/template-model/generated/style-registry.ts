@@ -37,7 +37,7 @@ export interface StyleProperty {
   /**
    * Input type for the style editor.
    */
-  type: "text" | "number" | "color" | "select" | "unit" | "spacing";
+  type: "text" | "number" | "color" | "select" | "unit" | "spacing" | "border" | "borderRadius";
   /**
    * Options for 'select' type properties.
    */

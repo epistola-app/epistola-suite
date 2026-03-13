@@ -50,12 +50,14 @@ export interface StyleField {
   /**
    * Editor control type.
    */
-  control: "text" | "number" | "color" | "select" | "unit" | "spacing";
+  control: "text" | "number" | "color" | "select" | "unit" | "spacing" | "border" | "borderRadius";
   /**
    * Canonical property key used by scalar fields.
    */
   propertyKey?: string;
   spacingProperties?: SpacingProperties;
+  borderProperties?: BorderSideProperties;
+  borderRadiusProperties?: BorderRadiusProperties;
   options?: StyleOption[];
   units?: string[];
 }
@@ -67,6 +69,29 @@ export interface SpacingProperties {
   right: string;
   bottom: string;
   left: string;
+}
+/**
+ * Canonical property mapping for border width/style/color per side.
+ */
+export interface BorderSideProperties {
+  top: BorderSideMapping;
+  right: BorderSideMapping;
+  bottom: BorderSideMapping;
+  left: BorderSideMapping;
+}
+export interface BorderSideMapping {
+  width: string;
+  style: string;
+  color: string;
+}
+/**
+ * Canonical property mapping for border radius per corner.
+ */
+export interface BorderRadiusProperties {
+  topLeft: string;
+  topRight: string;
+  bottomRight: string;
+  bottomLeft: string;
 }
 export interface StyleOption {
   label: string;

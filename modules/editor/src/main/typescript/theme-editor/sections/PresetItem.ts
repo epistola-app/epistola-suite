@@ -14,7 +14,7 @@ import {
   renderColorInput,
   renderSelectInput,
   renderBoxInput,
-  type LinkMode,
+  type BoxLinkState,
   readBoxFromStyles,
   expandBoxToStyles,
 } from '../../ui/inputs/style-inputs.js'
@@ -32,9 +32,9 @@ const NODE_TYPES = [
 ]
 
 // Track link modes for each preset's box inputs
-const presetLinkModes: Map<string, Map<string, LinkMode>> = new Map()
+const presetLinkModes: Map<string, Map<string, BoxLinkState>> = new Map()
 
-function getPresetLinkModes(presetName: string): Map<string, LinkMode> {
+function getPresetLinkModes(presetName: string): Map<string, BoxLinkState> {
   if (!presetLinkModes.has(presetName)) {
     presetLinkModes.set(presetName, new Map())
   }
@@ -208,23 +208,24 @@ function renderPresetStyleInput(
         left: '0px',
       }
 
-      // Get current link mode for this field
+      // Get current link state for this field
       const linkModes = getPresetLinkModes(presetName)
-      const linkMode = linkModes.get(prop.key) ?? 'none'
+      const linkState = linkModes.get(prop.key) ?? { all: false, horizontal: false, vertical: false }
 
       return renderBoxInput({
+        id: prop.key,
         value: boxValue,
         defaults: boxDefaults,
         units: prop.units ?? ['px'],
-        linkMode,
+        linkState,
         onChange: (newValue) => {
           // Expand box value to individual style properties
           const styles = { ...inlineStyles }
           expandBoxToStyles(prefix, newValue, styles)
           onChange(styles)
         },
-        onLinkModeChange: (newMode) => {
-          linkModes.set(prop.key, newMode)
+        onLinkStateChange: (newState) => {
+          linkModes.set(prop.key, newState)
         },
       })
     }

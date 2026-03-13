@@ -13,10 +13,14 @@ import {
   renderColorInput,
   renderSelectInput,
   renderBoxInput,
+  renderBorderInput,
+  renderBorderRadiusInput,
   type BoxLinkState,
   extractBoxDefaults,
   readBoxFromStyles,
   type BoxPropertyMapping,
+  type BorderInputValue,
+  type BorderRadiusInputValue,
 } from './inputs/style-inputs.js'
 import {
   applyStyleFieldValue,
@@ -333,7 +337,7 @@ export class EpistolaInspector extends LitElement {
     def?: ComponentDefinition,
     inlineStyles?: Record<string, unknown>,
   ): unknown {
-    switch (prop.type) {
+    switch (prop.type as StyleProperty['type'] | 'border' | 'borderRadius') {
       case 'select':
         return renderSelectInput(
           value,
@@ -394,6 +398,35 @@ export class EpistolaInspector extends LitElement {
             this._boxLinkStates = new Map(this._boxLinkStates)
             this._boxLinkStates.set(prop.key, newState)
           },
+        })
+      }
+      case 'border': {
+        const borderValue = (value as BorderInputValue) ?? {
+          top: { width: undefined, style: undefined, color: undefined },
+          right: { width: undefined, style: undefined, color: undefined },
+          bottom: { width: undefined, style: undefined, color: undefined },
+          left: { width: undefined, style: undefined, color: undefined },
+        }
+        return renderBorderInput({
+          id: prop.key,
+          value: borderValue,
+          units: prop.units ?? ['px'],
+          styleOptions: prop.options ?? [],
+          onChange: (newValue) => onChange(newValue),
+        })
+      }
+      case 'borderRadius': {
+        const radiusValue = (value as BorderRadiusInputValue) ?? {
+          topLeft: undefined,
+          topRight: undefined,
+          bottomRight: undefined,
+          bottomLeft: undefined,
+        }
+        return renderBorderRadiusInput({
+          id: prop.key,
+          value: radiusValue,
+          units: prop.units ?? ['px'],
+          onChange: (newValue) => onChange(newValue),
         })
       }
       case 'number':

@@ -383,6 +383,219 @@ export function renderSpacingInput(
 }
 
 // ---------------------------------------------------------------------------
+// Border input types and interfaces
+// ---------------------------------------------------------------------------
+
+export interface BorderSideInputValue {
+  width: string | undefined
+  style: string | undefined
+  color: string | undefined
+}
+
+export interface BorderInputValue {
+  top: BorderSideInputValue
+  right: BorderSideInputValue
+  bottom: BorderSideInputValue
+  left: BorderSideInputValue
+}
+
+export interface BorderInputConfig {
+  id: string
+  value: BorderInputValue
+  units: string[]
+  styleOptions: { label: string; value: string }[]
+  onChange: (value: BorderInputValue) => void
+}
+
+export interface BorderRadiusInputValue {
+  topLeft: string | undefined
+  topRight: string | undefined
+  bottomRight: string | undefined
+  bottomLeft: string | undefined
+}
+
+export interface BorderRadiusInputConfig {
+  id: string
+  value: BorderRadiusInputValue
+  units: string[]
+  onChange: (value: BorderRadiusInputValue) => void
+}
+
+// ---------------------------------------------------------------------------
+// Border input component
+// ---------------------------------------------------------------------------
+
+export function renderBorderInput(config: BorderInputConfig): unknown {
+  const { id: _id, value, units, styleOptions, onChange } = config
+  const defaultUnit = units[0] ?? 'px'
+
+  const handleSideChange = (
+    side: keyof BorderInputValue,
+    field: keyof BorderSideInputValue,
+    newValue: string | undefined,
+  ) => {
+    onChange({
+      ...value,
+      [side]: {
+        ...value[side],
+        [field]: newValue,
+      },
+    })
+  }
+
+  const handleClearAll = () => {
+    onChange({
+      top: { width: undefined, style: undefined, color: undefined },
+      right: { width: undefined, style: undefined, color: undefined },
+      bottom: { width: undefined, style: undefined, color: undefined },
+      left: { width: undefined, style: undefined, color: undefined },
+    })
+  }
+
+  const renderSideInput = (side: keyof BorderInputValue, label: string) => {
+    const sideValue = value[side]
+
+    return html`
+      <div class="style-border-side">
+        <span class="style-border-side-label">${label}</span>
+        <div class="style-border-fields">
+          <input
+            type="number"
+            class="ep-input style-border-width"
+            placeholder="W"
+            .value=${sideValue.width ? String(parseValueWithUnit(sideValue.width, defaultUnit).value) : ''}
+            @change=${(e: Event) => {
+              const num = parseFloat((e.target as HTMLInputElement).value)
+              const newWidth = isNaN(num) ? undefined : formatValueWithUnit(num, defaultUnit)
+              handleSideChange(side, 'width', newWidth)
+            }}
+          />
+          <select
+            class="ep-select style-border-style"
+            .value=${sideValue.style ?? ''}
+            @change=${(e: Event) => {
+              const newStyle = (e.target as HTMLSelectElement).value || undefined
+              handleSideChange(side, 'style', newStyle)
+            }}
+          >
+            <option value="" disabled selected>Style</option>
+            ${styleOptions.map(opt => html`
+              <option .value=${opt.value} ?selected=${sideValue.style === opt.value}>${opt.label}</option>
+            `)}
+          </select>
+          <div class="style-border-color-wrapper">
+            <input
+              type="color"
+              class="style-border-color-picker"
+              .value=${sideValue.color?.startsWith('#') ? sideValue.color : '#000000'}
+              @change=${(e: Event) => {
+                const newColor = (e.target as HTMLInputElement).value || undefined
+                handleSideChange(side, 'color', newColor)
+              }}
+            />
+            <input
+              type="text"
+              class="ep-input style-border-color-text"
+              placeholder="#000000"
+              .value=${sideValue.color ?? ''}
+              @change=${(e: Event) => {
+                const newColor = (e.target as HTMLInputElement).value || undefined
+                handleSideChange(side, 'color', newColor)
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    `
+  }
+
+  return html`
+    <div class="style-border-input">
+      <div class="style-border-header">
+        <button
+          class="style-border-clear"
+          title="Clear all borders"
+          @click=${handleClearAll}
+        >×</button>
+      </div>
+      <div class="style-border-sides">
+        ${renderSideInput('top', 'Top')}
+        ${renderSideInput('right', 'Right')}
+        ${renderSideInput('bottom', 'Bottom')}
+        ${renderSideInput('left', 'Left')}
+      </div>
+    </div>
+  `
+}
+
+// ---------------------------------------------------------------------------
+// Border radius input component
+// ---------------------------------------------------------------------------
+
+export function renderBorderRadiusInput(config: BorderRadiusInputConfig): unknown {
+  const { id: _id, value, units, onChange } = config
+  const defaultUnit = units[0] ?? 'px'
+
+  const handleCornerChange = (
+    corner: keyof BorderRadiusInputValue,
+    newValue: string | undefined,
+  ) => {
+    onChange({
+      ...value,
+      [corner]: newValue,
+    })
+  }
+
+  const handleClearAll = () => {
+    onChange({
+      topLeft: undefined,
+      topRight: undefined,
+      bottomRight: undefined,
+      bottomLeft: undefined,
+    })
+  }
+
+  const renderCornerInput = (corner: keyof BorderRadiusInputValue, label: string) => {
+    const cornerValue = value[corner]
+
+    return html`
+      <div class="style-radius-corner">
+        <span class="style-radius-corner-label">${label}</span>
+        <input
+          type="number"
+          class="ep-input style-radius-value"
+          placeholder="0"
+          .value=${cornerValue ? String(parseValueWithUnit(cornerValue, defaultUnit).value) : ''}
+          @change=${(e: Event) => {
+            const num = parseFloat((e.target as HTMLInputElement).value)
+            const newValue = isNaN(num) ? undefined : formatValueWithUnit(num, defaultUnit)
+            handleCornerChange(corner, newValue)
+          }}
+        />
+      </div>
+    `
+  }
+
+  return html`
+    <div class="style-radius-input">
+      <div class="style-radius-header">
+        <button
+          class="style-radius-clear"
+          title="Clear all radii"
+          @click=${handleClearAll}
+        >×</button>
+      </div>
+      <div class="style-radius-corners">
+        ${renderCornerInput('topLeft', 'TL')}
+        ${renderCornerInput('topRight', 'TR')}
+        ${renderCornerInput('bottomRight', 'BR')}
+        ${renderCornerInput('bottomLeft', 'BL')}
+      </div>
+    </div>
+  `
+}
+
+// ---------------------------------------------------------------------------
 // Box: individual key expansion/reading
 // ---------------------------------------------------------------------------
 
