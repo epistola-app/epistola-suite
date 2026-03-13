@@ -9,6 +9,7 @@
     { "key": "lineHeight", "label": "Line Height", "valueKind": "number", "inheritable": true },
     { "key": "letterSpacing", "label": "Letter Spacing", "valueKind": "unit", "inheritable": true },
     { "key": "backgroundColor", "label": "Background Color", "valueKind": "color", "inheritable": false },
+    { "key": "width", "label": "Width", "valueKind": "unit", "inheritable": false },
     { "key": "marginTop", "label": "Margin Top", "valueKind": "unit", "inheritable": false },
     { "key": "marginRight", "label": "Margin Right", "valueKind": "unit", "inheritable": false },
     { "key": "marginBottom", "label": "Margin Bottom", "valueKind": "unit", "inheritable": false },
@@ -128,6 +129,13 @@
             "left": "marginLeft"
           },
           "units": ["px", "em", "rem"]
+        },
+        {
+          "key": "width",
+          "label": "Width",
+          "control": "unit",
+          "propertyKey": "width",
+          "units": ["px", "em", "rem", "pt", "%"]
         }
       ]
     },

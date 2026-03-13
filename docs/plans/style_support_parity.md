@@ -97,7 +97,7 @@ Status legend used below:
 |-----|------------------------|-----------------------|-----------------|---------------|-------------|-------------|
 | `fontStyle` | exposed | `fontStyle` | yes | yes | yes | **FIXED**: Now exposed in editor registry. |
 | `borderLeft` | hidden | `borderLeft` | partial | no | no | Present in demo preset data; browser can apply it on components with `applicableStyles: 'all'`, but it is not modeled in the registry or PDF renderer. |
-| `width` | hidden | `width` | partial | yes | no | The generic PDF renderer supports `width`, but the editor registry does not model it as a style property and browser support depends on component applicability. |
+| `width` | exposed | `width` | yes | yes | no | **IMPLEMENTED**: Added to canonical properties. Supports px, em, rem, pt, and % units. Available on text, container, and image components. |
 
 ### Additional findings from the audit
 
@@ -125,6 +125,7 @@ The first shared canonical contract should be intentionally strict.
 - `letterSpacing` ✓
 - `lineHeight` (browser only - PDF deferred)
 - `backgroundColor`
+- `width` ✓
 - `marginTop`
 - `marginRight`
 - `marginBottom`

@@ -6,6 +6,7 @@
 - **Shared style-system contract foundation**: Added a schema-first `style-system` contract in `template-model` with canonical style properties plus editor field metadata. The first strict pass admits `fontSize`, `color`, `textAlign`, `backgroundColor`, and longhand `margin*` / `padding*` properties.
 - **Typography properties in shared style contract**: Added `fontFamily`, `fontWeight`, `fontStyle`, `lineHeight`, and `letterSpacing` to the canonical style system. All five are inheritable and cascade from document to block styles. Includes new `number` value kind for unitless values like lineHeight multipliers.
 - **Extended PDF font support**: Added Liberation Serif and Liberation Mono fonts alongside Liberation Sans. PDF rendering now supports three font families with proper bold/italic variants selected via weight (>=500 = bold) and style (italic flag).
+- **Width property support**: Added `width` to canonical style properties with support for `px`, `em`, `rem`, `pt`, and `%` units. Available on text, container, and image components in the editor. Already supported in PDF rendering.
 
 ### Changed
 - **Editor style registry now derives from shared contract**: The editor compatibility registry is now built from shared `template-model` data instead of a TS-only source of truth. This keeps editor field rendering and inheritable-style metadata aligned with the shared contract.

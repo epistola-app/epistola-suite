@@ -23,6 +23,7 @@ describe('defaultStyleRegistry', () => {
       'letterSpacing',
       'padding',
       'margin',
+      'width',
       'backgroundColor',
     ])
   })
