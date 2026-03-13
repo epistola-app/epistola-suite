@@ -30,7 +30,7 @@ export interface CanonicalStyleProperty {
   /**
    * Runtime value kind shared by browser preview and PDF rendering.
    */
-  valueKind: "unit" | "color" | "keyword";
+  valueKind: "unit" | "color" | "keyword" | "number";
   /**
    * Whether the property cascades from document styles into block styles.
    */

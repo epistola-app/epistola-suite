@@ -4,12 +4,18 @@
 
 ### Added
 - **Shared style-system contract foundation**: Added a schema-first `style-system` contract in `template-model` with canonical style properties plus editor field metadata. The first strict pass admits `fontSize`, `color`, `textAlign`, `backgroundColor`, and longhand `margin*` / `padding*` properties.
+- **Typography properties in shared style contract**: Added `fontFamily`, `fontWeight`, `fontStyle`, `lineHeight`, and `letterSpacing` to the canonical style system. All five are inheritable and cascade from document to block styles. Includes new `number` value kind for unitless values like lineHeight multipliers.
+- **Extended PDF font support**: Added Liberation Serif and Liberation Mono fonts alongside Liberation Sans. PDF rendering now supports three font families with proper bold/italic variants selected via weight (>=500 = bold) and style (italic flag).
 
 ### Changed
 - **Editor style registry now derives from shared contract**: The editor compatibility registry is now built from shared `template-model` data instead of a TS-only source of truth. This keeps editor field rendering and inheritable-style metadata aligned with the shared contract.
 
 ### Fixed
 - **Spacing zero overrides are preserved**: Composite `margin` / `padding` edits no longer drop explicit zero values, so theme presets and inline styles can reliably override component defaults with `0`.
+- **letterSpacing PDF support**: Now applied via `BlockElement.setCharacterSpacing()` in PDF rendering. Previously defined in the shared contract but not implemented in the PDF renderer.
+
+### Known Limitations
+- **lineHeight in PDF**: Works in browser preview via CSS, but not yet supported in PDF rendering. iText's `lineHeight` API (`setMultipliedLeading`) is only available on `Paragraph` elements, not generic `BlockElement`. Our architecture creates `Div` containers first, then `Paragraphs` are added during TipTap conversion, making it difficult to apply lineHeight at the right stage. Deferred pending architectural consultation.
 - **Template-model generated override cleanup in full builds**: `compileKotlin` now depends on generated override cleanup directly instead of relying on `generate.finalizedBy(...)`. This prevents bad generated `TemplateDocument` / `DocumentStyles` classes from leaking into downstream module compilation during full multi-module builds.
 
 ### Fixed

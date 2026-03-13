@@ -19,9 +19,14 @@ describe('getInheritableKeys', () => {
     const keys = getInheritableKeys(defaultStyleRegistry)
 
     expect(keys.has('fontSize')).toBe(true)
+    expect(keys.has('fontFamily')).toBe(true)
+    expect(keys.has('fontWeight')).toBe(true)
+    expect(keys.has('fontStyle')).toBe(true)
     expect(keys.has('color')).toBe(true)
     expect(keys.has('textAlign')).toBe(true)
-    expect(keys.size).toBe(3)
+    expect(keys.has('lineHeight')).toBe(true)
+    expect(keys.has('letterSpacing')).toBe(true)
+    expect(keys.size).toBe(8)
   })
 
   it('does not include non-inheritable keys', () => {

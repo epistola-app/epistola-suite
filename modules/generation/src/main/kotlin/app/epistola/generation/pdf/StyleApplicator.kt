@@ -167,24 +167,25 @@ object StyleApplicator {
             }
         }
 
-        // Font weight
-        val isBold = (styles["fontWeight"] as? String)?.let { weight ->
-            weight == "bold" || weight.toIntOrNull()?.let { it >= 700 } == true
-        } ?: false
-
-        // Font style
-        val isItalic = (styles["fontStyle"] as? String) == "italic"
-
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
-            val font = when {
-                isBold -> fontCache.bold
-                else -> fontCache.italic
-            }
-            element.setFont(font)
+        // Letter spacing - applied to BlockElement (supported via setCharacterSpacing from ElementPropertyContainer)
+        (styles["letterSpacing"] as? String)?.let { letterSpacing ->
+            parseSize(letterSpacing, baseFontSizePt)?.let { element.setCharacterSpacing(it) }
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Note: lineHeight is not applied here because it's only available on Paragraph elements,
+        // not generic BlockElement. Our architecture creates Div containers first, then adds
+        // Paragraphs as children during TipTap conversion. To support lineHeight in PDF, we would
+        // need to pass style values through to the TipTapConverter and apply setMultipliedLeading()
+        // when creating Paragraph elements. For now, lineHeight works in browser preview only.
+
+        // Font family, weight, and style - applied together as a single font selection
+        val fontFamily = parseFontFamily(styles["fontFamily"] as? String)
+        val fontWeight = (styles["fontWeight"] as? String)?.toIntOrNull() ?: 400
+        val isItalic = (styles["fontStyle"] as? String) == "italic"
+
+        // Apply the font based on family, weight (>= 500 is bold), and style
+        val font = fontCache.getFont(family = fontFamily, weight = fontWeight, italic = isItalic)
+        element.setFont(font)
     }
 
     private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f): Float? = when {
@@ -195,6 +196,17 @@ object StyleApplicator {
         else -> fontSize.toFloatOrNull()
     }
 
+    private fun parseLineHeight(lineHeight: String, baseFontSizePt: Float = 12f): Float? = when {
+        // Unitless values like "1.5" are multipliers
+        lineHeight.toFloatOrNull() != null -> lineHeight.toFloat()
+        // Values with units need conversion
+        lineHeight.endsWith("px") -> lineHeight.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f / baseFontSizePt }
+        lineHeight.endsWith("pt") -> lineHeight.removeSuffix("pt").toFloatOrNull()?.let { it / baseFontSizePt }
+        lineHeight.endsWith("em") -> lineHeight.removeSuffix("em").toFloatOrNull()
+        lineHeight.endsWith("rem") -> lineHeight.removeSuffix("rem").toFloatOrNull()
+        else -> lineHeight.toFloatOrNull()
+    }
+
     private fun parseSize(size: String, baseFontSizePt: Float = 12f): Float? = when {
         size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
         size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
@@ -202,6 +214,12 @@ object StyleApplicator {
         size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
         size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
         else -> size.toFloatOrNull()
+    }
+
+    private fun parseFontFamily(fontFamily: String?): FontFamily = when (fontFamily) {
+        "Liberation Serif" -> FontFamily.SERIF
+        "Liberation Mono" -> FontFamily.MONO
+        else -> FontFamily.SANS // Default to Sans
     }
 
     private fun parseColor(color: String): DeviceRgb? = try {
