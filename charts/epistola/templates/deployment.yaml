@@ -72,6 +72,10 @@ spec:
                   key: {{ .Values.keycloak.secretKey }}
             - name: KEYCLOAK_ISSUER_URI
               value: {{ required "keycloak.issuerUri is required when keycloak.enabled is true" .Values.keycloak.issuerUri | quote }}
+            {{- if .Values.keycloak.backchannelBaseUrl }}
+            - name: EPISTOLA_AUTH_OIDC_BACKCHANNELBASEURL
+              value: {{ .Values.keycloak.backchannelBaseUrl | quote }}
+            {{- end }}
             {{- end }}
             {{- /* Database configuration */}}
             {{- $dbType := include "epistola.database.effectiveType" . }}

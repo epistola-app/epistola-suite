@@ -155,6 +155,10 @@ keycloak:
   secretKey: client-secret
   # Keycloak issuer URI (e.g., https://keycloak.example.com/realms/epistola)
   issuerUri: ""
+  # Internal base URL for server-to-server OIDC calls (token, JWK, userinfo).
+  # Use when Keycloak is reachable at a different URL from within the cluster
+  # than from the browser (e.g., http://keycloak-svc/auth vs https://auth.example.com/auth).
+  backchannelBaseUrl: ""
 
 # Application configuration
 config:
