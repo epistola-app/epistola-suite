@@ -1,0 +1,155 @@
+{
+  "canonicalProperties": [
+    { "key": "fontSize", "label": "Font Size", "valueKind": "unit", "inheritable": true },
+    { "key": "fontFamily", "label": "Font Family", "valueKind": "keyword", "inheritable": true },
+    { "key": "fontWeight", "label": "Font Weight", "valueKind": "number", "inheritable": true },
+    { "key": "fontStyle", "label": "Font Style", "valueKind": "keyword", "inheritable": true },
+    { "key": "color", "label": "Color", "valueKind": "color", "inheritable": true },
+    { "key": "textAlign", "label": "Text Align", "valueKind": "keyword", "inheritable": true },
+    { "key": "lineHeight", "label": "Line Height", "valueKind": "number", "inheritable": true },
+    { "key": "letterSpacing", "label": "Letter Spacing", "valueKind": "unit", "inheritable": true },
+    { "key": "backgroundColor", "label": "Background Color", "valueKind": "color", "inheritable": false },
+    { "key": "width", "label": "Width", "valueKind": "unit", "inheritable": false },
+    { "key": "marginTop", "label": "Margin Top", "valueKind": "unit", "inheritable": false },
+    { "key": "marginRight", "label": "Margin Right", "valueKind": "unit", "inheritable": false },
+    { "key": "marginBottom", "label": "Margin Bottom", "valueKind": "unit", "inheritable": false },
+    { "key": "marginLeft", "label": "Margin Left", "valueKind": "unit", "inheritable": false },
+    { "key": "paddingTop", "label": "Padding Top", "valueKind": "unit", "inheritable": false },
+    { "key": "paddingRight", "label": "Padding Right", "valueKind": "unit", "inheritable": false },
+    { "key": "paddingBottom", "label": "Padding Bottom", "valueKind": "unit", "inheritable": false },
+    { "key": "paddingLeft", "label": "Padding Left", "valueKind": "unit", "inheritable": false }
+  ],
+  "editorGroups": [
+    {
+      "name": "typography",
+      "label": "Typography",
+      "fields": [
+        {
+          "key": "fontSize",
+          "label": "Size",
+          "control": "unit",
+          "propertyKey": "fontSize",
+          "units": ["px", "em", "rem", "pt"]
+        },
+        {
+          "key": "fontFamily",
+          "label": "Font Family",
+          "control": "select",
+          "propertyKey": "fontFamily",
+          "options": [
+            { "label": "Liberation Sans", "value": "Liberation Sans" },
+            { "label": "Liberation Serif", "value": "Liberation Serif" },
+            { "label": "Liberation Mono", "value": "Liberation Mono" }
+          ]
+        },
+        {
+          "key": "fontWeight",
+          "label": "Weight",
+          "control": "select",
+          "propertyKey": "fontWeight",
+          "options": [
+            { "label": "Thin (100)", "value": "100" },
+            { "label": "Extra Light (200)", "value": "200" },
+            { "label": "Light (300)", "value": "300" },
+            { "label": "Regular (400)", "value": "400" },
+            { "label": "Medium (500)", "value": "500" },
+            { "label": "Semi Bold (600)", "value": "600" },
+            { "label": "Bold (700)", "value": "700" },
+            { "label": "Extra Bold (800)", "value": "800" },
+            { "label": "Black (900)", "value": "900" }
+          ]
+        },
+        {
+          "key": "fontStyle",
+          "label": "Style",
+          "control": "select",
+          "propertyKey": "fontStyle",
+          "options": [
+            { "label": "Normal", "value": "normal" },
+            { "label": "Italic", "value": "italic" }
+          ]
+        },
+        {
+          "key": "color",
+          "label": "Color",
+          "control": "color",
+          "propertyKey": "color"
+        },
+        {
+          "key": "textAlign",
+          "label": "Text Align",
+          "control": "select",
+          "propertyKey": "textAlign",
+          "options": [
+            { "label": "Left", "value": "left" },
+            { "label": "Center", "value": "center" },
+            { "label": "Right", "value": "right" },
+            { "label": "Justify", "value": "justify" }
+          ]
+        },
+        {
+          "key": "lineHeight",
+          "label": "Line Height",
+          "control": "number",
+          "propertyKey": "lineHeight"
+        },
+        {
+          "key": "letterSpacing",
+          "label": "Letter Spacing",
+          "control": "unit",
+          "propertyKey": "letterSpacing",
+          "units": ["em", "px", "rem"]
+        }
+      ]
+    },
+    {
+      "name": "spacing",
+      "label": "Spacing",
+      "fields": [
+        {
+          "key": "padding",
+          "label": "Padding",
+          "control": "spacing",
+          "spacingProperties": {
+            "top": "paddingTop",
+            "right": "paddingRight",
+            "bottom": "paddingBottom",
+            "left": "paddingLeft"
+          },
+          "units": ["px", "em", "rem"]
+        },
+        {
+          "key": "margin",
+          "label": "Margin",
+          "control": "spacing",
+          "spacingProperties": {
+            "top": "marginTop",
+            "right": "marginRight",
+            "bottom": "marginBottom",
+            "left": "marginLeft"
+          },
+          "units": ["px", "em", "rem"]
+        },
+        {
+          "key": "width",
+          "label": "Width",
+          "control": "unit",
+          "propertyKey": "width",
+          "units": ["px", "em", "rem", "pt", "%"]
+        }
+      ]
+    },
+    {
+      "name": "background",
+      "label": "Background",
+      "fields": [
+        {
+          "key": "backgroundColor",
+          "label": "Background",
+          "control": "color",
+          "propertyKey": "backgroundColor"
+        }
+      ]
+    }
+  ]
+}

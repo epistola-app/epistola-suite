@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Added
+- **Shared style-system contract foundation**: Added a schema-first `style-system` contract in `template-model` with canonical style properties plus editor field metadata. The first strict pass admits `fontSize`, `color`, `textAlign`, `backgroundColor`, and longhand `margin*` / `padding*` properties.
+- **Typography properties in shared style contract**: Added `fontFamily`, `fontWeight`, `fontStyle`, `lineHeight`, and `letterSpacing` to the canonical style system. All five are inheritable and cascade from document to block styles. Includes new `number` value kind for unitless values like lineHeight multipliers.
+- **Extended PDF font support**: Added Liberation Serif and Liberation Mono fonts alongside Liberation Sans. PDF rendering now supports three font families with proper bold/italic variants selected via weight (>=500 = bold) and style (italic flag).
+- **Width property support**: Added `width` to canonical style properties with support for `px`, `em`, `rem`, `pt`, and `%` units. Available on text, container, and image components in the editor. Already supported in PDF rendering.
+
+### Changed
+- **Editor style registry now derives from shared contract**: The editor compatibility registry is now built from shared `template-model` data instead of a TS-only source of truth. This keeps editor field rendering and inheritable-style metadata aligned with the shared contract.
+
+### Changed
+- **Composite spacing fields with default inheritance**: Refactored `margin` and `padding` editors to use a generic `BoxValue` pattern where `undefined` sides inherit from component defaults. Added sophisticated linking system with four modes: All, Horizontal, Vertical, None. Clear buttons appear on explicit values, allowing users to reset to defaults. This pattern is reusable for future composite properties like border-radius and border-width.
+
+### Fixed
+- **Spacing zero overrides are preserved**: Composite `margin` / `padding` edits no longer drop explicit zero values, so theme presets and inline styles can reliably override component defaults with `0`.
+- **letterSpacing PDF support**: Now applied via `BlockElement.setCharacterSpacing()` in PDF rendering. Previously defined in the shared contract but not implemented in the PDF renderer.
+
+### Known Limitations
+- **lineHeight in PDF**: Works in browser preview via CSS, but not yet supported in PDF rendering. iText's `lineHeight` API (`setMultipliedLeading`) is only available on `Paragraph` elements, not generic `BlockElement`. Our architecture creates `Div` containers first, then `Paragraphs` are added during TipTap conversion, making it difficult to apply lineHeight at the right stage. Deferred pending architectural consultation.
+- **em/rem unit behavior differs between editor and PDF**: `em` and `rem` values don't behave as expected in PDF output compared to browser preview.
+  - `em` values don't compound through nested elements (always relative to 12pt base, not parent element)
+  - `rem` is treated identically to `em` (not truly relative to document root font size)
+  - This can cause font size and spacing discrepancies between editor preview and PDF output
+  - **Workaround**: Use `px` or `pt` for consistent sizing between preview and PDF
+- **Template-model generated override cleanup in full builds**: `compileKotlin` now depends on generated override cleanup directly instead of relying on `generate.finalizedBy(...)`. This prevents bad generated `TemplateDocument` / `DocumentStyles` classes from leaking into downstream module compilation during full multi-module builds.
+
 ### Fixed
 - **API docs link broken**: The nav and footer links to `/api-docs/index.html` pointed to a page that no longer existed since the OpenAPI spec moved to the `epistola-contract` repo. Replaced with an `/api-docs` page powered by Scalar that loads the bundled spec from the contract artifact. Removed the stale `rest-api` `package.json` (no longer needed).
 

@@ -8,14 +8,17 @@
 import { html, nothing } from 'lit'
 import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
-import { defaultStyleRegistry } from '../../engine/style-registry.js'
+import { defaultStyleRegistry, readStyleFieldValue } from '../../engine/style-registry.js'
 import {
   renderUnitInput,
   renderColorInput,
-  renderSpacingInput,
   renderSelectInput,
-  readSpacingFromStyles,
+  renderBoxInput,
+  type LinkMode,
+  readBoxFromStyles,
+  expandBoxToStyles,
 } from '../../ui/inputs/style-inputs.js'
+import type { BoxValue } from '../../engine/style-values.js'
 import type { ThemeEditorState } from '../ThemeEditorState.js'
 
 /** Node types available for applicableTo multi-select. */
@@ -27,6 +30,16 @@ const NODE_TYPES = [
   { label: 'Conditional', value: 'conditional' },
   { label: 'Loop', value: 'loop' },
 ]
+
+// Track link modes for each preset's box inputs
+const presetLinkModes: Map<string, Map<string, LinkMode>> = new Map()
+
+function getPresetLinkModes(presetName: string): Map<string, LinkMode> {
+  if (!presetLinkModes.has(presetName)) {
+    presetLinkModes.set(presetName, new Map())
+  }
+  return presetLinkModes.get(presetName)!
+}
 
 export function renderPresetItem(
   state: ThemeEditorState,
@@ -117,16 +130,15 @@ function renderPresetBody(
 
       <!-- Style properties -->
       ${defaultStyleRegistry.groups.map(group => html`
-        <div class="inspector-style-group">
-          <div class="inspector-style-group-label">${group.label}</div>
-          ${group.properties.map(prop => {
-            // For spacing properties, reconstruct compound value from individual keys
-            const value = prop.type === 'spacing'
-              ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
-              : styles[prop.key]
-            return renderPresetStyleProperty(
-              prop,
-              value,
+          <div class="inspector-style-group">
+            <div class="inspector-style-group-label">${group.label}</div>
+            ${group.properties.map(prop => {
+              const value = readStyleFieldValue(prop.key, styles)
+              return renderPresetStyleProperty(
+                name,
+                prop,
+                value,
+                styles,
               (v) => state.updatePresetStyle(name, prop.key, v),
             )
           })}
@@ -137,21 +149,25 @@ function renderPresetBody(
 }
 
 function renderPresetStyleProperty(
+  presetName: string,
   prop: StyleProperty,
   value: unknown,
+  inlineStyles: Record<string, unknown>,
   onChange: (value: unknown) => void,
 ): unknown {
   return html`
     <div class="inspector-field">
       <label class="inspector-field-label">${prop.label}</label>
-      ${renderPresetStyleInput(prop, value, onChange)}
+      ${renderPresetStyleInput(presetName, prop, value, inlineStyles, onChange)}
     </div>
   `
 }
 
 function renderPresetStyleInput(
+  presetName: string,
   prop: StyleProperty,
   value: unknown,
+  inlineStyles: Record<string, unknown>,
   onChange: (value: unknown) => void,
 ): unknown {
   switch (prop.type) {
@@ -159,25 +175,69 @@ function renderPresetStyleInput(
       return renderSelectInput(
         value,
         prop.options ?? [],
-        (v) => onChange(v || undefined),
+        (v: string) => onChange(v || undefined),
       )
     case 'unit':
       return renderUnitInput(
         value,
         prop.units ?? ['px'],
-        (v) => onChange(v),
+        (v: string) => onChange(v),
       )
     case 'color':
       return renderColorInput(
         value,
-        (v) => onChange(v || undefined),
+        (v: string) => onChange(v || undefined),
       )
-    case 'spacing':
-      return renderSpacingInput(
-        value,
-        prop.units ?? ['px'],
-        (v) => onChange(v),
-      )
+    case 'spacing': {
+      // Get the mapping for this spacing property (margin or padding)
+      const prefix = prop.key // 'margin' or 'padding'
+
+      // Extract current box value from inline styles
+      const boxValue = readBoxFromStyles(prefix, inlineStyles) ?? {
+        top: undefined,
+        right: undefined,
+        bottom: undefined,
+        left: undefined,
+      }
+
+      // For presets, use zero as default (no component defaults)
+      const boxDefaults: BoxValue = {
+        top: '0px',
+        right: '0px',
+        bottom: '0px',
+        left: '0px',
+      }
+
+      // Get current link mode for this field
+      const linkModes = getPresetLinkModes(presetName)
+      const linkMode = linkModes.get(prop.key) ?? 'none'
+
+      return renderBoxInput({
+        value: boxValue,
+        defaults: boxDefaults,
+        units: prop.units ?? ['px'],
+        linkMode,
+        onChange: (newValue) => {
+          // Expand box value to individual style properties
+          const styles = { ...inlineStyles }
+          expandBoxToStyles(prefix, newValue, styles)
+          onChange(styles)
+        },
+        onLinkModeChange: (newMode) => {
+          linkModes.set(prop.key, newMode)
+        },
+      })
+    }
+    case 'number':
+      return html`
+        <input
+          type="number"
+          class="ep-input"
+          step="any"
+          .value=${String(value ?? '')}
+          @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
+        />
+      `
     default:
       return html`
         <input

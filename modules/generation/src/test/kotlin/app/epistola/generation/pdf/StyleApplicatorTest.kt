@@ -16,14 +16,14 @@ class StyleApplicatorTest {
     @Test
     fun `INHERITABLE_KEYS contains all expected typography keys`() {
         val expected = setOf(
-            "fontFamily",
             "fontSize",
+            "fontFamily",
             "fontWeight",
             "fontStyle",
             "color",
+            "textAlign",
             "lineHeight",
             "letterSpacing",
-            "textAlign",
         )
         assertEquals(expected, StyleApplicator.INHERITABLE_KEYS)
     }
@@ -101,6 +101,20 @@ class StyleApplicatorTest {
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "0.5em"),
         )
+    }
+
+    @Test
+    fun `applyStylesWithPreset applies letterSpacing to element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("letterSpacing" to "0.05em"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - letterSpacing should be applied via setCharacterSpacing
     }
 
     @Test
