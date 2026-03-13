@@ -83,8 +83,8 @@ Status legend used below:
 | `lineHeight` | document, node, preset | `lineHeight` | yes | browser only | yes | **DEFERRED**: PDF architecture creates Div containers first, then adds Paragraphs. lineHeight is only available on Paragraph, not BlockElement. Would require passing styles to TipTapConverter. Works in browser preview only. |
 | `letterSpacing` | document, node, preset | `letterSpacing` | yes | yes | yes | **IMPLEMENTED**: Applied via BlockElement.setCharacterSpacing() from ElementPropertyContainer. |
 | `textAlign` | document, node, preset | `textAlign` | yes | yes | yes | Stable candidate for the shared canonical set. |
-| `padding` | node, preset | `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft` | partial | partial | no | This is already a composite editor field, not a real stored property; zero values are deleted during expansion, so explicit `0` cannot reliably override preset or component defaults. |
-| `margin` | node, preset | `marginTop`, `marginRight`, `marginBottom`, `marginLeft` | partial | partial | no | Same composite-field behavior as `padding`; deleting zero values means `marginBottom: 0` cannot reliably override the built-in `0.5em` component default. |
+| `padding` | node, preset | `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft` | yes | yes | no | **IMPLEMENTED**: Generic BoxValue pattern with `undefined` = inherit from component defaults. Supports four link modes (All, Horizontal, Vertical, None). Clear buttons for explicit values. Reusable pattern for future composite properties. |
+| `margin` | node, preset | `marginTop`, `marginRight`, `marginBottom`, `marginLeft` | yes | yes | no | **IMPLEMENTED**: Same BoxValue pattern as padding. Component defaults (e.g., `marginBottom: 0.5em`) properly inherited when sides not explicitly set. |
 | `backgroundColor` | node, preset | `backgroundColor` | yes | yes | no | Works as a block style, but it is not available as a document style; page background is modeled separately in page settings. |
 | `borderWidth` | node, preset | `borderWidth` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. Visual effect in browser also depends on a matching border style. |
 | `borderStyle` | node, preset | `borderStyle` | partial | no | no | CSS border style works in browser, but this key also collides with table/datatable props named `borderStyle` that mean `all`, `horizontal`, `vertical`, or `none` instead of CSS values. |
@@ -101,8 +101,7 @@ Status legend used below:
 
 ### Additional findings from the audit
 
-- Composite spacing behavior is currently encoded in `modules/editor/src/main/typescript/ui/inputs/style-inputs.ts`, not in a shared contract. That is the current source of truth for expanding `margin` and `padding` into longhand keys.
-- Composite spacing fields drop zero values on write. Combined with component defaults in `modules/editor/src/main/typescript/engine/registry.ts` and PDF defaults in `modules/generation/src/main/kotlin/app/epistola/generation/pdf/RenderingDefaults.kt`, this means explicit zero cannot always override an existing default.
+- Composite spacing behavior is defined in `modules/editor/src/main/typescript/ui/inputs/style-inputs.ts` with the generic `BoxValue` pattern, usable for future properties like border-width and border-radius.
 - Existing stored values already fail to round-trip cleanly through the current editor widgets:
   - `modules/epistola-core/src/main/kotlin/app/epistola/suite/tenants/commands/CreateTenant.kt` stores `fontFamily = "Helvetica, Arial, sans-serif"`, which is not one of the current select options.
   - `modules/epistola-core/src/main/kotlin/app/epistola/suite/tenants/commands/CreateTenant.kt` stores `lineHeight = "1.5"`, which the current unit input treats like a value with the default unit.
@@ -507,3 +506,54 @@ After the style contract is stable, return to `#191` and improve the theme edito
 3. Restructure text rendering to create Paragraphs directly instead of Divs
 
 **Status:** Deferred pending senior developer consultation on architecture approach.
+
+## Implementation Notes (2026-03-13) - Composite Spacing Pass
+
+### What was implemented in the third pass
+
+This pass focused on refactoring composite spacing fields (`margin`/`padding`) to support proper default inheritance, addressing the long-standing issue where explicit zero values couldn't reliably override component defaults.
+
+**Core Architecture Changes:**
+
+1. **BoxValue Interface**: Replaced `SpacingValue` with a more generic `BoxValue` interface:
+   - `top/right/bottom/left: string | undefined`
+   - `undefined` means "use default/inherit"
+   - `string` means explicitly set value (including "0px")
+
+2. **Smart Linking System**: Four link modes for efficient editing:
+   - **All**: All four sides linked (change one, all update)
+   - **Horizontal**: Left and right linked (for symmetric horizontal spacing)
+   - **Vertical**: Top and bottom linked (for symmetric vertical spacing)
+   - **None**: Each side independent
+
+3. **Clear Buttons**: Small × button appears only when a side has an explicit value. Clicking resets to `undefined`, allowing the side to inherit from component defaults.
+
+4. **Component Default Integration**: Editor now properly extracts component defaults (e.g., `marginBottom: 0.5em` for text blocks) and uses them as placeholders. Unset sides show the default value but don't write it to storage.
+
+5. **Smart Write Behavior**: `expandBoxToStyles()` only writes explicitly defined sides. Missing sides (undefined) don't get written, allowing proper inheritance from:
+   - Component defaults (e.g., text blocks get 0.5em bottom margin)
+   - Document styles
+   - Preset styles
+
+**Files Modified:**
+- `style-values.ts`: BoxValue interface, helper functions
+- `style-inputs.ts`: renderBoxInput with linking system, clear buttons
+- `EpistolaInspector.ts`: Component defaults integration
+- `PresetItem.ts`: Preset editing with BoxValue
+
+**Legacy Support:**
+- Maintained backward compatibility with deprecated function aliases
+- Added defensive checks for malformed data (arrays as objects)
+- CSS shorthand parsing for legacy compound keys (e.g., `margin: "10px 20px"`)
+
+**Reusability:**
+This BoxValue pattern is designed for reuse with:
+- `borderWidth` (top, right, bottom, left)
+- `borderRadius` (top-left, top-right, bottom-right, bottom-left)
+- Future composite properties
+
+### Verification completed for this pass
+
+- `pnpm test` - All 799 TypeScript tests pass
+- `./gradlew ktlintCheck build` - Full build with linting passes
+- 16 new tests for BoxValue functions, linking behavior, and default inheritance

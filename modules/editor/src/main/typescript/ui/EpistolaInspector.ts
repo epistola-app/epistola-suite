@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
@@ -11,8 +11,13 @@ import { openExpressionDialog } from './expression-dialog.js'
 import {
   renderUnitInput,
   renderColorInput,
-  renderSpacingInput,
   renderSelectInput,
+  renderBoxInput,
+  type LinkMode,
+  extractBoxDefaults,
+  readBoxFromStyles,
+  expandBoxToStyles,
+  type BoxPropertyMapping,
 } from './inputs/style-inputs.js'
 import {
   applyStyleFieldValue,
@@ -28,6 +33,9 @@ export class EpistolaInspector extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
+
+  // Track link modes for box inputs (margin, padding)
+  @state() private _boxLinkModes: Map<string, LinkMode> = new Map()
 
   override render() {
     if (!this.engine || !this.doc) {
@@ -71,7 +79,7 @@ export class EpistolaInspector extends LitElement {
 
         <!-- Style properties -->
         ${this._hasStyles(def?.applicableStyles)
-          ? this._renderNodeStyleGroups(node, def?.applicableStyles)
+          ? this._renderNodeStyleGroups(node, def?.applicableStyles, def)
           : nothing
         }
 
@@ -265,7 +273,7 @@ export class EpistolaInspector extends LitElement {
     })
   }
 
-  private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined): unknown {
+  private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined, def?: ComponentDefinition): unknown {
     if (!this.engine) return nothing
 
     const groups = this.engine.styleRegistry.groups
@@ -287,6 +295,8 @@ export class EpistolaInspector extends LitElement {
                   prop,
                   value,
                   (v) => this._handleNodeStyleChange(prop.key, v),
+                  def,
+                  inlineStyles,
                 )
               })}
             </div>
@@ -306,11 +316,13 @@ export class EpistolaInspector extends LitElement {
     prop: StyleProperty,
     value: unknown,
     onChange: (value: unknown) => void,
+    def?: ComponentDefinition,
+    inlineStyles?: Record<string, unknown>,
   ): unknown {
     return html`
       <div class="inspector-field">
         <label class="inspector-field-label">${prop.label}</label>
-        ${this._renderStyleInput(prop, value, onChange)}
+        ${this._renderStyleInput(prop, value, onChange, def, inlineStyles)}
       </div>
     `
   }
@@ -319,31 +331,73 @@ export class EpistolaInspector extends LitElement {
     prop: StyleProperty,
     value: unknown,
     onChange: (value: unknown) => void,
+    def?: ComponentDefinition,
+    inlineStyles?: Record<string, unknown>,
   ): unknown {
     switch (prop.type) {
       case 'select':
         return renderSelectInput(
           value,
           prop.options ?? [],
-          (v) => onChange(v || undefined),
+          (v: string) => onChange(v || undefined),
         )
       case 'unit':
         return renderUnitInput(
           value,
           prop.units ?? ['px'],
-          (v) => onChange(v),
+          (v: string) => onChange(v),
         )
       case 'color':
         return renderColorInput(
           value,
-          (v) => onChange(v || undefined),
+          (v: string) => onChange(v || undefined),
         )
-      case 'spacing':
-        return renderSpacingInput(
-          value,
-          prop.units ?? ['px'],
-          (v) => onChange(v),
-        )
+      case 'spacing': {
+        // Get the mapping for this spacing property (margin or padding)
+        const prefix = prop.key // 'margin' or 'padding'
+        const mapping: BoxPropertyMapping = {
+          top: `${prefix}Top`,
+          right: `${prefix}Right`,
+          bottom: `${prefix}Bottom`,
+          left: `${prefix}Left`,
+        }
+
+        // Extract current box value from inline styles
+        const boxValue = inlineStyles ? (readBoxFromStyles(prefix, inlineStyles) ?? {
+          top: undefined,
+          right: undefined,
+          bottom: undefined,
+          left: undefined,
+        }) : {
+          top: undefined,
+          right: undefined,
+          bottom: undefined,
+          left: undefined,
+        }
+
+        // Extract defaults from component definition
+        const boxDefaults = extractBoxDefaults(def?.defaultStyles, mapping)
+
+        // Get current link mode for this field
+        const linkMode = this._boxLinkModes.get(prop.key) ?? 'none'
+
+        return renderBoxInput({
+          value: boxValue,
+          defaults: boxDefaults,
+          units: prop.units ?? ['px'],
+          linkMode,
+          onChange: (newValue) => {
+            // Expand box value to individual style properties
+            const styles = { ...inlineStyles }
+            expandBoxToStyles(prefix, newValue, styles)
+            onChange(styles)
+          },
+          onLinkModeChange: (newMode) => {
+            this._boxLinkModes = new Map(this._boxLinkModes)
+            this._boxLinkModes.set(prop.key, newMode)
+          },
+        })
+      }
       case 'number':
         return html`
           <input

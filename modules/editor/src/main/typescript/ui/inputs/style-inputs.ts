@@ -8,9 +8,11 @@
 import { html, nothing } from 'lit'
 import {
   formatValueWithUnit,
-  parseSpacingValue,
   parseValueWithUnit,
-  type SpacingValue,
+  parseBoxValue,
+  type BoxValue,
+  type ParsedUnit,
+  getEffectiveValue,
 } from '../../engine/style-values.js'
 
 // ---------------------------------------------------------------------------
@@ -90,50 +92,172 @@ export function renderColorInput(
   `
 }
 
-export function renderSpacingInput(
-  value: unknown,
-  units: string[],
-  onChange: (value: SpacingValue) => void,
-): unknown {
+// ---------------------------------------------------------------------------
+// Link mode type for box inputs
+// ---------------------------------------------------------------------------
+
+export type LinkMode = 'all' | 'horizontal' | 'vertical' | 'none'
+
+// ---------------------------------------------------------------------------
+// Box input: for margin, padding, border-radius, etc.
+// ---------------------------------------------------------------------------
+
+export interface BoxInputConfig {
+  value: BoxValue
+  defaults: BoxValue
+  units: string[]
+  linkMode: LinkMode
+  onChange: (value: BoxValue) => void
+  onLinkModeChange: (mode: LinkMode) => void
+}
+
+export function renderBoxInput(config: BoxInputConfig): unknown {
+  const { value, defaults, units, linkMode, onChange, onLinkModeChange } = config
   const defaultUnit = units[0] ?? 'px'
-  const parsed = parseSpacingValue(value, defaultUnit)
   const sides = ['top', 'right', 'bottom', 'left'] as const
 
-  const handleSideChange = (side: string, newValue: string) => {
-    onChange({ ...parsed, [side]: newValue })
+  const getDisplayValue = (side: typeof sides[number]): ParsedUnit => {
+    const effective = getEffectiveValue(value, side, defaults[side] ?? `0${defaultUnit}`)
+    return parseValueWithUnit(effective, defaultUnit)
+  }
+
+  const isExplicit = (side: typeof sides[number]): boolean => {
+    return value[side] !== undefined
+  }
+
+  const handleSideChange = (side: typeof sides[number], newValue: string) => {
+    const newBoxValue: BoxValue = { ...value, [side]: newValue }
+
+    // Apply linking logic
+    if (linkMode === 'all') {
+      newBoxValue.right = newValue
+      newBoxValue.bottom = newValue
+      newBoxValue.left = newValue
+    } else if (linkMode === 'horizontal' && (side === 'left' || side === 'right')) {
+      newBoxValue.right = side === 'left' ? newValue : newValue
+      newBoxValue.left = side === 'right' ? newValue : newValue
+    } else if (linkMode === 'vertical' && (side === 'top' || side === 'bottom')) {
+      newBoxValue.top = side === 'bottom' ? newValue : newValue
+      newBoxValue.bottom = side === 'top' ? newValue : newValue
+    }
+
+    onChange(newBoxValue)
+  }
+
+  const handleClear = (side: typeof sides[number]) => {
+    const newBoxValue: BoxValue = { ...value, [side]: undefined }
+    onChange(newBoxValue)
+  }
+
+  const handleUnitChange = (newUnit: string) => {
+    const newBoxValue: BoxValue = { top: undefined, right: undefined, bottom: undefined, left: undefined }
+    for (const side of sides) {
+      const current = getDisplayValue(side)
+      newBoxValue[side] = formatValueWithUnit(current.value, newUnit)
+    }
+    onChange(newBoxValue)
+  }
+
+  const setLinkMode = (mode: LinkMode) => {
+    onLinkModeChange(mode)
+
+    // If switching to a link mode, sync values appropriately
+    if (mode === 'all' && value.top !== undefined) {
+      const newValue = value.top
+      onChange({
+        top: newValue,
+        right: newValue,
+        bottom: newValue,
+        left: newValue,
+      })
+    } else if (mode === 'horizontal' && (value.left !== undefined || value.right !== undefined)) {
+      const newValue = value.left ?? value.right!
+      onChange({
+        ...value,
+        left: newValue,
+        right: newValue,
+      })
+    } else if (mode === 'vertical' && (value.top !== undefined || value.bottom !== undefined)) {
+      const newValue = value.top ?? value.bottom!
+      onChange({
+        ...value,
+        top: newValue,
+        bottom: newValue,
+      })
+    }
   }
 
   return html`
-    <div class="style-spacing-input">
-      ${sides.map(side => {
-        const sideParsed = parseValueWithUnit(parsed[side], defaultUnit)
-        return html`
-          <div class="style-spacing-side">
-            <span class="style-spacing-label">${side[0].toUpperCase()}</span>
-            <input
-              type="number"
-              class="ep-input style-spacing-number"
-              .value=${String(sideParsed.value)}
-              @change=${(e: Event) => {
-                const num = parseFloat((e.target as HTMLInputElement).value) || 0
-                handleSideChange(side, formatValueWithUnit(num, sideParsed.unit))
-              }}
-            />
-          </div>
-        `
-      })}
+    <div class="style-box-input">
+      <div class="style-box-links">
+        <label class="style-box-link-label" title="Link all sides">
+          <input
+            type="radio"
+            name="link-mode"
+            .checked=${linkMode === 'all'}
+            @change=${() => setLinkMode('all')}
+          />
+          <span>All</span>
+        </label>
+        <label class="style-box-link-label" title="Link horizontal (left/right)">
+          <input
+            type="radio"
+            name="link-mode"
+            .checked=${linkMode === 'horizontal'}
+            @change=${() => setLinkMode('horizontal')}
+          />
+          <span>Horizontal</span>
+        </label>
+        <label class="style-box-link-label" title="Link vertical (top/bottom)">
+          <input
+            type="radio"
+            name="link-mode"
+            .checked=${linkMode === 'vertical'}
+            @change=${() => setLinkMode('vertical')}
+          />
+          <span>Vertical</span>
+        </label>
+        <label class="style-box-link-label" title="No linking">
+          <input
+            type="radio"
+            name="link-mode"
+            .checked=${linkMode === 'none'}
+            @change=${() => setLinkMode('none')}
+          />
+          <span>None</span>
+        </label>
+      </div>
+      <div class="style-box-sides">
+        ${sides.map(side => {
+    const displayValue = getDisplayValue(side)
+    const explicit = isExplicit(side)
+    return html`
+            <div class="style-box-side ${explicit ? 'is-explicit' : ''}">
+              <span class="style-box-label">${side[0].toUpperCase()}</span>
+              <input
+                type="number"
+                class="ep-input style-box-number"
+                .value=${String(displayValue.value)}
+                @change=${(e: Event) => {
+    const num = parseFloat((e.target as HTMLInputElement).value) || 0
+    handleSideChange(side, formatValueWithUnit(num, displayValue.unit))
+  }}
+              />
+              ${explicit ? html`
+                <button
+                  class="style-box-clear"
+                  title="Clear to default"
+                  @click=${() => handleClear(side)}
+                >×</button>
+              ` : nothing}
+            </div>
+          `
+  })}
+      </div>
       ${units.length > 1 ? html`
         <select
-          class="ep-select style-spacing-unit"
-          @change=${(e: Event) => {
-            const newUnit = (e.target as HTMLSelectElement).value
-            const result: SpacingValue = { top: '', right: '', bottom: '', left: '' }
-            for (const side of sides) {
-              const p = parseValueWithUnit(parsed[side], defaultUnit)
-              result[side] = formatValueWithUnit(p.value, newUnit)
-            }
-            onChange(result)
-          }}
+          class="ep-select style-box-unit"
+          @change=${(e: Event) => handleUnitChange((e.target as HTMLSelectElement).value)}
         >
           ${units.map(u => html`<option .value=${u}>${u}</option>`)}
         </select>
@@ -142,69 +266,150 @@ export function renderSpacingInput(
   `
 }
 
+/**
+ * @deprecated Use renderBoxInput instead.
+ */
+export function renderSpacingInput(
+  value: unknown,
+  units: string[],
+  onChange: (value: BoxValue) => void,
+): unknown {
+  return renderBoxInput({
+    value: value as BoxValue,
+    defaults: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+    units,
+    linkMode: 'none',
+    onChange,
+    onLinkModeChange: () => { /* no-op for deprecated function */ },
+  })
+}
+
 // ---------------------------------------------------------------------------
-// Spacing: individual key expansion/reading
+// Box: individual key expansion/reading
 // ---------------------------------------------------------------------------
 
 /**
- * Expand a compound SpacingValue into individual style keys.
+ * Mapping from field key prefixes to canonical property keys.
+ */
+export interface BoxPropertyMapping {
+  top: string
+  right: string
+  bottom: string
+  left: string
+}
+
+/**
+ * Expand a BoxValue into individual style keys.
  *
- * e.g. expandSpacingToStyles('margin', { top: '10px', right: '0px', bottom: '5px', left: '0px' }, styles)
- * → sets marginTop: '10px', marginRight: '0px', marginBottom: '5px', marginLeft: '0px'
+ * Only writes explicitly defined sides (not undefined).
+ * This allows unset sides to inherit from defaults.
+ *
+ * e.g. expandBoxToStyles('margin', { top: '10px', right: undefined, bottom: undefined, left: undefined }, styles)
+ * → sets marginTop: '10px' only
  *   and deletes the compound 'margin' key.
  */
-export function expandSpacingToStyles(
+export function expandBoxToStyles(
   prefix: string,
-  value: SpacingValue,
+  value: BoxValue,
   styles: Record<string, unknown>,
 ): void {
-  const sides: Record<string, string> = {
+  const mapping: Record<string, string | undefined> = {
     Top: value.top,
     Right: value.right,
     Bottom: value.bottom,
     Left: value.left,
   }
-  for (const [suffix, sideValue] of Object.entries(sides)) {
-    styles[`${prefix}${suffix}`] = sideValue
+
+  for (const [suffix, sideValue] of Object.entries(mapping)) {
+    if (sideValue !== undefined) {
+      styles[`${prefix}${suffix}`] = sideValue
+    }
   }
+
   delete styles[prefix]
 }
 
 /**
- * Read individual style keys back into a compound SpacingValue.
- *
- * e.g. readSpacingFromStyles('margin', { marginTop: '10px', marginBottom: '5px' })
- * → { top: '10px', right: '0px', bottom: '5px', left: '0px' }
- *
- * Returns undefined if no individual keys are set.
+ * @deprecated Use expandBoxToStyles instead.
  */
-export function readSpacingFromStyles(
+export function expandSpacingToStyles(
+  prefix: string,
+  value: BoxValue,
+  styles: Record<string, unknown>,
+): void {
+  expandBoxToStyles(prefix, value, styles)
+}
+
+/**
+ * Read individual style keys back into a BoxValue.
+ *
+ * Returns undefined for sides that are not explicitly set.
+ * This allows the UI to distinguish between "use default" and "explicitly set".
+ *
+ * e.g. readBoxFromStyles('margin', { marginTop: '10px' })
+ * → { top: '10px', right: undefined, bottom: undefined, left: undefined }
+ *
+ * LEGACY FALLBACK: Also checks for legacy compound key (e.g., 'margin') for backward
+ * compatibility with old stored data. Legacy values are parsed and expanded to all
+ * sides since the old format didn't distinguish between explicit and default values.
+ */
+export function readBoxFromStyles(
   prefix: string,
   styles: Record<string, unknown>,
-  defaultUnit = 'px',
-): SpacingValue | undefined {
+): BoxValue | undefined {
   const top = styles[`${prefix}Top`]
   const right = styles[`${prefix}Right`]
   const bottom = styles[`${prefix}Bottom`]
   const left = styles[`${prefix}Left`]
 
-  // Also check for legacy compound value
+  // LEGACY: Check for old compound key format (e.g., 'margin' instead of 'marginTop', etc.)
+  // Used for backward compatibility with templates created before the composite spacing refactor
   const compound = styles[prefix]
 
-  if (top == null && right == null && bottom == null && left == null && compound == null) {
+  const hasIndividual = top != null || right != null || bottom != null || left != null
+  const hasCompound = compound != null
+
+  if (!hasIndividual && !hasCompound) {
     return undefined
   }
 
-  if (compound != null) {
-    return parseSpacingValue(compound, defaultUnit)
+  if (hasCompound) {
+    // LEGACY: Parse old compound format and expand to all sides
+    return parseBoxValue(compound, 'px')
   }
 
-  const zero = `0${defaultUnit}`
   return {
-    top: top != null ? String(top) : zero,
-    right: right != null ? String(right) : zero,
-    bottom: bottom != null ? String(bottom) : zero,
-    left: left != null ? String(left) : zero,
+    top: top != null ? String(top) : undefined,
+    right: right != null ? String(right) : undefined,
+    bottom: bottom != null ? String(bottom) : undefined,
+    left: left != null ? String(left) : undefined,
+  }
+}
+
+/**
+ * @deprecated Use readBoxFromStyles instead.
+ */
+export function readSpacingFromStyles(
+  prefix: string,
+  styles: Record<string, unknown>,
+  _defaultUnit = 'px',
+): BoxValue | undefined {
+  return readBoxFromStyles(prefix, styles)
+}
+
+/**
+ * Extract default values for a box property from component default styles.
+ */
+export function extractBoxDefaults(
+  defaultStyles: Record<string, unknown> | undefined,
+  mapping: BoxPropertyMapping,
+): BoxValue {
+  const defaults = defaultStyles || {}
+  return {
+    top: defaults[mapping.top] != null ? String(defaults[mapping.top]) : undefined,
+    right: defaults[mapping.right] != null ? String(defaults[mapping.right]) : undefined,
+    bottom: defaults[mapping.bottom] != null ? String(defaults[mapping.bottom]) : undefined,
+    left: defaults[mapping.left] != null ? String(defaults[mapping.left]) : undefined,
   }
 }
 

@@ -10,6 +10,9 @@
 ### Changed
 - **Editor style registry now derives from shared contract**: The editor compatibility registry is now built from shared `template-model` data instead of a TS-only source of truth. This keeps editor field rendering and inheritable-style metadata aligned with the shared contract.
 
+### Changed
+- **Composite spacing fields with default inheritance**: Refactored `margin` and `padding` editors to use a generic `BoxValue` pattern where `undefined` sides inherit from component defaults. Added sophisticated linking system with four modes: All, Horizontal, Vertical, None. Clear buttons appear on explicit values, allowing users to reset to defaults. This pattern is reusable for future composite properties like border-radius and border-width.
+
 ### Fixed
 - **Spacing zero overrides are preserved**: Composite `margin` / `padding` edits no longer drop explicit zero values, so theme presets and inline styles can reliably override component defaults with `0`.
 - **letterSpacing PDF support**: Now applied via `BlockElement.setCharacterSpacing()` in PDF rendering. Previously defined in the shared contract but not implemented in the PDF renderer.
