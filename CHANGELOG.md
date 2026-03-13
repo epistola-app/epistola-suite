@@ -19,6 +19,11 @@
 
 ### Known Limitations
 - **lineHeight in PDF**: Works in browser preview via CSS, but not yet supported in PDF rendering. iText's `lineHeight` API (`setMultipliedLeading`) is only available on `Paragraph` elements, not generic `BlockElement`. Our architecture creates `Div` containers first, then `Paragraphs` are added during TipTap conversion, making it difficult to apply lineHeight at the right stage. Deferred pending architectural consultation.
+- **em/rem unit behavior differs between editor and PDF**: `em` and `rem` values don't behave as expected in PDF output compared to browser preview.
+  - `em` values don't compound through nested elements (always relative to 12pt base, not parent element)
+  - `rem` is treated identically to `em` (not truly relative to document root font size)
+  - This can cause font size and spacing discrepancies between editor preview and PDF output
+  - **Workaround**: Use `px` or `pt` for consistent sizing between preview and PDF
 - **Template-model generated override cleanup in full builds**: `compileKotlin` now depends on generated override cleanup directly instead of relying on `generate.finalizedBy(...)`. This prevents bad generated `TemplateDocument` / `DocumentStyles` classes from leaking into downstream module compilation during full multi-module builds.
 
 ### Fixed

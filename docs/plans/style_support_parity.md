@@ -507,6 +507,28 @@ After the style contract is stable, return to `#191` and improve the theme edito
 
 **Status:** Deferred pending senior developer consultation on architecture approach.
 
+### em/rem Unit Support in PDF
+
+**Problem:** Relative units (`em` and `rem`) produce different results in browser preview vs PDF output.
+
+**Current Behavior:**
+- **Browser (CSS)**: `em` compounds through nested elements (relative to parent), `rem` is relative to document root font size
+- **PDF (iText)**: Both `em` and `rem` are resolved against a fixed 12pt base; no compounding occurs
+- **Result**: Font sizes and spacing can appear significantly different between editor preview and generated PDF
+
+**Root Cause:** iText only supports absolute units (pt, px, mm, cm). Our StyleApplicator converts `em`/`rem` to points at render time using a fixed base, but cannot track the actual computed font size through the element tree because:
+1. iText elements don't maintain parent references
+2. Our renderers are stateless and don't pass cascade context
+3. Proper CSS-style cascade would require architectural changes to track computed values
+
+**Potential Solutions:**
+1. **Remove em/rem entirely** - Only support px/pt for guaranteed parity (breaking change)
+2. **Pre-resolve at generation time** - Walk document tree before rendering, compute absolute values, pass them to renderers
+3. **Track cascade in RenderContext** - Add computed font size to RenderContext, update as we traverse, use it for em/rem conversion
+4. **Use iText's relative unit support** - Investigate if newer iText versions support relative units natively (currently using 9.5.0)
+
+**Status:** Documented as known limitation. Users should use `px` or `pt` for consistent results.
+
 ## Implementation Notes (2026-03-13) - Composite Spacing Pass
 
 ### What was implemented in the third pass
