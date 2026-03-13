@@ -13,10 +13,9 @@ import {
   renderColorInput,
   renderSelectInput,
   renderBoxInput,
-  type LinkMode,
+  type BoxLinkState,
   extractBoxDefaults,
   readBoxFromStyles,
-  expandBoxToStyles,
   type BoxPropertyMapping,
 } from './inputs/style-inputs.js'
 import {
@@ -34,8 +33,8 @@ export class EpistolaInspector extends LitElement {
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
 
-  // Track link modes for box inputs (margin, padding)
-  @state() private _boxLinkModes: Map<string, LinkMode> = new Map()
+  // Track link states for box inputs (margin, padding)
+  @state() private _boxLinkStates: Map<string, BoxLinkState> = new Map()
 
   override render() {
     if (!this.engine || !this.doc) {
@@ -378,23 +377,22 @@ export class EpistolaInspector extends LitElement {
         // Extract defaults from component definition
         const boxDefaults = extractBoxDefaults(def?.defaultStyles, mapping)
 
-        // Get current link mode for this field
-        const linkMode = this._boxLinkModes.get(prop.key) ?? 'none'
+        // Get current link state for this field
+        const linkState = this._boxLinkStates.get(prop.key) ?? { all: false, horizontal: false, vertical: false }
 
         return renderBoxInput({
+          id: prop.key,
           value: boxValue,
           defaults: boxDefaults,
           units: prop.units ?? ['px'],
-          linkMode,
+          linkState,
           onChange: (newValue) => {
-            // Expand box value to individual style properties
-            const styles = { ...inlineStyles }
-            expandBoxToStyles(prefix, newValue, styles)
-            onChange(styles)
+            // Pass the BoxValue directly - applyStyleFieldValue will handle expansion
+            onChange(newValue)
           },
-          onLinkModeChange: (newMode) => {
-            this._boxLinkModes = new Map(this._boxLinkModes)
-            this._boxLinkModes.set(prop.key, newMode)
+          onLinkStateChange: (newState) => {
+            this._boxLinkStates = new Map(this._boxLinkStates)
+            this._boxLinkStates.set(prop.key, newState)
           },
         })
       }

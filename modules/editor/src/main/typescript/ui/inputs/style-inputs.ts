@@ -12,7 +12,6 @@ import {
   parseBoxValue,
   type BoxValue,
   type ParsedUnit,
-  getEffectiveValue,
 } from '../../engine/style-values.js'
 
 // ---------------------------------------------------------------------------
@@ -93,166 +92,263 @@ export function renderColorInput(
 }
 
 // ---------------------------------------------------------------------------
-// Link mode type for box inputs
+// Link state for box inputs
 // ---------------------------------------------------------------------------
 
-export type LinkMode = 'all' | 'horizontal' | 'vertical' | 'none'
+export interface BoxLinkState {
+  all: boolean
+  horizontal: boolean
+  vertical: boolean
+}
 
 // ---------------------------------------------------------------------------
 // Box input: for margin, padding, border-radius, etc.
 // ---------------------------------------------------------------------------
 
 export interface BoxInputConfig {
+  id: string
   value: BoxValue
   defaults: BoxValue
   units: string[]
-  linkMode: LinkMode
+  linkState: BoxLinkState
   onChange: (value: BoxValue) => void
-  onLinkModeChange: (mode: LinkMode) => void
+  onLinkStateChange: (state: BoxLinkState) => void
 }
 
 export function renderBoxInput(config: BoxInputConfig): unknown {
-  const { value, defaults, units, linkMode, onChange, onLinkModeChange } = config
+  const { id: _id, value, defaults, units, linkState, onChange, onLinkStateChange } = config
   const defaultUnit = units[0] ?? 'px'
-  const sides = ['top', 'right', 'bottom', 'left'] as const
+  const { all, horizontal, vertical } = linkState
 
-  const getDisplayValue = (side: typeof sides[number]): ParsedUnit => {
-    const effective = getEffectiveValue(value, side, defaults[side] ?? `0${defaultUnit}`)
+  const getDisplayValue = (sideValue: string | undefined): ParsedUnit => {
+    const effective = sideValue ?? defaults.top ?? `0${defaultUnit}`
     return parseValueWithUnit(effective, defaultUnit)
   }
 
-  const isExplicit = (side: typeof sides[number]): boolean => {
-    return value[side] !== undefined
+  const handleAllChange = (newValue: string) => {
+    onChange({
+      top: newValue,
+      right: newValue,
+      bottom: newValue,
+      left: newValue,
+    })
   }
 
-  const handleSideChange = (side: typeof sides[number], newValue: string) => {
-    const newBoxValue: BoxValue = { ...value, [side]: newValue }
-
-    // Apply linking logic
-    if (linkMode === 'all') {
-      newBoxValue.right = newValue
-      newBoxValue.bottom = newValue
-      newBoxValue.left = newValue
-    } else if (linkMode === 'horizontal' && (side === 'left' || side === 'right')) {
-      newBoxValue.right = side === 'left' ? newValue : newValue
-      newBoxValue.left = side === 'right' ? newValue : newValue
-    } else if (linkMode === 'vertical' && (side === 'top' || side === 'bottom')) {
-      newBoxValue.top = side === 'bottom' ? newValue : newValue
-      newBoxValue.bottom = side === 'top' ? newValue : newValue
-    }
-
-    onChange(newBoxValue)
+  const handleHorizontalChange = (newValue: string) => {
+    onChange({
+      ...value,
+      top: newValue,
+      bottom: newValue,
+    })
   }
 
-  const handleClear = (side: typeof sides[number]) => {
-    const newBoxValue: BoxValue = { ...value, [side]: undefined }
-    onChange(newBoxValue)
+  const handleVerticalChange = (newValue: string) => {
+    onChange({
+      ...value,
+      right: newValue,
+      left: newValue,
+    })
+  }
+
+  const handleSideChange = (side: 'top' | 'right' | 'bottom' | 'left', newValue: string) => {
+    onChange({
+      ...value,
+      [side]: newValue,
+    })
+  }
+
+  const handleClearAll = () => {
+    onChange({
+      top: undefined,
+      right: undefined,
+      bottom: undefined,
+      left: undefined,
+    })
   }
 
   const handleUnitChange = (newUnit: string) => {
-    const newBoxValue: BoxValue = { top: undefined, right: undefined, bottom: undefined, left: undefined }
-    for (const side of sides) {
-      const current = getDisplayValue(side)
-      newBoxValue[side] = formatValueWithUnit(current.value, newUnit)
+    const convertSide = (sideValue: string | undefined): string | undefined => {
+      if (sideValue === undefined) return undefined
+      const parsed = parseValueWithUnit(sideValue, defaultUnit)
+      return formatValueWithUnit(parsed.value, newUnit)
     }
-    onChange(newBoxValue)
+
+    onChange({
+      top: convertSide(value.top),
+      right: convertSide(value.right),
+      bottom: convertSide(value.bottom),
+      left: convertSide(value.left),
+    })
   }
 
-  const setLinkMode = (mode: LinkMode) => {
-    onLinkModeChange(mode)
-
-    // If switching to a link mode, sync values appropriately
-    if (mode === 'all' && value.top !== undefined) {
-      const newValue = value.top
-      onChange({
-        top: newValue,
-        right: newValue,
-        bottom: newValue,
-        left: newValue,
-      })
-    } else if (mode === 'horizontal' && (value.left !== undefined || value.right !== undefined)) {
-      const newValue = value.left ?? value.right!
-      onChange({
-        ...value,
-        left: newValue,
-        right: newValue,
-      })
-    } else if (mode === 'vertical' && (value.top !== undefined || value.bottom !== undefined)) {
-      const newValue = value.top ?? value.bottom!
-      onChange({
-        ...value,
-        top: newValue,
-        bottom: newValue,
-      })
-    }
+  const toggleAll = () => {
+    const newAll = !all
+    onLinkStateChange({
+      all: newAll,
+      horizontal: newAll ? false : horizontal,
+      vertical: newAll ? false : vertical,
+    })
   }
+
+  const toggleHorizontal = () => {
+    const newHorizontal = !horizontal
+    onLinkStateChange({
+      all: newHorizontal ? false : all,
+      horizontal: newHorizontal,
+      vertical,
+    })
+  }
+
+  const toggleVertical = () => {
+    const newVertical = !vertical
+    onLinkStateChange({
+      all: newVertical ? false : all,
+      horizontal,
+      vertical: newVertical,
+    })
+  }
+
+  // Determine which inputs to show
+  const showAllInput = all
+  const showHorizontalInput = horizontal && !all
+  const showVerticalInput = vertical && !all
+  const showTopInput = !all && !horizontal
+  const showRightInput = !all && !vertical
+  const showBottomInput = !all && !horizontal
+  const showLeftInput = !all && !vertical
 
   return html`
     <div class="style-box-input">
       <div class="style-box-links">
         <label class="style-box-link-label" title="Link all sides">
           <input
-            type="radio"
-            name="link-mode"
-            .checked=${linkMode === 'all'}
-            @change=${() => setLinkMode('all')}
+            type="checkbox"
+            .checked=${all}
+            @change=${toggleAll}
           />
           <span>All</span>
         </label>
-        <label class="style-box-link-label" title="Link horizontal (left/right)">
+        <label class="style-box-link-label" title="Link top and bottom">
           <input
-            type="radio"
-            name="link-mode"
-            .checked=${linkMode === 'horizontal'}
-            @change=${() => setLinkMode('horizontal')}
+            type="checkbox"
+            .checked=${horizontal}
+            @change=${toggleHorizontal}
           />
           <span>Horizontal</span>
         </label>
-        <label class="style-box-link-label" title="Link vertical (top/bottom)">
+        <label class="style-box-link-label" title="Link right and left">
           <input
-            type="radio"
-            name="link-mode"
-            .checked=${linkMode === 'vertical'}
-            @change=${() => setLinkMode('vertical')}
+            type="checkbox"
+            .checked=${vertical}
+            @change=${toggleVertical}
           />
           <span>Vertical</span>
         </label>
-        <label class="style-box-link-label" title="No linking">
-          <input
-            type="radio"
-            name="link-mode"
-            .checked=${linkMode === 'none'}
-            @change=${() => setLinkMode('none')}
-          />
-          <span>None</span>
-        </label>
+        <button
+          class="style-box-clear"
+          title="Clear all to default"
+          @click=${handleClearAll}
+        >×</button>
       </div>
       <div class="style-box-sides">
-        ${sides.map(side => {
-    const displayValue = getDisplayValue(side)
-    const explicit = isExplicit(side)
-    return html`
-            <div class="style-box-side ${explicit ? 'is-explicit' : ''}">
-              <span class="style-box-label">${side[0].toUpperCase()}</span>
-              <input
-                type="number"
-                class="ep-input style-box-number"
-                .value=${String(displayValue.value)}
-                @change=${(e: Event) => {
-    const num = parseFloat((e.target as HTMLInputElement).value) || 0
-    handleSideChange(side, formatValueWithUnit(num, displayValue.unit))
-  }}
-              />
-              ${explicit ? html`
-                <button
-                  class="style-box-clear"
-                  title="Clear to default"
-                  @click=${() => handleClear(side)}
-                >×</button>
-              ` : nothing}
-            </div>
-          `
-  })}
+        ${showAllInput ? html`
+          <div class="style-box-group">
+            <span class="style-box-label">All</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.top).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleAllChange(formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
+        ${showHorizontalInput ? html`
+          <div class="style-box-group">
+            <span class="style-box-label">T/B</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.top).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleHorizontalChange(formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
+        ${showVerticalInput ? html`
+          <div class="style-box-group">
+            <span class="style-box-label">R/L</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.left).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleVerticalChange(formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
+        ${showTopInput ? html`
+          <div class="style-box-side">
+            <span class="style-box-label">T</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.top).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleSideChange('top', formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
+        ${showRightInput ? html`
+          <div class="style-box-side">
+            <span class="style-box-label">R</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.right).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleSideChange('right', formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
+        ${showBottomInput ? html`
+          <div class="style-box-side">
+            <span class="style-box-label">B</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.bottom).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleSideChange('bottom', formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
+        ${showLeftInput ? html`
+          <div class="style-box-side">
+            <span class="style-box-label">L</span>
+            <input
+              type="number"
+              class="ep-input style-box-number"
+              .value=${String(getDisplayValue(value.left).value)}
+              @change=${(e: Event) => {
+                const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                handleSideChange('left', formatValueWithUnit(num, defaultUnit))
+              }}
+            />
+          </div>
+        ` : nothing}
       </div>
       ${units.length > 1 ? html`
         <select
@@ -270,17 +366,19 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
  * @deprecated Use renderBoxInput instead.
  */
 export function renderSpacingInput(
+  id: string,
   value: unknown,
   units: string[],
   onChange: (value: BoxValue) => void,
 ): unknown {
   return renderBoxInput({
+    id,
     value: value as BoxValue,
     defaults: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
     units,
-    linkMode: 'none',
+    linkState: { all: false, horizontal: false, vertical: false },
     onChange,
-    onLinkModeChange: () => { /* no-op for deprecated function */ },
+    onLinkStateChange: () => { /* no-op for deprecated function */ },
   })
 }
 

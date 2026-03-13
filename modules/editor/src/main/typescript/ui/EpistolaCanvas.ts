@@ -458,7 +458,10 @@ export class EpistolaCanvas extends LitElement {
           resolvedStyles,
           applicableStyles,
         );
-        const textStyles = toStyleMap(filteredStyles);
+        // Filter to only inheritable typography properties for text content
+        // Layout properties (margin, padding, width, etc.) are applied at block level
+        const textOnlyStyles = filterToInheritableStyles(filteredStyles);
+        const textStyles = toStyleMap(textOnlyStyles);
         return html`
           <epistola-text-editor
             .nodeId=${nodeId}
@@ -509,6 +512,40 @@ function filterByApplicableStyles(
 /** Convert a camelCase key to kebab-case CSS property name. */
 function camelToKebab(key: string): string {
   return key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+}
+
+/**
+ * Filter styles to only inheritable typography properties.
+ * Removes layout properties (margin, padding, width, etc.) that are applied at block level.
+ * Keeps typography properties (font, color, textAlign, etc.) for text content.
+ */
+function filterToInheritableStyles(
+  styles: Record<string, unknown>,
+): Record<string, unknown> {
+  const layoutPrefixes = [
+    'margin',
+    'padding',
+    'width',
+    'height',
+    'background',
+    'border',
+    'position',
+    'display',
+    'float',
+    'clear',
+  ];
+
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(styles)) {
+    // Skip layout properties
+    const isLayoutProperty = layoutPrefixes.some(
+      (prefix) => key === prefix || key.startsWith(prefix),
+    );
+    if (!isLayoutProperty && value != null) {
+      result[key] = value;
+    }
+  }
+  return result;
 }
 
 /**
