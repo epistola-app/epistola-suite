@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **Typography Scale System**: Implemented dynamic font size calculation for text elements based on a configurable typography scale. Both editor and PDF now calculate heading sizes (h1, h2, h3) using multipliers from `default-style-system.json`: heading1=2.0×, heading2=1.5×, heading3=1.25× base font size. The scale is defined in the schema and injected as CSS variables in the editor, while PDF uses runtime calculation via `TipTapConverter`. Text blocks with explicit `fontSize` now correctly scale their headings proportionally in both preview and PDF output.
 - **Shared style-system contract foundation**: Added a schema-first `style-system` contract in `template-model` with canonical style properties plus editor field metadata. The first strict pass admits `fontSize`, `color`, `textAlign`, `backgroundColor`, and longhand `margin*` / `padding*` properties.
 - **Typography properties in shared style contract**: Added `fontFamily`, `fontWeight`, `fontStyle`, `lineHeight`, and `letterSpacing` to the canonical style system. All five are inheritable and cascade from document to block styles. Includes new `number` value kind for unitless values like lineHeight multipliers.
 - **Extended PDF font support**: Added Liberation Serif and Liberation Mono fonts alongside Liberation Sans. PDF rendering now supports three font families with proper bold/italic variants selected via weight (>=500 = bold) and style (italic flag).
@@ -11,6 +12,7 @@
 
 ### Changed
 - **Editor style registry now derives from shared contract**: The editor compatibility registry is now built from shared `template-model` data instead of a TS-only source of truth. This keeps editor field rendering and inheritable-style metadata aligned with the shared contract.
+- **StyleRegistry to StyleSystem migration**: Removed the dual `StyleRegistry`/`StyleSystem` architecture. Eliminated `style-registry.schema.json`, generated `style-registry.ts`, and the adapter layer (`style-registry.ts` + tests). Created `style-fields.ts` as a thin utility module that works directly with `StyleSystem`. This reduces maintenance overhead and establishes a single source of truth for style definitions.
 
 ### Changed
 - **Composite spacing fields with default inheritance**: Refactored `margin` and `padding` editors to use a generic `BoxValue` pattern where `undefined` sides inherit from component defaults. Added sophisticated linking system with four modes: All, Horizontal, Vertical, None. Clear buttons appear on explicit values, allowing users to reset to defaults. This pattern is reusable for future composite properties like border-radius and border-width.

@@ -35,12 +35,37 @@ class TextNodeRenderer : NodeRenderer {
         // Convert TipTap content to iText elements
         @Suppress("UNCHECKED_CAST")
         val content = node.props?.get("content") as? Map<String, Any>
-        val elements = context.tipTapConverter.convert(content, context.effectiveData, context.loopContext, context.fontCache)
+
+        // Extract base font size from node styles for typography scale calculations
+        val baseFontSizePt = node.styles?.get("fontSize")?.toString()?.let {
+            parseFontSize(it, context.renderingDefaults.baseFontSizePt)
+        } ?: context.renderingDefaults.baseFontSizePt
+
+        val elements = context.tipTapConverter.convert(
+            content,
+            context.effectiveData,
+            context.loopContext,
+            context.fontCache,
+            context.documentStyles,
+            baseFontSizePt,
+        )
 
         for (element in elements) {
             div.add(element)
         }
 
         return listOf(div)
+    }
+
+    /**
+     * Parse a font size string to points.
+     * Supports: pt (direct), px (converted), em/rem (relative to base)
+     */
+    private fun parseFontSize(fontSize: String, baseFontSizePt: Float): Float? = when {
+        fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
+        fontSize.endsWith("px") -> fontSize.removeSuffix("px").toFloatOrNull()?.times(0.75f)
+        fontSize.endsWith("em") -> fontSize.removeSuffix("em").toFloatOrNull()?.times(baseFontSizePt)
+        fontSize.endsWith("rem") -> fontSize.removeSuffix("rem").toFloatOrNull()?.times(baseFontSizePt)
+        else -> fontSize.toFloatOrNull()
     }
 }

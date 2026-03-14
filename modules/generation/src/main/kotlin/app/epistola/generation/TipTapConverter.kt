@@ -2,6 +2,7 @@ package app.epistola.generation
 
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.pdf.RenderingDefaults
+import app.epistola.template.model.DefaultStyleSystem
 import app.epistola.template.model.ExpressionLanguage
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.kernel.pdf.action.PdfAction
@@ -43,13 +44,15 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?> = emptyMap(),
         fontCache: app.epistola.generation.pdf.FontCache,
+        documentStyles: app.epistola.template.model.DocumentStyles?,
+        baseFontSizePt: Float = renderingDefaults.baseFontSizePt,
     ): kotlin.collections.List<IBlockElement> {
         if (content == null) return emptyList()
 
         @Suppress("UNCHECKED_CAST")
         val nodes = content["content"] as? kotlin.collections.List<Map<String, Any>> ?: return emptyList()
 
-        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache) }
+        return nodes.mapNotNull { node -> convertNode(node, data, loopContext, fontCache, documentStyles, baseFontSizePt) }
     }
 
     private fun convertNode(
@@ -57,12 +60,14 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        documentStyles: app.epistola.template.model.DocumentStyles?,
+        baseFontSizePt: Float,
     ): IBlockElement? {
         val type = node["type"] as? String ?: return null
 
         return when (type) {
             "paragraph" -> convertParagraph(node, data, loopContext, fontCache)
-            "heading" -> convertHeading(node, data, loopContext, fontCache)
+            "heading" -> convertHeading(node, data, loopContext, fontCache, documentStyles, baseFontSizePt)
             "bulletList" -> convertBulletList(node, data, loopContext, fontCache)
             "orderedList" -> convertOrderedList(node, data, loopContext, fontCache)
             else -> null
@@ -92,6 +97,8 @@ class TipTapConverter(
         data: Map<String, Any?>,
         loopContext: Map<String, Any?>,
         fontCache: app.epistola.generation.pdf.FontCache,
+        documentStyles: app.epistola.template.model.DocumentStyles?,
+        baseFontSizePt: Float,
     ): Paragraph {
         @Suppress("UNCHECKED_CAST")
         val attrs = node["attrs"] as? Map<String, Any>
@@ -100,8 +107,14 @@ class TipTapConverter(
         val paragraph = Paragraph()
         paragraph.setFont(fontCache.bold)
 
-        // Set font size based on heading level
-        val fontSize = renderingDefaults.headingFontSize(level)
+        // Use the provided base font size for typography scale calculations
+        val elementType = when (level) {
+            1 -> DefaultStyleSystem.TypographyElementType.HEADING1
+            2 -> DefaultStyleSystem.TypographyElementType.HEADING2
+            3 -> DefaultStyleSystem.TypographyElementType.HEADING3
+            else -> DefaultStyleSystem.TypographyElementType.PARAGRAPH
+        }
+        val fontSize = DefaultStyleSystem.calculateFontSize(elementType, baseFontSizePt, null)
         paragraph.setFontSize(fontSize)
 
         // Set margins to match editor CSS (proportional to font size)
@@ -329,5 +342,21 @@ class TipTapConverter(
         }
     } catch (_: Exception) {
         null
+    }
+
+    /**
+     * Parse a font size string to points.
+     * Supports: pt (direct), px (converted), em/rem (relative to base)
+     *
+     * @param fontSize The font size string (e.g., "12pt", "16px", "1.5em")
+     * @param baseFontSizePt The base font size for relative calculations
+     * @return The font size in points, or null if parsing fails
+     */
+    private fun parseFontSize(fontSize: String, baseFontSizePt: Float): Float? = when {
+        fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
+        fontSize.endsWith("px") -> fontSize.removeSuffix("px").toFloatOrNull()?.times(0.75f)
+        fontSize.endsWith("em") -> fontSize.removeSuffix("em").toFloatOrNull()?.times(baseFontSizePt)
+        fontSize.endsWith("rem") -> fontSize.removeSuffix("rem").toFloatOrNull()?.times(baseFontSizePt)
+        else -> fontSize.toFloatOrNull()
     }
 }

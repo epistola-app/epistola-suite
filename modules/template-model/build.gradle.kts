@@ -78,4 +78,11 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-annotations:2.21")
     implementation(libs.jackson3.kotlin)
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+
+    // Testing
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }

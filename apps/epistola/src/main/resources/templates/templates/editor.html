@@ -11,6 +11,17 @@
     <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins != null and enabledPlugins.contains('ai')}">
     <!-- TODO: Remove static fallback once backend provides enabledPlugins -->
     <link rel="stylesheet" th:href="@{/editor/ai-plugin.css}" th:if="${enabledPlugins == null}">
+
+    <!-- Typography scale CSS variables — injected from style system configuration -->
+    <style th:inline="css">
+      .prosemirror-container {
+        --ep-paragraph-font-size: [[${typographyScale.paragraph.fontSizeMultiplier}]]em;
+        --ep-heading1-font-size: [[${typographyScale.heading1.fontSizeMultiplier}]]em;
+        --ep-heading2-font-size: [[${typographyScale.heading2.fontSizeMultiplier}]]em;
+        --ep-heading3-font-size: [[${typographyScale.heading3.fontSizeMultiplier}]]em;
+      }
+    </style>
+
     <style>
         .editor-page {
             display: flex;

@@ -204,5 +204,19 @@
         }
       ]
     }
-  ]
+  ],
+  "typographyScale": {
+    "paragraph": {
+      "fontSizeMultiplier": 1.0
+    },
+    "heading1": {
+      "fontSizeMultiplier": 2.0
+    },
+    "heading2": {
+      "fontSizeMultiplier": 1.5
+    },
+    "heading3": {
+      "fontSizeMultiplier": 1.25
+    }
+  }
 }
