@@ -6,9 +6,9 @@
  */
 
 import { html, nothing } from 'lit'
-import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
+import type { StyleField } from '@epistola/template-model/generated/style-system.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
-import { defaultStyleRegistry, readStyleFieldValue } from '../../engine/style-registry.js'
+import { defaultStyleFieldGroups, readStyleFieldValue } from '../../engine/style-fields.js'
 import {
   renderUnitInput,
   renderColorInput,
@@ -129,17 +129,17 @@ function renderPresetBody(
       </div>
 
       <!-- Style properties -->
-      ${defaultStyleRegistry.groups.map(group => html`
+      ${defaultStyleFieldGroups.map(group => html`
           <div class="inspector-style-group">
             <div class="inspector-style-group-label">${group.label}</div>
-            ${group.properties.map(prop => {
-              const value = readStyleFieldValue(prop.key, styles)
-              return renderPresetStyleProperty(
+            ${group.fields.map(field => {
+              const value = readStyleFieldValue(field.key, styles)
+              return renderPresetStyleField(
                 name,
-                prop,
+                field,
                 value,
                 styles,
-              (v) => state.updatePresetStyle(name, prop.key, v),
+              (v) => state.updatePresetStyle(name, field.key, v),
             )
           })}
         </div>
@@ -148,39 +148,39 @@ function renderPresetBody(
   `
 }
 
-function renderPresetStyleProperty(
+function renderPresetStyleField(
   presetName: string,
-  prop: StyleProperty,
+  field: StyleField,
   value: unknown,
   inlineStyles: Record<string, unknown>,
   onChange: (value: unknown) => void,
 ): unknown {
   return html`
     <div class="inspector-field">
-      <label class="inspector-field-label">${prop.label}</label>
-      ${renderPresetStyleInput(presetName, prop, value, inlineStyles, onChange)}
+      <label class="inspector-field-label">${field.label}</label>
+      ${renderPresetStyleInput(presetName, field, value, inlineStyles, onChange)}
     </div>
   `
 }
 
 function renderPresetStyleInput(
   presetName: string,
-  prop: StyleProperty,
+  field: StyleField,
   value: unknown,
   inlineStyles: Record<string, unknown>,
   onChange: (value: unknown) => void,
 ): unknown {
-  switch (prop.type) {
+  switch (field.control) {
     case 'select':
       return renderSelectInput(
         value,
-        prop.options ?? [],
+        field.options ?? [],
         (v: string) => onChange(v || undefined),
       )
     case 'unit':
       return renderUnitInput(
         value,
-        prop.units ?? ['px'],
+        field.units ?? ['px'],
         (v: string) => onChange(v),
       )
     case 'color':
@@ -190,7 +190,7 @@ function renderPresetStyleInput(
       )
     case 'spacing': {
       // Get the mapping for this spacing property (margin or padding)
-      const prefix = prop.key // 'margin' or 'padding'
+      const prefix = field.key // 'margin' or 'padding'
 
       // Extract current box value from inline styles
       const boxValue = readBoxFromStyles(prefix, inlineStyles) ?? {
@@ -210,13 +210,13 @@ function renderPresetStyleInput(
 
       // Get current link state for this field
       const linkModes = getPresetLinkModes(presetName)
-      const linkState = linkModes.get(prop.key) ?? { all: false, horizontal: false, vertical: false }
+      const linkState = linkModes.get(field.key) ?? { all: false, horizontal: false, vertical: false }
 
       return renderBoxInput({
-        id: prop.key,
+        id: field.key,
         value: boxValue,
         defaults: boxDefaults,
-        units: prop.units ?? ['px'],
+        units: field.units ?? ['px'],
         linkState,
         onChange: (newValue) => {
           // Expand box value to individual style properties
@@ -225,7 +225,7 @@ function renderPresetStyleInput(
           onChange(styles)
         },
         onLinkStateChange: (newState) => {
-          linkModes.set(prop.key, newState)
+          linkModes.set(field.key, newState)
         },
       })
     }

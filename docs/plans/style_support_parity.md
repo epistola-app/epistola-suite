@@ -25,6 +25,158 @@ Create one schema-first shared style contract so that:
 - composite editor controls such as `margin` and `padding` map cleanly to canonical stored properties
 - drift is caught by tests instead of being discovered manually
 
+## Architecture Overview
+
+This section provides a high-level view of the style system refactoring from dual `StyleRegistry`/`StyleSystem` architecture to a single-source-of-truth `StyleSystem`.
+
+### Before: Dual System Architecture
+
+The codebase had **two parallel style definition systems**:
+
+1. **`StyleSystem`** - The canonical source defining:
+   - `canonicalProperties`: CSS properties supported by both browser preview and PDF rendering
+   - `editorGroups`: UI field definitions for the style inspector
+
+2. **`StyleRegistry`** - A duplicate layer that:
+   - Was generated from a separate JSON schema (`style-registry.schema.json`)
+   - Required an adapter (`style-registry.ts`) to map `StyleSystem` → `StyleRegistry`
+   - Added maintenance burden (schema → generated types → adapter)
+
+```mermaid
+flowchart TB
+    subgraph Data["Data Layer"]
+        SS_JSON["default-style-system.json"]
+        SR_SCHEMA["style-registry.schema.json"]
+    end
+
+    subgraph Generation["Code Generation"]
+        SS_GEN["style-system.ts (generated types)"]
+        SR_GEN["style-registry.ts (generated types)"]
+        KOTLIN_GEN["StyleRegistry.kt (Kotlin generated)"]
+    end
+
+    subgraph Editor["Editor (TypeScript)"]
+        SS_IMPORT["import defaultStyleSystem"]
+        SR_ADAPTER["style-registry.ts (adapter layer)"]
+        ENGINE["EditorEngine"]
+        INSPECTOR["EpistolaInspector"]
+        THEME_EDITOR["ThemeEditor"]
+    end
+
+    subgraph PDF["PDF Generation (Kotlin)"]
+        DEFAULT_SS["DefaultStyleSystem (reads JSON)"]
+        STYLE_APP["StyleApplicator.kt"]
+        RENDERERS["Node Renderers"]
+    end
+
+    SS_JSON --> SS_GEN
+    SR_SCHEMA --> SR_GEN
+    SR_SCHEMA --> KOTLIN_GEN
+    
+    SS_GEN --> SS_IMPORT
+    SS_IMPORT --> SR_ADAPTER
+    SR_GEN --> SR_ADAPTER
+    SR_ADAPTER --> ENGINE
+    SR_ADAPTER --> INSPECTOR
+    SR_ADAPTER --> THEME_EDITOR
+    
+    SS_JSON --> DEFAULT_SS
+    DEFAULT_SS --> STYLE_APP
+    STYLE_APP --> RENDERERS
+```
+
+### After: Single Source of Truth
+
+The `StyleRegistry` has been eliminated. The editor now uses `StyleSystem` directly through a thin utility module (`style-fields.ts`).
+
+```mermaid
+flowchart TB
+    subgraph Data["Data Layer"]
+        SS_JSON["default-style-system.json"]
+    end
+
+    subgraph Generation["Code Generation"]
+        SS_GEN["style-system.ts (generated types)"]
+        KOTLIN_SS["StyleSystem.kt (Kotlin generated)"]
+    end
+
+    subgraph Editor["Editor (TypeScript)"]
+        SS_IMPORT["import defaultStyleSystem"]
+        STYLE_FIELDS["style-fields.ts (utility)"]
+        ENGINE["EditorEngine"]
+        INSPECTOR["EpistolaInspector"]
+        THEME_EDITOR["ThemeEditor"]
+    end
+
+    subgraph PDF["PDF Generation (Kotlin)"]
+        DEFAULT_SS["DefaultStyleSystem (reads JSON)"]
+        STYLE_APP["StyleApplicator.kt"]
+        RENDERERS["Node Renderers"]
+    end
+
+    SS_JSON --> SS_GEN
+    SS_JSON --> KOTLIN_SS
+    
+    SS_GEN --> SS_IMPORT
+    SS_IMPORT --> STYLE_FIELDS
+    STYLE_FIELDS --> ENGINE
+    STYLE_FIELDS --> INSPECTOR
+    STYLE_FIELDS --> THEME_EDITOR
+    
+    SS_JSON --> DEFAULT_SS
+    DEFAULT_SS --> STYLE_APP
+    STYLE_APP --> RENDERERS
+```
+
+### Key Improvements
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| **JSON Schemas** | 2 (`style-system`, `style-registry`) | 1 (`style-system`) |
+| **Generated TypeScript** | 2 files | 1 file |
+| **Adapter Code** | ~267 lines in `style-registry.ts` | ~213 lines in `style-fields.ts` |
+| **Type Safety** | Required casting (`field.control as StyleProperty['type']`) | Direct property access |
+| **API Complexity** | `EditorEngine` required `styleRegistry` parameter | No `styleRegistry` parameter needed |
+| **Cross-Platform Parity** | Risk of drift between TS and Kotlin | Both read from same `default-style-system.json` |
+
+### Style Cascade Flow
+
+Both TypeScript and Kotlin now derive inheritable keys from the same source:
+
+```mermaid
+sequenceDiagram
+    participant Editor as Editor (TypeScript)
+    participant System as default-style-system.json
+    participant PDF as PDF Renderer (Kotlin)
+
+    Editor->>System: Load canonicalProperties
+    System-->>Editor: Filter inheritable: true
+    Editor->>Editor: Apply to document/node styles
+    
+    PDF->>System: Load via DefaultStyleSystem
+    System-->>PDF: Filter inheritable: true
+    PDF->>PDF: Apply to BlockElement styles
+```
+
+### Files Changed
+
+**Deleted:**
+- `modules/template-model/schemas/style-registry.schema.json`
+- `modules/template-model/generated/style-registry.ts`
+- `modules/editor/src/main/typescript/engine/style-registry.ts`
+- `modules/editor/src/main/typescript/engine/style-registry.test.ts`
+
+**Created:**
+- `modules/editor/src/main/typescript/engine/style-fields.ts` - Thin utility module working directly with `StyleSystem`
+
+**Modified:**
+- `EditorEngine.ts` - Removed `styleRegistry` parameter, uses `getInheritableKeys()` directly
+- `EpistolaInspector.ts` - Uses `defaultStyleFieldGroups` and `isStyleFieldInheritable()`
+- `ThemeEditorState.ts` - Updated imports
+- `DocumentStylesSection.ts` - Migrated from `StyleProperty` to `StyleField`
+- `PresetItem.ts` - Migrated from `StyleProperty` to `StyleField`
+- `styles.ts` and `styles.test.ts` - Simplified to use no parameters
+
 ## Design Decisions
 
 - **Schema-first**: the source of truth lives in `modules/template-model`, not in editor-only TypeScript or Kotlin-only code
