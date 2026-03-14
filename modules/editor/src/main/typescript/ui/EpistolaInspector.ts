@@ -16,6 +16,7 @@ import {
   renderBorderInput,
   renderBorderRadiusInput,
   type BoxLinkState,
+  type BorderLinkState,
   extractBoxDefaults,
   readBoxFromStyles,
   type BoxPropertyMapping,
@@ -41,6 +42,9 @@ export class EpistolaInspector extends LitElement {
 
   // Track link states for box inputs (margin, padding)
   @state() private _boxLinkStates: Map<string, BoxLinkState> = new Map()
+
+  // Track link states for border inputs
+  @state() private _borderLinkStates: Map<string, BorderLinkState> = new Map()
 
   override render() {
     if (!this.engine || !this.doc) {
@@ -413,12 +417,20 @@ export class EpistolaInspector extends LitElement {
           bottom: { width: undefined, style: undefined, color: undefined },
           left: { width: undefined, style: undefined, color: undefined },
         }
+        // Get current link state for this field (scoped to node)
+        const borderStateKey = nodeId ? `${nodeId}:${field.key}` : field.key
+        const linkState = this._borderLinkStates.get(borderStateKey) ?? { all: false, horizontal: false, vertical: false }
         return renderBorderInput({
           id: field.key,
           value: borderValue,
           units: field.units ?? ['px'],
           styleOptions: field.options ?? [],
+          linkState,
           onChange: (newValue) => onChange(newValue),
+          onLinkStateChange: (newState) => {
+            this._borderLinkStates = new Map(this._borderLinkStates)
+            this._borderLinkStates.set(borderStateKey, newState)
+          },
         })
       }
       case 'borderRadius': {
