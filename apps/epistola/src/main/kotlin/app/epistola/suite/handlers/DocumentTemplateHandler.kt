@@ -216,6 +216,7 @@ class DocumentTemplateHandler(
                 "templateModel" to context.templateModel,
                 "dataExamples" to context.dataExamples,
                 "dataModel" to context.dataModel,
+                "typographyScale" to app.epistola.template.model.DefaultStyleSystem.data.typographyScale,
             ),
         )
     }

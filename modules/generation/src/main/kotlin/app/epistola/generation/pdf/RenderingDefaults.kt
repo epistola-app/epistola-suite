@@ -29,10 +29,8 @@ data class RenderingDefaults(
     // -- Component spacing (baseline marginBottom per component type) --
     val componentSpacing: Map<String, Map<String, Any>>,
 
-    // -- Typography: heading sizes (level -> pt) --
-    val headingSizes: Map<Int, Float>,
-
     // -- Typography: heading vertical margins (level -> pt) --
+    // Note: Heading font sizes now come from DefaultStyleSystem.typographyScale
     val headingMargins: Map<Int, Float>,
 
     // -- Typography: paragraph --
@@ -78,11 +76,7 @@ data class RenderingDefaults(
                 "datatable" to mapOf("marginBottom" to "0.5em"),
                 "image" to mapOf("marginBottom" to "0.5em"),
             ),
-            headingSizes = mapOf(
-                1 to 24f, // 2em
-                2 to 18f, // 1.5em
-                3 to 14f, // 1.17em
-            ),
+            // Note: Heading font sizes now come from DefaultStyleSystem.typographyScale
             headingMargins = mapOf(
                 1 to 9.6f, // 0.4em × 24pt
                 2 to 5.4f, // 0.3em × 18pt
@@ -113,9 +107,6 @@ data class RenderingDefaults(
          */
         fun forVersion(version: Int): RenderingDefaults = REGISTRY[version] ?: throw IllegalArgumentException("Unknown rendering defaults version: $version")
     }
-
-    /** Default heading font size for the given level. Falls back to [baseFontSizePt] for levels not in the map. */
-    fun headingFontSize(level: Int): Float = headingSizes[level] ?: baseFontSizePt
 
     /** Default heading vertical margin for the given level. Falls back to a proportional value for unknown levels. */
     fun headingMargin(level: Int): Float = headingMargins[level] ?: (0.2f * baseFontSizePt)

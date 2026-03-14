@@ -14,9 +14,20 @@
       "type": "array",
       "items": { "$ref": "#/$defs/StyleFieldGroup" },
       "description": "Ordered editor field groups used to render style controls."
+    },
+    "typographyScale": {
+      "type": "object",
+      "properties": {
+        "paragraph": { "$ref": "#/$defs/TypographyScaleEntry" },
+        "heading1": { "$ref": "#/$defs/TypographyScaleEntry" },
+        "heading2": { "$ref": "#/$defs/TypographyScaleEntry" },
+        "heading3": { "$ref": "#/$defs/TypographyScaleEntry" }
+      },
+      "required": ["paragraph", "heading1", "heading2", "heading3"],
+      "description": "Font size multipliers for text elements, applied as baseFontSize × multiplier."
     }
   },
-  "required": ["canonicalProperties", "editorGroups"],
+  "required": ["canonicalProperties", "editorGroups", "typographyScale"],
   "additionalProperties": false,
   "$defs": {
     "CanonicalStyleProperty": {
@@ -157,6 +168,17 @@
         "value": { "type": "string" }
       },
       "required": ["label", "value"],
+      "additionalProperties": false
+    },
+    "TypographyScaleEntry": {
+      "type": "object",
+      "properties": {
+        "fontSizeMultiplier": {
+          "type": "number",
+          "description": "Multiplier applied to base font size to calculate effective font size."
+        }
+      },
+      "required": ["fontSizeMultiplier"],
       "additionalProperties": false
     }
   }

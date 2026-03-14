@@ -17,6 +17,16 @@ export interface StyleSystem {
    * Ordered editor field groups used to render style controls.
    */
   editorGroups: StyleFieldGroup[];
+  /**
+   * Font size multipliers for text elements, applied as baseFontSize × multiplier.
+   */
+  typographyScale: {
+    paragraph: TypographyScaleEntry;
+    heading1: TypographyScaleEntry;
+    heading2: TypographyScaleEntry;
+    heading3: TypographyScaleEntry;
+    [k: string]: unknown;
+  };
 }
 export interface CanonicalStyleProperty {
   /**
@@ -96,4 +106,10 @@ export interface BorderRadiusProperties {
 export interface StyleOption {
   label: string;
   value: string;
+}
+export interface TypographyScaleEntry {
+  /**
+   * Multiplier applied to base font size to calculate effective font size.
+   */
+  fontSizeMultiplier: number;
 }

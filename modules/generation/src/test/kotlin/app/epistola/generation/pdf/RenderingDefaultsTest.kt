@@ -78,18 +78,8 @@ class RenderingDefaultsTest {
     // -----------------------------------------------------------------------
     // Typography
     // -----------------------------------------------------------------------
-
-    @Test
-    fun `V1 heading font sizes`() {
-        assertEquals(24f, RenderingDefaults.V1.headingFontSize(1))
-        assertEquals(18f, RenderingDefaults.V1.headingFontSize(2))
-        assertEquals(14f, RenderingDefaults.V1.headingFontSize(3))
-    }
-
-    @Test
-    fun `headingFontSize falls back to baseFontSizePt for unknown level`() {
-        assertEquals(RenderingDefaults.V1.baseFontSizePt, RenderingDefaults.V1.headingFontSize(4))
-    }
+    // Note: Heading font sizes now come from DefaultStyleSystem.typographyScale
+    // These tests verify the margin settings which are still managed by RenderingDefaults
 
     @Test
     fun `V1 heading margins`() {
