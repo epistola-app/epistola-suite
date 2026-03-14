@@ -9,7 +9,6 @@ import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/in
 import { type FieldPath, extractFieldPaths } from './schema-paths.js'
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js'
 import type { Theme } from '@epistola/template-model/generated/theme.js'
-import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import { type DocumentIndexes, buildIndexes } from './indexes.js'
 import { type AnyCommand, type CommandResult, applyCommand } from './commands.js'
 import { UndoStack } from './undo.js'
@@ -19,7 +18,6 @@ import { TextChange } from './text-change.js'
 import type { TextChangeOps } from './undo.js'
 import type { ComponentRegistry } from './registry.js'
 import { deepFreeze } from './freeze.js'
-import { defaultStyleRegistry } from './style-registry.js'
 import { EventEmitter, type EngineEvents } from './events.js'
 import {
   getInheritableKeys,
@@ -46,7 +44,6 @@ export class EditorEngine {
   private _undoStack: UndoStack
   private _selectedNodeId: NodeId | null = null
   readonly registry: ComponentRegistry
-  readonly styleRegistry: StyleRegistry
   private _theme: Theme | undefined
   private _resolvedDocStyles!: Record<string, unknown>
   private _inheritableKeys: Set<string>
@@ -69,15 +66,14 @@ export class EditorEngine {
   constructor(
     doc: TemplateDocument,
     registry: ComponentRegistry,
-    options?: { theme?: Theme; styleRegistry?: StyleRegistry; undoDepth?: number; dataModel?: object; dataExamples?: object[] },
+    options?: { theme?: Theme; undoDepth?: number; dataModel?: object; dataExamples?: object[] },
   ) {
     this.registry = registry
-    this.styleRegistry = options?.styleRegistry ?? defaultStyleRegistry
     this._theme = options?.theme
     this._doc = deepFreeze(structuredClone(doc))
     this._indexes = buildIndexes(this._doc)
     this._undoStack = new UndoStack(options?.undoDepth ?? 100)
-    this._inheritableKeys = getInheritableKeys(this.styleRegistry)
+    this._inheritableKeys = getInheritableKeys()
     this._dataModel = options?.dataModel
     this._dataExamples = options?.dataExamples
     this._recomputeStyles()

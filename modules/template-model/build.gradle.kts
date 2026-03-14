@@ -38,7 +38,6 @@ configure<JSONSchemaCodegen> {
         inputFile(file("schemas/template-document.schema.json"))
         inputFile(file("schemas/theme.schema.json"))
         inputFile(file("schemas/component-manifest.schema.json"))
-        inputFile(file("schemas/style-registry.schema.json"))
         inputFile(file("schemas/style-system.schema.json"))
     }
 }

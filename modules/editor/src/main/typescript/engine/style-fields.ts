@@ -1,9 +1,5 @@
 import { defaultStyleSystem } from '@epistola/template-model/style-system'
-import type { StyleSystem } from '@epistola/template-model/generated/style-system.js'
-import type {
-  StyleProperty,
-  StyleRegistry,
-} from '@epistola/template-model/generated/style-registry.js'
+import type { StyleField } from '@epistola/template-model/generated/style-system.js'
 import {
   expandBorderRadiusToStyles,
   expandBorderToStyles,
@@ -12,20 +8,20 @@ import {
   readBorderRadiusFromStyles,
 } from './style-values.js'
 
-type StyleFieldDefinition = StyleSystem['editorGroups'][number]['fields'][number]
+export type { StyleField }
 
 const canonicalPropertiesByKey = new Map(
   defaultStyleSystem.canonicalProperties.map(property => [property.key, property]),
 )
 
-const styleFieldsByKey = new Map<string, StyleFieldDefinition>()
+const styleFieldsByKey = new Map<string, StyleField>()
 for (const group of defaultStyleSystem.editorGroups) {
   for (const field of group.fields) {
     styleFieldsByKey.set(field.key, field)
   }
 }
 
-function getMappedPropertyKeys(field: StyleFieldDefinition): string[] {
+function getMappedPropertyKeys(field: StyleField): string[] {
   if (field.propertyKey) return [field.propertyKey]
   if (field.spacingProperties) {
     return [
@@ -38,45 +34,49 @@ function getMappedPropertyKeys(field: StyleFieldDefinition): string[] {
   return []
 }
 
-function isFieldInheritable(field: StyleFieldDefinition): boolean {
+function isFieldInheritable(field: StyleField): boolean {
   const propertyKeys = getMappedPropertyKeys(field)
   return propertyKeys.length > 0 && propertyKeys.every(
     propertyKey => canonicalPropertiesByKey.get(propertyKey)?.inheritable === true,
   )
 }
 
-function toLegacyStyleProperty(field: StyleFieldDefinition): StyleProperty {
-  return {
-    key: field.key,
-    label: field.label,
-    type: field.control as StyleProperty['type'],
-    options: field.options?.map(option => ({
-      label: option.label,
-      value: option.value,
-    })),
-    units: field.units,
-    inheritable: isFieldInheritable(field),
-  }
-}
+/**
+ * All editor field groups from the style system.
+ * UI components iterate these groups to render style controls.
+ */
+export const defaultStyleFieldGroups = defaultStyleSystem.editorGroups
 
-export const defaultStyleRegistry: StyleRegistry = {
-  groups: defaultStyleSystem.editorGroups.map(group => ({
-    name: group.name,
-    label: group.label,
-    properties: group.fields.map(toLegacyStyleProperty),
-  })),
-}
-
+/**
+ * Set of inheritable canonical property keys.
+ * Used by the style cascade to determine which document styles apply to nodes.
+ */
 export const defaultInheritableStyleKeys = new Set(
   defaultStyleSystem.canonicalProperties
     .filter(property => property.inheritable)
     .map(property => property.key),
 )
 
-export function getStyleFieldDefinition(fieldKey: string): StyleFieldDefinition | undefined {
+/**
+ * Look up a style field definition by its key.
+ */
+export function getStyleFieldDefinition(fieldKey: string): StyleField | undefined {
   return styleFieldsByKey.get(fieldKey)
 }
 
+/**
+ * Check if a style field is inheritable (cascades from document to nodes).
+ */
+export function isStyleFieldInheritable(fieldKey: string): boolean {
+  const field = getStyleFieldDefinition(fieldKey)
+  return field ? isFieldInheritable(field) : false
+}
+
+/**
+ * Read the current value of a style field from a styles record.
+ * Handles composite fields (spacing, border, borderRadius) by reading
+ * their constituent canonical properties.
+ */
 export function readStyleFieldValue(
   fieldKey: string,
   styles: Record<string, unknown>,
@@ -115,6 +115,10 @@ export function readStyleFieldValue(
   return styles[field.propertyKey ?? field.key]
 }
 
+/**
+ * Apply a style field value to a styles record.
+ * Handles composite fields by expanding them to their constituent canonical properties.
+ */
 export function applyStyleFieldValue(
   fieldKey: string,
   value: unknown,

@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
-import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
+import type { StyleField } from '@epistola/template-model/generated/style-system.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
 import { getNestedValue, setNestedValue } from '../engine/props.js'
 import { isValidExpression, validateArrayResult, validateBooleanResult } from '../engine/resolve-expression.js'
@@ -25,7 +25,9 @@ import {
 import {
   applyStyleFieldValue,
   readStyleFieldValue,
-} from '../engine/style-registry.js'
+  defaultStyleFieldGroups,
+  isStyleFieldInheritable,
+} from '../engine/style-fields.js'
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -120,7 +122,7 @@ export class EpistolaInspector extends LitElement {
   private _renderDocumentStyleGroups(): unknown {
     if (!this.engine) return nothing
 
-    const groups = this.engine.styleRegistry.groups
+    const groups = defaultStyleFieldGroups
     const docStyles = (this.doc?.documentStylesOverride ?? {}) as Record<string, unknown>
 
     return html`
@@ -128,13 +130,13 @@ export class EpistolaInspector extends LitElement {
         <div class="inspector-section-label">Document Styles</div>
         ${groups.map(group => {
           // Only show inheritable properties for document styles
-          const inheritableProps = group.properties.filter(p => p.inheritable)
+          const inheritableProps = group.fields.filter(f => isStyleFieldInheritable(f.key))
           if (inheritableProps.length === 0) return nothing
 
           return html`
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
-              ${inheritableProps.map(prop => this._renderStyleProperty(
+              ${inheritableProps.map(prop => this._renderStyleField(
                 prop,
                 docStyles[prop.key],
                 (value) => this._handleDocStyleChange(prop.key, value),
@@ -279,14 +281,14 @@ export class EpistolaInspector extends LitElement {
   private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined, def?: ComponentDefinition): unknown {
     if (!this.engine) return nothing
 
-    const groups = this.engine.styleRegistry.groups
+    const groups = defaultStyleFieldGroups
     const inlineStyles = (node.styles ?? {}) as Record<string, unknown>
 
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Styles</div>
         ${groups.map(group => {
-          const filteredProps = this._filterProperties(group.properties, applicableStyles)
+          const filteredProps = this._filterFields(group.fields, applicableStyles)
           if (filteredProps.length === 0) return nothing
 
           return html`
@@ -294,7 +296,7 @@ export class EpistolaInspector extends LitElement {
               <div class="inspector-style-group-label">${group.label}</div>
               ${filteredProps.map(prop => {
                 const value = readStyleFieldValue(prop.key, inlineStyles)
-                return this._renderStyleProperty(
+                return this._renderStyleField(
                   prop,
                   value,
                   (v) => this._handleNodeStyleChange(prop.key, v),
@@ -309,14 +311,14 @@ export class EpistolaInspector extends LitElement {
     `
   }
 
-  private _filterProperties(properties: StyleProperty[], applicableStyles: 'all' | string[] | undefined): StyleProperty[] {
-    if (!applicableStyles || applicableStyles === 'all') return properties
+  private _filterFields(fields: StyleField[], applicableStyles: 'all' | string[] | undefined): StyleField[] {
+    if (!applicableStyles || applicableStyles === 'all') return fields
     if (applicableStyles.length === 0) return []
-    return properties.filter(p => applicableStyles.includes(p.key))
+    return fields.filter(f => applicableStyles.includes(f.key))
   }
 
-  private _renderStyleProperty(
-    prop: StyleProperty,
+  private _renderStyleField(
+    field: StyleField,
     value: unknown,
     onChange: (value: unknown) => void,
     def?: ComponentDefinition,
@@ -324,30 +326,30 @@ export class EpistolaInspector extends LitElement {
   ): unknown {
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">${prop.label}</label>
-        ${this._renderStyleInput(prop, value, onChange, def, inlineStyles)}
+        <label class="inspector-field-label">${field.label}</label>
+        ${this._renderStyleInput(field, value, onChange, def, inlineStyles)}
       </div>
     `
   }
 
   private _renderStyleInput(
-    prop: StyleProperty,
+    field: StyleField,
     value: unknown,
     onChange: (value: unknown) => void,
     def?: ComponentDefinition,
     inlineStyles?: Record<string, unknown>,
   ): unknown {
-    switch (prop.type as StyleProperty['type'] | 'border' | 'borderRadius') {
+    switch (field.control as StyleField['control'] | 'border' | 'borderRadius') {
       case 'select':
         return renderSelectInput(
           value,
-          prop.options ?? [],
+          field.options ?? [],
           (v: string) => onChange(v || undefined),
         )
       case 'unit':
         return renderUnitInput(
           value,
-          prop.units ?? ['px'],
+          field.units ?? ['px'],
           (v: string) => onChange(v),
         )
       case 'color':
@@ -357,7 +359,7 @@ export class EpistolaInspector extends LitElement {
         )
       case 'spacing': {
         // Get the mapping for this spacing property (margin or padding)
-        const prefix = prop.key // 'margin' or 'padding'
+        const prefix = field.key // 'margin' or 'padding'
         const mapping: BoxPropertyMapping = {
           top: `${prefix}Top`,
           right: `${prefix}Right`,
@@ -382,13 +384,13 @@ export class EpistolaInspector extends LitElement {
         const boxDefaults = extractBoxDefaults(def?.defaultStyles, mapping)
 
         // Get current link state for this field
-        const linkState = this._boxLinkStates.get(prop.key) ?? { all: false, horizontal: false, vertical: false }
+        const linkState = this._boxLinkStates.get(field.key) ?? { all: false, horizontal: false, vertical: false }
 
         return renderBoxInput({
-          id: prop.key,
+          id: field.key,
           value: boxValue,
           defaults: boxDefaults,
-          units: prop.units ?? ['px'],
+          units: field.units ?? ['px'],
           linkState,
           onChange: (newValue) => {
             // Pass the BoxValue directly - applyStyleFieldValue will handle expansion
@@ -396,7 +398,7 @@ export class EpistolaInspector extends LitElement {
           },
           onLinkStateChange: (newState) => {
             this._boxLinkStates = new Map(this._boxLinkStates)
-            this._boxLinkStates.set(prop.key, newState)
+            this._boxLinkStates.set(field.key, newState)
           },
         })
       }
@@ -408,10 +410,10 @@ export class EpistolaInspector extends LitElement {
           left: { width: undefined, style: undefined, color: undefined },
         }
         return renderBorderInput({
-          id: prop.key,
+          id: field.key,
           value: borderValue,
-          units: prop.units ?? ['px'],
-          styleOptions: prop.options ?? [],
+          units: field.units ?? ['px'],
+          styleOptions: field.options ?? [],
           onChange: (newValue) => onChange(newValue),
         })
       }
@@ -423,9 +425,9 @@ export class EpistolaInspector extends LitElement {
           bottomLeft: undefined,
         }
         return renderBorderRadiusInput({
-          id: prop.key,
+          id: field.key,
           value: radiusValue,
-          units: prop.units ?? ['px'],
+          units: field.units ?? ['px'],
           onChange: (newValue) => onChange(newValue),
         })
       }

@@ -7,16 +7,14 @@ import {
   resolvePresetStyles,
   DEFAULT_PAGE_SETTINGS,
 } from './styles.js'
-import { defaultStyleRegistry } from './style-registry.js'
-import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 
 // ---------------------------------------------------------------------------
 // getInheritableKeys
 // ---------------------------------------------------------------------------
 
 describe('getInheritableKeys', () => {
-  it('extracts inheritable keys from the default registry', () => {
-    const keys = getInheritableKeys(defaultStyleRegistry)
+  it('extracts inheritable keys from the default style system', () => {
+    const keys = getInheritableKeys()
 
     expect(keys.has('fontSize')).toBe(true)
     expect(keys.has('fontFamily')).toBe(true)
@@ -30,7 +28,7 @@ describe('getInheritableKeys', () => {
   })
 
   it('does not include non-inheritable keys', () => {
-    const keys = getInheritableKeys(defaultStyleRegistry)
+    const keys = getInheritableKeys()
 
     // spacing, background, borders are not inheritable by default
     expect(keys.has('paddingTop')).toBe(false)
@@ -38,26 +36,6 @@ describe('getInheritableKeys', () => {
     expect(keys.has('backgroundColor')).toBe(false)
     expect(keys.has('padding')).toBe(false)
     expect(keys.has('margin')).toBe(false)
-  })
-
-  it('works with a custom minimal registry', () => {
-    const registry: StyleRegistry = {
-      groups: [
-        {
-          name: 'test',
-          label: 'Test',
-          properties: [
-            { key: 'a', label: 'A', type: 'text', inheritable: true },
-            { key: 'b', label: 'B', type: 'text', inheritable: false },
-            { key: 'c', label: 'C', type: 'text' }, // inheritable defaults to false
-          ],
-        },
-      ],
-    }
-    const keys = getInheritableKeys(registry)
-
-    expect(keys.size).toBe(1)
-    expect(keys.has('a')).toBe(true)
   })
 })
 

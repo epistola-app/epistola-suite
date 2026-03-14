@@ -6,7 +6,7 @@
  */
 
 import type { BlockStylePreset, PageSettings } from '@epistola/template-model/generated/theme.js'
-import { applyStyleFieldValue } from '../engine/style-registry.js'
+import { applyStyleFieldValue } from '../engine/style-fields.js'
 
 export interface ThemeData {
   id: string

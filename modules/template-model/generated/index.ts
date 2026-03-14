@@ -21,8 +21,6 @@ export type {
   InspectorField,
 } from './component-manifest.js'
 
-export type { StyleRegistry, StyleGroup, StyleProperty } from './style-registry.js'
-
 export type {
   StyleSystem,
   CanonicalStyleProperty,
