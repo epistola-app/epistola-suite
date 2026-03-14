@@ -302,6 +302,7 @@ export class EpistolaInspector extends LitElement {
                   (v) => this._handleNodeStyleChange(prop.key, v),
                   def,
                   inlineStyles,
+                  node.id,
                 )
               })}
             </div>
@@ -323,11 +324,12 @@ export class EpistolaInspector extends LitElement {
     onChange: (value: unknown) => void,
     def?: ComponentDefinition,
     inlineStyles?: Record<string, unknown>,
+    nodeId?: NodeId,
   ): unknown {
     return html`
       <div class="inspector-field">
         <label class="inspector-field-label">${field.label}</label>
-        ${this._renderStyleInput(field, value, onChange, def, inlineStyles)}
+        ${this._renderStyleInput(field, value, onChange, def, inlineStyles, nodeId)}
       </div>
     `
   }
@@ -338,6 +340,7 @@ export class EpistolaInspector extends LitElement {
     onChange: (value: unknown) => void,
     def?: ComponentDefinition,
     inlineStyles?: Record<string, unknown>,
+    nodeId?: NodeId,
   ): unknown {
     switch (field.control as StyleField['control'] | 'border' | 'borderRadius') {
       case 'select':
@@ -383,8 +386,9 @@ export class EpistolaInspector extends LitElement {
         // Extract defaults from component definition
         const boxDefaults = extractBoxDefaults(def?.defaultStyles, mapping)
 
-        // Get current link state for this field
-        const linkState = this._boxLinkStates.get(field.key) ?? { all: false, horizontal: false, vertical: false }
+        // Get current link state for this field (scoped to node)
+        const stateKey = nodeId ? `${nodeId}:${field.key}` : field.key
+        const linkState = this._boxLinkStates.get(stateKey) ?? { all: false, horizontal: false, vertical: false }
 
         return renderBoxInput({
           id: field.key,
@@ -398,7 +402,7 @@ export class EpistolaInspector extends LitElement {
           },
           onLinkStateChange: (newState) => {
             this._boxLinkStates = new Map(this._boxLinkStates)
-            this._boxLinkStates.set(field.key, newState)
+            this._boxLinkStates.set(stateKey, newState)
           },
         })
       }
