@@ -101,6 +101,12 @@ export interface BoxLinkState {
   vertical: boolean
 }
 
+export interface BorderLinkState {
+  all: boolean
+  horizontal: boolean
+  vertical: boolean
+}
+
 // ---------------------------------------------------------------------------
 // Box input: for margin, padding, border-radius, etc.
 // ---------------------------------------------------------------------------
@@ -404,7 +410,9 @@ export interface BorderInputConfig {
   value: BorderInputValue
   units: string[]
   styleOptions: { label: string; value: string }[]
+  linkState: BorderLinkState
   onChange: (value: BorderInputValue) => void
+  onLinkStateChange: (state: BorderLinkState) => void
 }
 
 export interface BorderRadiusInputValue {
@@ -426,21 +434,142 @@ export interface BorderRadiusInputConfig {
 // ---------------------------------------------------------------------------
 
 export function renderBorderInput(config: BorderInputConfig): unknown {
-  const { id: _id, value, units, styleOptions, onChange } = config
+  const { id: _id, value, units, styleOptions, linkState, onChange, onLinkStateChange } = config
   const defaultUnit = units[0] ?? 'px'
+  const { all, horizontal, vertical } = linkState
+
+  // Helper to get the "reference" side value (first in the group)
+  const getReferenceSide = (): BorderSideInputValue => {
+    return value.top
+  }
+
+  // Helper to create a new side value
+  const createSideValue = (width: string | undefined, style: string | undefined, color: string | undefined): BorderSideInputValue => ({
+    width,
+    style,
+    color,
+  })
 
   const handleSideChange = (
     side: keyof BorderInputValue,
     field: keyof BorderSideInputValue,
     newValue: string | undefined,
   ) => {
+    const newSideValue = {
+      ...value[side],
+      [field]: newValue,
+    }
+
+    // Apply linking logic
+    if (all) {
+      // All linked: update all sides
+      onChange({
+        top: newSideValue,
+        right: newSideValue,
+        bottom: newSideValue,
+        left: newSideValue,
+      })
+    } else if (horizontal && (side === 'top' || side === 'bottom')) {
+      // Horizontal linked and we changed top or bottom
+      const otherSide = side === 'top' ? 'bottom' : 'top'
+      onChange({
+        ...value,
+        [side]: newSideValue,
+        [otherSide]: newSideValue,
+      })
+    } else if (vertical && (side === 'left' || side === 'right')) {
+      // Vertical linked and we changed left or right
+      const otherSide = side === 'left' ? 'right' : 'left'
+      onChange({
+        ...value,
+        [side]: newSideValue,
+        [otherSide]: newSideValue,
+      })
+    } else {
+      // No linking for this side
+      onChange({
+        ...value,
+        [side]: newSideValue,
+      })
+    }
+  }
+
+  const handleAllChange = (
+    field: keyof BorderSideInputValue,
+    newValue: string | undefined,
+  ) => {
+    const newSideValue = createSideValue(
+      field === 'width' ? newValue : value.top.width,
+      field === 'style' ? newValue : value.top.style,
+      field === 'color' ? newValue : value.top.color,
+    )
+
     onChange({
-      ...value,
-      [side]: {
-        ...value[side],
-        [field]: newValue,
-      },
+      top: newSideValue,
+      right: newSideValue,
+      bottom: newSideValue,
+      left: newSideValue,
     })
+  }
+
+  const handleHorizontalChange = (
+    group: 'top-bottom' | 'left-right',
+    field: keyof BorderSideInputValue,
+    newValue: string | undefined,
+  ) => {
+    if (group === 'top-bottom') {
+      const newSideValue = createSideValue(
+        field === 'width' ? newValue : value.top.width,
+        field === 'style' ? newValue : value.top.style,
+        field === 'color' ? newValue : value.top.color,
+      )
+      onChange({
+        ...value,
+        top: newSideValue,
+        bottom: newSideValue,
+      })
+    } else {
+      const newSideValue = createSideValue(
+        field === 'width' ? newValue : value.left.width,
+        field === 'style' ? newValue : value.left.style,
+        field === 'color' ? newValue : value.left.color,
+      )
+      onChange({
+        ...value,
+        left: newSideValue,
+        right: newSideValue,
+      })
+    }
+  }
+
+  const handleVerticalChange = (
+    group: 'left-right' | 'top-bottom',
+    field: keyof BorderSideInputValue,
+    newValue: string | undefined,
+  ) => {
+    if (group === 'left-right') {
+      const newSideValue = createSideValue(
+        field === 'width' ? newValue : value.left.width,
+        field === 'style' ? newValue : value.left.style,
+        field === 'color' ? newValue : value.left.color,
+      )
+      onChange({
+        ...value,
+        left: newSideValue,
+        right: newSideValue,
+      })
+    } else {
+      const newSideValue = createSideValue(
+        field === 'width' ? newValue : value.top.width,
+        field === 'style' ? newValue : value.top.style,
+        field === 'color' ? newValue : value.top.color,
+      )
+      onChange({
+        ...value,
+        top: newSideValue,
+        bottom: newSideValue,
+      })
+    }
   }
 
   const handleClearAll = () => {
@@ -452,59 +581,110 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
     })
   }
 
+  const toggleAll = () => {
+    const newAll = !all
+    onLinkStateChange({
+      all: newAll,
+      horizontal: newAll ? false : horizontal,
+      vertical: newAll ? false : vertical,
+    })
+  }
+
+  const toggleHorizontal = () => {
+    const newHorizontal = !horizontal
+    onLinkStateChange({
+      all: newHorizontal ? false : all,
+      horizontal: newHorizontal,
+      vertical,
+    })
+  }
+
+  const toggleVertical = () => {
+    const newVertical = !vertical
+    onLinkStateChange({
+      all: newVertical ? false : all,
+      horizontal,
+      vertical: newVertical,
+    })
+  }
+
+  // Determine which inputs to show
+  const showAllInput = all
+  const showHorizontalInput = horizontal && !all
+  const showVerticalInput = vertical && !all
+  const showTopInput = !all && !horizontal
+  const showRightInput = !all && !vertical
+  const showBottomInput = !all && !horizontal
+  const showLeftInput = !all && !vertical
+
+  // Helper to render the 3-field input group (width, style, color)
+  const renderBorderFields = (
+    sideValue: BorderSideInputValue,
+    onWidthChange: (val: string | undefined) => void,
+    onStyleChange: (val: string | undefined) => void,
+    onColorChange: (val: string | undefined) => void,
+  ) => html`
+    <div class="style-border-fields">
+      <input
+        type="number"
+        class="ep-input style-border-width"
+        placeholder="W"
+        .value=${sideValue.width ? String(parseValueWithUnit(sideValue.width, defaultUnit).value) : ''}
+        @change=${(e: Event) => {
+          const num = parseFloat((e.target as HTMLInputElement).value)
+          const newWidth = isNaN(num) ? undefined : formatValueWithUnit(num, defaultUnit)
+          onWidthChange(newWidth)
+        }}
+      />
+      <select
+        class="ep-select style-border-style"
+        .value=${sideValue.style ?? ''}
+        @change=${(e: Event) => {
+          const newStyle = (e.target as HTMLSelectElement).value || undefined
+          onStyleChange(newStyle)
+        }}
+      >
+        <option value="" disabled selected>Style</option>
+        ${styleOptions.map(opt => html`
+          <option .value=${opt.value} ?selected=${sideValue.style === opt.value}>${opt.label}</option>
+        `)}
+      </select>
+      <div class="style-border-color-wrapper">
+        <input
+          type="color"
+          class="style-border-color-picker"
+          .value=${sideValue.color?.startsWith('#') ? sideValue.color : '#000000'}
+          @change=${(e: Event) => {
+            const newColor = (e.target as HTMLInputElement).value || undefined
+            onColorChange(newColor)
+          }}
+        />
+        <input
+          type="text"
+          class="ep-input style-border-color-text"
+          placeholder="#000000"
+          .value=${sideValue.color ?? ''}
+          @change=${(e: Event) => {
+            const newColor = (e.target as HTMLInputElement).value || undefined
+            onColorChange(newColor)
+          }}
+        />
+      </div>
+    </div>
+  `
+
   const renderSideInput = (side: keyof BorderInputValue, label: string) => {
     const sideValue = value[side]
 
     return html`
       <div class="style-border-side">
         <span class="style-border-side-label">${label}</span>
-        <div class="style-border-fields">
-          <input
-            type="number"
-            class="ep-input style-border-width"
-            placeholder="W"
-            .value=${sideValue.width ? String(parseValueWithUnit(sideValue.width, defaultUnit).value) : ''}
-            @change=${(e: Event) => {
-              const num = parseFloat((e.target as HTMLInputElement).value)
-              const newWidth = isNaN(num) ? undefined : formatValueWithUnit(num, defaultUnit)
-              handleSideChange(side, 'width', newWidth)
-            }}
-          />
-          <select
-            class="ep-select style-border-style"
-            .value=${sideValue.style ?? ''}
-            @change=${(e: Event) => {
-              const newStyle = (e.target as HTMLSelectElement).value || undefined
-              handleSideChange(side, 'style', newStyle)
-            }}
-          >
-            <option value="" disabled selected>Style</option>
-            ${styleOptions.map(opt => html`
-              <option .value=${opt.value} ?selected=${sideValue.style === opt.value}>${opt.label}</option>
-            `)}
-          </select>
-          <div class="style-border-color-wrapper">
-            <input
-              type="color"
-              class="style-border-color-picker"
-              .value=${sideValue.color?.startsWith('#') ? sideValue.color : '#000000'}
-              @change=${(e: Event) => {
-                const newColor = (e.target as HTMLInputElement).value || undefined
-                handleSideChange(side, 'color', newColor)
-              }}
-            />
-            <input
-              type="text"
-              class="ep-input style-border-color-text"
-              placeholder="#000000"
-              .value=${sideValue.color ?? ''}
-              @change=${(e: Event) => {
-                const newColor = (e.target as HTMLInputElement).value || undefined
-                handleSideChange(side, 'color', newColor)
-              }}
-            />
-          </div>
-        </div>
+        ${renderBorderFields(
+          sideValue,
+          (val) => handleSideChange(side, 'width', val),
+          (val) => handleSideChange(side, 'style', val),
+          (val) => handleSideChange(side, 'color', val),
+        )}
       </div>
     `
   }
@@ -512,6 +692,32 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
   return html`
     <div class="style-border-input">
       <div class="style-border-header">
+        <div class="style-box-links">
+          <label class="style-box-link-label" title="Link all sides">
+            <input
+              type="checkbox"
+              .checked=${all}
+              @change=${toggleAll}
+            />
+            <span>All</span>
+          </label>
+          <label class="style-box-link-label" title="Link top and bottom">
+            <input
+              type="checkbox"
+              .checked=${horizontal}
+              @change=${toggleHorizontal}
+            />
+            <span>Horizontal</span>
+          </label>
+          <label class="style-box-link-label" title="Link right and left">
+            <input
+              type="checkbox"
+              .checked=${vertical}
+              @change=${toggleVertical}
+            />
+            <span>Vertical</span>
+          </label>
+        </div>
         <button
           class="style-border-clear"
           title="Clear all borders"
@@ -519,10 +725,61 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
         >×</button>
       </div>
       <div class="style-border-sides">
-        ${renderSideInput('top', 'Top')}
-        ${renderSideInput('right', 'Right')}
-        ${renderSideInput('bottom', 'Bottom')}
-        ${renderSideInput('left', 'Left')}
+        ${showAllInput ? html`
+          <div class="style-border-side">
+            <span class="style-border-side-label">All</span>
+            ${renderBorderFields(
+              getReferenceSide(),
+              (val) => handleAllChange('width', val),
+              (val) => handleAllChange('style', val),
+              (val) => handleAllChange('color', val),
+            )}
+          </div>
+        ` : nothing}
+        ${showHorizontalInput ? html`
+          <div class="style-border-side">
+            <span class="style-border-side-label">T/B</span>
+            ${renderBorderFields(
+              value.top,
+              (val) => handleHorizontalChange('top-bottom', 'width', val),
+              (val) => handleHorizontalChange('top-bottom', 'style', val),
+              (val) => handleHorizontalChange('top-bottom', 'color', val),
+            )}
+          </div>
+          <div class="style-border-side">
+            <span class="style-border-side-label">R/L</span>
+            ${renderBorderFields(
+              value.left,
+              (val) => handleHorizontalChange('left-right', 'width', val),
+              (val) => handleHorizontalChange('left-right', 'style', val),
+              (val) => handleHorizontalChange('left-right', 'color', val),
+            )}
+          </div>
+        ` : nothing}
+        ${showVerticalInput ? html`
+          <div class="style-border-side">
+            <span class="style-border-side-label">R/L</span>
+            ${renderBorderFields(
+              value.left,
+              (val) => handleVerticalChange('left-right', 'width', val),
+              (val) => handleVerticalChange('left-right', 'style', val),
+              (val) => handleVerticalChange('left-right', 'color', val),
+            )}
+          </div>
+          <div class="style-border-side">
+            <span class="style-border-side-label">T/B</span>
+            ${renderBorderFields(
+              value.top,
+              (val) => handleVerticalChange('top-bottom', 'width', val),
+              (val) => handleVerticalChange('top-bottom', 'style', val),
+              (val) => handleVerticalChange('top-bottom', 'color', val),
+            )}
+          </div>
+        ` : nothing}
+        ${showTopInput ? renderSideInput('top', 'Top') : nothing}
+        ${showRightInput ? renderSideInput('right', 'Right') : nothing}
+        ${showBottomInput ? renderSideInput('bottom', 'Bottom') : nothing}
+        ${showLeftInput ? renderSideInput('left', 'Left') : nothing}
       </div>
     </div>
   `
