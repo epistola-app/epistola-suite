@@ -189,6 +189,15 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
 
   const toggleAll = () => {
     const newAll = !all
+    if (newAll) {
+      // Sync all sides to top's value when enabling All mode
+      onChange({
+        top: value.top,
+        right: value.top,
+        bottom: value.top,
+        left: value.top,
+      })
+    }
     onLinkStateChange({
       all: newAll,
       horizontal: newAll ? false : horizontal,
@@ -198,6 +207,13 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
 
   const toggleHorizontal = () => {
     const newHorizontal = !horizontal
+    if (newHorizontal) {
+      // Sync bottom to top when enabling Horizontal mode (top/bottom axis)
+      onChange({
+        ...value,
+        bottom: value.top,
+      })
+    }
     onLinkStateChange({
       all: newHorizontal ? false : all,
       horizontal: newHorizontal,
@@ -207,6 +223,13 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
 
   const toggleVertical = () => {
     const newVertical = !vertical
+    if (newVertical) {
+      // Sync right to left when enabling Vertical mode (left/right axis)
+      onChange({
+        ...value,
+        right: value.left,
+      })
+    }
     onLinkStateChange({
       all: newVertical ? false : all,
       horizontal,
@@ -240,15 +263,15 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
             .checked=${horizontal}
             @change=${toggleHorizontal}
           />
-          <span>Horizontal</span>
+          <span>Top/Bottom</span>
         </label>
-        <label class="style-box-link-label" title="Link right and left">
+        <label class="style-box-link-label" title="Link left and right">
           <input
             type="checkbox"
             .checked=${vertical}
             @change=${toggleVertical}
           />
-          <span>Vertical</span>
+          <span>Left/Right</span>
         </label>
         <button
           class="style-box-clear"
@@ -273,7 +296,7 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
         ` : nothing}
         ${showHorizontalInput ? html`
           <div class="style-box-group">
-            <span class="style-box-label">T/B</span>
+            <span class="style-box-label">Top/Bottom</span>
             <input
               type="number"
               class="ep-input style-box-number"
@@ -287,7 +310,7 @@ export function renderBoxInput(config: BoxInputConfig): unknown {
         ` : nothing}
         ${showVerticalInput ? html`
           <div class="style-box-group">
-            <span class="style-box-label">R/L</span>
+            <span class="style-box-label">Left/Right</span>
             <input
               type="number"
               class="ep-input style-box-number"
@@ -583,6 +606,15 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
 
   const toggleAll = () => {
     const newAll = !all
+    if (newAll) {
+      // Sync all sides to top's value when enabling All mode
+      onChange({
+        top: value.top,
+        right: value.top,
+        bottom: value.top,
+        left: value.top,
+      })
+    }
     onLinkStateChange({
       all: newAll,
       horizontal: newAll ? false : horizontal,
@@ -592,6 +624,13 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
 
   const toggleHorizontal = () => {
     const newHorizontal = !horizontal
+    if (newHorizontal) {
+      // Sync bottom to top when enabling Horizontal mode (top/bottom axis)
+      onChange({
+        ...value,
+        bottom: value.top,
+      })
+    }
     onLinkStateChange({
       all: newHorizontal ? false : all,
       horizontal: newHorizontal,
@@ -601,6 +640,13 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
 
   const toggleVertical = () => {
     const newVertical = !vertical
+    if (newVertical) {
+      // Sync right to left when enabling Vertical mode (left/right axis)
+      onChange({
+        ...value,
+        right: value.left,
+      })
+    }
     onLinkStateChange({
       all: newVertical ? false : all,
       horizontal,
@@ -707,15 +753,15 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
               .checked=${horizontal}
               @change=${toggleHorizontal}
             />
-            <span>Horizontal</span>
+            <span>Top/Bottom</span>
           </label>
-          <label class="style-box-link-label" title="Link right and left">
+          <label class="style-box-link-label" title="Link left and right">
             <input
               type="checkbox"
               .checked=${vertical}
               @change=${toggleVertical}
             />
-            <span>Vertical</span>
+            <span>Left/Right</span>
           </label>
         </div>
         <button
@@ -738,7 +784,7 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
         ` : nothing}
         ${showHorizontalInput ? html`
           <div class="style-border-side">
-            <span class="style-border-side-label">T/B</span>
+            <span class="style-border-side-label">Top/Bottom</span>
             ${renderBorderFields(
               value.top,
               (val) => handleHorizontalChange('top-bottom', 'width', val),
@@ -746,33 +792,15 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
               (val) => handleHorizontalChange('top-bottom', 'color', val),
             )}
           </div>
-          <div class="style-border-side">
-            <span class="style-border-side-label">R/L</span>
-            ${renderBorderFields(
-              value.left,
-              (val) => handleHorizontalChange('left-right', 'width', val),
-              (val) => handleHorizontalChange('left-right', 'style', val),
-              (val) => handleHorizontalChange('left-right', 'color', val),
-            )}
-          </div>
         ` : nothing}
         ${showVerticalInput ? html`
           <div class="style-border-side">
-            <span class="style-border-side-label">R/L</span>
+            <span class="style-border-side-label">Left/Right</span>
             ${renderBorderFields(
               value.left,
               (val) => handleVerticalChange('left-right', 'width', val),
               (val) => handleVerticalChange('left-right', 'style', val),
               (val) => handleVerticalChange('left-right', 'color', val),
-            )}
-          </div>
-          <div class="style-border-side">
-            <span class="style-border-side-label">T/B</span>
-            ${renderBorderFields(
-              value.top,
-              (val) => handleVerticalChange('top-bottom', 'width', val),
-              (val) => handleVerticalChange('top-bottom', 'style', val),
-              (val) => handleVerticalChange('top-bottom', 'color', val),
             )}
           </div>
         ` : nothing}
