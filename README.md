@@ -73,11 +73,11 @@ gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 # Login: admin@local / admin  or  user@local / user
 ```
 
-**With Keycloak** — start a local Keycloak instance with pre-configured realm:
+**With local services** — start PostgreSQL and Keycloak via the unified Docker Compose:
 
 ```bash
-# Start Keycloak (admin console at http://localhost:8080, admin/admin)
-docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
+# Start PostgreSQL + Keycloak (admin console at http://localhost:8080, admin/admin)
+docker compose -f apps/epistola/docker/docker-compose.yaml up -d
 
 # Run with OAuth2 only
 gradle :apps:epistola:bootRun --args='--spring.profiles.active=keycloak'
