@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- **PDF link rendering**: `TipTapConverter` now renders ProseMirror `link` marks as clickable hyperlinks in PDF output. Links are styled with blue color and underline, and support both `https://` and `mailto:` URIs. Other marks (bold, italic, etc.) are correctly applied on top of links.
 - **Local dev Docker Compose**: Unified `apps/epistola/docker/docker-compose.yaml` with PostgreSQL and Keycloak services. Single `docker compose up -d` to start all local dependencies.
 
 ### Fixed
