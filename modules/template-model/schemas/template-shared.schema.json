@@ -43,12 +43,12 @@
     "PageSettings": {
       "type": "object",
       "properties": {
-        "format": { "$ref": "#/$defs/PageFormat" },
-        "orientation": { "$ref": "#/$defs/Orientation" },
+        "format": { "$ref": "#/$defs/PageFormat", "default": "A4" },
+        "orientation": { "$ref": "#/$defs/Orientation", "default": "portrait" },
         "margins": { "$ref": "#/$defs/Margins" },
         "backgroundColor": { "type": "string", "description": "Page background color (CSS color value)." }
       },
-      "required": ["format", "orientation", "margins"],
+      "required": ["margins"],
       "additionalProperties": false
     },
 
