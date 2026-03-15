@@ -146,7 +146,6 @@ class DocumentTemplateHandler(
             field("name") {
                 required()
             }
-            field("schema") {}
         }
 
         if (form.hasErrors()) {
@@ -170,13 +169,11 @@ class DocumentTemplateHandler(
         }
 
         val name = form["name"]
-        val schema = request.params().getFirst("schema")?.trim()?.takeIf { it.isNotEmpty() }
 
         val result = form.executeOrFormError {
             CreateDocumentTemplate(
                 id = TemplateId(templateKey, tenantId),
                 name = name,
-                schema = schema,
             ).execute()
         }
 
