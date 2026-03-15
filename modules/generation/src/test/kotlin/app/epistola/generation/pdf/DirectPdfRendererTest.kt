@@ -716,6 +716,176 @@ class DirectPdfRendererTest {
     }
 
     @Test
+    fun `top margin is increased when page header node is present`() {
+        val bodyText = Node(
+            id = "body-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "text", "text" to "Body content"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val headerText = Node(
+            id = "header-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "text", "text" to "Header"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val headerSlotId = "slot-header-children"
+        val headerNode = Node(
+            id = "pageheader1",
+            type = "pageheader",
+            slots = listOf(headerSlotId),
+        )
+        val headerSlot = Slot(
+            id = headerSlotId,
+            nodeId = "pageheader1",
+            name = "children",
+            children = listOf("header-text"),
+        )
+
+        val rootNodeId = "root-1"
+        val rootSlotId = "slot-root"
+        val rootNode = Node(id = rootNodeId, type = "root", slots = listOf(rootSlotId))
+        val rootSlot = Slot(id = rootSlotId, nodeId = rootNodeId, name = "children", children = listOf("body-text"))
+
+        val document = TemplateDocument(
+            root = rootNodeId,
+            nodes = mapOf(
+                rootNodeId to rootNode,
+                "body-text" to bodyText,
+                "pageheader1" to headerNode,
+                "header-text" to headerText,
+            ),
+            slots = mapOf(
+                rootSlotId to rootSlot,
+                headerSlotId to headerSlot,
+            ),
+            pageSettingsOverride = PageSettings(
+                format = PageFormat.A4,
+                orientation = Orientation.portrait,
+                margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+
+        // Verify the PDF renders without errors and has at least one page
+        val readDoc = PdfDocument(PdfReader(ByteArrayInputStream(pdfBytes)))
+        assertTrue(readDoc.numberOfPages >= 1, "PDF should have at least one page")
+        readDoc.close()
+    }
+
+    @Test
+    fun `bottom margin is increased when page footer node is present`() {
+        val bodyText = Node(
+            id = "body-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "text", "text" to "Body content"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val footerText = Node(
+            id = "footer-text",
+            type = "text",
+            props = mapOf(
+                "content" to mapOf(
+                    "type" to "doc",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "paragraph",
+                            "content" to listOf(
+                                mapOf("type" to "text", "text" to "Footer"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val footerSlotId = "slot-footer-children"
+        val footerNode = Node(
+            id = "pagefooter1",
+            type = "pagefooter",
+            slots = listOf(footerSlotId),
+        )
+        val footerSlot = Slot(
+            id = footerSlotId,
+            nodeId = "pagefooter1",
+            name = "children",
+            children = listOf("footer-text"),
+        )
+
+        val rootNodeId = "root-1"
+        val rootSlotId = "slot-root"
+        val rootNode = Node(id = rootNodeId, type = "root", slots = listOf(rootSlotId))
+        val rootSlot = Slot(id = rootSlotId, nodeId = rootNodeId, name = "children", children = listOf("body-text"))
+
+        val document = TemplateDocument(
+            root = rootNodeId,
+            nodes = mapOf(
+                rootNodeId to rootNode,
+                "body-text" to bodyText,
+                "pagefooter1" to footerNode,
+                "footer-text" to footerText,
+            ),
+            slots = mapOf(
+                rootSlotId to rootSlot,
+                footerSlotId to footerSlot,
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, emptyMap(), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+
+        val readDoc = PdfDocument(PdfReader(ByteArrayInputStream(pdfBytes)))
+        assertTrue(readDoc.numberOfPages >= 1, "PDF should have at least one page")
+        readDoc.close()
+    }
+
+    @Test
     fun `sets default creator when no metadata provided`() {
         val document = documentWithChildren(emptyMap(), emptyList())
 

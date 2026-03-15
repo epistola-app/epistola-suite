@@ -31,8 +31,8 @@ class PageFooterEventHandler(
         // --- footer band (bottom of page) ---
         val leftPadding = 36f
         val rightPadding = 36f
-        val bottomPadding = 20f
-        val footerHeight = 60f
+        val bottomPadding = context.renderingDefaults.pageFooterPadding
+        val footerHeight = context.renderingDefaults.pageFooterHeight
 
         val footerRect = Rectangle(
             pageSize.left + leftPadding,
