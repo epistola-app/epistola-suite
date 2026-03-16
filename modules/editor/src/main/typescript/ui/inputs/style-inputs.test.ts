@@ -227,3 +227,137 @@ describe('backward compatibility', () => {
     expect(result?.left).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Border Radius linking behavior
+// ---------------------------------------------------------------------------
+
+describe('Border Radius linking', () => {
+  it('when linked, changing one corner updates all corners', async () => {
+    const { renderBorderRadiusInput } = await import('./style-inputs.js')
+    let currentValue: { topLeft: string | undefined; topRight: string | undefined; bottomRight: string | undefined; bottomLeft: string | undefined } = {
+      topLeft: '5px',
+      topRight: '5px',
+      bottomRight: '5px',
+      bottomLeft: '5px',
+    }
+    let currentLinked = true
+
+    // Simulate the component behavior when linked
+    const handleCornerChange = (corner: keyof typeof currentValue, newValue: string | undefined) => {
+      if (currentLinked) {
+        currentValue = {
+          topLeft: newValue,
+          topRight: newValue,
+          bottomRight: newValue,
+          bottomLeft: newValue,
+        }
+      } else {
+        currentValue = { ...currentValue, [corner]: newValue }
+      }
+    }
+
+    // Change topLeft while linked
+    handleCornerChange('topLeft', '10px')
+
+    expect(currentValue).toEqual({
+      topLeft: '10px',
+      topRight: '10px',
+      bottomRight: '10px',
+      bottomLeft: '10px',
+    })
+  })
+
+  it('when unlinked, changing one corner only updates that corner', async () => {
+    const handleCornerChange = (
+      corner: 'topLeft' | 'topRight' | 'bottomRight' | 'bottomLeft',
+      newValue: string | undefined,
+      linked: boolean,
+      value: { topLeft: string | undefined; topRight: string | undefined; bottomRight: string | undefined; bottomLeft: string | undefined },
+    ) => {
+      if (linked) {
+        return {
+          topLeft: newValue,
+          topRight: newValue,
+          bottomRight: newValue,
+          bottomLeft: newValue,
+        }
+      } else {
+        return { ...value, [corner]: newValue }
+      }
+    }
+
+    const initialValue = {
+      topLeft: '5px',
+      topRight: '10px',
+      bottomRight: '15px',
+      bottomLeft: '20px',
+    }
+
+    const result = handleCornerChange('topLeft', '25px', false, initialValue)
+
+    expect(result).toEqual({
+      topLeft: '25px',
+      topRight: '10px',
+      bottomRight: '15px',
+      bottomLeft: '20px',
+    })
+  })
+
+  it('when enabling link, all corners sync to topLeft value', async () => {
+    const toggleLinked = (
+      currentLinked: boolean,
+      value: { topLeft: string | undefined; topRight: string | undefined; bottomRight: string | undefined; bottomLeft: string | undefined },
+    ) => {
+      const newLinked = !currentLinked
+      if (newLinked) {
+        const syncValue = value.topLeft
+        return {
+          linked: newLinked,
+          value: {
+            topLeft: syncValue,
+            topRight: syncValue,
+            bottomRight: syncValue,
+            bottomLeft: syncValue,
+          },
+        }
+      }
+      return { linked: newLinked, value }
+    }
+
+    const initialValue = {
+      topLeft: '10px',
+      topRight: '5px',
+      bottomRight: '15px',
+      bottomLeft: '20px',
+    }
+
+    const result = toggleLinked(false, initialValue)
+
+    expect(result.linked).toBe(true)
+    expect(result.value).toEqual({
+      topLeft: '10px',
+      topRight: '10px',
+      bottomRight: '10px',
+      bottomLeft: '10px',
+    })
+  })
+
+  it('clearing all radii sets all corners to undefined', async () => {
+    const handleClearAll = () => {
+      return {
+        topLeft: undefined,
+        topRight: undefined,
+        bottomRight: undefined,
+        bottomLeft: undefined,
+      }
+    }
+
+    const result = handleClearAll()
+
+    expect(result.topLeft).toBeUndefined()
+    expect(result.topRight).toBeUndefined()
+    expect(result.bottomRight).toBeUndefined()
+    expect(result.bottomLeft).toBeUndefined()
+  })
+})

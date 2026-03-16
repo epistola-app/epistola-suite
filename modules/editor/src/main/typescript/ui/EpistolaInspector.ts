@@ -46,6 +46,9 @@ export class EpistolaInspector extends LitElement {
   // Track link states for border inputs
   @state() private _borderLinkStates: Map<string, BorderLinkState> = new Map()
 
+  // Track link states for border radius inputs
+  @state() private _borderRadiusLinkStates: Map<string, boolean> = new Map()
+
   override render() {
     if (!this.engine || !this.doc) {
       return html`<div class="panel-empty">No document</div>`
@@ -442,11 +445,19 @@ export class EpistolaInspector extends LitElement {
           bottomRight: undefined,
           bottomLeft: undefined,
         }
+        // Get current link state for this field (scoped to node)
+        const radiusStateKey = nodeId ? `${nodeId}:${field.key}` : field.key
+        const linked = this._borderRadiusLinkStates.get(radiusStateKey) ?? false
         return renderBorderRadiusInput({
           id: field.key,
           value: radiusValue,
           units: field.units ?? ['px'],
+          linked,
           onChange: (newValue) => onChange(newValue),
+          onLinkChange: (newLinked) => {
+            this._borderRadiusLinkStates = new Map(this._borderRadiusLinkStates)
+            this._borderRadiusLinkStates.set(radiusStateKey, newLinked)
+          },
         })
       }
       case 'number':

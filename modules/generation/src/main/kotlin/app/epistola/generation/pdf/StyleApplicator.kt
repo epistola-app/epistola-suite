@@ -4,6 +4,7 @@ import app.epistola.template.model.DefaultStyleSystem
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.element.BlockElement
+import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
 
@@ -162,6 +163,12 @@ object StyleApplicator {
         applyBorder(element, "Bottom", styles, baseFontSizePt)
         applyBorder(element, "Left", styles, baseFontSizePt)
 
+        // Border radius
+        applyBorderRadius(element, "TopLeft", styles, baseFontSizePt)
+        applyBorderRadius(element, "TopRight", styles, baseFontSizePt)
+        applyBorderRadius(element, "BottomRight", styles, baseFontSizePt)
+        applyBorderRadius(element, "BottomLeft", styles, baseFontSizePt)
+
         // Width
         (styles["width"] as? String)?.let { width ->
             if (width.endsWith("%")) {
@@ -313,5 +320,31 @@ object StyleApplicator {
         "dotted" -> com.itextpdf.layout.borders.DottedBorder(color, width)
         "double" -> com.itextpdf.layout.borders.DoubleBorder(color, width)
         else -> com.itextpdf.layout.borders.SolidBorder(color, width)
+    }
+
+    /**
+     * Applies border radius to a specific corner of the element.
+     */
+    private fun <T : BlockElement<T>> applyBorderRadius(
+        element: T,
+        corner: String,
+        styles: Map<String, Any>,
+        baseFontSizePt: Float = 12f,
+    ) {
+        val radiusKey = "border${corner}Radius"
+
+        val radius = (styles[radiusKey] as? String)?.let { parseSize(it, baseFontSizePt) }
+
+        // Only apply radius if value is present and positive
+        if (radius == null || radius <= 0) return
+
+        val borderRadius = BorderRadius(radius)
+
+        when (corner) {
+            "TopLeft" -> element.setBorderTopLeftRadius(borderRadius)
+            "TopRight" -> element.setBorderTopRightRadius(borderRadius)
+            "BottomRight" -> element.setBorderBottomRightRadius(borderRadius)
+            "BottomLeft" -> element.setBorderBottomLeftRadius(borderRadius)
+        }
     }
 }

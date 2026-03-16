@@ -241,7 +241,7 @@ Status legend used below:
 | `borderWidth` | node, preset | `borderWidth` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. Visual effect in browser also depends on a matching border style. |
 | `borderStyle` | node, preset | `borderStyle` | partial | no | no | CSS border style works in browser, but this key also collides with table/datatable props named `borderStyle` that mean `all`, `horizontal`, `vertical`, or `none` instead of CSS values. |
 | `borderColor` | node, preset | `borderColor` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. |
-| `borderRadius` | node, preset | `borderRadius` | yes | no | no | Browser forwards it as CSS, but the generic PDF renderer ignores it. |
+| `borderRadius` | node, preset | `borderRadius` | yes | yes | no | Applied to all four corners independently via `borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomRightRadius`, `borderBottomLeftRadius` canonical properties. |
 
 ### Hidden or runtime-only keys discovered during audit
 
@@ -287,10 +287,28 @@ The first shared canonical contract should be intentionally strict.
 - `paddingBottom`
 - `paddingLeft`
 
+### Border Properties (IMPLEMENTED)
+
+- `borderTopWidth` ✓
+- `borderTopStyle` ✓
+- `borderTopColor` ✓
+- `borderRightWidth` ✓
+- `borderRightStyle` ✓
+- `borderRightColor` ✓
+- `borderBottomWidth` ✓
+- `borderBottomStyle` ✓
+- `borderBottomColor` ✓
+- `borderLeftWidth` ✓
+- `borderLeftStyle` ✓
+- `borderLeftColor` ✓
+- `borderTopLeftRadius` ✓
+- `borderTopRightRadius` ✓
+- `borderBottomRightRadius` ✓
+- `borderBottomLeftRadius` ✓
+
 ### Defer
 
 - `lineHeight` in PDF rendering (architectural change required)
-- generic CSS border properties
 - any new style properties beyond the strict list above
 
 ### Editor fields for the first pass
@@ -308,6 +326,8 @@ The editor should expose the admitted canonical properties through these first-p
 - `backgroundColor`
 - `margin` -> maps to `marginTop`, `marginRight`, `marginBottom`, `marginLeft`
 - `padding` -> maps to `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`
+- `border` -> maps to width/style/color for all 4 sides
+- `borderRadius` -> maps to `borderTopLeftRadius`, `borderTopRightRadius`, `borderBottomRightRadius`, `borderBottomLeftRadius`
 
 ## Implementation Notes (2026-03-13) - Typography Properties Pass
 
@@ -732,3 +752,71 @@ This BoxValue pattern is designed for reuse with:
 - `pnpm test` - All 799 TypeScript tests pass
 - `./gradlew ktlintCheck build` - Full build with linting passes
 - 16 new tests for BoxValue functions, linking behavior, and default inheritance
+
+## Implementation Notes (2026-03-16) - Border Radius PDF Pass
+
+### What was implemented in this pass
+
+This pass focused on implementing border-radius support in PDF rendering, completing the feature parity for borders between browser preview and PDF output.
+
+**Implementation Details:**
+
+1. **iText 9.5.0 API Integration**: Added support for the 4 canonical border-radius properties:
+   - `borderTopLeftRadius` -> `BlockElement.setBorderTopLeftRadius(BorderRadius)`
+   - `borderTopRightRadius` -> `BlockElement.setBorderTopRightRadius(BorderRadius)`
+   - `borderBottomRightRadius` -> `BlockElement.setBorderBottomRightRadius(BorderRadius)`
+   - `borderBottomLeftRadius` -> `BlockElement.setBorderBottomLeftRadius(BorderRadius)`
+
+2. **Unit Conversion**: Border radius values are parsed using the existing `parseSize()` helper, which supports:
+   - `px` -> converted to points (pt) using 0.75x factor
+   - `pt` -> used directly
+   - `em`/`rem` -> resolved against base font size (12pt default)
+   - Zero or negative values are ignored (no radius applied)
+
+3. **Zero Value Handling**: Values of `0px` or less are intentionally skipped, allowing elements to have square corners when no radius is desired or when inheriting from defaults.
+
+**Files Modified:**
+- `StyleApplicator.kt`: Added `applyBorderRadius()` function and integrated it into the style application flow
+- `StyleApplicatorTest.kt`: Added 5 new tests covering single corner, all corners, zero values, em units, and missing keys
+
+**Style System Contract:**
+The existing canonical properties defined in `default-style-system.json` are now fully supported in both browser and PDF:
+```json
+{ "key": "borderTopLeftRadius", "label": "Border Top Left Radius", "valueKind": "unit", "inheritable": false },
+{ "key": "borderTopRightRadius", "label": "Border Top Right Radius", "valueKind": "unit", "inheritable": false },
+{ "key": "borderBottomRightRadius", "label": "Border Bottom Right Radius", "valueKind": "unit", "inheritable": false },
+{ "key": "borderBottomLeftRadius", "label": "Border Bottom Left Radius", "valueKind": "unit", "inheritable": false }
+```
+
+### Editor Improvements - Border Radius Linking
+
+Added "All" checkbox to the border radius input for improved UX:
+
+**Features:**
+1. **Link All Corners**: When the "All" checkbox is checked, all four corners are linked together
+   - Changing any corner updates all corners to the same value
+   - Shows a single "All" input instead of four separate inputs
+   - Unlinking preserves current values (no data loss)
+
+2. **Per-Node State Isolation**: Link state is scoped to individual nodes
+   - Uses key pattern: `${nodeId}:${field.key}` (same as padding/margin/border)
+   - Different blocks can have different link states
+   - State persists across inspector re-renders
+
+3. **Clear Button**: × button clears all corners to `undefined`
+   - Allows falling back to component/theme defaults
+
+**Files Modified:**
+- `style-inputs.ts`: Updated `BorderRadiusInputConfig` interface with `linked` and `onLinkChange` properties
+- `style-inputs.ts`: Enhanced `renderBorderRadiusInput()` with linking logic
+- `EpistolaInspector.ts`: Added `_borderRadiusLinkStates` Map for per-node state tracking
+- `PresetItem.ts`: Added `presetBorderRadiusLinkModes` Map for theme preset editing
+- `style-inputs.test.ts`: Added 4 new tests for linking behavior
+
+### Verification completed for this pass
+
+- `./gradlew :modules:generation:ktlintCheck :modules:generation:test` - All generation tests pass with no lint errors
+- `pnpm test` - All 796 TypeScript tests pass (including 4 new border radius linking tests)
+- 5 new Kotlin unit tests added for border-radius PDF functionality
+- 4 new TypeScript tests added for border radius linking behavior
+- Full backward compatibility maintained - no existing tests broken

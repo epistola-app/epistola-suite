@@ -56,6 +56,16 @@ function getPresetBorderLinkModes(presetName: string): Map<string, BorderLinkSta
   return presetBorderLinkModes.get(presetName)!
 }
 
+// Track link modes for each preset's border radius inputs
+const presetBorderRadiusLinkModes: Map<string, Map<string, boolean>> = new Map()
+
+function getPresetBorderRadiusLinkModes(presetName: string): Map<string, boolean> {
+  if (!presetBorderRadiusLinkModes.has(presetName)) {
+    presetBorderRadiusLinkModes.set(presetName, new Map())
+  }
+  return presetBorderRadiusLinkModes.get(presetName)!
+}
+
 export function renderPresetItem(
   state: ThemeEditorState,
   name: string,
@@ -273,11 +283,17 @@ function renderPresetStyleInput(
         bottomRight: undefined,
         bottomLeft: undefined,
       }
+      const radiusLinkModes = getPresetBorderRadiusLinkModes(presetName)
+      const linked = radiusLinkModes.get(field.key) ?? false
       return renderBorderRadiusInput({
         id: field.key,
         value: radiusValue,
         units: field.units ?? ['px'],
+        linked,
         onChange: (newValue) => onChange(newValue),
+        onLinkChange: (newLinked) => {
+          radiusLinkModes.set(field.key, newLinked)
+        },
       })
     }
     case 'number':

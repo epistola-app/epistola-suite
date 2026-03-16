@@ -477,7 +477,9 @@ export interface BorderRadiusInputConfig {
   id: string
   value: BorderRadiusInputValue
   units: string[]
+  linked: boolean
   onChange: (value: BorderRadiusInputValue) => void
+  onLinkChange: (linked: boolean) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -846,16 +848,36 @@ export function renderBorderInput(config: BorderInputConfig): unknown {
 // ---------------------------------------------------------------------------
 
 export function renderBorderRadiusInput(config: BorderRadiusInputConfig): unknown {
-  const { id: _id, value, units, onChange } = config
+  const { id: _id, value, units, linked, onChange, onLinkChange } = config
   const defaultUnit = units[0] ?? 'px'
 
   const handleCornerChange = (
     corner: keyof BorderRadiusInputValue,
     newValue: string | undefined,
   ) => {
+    if (linked) {
+      // When linked, update all corners to the same value
+      onChange({
+        topLeft: newValue,
+        topRight: newValue,
+        bottomRight: newValue,
+        bottomLeft: newValue,
+      })
+    } else {
+      // When unlinked, update only the specific corner
+      onChange({
+        ...value,
+        [corner]: newValue,
+      })
+    }
+  }
+
+  const handleAllChange = (newValue: string | undefined) => {
     onChange({
-      ...value,
-      [corner]: newValue,
+      topLeft: newValue,
+      topRight: newValue,
+      bottomRight: newValue,
+      bottomLeft: newValue,
     })
   }
 
@@ -866,6 +888,21 @@ export function renderBorderRadiusInput(config: BorderRadiusInputConfig): unknow
       bottomRight: undefined,
       bottomLeft: undefined,
     })
+  }
+
+  const toggleLinked = () => {
+    const newLinked = !linked
+    if (newLinked) {
+      // When enabling link, sync all corners to topLeft's value
+      const syncValue = value.topLeft
+      onChange({
+        topLeft: syncValue,
+        topRight: syncValue,
+        bottomRight: syncValue,
+        bottomLeft: syncValue,
+      })
+    }
+    onLinkChange(newLinked)
   }
 
   const renderCornerInput = (corner: keyof BorderRadiusInputValue, label: string) => {
@@ -889,9 +926,38 @@ export function renderBorderRadiusInput(config: BorderRadiusInputConfig): unknow
     `
   }
 
+  const renderAllInput = () => {
+    const allValue = value.topLeft
+
+    return html`
+      <div class="style-radius-corner">
+        <span class="style-radius-corner-label">All</span>
+        <input
+          type="number"
+          class="ep-input style-radius-value"
+          placeholder="0"
+          .value=${allValue ? String(parseValueWithUnit(allValue, defaultUnit).value) : ''}
+          @change=${(e: Event) => {
+            const num = parseFloat((e.target as HTMLInputElement).value)
+            const newValue = isNaN(num) ? undefined : formatValueWithUnit(num, defaultUnit)
+            handleAllChange(newValue)
+          }}
+        />
+      </div>
+    `
+  }
+
   return html`
     <div class="style-radius-input">
       <div class="style-radius-header">
+        <label class="style-box-link-label" title="Link all corners">
+          <input
+            type="checkbox"
+            .checked=${linked}
+            @change=${toggleLinked}
+          />
+          <span>All</span>
+        </label>
         <button
           class="style-radius-clear"
           title="Clear all radii"
@@ -899,10 +965,14 @@ export function renderBorderRadiusInput(config: BorderRadiusInputConfig): unknow
         >×</button>
       </div>
       <div class="style-radius-corners">
-        ${renderCornerInput('topLeft', 'TL')}
-        ${renderCornerInput('topRight', 'TR')}
-        ${renderCornerInput('bottomRight', 'BR')}
-        ${renderCornerInput('bottomLeft', 'BL')}
+        ${linked
+          ? renderAllInput()
+          : html`
+              ${renderCornerInput('topLeft', 'TL')}
+              ${renderCornerInput('topRight', 'TR')}
+              ${renderCornerInput('bottomRight', 'BR')}
+              ${renderCornerInput('bottomLeft', 'BL')}
+            `}
       </div>
     </div>
   `

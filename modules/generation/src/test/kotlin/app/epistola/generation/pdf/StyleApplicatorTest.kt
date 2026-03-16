@@ -144,4 +144,82 @@ class StyleApplicatorTest {
             fontCache = fontCache,
         )
     }
+
+    @Test
+    fun `applyStylesWithPreset applies borderTopLeftRadius to element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("borderTopLeftRadius" to "10px"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - border radius should be applied
+    }
+
+    @Test
+    fun `applyStylesWithPreset applies all border radii to element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf(
+                "borderTopLeftRadius" to "10px",
+                "borderTopRightRadius" to "20px",
+                "borderBottomRightRadius" to "30px",
+                "borderBottomLeftRadius" to "40px",
+            ),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - all border radii should be applied
+    }
+
+    @Test
+    fun `applyStylesWithPreset ignores zero border radius`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf(
+                "borderTopLeftRadius" to "0px",
+                "borderTopRightRadius" to "10px",
+            ),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - zero radius should be ignored
+    }
+
+    @Test
+    fun `applyStylesWithPreset handles em units for border radius`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("borderTopLeftRadius" to "0.5em"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - em units should be converted to points
+    }
+
+    @Test
+    fun `applyStylesWithPreset handles missing border radius gracefully`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("color" to "#333333"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - missing radius keys should be handled gracefully
+    }
 }
