@@ -26,6 +26,7 @@ export function renderUnitInput(
   value: unknown,
   units: string[],
   onChange: (value: string) => void,
+  onClear?: () => void,
 ): unknown {
   const defaultUnit = units[0] ?? 'px'
   const parsed = parseValueWithUnit(value, defaultUnit)
@@ -41,21 +42,34 @@ export function renderUnitInput(
   }
 
   return html`
-    <div class="style-unit-input">
-      <input
-        type="number"
-        class="ep-input style-unit-number"
-        .value=${String(parsed.value)}
-        @change=${handleNumberChange}
-      />
-      <select
-        class="ep-select style-unit-select"
-        @change=${handleUnitChange}
-      >
-        ${units.map(u => html`
-          <option .value=${u} ?selected=${u === parsed.unit}>${u}</option>
-        `)}
-      </select>
+    <div class="style-input-wrapper">
+      <div class="style-unit-input">
+        <input
+          type="number"
+          class="ep-input style-unit-number"
+          .value=${String(parsed.value)}
+          @change=${handleNumberChange}
+        />
+        <select
+          class="ep-select style-unit-select"
+          @change=${handleUnitChange}
+        >
+          ${units.map(u => html`
+            <option .value=${u} ?selected=${u === parsed.unit}>${u}</option>
+          `)}
+        </select>
+      </div>
+      ${onClear
+        ? html`
+            <button
+              class="style-input-clear"
+              title="Clear to default"
+              @click=${onClear}
+            >
+              ×
+            </button>
+          `
+        : nothing}
     </div>
   `
 }
@@ -67,26 +81,40 @@ export function renderUnitInput(
 export function renderColorInput(
   value: unknown,
   onChange: (value: string) => void,
+  onClear?: () => void,
 ): unknown {
   const colorValue = value != null ? String(value) : ''
   // Ensure the color picker gets a valid hex value
   const pickerValue = colorValue.startsWith('#') ? colorValue : '#000000'
 
   return html`
-    <div class="style-color-input">
-      <input
-        type="color"
-        class="style-color-picker"
-        .value=${pickerValue}
-        @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
-      />
-      <input
-        type="text"
-        class="ep-input style-color-text"
-        .value=${colorValue}
-        @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
-        placeholder="#000000"
-      />
+    <div class="style-input-wrapper">
+      <div class="style-color-input">
+        <input
+          type="color"
+          class="style-color-picker"
+          .value=${pickerValue}
+          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+        />
+        <input
+          type="text"
+          class="ep-input style-color-text"
+          .value=${colorValue}
+          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          placeholder="#000000"
+        />
+      </div>
+      ${onClear
+        ? html`
+            <button
+              class="style-input-clear"
+              title="Clear to default"
+              @click=${onClear}
+            >
+              ×
+            </button>
+          `
+        : nothing}
     </div>
   `
 }

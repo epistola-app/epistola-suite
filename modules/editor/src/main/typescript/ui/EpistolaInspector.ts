@@ -358,11 +358,13 @@ export class EpistolaInspector extends LitElement {
           value,
           field.units ?? ['px'],
           (v: string) => onChange(v),
+          () => onChange(undefined),
         )
       case 'color':
         return renderColorInput(
           value,
           (v: string) => onChange(v || undefined),
+          () => onChange(undefined),
         )
       case 'spacing': {
         // Get the mapping for this spacing property (margin or padding)
@@ -449,13 +451,22 @@ export class EpistolaInspector extends LitElement {
       }
       case 'number':
         return html`
-          <input
-            type="number"
-            class="ep-input"
-            step="any"
-            .value=${String(value ?? '')}
-            @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
-          />
+          <div class="style-input-wrapper">
+            <input
+              type="number"
+              class="ep-input"
+              step="any"
+              .value=${String(value ?? '')}
+              @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
+            />
+            <button
+              class="style-input-clear"
+              title="Clear to default"
+              @click=${() => onChange(undefined)}
+            >
+              ×
+            </button>
+          </div>
         `
       case 'text':
       default:

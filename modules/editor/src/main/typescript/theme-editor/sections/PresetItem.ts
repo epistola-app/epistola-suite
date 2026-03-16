@@ -14,7 +14,12 @@ import {
   renderColorInput,
   renderSelectInput,
   renderBoxInput,
+  renderBorderInput,
+  renderBorderRadiusInput,
   type BoxLinkState,
+  type BorderLinkState,
+  type BorderInputValue,
+  type BorderRadiusInputValue,
   readBoxFromStyles,
   expandBoxToStyles,
 } from '../../ui/inputs/style-inputs.js'
@@ -39,6 +44,16 @@ function getPresetLinkModes(presetName: string): Map<string, BoxLinkState> {
     presetLinkModes.set(presetName, new Map())
   }
   return presetLinkModes.get(presetName)!
+}
+
+// Track link modes for each preset's border inputs
+const presetBorderLinkModes: Map<string, Map<string, BorderLinkState>> = new Map()
+
+function getPresetBorderLinkModes(presetName: string): Map<string, BorderLinkState> {
+  if (!presetBorderLinkModes.has(presetName)) {
+    presetBorderLinkModes.set(presetName, new Map())
+  }
+  return presetBorderLinkModes.get(presetName)!
 }
 
 export function renderPresetItem(
@@ -227,6 +242,42 @@ function renderPresetStyleInput(
         onLinkStateChange: (newState) => {
           linkModes.set(field.key, newState)
         },
+      })
+    }
+    case 'border': {
+      const borderValue = (value as BorderInputValue) ?? {
+        top: { width: undefined, style: undefined, color: undefined },
+        right: { width: undefined, style: undefined, color: undefined },
+        bottom: { width: undefined, style: undefined, color: undefined },
+        left: { width: undefined, style: undefined, color: undefined },
+      }
+      // Get current link state for this field
+      const borderLinkModes = getPresetBorderLinkModes(presetName)
+      const linkState = borderLinkModes.get(field.key) ?? { all: false, horizontal: false, vertical: false }
+      return renderBorderInput({
+        id: field.key,
+        value: borderValue,
+        units: field.units ?? ['px'],
+        styleOptions: field.options ?? [],
+        linkState,
+        onChange: (newValue) => onChange(newValue),
+        onLinkStateChange: (newState) => {
+          borderLinkModes.set(field.key, newState)
+        },
+      })
+    }
+    case 'borderRadius': {
+      const radiusValue = (value as BorderRadiusInputValue) ?? {
+        topLeft: undefined,
+        topRight: undefined,
+        bottomRight: undefined,
+        bottomLeft: undefined,
+      }
+      return renderBorderRadiusInput({
+        id: field.key,
+        value: radiusValue,
+        units: field.units ?? ['px'],
+        onChange: (newValue) => onChange(newValue),
       })
     }
     case 'number':

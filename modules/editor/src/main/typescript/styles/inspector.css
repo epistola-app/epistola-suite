@@ -141,6 +141,41 @@
     min-width: 0;
   }
 
+  /* Wrapper for input + clear button */
+  .style-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+  }
+
+  .style-input-wrapper > .style-color-input,
+  .style-input-wrapper > .style-unit-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .style-input-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    font-size: var(--ep-text-lg);
+    font-weight: 300;
+    color: var(--ep-gray-400);
+    background: transparent;
+    border: none;
+    border-radius: var(--ep-radius-sm);
+    cursor: pointer;
+    transition: background var(--ep-transition-base), color var(--ep-transition-base);
+    flex-shrink: 0;
+  }
+
+  .style-input-clear:hover {
+    background: var(--ep-gray-100);
+    color: var(--ep-gray-600);
+  }
+
   /* Spacing input: 4 values in a row */
   .style-spacing-input {
     display: flex;
