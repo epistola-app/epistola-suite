@@ -76,15 +76,6 @@ class DirectPdfRenderer(
         val pageSize = getPageSize(pageSettings.format, pageSettings.orientation)
         val iTextDocument = Document(pdfDocument, pageSize)
 
-        // Apply margins from page settings
-        val margins = pageSettings.margins
-        iTextDocument.setMargins(
-            margins.top.toFloat(),
-            margins.right.toFloat(),
-            margins.bottom.toFloat(),
-            margins.left.toFloat(),
-        )
-
         // Resolve document styles: caller-provided (pre-merged theme+template), or template override, or empty
         val effectiveDocumentStyles = resolvedDocumentStyles
             ?: document.documentStylesOverride
@@ -135,6 +126,19 @@ class DirectPdfRenderer(
             )
             pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, footerHandler)
         }
+
+        // Apply margins from page settings, reserving extra space for header/footer
+        val margins = pageSettings.margins
+        val topMargin = margins.top.toFloat() +
+            if (headerNode != null) renderingDefaults.pageHeaderReservedHeight else 0f
+        val bottomMargin = margins.bottom.toFloat() +
+            if (footerNode != null) renderingDefaults.pageFooterReservedHeight else 0f
+        iTextDocument.setMargins(
+            topMargin,
+            margins.right.toFloat(),
+            bottomMargin,
+            margins.left.toFloat(),
+        )
 
         // Render content: start from the root node.
         // The root node renderer will traverse its slots, which contain the content nodes.

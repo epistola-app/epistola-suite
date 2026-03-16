@@ -31,8 +31,8 @@ class PageHeaderEventHandler(
         // --- header band (top of page) ---
         val leftPadding = 36f
         val rightPadding = 36f
-        val topPadding = 20f
-        val headerHeight = 60f
+        val topPadding = context.renderingDefaults.pageHeaderPadding
+        val headerHeight = context.renderingDefaults.pageHeaderHeight
 
         // Rectangle y is measured from the bottom of the page.
         // So for a header we place it at: top - topPadding - headerHeight

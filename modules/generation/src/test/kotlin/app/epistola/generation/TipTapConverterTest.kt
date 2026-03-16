@@ -3,10 +3,13 @@ package app.epistola.generation
 import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.expression.JsonataEvaluator
 import app.epistola.generation.pdf.FontCache
+import com.itextpdf.layout.element.Link
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.Paragraph
+import com.itextpdf.layout.element.Text
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class TipTapConverterTest {
@@ -572,5 +575,158 @@ class TipTapConverterTest {
         val result = converter.convert(content, emptyMap(), fontCache = fontCache)
 
         assertEquals(1, result.size)
+    }
+
+    @Test
+    fun `converts text with link mark to Link element`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "text",
+                            "text" to "Visit our website",
+                            "marks" to listOf(
+                                mapOf(
+                                    "type" to "link",
+                                    "attrs" to mapOf("href" to "https://example.com"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals(1, result.size)
+        val paragraph = assertIs<Paragraph>(result[0])
+        val children = paragraph.children
+        assertEquals(1, children.size)
+        assertIs<Link>(children[0])
+    }
+
+    @Test
+    fun `link mark with bold renders as bold Link element`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "text",
+                            "text" to "Bold link",
+                            "marks" to listOf(
+                                mapOf(
+                                    "type" to "link",
+                                    "attrs" to mapOf("href" to "https://example.com"),
+                                ),
+                                mapOf("type" to "bold"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals(1, result.size)
+        val paragraph = assertIs<Paragraph>(result[0])
+        assertIs<Link>(paragraph.children[0])
+    }
+
+    @Test
+    fun `link mark with blank href renders as plain Text`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "text",
+                            "text" to "Not a link",
+                            "marks" to listOf(
+                                mapOf(
+                                    "type" to "link",
+                                    "attrs" to mapOf("href" to ""),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals(1, result.size)
+        val paragraph = assertIs<Paragraph>(result[0])
+        val child = paragraph.children[0]
+        assertIs<Text>(child)
+        // Should be plain Text, not Link (Link extends Text, so check exact type)
+        assertEquals(Text::class, child::class)
+    }
+
+    @Test
+    fun `link mark without href attr renders as plain Text`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "text",
+                            "text" to "No href",
+                            "marks" to listOf(
+                                mapOf("type" to "link"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals(1, result.size)
+        val paragraph = assertIs<Paragraph>(result[0])
+        assertEquals(Text::class, paragraph.children[0]::class)
+    }
+
+    @Test
+    fun `converts mailto link`() {
+        val content = mapOf(
+            "type" to "doc",
+            "content" to listOf(
+                mapOf(
+                    "type" to "paragraph",
+                    "content" to listOf(
+                        mapOf(
+                            "type" to "text",
+                            "text" to "klachtbehandeling@sittard-geleen.nl",
+                            "marks" to listOf(
+                                mapOf(
+                                    "type" to "link",
+                                    "attrs" to mapOf("href" to "mailto:klachtbehandeling@sittard-geleen.nl"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+
+        assertEquals(1, result.size)
+        val paragraph = assertIs<Paragraph>(result[0])
+        assertIs<Link>(paragraph.children[0])
     }
 }

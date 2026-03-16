@@ -12,8 +12,11 @@ Docker Compose setup for running Epistola Suite locally.
 ## Quick Start
 
 ```bash
-# Start all services
+# Start all services (PostgreSQL + Keycloak)
 docker compose -f apps/epistola/docker/docker-compose.yaml up -d
+
+# Or start only PostgreSQL (no Keycloak needed for local profile)
+docker compose -f apps/epistola/docker/docker-compose.yaml up -d postgres
 
 # Run the app
 ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local'

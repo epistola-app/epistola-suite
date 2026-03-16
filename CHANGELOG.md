@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **New template form**: Removed the "JSON Schema" textarea from the template creation form — data contracts are managed through the dedicated data contract editor instead.
+- **Page header/footer overlap**: Page header and footer content no longer overlaps with body content in PDF output. The document margins are now automatically increased to reserve space for header/footer bands when present.
+- **Theme margin update crash**: Setting margins in the theme editor no longer crashes with a Jackson null deserialization error. `PageSettings` now has default values for `format` (A4) and `orientation` (portrait), allowing partial payloads from the frontend.
+
 ### Added
+- **PDF link rendering**: `TipTapConverter` now renders ProseMirror `link` marks as clickable hyperlinks in PDF output. Links are styled with blue color and underline, and support both `https://` and `mailto:` URIs. Other marks (bold, italic, etc.) are correctly applied on top of links.
 - **Local dev Docker Compose**: Unified `apps/epistola/docker/docker-compose.yaml` with PostgreSQL and Keycloak services. Single `docker compose up -d` to start all local dependencies.
 
 ### Fixed

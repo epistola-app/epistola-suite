@@ -54,7 +54,19 @@ data class RenderingDefaults(
 
     // -- Unit conversion --
     val baseFontSizePt: Float,
+
+    // -- Page header/footer --
+    val pageHeaderPadding: Float = 20f,
+    val pageHeaderHeight: Float = 60f,
+    val pageFooterPadding: Float = 20f,
+    val pageFooterHeight: Float = 60f,
 ) {
+    /** Total vertical space reserved for the page header (padding + content height). */
+    val pageHeaderReservedHeight: Float get() = pageHeaderPadding + pageHeaderHeight
+
+    /** Total vertical space reserved for the page footer (padding + content height). */
+    val pageFooterReservedHeight: Float get() = pageFooterPadding + pageFooterHeight
+
     companion object {
         /** iText Core version used at build time. Update when upgrading iText. */
         private const val ITEXT_VERSION = "9.5.0"

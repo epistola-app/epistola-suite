@@ -4,7 +4,9 @@ import app.epistola.generation.expression.CompositeExpressionEvaluator
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.template.model.ExpressionLanguage
 import com.itextpdf.kernel.colors.DeviceRgb
+import com.itextpdf.kernel.pdf.action.PdfAction
 import com.itextpdf.layout.element.IBlockElement
+import com.itextpdf.layout.element.Link
 import com.itextpdf.layout.element.List
 import com.itextpdf.layout.element.ListItem
 import com.itextpdf.layout.element.Paragraph
@@ -211,11 +213,20 @@ class TipTapConverter(
                         loopContext,
                     )
 
-                    val text = Text(processedText)
-
-                    // Apply marks (formatting)
+                    // Check for link mark to create a Link element instead of plain Text
                     @Suppress("UNCHECKED_CAST")
                     val marks = child["marks"] as? kotlin.collections.List<Map<String, Any>>
+                    val linkHref = marks?.findLinkHref()
+
+                    val text: Text = if (linkHref != null) {
+                        Link(processedText, PdfAction.createURI(linkHref))
+                            .setUnderline()
+                            .setFontColor(LINK_COLOR)
+                    } else {
+                        Text(processedText)
+                    }
+
+                    // Apply marks (formatting)
                     if (marks != null) {
                         applyMarks(text, marks, fontCache)
                     }
@@ -258,6 +269,7 @@ class TipTapConverter(
                 "italic" -> isItalic = true
                 "underline" -> text.setUnderline()
                 "strike" -> text.setLineThrough()
+                "link" -> { /* handled separately via Link element */ }
                 "textStyle" -> {
                     @Suppress("UNCHECKED_CAST")
                     val attrs = mark["attrs"] as? Map<String, Any>
@@ -281,6 +293,21 @@ class TipTapConverter(
             else -> null
         }
         font?.let { text.setFont(it) }
+    }
+
+    companion object {
+        /** Standard link color (blue) used for hyperlinks in PDF output. */
+        private val LINK_COLOR = DeviceRgb(0, 0, 238)
+
+        /** Extracts the href from a link mark, if present. */
+        private fun kotlin.collections.List<Map<String, Any>>.findLinkHref(): String? {
+            val linkMark = firstOrNull { it["type"] == "link" } ?: return null
+
+            @Suppress("UNCHECKED_CAST")
+            val attrs = linkMark["attrs"] as? Map<String, Any> ?: return null
+            val href = attrs["href"] as? String
+            return href?.takeIf { it.isNotBlank() }
+        }
     }
 
     private fun parseHexColor(hex: String): DeviceRgb? = try {
