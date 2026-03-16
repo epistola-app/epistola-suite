@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **Editor save error**: `UpdateDraft` SQL queries were missing `template_key` filter, causing errors when multiple templates share the same variant slug (e.g., "default"). Added `template_key` to UPDATE, SELECT, and MAX(id) queries.
+- **Autocomplete missing data model variables**: `GetEditorContext` cast JSONB `data_model` directly to `ObjectNode` instead of deserializing from `PGobject`, causing it to always be null. Variable autocomplete now correctly shows data model variables.
+- **Version list showing all variants' versions**: SQL JOINs in `ListVersions`, `GetVersion`, and `GetVariant` subqueries were missing `template_key` in JOIN conditions, causing version lists to include versions from other templates when variant slugs collide.
 - **New template form**: Removed the "JSON Schema" textarea from the template creation form — data contracts are managed through the dedicated data contract editor instead.
 - **Page header/footer overlap**: Page header and footer content no longer overlaps with body content in PDF output. The document margins are now automatically increased to reserve space for header/footer bands when present.
 - **Theme margin update crash**: Setting margins in the theme editor no longer crashes with a Jackson null deserialization error. `PageSettings` now has default values for `format` (A4) and `orientation` (portrait), allowing partial payloads from the frontend.

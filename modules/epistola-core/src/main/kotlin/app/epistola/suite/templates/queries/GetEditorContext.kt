@@ -103,7 +103,18 @@ class GetEditorContextHandler(
             variantAttributes = variantAttributes,
             templateModel = templateModel,
             dataExamples = dataExamples,
-            dataModel = row["data_model"] as? ObjectNode,
+            dataModel = row["data_model"]?.let { raw ->
+                val json = raw.toString()
+                if (json.isNotBlank() && json != "null") {
+                    try {
+                        objectMapper.readValue(json, ObjectNode::class.java)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } else {
+                    null
+                }
+            },
         )
     }
 }

@@ -21,7 +21,7 @@ class ListVersionsHandler(
             """
                 SELECT ver.id, ver.tenant_key, ver.variant_key, ver.status, ver.created_at, ver.published_at, ver.archived_at
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.id = ver.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.variant_key = :variantId
                   AND ver.tenant_key = :tenantId
                   AND tv.template_key = :templateId
