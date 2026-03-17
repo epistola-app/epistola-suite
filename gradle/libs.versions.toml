@@ -14,7 +14,7 @@ openapi-generator = "7.20.0"
 jackson2 = "2.21.1"
 spring-web = "7.0.6"
 playwright = "1.58.0"
-epistola-contract = "0.1.17"
+epistola-contract = "0.1.0-batch-download"
 epistola-editor-model = "0.1.17"
 aws-sdk = "2.42.13"
 
