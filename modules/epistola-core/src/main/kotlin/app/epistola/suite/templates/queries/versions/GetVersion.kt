@@ -23,7 +23,7 @@ class GetVersionHandler(
                        ver.created_at, ver.published_at, ver.archived_at,
                        ver.rendering_defaults_version, ver.resolved_theme
                 FROM template_versions ver
-                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.id = ver.variant_key
+                JOIN template_variants tv ON tv.tenant_key = ver.tenant_key AND tv.template_key = ver.template_key AND tv.id = ver.variant_key
                 WHERE ver.id = :versionId
                   AND ver.variant_key = :variantId
                   AND ver.tenant_key = :tenantId

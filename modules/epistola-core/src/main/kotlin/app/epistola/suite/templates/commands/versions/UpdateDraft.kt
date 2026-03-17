@@ -52,10 +52,12 @@ class UpdateDraftHandler(
                 UPDATE template_versions
                 SET template_model = :templateModel::jsonb
                 WHERE tenant_key = :tenantId AND variant_key = :variantId
+                  AND template_key = :templateId
                   AND status = 'draft'
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .bind("templateModel", templateModelJson)
             .execute()
@@ -67,10 +69,12 @@ class UpdateDraftHandler(
                     SELECT *
                     FROM template_versions
                     WHERE tenant_key = :tenantId AND variant_key = :variantId
+                      AND template_key = :templateId
                       AND status = 'draft'
                     """,
             )
                 .bind("tenantId", command.variantId.tenantKey)
+                .bind("templateId", command.variantId.templateKey)
                 .bind("variantId", command.variantId.key)
                 .mapTo<TemplateVersion>()
                 .one()
@@ -83,9 +87,11 @@ class UpdateDraftHandler(
                 SELECT COALESCE(MAX(id), 0) + 1 as next_id
                 FROM template_versions
                 WHERE tenant_key = :tenantId AND variant_key = :variantId
+                  AND template_key = :templateId
                 """,
         )
             .bind("tenantId", command.variantId.tenantKey)
+            .bind("templateId", command.variantId.templateKey)
             .bind("variantId", command.variantId.key)
             .mapTo(Int::class.java)
             .one()
