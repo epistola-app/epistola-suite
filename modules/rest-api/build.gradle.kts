@@ -1,12 +1,9 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kotlin.spring)
-    alias(libs.plugins.spring.dependency.management)
-    alias(libs.plugins.kover)
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
+    kotlin("plugin.spring")
+    id("io.spring.dependency-management")
 }
-
-// Module containing REST API interfaces and models.
-// Server interfaces are provided by the epistola-contract artifact.
 
 dependencyManagement {
     imports {

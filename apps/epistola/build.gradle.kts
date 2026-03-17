@@ -1,13 +1,13 @@
 import org.cyclonedx.model.Component
 
 plugins {
-    kotlin("jvm")
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
     kotlin("plugin.spring")
     id("org.springframework.boot")
     id("io.spring.dependency-management")
     id("org.graalvm.buildtools.native") apply false
     id("org.cyclonedx.bom")
-    id("org.jetbrains.kotlinx.kover")
 }
 
 // Conditionally apply native plugin only when building native images
@@ -89,23 +89,6 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation(libs.playwright)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
-
-    // JVM optimizations for faster test startup
-    jvmArgs(
-        "-XX:+UseParallelGC", // Parallel GC is faster for short-lived processes
-        "-XX:TieredStopAtLevel=1", // Faster JVM startup (skip C2 compilation)
-        "-Xms256m",
-        "-Xmx512m",
-    )
-
-    testLogging {
-        events("passed", "skipped", "failed")
-        showStandardStreams = false // Keep output clean
-    }
 }
 
 // Enable BuildProperties bean by generating build-info.properties

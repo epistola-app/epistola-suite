@@ -1,6 +1,6 @@
 plugins {
     `java-library`
-    kotlin("jvm")
+    id("epistola-kotlin-conventions")
     kotlin("plugin.spring")
     id("io.spring.dependency-management")
 }

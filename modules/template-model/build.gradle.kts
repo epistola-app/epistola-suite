@@ -11,8 +11,8 @@ buildscript {
 }
 
 plugins {
-    alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kover)
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
 }
 
 apply<JSONSchemaCodegenPlugin>()
@@ -58,6 +58,8 @@ val removeGeneratedOverrides by tasks.registering(Delete::class) {
 
 tasks.named("generate") {
     finalizedBy(removeGeneratedOverrides)
+    // json-kotlin-gradle uses Task.project at execution time — not config-cache compatible
+    notCompatibleWithConfigurationCache("json-kotlin-gradle accesses Task.project at execution time")
 }
 
 sourceSets.main {

@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kover)
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
 }
 
 dependencies {
@@ -22,8 +22,4 @@ dependencies {
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
 }
