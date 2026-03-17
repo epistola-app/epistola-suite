@@ -600,7 +600,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache, documentStyles = null)
 
         assertEquals(1, result.size)
         val paragraph = assertIs<Paragraph>(result[0])
@@ -633,7 +633,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache, documentStyles = null)
 
         assertEquals(1, result.size)
         val paragraph = assertIs<Paragraph>(result[0])
@@ -663,7 +663,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache, documentStyles = null)
 
         assertEquals(1, result.size)
         val paragraph = assertIs<Paragraph>(result[0])
@@ -693,7 +693,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache, documentStyles = null)
 
         assertEquals(1, result.size)
         val paragraph = assertIs<Paragraph>(result[0])
@@ -723,7 +723,7 @@ class TipTapConverterTest {
             ),
         )
 
-        val result = converter.convert(content, emptyMap(), fontCache = fontCache)
+        val result = converter.convert(content, emptyMap(), fontCache = fontCache, documentStyles = null)
 
         assertEquals(1, result.size)
         val paragraph = assertIs<Paragraph>(result[0])
