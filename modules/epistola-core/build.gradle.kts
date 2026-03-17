@@ -15,7 +15,7 @@ the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().a
 
 dependencies {
     // Existing modules
-    api(project(":modules:template-model"))
+    api(libs.epistola.editor.model)
     api(project(":modules:generation"))
 
     // Spring Boot - core dependencies for business logic

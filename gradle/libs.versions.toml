@@ -15,6 +15,7 @@ jackson2 = "2.21.1"
 spring-web = "7.0.6"
 playwright = "1.58.0"
 epistola-contract = "0.1.14"
+epistola-editor-model = "0.1.0-SNAPSHOT"
 aws-sdk = "2.42.13"
 
 [libraries]
@@ -33,6 +34,7 @@ jackson2-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-js
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
+epistola-editor-model = { module = "app.epistola.contract:editor-model", version.ref = "epistola-editor-model" }
 aws-bom = { module = "software.amazon.awssdk:bom", version.ref = "aws-sdk" }
 aws-s3 = { module = "software.amazon.awssdk:s3", version.ref = "aws-sdk" }
 

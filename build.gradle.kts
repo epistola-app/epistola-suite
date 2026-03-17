@@ -17,7 +17,6 @@ dependencies {
     kover(project(":apps:epistola"))
     kover(project(":modules:epistola-core"))
     kover(project(":modules:generation"))
-    kover(project(":modules:template-model"))
     kover(project(":modules:rest-api"))
     kover(project(":modules:loadtest"))
     kover(project(":modules:feedback"))

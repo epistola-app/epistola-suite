@@ -3,7 +3,8 @@
 ## [Unreleased]
 
 ### Changed
-- **Gradle configuration cache**: Enabled configuration cache for faster repeated builds. Fixed 2 blockers in the editor module (project reference in `doLast`, redundant `upToDateWhen`). Note: config cache is skipped for task graphs including `template-model:generate` due to third-party `json-kotlin-gradle` plugin incompatibility.
+- **template-model moved to epistola-contract**: The `template-model` module (JSON schema types for documents, themes, components) has been moved to the `epistola-contract` repository as `editor-model` and is now consumed as an external Maven artifact (`app.epistola.contract:editor-model`) and npm package (`@epistola/editor-model`). This eliminates the last Gradle configuration cache blocker.
+- **Gradle configuration cache**: Fully enabled — all tasks in the build graph are now configuration cache compatible. Fixed 2 blockers in the editor module (project reference in `doLast`, redundant `upToDateWhen`).
 - **Convention plugins**: Extracted shared Kotlin/test/kover configuration into `epistola-kotlin-conventions` and `epistola-kover-conventions` buildSrc plugins, eliminating `allprojects`/`subprojects`/`configure` blocks from the root build file. Repositories moved to `settings.gradle.kts` via `dependencyResolutionManagement`.
 
 ### Fixed
