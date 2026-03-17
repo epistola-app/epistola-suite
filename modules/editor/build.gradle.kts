@@ -19,9 +19,9 @@ dependencies {
 val verifyFrontendBuild by tasks.registering {
     description = "Verifies that the frontend build output exists"
     group = "verification"
+    val distDir = project.file("dist")
 
     doLast {
-        val distDir = file("dist")
         if (!distDir.exists() || !distDir.isDirectory) {
             throw GradleException(
                 """
@@ -39,10 +39,6 @@ val copyDistToResources by tasks.registering(Copy::class) {
     dependsOn(verifyFrontendBuild)
     from("dist")
     into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
-
-    outputs.upToDateWhen {
-        layout.buildDirectory.dir("resources/main/META-INF/resources/editor").get().asFile.exists()
-    }
 }
 
 tasks.named("processResources") {
