@@ -81,8 +81,12 @@ class BatchDownloadService(
             BatchDownloadFormat.ZIP -> "zip"
             BatchDownloadFormat.MERGED_PDF -> "pdf"
         }
+        val formatInfix = when (downloadFormat) {
+            BatchDownloadFormat.ZIP -> ""
+            BatchDownloadFormat.MERGED_PDF -> "-merged"
+        }
         val partSuffix = if (parts > 1) "-part-$part" else ""
-        val filename = "batch-${batchKey.value}$partSuffix.$extension"
+        val filename = "batch-${batchKey.value}$formatInfix$partSuffix.$extension"
 
         return DownloadResult(
             content = stored,

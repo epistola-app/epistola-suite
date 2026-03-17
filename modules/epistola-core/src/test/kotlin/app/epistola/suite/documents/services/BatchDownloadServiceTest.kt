@@ -106,6 +106,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
 
         assertThat(result.contentType).isEqualTo("application/pdf")
         assertThat(result.filename).contains("batch-")
+        assertThat(result.filename).contains("-merged")
         assertThat(result.filename).endsWith(".pdf")
         assertThat(result.content.sizeBytes).isGreaterThan(0)
     }
