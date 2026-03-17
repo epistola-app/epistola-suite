@@ -48,20 +48,22 @@ class FakeDocumentGenerationExecutor(
     private val localRetentionDays = retentionDays
 
     /**
-     * Minimal valid PDF file (just magic bytes + basic structure).
-     * This is a valid PDF that can be opened but contains no content.
+     * Minimal valid PDF file with a root catalog and one blank page.
+     * PDFBox requires a valid root object to parse and merge PDFs.
      */
-    private val fakePdfBytes = byteArrayOf(
-        0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34, 0x0A, // %PDF-1.4\n
-        0x25, 0xE2.toByte(), 0xE3.toByte(), 0xCF.toByte(), 0xD3.toByte(), 0x0A, // Binary marker
-        0x0A, // \n
-        // Minimal xref table and trailer
-        0x78, 0x72, 0x65, 0x66, 0x0A, // xref\n
-        0x30, 0x20, 0x30, 0x0A, // 0 0\n
-        0x74, 0x72, 0x61, 0x69, 0x6C, 0x65, 0x72, 0x0A, // trailer\n
-        0x3C, 0x3C, 0x3E, 0x3E, 0x0A, // <<>>\n
-        0x25, 0x25, 0x45, 0x4F, 0x46, 0x0A, // %%EOF\n
-    )
+    private val fakePdfBytes = (
+        "%PDF-1.4\n" +
+            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n" +
+            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n" +
+            "xref\n0 4\n" +
+            "0000000000 65535 f \n" +
+            "0000000009 00000 n \n" +
+            "0000000058 00000 n \n" +
+            "0000000115 00000 n \n" +
+            "trailer\n<< /Size 4 /Root 1 0 R >>\n" +
+            "startxref\n183\n%%EOF\n"
+        ).toByteArray()
 
     override fun execute(request: DocumentGenerationRequest) {
         logger.debug("FAKE execution for request {} (no real PDF generation)", request.id.value)

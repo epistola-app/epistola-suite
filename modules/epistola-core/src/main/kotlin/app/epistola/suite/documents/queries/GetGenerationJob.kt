@@ -67,7 +67,9 @@ class GetGenerationJobHandler(
         val batch = request.batchId?.let { batchId ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, total_count, final_completed_count, final_failed_count,
+                SELECT id, tenant_key, total_count,
+                       final_completed_count AS completed_count,
+                       final_failed_count AS failed_count,
                        assembly_status, download_formats, download_parts, created_at, completed_at
                 FROM document_generation_batches
                 WHERE id = :batchId
