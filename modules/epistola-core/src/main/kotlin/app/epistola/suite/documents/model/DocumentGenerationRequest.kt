@@ -30,6 +30,7 @@ import java.time.OffsetDateTime
  * @property variantId Variant of the template to use
  * @property versionId Explicit version ID (mutually exclusive with environmentId)
  * @property environmentId Environment to determine version from (mutually exclusive with versionId)
+ * @property sequence Order index within a batch (0-based), used for deterministic ordering in downloads
  * @property data JSON data to populate the template
  * @property filename Requested filename for the generated document
  * @property correlationId Client-provided ID for tracking documents across systems
@@ -51,6 +52,7 @@ data class DocumentGenerationRequest(
     val variantKey: VariantKey,
     val versionKey: VersionKey?,
     val environmentKey: EnvironmentKey?,
+    val sequence: Int = 0,
     @Json val data: ObjectNode,
     val filename: String?,
     val correlationKey: String?,

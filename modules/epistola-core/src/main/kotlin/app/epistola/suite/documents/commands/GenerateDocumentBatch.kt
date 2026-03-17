@@ -7,6 +7,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.model.BatchDownloadFormat
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -74,10 +75,12 @@ class BatchValidationException(
  *
  * @property tenantId Tenant that owns the templates
  * @property items List of items to generate
+ * @property downloadFormats Desired download formats for batch assembly (empty = no assembly)
  */
 data class GenerateDocumentBatch(
     val tenantId: TenantKey,
     val items: List<BatchGenerationItem>,
+    val downloadFormats: List<BatchDownloadFormat> = emptyList(),
 ) : Command<BatchKey>,
     RequiresPermission {
     override val permission get() = Permission.DOCUMENT_GENERATE
@@ -188,14 +191,15 @@ class GenerateDocumentBatchHandler(
             handle.createUpdate(
                 """
                 INSERT INTO document_generation_batches (
-                    id, tenant_key, total_count
+                    id, tenant_key, total_count, download_formats
                 )
-                VALUES (:batchId, :tenantId, :totalCount)
+                VALUES (:batchId, :tenantId, :totalCount, :downloadFormats::jsonb)
                 """,
             )
                 .bind("batchId", batchId)
                 .bind("tenantId", command.tenantId)
                 .bind("totalCount", command.items.size)
+                .bind("downloadFormats", command.downloadFormats.map { it.name }.let { "[${ it.joinToString(",") { "\"$it\"" } }]" })
                 .execute()
 
             // 3. Create N requests (one per item) with batch_id
@@ -203,10 +207,10 @@ class GenerateDocumentBatchHandler(
                 """
                 INSERT INTO document_generation_requests (
                     id, batch_id, tenant_key, template_key, variant_key, version_key, environment_key,
-                    data, filename, correlation_key, document_key, status
+                    sequence, data, filename, correlation_key, document_key, status
                 )
                 VALUES (:id, :batchId, :tenantId, :templateId, :variantId, :versionId, :environmentId,
-                        :data::jsonb, :filename, :correlationId, NULL, :status)
+                        :sequence, :data::jsonb, :filename, :correlationId, NULL, :status)
                 """,
             )
 
@@ -219,6 +223,7 @@ class GenerateDocumentBatchHandler(
                     .bind("variantId", resolvedVariantIds[index])
                     .bind("versionId", item.versionId)
                     .bind("environmentId", item.environmentId)
+                    .bind("sequence", index)
                     .bind("data", item.data.toString())
                     .bind("filename", item.filename)
                     .bind("correlationId", item.correlationId)

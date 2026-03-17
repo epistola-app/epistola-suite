@@ -161,4 +161,11 @@ internal fun GenerateBatchRequest.toCommand(
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
     items = items.map { it.toBatchItem(objectMapper) },
+    downloadFormats = downloadFormats?.map { it.toDomain() } ?: emptyList(),
 )
+
+private fun app.epistola.api.model.BatchDownloadFormat.toDomain(): app.epistola.suite.documents.model.BatchDownloadFormat =
+    when (this) {
+        app.epistola.api.model.BatchDownloadFormat.ZIP -> app.epistola.suite.documents.model.BatchDownloadFormat.ZIP
+        app.epistola.api.model.BatchDownloadFormat.MERGED_PDF -> app.epistola.suite.documents.model.BatchDownloadFormat.MERGED_PDF
+    }

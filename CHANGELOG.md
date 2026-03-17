@@ -15,6 +15,7 @@
 - **Tenant provisioning**: `TenantProvisioningPort` interface with Keycloak implementation that auto-creates groups (`ep_{key}_reader/editor/generator/manager`) when a tenant is created. Falls back to no-op when Keycloak is not configured.
 - **Membership sync on login**: `SyncTenantMemberships` command upserts JWT-derived memberships to `tenant_memberships` table on OAuth2 login for API key fallback and audit.
 - **Tenant membership role column**: `tenant_memberships` table now includes `role` and `last_synced_at` columns for JWT claim sync.
+- **Batch download foundations**: Added Apache PDFBox dependency for PDF merging. Added `sequence` column to generation requests for deterministic ordering, `assembly_status` and `download_formats` columns to batches for tracking download assembly. New `AssemblyStatus` and `BatchDownloadFormat` domain enums. `GenerateDocumentBatch` command now accepts `downloadFormats` and sets `sequence` from array index.
 
 ### Changed
 - **Keycloak realm export**: Replaced `epistola-tenants-mapper` (organization membership) and `epistola-client-roles-mapper` (client roles) with built-in Group Membership Mapper. Removed `tenant-manager` client role. Test users now assigned to `ep_*` groups.

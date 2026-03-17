@@ -70,6 +70,7 @@ CREATE TABLE document_generation_requests (
     variant_key VARIANT_KEY NOT NULL,
     version_key INTEGER,
     environment_key ENVIRONMENT_KEY,
+    sequence INT NOT NULL DEFAULT 0,
     data JSONB NOT NULL,
     filename VARCHAR(255),
     correlation_key VARCHAR(255),
@@ -137,6 +138,7 @@ COMMENT ON COLUMN document_generation_requests.error_message IS 'Error details w
 COMMENT ON COLUMN document_generation_requests.created_at IS 'When the request was submitted';
 COMMENT ON COLUMN document_generation_requests.started_at IS 'When generation began (status moved to IN_PROGRESS)';
 COMMENT ON COLUMN document_generation_requests.completed_at IS 'When generation finished (status moved to COMPLETED/FAILED)';
+COMMENT ON COLUMN document_generation_requests.sequence IS 'Order index within a batch (0-based). Used for deterministic ordering in batch downloads.';
 COMMENT ON COLUMN document_generation_requests.expires_at IS 'Auto-cleanup timestamp. Requests past this time may be purged.';
 
 -- ============================================================================
@@ -150,6 +152,8 @@ CREATE TABLE document_generation_batches (
     total_count INTEGER NOT NULL,
     final_completed_count INTEGER,
     final_failed_count INTEGER,
+    assembly_status VARCHAR(20) NOT NULL DEFAULT 'NONE' CHECK (assembly_status IN ('NONE', 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
+    download_formats JSONB NOT NULL DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
 
@@ -166,4 +170,6 @@ COMMENT ON COLUMN document_generation_batches.total_count IS 'Total number of re
 COMMENT ON COLUMN document_generation_batches.final_completed_count IS 'Final count of successful requests. NULL while batch is in progress.';
 COMMENT ON COLUMN document_generation_batches.final_failed_count IS 'Final count of failed requests. NULL while batch is in progress.';
 COMMENT ON COLUMN document_generation_batches.created_at IS 'When the batch was created';
+COMMENT ON COLUMN document_generation_batches.assembly_status IS 'Status of batch download assembly: NONE, PENDING, IN_PROGRESS, COMPLETED, FAILED';
+COMMENT ON COLUMN document_generation_batches.download_formats IS 'Requested download formats as JSON array (e.g. ["zip", "merged_pdf"])';
 COMMENT ON COLUMN document_generation_batches.completed_at IS 'When all requests in the batch finished. NULL while in progress.';
