@@ -57,7 +57,7 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     startedAt = startedAt,
     completedAt = completedAt,
     progressPercentage = if (isTerminal) 100.0 else 0.0,
-    assemblyStatus = DocumentGenerationJobDto.AssemblyStatus.NONE,
+    assemblyStatus = app.epistola.api.model.AssemblyStatus.NONE,
 )
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
@@ -99,17 +99,18 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper) = D
 // ==================== Generation Job Result ====================
 
 internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper): GenerationJobDetail {
-    val jobDto = if (batch != null) {
+    val batchSnapshot = batch
+    val jobDto = if (batchSnapshot != null) {
         // Batch job: use batch-level assembly status
         request.toJobDto().copy(
-            assemblyStatus = DocumentGenerationJobDto.AssemblyStatus.valueOf(batch.assemblyStatus.name),
+            assemblyStatus = app.epistola.api.model.AssemblyStatus.valueOf(batchSnapshot.assemblyStatus.name),
         )
     } else {
         request.toJobDto()
     }
 
-    val downloads = if (batch != null && batch.assemblyStatus == AssemblyStatus.COMPLETED) {
-        batch.downloadParts.map { (format, parts) ->
+    val downloads = if (batchSnapshot != null && batchSnapshot.assemblyStatus == AssemblyStatus.COMPLETED) {
+        batchSnapshot.downloadParts.map { (format, parts) ->
             BatchDownloadInfo(
                 format = app.epistola.api.model.BatchDownloadFormat.valueOf(format),
                 parts = parts.map { part ->

@@ -41,9 +41,16 @@ class BatchAssemblyService(
     private val maxPartSizeBytes = properties.maxPartSizeMb * 1024 * 1024
 
     /**
-     * Assemble download files for a completed batch. Called async after batch completion.
+     * Trigger assembly asynchronously. Used by DocumentGenerationExecutor after batch completion.
      */
     @Async
+    fun assembleDownloadsAsync(tenantKey: TenantKey, batchKey: BatchKey) {
+        assembleDownloads(tenantKey, batchKey)
+    }
+
+    /**
+     * Assemble download files for a completed batch. Runs synchronously.
+     */
     fun assembleDownloads(tenantKey: TenantKey, batchKey: BatchKey) {
         try {
             updateAssemblyStatus(batchKey, AssemblyStatus.IN_PROGRESS)
@@ -143,7 +150,7 @@ class BatchAssemblyService(
         fun finalizePart() {
             zip.close()
             val bytes = buffer.toByteArray()
-            storeAssembledPart(tenantKey, batchKey, "zip", partNumber, bytes, "application/zip")
+            storeAssembledPart(tenantKey, batchKey, BatchDownloadFormat.ZIP.name, partNumber, bytes, "application/zip")
             parts.add(DownloadPartInfo(partNumber, bytes.size.toLong()))
             partNumber++
             currentSize = 0L
@@ -167,7 +174,7 @@ class BatchAssemblyService(
         zip.close()
         val bytes = buffer.toByteArray()
         if (bytes.isNotEmpty()) {
-            storeAssembledPart(tenantKey, batchKey, "zip", partNumber, bytes, "application/zip")
+            storeAssembledPart(tenantKey, batchKey, BatchDownloadFormat.ZIP.name, partNumber, bytes, "application/zip")
             parts.add(DownloadPartInfo(partNumber, bytes.size.toLong()))
         }
 
@@ -189,7 +196,7 @@ class BatchAssemblyService(
             val output = ByteArrayOutputStream()
             PdfMergerUtil.mergePdfs(currentBatch, output)
             val bytes = output.toByteArray()
-            storeAssembledPart(tenantKey, batchKey, "merged_pdf", partNumber, bytes, "application/pdf")
+            storeAssembledPart(tenantKey, batchKey, BatchDownloadFormat.MERGED_PDF.name, partNumber, bytes, "application/pdf")
             parts.add(DownloadPartInfo(partNumber, bytes.size.toLong()))
             partNumber++
             currentBatch = mutableListOf()
