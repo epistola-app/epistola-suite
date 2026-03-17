@@ -56,6 +56,9 @@ class BatchDownloadService(
         if (batch.failedCount > 0) {
             throw BatchDownloadException.conflict("Batch has ${batch.failedCount} failed items")
         }
+        if (batch.downloadFormats.isEmpty()) {
+            throw BatchDownloadException.badRequest("No download formats were requested at submission time")
+        }
         if (!batch.downloadFormats.contains(downloadFormat)) {
             throw BatchDownloadException.badRequest("Format $format was not requested at submission time")
         }

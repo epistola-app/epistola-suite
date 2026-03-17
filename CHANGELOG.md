@@ -7,6 +7,8 @@
 - **Batch download assembly and retrieval**: `BatchAssemblyService` assembles ZIP and merged PDF downloads from completed batches using local temp staging, parallel ContentStore downloads, and 250MB part-size splitting. `BatchDownloadService` validates batch state and serves assembled files. Assembly is triggered automatically when a batch completes with download formats requested. Single-document batches return the PDF directly. Added `download_parts` JSONB column to track part metadata. `downloadBatchJob` REST endpoint delegates to `BatchDownloadService`. DTO mappers updated to include `assemblyStatus` and `downloads` in job detail responses.
 
 ### Fixed
+- **Batch download validation ordering**: Fixed validation order so that a batch with no download formats returns 400 (bad request) instead of 409 (conflict). Added explicit empty-formats check before assembly status check.
+- **Batch download error response bodies**: Error responses from the download endpoint now include `ApiErrorResponse` bodies with descriptive messages instead of empty bodies. Moved error handling from inline try-catch to `@ExceptionHandler` in `ApiExceptionHandler`.
 - **Merged PDF download filename**: Added `-merged` infix to merged PDF download filenames per spec. Now produces `batch-{id}-merged.pdf` (single part) and `batch-{id}-merged-part-{n}.pdf` (multi-part) instead of `batch-{id}.pdf`.
 - **ZIP duplicate filename deduplication**: ZIP assembly now deduplicates filenames with numeric suffixes (e.g., `letter.pdf`, `letter (2).pdf`) as a safety net, even though submission-time validation prevents duplicates.
 - **Batch download part filename format**: Part filenames now use `batch-{id}-part-{n}.zip` format (with hyphen before number) instead of `batch-{id}-partn.zip`.

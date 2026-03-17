@@ -5,6 +5,7 @@ import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.documents.services.BatchDownloadException
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.PlatformAccessDeniedException
 import app.epistola.suite.security.TenantAccessDeniedException
@@ -40,6 +41,25 @@ data class ApiErrorResponse(
 class ApiExceptionHandler {
 
     private val logger = LoggerFactory.getLogger(ApiExceptionHandler::class.java)
+
+    @ExceptionHandler(BatchDownloadException::class)
+    fun handleBatchDownloadException(ex: BatchDownloadException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Batch download error ({}): {}", ex.statusCode, ex.message)
+
+        val code = when (ex.statusCode) {
+            400 -> "BAD_REQUEST"
+            404 -> "NOT_FOUND"
+            409 -> "CONFLICT"
+            else -> "INTERNAL_ERROR"
+        }
+
+        return ResponseEntity.status(ex.statusCode).body(
+            ApiErrorResponse(
+                code = code,
+                message = ex.message,
+            ),
+        )
+    }
 
     @ExceptionHandler(BatchValidationException::class)
     fun handleBatchValidationException(ex: BatchValidationException): ResponseEntity<ValidationErrorResponse> {

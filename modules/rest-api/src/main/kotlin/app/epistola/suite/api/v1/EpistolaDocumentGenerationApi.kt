@@ -22,7 +22,6 @@ import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
-import app.epistola.suite.documents.services.BatchDownloadException
 import app.epistola.suite.documents.services.BatchDownloadService
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
@@ -133,25 +132,18 @@ class EpistolaDocumentGenerationApi(
         requestId: UUID,
         format: String,
         part: Int,
-    ): ResponseEntity<Resource> = try {
+    ): ResponseEntity<Resource> {
         val result = batchDownloadService.download(
             TenantKey.of(tenantId),
             app.epistola.suite.common.ids.BatchKey.of(requestId),
             format,
             part,
         )
-        ResponseEntity.ok()
+        return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(result.contentType))
             .contentLength(result.content.sizeBytes)
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${result.filename}\"")
             .body(InputStreamResource(result.content.content))
-    } catch (e: BatchDownloadException) {
-        when (e.statusCode) {
-            400 -> ResponseEntity.badRequest().build()
-            404 -> ResponseEntity.notFound().build()
-            409 -> ResponseEntity.status(HttpStatus.CONFLICT).build()
-            else -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
-        }
     }
 
     // ================== Document Download ==================
