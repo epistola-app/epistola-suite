@@ -1,45 +1,71 @@
-package app.epistola.suite.documents.services
+package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.AssemblyStatus
 import app.epistola.suite.documents.model.BatchDownloadFormat
+import app.epistola.suite.mediator.Query
+import app.epistola.suite.mediator.QueryHandler
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.storage.StoredContent
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
+data class DownloadResult(
+    val content: StoredContent,
+    val filename: String,
+    val contentType: String,
+)
+
+class BatchDownloadException(
+    val statusCode: Int,
+    override val message: String,
+) : RuntimeException(message) {
+    companion object {
+        fun badRequest(message: String) = BatchDownloadException(400, message)
+        fun notFound(message: String) = BatchDownloadException(404, message)
+        fun conflict(message: String) = BatchDownloadException(409, message)
+    }
+}
+
 /**
- * Handles validation and retrieval of assembled batch downloads.
+ * Query to download an assembled batch output file.
+ *
+ * @property tenantKey Tenant that owns the batch
+ * @property batchKey The batch ID
+ * @property format The download format (ZIP or MERGED_PDF)
+ * @property part The part number (1-based)
  */
+data class DownloadBatchJob(
+    val tenantKey: TenantKey,
+    val batchKey: BatchKey,
+    val format: String,
+    val part: Int,
+) : Query<DownloadResult>
+
 @Component
-class BatchDownloadService(
+class DownloadBatchJobHandler(
     private val jdbi: Jdbi,
     private val contentStore: ContentStore,
-) {
-    /**
-     * Download an assembled batch output file.
-     *
-     * @return the stored content for the requested format/part
-     * @throws BatchDownloadException on validation failure
-     */
-    fun download(tenantKey: TenantKey, batchKey: BatchKey, format: String, part: Int): DownloadResult {
+) : QueryHandler<DownloadBatchJob, DownloadResult> {
+
+    override fun handle(query: DownloadBatchJob): DownloadResult {
         val downloadFormat = try {
-            BatchDownloadFormat.valueOf(format.uppercase())
+            BatchDownloadFormat.valueOf(query.format.uppercase())
         } catch (_: IllegalArgumentException) {
-            throw BatchDownloadException.badRequest("Invalid format: $format")
+            throw BatchDownloadException.badRequest("Invalid format: ${query.format}")
         }
 
-        val batch = getBatch(tenantKey, batchKey)
+        val batch = getBatch(query.tenantKey, query.batchKey)
             ?: throw BatchDownloadException.notFound("Batch not found")
 
         // Single-document optimization: if batch has exactly 1 completed document, return it directly
         if (batch.totalCount == 1 && batch.completedCount == 1) {
-            val singleDoc = getSingleCompletedDocument(batchKey)
+            val singleDoc = getSingleCompletedDocument(query.batchKey)
             if (singleDoc != null) {
-                val stored = contentStore.get(ContentKey.document(tenantKey, singleDoc.documentKey))
+                val stored = contentStore.get(ContentKey.document(query.tenantKey, singleDoc.documentKey))
                     ?: throw BatchDownloadException.notFound("Document content not found")
                 return DownloadResult(
                     content = stored,
@@ -60,7 +86,7 @@ class BatchDownloadService(
             throw BatchDownloadException.badRequest("No download formats were requested at submission time")
         }
         if (!batch.downloadFormats.contains(downloadFormat)) {
-            throw BatchDownloadException.badRequest("Format $format was not requested at submission time")
+            throw BatchDownloadException.badRequest("Format ${query.format} was not requested at submission time")
         }
         if (batch.assemblyStatus != AssemblyStatus.COMPLETED) {
             throw BatchDownloadException.conflict("Assembly status is ${batch.assemblyStatus}")
@@ -68,11 +94,11 @@ class BatchDownloadService(
 
         // Validate part number
         val parts = batch.partsForFormat(downloadFormat)
-        if (part < 1 || part > parts) {
-            throw BatchDownloadException.notFound("Part $part not found (available: 1-$parts)")
+        if (query.part < 1 || query.part > parts) {
+            throw BatchDownloadException.notFound("Part ${query.part} not found (available: 1-$parts)")
         }
 
-        val key = ContentKey.batchDownload(tenantKey, batchKey, downloadFormat.name, part)
+        val key = ContentKey.batchDownload(query.tenantKey, query.batchKey, downloadFormat.name, query.part)
         val stored = contentStore.get(key)
             ?: throw BatchDownloadException.notFound("Assembled content not found")
 
@@ -88,8 +114,8 @@ class BatchDownloadService(
             BatchDownloadFormat.ZIP -> ""
             BatchDownloadFormat.MERGED_PDF -> "-merged"
         }
-        val partSuffix = if (parts > 1) "-part-$part" else ""
-        val filename = "batch-${batchKey.value}$formatInfix$partSuffix.$extension"
+        val partSuffix = if (parts > 1) "-part-${query.part}" else ""
+        val filename = "batch-${query.batchKey.value}$formatInfix$partSuffix.$extension"
 
         return DownloadResult(
             content = stored,
@@ -162,11 +188,8 @@ class BatchDownloadService(
         val completedAt: java.sql.Timestamp?,
     ) {
         fun partsForFormat(format: BatchDownloadFormat): Int {
-            // Parse download_parts JSON to find part count for format
-            // Format: {"ZIP": [{"partNumber":1,"sizeBytes":1024}], ...}
             if (downloadPartsJson.isBlank() || downloadPartsJson == "{}") return 0
             val formatKey = format.name
-            // Simple JSON parsing — extract array for the format key
             val keyIndex = downloadPartsJson.indexOf("\"$formatKey\"")
             if (keyIndex == -1) return 0
             val arrayStart = downloadPartsJson.indexOf('[', keyIndex)
@@ -182,21 +205,4 @@ class BatchDownloadService(
         val documentKey: DocumentKey,
         val filename: String?,
     )
-}
-
-data class DownloadResult(
-    val content: StoredContent,
-    val filename: String,
-    val contentType: String,
-)
-
-class BatchDownloadException(
-    val statusCode: Int,
-    override val message: String,
-) : RuntimeException(message) {
-    companion object {
-        fun badRequest(message: String) = BatchDownloadException(400, message)
-        fun notFound(message: String) = BatchDownloadException(404, message)
-        fun conflict(message: String) = BatchDownloadException(409, message)
-    }
 }

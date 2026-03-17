@@ -5,7 +5,7 @@ import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.documents.commands.BatchValidationException
-import app.epistola.suite.documents.services.BatchDownloadException
+import app.epistola.suite.documents.queries.BatchDownloadException
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.PlatformAccessDeniedException
 import app.epistola.suite.security.TenantAccessDeniedException

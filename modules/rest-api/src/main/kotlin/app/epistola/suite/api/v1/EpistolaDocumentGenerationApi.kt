@@ -18,11 +18,11 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.DownloadBatchJob
 import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
-import app.epistola.suite.documents.services.BatchDownloadService
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.ContentKey
@@ -43,7 +43,6 @@ import java.util.UUID
 class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
     private val contentStore: ContentStore,
-    private val batchDownloadService: BatchDownloadService,
 ) : GenerationApi {
 
     // ================== Document Generation ==================
@@ -133,12 +132,12 @@ class EpistolaDocumentGenerationApi(
         format: String,
         part: Int,
     ): ResponseEntity<Resource> {
-        val result = batchDownloadService.download(
-            TenantKey.of(tenantId),
-            app.epistola.suite.common.ids.BatchKey.of(requestId),
-            format,
-            part,
-        )
+        val result = DownloadBatchJob(
+            tenantKey = TenantKey.of(tenantId),
+            batchKey = app.epistola.suite.common.ids.BatchKey.of(requestId),
+            format = format,
+            part = part,
+        ).query()
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(result.contentType))
             .contentLength(result.content.sizeBytes)

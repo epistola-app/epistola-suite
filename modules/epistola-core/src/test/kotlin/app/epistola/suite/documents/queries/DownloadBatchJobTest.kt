@@ -1,4 +1,4 @@
-package app.epistola.suite.documents.services
+package app.epistola.suite.documents.queries
 
 import app.epistola.suite.CoreIntegrationTestBase
 import app.epistola.suite.common.TestIdHelpers
@@ -11,6 +11,8 @@ import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.BatchGenerationItem
 import app.epistola.suite.documents.commands.GenerateDocumentBatch
 import app.epistola.suite.documents.model.BatchDownloadFormat
+import app.epistola.suite.documents.services.BatchAssemblyService
+import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -25,13 +27,10 @@ import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
 @Timeout(60)
-class BatchDownloadServiceTest : CoreIntegrationTestBase() {
+class DownloadBatchJobTest : CoreIntegrationTestBase() {
 
     @Autowired
     private lateinit var jdbi: Jdbi
-
-    @Autowired
-    private lateinit var batchDownloadService: BatchDownloadService
 
     @Autowired
     private lateinit var batchAssemblyService: BatchAssemblyService
@@ -90,7 +89,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
     fun `downloads assembled ZIP`() {
         val (batchId, tenantKey) = createAndCompleteBatch(listOf(BatchDownloadFormat.ZIP))
 
-        val result = batchDownloadService.download(tenantKey, batchId, "zip", 1)
+        val result = withMediator { DownloadBatchJob(tenantKey, batchId, "zip", 1).query() }
 
         assertThat(result.contentType).isEqualTo("application/zip")
         assertThat(result.filename).contains("batch-")
@@ -102,7 +101,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
     fun `downloads assembled merged PDF`() {
         val (batchId, tenantKey) = createAndCompleteBatch(listOf(BatchDownloadFormat.MERGED_PDF))
 
-        val result = batchDownloadService.download(tenantKey, batchId, "merged_pdf", 1)
+        val result = withMediator { DownloadBatchJob(tenantKey, batchId, "merged_pdf", 1).query() }
 
         assertThat(result.contentType).isEqualTo("application/pdf")
         assertThat(result.filename).contains("batch-")
@@ -116,7 +115,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
 
         assertThatThrownBy {
-            batchDownloadService.download(tenant.id, BatchKey.generate(), "zip", 1)
+            withMediator { DownloadBatchJob(tenant.id, BatchKey.generate(), "zip", 1).query() }
         }.isInstanceOf(BatchDownloadException::class.java)
             .extracting("statusCode").isEqualTo(404)
     }
@@ -128,7 +127,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
 
         // Try to download merged_pdf which was not requested
         assertThatThrownBy {
-            batchDownloadService.download(tenantKey, batchId, "merged_pdf", 1)
+            withMediator { DownloadBatchJob(tenantKey, batchId, "merged_pdf", 1).query() }
         }.isInstanceOf(BatchDownloadException::class.java)
             .extracting("statusCode").isEqualTo(400)
     }
@@ -138,7 +137,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
         val tenant = createTenant("Test Tenant")
 
         assertThatThrownBy {
-            batchDownloadService.download(tenant.id, BatchKey.generate(), "invalid_format", 1)
+            withMediator { DownloadBatchJob(tenant.id, BatchKey.generate(), "invalid_format", 1).query() }
         }.isInstanceOf(BatchDownloadException::class.java)
             .extracting("statusCode").isEqualTo(400)
     }
@@ -171,7 +170,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
 
         // Try downloading immediately (batch likely not complete)
         assertThatThrownBy {
-            batchDownloadService.download(tenant.id, batchId, "zip", 1)
+            withMediator { DownloadBatchJob(tenant.id, batchId, "zip", 1).query() }
         }.isInstanceOf(BatchDownloadException::class.java)
             .satisfies({ ex ->
                 val bde = ex as BatchDownloadException
@@ -188,7 +187,7 @@ class BatchDownloadServiceTest : CoreIntegrationTestBase() {
         )
 
         // Even though ZIP was requested, single-doc optimization returns PDF directly
-        val result = batchDownloadService.download(tenantKey, batchId, "zip", 1)
+        val result = withMediator { DownloadBatchJob(tenantKey, batchId, "zip", 1).query() }
 
         assertThat(result.contentType).isEqualTo("application/pdf")
     }
