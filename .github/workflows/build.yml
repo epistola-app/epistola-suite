@@ -12,11 +12,28 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  version-guard:
+    name: Contract Version Guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check contract dependency version
+        run: |
+          VERSION=$(grep 'epistola-contract\s*=' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          echo "Contract version: $VERSION"
+          if [[ "$VERSION" == *-SNAPSHOT* ]] || [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
+            echo "::error::Contract version '$VERSION' is a snapshot/feature-stamped version. Update to a released version before merging."
+            exit 1
+          fi
+          echo "Contract version is a release version"
+
   build:
     name: Build and Test
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -52,6 +69,8 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('gradle/libs.versions.toml') }}
 
       - name: Build and test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gradle build
 
       - name: Generate coverage report

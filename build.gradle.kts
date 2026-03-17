@@ -19,6 +19,13 @@ allprojects {
 
     repositories {
         mavenLocal()
+        maven("https://maven.pkg.github.com/epistola-app/epistola-contract") {
+            name = "GitHubPackages"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: providers.gradleProperty("gpr.user").getOrElse("")
+                password = System.getenv("GITHUB_TOKEN") ?: providers.gradleProperty("gpr.key").getOrElse("")
+            }
+        }
         mavenCentral()
         maven("https://central.sonatype.com/repository/maven-snapshots/") {
             mavenContent {
