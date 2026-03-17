@@ -3,12 +3,14 @@ package app.epistola.suite.documents
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
+import org.springframework.scheduling.annotation.EnableAsync
 
 /**
  * Configuration for document generation and job polling.
  */
 @Configuration
-@EnableConfigurationProperties(JobPollingProperties::class)
+@EnableAsync
+@EnableConfigurationProperties(JobPollingProperties::class, BatchDownloadProperties::class)
 class DocumentsConfiguration
 
 /**

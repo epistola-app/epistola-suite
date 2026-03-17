@@ -2,6 +2,7 @@ package app.epistola.suite.documents.queries
 
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.documents.model.DocumentGenerationBatch
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
@@ -16,10 +17,12 @@ import org.springframework.stereotype.Component
  *
  * In the flattened structure, each request IS a complete job (contains all data).
  * The `items` list contains a single element (the request itself) for API compatibility.
+ * For batch jobs, [batch] contains the batch metadata including assembly status and download parts.
  */
 data class GenerationJobResult(
     val request: DocumentGenerationRequest,
     val items: List<DocumentGenerationRequest>,
+    val batch: DocumentGenerationBatch? = null,
 )
 
 /**
@@ -60,7 +63,23 @@ class GetGenerationJobHandler(
             .findOne()
             .orElse(null) ?: return@withHandle null
 
+        // Load batch info if this is a batch request
+        val batch = request.batchId?.let { batchId ->
+            handle.createQuery(
+                """
+                SELECT id, tenant_key, total_count, final_completed_count, final_failed_count,
+                       assembly_status, download_formats, download_parts, created_at, completed_at
+                FROM document_generation_batches
+                WHERE id = :batchId
+                """,
+            )
+                .bind("batchId", batchId)
+                .mapTo<DocumentGenerationBatch>()
+                .findOne()
+                .orElse(null)
+        }
+
         // For API compatibility, return request as both the job and a single-item list
-        GenerationJobResult(request, listOf(request))
+        GenerationJobResult(request, listOf(request), batch)
     }
 }

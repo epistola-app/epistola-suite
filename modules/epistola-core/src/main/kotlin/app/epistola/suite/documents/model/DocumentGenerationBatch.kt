@@ -29,6 +29,7 @@ data class DocumentGenerationBatch(
     val failedCount: Int,
     val assemblyStatus: AssemblyStatus = AssemblyStatus.NONE,
     @Json val downloadFormats: List<BatchDownloadFormat> = emptyList(),
+    @Json val downloadParts: Map<String, List<DownloadPartInfo>> = emptyMap(),
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,
 ) {

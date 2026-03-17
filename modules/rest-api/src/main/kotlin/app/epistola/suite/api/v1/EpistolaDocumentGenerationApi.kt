@@ -22,6 +22,8 @@ import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
+import app.epistola.suite.documents.services.BatchDownloadException
+import app.epistola.suite.documents.services.BatchDownloadService
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.storage.ContentKey
@@ -42,6 +44,7 @@ import java.util.UUID
 class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
     private val contentStore: ContentStore,
+    private val batchDownloadService: BatchDownloadService,
 ) : GenerationApi {
 
     // ================== Document Generation ==================
@@ -120,6 +123,34 @@ class EpistolaDocumentGenerationApi(
         } else {
             // Job not found or cannot be cancelled
             ResponseEntity.status(HttpStatus.CONFLICT).build()
+        }
+    }
+
+    // ================== Batch Download ==================
+
+    override fun downloadBatchJob(
+        tenantId: String,
+        requestId: UUID,
+        format: String,
+        part: Int,
+    ): ResponseEntity<Resource> = try {
+        val result = batchDownloadService.download(
+            TenantKey.of(tenantId),
+            app.epistola.suite.common.ids.BatchKey.of(requestId),
+            format,
+            part,
+        )
+        ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(result.contentType))
+            .contentLength(result.content.sizeBytes)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${result.filename}\"")
+            .body(InputStreamResource(result.content.content))
+    } catch (e: BatchDownloadException) {
+        when (e.statusCode) {
+            400 -> ResponseEntity.badRequest().build()
+            404 -> ResponseEntity.notFound().build()
+            409 -> ResponseEntity.status(HttpStatus.CONFLICT).build()
+            else -> ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
         }
     }
 

@@ -154,6 +154,7 @@ CREATE TABLE document_generation_batches (
     final_failed_count INTEGER,
     assembly_status VARCHAR(20) NOT NULL DEFAULT 'NONE' CHECK (assembly_status IN ('NONE', 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED')),
     download_formats JSONB NOT NULL DEFAULT '[]',
+    download_parts JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     completed_at TIMESTAMP WITH TIME ZONE,
 
@@ -172,4 +173,5 @@ COMMENT ON COLUMN document_generation_batches.final_failed_count IS 'Final count
 COMMENT ON COLUMN document_generation_batches.created_at IS 'When the batch was created';
 COMMENT ON COLUMN document_generation_batches.assembly_status IS 'Status of batch download assembly: NONE, PENDING, IN_PROGRESS, COMPLETED, FAILED';
 COMMENT ON COLUMN document_generation_batches.download_formats IS 'Requested download formats as JSON array (e.g. ["zip", "merged_pdf"])';
+COMMENT ON COLUMN document_generation_batches.download_parts IS 'Part metadata per format as JSON object (e.g. {"zip": [{"partNumber": 1, "sizeBytes": 1024}]})';
 COMMENT ON COLUMN document_generation_batches.completed_at IS 'When all requests in the batch finished. NULL while in progress.';

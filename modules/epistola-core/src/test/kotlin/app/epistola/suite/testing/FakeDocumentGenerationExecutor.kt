@@ -26,6 +26,7 @@ class FakeDocumentGenerationExecutor(
     objectMapper: tools.jackson.databind.ObjectMapper,
     contentStore: ContentStore,
     meterRegistry: io.micrometer.core.instrument.MeterRegistry,
+    batchAssemblyService: app.epistola.suite.documents.services.BatchAssemblyService,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     retentionDays: Int = 7,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -37,6 +38,7 @@ class FakeDocumentGenerationExecutor(
     objectMapper = objectMapper,
     contentStore = contentStore,
     meterRegistry = meterRegistry,
+    batchAssemblyService = batchAssemblyService,
     retentionDays = retentionDays,
     maxDocumentSizeMb = maxDocumentSizeMb,
 ) {
