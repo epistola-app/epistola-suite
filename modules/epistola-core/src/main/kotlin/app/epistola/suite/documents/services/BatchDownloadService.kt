@@ -81,7 +81,7 @@ class BatchDownloadService(
             BatchDownloadFormat.ZIP -> "zip"
             BatchDownloadFormat.MERGED_PDF -> "pdf"
         }
-        val partSuffix = if (parts > 1) "-part$part" else ""
+        val partSuffix = if (parts > 1) "-part-$part" else ""
         val filename = "batch-${batchKey.value}$partSuffix.$extension"
 
         return DownloadResult(

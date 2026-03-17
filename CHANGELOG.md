@@ -7,6 +7,8 @@
 - **Batch download assembly and retrieval**: `BatchAssemblyService` assembles ZIP and merged PDF downloads from completed batches using local temp staging, parallel ContentStore downloads, and 250MB part-size splitting. `BatchDownloadService` validates batch state and serves assembled files. Assembly is triggered automatically when a batch completes with download formats requested. Single-document batches return the PDF directly. Added `download_parts` JSONB column to track part metadata. `downloadBatchJob` REST endpoint delegates to `BatchDownloadService`. DTO mappers updated to include `assemblyStatus` and `downloads` in job detail responses.
 
 ### Fixed
+- **ZIP duplicate filename deduplication**: ZIP assembly now deduplicates filenames with numeric suffixes (e.g., `letter.pdf`, `letter (2).pdf`) as a safety net, even though submission-time validation prevents duplicates.
+- **Batch download part filename format**: Part filenames now use `batch-{id}-part-{n}.zip` format (with hyphen before number) instead of `batch-{id}-partn.zip`.
 - **Batch assembly JDBI mapping**: Fixed `DocumentGenerationBatch` constructor parameter mismatch where `completedCount`/`failedCount` couldn't be matched to DB columns `final_completed_count`/`final_failed_count`. Added SQL aliases in the query.
 - **Fake PDF in tests**: Replaced minimal PDF bytes with a valid PDF structure (catalog + page) so PDFBox can parse and merge test documents.
 - **New template form**: Removed the "JSON Schema" textarea from the template creation form — data contracts are managed through the dedicated data contract editor instead.

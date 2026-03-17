@@ -158,6 +158,8 @@ class BatchAssemblyService(
             zip = ZipOutputStream(buffer)
         }
 
+        val usedNames = mutableMapOf<String, Int>()
+
         for (staged in stagedFiles) {
             val fileSize = staged.file.length()
 
@@ -165,7 +167,8 @@ class BatchAssemblyService(
                 finalizePart()
             }
 
-            zip.putNextEntry(ZipEntry(staged.filename))
+            val entryName = deduplicateFilename(staged.filename, usedNames)
+            zip.putNextEntry(ZipEntry(entryName))
             staged.file.inputStream().use { it.copyTo(zip) }
             zip.closeEntry()
             currentSize += fileSize
@@ -323,6 +326,18 @@ class BatchAssemblyService(
             Files.walk(path)
                 .sorted(Comparator.reverseOrder())
                 .forEach { Files.deleteIfExists(it) }
+        }
+    }
+
+    internal fun deduplicateFilename(filename: String, usedNames: MutableMap<String, Int>): String {
+        val count = usedNames.getOrDefault(filename, 0) + 1
+        usedNames[filename] = count
+        if (count == 1) return filename
+        val dotIndex = filename.lastIndexOf('.')
+        return if (dotIndex > 0) {
+            "${filename.substring(0, dotIndex)} ($count)${filename.substring(dotIndex)}"
+        } else {
+            "$filename ($count)"
         }
     }
 
