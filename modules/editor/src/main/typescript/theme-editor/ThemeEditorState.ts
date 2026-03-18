@@ -5,7 +5,7 @@
  * No Lit dependency — testable with plain unit tests.
  */
 
-import type { BlockStylePreset, PageSettings } from '@epistola/template-model/generated/theme.js'
+import type { BlockStylePreset, PageSettings } from '@epistola.app/editor-model/generated/theme.js'
 import { expandSpacingToStyles, type SpacingValue } from '../ui/inputs/style-inputs.js'
 
 export interface ThemeData {

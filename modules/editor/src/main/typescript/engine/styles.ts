@@ -11,8 +11,8 @@
  * from resolved document styles into nodes.
  */
 
-import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
-import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
+import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry.js'
+import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme.js'
 import type { PageSettings } from '../types/index.js'
 
 // ---------------------------------------------------------------------------
