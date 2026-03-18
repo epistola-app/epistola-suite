@@ -39,8 +39,8 @@ importers:
         specifier: ^1.1.0
         version: 1.1.0
       '@epistola.app/editor-model':
-        specifier: 0.1.0
-        version: 0.1.0
+        specifier: 0.1.17
+        version: 0.1.17
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
@@ -248,8 +248,8 @@ packages:
       conventional-commits-parser:
         optional: true
 
-  '@epistola.app/editor-model@0.1.0':
-    resolution: {integrity: sha512-OuTz7OlUBM1ylXbvp2BdB7PhfAADa9IuNyARMSSel8drH9geegQwMWI5fkMNuhDDOmar4VnuFkhVr/v2/2Nxzg==}
+  '@epistola.app/editor-model@0.1.17':
+    resolution: {integrity: sha512-CME35lSvo/KFaZfpfGw9IjsL1vDs0VlDHF7OPxCm5pA5LHlm7Ri1tJDxJpWemOfWGewTGvK3Fo8eWMyiS9Om3w==}
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -1805,7 +1805,7 @@ snapshots:
     optionalDependencies:
       conventional-commits-parser: 6.3.0
 
-  '@epistola.app/editor-model@0.1.0': {}
+  '@epistola.app/editor-model@0.1.17': {}
 
   '@esbuild/aix-ppc64@0.27.3':
     optional: true
