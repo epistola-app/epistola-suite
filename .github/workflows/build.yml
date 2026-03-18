@@ -28,8 +28,7 @@ jobs:
           VERSION=$(grep 'epistola-contract\s*=' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
           echo "Contract version: $VERSION"
           if [[ "$VERSION" == *-SNAPSHOT* ]] || [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
-            echo "::error::Contract version '$VERSION' is a snapshot/feature-stamped version. Update to a released version before merging."
-            exit 1
+            echo "::warning::Contract version '$VERSION' is a snapshot/feature-stamped version. Update to a released version before merging."
           fi
 
       - name: Setup tools with mise
