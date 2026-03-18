@@ -44,7 +44,6 @@ epistola-suite-modules/
 │   │   ├── config/        # JDBI, Jackson config
 │   │   └── api/           # REST API controllers
 │   ├── generation/        # Pure PDF rendering
-│   ├── template-model/    # Template data structures
 │   ├── rest-api/          # OpenAPI specs
 │   └── editor/            # Lit + ProseMirror editors (template, theme, data contract)
 ├── docs/                  # Documentation
@@ -57,7 +56,6 @@ epistola-suite-modules/
 - **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
 - **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config)
 - **modules/generation**: Pure PDF rendering (no business logic)
-- **modules/template-model**: Data structures for templates
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
 

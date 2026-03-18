@@ -8,7 +8,7 @@ import {
   DEFAULT_PAGE_SETTINGS,
 } from './styles.js'
 import { defaultStyleRegistry } from './style-registry.js'
-import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
+import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry'
 
 // ---------------------------------------------------------------------------
 // getInheritableKeys

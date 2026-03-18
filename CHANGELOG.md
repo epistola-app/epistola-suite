@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+- **template-model moved to epistola-contract**: The `template-model` module (JSON schema types for documents, themes, components) has been moved to the `epistola-contract` repository as `editor-model` and is now consumed as an external Maven artifact (`app.epistola.contract:editor-model`) and npm package (`@epistola/editor-model`). This eliminates the last Gradle configuration cache blocker.
+- **Gradle configuration cache**: Fully enabled — all tasks in the build graph are now configuration cache compatible. Fixed 2 blockers in the editor module (project reference in `doLast`, redundant `upToDateWhen`).
+- **Convention plugins**: Extracted shared Kotlin/test/kover configuration into `epistola-kotlin-conventions` and `epistola-kover-conventions` buildSrc plugins, eliminating `allprojects`/`subprojects`/`configure` blocks from the root build file. Repositories moved to `settings.gradle.kts` via `dependencyResolutionManagement`.
+
 ### Fixed
 - **Editor save error**: `UpdateDraft` SQL queries were missing `template_key` filter, causing errors when multiple templates share the same variant slug (e.g., "default"). Added `template_key` to UPDATE, SELECT, and MAX(id) queries.
 - **Autocomplete missing data model variables**: `GetEditorContext` cast JSONB `data_model` directly to `ObjectNode` instead of deserializing from `PGobject`, causing it to always be null. Variable autocomplete now correctly shows data model variables.

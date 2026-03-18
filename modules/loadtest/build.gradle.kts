@@ -1,8 +1,8 @@
 plugins {
-    kotlin("jvm")
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
     kotlin("plugin.spring")
     id("io.spring.dependency-management")
-    id("org.jetbrains.kotlinx.kover")
 }
 
 // Use Spring Boot's dependency management without applying the plugin
@@ -39,19 +39,4 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
-
-    // JVM optimizations for faster test startup
-    jvmArgs(
-        "-XX:+UseParallelGC", // Parallel GC is faster for short-lived processes
-        "-XX:TieredStopAtLevel=1", // Faster JVM startup (skip C2 compilation)
-    )
-
-    testLogging {
-        events("passed", "skipped", "failed")
-        showStandardStreams = false // Keep output clean
-    }
 }

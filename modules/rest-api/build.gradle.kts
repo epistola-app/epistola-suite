@@ -1,12 +1,9 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.kotlin.spring)
-    alias(libs.plugins.spring.dependency.management)
-    alias(libs.plugins.kover)
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
+    kotlin("plugin.spring")
+    id("io.spring.dependency-management")
 }
-
-// Module containing REST API interfaces and models.
-// Server interfaces are provided by the epistola-contract artifact.
 
 dependencyManagement {
     imports {
@@ -38,5 +35,5 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     // Template model (transitively from epistola-core, but explicit for generated code)
-    implementation(project(":modules:template-model"))
+    implementation(libs.epistola.editor.model)
 }

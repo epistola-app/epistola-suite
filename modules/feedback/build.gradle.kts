@@ -1,8 +1,8 @@
 plugins {
-    kotlin("jvm")
+    id("epistola-kotlin-conventions")
+    id("epistola-kover-conventions")
     kotlin("plugin.spring")
     id("io.spring.dependency-management")
-    id("org.jetbrains.kotlinx.kover")
 }
 
 the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
@@ -40,16 +40,4 @@ dependencies {
     testImplementation("tools.jackson.module:jackson-module-kotlin")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
-    jvmArgs(
-        "-XX:+UseParallelGC",
-        "-XX:TieredStopAtLevel=1",
-    )
-    testLogging {
-        events("passed", "skipped", "failed")
-        showStandardStreams = false
-    }
 }

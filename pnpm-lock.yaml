@@ -38,12 +38,12 @@ importers:
       '@atlaskit/pragmatic-drag-and-drop-hitbox':
         specifier: ^1.1.0
         version: 1.1.0
+      '@epistola.app/editor-model':
+        specifier: 0.1.17
+        version: 0.1.17
       '@epistola/design-system':
         specifier: workspace:*
         version: link:../design-system
-      '@epistola/template-model':
-        specifier: workspace:*
-        version: link:../template-model
       '@floating-ui/dom':
         specifier: ^1.7.5
         version: 1.7.6
@@ -124,12 +124,6 @@ importers:
         specifier: ^4.0.16
         version: 4.1.0(@opentelemetry/api@1.9.0)(@types/node@24.12.0)(vite@7.3.1(@types/node@24.12.0)(jiti@2.6.1))
 
-  modules/template-model:
-    devDependencies:
-      json-schema-to-typescript:
-        specifier: ^15.0.4
-        version: 15.0.4
-
   scripts/gh-mcp:
     dependencies:
       keytar:
@@ -137,10 +131,6 @@ importers:
         version: 7.9.0
 
 packages:
-
-  '@apidevtools/json-schema-ref-parser@11.9.3':
-    resolution: {integrity: sha512-60vepv88RwcJtSHrD6MjIL6Ta3SOYbgfnkHb+ppAVK+o9mXprRtulx7VlRl3lN3bbvysAfCS7WMVfhUYemB0IQ==}
-    engines: {node: '>= 16'}
 
   '@atlaskit/pragmatic-drag-and-drop-hitbox@1.1.0':
     resolution: {integrity: sha512-JWt6eVp6Br2FPHRM8s0dUIHQk/jFInGP1f3ti5CdtM1Ji5/pt8Akm44wDC063Gv2i5RGseixtbW0z/t6RYtbdg==}
@@ -257,6 +247,9 @@ packages:
         optional: true
       conventional-commits-parser:
         optional: true
+
+  '@epistola.app/editor-model@0.1.17':
+    resolution: {integrity: sha512-CME35lSvo/KFaZfpfGw9IjsL1vDs0VlDHF7OPxCm5pA5LHlm7Ri1tJDxJpWemOfWGewTGvK3Fo8eWMyiS9Om3w==}
 
   '@esbuild/aix-ppc64@0.27.3':
     resolution: {integrity: sha512-9fJMTNFTWZMh5qwrBItuziu834eOCUcEqymSH7pY+zoMVEZg3gcPuBNxH1EvfVYe9h0x/Ptw8KBzv7qxb7l8dg==}
@@ -479,9 +472,6 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@jsdevtools/ono@7.1.3':
-    resolution: {integrity: sha512-4JQNk+3mVzK3xh2rqd6RB4J46qUR19azEHBneZyTZM+c456qOrbbM/5xcR8huNCCcbVt7+UmizG6GuUvPvKUYg==}
-
   '@lit-labs/ssr-dom-shim@1.5.1':
     resolution: {integrity: sha512-Aou5UdlSpr5whQe8AA/bZG0jMj96CoJIWbGfZ91qieWu5AWUMKw8VR/pAkQkJYvBNhmCcWnZlyyk5oze8JIqYA==}
 
@@ -655,9 +645,6 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
-
-  '@types/lodash@4.17.24':
-    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
 
   '@types/node@24.12.0':
     resolution: {integrity: sha512-GYDxsZi3ChgmckRT9HPU0WEhKLP08ev/Yfcq2AstjrDASOYCSXeyjDsHg4v5t4jOj7cyDX3vmprafKlWIG9MXQ==}
@@ -1170,11 +1157,6 @@ packages:
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
 
-  json-schema-to-typescript@15.0.4:
-    resolution: {integrity: sha512-Su9oK8DR4xCmDsLlyvadkXzX6+GGXJpbhwoLtOGArAG61dvbW4YQmSEno2y66ahpIdmLMg6YUf/QHLgiwvkrHQ==}
-    engines: {node: '>=16.0.0'}
-    hasBin: true
-
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
 
@@ -1231,9 +1213,6 @@ packages:
 
   lodash.upperfirst@4.3.1:
     resolution: {integrity: sha512-sReKOYJIJf74dhJONhU4e0/shzi1trVbSWDOhKYE5XV2O+H7Sb2Dihwuc7xWxVl+DgFPyTqIN3zMfT9cq5iWDg==}
-
-  lodash@4.17.23:
-    resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
 
   lucide-static@0.577.0:
     resolution: {integrity: sha512-hx39J5Tq4JWF2ALY+5YRg+SxQLpeAmLJDXNcqiBJH/UuVwp43it9fyki/onZO7AVFgG5ZbB+fWwZR9mwGHE2XQ==}
@@ -1670,12 +1649,6 @@ packages:
 
 snapshots:
 
-  '@apidevtools/json-schema-ref-parser@11.9.3':
-    dependencies:
-      '@jsdevtools/ono': 7.1.3
-      '@types/json-schema': 7.0.15
-      js-yaml: 4.1.1
-
   '@atlaskit/pragmatic-drag-and-drop-hitbox@1.1.0':
     dependencies:
       '@atlaskit/pragmatic-drag-and-drop': 1.7.9
@@ -1832,6 +1805,8 @@ snapshots:
     optionalDependencies:
       conventional-commits-parser: 6.3.0
 
+  '@epistola.app/editor-model@0.1.17': {}
+
   '@esbuild/aix-ppc64@0.27.3':
     optional: true
 
@@ -1971,8 +1946,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@jsdevtools/ono@7.1.3': {}
-
   '@lit-labs/ssr-dom-shim@1.5.1': {}
 
   '@lit/reactive-element@2.1.2':
@@ -2077,8 +2050,6 @@ snapshots:
   '@types/estree@1.0.8': {}
 
   '@types/json-schema@7.0.15': {}
-
-  '@types/lodash@4.17.24': {}
 
   '@types/node@24.12.0':
     dependencies:
@@ -2623,18 +2594,6 @@ snapshots:
 
   json-parse-even-better-errors@2.3.1: {}
 
-  json-schema-to-typescript@15.0.4:
-    dependencies:
-      '@apidevtools/json-schema-ref-parser': 11.9.3
-      '@types/json-schema': 7.0.15
-      '@types/lodash': 4.17.24
-      is-glob: 4.0.3
-      js-yaml: 4.1.1
-      lodash: 4.17.23
-      minimist: 1.2.8
-      prettier: 3.8.1
-      tinyglobby: 0.2.15
-
   json-schema-traverse@0.4.1: {}
 
   json-schema-traverse@1.0.0: {}
@@ -2690,8 +2649,6 @@ snapshots:
   lodash.startcase@4.4.0: {}
 
   lodash.upperfirst@4.3.1: {}
-
-  lodash@4.17.23: {}
 
   lucide-static@0.577.0: {}
 
