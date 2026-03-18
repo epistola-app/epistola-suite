@@ -108,22 +108,17 @@ tasks.cyclonedxDirectBom {
     jsonOutput = layout.buildDirectory.file("sbom/bom.json").get().asFile
 }
 
-// Copy SBOM to JAR resources for Docker embedding
-val copySbomToResources by tasks.registering(Copy::class) {
-    dependsOn(tasks.cyclonedxDirectBom)
-    from(layout.buildDirectory.file("sbom/bom.json"))
-    into(layout.buildDirectory.dir("resources/main/META-INF/sbom"))
-}
-
-// Copy design-system assets to static resources so Spring Boot serves them at /design-system/*
-val copyDesignSystem by tasks.registering(Copy::class) {
-    from(rootProject.file("modules/design-system"))
-    include("*.css", "icons.svg")
-    into(layout.buildDirectory.dir("resources/main/static/design-system"))
-}
-
 tasks.processResources {
-    dependsOn(copySbomToResources, copyDesignSystem)
+    // Copy SBOM to JAR resources for Docker embedding
+    dependsOn(tasks.cyclonedxDirectBom)
+    from(layout.buildDirectory.file("sbom/bom.json")) {
+        into("META-INF/sbom")
+    }
+    // Copy design-system assets so Spring Boot serves them at /design-system/*
+    from(rootProject.file("modules/design-system")) {
+        include("*.css", "icons.svg")
+        into("static/design-system")
+    }
 }
 
 // Convenience task for generating SBOM standalone

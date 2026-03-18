@@ -35,12 +35,9 @@ val verifyFrontendBuild by tasks.registering {
     }
 }
 
-val copyDistToResources by tasks.registering(Copy::class) {
+tasks.named<ProcessResources>("processResources") {
     dependsOn(verifyFrontendBuild)
-    from("dist")
-    into(layout.buildDirectory.dir("resources/main/META-INF/resources/editor"))
-}
-
-tasks.named("processResources") {
-    dependsOn(copyDistToResources)
+    from("dist") {
+        into("META-INF/resources/editor")
+    }
 }
