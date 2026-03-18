@@ -16,14 +16,14 @@ class StyleApplicatorTest {
     @Test
     fun `INHERITABLE_KEYS contains all expected typography keys`() {
         val expected = setOf(
-            "fontFamily",
             "fontSize",
+            "fontFamily",
             "fontWeight",
             "fontStyle",
             "color",
+            "textAlign",
             "lineHeight",
             "letterSpacing",
-            "textAlign",
         )
         assertEquals(expected, StyleApplicator.INHERITABLE_KEYS)
     }
@@ -104,6 +104,20 @@ class StyleApplicatorTest {
     }
 
     @Test
+    fun `applyStylesWithPreset applies letterSpacing to element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("letterSpacing" to "0.05em"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - letterSpacing should be applied via setCharacterSpacing
+    }
+
+    @Test
     fun `applyStylesWithPreset with null defaultStyles is backward compatible`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
@@ -129,5 +143,83 @@ class StyleApplicatorTest {
             documentStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14px"),
             fontCache = fontCache,
         )
+    }
+
+    @Test
+    fun `applyStylesWithPreset applies borderTopLeftRadius to element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("borderTopLeftRadius" to "10px"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - border radius should be applied
+    }
+
+    @Test
+    fun `applyStylesWithPreset applies all border radii to element`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf(
+                "borderTopLeftRadius" to "10px",
+                "borderTopRightRadius" to "20px",
+                "borderBottomRightRadius" to "30px",
+                "borderBottomLeftRadius" to "40px",
+            ),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - all border radii should be applied
+    }
+
+    @Test
+    fun `applyStylesWithPreset ignores zero border radius`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf(
+                "borderTopLeftRadius" to "0px",
+                "borderTopRightRadius" to "10px",
+            ),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - zero radius should be ignored
+    }
+
+    @Test
+    fun `applyStylesWithPreset handles em units for border radius`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("borderTopLeftRadius" to "0.5em"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - em units should be converted to points
+    }
+
+    @Test
+    fun `applyStylesWithPreset handles missing border radius gracefully`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("color" to "#333333"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Verify no exception is thrown - missing radius keys should be handled gracefully
     }
 }

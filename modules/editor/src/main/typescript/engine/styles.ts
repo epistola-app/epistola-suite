@@ -11,9 +11,9 @@
  * from resolved document styles into nodes.
  */
 
-import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
 import type { PageSettings } from '../types/index.js'
+import { defaultStyleSystem } from '@epistola/template-model/style-system'
 
 // ---------------------------------------------------------------------------
 // Default page settings
@@ -26,20 +26,16 @@ export const DEFAULT_PAGE_SETTINGS: PageSettings = {
 }
 
 // ---------------------------------------------------------------------------
-// Registry helpers
+// Inheritable keys
 // ---------------------------------------------------------------------------
 
-/** Get all inheritable property keys from the style registry. */
-export function getInheritableKeys(registry: StyleRegistry): Set<string> {
-  const keys = new Set<string>()
-  for (const group of registry.groups) {
-    for (const prop of group.properties) {
-      if (prop.inheritable) {
-        keys.add(prop.key)
-      }
-    }
-  }
-  return keys
+/** Get all inheritable property keys from the style system. */
+export function getInheritableKeys(): Set<string> {
+  return new Set(
+    defaultStyleSystem.canonicalProperties
+      .filter(property => property.inheritable)
+      .map(property => property.key)
+  )
 }
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,10 @@
 package app.epistola.generation.pdf
 
+import app.epistola.template.model.DefaultStyleSystem
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
 import com.itextpdf.layout.element.BlockElement
+import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
 
@@ -15,16 +17,7 @@ object StyleApplicator {
      * Style property keys that cascade from document styles to block elements.
      * Non-inheritable properties (like backgroundColor) are only applied at the document level.
      */
-    val INHERITABLE_KEYS = setOf(
-        "fontFamily",
-        "fontSize",
-        "fontWeight",
-        "fontStyle",
-        "color",
-        "lineHeight",
-        "letterSpacing",
-        "textAlign",
-    )
+    val INHERITABLE_KEYS: Set<String> = DefaultStyleSystem.inheritablePropertyKeys
 
     /**
      * Applies styles from block styles and document styles to an iText element.
@@ -164,6 +157,18 @@ object StyleApplicator {
             parseSize(padding, baseFontSizePt)?.let { element.setPaddingLeft(it) }
         }
 
+        // Borders
+        applyBorder(element, "Top", styles, baseFontSizePt)
+        applyBorder(element, "Right", styles, baseFontSizePt)
+        applyBorder(element, "Bottom", styles, baseFontSizePt)
+        applyBorder(element, "Left", styles, baseFontSizePt)
+
+        // Border radius
+        applyBorderRadius(element, "TopLeft", styles, baseFontSizePt)
+        applyBorderRadius(element, "TopRight", styles, baseFontSizePt)
+        applyBorderRadius(element, "BottomRight", styles, baseFontSizePt)
+        applyBorderRadius(element, "BottomLeft", styles, baseFontSizePt)
+
         // Width
         (styles["width"] as? String)?.let { width ->
             if (width.endsWith("%")) {
@@ -175,24 +180,25 @@ object StyleApplicator {
             }
         }
 
-        // Font weight
-        val isBold = (styles["fontWeight"] as? String)?.let { weight ->
-            weight == "bold" || weight.toIntOrNull()?.let { it >= 700 } == true
-        } ?: false
-
-        // Font style
-        val isItalic = (styles["fontStyle"] as? String) == "italic"
-
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
-            val font = when {
-                isBold -> fontCache.bold
-                else -> fontCache.italic
-            }
-            element.setFont(font)
+        // Letter spacing - applied to BlockElement (supported via setCharacterSpacing from ElementPropertyContainer)
+        (styles["letterSpacing"] as? String)?.let { letterSpacing ->
+            parseSize(letterSpacing, baseFontSizePt)?.let { element.setCharacterSpacing(it) }
         }
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Note: lineHeight is not applied here because it's only available on Paragraph elements,
+        // not generic BlockElement. Our architecture creates Div containers first, then adds
+        // Paragraphs as children during TipTap conversion. To support lineHeight in PDF, we would
+        // need to pass style values through to the TipTapConverter and apply setMultipliedLeading()
+        // when creating Paragraph elements. For now, lineHeight works in browser preview only.
+
+        // Font family, weight, and style - applied together as a single font selection
+        val fontFamily = parseFontFamily(styles["fontFamily"] as? String)
+        val fontWeight = (styles["fontWeight"] as? String)?.toIntOrNull() ?: 400
+        val isItalic = (styles["fontStyle"] as? String) == "italic"
+
+        // Apply the font based on family, weight (>= 500 is bold), and style
+        val font = fontCache.getFont(family = fontFamily, weight = fontWeight, italic = isItalic)
+        element.setFont(font)
     }
 
     private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f): Float? = when {
@@ -203,6 +209,17 @@ object StyleApplicator {
         else -> fontSize.toFloatOrNull()
     }
 
+    private fun parseLineHeight(lineHeight: String, baseFontSizePt: Float = 12f): Float? = when {
+        // Unitless values like "1.5" are multipliers
+        lineHeight.toFloatOrNull() != null -> lineHeight.toFloat()
+        // Values with units need conversion
+        lineHeight.endsWith("px") -> lineHeight.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f / baseFontSizePt }
+        lineHeight.endsWith("pt") -> lineHeight.removeSuffix("pt").toFloatOrNull()?.let { it / baseFontSizePt }
+        lineHeight.endsWith("em") -> lineHeight.removeSuffix("em").toFloatOrNull()
+        lineHeight.endsWith("rem") -> lineHeight.removeSuffix("rem").toFloatOrNull()
+        else -> lineHeight.toFloatOrNull()
+    }
+
     private fun parseSize(size: String, baseFontSizePt: Float = 12f): Float? = when {
         size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
         size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
@@ -210,6 +227,12 @@ object StyleApplicator {
         size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
         size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
         else -> size.toFloatOrNull()
+    }
+
+    private fun parseFontFamily(fontFamily: String?): FontFamily = when (fontFamily) {
+        "Liberation Serif" -> FontFamily.SERIF
+        "Liberation Mono" -> FontFamily.MONO
+        else -> FontFamily.SANS // Default to Sans
     }
 
     private fun parseColor(color: String): DeviceRgb? = try {
@@ -254,5 +277,74 @@ object StyleApplicator {
         "right" -> TextAlignment.RIGHT
         "justify" -> TextAlignment.JUSTIFIED
         else -> TextAlignment.LEFT
+    }
+
+    /**
+     * Applies border to a specific side of the element.
+     * All three properties (width, style, color) must be present for the border to render.
+     */
+    private fun <T : BlockElement<T>> applyBorder(
+        element: T,
+        side: String,
+        styles: Map<String, Any>,
+        baseFontSizePt: Float = 12f,
+    ) {
+        val widthKey = "border${side}Width"
+        val styleKey = "border${side}Style"
+        val colorKey = "border${side}Color"
+
+        val width = (styles[widthKey] as? String)?.let { parseSize(it, baseFontSizePt) }
+        val style = styles[styleKey] as? String
+        val color = (styles[colorKey] as? String)?.let { parseColor(it) }
+
+        // Only apply border if all three properties are present
+        if (width == null || style == null || color == null) return
+        if (width <= 0 || style == "none") return
+
+        val border = createBorder(style, width, color) ?: return
+
+        when (side) {
+            "Top" -> element.setBorderTop(border)
+            "Right" -> element.setBorderRight(border)
+            "Bottom" -> element.setBorderBottom(border)
+            "Left" -> element.setBorderLeft(border)
+        }
+    }
+
+    /**
+     * Creates an iText Border instance based on the style string.
+     */
+    private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border? = when (style.lowercase()) {
+        "solid" -> com.itextpdf.layout.borders.SolidBorder(color, width)
+        "dashed" -> com.itextpdf.layout.borders.DashedBorder(color, width)
+        "dotted" -> com.itextpdf.layout.borders.DottedBorder(color, width)
+        "double" -> com.itextpdf.layout.borders.DoubleBorder(color, width)
+        else -> com.itextpdf.layout.borders.SolidBorder(color, width)
+    }
+
+    /**
+     * Applies border radius to a specific corner of the element.
+     */
+    private fun <T : BlockElement<T>> applyBorderRadius(
+        element: T,
+        corner: String,
+        styles: Map<String, Any>,
+        baseFontSizePt: Float = 12f,
+    ) {
+        val radiusKey = "border${corner}Radius"
+
+        val radius = (styles[radiusKey] as? String)?.let { parseSize(it, baseFontSizePt) }
+
+        // Only apply radius if value is present and positive
+        if (radius == null || radius <= 0) return
+
+        val borderRadius = BorderRadius(radius)
+
+        when (corner) {
+            "TopLeft" -> element.setBorderTopLeftRadius(borderRadius)
+            "TopRight" -> element.setBorderTopRightRadius(borderRadius)
+            "BottomRight" -> element.setBorderBottomRightRadius(borderRadius)
+            "BottomLeft" -> element.setBorderBottomLeftRadius(borderRadius)
+        }
     }
 }

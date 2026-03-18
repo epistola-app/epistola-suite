@@ -6,7 +6,7 @@
  */
 
 import type { BlockStylePreset, PageSettings } from '@epistola/template-model/generated/theme.js'
-import { expandSpacingToStyles, type SpacingValue } from '../ui/inputs/style-inputs.js'
+import { applyStyleFieldValue } from '../engine/style-fields.js'
 
 export interface ThemeData {
   id: string
@@ -54,14 +54,7 @@ export class ThemeEditorState extends EventTarget {
   // -----------------------------------------------------------------------
 
   updateDocumentStyle(key: string, value: unknown): void {
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, this._current.documentStyles)
-    } else if (value === undefined || value === '' || value === null) {
-      delete this._current.documentStyles[key]
-    } else {
-      this._current.documentStyles[key] = value
-    }
+    applyStyleFieldValue(key, value, this._current.documentStyles)
     this._fireChange()
   }
 
@@ -136,14 +129,7 @@ export class ThemeEditorState extends EventTarget {
     if (!preset) return
     const styles = preset.styles as Record<string, unknown>
 
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, styles)
-    } else if (value === undefined || value === '' || value === null) {
-      delete styles[key]
-    } else {
-      styles[key] = value
-    }
+    applyStyleFieldValue(key, value, styles)
     this._fireChange()
   }
 

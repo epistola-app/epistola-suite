@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://epistola.app/schemas/style-system.schema.json",
+  "title": "StyleSystem",
+  "description": "Shared style-system contract defining canonical supported style properties and editor field metadata.",
+  "type": "object",
+  "properties": {
+    "canonicalProperties": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CanonicalStyleProperty" },
+      "description": "Canonical style properties officially supported by both browser preview and PDF rendering."
+    },
+    "editorGroups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/StyleFieldGroup" },
+      "description": "Ordered editor field groups used to render style controls."
+    },
+    "typographyScale": {
+      "type": "object",
+      "properties": {
+        "paragraph": { "$ref": "#/$defs/TypographyScaleEntry" },
+        "heading1": { "$ref": "#/$defs/TypographyScaleEntry" },
+        "heading2": { "$ref": "#/$defs/TypographyScaleEntry" },
+        "heading3": { "$ref": "#/$defs/TypographyScaleEntry" }
+      },
+      "required": ["paragraph", "heading1", "heading2", "heading3"],
+      "description": "Font size multipliers for text elements, applied as baseFontSize × multiplier."
+    }
+  },
+  "required": ["canonicalProperties", "editorGroups", "typographyScale"],
+  "additionalProperties": false,
+  "$defs": {
+    "CanonicalStyleProperty": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Canonical stored/rendered style key (camelCase)."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label for documentation and tooling."
+        },
+        "valueKind": {
+          "type": "string",
+          "enum": ["unit", "color", "keyword", "number"],
+          "description": "Runtime value kind shared by browser preview and PDF rendering."
+        },
+        "inheritable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the property cascades from document styles into block styles."
+        }
+      },
+      "required": ["key", "label", "valueKind", "inheritable"],
+      "additionalProperties": false
+    },
+    "StyleFieldGroup": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StyleField" }
+        }
+      },
+      "required": ["name", "label", "fields"],
+      "additionalProperties": false
+    },
+    "StyleField": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Editor field key. For scalar fields this usually matches the canonical property key."
+        },
+        "label": {
+          "type": "string"
+        },
+        "control": {
+          "type": "string",
+          "enum": ["text", "number", "color", "select", "unit", "spacing", "border", "borderRadius"],
+          "description": "Editor control type."
+        },
+        "propertyKey": {
+          "type": "string",
+          "description": "Canonical property key used by scalar fields."
+        },
+        "spacingProperties": {
+          "$ref": "#/$defs/SpacingProperties",
+          "description": "Canonical property mapping used by spacing composite fields."
+        },
+        "borderProperties": {
+          "$ref": "#/$defs/BorderSideProperties",
+          "description": "Canonical property mapping for border width/style/color per side."
+        },
+        "borderRadiusProperties": {
+          "$ref": "#/$defs/BorderRadiusProperties",
+          "description": "Canonical property mapping for border radius per corner."
+        },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StyleOption" }
+        },
+        "units": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["key", "label", "control"],
+      "additionalProperties": false
+    },
+    "SpacingProperties": {
+      "type": "object",
+      "properties": {
+        "top": { "type": "string" },
+        "right": { "type": "string" },
+        "bottom": { "type": "string" },
+        "left": { "type": "string" }
+      },
+      "required": ["top", "right", "bottom", "left"],
+      "additionalProperties": false
+    },
+    "BorderSideProperties": {
+      "type": "object",
+      "properties": {
+        "top": { "$ref": "#/$defs/BorderSideMapping" },
+        "right": { "$ref": "#/$defs/BorderSideMapping" },
+        "bottom": { "$ref": "#/$defs/BorderSideMapping" },
+        "left": { "$ref": "#/$defs/BorderSideMapping" }
+      },
+      "required": ["top", "right", "bottom", "left"],
+      "additionalProperties": false
+    },
+    "BorderSideMapping": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "string" },
+        "style": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["width", "style", "color"],
+      "additionalProperties": false
+    },
+    "BorderRadiusProperties": {
+      "type": "object",
+      "properties": {
+        "topLeft": { "type": "string" },
+        "topRight": { "type": "string" },
+        "bottomRight": { "type": "string" },
+        "bottomLeft": { "type": "string" }
+      },
+      "required": ["topLeft", "topRight", "bottomRight", "bottomLeft"],
+      "additionalProperties": false
+    },
+    "StyleOption": {
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["label", "value"],
+      "additionalProperties": false
+    },
+    "TypographyScaleEntry": {
+      "type": "object",
+      "properties": {
+        "fontSizeMultiplier": {
+          "type": "number",
+          "description": "Multiplier applied to base font size to calculate effective font size."
+        }
+      },
+      "required": ["fontSizeMultiplier"],
+      "additionalProperties": false
+    }
+  }
+}

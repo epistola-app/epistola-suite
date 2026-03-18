@@ -22,7 +22,6 @@ import { icon } from '../../ui/icons.js'
 const LAYOUT_STYLES = [
   'padding', 'margin',
   'backgroundColor',
-  'borderWidth', 'borderStyle', 'borderColor', 'borderRadius',
 ]
 
 export function createDatatableDefinition(): ComponentDefinition {

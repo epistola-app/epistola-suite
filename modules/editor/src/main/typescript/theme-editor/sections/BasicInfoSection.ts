@@ -25,6 +25,7 @@ export function renderBasicInfoSection(state: ThemeEditorState): unknown {
         <textarea
           class="ep-input ep-textarea"
           rows="2"
+          style="max-height: 200px;"
           .value=${theme.description ?? ''}
           @change=${(e: Event) => {
             const val = (e.target as HTMLTextAreaElement).value

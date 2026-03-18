@@ -1,9 +1,9 @@
 import { LitElement, html, nothing } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
-import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
+import type { StyleField } from '@epistola/template-model/generated/style-system.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
 import { getNestedValue, setNestedValue } from '../engine/props.js'
 import { isValidExpression, validateArrayResult, validateBooleanResult } from '../engine/resolve-expression.js'
@@ -11,12 +11,24 @@ import { openExpressionDialog } from './expression-dialog.js'
 import {
   renderUnitInput,
   renderColorInput,
-  renderSpacingInput,
   renderSelectInput,
-  expandSpacingToStyles,
-  readSpacingFromStyles,
-  type SpacingValue,
+  renderBoxInput,
+  renderBorderInput,
+  renderBorderRadiusInput,
+  type BoxLinkState,
+  type BorderLinkState,
+  extractBoxDefaults,
+  readBoxFromStyles,
+  type BoxPropertyMapping,
+  type BorderInputValue,
+  type BorderRadiusInputValue,
 } from './inputs/style-inputs.js'
+import {
+  applyStyleFieldValue,
+  readStyleFieldValue,
+  defaultStyleFieldGroups,
+  isStyleFieldInheritable,
+} from '../engine/style-fields.js'
 
 @customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
@@ -27,6 +39,15 @@ export class EpistolaInspector extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
+
+  // Track link states for box inputs (margin, padding)
+  @state() private _boxLinkStates: Map<string, BoxLinkState> = new Map()
+
+  // Track link states for border inputs
+  @state() private _borderLinkStates: Map<string, BorderLinkState> = new Map()
+
+  // Track link states for border radius inputs
+  @state() private _borderRadiusLinkStates: Map<string, boolean> = new Map()
 
   override render() {
     if (!this.engine || !this.doc) {
@@ -70,7 +91,7 @@ export class EpistolaInspector extends LitElement {
 
         <!-- Style properties -->
         ${this._hasStyles(def?.applicableStyles)
-          ? this._renderNodeStyleGroups(node, def?.applicableStyles)
+          ? this._renderNodeStyleGroups(node, def?.applicableStyles, def)
           : nothing
         }
 
@@ -108,7 +129,7 @@ export class EpistolaInspector extends LitElement {
   private _renderDocumentStyleGroups(): unknown {
     if (!this.engine) return nothing
 
-    const groups = this.engine.styleRegistry.groups
+    const groups = defaultStyleFieldGroups
     const docStyles = (this.doc?.documentStylesOverride ?? {}) as Record<string, unknown>
 
     return html`
@@ -116,13 +137,13 @@ export class EpistolaInspector extends LitElement {
         <div class="inspector-section-label">Document Styles</div>
         ${groups.map(group => {
           // Only show inheritable properties for document styles
-          const inheritableProps = group.properties.filter(p => p.inheritable)
+          const inheritableProps = group.fields.filter(f => isStyleFieldInheritable(f.key))
           if (inheritableProps.length === 0) return nothing
 
           return html`
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
-              ${inheritableProps.map(prop => this._renderStyleProperty(
+              ${inheritableProps.map(prop => this._renderStyleField(
                 prop,
                 docStyles[prop.key],
                 (value) => this._handleDocStyleChange(prop.key, value),
@@ -264,31 +285,31 @@ export class EpistolaInspector extends LitElement {
     })
   }
 
-  private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined): unknown {
+  private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined, def?: ComponentDefinition): unknown {
     if (!this.engine) return nothing
 
-    const groups = this.engine.styleRegistry.groups
+    const groups = defaultStyleFieldGroups
     const inlineStyles = (node.styles ?? {}) as Record<string, unknown>
 
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Styles</div>
         ${groups.map(group => {
-          const filteredProps = this._filterProperties(group.properties, applicableStyles)
+          const filteredProps = this._filterFields(group.fields, applicableStyles)
           if (filteredProps.length === 0) return nothing
 
           return html`
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
               ${filteredProps.map(prop => {
-                // For spacing properties, reconstruct compound value from individual keys
-                const value = prop.type === 'spacing'
-                  ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
-                  : inlineStyles[prop.key]
-                return this._renderStyleProperty(
+                const value = readStyleFieldValue(prop.key, inlineStyles)
+                return this._renderStyleField(
                   prop,
                   value,
                   (v) => this._handleNodeStyleChange(prop.key, v),
+                  def,
+                  inlineStyles,
+                  node.id,
                 )
               })}
             </div>
@@ -298,62 +319,165 @@ export class EpistolaInspector extends LitElement {
     `
   }
 
-  private _filterProperties(properties: StyleProperty[], applicableStyles: 'all' | string[] | undefined): StyleProperty[] {
-    if (!applicableStyles || applicableStyles === 'all') return properties
+  private _filterFields(fields: StyleField[], applicableStyles: 'all' | string[] | undefined): StyleField[] {
+    if (!applicableStyles || applicableStyles === 'all') return fields
     if (applicableStyles.length === 0) return []
-    return properties.filter(p => applicableStyles.includes(p.key))
+    return fields.filter(f => applicableStyles.includes(f.key))
   }
 
-  private _renderStyleProperty(
-    prop: StyleProperty,
+  private _renderStyleField(
+    field: StyleField,
     value: unknown,
     onChange: (value: unknown) => void,
+    def?: ComponentDefinition,
+    inlineStyles?: Record<string, unknown>,
+    nodeId?: NodeId,
   ): unknown {
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">${prop.label}</label>
-        ${this._renderStyleInput(prop, value, onChange)}
+        <label class="inspector-field-label">${field.label}</label>
+        ${this._renderStyleInput(field, value, onChange, def, inlineStyles, nodeId)}
       </div>
     `
   }
 
   private _renderStyleInput(
-    prop: StyleProperty,
+    field: StyleField,
     value: unknown,
     onChange: (value: unknown) => void,
+    def?: ComponentDefinition,
+    inlineStyles?: Record<string, unknown>,
+    nodeId?: NodeId,
   ): unknown {
-    switch (prop.type) {
+    switch (field.control as StyleField['control'] | 'border' | 'borderRadius') {
       case 'select':
         return renderSelectInput(
           value,
-          prop.options ?? [],
-          (v) => onChange(v || undefined),
+          field.options ?? [],
+          (v: string) => onChange(v || undefined),
         )
       case 'unit':
         return renderUnitInput(
           value,
-          prop.units ?? ['px'],
-          (v) => onChange(v),
+          field.units ?? ['px'],
+          (v: string) => onChange(v),
+          () => onChange(undefined),
         )
       case 'color':
         return renderColorInput(
           value,
-          (v) => onChange(v || undefined),
+          (v: string) => onChange(v || undefined),
+          () => onChange(undefined),
         )
-      case 'spacing':
-        return renderSpacingInput(
-          value,
-          prop.units ?? ['px'],
-          (v) => onChange(v),
-        )
+      case 'spacing': {
+        // Get the mapping for this spacing property (margin or padding)
+        const prefix = field.key // 'margin' or 'padding'
+        const mapping: BoxPropertyMapping = {
+          top: `${prefix}Top`,
+          right: `${prefix}Right`,
+          bottom: `${prefix}Bottom`,
+          left: `${prefix}Left`,
+        }
+
+        // Extract current box value from inline styles
+        const boxValue = inlineStyles ? (readBoxFromStyles(prefix, inlineStyles) ?? {
+          top: undefined,
+          right: undefined,
+          bottom: undefined,
+          left: undefined,
+        }) : {
+          top: undefined,
+          right: undefined,
+          bottom: undefined,
+          left: undefined,
+        }
+
+        // Extract defaults from component definition
+        const boxDefaults = extractBoxDefaults(def?.defaultStyles, mapping)
+
+        // Get current link state for this field (scoped to node)
+        const stateKey = nodeId ? `${nodeId}:${field.key}` : field.key
+        const linkState = this._boxLinkStates.get(stateKey) ?? { all: false, horizontal: false, vertical: false }
+
+        return renderBoxInput({
+          id: field.key,
+          value: boxValue,
+          defaults: boxDefaults,
+          units: field.units ?? ['px'],
+          linkState,
+          onChange: (newValue) => {
+            // Pass the BoxValue directly - applyStyleFieldValue will handle expansion
+            onChange(newValue)
+          },
+          onLinkStateChange: (newState) => {
+            this._boxLinkStates = new Map(this._boxLinkStates)
+            this._boxLinkStates.set(stateKey, newState)
+          },
+        })
+      }
+      case 'border': {
+        const borderValue = (value as BorderInputValue) ?? {
+          top: { width: undefined, style: undefined, color: undefined },
+          right: { width: undefined, style: undefined, color: undefined },
+          bottom: { width: undefined, style: undefined, color: undefined },
+          left: { width: undefined, style: undefined, color: undefined },
+        }
+        // Get current link state for this field (scoped to node)
+        const borderStateKey = nodeId ? `${nodeId}:${field.key}` : field.key
+        const linkState = this._borderLinkStates.get(borderStateKey) ?? { all: false, horizontal: false, vertical: false }
+        return renderBorderInput({
+          id: field.key,
+          value: borderValue,
+          units: field.units ?? ['px'],
+          styleOptions: field.options ?? [],
+          linkState,
+          onChange: (newValue) => onChange(newValue),
+          onLinkStateChange: (newState) => {
+            this._borderLinkStates = new Map(this._borderLinkStates)
+            this._borderLinkStates.set(borderStateKey, newState)
+          },
+        })
+      }
+      case 'borderRadius': {
+        const radiusValue = (value as BorderRadiusInputValue) ?? {
+          topLeft: undefined,
+          topRight: undefined,
+          bottomRight: undefined,
+          bottomLeft: undefined,
+        }
+        // Get current link state for this field (scoped to node)
+        const radiusStateKey = nodeId ? `${nodeId}:${field.key}` : field.key
+        const linked = this._borderRadiusLinkStates.get(radiusStateKey) ?? false
+        return renderBorderRadiusInput({
+          id: field.key,
+          value: radiusValue,
+          units: field.units ?? ['px'],
+          linked,
+          onChange: (newValue) => onChange(newValue),
+          onLinkChange: (newLinked) => {
+            this._borderRadiusLinkStates = new Map(this._borderRadiusLinkStates)
+            this._borderRadiusLinkStates.set(radiusStateKey, newLinked)
+          },
+        })
+      }
       case 'number':
         return html`
-          <input
-            type="number"
-            class="ep-input"
-            .value=${String(value ?? '')}
-            @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
-          />
+          <div class="style-input-wrapper">
+            <input
+              type="number"
+              class="ep-input"
+              step="any"
+              .value=${String(value ?? '')}
+              @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
+            />
+            <button
+              class="style-input-clear"
+              title="Clear to default"
+              @click=${() => onChange(undefined)}
+            >
+              ×
+            </button>
+          </div>
         `
       case 'text':
       default:
@@ -508,15 +632,7 @@ export class EpistolaInspector extends LitElement {
     if (!node) return
 
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>
-
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles)
-    } else if (value === undefined || value === '') {
-      delete newStyles[key]
-    } else {
-      newStyles[key] = value
-    }
+    applyStyleFieldValue(key, value, newStyles)
 
     this.engine.dispatch({
       type: 'UpdateNodeStyles',
@@ -529,15 +645,7 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine || !this.doc) return
 
     const newStyles = structuredClone(this.doc.documentStylesOverride ?? {}) as Record<string, unknown>
-
-    // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles)
-    } else if (value === undefined || value === '') {
-      delete newStyles[key]
-    } else {
-      newStyles[key] = value
-    }
+    applyStyleFieldValue(key, value, newStyles)
 
     this.engine.dispatch({
       type: 'UpdateDocumentStyles',

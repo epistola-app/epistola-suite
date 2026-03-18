@@ -38,7 +38,15 @@ export {
 } from './registry.js'
 export { deepFreeze } from './freeze.js'
 export { getNestedValue, setNestedValue } from './props.js'
-export { defaultStyleRegistry } from './style-registry.js'
+export {
+  defaultStyleFieldGroups,
+  defaultInheritableStyleKeys,
+  type StyleField,
+  getStyleFieldDefinition,
+  readStyleFieldValue,
+  applyStyleFieldValue,
+  isStyleFieldInheritable,
+} from './style-fields.js'
 export {
   getInheritableKeys,
   resolveDocumentStyles,

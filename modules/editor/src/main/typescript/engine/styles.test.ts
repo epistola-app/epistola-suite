@@ -7,55 +7,35 @@ import {
   resolvePresetStyles,
   DEFAULT_PAGE_SETTINGS,
 } from './styles.js'
-import { defaultStyleRegistry } from './style-registry.js'
-import type { StyleRegistry } from '@epistola/template-model/generated/style-registry.js'
 
 // ---------------------------------------------------------------------------
 // getInheritableKeys
 // ---------------------------------------------------------------------------
 
 describe('getInheritableKeys', () => {
-  it('extracts inheritable keys from the default registry', () => {
-    const keys = getInheritableKeys(defaultStyleRegistry)
+  it('extracts inheritable keys from the default style system', () => {
+    const keys = getInheritableKeys()
 
-    expect(keys.has('fontFamily')).toBe(true)
     expect(keys.has('fontSize')).toBe(true)
+    expect(keys.has('fontFamily')).toBe(true)
     expect(keys.has('fontWeight')).toBe(true)
+    expect(keys.has('fontStyle')).toBe(true)
     expect(keys.has('color')).toBe(true)
+    expect(keys.has('textAlign')).toBe(true)
     expect(keys.has('lineHeight')).toBe(true)
     expect(keys.has('letterSpacing')).toBe(true)
-    expect(keys.has('textAlign')).toBe(true)
+    expect(keys.size).toBe(8)
   })
 
   it('does not include non-inheritable keys', () => {
-    const keys = getInheritableKeys(defaultStyleRegistry)
+    const keys = getInheritableKeys()
 
     // spacing, background, borders are not inheritable by default
+    expect(keys.has('paddingTop')).toBe(false)
+    expect(keys.has('marginTop')).toBe(false)
+    expect(keys.has('backgroundColor')).toBe(false)
     expect(keys.has('padding')).toBe(false)
     expect(keys.has('margin')).toBe(false)
-    expect(keys.has('backgroundColor')).toBe(false)
-    expect(keys.has('borderWidth')).toBe(false)
-    expect(keys.has('borderColor')).toBe(false)
-  })
-
-  it('works with a custom minimal registry', () => {
-    const registry: StyleRegistry = {
-      groups: [
-        {
-          name: 'test',
-          label: 'Test',
-          properties: [
-            { key: 'a', label: 'A', type: 'text', inheritable: true },
-            { key: 'b', label: 'B', type: 'text', inheritable: false },
-            { key: 'c', label: 'C', type: 'text' }, // inheritable defaults to false
-          ],
-        },
-      ],
-    }
-    const keys = getInheritableKeys(registry)
-
-    expect(keys.size).toBe(1)
-    expect(keys.has('a')).toBe(true)
   })
 })
 
@@ -103,10 +83,10 @@ describe('resolveDocumentStyles', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolveNodeStyles', () => {
-  const inheritableKeys = new Set(['fontFamily', 'fontSize', 'color', 'textAlign'])
+  const inheritableKeys = new Set(['fontSize', 'color', 'textAlign'])
 
   it('applies full cascade: defaults → inheritable → preset → inline', () => {
-    const docStyles = { fontFamily: 'Arial', fontSize: '14px', color: '#000', backgroundColor: '#fff' }
+    const docStyles = { fontSize: '14px', color: '#000', textAlign: 'center', backgroundColor: '#fff' }
     const preset = { fontSize: '18px', paddingTop: '10px' }
     const inline = { color: 'red' }
     const defaults = { marginBottom: '0.5em', color: 'black' }
@@ -115,32 +95,31 @@ describe('resolveNodeStyles', () => {
 
     expect(result).toEqual({
       marginBottom: '0.5em',   // from defaults (not overridden)
-      fontFamily: 'Arial',     // from doc (inheritable)
       fontSize: '18px',        // overridden by preset
       color: 'red',            // overridden by inline (defaults → doc → inline)
+      textAlign: 'center',     // from doc (inheritable)
       paddingTop: '10px',      // from preset (non-inheritable, but preset adds it)
     })
   })
 
   it('only inherits inheritable keys from doc styles', () => {
-    const docStyles = { fontFamily: 'Arial', backgroundColor: '#fff', margin: '10px' }
+    const docStyles = { fontSize: '14px', backgroundColor: '#fff', marginTop: '10px' }
 
     const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined)
 
-    // Only fontFamily is inheritable; backgroundColor and margin are not
-    expect(result).toEqual({ fontFamily: 'Arial' })
+    expect(result).toEqual({ fontSize: '14px' })
     expect(result).not.toHaveProperty('backgroundColor')
-    expect(result).not.toHaveProperty('margin')
+    expect(result).not.toHaveProperty('marginTop')
   })
 
   it('inline overrides preset', () => {
     const docStyles = {}
-    const preset = { fontFamily: 'Georgia', fontSize: '16px' }
-    const inline = { fontFamily: 'Verdana' }
+    const preset = { textAlign: 'center', fontSize: '16px' }
+    const inline = { textAlign: 'right' }
 
     const result = resolveNodeStyles(docStyles, inheritableKeys, preset, inline)
 
-    expect(result.fontFamily).toBe('Verdana')
+    expect(result.textAlign).toBe('right')
     expect(result.fontSize).toBe('16px')
   })
 
@@ -150,7 +129,7 @@ describe('resolveNodeStyles', () => {
   })
 
   it('handles empty inheritable keys', () => {
-    const docStyles = { fontFamily: 'Arial', color: '#000' }
+    const docStyles = { fontSize: '14px', color: '#000' }
     const result = resolveNodeStyles(docStyles, new Set(), undefined, undefined)
     expect(result).toEqual({})
   })
@@ -193,10 +172,10 @@ describe('resolveNodeStyles', () => {
   })
 
   it('works without defaultStyles (backward compatible)', () => {
-    const docStyles = { fontFamily: 'Arial' }
+    const docStyles = { fontSize: '14px' }
     const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined)
 
-    expect(result).toEqual({ fontFamily: 'Arial' })
+    expect(result).toEqual({ fontSize: '14px' })
   })
 })
 

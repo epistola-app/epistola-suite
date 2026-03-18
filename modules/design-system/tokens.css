@@ -182,4 +182,8 @@
 
   /* ── Sidebar width (editor-specific, kept here for central reference) ── */
   --ep-sidebar-width: 18rem;
+
+  /* ── Content widths ─────────────────────────────────────────────────── */
+  --ep-content-width-default: 56rem;
+  --ep-content-width-wide: 96rem;
 }

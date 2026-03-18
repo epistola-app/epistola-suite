@@ -68,8 +68,8 @@ describe('ThemeEditorState', () => {
   describe('document styles', () => {
     it('updateDocumentStyle sets a value', () => {
       const state = new ThemeEditorState(createTestTheme())
-      state.updateDocumentStyle('fontFamily', 'Arial')
-      expect(state.theme.documentStyles.fontFamily).toBe('Arial')
+      state.updateDocumentStyle('textAlign', 'center')
+      expect(state.theme.documentStyles.textAlign).toBe('center')
       expect(state.isDirty).toBe(true)
     })
 
@@ -90,7 +90,10 @@ describe('ThemeEditorState', () => {
       state.updateDocumentStyle('margin', {
         top: '0px', right: '0px', bottom: '10px', left: '0px',
       })
+      expect(state.theme.documentStyles.marginTop).toBe('0px')
+      expect(state.theme.documentStyles.marginRight).toBe('0px')
       expect(state.theme.documentStyles.marginBottom).toBe('10px')
+      expect(state.theme.documentStyles.marginLeft).toBe('0px')
       expect(state.theme.documentStyles.margin).toBeUndefined()
     })
   })
@@ -186,8 +189,8 @@ describe('ThemeEditorState', () => {
       const styles = state.theme.blockStylePresets.heading.styles as Record<string, unknown>
       expect(styles.marginTop).toBe('10px')
       expect(styles.marginBottom).toBe('16px')
-      expect(styles.marginRight).toBeUndefined() // zero values removed
-      expect(styles.marginLeft).toBeUndefined()
+      expect(styles.marginRight).toBe('0px')
+      expect(styles.marginLeft).toBe('0px')
       expect(styles.margin).toBeUndefined() // compound key removed
     })
 

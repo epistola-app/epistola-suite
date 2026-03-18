@@ -56,17 +56,17 @@ class ImageNodeRenderer : NodeRenderer {
 
         when {
             hasWidth && hasHeight -> {
-                applyDimension(widthStr!!, isWidth = true, image)
-                applyDimension(heightStr!!, isWidth = false, image)
+                applyDimension(widthStr, isWidth = true, image)
+                applyDimension(heightStr, isWidth = false, image)
             }
             hasWidth -> {
                 // Scale proportionally: set width, compute height from aspect ratio
-                applyDimension(widthStr!!, isWidth = true, image)
+                applyDimension(widthStr, isWidth = true, image)
                 scaleProportionally(widthStr, isWidthGiven = true, image, imageData)
             }
             hasHeight -> {
                 // Scale proportionally: set height, compute width from aspect ratio
-                applyDimension(heightStr!!, isWidth = false, image)
+                applyDimension(heightStr, isWidth = false, image)
                 scaleProportionally(heightStr, isWidthGiven = false, image, imageData)
             }
             else -> {

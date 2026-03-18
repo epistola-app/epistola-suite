@@ -6,16 +6,24 @@
  */
 
 import { html, nothing } from 'lit'
-import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
+import type { StyleField } from '@epistola/template-model/generated/style-system.js'
 import type { BlockStylePreset } from '@epistola/template-model/generated/theme.js'
-import { defaultStyleRegistry } from '../../engine/style-registry.js'
+import { defaultStyleFieldGroups, readStyleFieldValue } from '../../engine/style-fields.js'
 import {
   renderUnitInput,
   renderColorInput,
-  renderSpacingInput,
   renderSelectInput,
-  readSpacingFromStyles,
+  renderBoxInput,
+  renderBorderInput,
+  renderBorderRadiusInput,
+  type BoxLinkState,
+  type BorderLinkState,
+  type BorderInputValue,
+  type BorderRadiusInputValue,
+  readBoxFromStyles,
+  expandBoxToStyles,
 } from '../../ui/inputs/style-inputs.js'
+import type { BoxValue } from '../../engine/style-values.js'
 import type { ThemeEditorState } from '../ThemeEditorState.js'
 
 /** Node types available for applicableTo multi-select. */
@@ -27,6 +35,36 @@ const NODE_TYPES = [
   { label: 'Conditional', value: 'conditional' },
   { label: 'Loop', value: 'loop' },
 ]
+
+// Track link modes for each preset's box inputs
+const presetLinkModes: Map<string, Map<string, BoxLinkState>> = new Map()
+
+function getPresetLinkModes(presetName: string): Map<string, BoxLinkState> {
+  if (!presetLinkModes.has(presetName)) {
+    presetLinkModes.set(presetName, new Map())
+  }
+  return presetLinkModes.get(presetName)!
+}
+
+// Track link modes for each preset's border inputs
+const presetBorderLinkModes: Map<string, Map<string, BorderLinkState>> = new Map()
+
+function getPresetBorderLinkModes(presetName: string): Map<string, BorderLinkState> {
+  if (!presetBorderLinkModes.has(presetName)) {
+    presetBorderLinkModes.set(presetName, new Map())
+  }
+  return presetBorderLinkModes.get(presetName)!
+}
+
+// Track link modes for each preset's border radius inputs
+const presetBorderRadiusLinkModes: Map<string, Map<string, boolean>> = new Map()
+
+function getPresetBorderRadiusLinkModes(presetName: string): Map<string, boolean> {
+  if (!presetBorderRadiusLinkModes.has(presetName)) {
+    presetBorderRadiusLinkModes.set(presetName, new Map())
+  }
+  return presetBorderRadiusLinkModes.get(presetName)!
+}
 
 export function renderPresetItem(
   state: ThemeEditorState,
@@ -116,18 +154,17 @@ function renderPresetBody(
       </div>
 
       <!-- Style properties -->
-      ${defaultStyleRegistry.groups.map(group => html`
-        <div class="inspector-style-group">
-          <div class="inspector-style-group-label">${group.label}</div>
-          ${group.properties.map(prop => {
-            // For spacing properties, reconstruct compound value from individual keys
-            const value = prop.type === 'spacing'
-              ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
-              : styles[prop.key]
-            return renderPresetStyleProperty(
-              prop,
-              value,
-              (v) => state.updatePresetStyle(name, prop.key, v),
+      ${defaultStyleFieldGroups.map(group => html`
+          <div class="inspector-style-group">
+            <div class="inspector-style-group-label">${group.label}</div>
+            ${group.fields.map(field => {
+              const value = readStyleFieldValue(field.key, styles)
+              return renderPresetStyleField(
+                name,
+                field,
+                value,
+                styles,
+              (v) => state.updatePresetStyle(name, field.key, v),
             )
           })}
         </div>
@@ -136,48 +173,139 @@ function renderPresetBody(
   `
 }
 
-function renderPresetStyleProperty(
-  prop: StyleProperty,
+function renderPresetStyleField(
+  presetName: string,
+  field: StyleField,
   value: unknown,
+  inlineStyles: Record<string, unknown>,
   onChange: (value: unknown) => void,
 ): unknown {
   return html`
     <div class="inspector-field">
-      <label class="inspector-field-label">${prop.label}</label>
-      ${renderPresetStyleInput(prop, value, onChange)}
+      <label class="inspector-field-label">${field.label}</label>
+      ${renderPresetStyleInput(presetName, field, value, inlineStyles, onChange)}
     </div>
   `
 }
 
 function renderPresetStyleInput(
-  prop: StyleProperty,
+  presetName: string,
+  field: StyleField,
   value: unknown,
+  inlineStyles: Record<string, unknown>,
   onChange: (value: unknown) => void,
 ): unknown {
-  switch (prop.type) {
+  switch (field.control) {
     case 'select':
       return renderSelectInput(
         value,
-        prop.options ?? [],
-        (v) => onChange(v || undefined),
+        field.options ?? [],
+        (v: string) => onChange(v || undefined),
       )
     case 'unit':
       return renderUnitInput(
         value,
-        prop.units ?? ['px'],
-        (v) => onChange(v),
+        field.units ?? ['px'],
+        (v: string) => onChange(v),
       )
     case 'color':
       return renderColorInput(
         value,
-        (v) => onChange(v || undefined),
+        (v: string) => onChange(v || undefined),
       )
-    case 'spacing':
-      return renderSpacingInput(
-        value,
-        prop.units ?? ['px'],
-        (v) => onChange(v),
-      )
+    case 'spacing': {
+      // Get the mapping for this spacing property (margin or padding)
+      const prefix = field.key // 'margin' or 'padding'
+
+      // Extract current box value from inline styles
+      const boxValue = readBoxFromStyles(prefix, inlineStyles) ?? {
+        top: undefined,
+        right: undefined,
+        bottom: undefined,
+        left: undefined,
+      }
+
+      // For presets, use zero as default (no component defaults)
+      const boxDefaults: BoxValue = {
+        top: '0px',
+        right: '0px',
+        bottom: '0px',
+        left: '0px',
+      }
+
+      // Get current link state for this field
+      const linkModes = getPresetLinkModes(presetName)
+      const linkState = linkModes.get(field.key) ?? { all: false, horizontal: false, vertical: false }
+
+      return renderBoxInput({
+        id: field.key,
+        value: boxValue,
+        defaults: boxDefaults,
+        units: field.units ?? ['px'],
+        linkState,
+        onChange: (newValue) => {
+          // Expand box value to individual style properties
+          const styles = { ...inlineStyles }
+          expandBoxToStyles(prefix, newValue, styles)
+          onChange(styles)
+        },
+        onLinkStateChange: (newState) => {
+          linkModes.set(field.key, newState)
+        },
+      })
+    }
+    case 'border': {
+      const borderValue = (value as BorderInputValue) ?? {
+        top: { width: undefined, style: undefined, color: undefined },
+        right: { width: undefined, style: undefined, color: undefined },
+        bottom: { width: undefined, style: undefined, color: undefined },
+        left: { width: undefined, style: undefined, color: undefined },
+      }
+      // Get current link state for this field
+      const borderLinkModes = getPresetBorderLinkModes(presetName)
+      const linkState = borderLinkModes.get(field.key) ?? { all: false, horizontal: false, vertical: false }
+      return renderBorderInput({
+        id: field.key,
+        value: borderValue,
+        units: field.units ?? ['px'],
+        styleOptions: field.options ?? [],
+        linkState,
+        onChange: (newValue) => onChange(newValue),
+        onLinkStateChange: (newState) => {
+          borderLinkModes.set(field.key, newState)
+        },
+      })
+    }
+    case 'borderRadius': {
+      const radiusValue = (value as BorderRadiusInputValue) ?? {
+        topLeft: undefined,
+        topRight: undefined,
+        bottomRight: undefined,
+        bottomLeft: undefined,
+      }
+      const radiusLinkModes = getPresetBorderRadiusLinkModes(presetName)
+      const linked = radiusLinkModes.get(field.key) ?? false
+      return renderBorderRadiusInput({
+        id: field.key,
+        value: radiusValue,
+        units: field.units ?? ['px'],
+        linked,
+        onChange: (newValue) => onChange(newValue),
+        onLinkChange: (newLinked) => {
+          radiusLinkModes.set(field.key, newLinked)
+        },
+      })
+    }
+    case 'number':
+      return html`
+        <input
+          type="number"
+          class="ep-input"
+          step="any"
+          .value=${String(value ?? '')}
+          @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
+        />
+      `
     default:
       return html`
         <input

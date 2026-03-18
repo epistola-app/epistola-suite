@@ -1,14 +1,14 @@
 /**
- * DocumentStylesSection — Inheritable style properties from the style registry.
+ * DocumentStylesSection — Inheritable style properties from the style system.
  *
  * Reuses the same pattern as EpistolaInspector._renderDocumentStyleGroups():
- * iterates defaultStyleRegistry groups, filters inheritable props, renders
+ * iterates defaultStyleFieldGroups, filters inheritable fields, renders
  * with the appropriate input function from style-inputs.ts.
  */
 
 import { html, nothing } from 'lit'
-import type { StyleProperty } from '@epistola/template-model/generated/style-registry.js'
-import { defaultStyleRegistry } from '../../engine/style-registry.js'
+import type { StyleField } from '@epistola/template-model/generated/style-system.js'
+import { defaultStyleFieldGroups, isStyleFieldInheritable } from '../../engine/style-fields.js'
 import {
   renderUnitInput,
   renderColorInput,
@@ -26,17 +26,17 @@ export function renderDocumentStylesSection(state: ThemeEditorState): unknown {
       <p class="theme-section-hint">
         Default styles inherited by all templates using this theme.
       </p>
-      ${defaultStyleRegistry.groups.map(group => {
-        const inheritableProps = group.properties.filter(p => p.inheritable)
-        if (inheritableProps.length === 0) return nothing
+      ${defaultStyleFieldGroups.map(group => {
+        const inheritableFields = group.fields.filter(f => isStyleFieldInheritable(f.key))
+        if (inheritableFields.length === 0) return nothing
 
         return html`
           <div class="inspector-style-group">
             <div class="inspector-style-group-label">${group.label}</div>
-            ${inheritableProps.map(prop => renderStyleProperty(
-              prop,
-              docStyles[prop.key],
-              (value) => state.updateDocumentStyle(prop.key, value),
+            ${inheritableFields.map(field => renderStyleField(
+              field,
+              docStyles[field.key],
+              (value) => state.updateDocumentStyle(field.key, value),
             ))}
           </div>
         `
@@ -45,35 +45,35 @@ export function renderDocumentStylesSection(state: ThemeEditorState): unknown {
   `
 }
 
-function renderStyleProperty(
-  prop: StyleProperty,
+function renderStyleField(
+  field: StyleField,
   value: unknown,
   onChange: (value: unknown) => void,
 ): unknown {
   return html`
     <div class="inspector-field">
-      <label class="inspector-field-label">${prop.label}</label>
-      ${renderStyleInput(prop, value, onChange)}
+      <label class="inspector-field-label">${field.label}</label>
+      ${renderStyleInput(field, value, onChange)}
     </div>
   `
 }
 
 function renderStyleInput(
-  prop: StyleProperty,
+  field: StyleField,
   value: unknown,
   onChange: (value: unknown) => void,
 ): unknown {
-  switch (prop.type) {
+  switch (field.control) {
     case 'select':
       return renderSelectInput(
         value,
-        prop.options ?? [],
+        field.options ?? [],
         (v) => onChange(v || undefined),
       )
     case 'unit':
       return renderUnitInput(
         value,
-        prop.units ?? ['px'],
+        field.units ?? ['px'],
         (v) => onChange(v),
       )
     case 'color':
@@ -83,8 +83,9 @@ function renderStyleInput(
       )
     case 'spacing':
       return renderSpacingInput(
+        field.key,
         value,
-        prop.units ?? ['px'],
+        field.units ?? ['px'],
         (v) => onChange(v),
       )
     default:
