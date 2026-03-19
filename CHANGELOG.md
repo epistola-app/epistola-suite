@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
+
+### Changed
 - **template-model moved to epistola-contract**: The `template-model` module (JSON schema types for documents, themes, components) has been moved to the `epistola-contract` repository as `editor-model` and is now consumed as an external Maven artifact (`app.epistola.contract:editor-model`) and npm package (`@epistola/editor-model`). This eliminates the last Gradle configuration cache blocker.
 - **Gradle configuration cache**: Fully enabled — all tasks in the build graph are now configuration cache compatible. Fixed 2 blockers in the editor module (project reference in `doLast`, redundant `upToDateWhen`).
 - **Convention plugins**: Extracted shared Kotlin/test/kover configuration into `epistola-kotlin-conventions` and `epistola-kover-conventions` buildSrc plugins, eliminating `allprojects`/`subprojects`/`configure` blocks from the root build file. Repositories moved to `settings.gradle.kts` via `dependencyResolutionManagement`.

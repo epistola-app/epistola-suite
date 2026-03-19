@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, labeled]
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
@@ -205,7 +207,7 @@ jobs:
     name: Build and Push ${{ matrix.variant }} Docker Image
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'publish')
+    if: github.event_name == 'push' || github.event_name == 'release' || contains(github.event.pull_request.labels.*.name, 'publish')
     permissions:
       contents: write
       packages: write
@@ -279,57 +281,15 @@ jobs:
         if: ${{ matrix.enabled }}
         uses: sigstore/cosign-installer@v3
 
-      - name: Calculate version bump
-        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        id: version_calc
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: patch
-          dry_run: true
-
-      # Pre-1.0 versioning: breaking changes bump minor instead of major.
-      # This keeps the version below 1.0.0 while the project is pre-production.
-      # Remove this cap and use the tag action directly when going to 1.0.0.
-      - name: Create pre-1.0 version tag
-        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Extract version from release tag
+        if: ${{ matrix.enabled && github.event_name == 'release' }}
         id: tag
-        env:
-          RELEASE_TYPE: ${{ steps.version_calc.outputs.release_type }}
-          PREVIOUS_VERSION: ${{ steps.version_calc.outputs.previous_version }}
         run: |
-          PREV="${PREVIOUS_VERSION:-0.0.0}"
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$PREV"
-
-          # Safeguard: fail if existing tags are >= 1.0.0 (old tags not cleaned up)
-          if [ "$MAJOR" -gt 0 ]; then
-            echo "::error::Current version ${PREV} is >= 1.0.0. Delete old v* tags and create a v0.x.0 starting tag first."
-            exit 1
-          fi
-
-          # Breaking changes (major) and new features (minor) bump minor
-          # Everything else bumps patch
-          case "$RELEASE_TYPE" in
-            major|minor)
-              NEW_VERSION="0.$((MINOR + 1)).0"
-              ;;
-            *)
-              NEW_VERSION="0.${MINOR}.$((PATCH + 1))"
-              ;;
-          esac
-
-          NEW_TAG="v${NEW_VERSION}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$NEW_TAG" -m "Release ${NEW_VERSION}"
-          git push origin "$NEW_TAG"
-
-          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
-          echo "new_tag=${NEW_TAG}" >> $GITHUB_OUTPUT
-          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
-
-          echo "Version: ${PREV} -> ${NEW_VERSION} (release type: ${RELEASE_TYPE}, capped to pre-1.0)"
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          VERSION="${TAG_NAME#v}"
+          echo "new_version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "new_tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
 
       - name: Get previous tag (PR)
         if: ${{ matrix.enabled && github.event_name == 'pull_request' }}
@@ -338,24 +298,15 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
           echo "tag=${PREV_TAG#v}" >> $GITHUB_OUTPUT
 
-      - name: Get latest tag (main, native only)
-        if: ${{ matrix.enabled && matrix.variant == 'Native' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        id: latesttag
-        run: |
-          git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
-          echo "tag=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
-
       - name: Determine build version
         if: ${{ matrix.enabled }}
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            if [ "${{ matrix.variant }}" = "JVM" ]; then
-              VERSION="${{ steps.tag.outputs.new_version }}"
-            else
-              VERSION="${{ steps.latesttag.outputs.tag }}"
-            fi
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            VERSION="${{ github.sha }}"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             VERSION="${{ steps.previoustag.outputs.tag }}-pr${{ github.event.pull_request.number }}"
           fi
@@ -399,16 +350,13 @@ jobs:
         id: push_main
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          NEW_TAG: ${{ matrix.variant == 'JVM' && steps.tag.outputs.new_version || steps.latesttag.outputs.tag }}
           SUFFIX: ${{ matrix.image-suffix }}
         run: |
-          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG$SUFFIX
           docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
           docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG$SUFFIX
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
-          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_TAG$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
 
       - name: Sign Docker image (main)
         if: ${{ matrix.enabled && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -416,26 +364,43 @@ jobs:
           DIGEST: ${{ steps.push_main.outputs.digest }}
         run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
-      - name: Attest SBOM to Docker image (main)
-        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Tag and push Docker image (release)
+        if: ${{ matrix.enabled && github.event_name == 'release' }}
+        id: push_release
         env:
-          DIGEST: ${{ steps.push_main.outputs.digest }}
+          VERSION: ${{ steps.tag.outputs.new_version }}
+          SUFFIX: ${{ matrix.image-suffix }}
+        run: |
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION$SUFFIX
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
+          docker tag epistola-suite:$VERSION$SUFFIX ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}$SUFFIX
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest$SUFFIX
+          echo "digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$VERSION$SUFFIX | cut -d'@' -f2)" >> $GITHUB_OUTPUT
+
+      - name: Sign Docker image (release)
+        if: ${{ matrix.enabled && github.event_name == 'release' }}
+        env:
+          DIGEST: ${{ steps.push_release.outputs.digest }}
+        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+
+      - name: Attest SBOM to Docker image (release)
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'release' }}
+        env:
+          DIGEST: ${{ steps.push_release.outputs.digest }}
         run: cosign attest --yes --predicate apps/epistola/build/sbom/bom.json --type cyclonedx ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
 
       - name: Prepare release artifacts
-        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'release' }}
         run: |
           mkdir -p release-artifacts
           cp apps/epistola/build/sbom/bom.json release-artifacts/epistola-backend-sbom.json
           cp modules/editor/build/sbom.json release-artifacts/epistola-editor-sbom.json
 
-      - name: Create GitHub Release
-        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.new_tag }}
-          name: Release ${{ steps.tag.outputs.new_version }}
-          generate_release_notes: true
-          files: release-artifacts/*
+      - name: Upload release artifacts
+        if: ${{ matrix.enabled && matrix.variant == 'JVM' && github.event_name == 'release' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" release-artifacts/* --clobber
