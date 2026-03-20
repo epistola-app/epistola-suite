@@ -2,6 +2,7 @@ package app.epistola.suite.security
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.security.PlatformRole
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
 import org.springframework.core.convert.converter.Converter
@@ -19,11 +20,17 @@ import org.springframework.stereotype.Component
  * - `sub`: user external ID
  * - `email`: user email
  * - `preferred_username` or `name`: display name
- * - `epistola_tenants`: tenant memberships with roles
+ * - `epistola_tenants`: tenant memberships with composable roles
+ * - `resource_access.epistola-suite.roles`: platform roles
  *
- * The `epistola_tenants` claim supports two formats:
- * - **Structured** (preferred): `[{"id": "acme", "role": "ADMIN"}, {"id": "beta", "role": "MEMBER"}]`
- * - **Legacy** (flat list): `["acme", "beta"]` — all users default to MEMBER role
+ * The `epistola_tenants` claim format:
+ * ```json
+ * [{"id": "acme", "roles": ["reader", "editor"]}, {"id": "beta", "roles": ["reader"]}]
+ * ```
+ *
+ * Legacy formats are also supported:
+ * - Single role: `[{"id": "acme", "role": "ADMIN"}]` → mapped to equivalent role set
+ * - Flat list: `["acme", "beta"]` → defaults to `[READER]`
  *
  * Only active when an OAuth2 ClientRegistrationRepository is present.
  */
@@ -41,6 +48,7 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
             ?: subject
 
         val tenantMemberships = extractTenantMemberships(jwt)
+        val platformRoles = extractPlatformRoles(jwt)
 
         val principal = EpistolaPrincipal(
             userId = UserKey.of(deriveUserId(subject)),
@@ -48,12 +56,19 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
             email = email,
             displayName = displayName,
             tenantMemberships = tenantMemberships,
+            platformRoles = platformRoles,
             currentTenantId = tenantMemberships.keys.firstOrNull(),
         )
 
-        val authorities = jwt.getClaimAsStringList("roles")
-            ?.map { SimpleGrantedAuthority("ROLE_$it") }
-            ?: listOf(SimpleGrantedAuthority("ROLE_API_USER"))
+        val authorities = buildList {
+            // Add roles from JWT
+            jwt.getClaimAsStringList("roles")
+                ?.forEach { add(SimpleGrantedAuthority("ROLE_$it")) }
+                ?: add(SimpleGrantedAuthority("ROLE_API_USER"))
+
+            // Add platform roles as Spring Security authorities
+            platformRoles.forEach { add(SimpleGrantedAuthority("ROLE_${it.name}")) }
+        }
 
         return JwtAuthenticationToken(jwt, authorities, subject).apply {
             details = principal
@@ -62,12 +77,9 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
 
     /**
      * Extracts tenant memberships from the `epistola_tenants` JWT claim.
-     *
-     * Supports structured format `[{"id": "acme", "role": "ADMIN"}]` and
-     * falls back to legacy flat list `["acme"]` (defaulting to MEMBER role).
      */
     @Suppress("UNCHECKED_CAST")
-    private fun extractTenantMemberships(jwt: Jwt): Map<TenantKey, TenantRole> {
+    private fun extractTenantMemberships(jwt: Jwt): Map<TenantKey, Set<TenantRole>> {
         val claim = jwt.getClaim<Any>("epistola_tenants") ?: return emptyMap()
 
         return when (claim) {
@@ -79,29 +91,39 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
         }
     }
 
-    private fun parseClaimList(items: List<*>): Map<TenantKey, TenantRole> {
-        val result = mutableMapOf<TenantKey, TenantRole>()
+    private fun parseClaimList(items: List<*>): Map<TenantKey, Set<TenantRole>> {
+        val result = mutableMapOf<TenantKey, Set<TenantRole>>()
 
         for (item in items) {
             when (item) {
-                // Structured format: {"id": "acme", "role": "ADMIN"}
                 is Map<*, *> -> {
-                    val id = item["id"]?.toString()
-                    val role = item["role"]?.toString()
-                    if (id != null) {
-                        try {
-                            val tenantKey = TenantKey.of(id)
-                            val tenantRole = role?.let { parseTenantRole(it) } ?: TenantRole.MEMBER
-                            result[tenantKey] = tenantRole
-                        } catch (e: IllegalArgumentException) {
-                            log.warn("Invalid tenant ID in JWT claim: {}", id)
-                        }
+                    val id = item["id"]?.toString() ?: continue
+                    val tenantKey = try {
+                        TenantKey.of(id)
+                    } catch (e: IllegalArgumentException) {
+                        log.warn("Invalid tenant ID in JWT claim: {}", id)
+                        continue
+                    }
+
+                    // Preferred: "roles" array
+                    val rolesArray = item["roles"]
+                    // Legacy: single "role" string
+                    val singleRole = item["role"]?.toString()
+
+                    val roles = when {
+                        rolesArray is List<*> -> rolesArray.mapNotNull { parseTenantRole(it?.toString()) }.toSet()
+                        singleRole != null -> parseTenantRole(singleRole)?.let { setOf(it) } ?: setOf(TenantRole.READER)
+                        else -> setOf(TenantRole.READER)
+                    }
+
+                    if (roles.isNotEmpty()) {
+                        result[tenantKey] = roles
                     }
                 }
-                // Legacy format: plain string tenant ID
+                // Legacy flat list format: plain string tenant ID
                 is String -> {
                     try {
-                        result[TenantKey.of(item)] = TenantRole.MEMBER
+                        result[TenantKey.of(item)] = setOf(TenantRole.READER)
                     } catch (e: IllegalArgumentException) {
                         log.warn("Invalid tenant ID in JWT claim: {}", item)
                     }
@@ -113,11 +135,34 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
         return result
     }
 
-    private fun parseTenantRole(role: String): TenantRole = try {
-        TenantRole.valueOf(role.uppercase())
-    } catch (e: IllegalArgumentException) {
-        log.warn("Unknown tenant role in JWT claim: {}, defaulting to MEMBER", role)
-        TenantRole.MEMBER
+    private fun parseTenantRole(role: String?): TenantRole? {
+        if (role == null) return null
+        return try {
+            TenantRole.valueOf(role.uppercase())
+        } catch (e: IllegalArgumentException) {
+            log.warn("Unknown tenant role in JWT claim: {}", role)
+            null
+        }
+    }
+
+    /**
+     * Extracts platform roles from the `resource_access.epistola-suite.roles` JWT claim.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun extractPlatformRoles(jwt: Jwt): Set<PlatformRole> {
+        val resourceAccess = jwt.getClaim<Map<String, Any>>("resource_access") ?: return emptySet()
+        val clientAccess = resourceAccess[CLIENT_ID] as? Map<String, Any> ?: return emptySet()
+        val roles = clientAccess["roles"] as? List<*> ?: return emptySet()
+
+        return roles.mapNotNull { roleName ->
+            when (roleName?.toString()) {
+                "tenant-manager" -> PlatformRole.TENANT_MANAGER
+                else -> {
+                    log.warn("Unknown platform role in JWT: {}", roleName)
+                    null
+                }
+            }
+        }.toSet()
     }
 
     /**
@@ -125,4 +170,9 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
      * Uses UUID v5 (name-based with SHA-1) with the URL namespace.
      */
     private fun deriveUserId(subject: String): java.util.UUID = java.util.UUID.nameUUIDFromBytes(subject.toByteArray())
+
+    companion object {
+        /** The Keycloak client ID used to scope platform roles in `resource_access`. */
+        const val CLIENT_ID = "epistola-suite"
+    }
 }

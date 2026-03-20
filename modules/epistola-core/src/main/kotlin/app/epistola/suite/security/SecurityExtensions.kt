@@ -37,6 +37,39 @@ fun requireTenantAccess(tenantId: TenantKey) {
 }
 
 /**
+ * Check if current user has a specific permission in the given tenant.
+ *
+ * @throws PermissionDeniedException if user lacks the required permission
+ * @throws IllegalStateException if no user is authenticated
+ */
+fun requirePermission(tenantId: TenantKey, permission: Permission) {
+    val principal = SecurityContext.current()
+    if (!principal.hasPermission(tenantId, permission)) {
+        throw PermissionDeniedException(
+            tenantId = tenantId,
+            userEmail = principal.email,
+            permission = permission,
+        )
+    }
+}
+
+/**
+ * Check if current user has the tenant manager platform role.
+ *
+ * @throws PlatformAccessDeniedException if user is not a tenant manager
+ * @throws IllegalStateException if no user is authenticated
+ */
+fun requireTenantManager() {
+    val principal = SecurityContext.current()
+    if (!principal.isTenantManager()) {
+        throw PlatformAccessDeniedException(
+            userEmail = principal.email,
+            requiredRole = PlatformRole.TENANT_MANAGER,
+        )
+    }
+}
+
+/**
  * Get the effective tenant ID for the current user.
  * Uses currentTenantId if set, otherwise falls back to first membership.
  *

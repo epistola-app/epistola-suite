@@ -93,7 +93,7 @@ class ApiKeyAuthenticationFilter(
             externalId = "apikey:${apiKey.id}",
             email = "apikey-${apiKey.keyPrefix}@npa.epistola",
             displayName = apiKey.name,
-            tenantMemberships = mapOf(apiKey.tenantKey to TenantRole.ADMIN),
+            tenantMemberships = mapOf(apiKey.tenantKey to TenantRole.entries.toSet()),
             currentTenantId = apiKey.tenantKey,
         )
 

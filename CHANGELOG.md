@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- **Enterprise authorization model**: Four-layer authorization architecture (L1: Authentication, L2: Tenant access, L3: Coarse roles, L4: Fine-grained permissions). Keycloak owns L1-L3; Epistola owns L4.
+- **Permission enum**: Fine-grained permissions (`TEMPLATE_VIEW`, `TEMPLATE_EDIT`, `TEMPLATE_PUBLISH`, `DOCUMENT_VIEW`, `DOCUMENT_GENERATE`, `THEME_VIEW`, `THEME_EDIT`, `TENANT_SETTINGS`, `TENANT_USERS`) mapped from coarse tenant roles in application code.
+- **Platform roles**: `TENANT_MANAGER` client role on the `epistola-suite` Keycloak client for cross-tenant tenant management, extracted from `resource_access` JWT claim.
+- **Permission and platform role checks**: `requirePermission()`, `requireTenantManager()` security extensions with dedicated exception types (`PermissionDeniedException`, `PlatformAccessDeniedException`).
+- **JWT platform role extraction**: Both `EpistolaJwtAuthenticationConverter` and `OAuth2UserProvisioningService` now extract platform roles from `resource_access.epistola-suite.roles`.
+- **Keycloak realm export**: Added `epistola-tenants-mapper` protocol mapper, `tenant-manager` client role, and organization support. Test user `admin@test` now has `tenant-manager` role.
+- **Tenant membership role column**: `tenant_memberships` table now includes `role` and `last_synced_at` columns for JWT claim sync.
+
 ### Changed
 - **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
 

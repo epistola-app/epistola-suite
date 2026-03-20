@@ -115,7 +115,7 @@ class FeedbackHandler(
 
         // Access control: admin or creator only
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isAdmin(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 
@@ -132,7 +132,7 @@ class FeedbackHandler(
             "assets" to assets
             "activeNavSection" to "feedback"
             "statuses" to FeedbackStatus.entries
-            "isAdmin" to principal.isAdmin(tenantId.key)
+            "isManager" to principal.isManager(tenantId.key)
         }
     }
 
@@ -213,7 +213,7 @@ class FeedbackHandler(
 
         // Only admin or creator can update status
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isAdmin(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 
@@ -231,7 +231,7 @@ class FeedbackHandler(
                 "comments" to comments
                 "assets" to assets
                 "statuses" to FeedbackStatus.entries
-                "isAdmin" to principal.isAdmin(tenantId.key)
+                "isManager" to principal.isManager(tenantId.key)
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
@@ -250,7 +250,7 @@ class FeedbackHandler(
         val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
 
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isAdmin(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 
@@ -271,7 +271,7 @@ class FeedbackHandler(
                 "tenantId" to tenantId.key
                 "feedback" to feedback
                 "comments" to comments
-                "isAdmin" to principal.isAdmin(tenantId.key)
+                "isManager" to principal.isManager(tenantId.key)
             }
             onNonHtmx { redirect("/tenants/${tenantId.key}/feedback/${feedbackId.key}") }
         }
@@ -304,7 +304,7 @@ class FeedbackHandler(
         // Access control: admin or creator only
         val feedback = GetFeedback(feedbackId).query() ?: return ServerResponse.notFound().build()
         val principal = SecurityContext.current()
-        if (principal.userId != feedback.createdBy && !principal.isAdmin(tenantId.key)) {
+        if (principal.userId != feedback.createdBy && !principal.isManager(tenantId.key)) {
             throw FeedbackAccessDeniedException(tenantId.key, feedbackId.key)
         }
 

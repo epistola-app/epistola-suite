@@ -25,7 +25,7 @@ class AdminHandler(
 
     fun dataManagement(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requireAdmin(tenantId.key)
+        requireManager(tenantId.key)
 
         return ServerResponse.ok().page("admin/data-management") {
             "pageTitle" to "Data Management - Epistola"
@@ -36,7 +36,7 @@ class AdminHandler(
 
     fun exportTemplates(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requireAdmin(tenantId.key)
+        requireManager(tenantId.key)
 
         val result = ExportTemplates(tenantId).query()
         val json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(result.templates)
@@ -50,7 +50,7 @@ class AdminHandler(
 
     fun importTemplates(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
-        requireAdmin(tenantId.key)
+        requireManager(tenantId.key)
 
         val multipartData = request.multipartData()
         val filePart: Part = multipartData["file"]?.firstOrNull()
@@ -104,10 +104,10 @@ class AdminHandler(
         }
     }
 
-    private fun requireAdmin(tenantKey: app.epistola.suite.common.ids.TenantKey) {
+    private fun requireManager(tenantKey: app.epistola.suite.common.ids.TenantKey) {
         val principal = SecurityContext.current()
-        if (!principal.isAdmin(tenantKey)) {
-            throw org.springframework.security.access.AccessDeniedException("Admin access required")
+        if (!principal.isManager(tenantKey)) {
+            throw org.springframework.security.access.AccessDeniedException("Manager access required")
         }
     }
 }

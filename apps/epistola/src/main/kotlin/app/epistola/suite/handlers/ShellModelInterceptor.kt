@@ -44,7 +44,7 @@ class ShellModelInterceptor : HandlerInterceptor {
         if (tenantId != null) {
             val principal = SecurityContext.currentOrNull()
             if (principal != null) {
-                modelAndView.addObject("isAdmin", principal.isAdmin(TenantKey.of(tenantId)))
+                modelAndView.addObject("isManager", principal.isManager(TenantKey.of(tenantId)))
             }
         }
 

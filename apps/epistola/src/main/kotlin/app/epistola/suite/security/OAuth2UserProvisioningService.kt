@@ -2,6 +2,7 @@ package app.epistola.suite.security
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import app.epistola.suite.users.commands.CreateUser
@@ -94,8 +95,11 @@ class OAuth2UserProvisioningService(
             user.tenantMemberships
         }
 
-        // Convert to EpistolaPrincipal with merged memberships
-        val principal = user.toEpistolaPrincipal(mergedMemberships)
+        // Extract platform roles from OIDC token
+        val platformRoles = extractPlatformRoles(oauth2User)
+
+        // Convert to EpistolaPrincipal with merged memberships and platform roles
+        val principal = user.toEpistolaPrincipal(mergedMemberships, platformRoles)
 
         // Return OAuth2User wrapper that Spring Security can use
         return OAuth2UserWrapper(oauth2User, principal)
@@ -162,13 +166,13 @@ class OAuth2UserProvisioningService(
     }
 
     /**
-     * Extracts tenant memberships with roles from the OAuth2 user's `epistola_tenants` attribute.
+     * Extracts tenant memberships with composable roles from the OAuth2 user's `epistola_tenants` attribute.
      *
-     * Supports structured format `[{"id": "acme", "role": "ADMIN"}]` and
-     * legacy flat list `["acme"]` (defaulting to MEMBER role).
+     * Preferred format: `[{"id": "acme", "roles": ["reader", "editor"]}]`
+     * Legacy formats: `[{"id": "acme", "role": "ADMIN"}]` or `["acme"]`
      */
     @Suppress("UNCHECKED_CAST")
-    private fun extractTenantMemberships(oauth2User: OAuth2User): Map<TenantKey, TenantRole> {
+    private fun extractTenantMemberships(oauth2User: OAuth2User): Map<TenantKey, Set<TenantRole>> {
         val claim = oauth2User.getAttribute<Any>("epistola_tenants") ?: return emptyMap()
 
         if (claim !is List<*>) {
@@ -176,30 +180,34 @@ class OAuth2UserProvisioningService(
             return emptyMap()
         }
 
-        val result = mutableMapOf<TenantKey, TenantRole>()
+        val result = mutableMapOf<TenantKey, Set<TenantRole>>()
         for (item in claim) {
             when (item) {
                 is Map<*, *> -> {
                     val id = item["id"]?.toString() ?: continue
-                    val role = item["role"]?.toString()
-                    try {
-                        val tenantKey = TenantKey.of(id)
-                        val tenantRole = role?.let {
-                            try {
-                                TenantRole.valueOf(it.uppercase())
-                            } catch (e: IllegalArgumentException) {
-                                logger.warn("Unknown tenant role in OIDC claim: {}, defaulting to MEMBER", it)
-                                TenantRole.MEMBER
-                            }
-                        } ?: TenantRole.MEMBER
-                        result[tenantKey] = tenantRole
+                    val tenantKey = try {
+                        TenantKey.of(id)
                     } catch (e: IllegalArgumentException) {
                         logger.warn("Invalid tenant ID in OIDC claim: {}", id)
+                        continue
+                    }
+
+                    val rolesArray = item["roles"]
+                    val singleRole = item["role"]?.toString()
+
+                    val roles = when {
+                        rolesArray is List<*> -> rolesArray.mapNotNull { parseTenantRole(it?.toString()) }.toSet()
+                        singleRole != null -> parseTenantRole(singleRole)?.let { setOf(it) } ?: setOf(TenantRole.READER)
+                        else -> setOf(TenantRole.READER)
+                    }
+
+                    if (roles.isNotEmpty()) {
+                        result[tenantKey] = roles
                     }
                 }
                 is String -> {
                     try {
-                        result[TenantKey.of(item)] = TenantRole.MEMBER
+                        result[TenantKey.of(item)] = setOf(TenantRole.READER)
                     } catch (e: IllegalArgumentException) {
                         logger.warn("Invalid tenant ID in OIDC claim: {}", item)
                     }
@@ -209,7 +217,45 @@ class OAuth2UserProvisioningService(
         return result
     }
 
+    private fun parseTenantRole(role: String?): TenantRole? {
+        if (role == null) return null
+        return try {
+            TenantRole.valueOf(role.uppercase())
+        } catch (e: IllegalArgumentException) {
+            logger.warn("Unknown tenant role in OIDC claim: {}", role)
+            null
+        }
+    }
+
+    /**
+     * Extracts platform roles from the OAuth2 user's attributes.
+     *
+     * Keycloak includes client roles in the `resource_access` attribute:
+     * ```json
+     * { "resource_access": { "epistola-suite": { "roles": ["tenant-manager"] } } }
+     * ```
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun extractPlatformRoles(oauth2User: OAuth2User): Set<PlatformRole> {
+        val resourceAccess = oauth2User.getAttribute<Map<String, Any>>("resource_access") ?: return emptySet()
+        val clientAccess = resourceAccess[CLIENT_ID] as? Map<String, Any> ?: return emptySet()
+        val roles = clientAccess["roles"] as? List<*> ?: return emptySet()
+
+        return roles.mapNotNull { roleName ->
+            when (roleName?.toString()) {
+                "tenant-manager" -> PlatformRole.TENANT_MANAGER
+                else -> {
+                    logger.warn("Unknown platform role in OIDC claim: {}", roleName)
+                    null
+                }
+            }
+        }.toSet()
+    }
+
     companion object {
+        /** The Keycloak client ID used to scope platform roles in `resource_access`. */
+        private const val CLIENT_ID = "epistola-suite"
+
         /**
          * Derives the [AuthProvider] from the OAuth2 registration ID.
          */
@@ -224,12 +270,14 @@ class OAuth2UserProvisioningService(
  * Extension to convert User to EpistolaPrincipal.
  */
 private fun User.toEpistolaPrincipal(
-    memberships: Map<TenantKey, TenantRole> = tenantMemberships,
+    memberships: Map<TenantKey, Set<TenantRole>> = tenantMemberships,
+    platformRoles: Set<PlatformRole> = emptySet(),
 ) = EpistolaPrincipal(
     userId = id,
     externalId = externalId,
     email = email,
     displayName = displayName,
     tenantMemberships = memberships,
+    platformRoles = platformRoles,
     currentTenantId = null, // Will be set by tenant selector later
 )

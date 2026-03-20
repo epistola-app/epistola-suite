@@ -18,7 +18,7 @@ data class User(
     val email: String,
     val displayName: String,
     val provider: AuthProvider,
-    val tenantMemberships: Map<TenantKey, TenantRole>,
+    val tenantMemberships: Map<TenantKey, Set<TenantRole>>,
     val enabled: Boolean,
     val createdAt: OffsetDateTime,
     val lastLoginAt: OffsetDateTime?,

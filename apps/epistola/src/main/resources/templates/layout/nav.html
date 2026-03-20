@@ -49,7 +49,7 @@
                    th:classappend="${activeNavSection == 'settings'} ? ' active' : ''">
                     Settings
                 </a>
-                <a th:if="${isAdmin}"
+                <a th:if="${isManager}"
                    th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
                    class="app-nav-link"
                    th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">

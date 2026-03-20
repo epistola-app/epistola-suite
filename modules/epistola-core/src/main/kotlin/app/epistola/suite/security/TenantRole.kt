@@ -1,15 +1,30 @@
 package app.epistola.suite.security
 
 /**
- * Role a user holds within a specific tenant.
+ * Composable roles a user can hold within a specific tenant.
  *
  * Roles are sourced from the IDP (Keycloak/OIDC) via the `epistola_tenants` JWT claim.
- * Each tenant membership includes a role that determines what the user can do within that tenant.
+ * A user can hold multiple roles per tenant (e.g., `[reader, editor]`).
+ * Each role grants a specific set of [Permission]s; the effective permissions
+ * are the union of all role grants.
+ *
+ * These align with the roles defined in the epistola-contract OpenAPI spec.
+ *
+ * Keycloak JWT claim format:
+ * ```json
+ * { "epistola_tenants": [{"id": "acme", "roles": ["reader", "editor"]}] }
+ * ```
  */
 enum class TenantRole {
-    /** Regular tenant member with standard access. */
-    MEMBER,
+    /** Read-only access: view templates, themes, and documents. */
+    READER,
 
-    /** Tenant administrator with full access including settings and user management. */
-    ADMIN,
+    /** Modify templates and themes. Implies reader capabilities should also be granted. */
+    EDITOR,
+
+    /** Generate documents. Implies reader capabilities should also be granted. */
+    GENERATOR,
+
+    /** Full tenant management: publish templates, manage settings and users. */
+    MANAGER,
 }
