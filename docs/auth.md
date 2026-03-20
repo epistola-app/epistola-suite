@@ -100,13 +100,7 @@ No configuration property is needed — the registration ID from the OAuth2 logi
 
 ### Keycloak Setup
 
-1. Create a realm (e.g., `epistola`)
-2. Create a client with:
-   - Client ID: `epistola-suite`
-   - Client authentication: On
-   - Valid redirect URIs: `https://your-app.com/login/oauth2/code/keycloak`
-   - Web origins: `https://your-app.com`
-3. Create users in Keycloak
+See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configuration including group-based authorization, the `ep_` prefix convention, and automatic tenant provisioning.
 
 ### Auto-Provisioning
 

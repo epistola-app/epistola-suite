@@ -9,6 +9,23 @@
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
   "organizationsEnabled": true,
+  "groups": [
+    {
+      "name": "ep_demo-tenant_reader"
+    },
+    {
+      "name": "ep_demo-tenant_editor"
+    },
+    {
+      "name": "ep_demo-tenant_generator"
+    },
+    {
+      "name": "ep_demo-tenant_manager"
+    },
+    {
+      "name": "ep_tenant-manager"
+    }
+  ],
   "clients": [
     {
       "clientId": "epistola-suite",
@@ -16,6 +33,7 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "epistola-dev-secret",
+      "serviceAccountsEnabled": true,
       "redirectUris": [
         "http://localhost:4000/*"
       ],
@@ -38,29 +56,16 @@
       ],
       "protocolMappers": [
         {
-          "name": "epistola-tenants-mapper",
+          "name": "group-membership-mapper",
           "protocol": "openid-connect",
-          "protocolMapper": "oidc-organization-membership-mapper",
+          "protocolMapper": "oidc-group-membership-mapper",
           "consentRequired": false,
           "config": {
+            "full.path": "false",
             "id.token.claim": "true",
             "access.token.claim": "true",
-            "claim.name": "epistola_tenants",
+            "claim.name": "groups",
             "userinfo.token.claim": "true"
-          }
-        },
-        {
-          "name": "epistola-client-roles-mapper",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-client-role-mapper",
-          "consentRequired": false,
-          "config": {
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "claim.name": "resource_access.${client_id}.roles",
-            "userinfo.token.claim": "true",
-            "multivalued": "true",
-            "usermodel.clientRoleMapping.clientId": "epistola-suite"
           }
         }
       ]
@@ -82,9 +87,13 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "clientRoles": {
-        "epistola-suite": ["tenant-manager"]
-      }
+      "groups": [
+        "ep_demo-tenant_reader",
+        "ep_demo-tenant_editor",
+        "ep_demo-tenant_generator",
+        "ep_demo-tenant_manager",
+        "ep_tenant-manager"
+      ]
     },
     {
       "username": "user@test",
@@ -100,7 +109,12 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["default-roles-epistola"]
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo-tenant_reader",
+        "ep_demo-tenant_editor",
+        "ep_demo-tenant_generator"
+      ]
     }
   ],
   "roles": {
@@ -114,14 +128,6 @@
           }
         }
       }
-    ],
-    "client": {
-      "epistola-suite": [
-        {
-          "name": "tenant-manager",
-          "description": "Can create and manage tenants across the platform"
-        }
-      ]
-    }
+    ]
   }
 }

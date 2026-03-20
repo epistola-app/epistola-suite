@@ -12,16 +12,21 @@ import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
+import app.epistola.suite.tenants.TenantProvisioningPort
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.queries.GetTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import app.epistola.suite.themes.queries.ListThemes
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 
 @Component
-class TenantHandler {
+class TenantHandler(
+    private val tenantProvisioner: TenantProvisioningPort,
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
         val tenants = ListTenants().query()
         return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants))
@@ -123,6 +128,13 @@ class TenantHandler {
                 reswap(HxSwap.OUTER_HTML)
                 onNonHtmx { redirect("/") }
             }
+        }
+
+        // Provision IDP resources (non-critical — log warning on failure)
+        try {
+            tenantProvisioner.provisionTenant(tenantId, name)
+        } catch (e: Exception) {
+            log.warn("Tenant '{}' created but IDP provisioning failed: {}", tenantId.value, e.message)
         }
 
         val tenants = ListTenants().query()

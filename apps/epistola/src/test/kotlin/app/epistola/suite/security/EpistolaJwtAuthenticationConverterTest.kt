@@ -1,6 +1,6 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.common.ids.TenantKey
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -25,17 +25,42 @@ class EpistolaJwtAuthenticationConverterTest {
     }
 
     @Test
-    fun `extracts platform roles from resource_access`() {
+    fun `extracts per-tenant roles from groups claim`() {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "resource_access" to mapOf(
-                        "epistola-suite" to mapOf(
-                            "roles" to listOf("tenant-manager"),
-                        ),
+                    "groups" to listOf(
+                        "ep_acme-corp_reader",
+                        "ep_acme-corp_editor",
+                        "ep_beta-org_reader",
+                        "ep_beta-org_generator",
                     ),
                 ),
             ),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships).hasSize(2)
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(principal.tenantMemberships[TenantKey.of("beta-org")])
+            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.GENERATOR)
+    }
+
+    @Test
+    fun `extracts global roles from groups claim`() {
+        val token = converter.convert(
+            jwt(mapOf("groups" to listOf("ep_reader", "ep_editor"))),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.globalRoles).containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+    }
+
+    @Test
+    fun `extracts platform roles from groups claim`() {
+        val token = converter.convert(
+            jwt(mapOf("groups" to listOf("ep_tenant-manager"))),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
@@ -43,98 +68,9 @@ class EpistolaJwtAuthenticationConverterTest {
     }
 
     @Test
-    fun `platform roles empty when no resource_access claim`() {
-        val token = converter.convert(jwt(emptyMap()))
-
-        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.platformRoles).isEmpty()
-    }
-
-    @Test
-    fun `platform roles empty when client not in resource_access`() {
-        val token = converter.convert(
-            jwt(
-                mapOf(
-                    "resource_access" to mapOf(
-                        "other-client" to mapOf("roles" to listOf("some-role")),
-                    ),
-                ),
-            ),
-        )
-
-        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.platformRoles).isEmpty()
-    }
-
-    @Test
-    fun `extracts composable tenant roles from roles array`() {
-        val token = converter.convert(
-            jwt(
-                mapOf(
-                    "epistola_tenants" to listOf(
-                        mapOf("id" to "acme-corp", "roles" to listOf("reader", "editor")),
-                        mapOf("id" to "beta-org", "roles" to listOf("reader", "generator")),
-                    ),
-                ),
-            ),
-        )
-
-        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.tenantMemberships).hasSize(2)
-        assertThat(principal.tenantMemberships.values.first()).containsExactlyInAnyOrder(
-            TenantRole.READER,
-            TenantRole.EDITOR,
-        )
-        assertThat(principal.tenantMemberships.values.last()).containsExactlyInAnyOrder(
-            TenantRole.READER,
-            TenantRole.GENERATOR,
-        )
-    }
-
-    @Test
-    fun `extracts legacy single role format`() {
-        val token = converter.convert(
-            jwt(
-                mapOf(
-                    "epistola_tenants" to listOf(
-                        mapOf("id" to "acme-corp", "role" to "MANAGER"),
-                    ),
-                ),
-            ),
-        )
-
-        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.tenantMemberships).hasSize(1)
-        assertThat(principal.tenantMemberships.values.first()).containsExactly(TenantRole.MANAGER)
-    }
-
-    @Test
-    fun `extracts legacy flat tenant list defaulting to READER`() {
-        val token = converter.convert(
-            jwt(
-                mapOf(
-                    "epistola_tenants" to listOf("acme-corp", "beta-org"),
-                ),
-            ),
-        )
-
-        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.tenantMemberships).hasSize(2)
-        assertThat(principal.tenantMemberships.values).allMatch { it == setOf(TenantRole.READER) }
-    }
-
-    @Test
     fun `platform roles added as Spring Security authorities`() {
         val token = converter.convert(
-            jwt(
-                mapOf(
-                    "resource_access" to mapOf(
-                        "epistola-suite" to mapOf(
-                            "roles" to listOf("tenant-manager"),
-                        ),
-                    ),
-                ),
-            ),
+            jwt(mapOf("groups" to listOf("ep_tenant-manager"))),
         )
 
         val authorityNames = token.authorities.map { it.authority }
@@ -142,18 +78,66 @@ class EpistolaJwtAuthenticationConverterTest {
     }
 
     @Test
+    fun `empty memberships when no groups claim`() {
+        val token = converter.convert(jwt(emptyMap()))
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships).isEmpty()
+        assertThat(principal.globalRoles).isEmpty()
+        assertThat(principal.platformRoles).isEmpty()
+    }
+
+    @Test
+    fun `ignores non-ep groups`() {
+        val token = converter.convert(
+            jwt(
+                mapOf(
+                    "groups" to listOf("other-app-group", "admin", "ep_acme-corp_reader"),
+                ),
+            ),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships).hasSize(1)
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactly(TenantRole.READER)
+    }
+
+    @Test
     fun `unknown tenant roles are ignored`() {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "epistola_tenants" to listOf(
-                        mapOf("id" to "acme-corp", "roles" to listOf("reader", "unknown-role")),
+                    "groups" to listOf("ep_acme-corp_reader", "ep_acme-corp_superadmin"),
+                ),
+            ),
+        )
+
+        val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactly(TenantRole.READER)
+    }
+
+    @Test
+    fun `full example with per-tenant, global, and platform roles`() {
+        val token = converter.convert(
+            jwt(
+                mapOf(
+                    "groups" to listOf(
+                        "ep_acme-corp_reader",
+                        "ep_acme-corp_editor",
+                        "ep_reader",
+                        "ep_tenant-manager",
+                        "other-app-group",
                     ),
                 ),
             ),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
-        assertThat(principal.tenantMemberships.values.first()).containsExactly(TenantRole.READER)
+        assertThat(principal.tenantMemberships[TenantKey.of("acme-corp")])
+            .containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
+        assertThat(principal.globalRoles).containsExactly(TenantRole.READER)
+        assertThat(principal.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
     }
 }

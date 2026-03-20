@@ -36,3 +36,8 @@ spring:
 epistola:
   auth:
     auto-provision: true
+  keycloak:
+    admin-url: ${epistola.auth.oidc.backchannel-base-url:http://localhost:8080}
+    realm: epistola
+    client-id: epistola-suite
+    client-secret: ${KEYCLOAK_CLIENT_SECRET:epistola-dev-secret}
