@@ -17,6 +17,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.core.userdetails.UserDetailsService
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
@@ -180,8 +181,14 @@ class SecurityConfig(
             .logout { logout ->
                 logout
                     .logoutUrl("/logout")
-                    .logoutSuccessUrl("/login?logout")
                     .permitAll()
+                if (oauth2 && clientRegistrationRepository != null) {
+                    val oidcLogoutHandler = OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository)
+                    oidcLogoutHandler.setPostLogoutRedirectUri("{baseUrl}/login?logout")
+                    logout.logoutSuccessHandler(oidcLogoutHandler)
+                } else {
+                    logout.logoutSuccessUrl("/login?logout")
+                }
             }
             .csrf { csrf ->
                 csrf.spa()
