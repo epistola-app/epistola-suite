@@ -10,7 +10,7 @@
                     searchUrl=@{/tenants/{tenantId}/templates/search(tenantId=${tenantId})},
                     targetId='template-rows'
                 )}"></div>
-                <a th:if="${auth != null and auth.has('TEMPLATE_EDIT')}"
+                <a th:if="${auth.has('TEMPLATE_EDIT')}"
                    th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="btn btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Template
@@ -24,7 +24,7 @@
             </div>
             <div class="empty-state-title">No templates yet</div>
             <div class="empty-state-description">Create your first document template to get started.</div>
-            <a th:if="${auth != null and auth.has('TEMPLATE_EDIT')}"
+            <a th:if="${auth.has('TEMPLATE_EDIT')}"
                th:href="@{/tenants/{tenantId}/templates/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Template

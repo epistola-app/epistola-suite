@@ -23,7 +23,7 @@
         <!-- Tab Panel: Variants -->
         <div id="tab-variants" class="tab-panel active">
             <!-- Toggle button for create variant form -->
-            <div th:if="${auth != null and auth.has('TEMPLATE_EDIT')}" style="margin-bottom: var(--ep-space-4);">
+            <div th:if="${auth.has('TEMPLATE_EDIT')}" style="margin-bottom: var(--ep-space-4);">
                 <button type="button" class="btn btn-sm btn-primary" onclick="toggleCreateVariantForm()">+ New Variant</button>
             </div>
 
@@ -126,7 +126,7 @@
 
                         <!-- Footer: actions -->
                         <div class="variant-card-footer">
-                            <a th:if="${auth != null and auth.has('TEMPLATE_EDIT')}"
+                            <a th:if="${auth.has('TEMPLATE_EDIT')}"
                                th:href="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/editor(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                class="btn btn-sm btn-icon btn-ghost" hx-boost="false" title="Open editor">
                                 <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
@@ -138,7 +138,7 @@
                                     title="Version history">
                                 <th:block th:replace="~{fragments/icon :: icon(name='clock', class='ep-icon ep-icon-sm')}" />
                             </button>
-                            <button th:if="${auth != null and auth.has('TEMPLATE_EDIT')}"
+                            <button th:if="${auth.has('TEMPLATE_EDIT')}"
                                     type="button" class="btn btn-sm btn-icon btn-ghost"
                                     th:hx-get="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/edit(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                     hx-target="#edit-variant-dialog-body"
@@ -147,7 +147,7 @@
                                     title="Edit variant">
                                 <th:block th:replace="~{fragments/icon :: icon(name='settings', class='ep-icon ep-icon-sm')}" />
                             </button>
-                            <form th:if="${auth != null and auth.has('TEMPLATE_EDIT')}"
+                            <form th:if="${auth.has('TEMPLATE_EDIT')}"
                                   th:unless="${variant.isDefault}"
                                   th:hx-post="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/set-default(tenantId=${tenantId},id=${template.id},variantId=${variant.id})}"
                                   hx-target="#variants-section" hx-swap="outerHTML"
@@ -156,7 +156,7 @@
                                     <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
-                            <button th:if="${auth != null and auth.has('TEMPLATE_EDIT')}"
+                            <button th:if="${auth.has('TEMPLATE_EDIT')}"
                                     th:unless="${variant.isDefault}" type="button"
                                     class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
                                     title="Delete variant"
@@ -167,7 +167,7 @@
                                     onclick="openConfirmDialog(this)">
                                 <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
                             </button>
-                            <button th:if="${auth != null and auth.has('TEMPLATE_EDIT') and variant.isDefault}" type="button"
+                            <button th:if="${auth.has('TEMPLATE_EDIT') and variant.isDefault}" type="button"
                                     class="btn btn-sm btn-icon btn-ghost" disabled
                                     title="Cannot delete the default variant">
                                 <th:block th:replace="~{fragments/icon :: icon(name='trash-2', class='ep-icon ep-icon-sm')}" />
@@ -287,7 +287,7 @@
             </div>
 
             <!-- Danger Zone -->
-            <div th:if="${auth != null and auth.has('TEMPLATE_EDIT')}" class="detail-section danger-zone">
+            <div th:if="${auth.has('TEMPLATE_EDIT')}" class="detail-section danger-zone">
                 <div class="detail-section-header">
                     <h3>Danger Zone</h3>
                 </div>

@@ -34,7 +34,7 @@
                    th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''">
                     Attributes
                 </a>
-                <a th:if="${auth != null and auth.has('DOCUMENT_GENERATE')}"
+                <a th:if="${auth.has('DOCUMENT_GENERATE')}"
                    th:href="@{/tenants/{id}/load-tests(id=${tenantId})}"
                    class="app-nav-link"
                    th:classappend="${activeNavSection == 'load-tests'} ? ' active' : ''">
@@ -45,13 +45,13 @@
                    th:classappend="${activeNavSection == 'feedback'} ? ' active' : ''">
                     Feedback
                 </a>
-                <a th:if="${auth != null and auth.has('TENANT_SETTINGS')}"
+                <a th:if="${auth.has('TENANT_SETTINGS')}"
                    th:href="@{/tenants/{id}/settings/feedback-sync(id=${tenantId})}"
                    class="app-nav-link"
                    th:classappend="${activeNavSection == 'settings'} ? ' active' : ''">
                     Settings
                 </a>
-                <a th:if="${auth != null and auth.has('TENANT_SETTINGS')}"
+                <a th:if="${auth.has('TENANT_SETTINGS')}"
                    th:href="@{/tenants/{id}/admin/data-management(id=${tenantId})}"
                    class="app-nav-link"
                    th:classappend="${activeNavSection == 'admin'} ? ' active' : ''">

@@ -18,6 +18,9 @@ class AuthContext(
     fun has(name: String): Boolean = name in grantedNames
 
     companion object {
+        /** No permissions granted. Used as default so templates never need null checks. */
+        val NONE = AuthContext(emptySet())
+
         fun from(principal: EpistolaPrincipal, tenantKey: TenantKey): AuthContext {
             val names = mutableSetOf<String>()
             principal.rolesFor(tenantKey).effectivePermissions().mapTo(names) { it.name }

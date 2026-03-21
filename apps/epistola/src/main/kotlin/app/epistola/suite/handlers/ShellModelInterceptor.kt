@@ -40,16 +40,21 @@ class ShellModelInterceptor : HandlerInterceptor {
             modelAndView.addObject("tenantName", tenant?.name ?: tenantId)
         }
 
-        // Resolve auth context for the tenant
-        if (tenantId != null) {
+        // Resolve auth context — always present so templates never need null checks.
+        // If already set by a handler (e.g., TenantHandler.list), don't override.
+        if (modelAndView.model["auth"] == null) {
             val principal = SecurityContext.currentOrNull()
-            if (principal != null) {
-                val tenantKey = TenantKey.of(tenantId)
-                val auth = AuthContext.from(principal, tenantKey)
-                modelAndView.addObject("auth", auth)
-                modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
+            val auth = if (principal != null && tenantId != null) {
+                AuthContext.from(principal, TenantKey.of(tenantId))
+            } else if (principal != null) {
+                AuthContext.platformOnly(principal)
+            } else {
+                AuthContext.NONE
             }
+            modelAndView.addObject("auth", auth)
         }
+        val auth = modelAndView.model["auth"] as AuthContext
+        modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
 
         // Shell-specific attributes
         if (viewName != "layout/shell") return

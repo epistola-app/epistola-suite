@@ -11,7 +11,7 @@
     <main class="regular">
         <h1>Tenants</h1>
 
-        <div id="create-form" th:fragment="create-form" th:if="${auth != null and auth.has('TENANT_MANAGER')}">
+        <div id="create-form" th:fragment="create-form" th:if="${auth.has('TENANT_MANAGER')}">
             <section class="form-section">
                 <h2>Create New Tenant</h2>
                 <form th:action="@{/tenants}" method="post"
@@ -72,7 +72,7 @@
                         </tr>
                         <tr th:if="${#lists.isEmpty(tenants)}">
                             <td colspan="4" class="empty-message"
-                                th:text="${auth != null and auth.has('TENANT_MANAGER')} ? 'No tenants yet. Create one above.' : 'No tenants available.'"></td>
+                                th:text="${auth.has('TENANT_MANAGER')} ? 'No tenants yet. Create one above.' : 'No tenants available.'"></td>
                         </tr>
                     </th:block>
                 </tbody>
