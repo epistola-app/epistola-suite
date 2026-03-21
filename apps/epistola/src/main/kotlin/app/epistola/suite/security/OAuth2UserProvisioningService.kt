@@ -9,10 +9,9 @@ import app.epistola.suite.users.commands.SyncTenantMemberships
 import app.epistola.suite.users.commands.UpdateLastLogin
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService
@@ -37,10 +36,10 @@ import org.springframework.stereotype.Component
  * - `"keycloak"` → [AuthProvider.KEYCLOAK]
  * - anything else → [AuthProvider.GENERIC_OIDC]
  *
- * Only loaded when a [ClientRegistrationRepository] bean is present (i.e., OAuth2 is configured).
+ * Only loaded when the Keycloak OAuth2 client registration is configured.
  */
 @Component
-@ConditionalOnBean(ClientRegistrationRepository::class)
+@ConditionalOnProperty(prefix = "spring.security.oauth2.client.registration.keycloak", name = ["client-id"])
 class OAuth2UserProvisioningService(
     private val mediator: Mediator,
     private val authProperties: AuthProperties,
@@ -185,6 +184,20 @@ class OAuth2UserProvisioningService(
         }
     }
 
+    /**
+     * Creates an OIDC-specific user service that delegates provisioning to this service.
+     * Spring Security uses a separate service type for OpenID Connect providers.
+     */
+    fun asOidcUserService(): OAuth2UserService<OidcUserRequest, OidcUser> {
+        val oidcDelegate = OidcUserService()
+        return OAuth2UserService<OidcUserRequest, OidcUser> { request ->
+            val oidcUser = oidcDelegate.loadUser(request)
+            val principal = provision(oidcUser, request.clientRegistration.registrationId)
+            logger.info("OIDC login: provisioned user {} with {} memberships", principal.email, principal.tenantMemberships.size)
+            OidcUserWrapper(oidcUser, principal)
+        }
+    }
+
     companion object {
         /**
          * Derives the [AuthProvider] from the OAuth2 registration ID.
@@ -193,27 +206,6 @@ class OAuth2UserProvisioningService(
             "keycloak" -> AuthProvider.KEYCLOAK
             else -> AuthProvider.GENERIC_OIDC
         }
-    }
-}
-
-/**
- * OIDC user service that delegates to [OAuth2UserProvisioningService] for user provisioning,
- * then wraps the result as an [OidcUser] with an [EpistolaPrincipal].
- *
- * Spring Security calls this service (not OAuth2UserService) when the provider supports OpenID Connect.
- */
-@Component
-@ConditionalOnBean(ClientRegistrationRepository::class)
-class OidcUserProvisioningService(
-    private val oauth2Service: OAuth2UserProvisioningService,
-) : OAuth2UserService<OidcUserRequest, OidcUser> {
-
-    private val delegate = OidcUserService()
-
-    override fun loadUser(request: OidcUserRequest): OidcUser {
-        val oidcUser = delegate.loadUser(request)
-        val principal = oauth2Service.provision(oidcUser, request.clientRegistration.registrationId)
-        return OidcUserWrapper(oidcUser, principal)
     }
 
     private class OidcUserWrapper(
