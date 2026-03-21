@@ -95,7 +95,21 @@
 
             document.addEventListener('htmx:responseError', function(event) {
                 var xhr = event.detail.xhr;
-                if (!xhr || xhr.status < 500) return;
+                if (!xhr) return;
+
+                var message;
+                if (xhr.status === 403) {
+                    try {
+                        var body = JSON.parse(xhr.responseText);
+                        message = body.error || 'You don\'t have permission to perform this action.';
+                    } catch (e) {
+                        message = 'You don\'t have permission to perform this action.';
+                    }
+                } else if (xhr.status >= 500) {
+                    message = 'An unexpected error occurred. Please try again.';
+                } else {
+                    return;
+                }
 
                 // Don't show global error if the target is inside the confirm dialog
                 var target = event.detail.target;
@@ -112,7 +126,7 @@
                 var banner = document.createElement('div');
                 banner.className = 'alert alert-error global-error-banner';
                 banner.style.marginBottom = 'var(--ep-space-4)';
-                banner.innerHTML = '<span>An unexpected error occurred. Please try again.</span>' +
+                banner.innerHTML = '<span>' + message + '</span>' +
                     '<button type="button" class="btn btn-sm btn-ghost" style="margin-left: auto;" ' +
                     'onclick="this.parentElement.remove()">&times;</button>';
                 banner.style.display = 'flex';

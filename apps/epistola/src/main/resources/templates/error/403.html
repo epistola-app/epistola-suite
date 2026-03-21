@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied - Epistola</title>
+    <th:block th:replace="~{fragments/styles :: styles}" />
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--ep-bg-secondary);">
+    <div style="text-align: center; max-width: 480px; padding: var(--ep-space-8);">
+        <h1 style="font-size: 1.5rem; margin-bottom: var(--ep-space-4);">Access Denied</h1>
+        <p style="color: var(--ep-text-secondary); margin-bottom: var(--ep-space-6);"
+           th:text="${message} ?: 'You don\'t have permission to access this page.'">
+            You don't have permission to access this page.
+        </p>
+        <a href="/" class="btn btn-primary">Back to Home</a>
+    </div>
+</body>
+</html>
