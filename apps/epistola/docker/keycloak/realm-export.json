@@ -24,6 +24,18 @@
     },
     {
       "name": "ep_tenant-manager"
+    },
+    {
+      "name": "ep_reader"
+    },
+    {
+      "name": "ep_editor"
+    },
+    {
+      "name": "ep_generator"
+    },
+    {
+      "name": "ep_manager"
     }
   ],
   "clients": [
@@ -92,7 +104,11 @@
         "ep_demo-tenant_editor",
         "ep_demo-tenant_generator",
         "ep_demo-tenant_manager",
-        "ep_tenant-manager"
+        "ep_tenant-manager",
+        "ep_reader",
+        "ep_editor",
+        "ep_generator",
+        "ep_manager"
       ]
     },
     {
@@ -115,6 +131,18 @@
         "ep_demo-tenant_editor",
         "ep_demo-tenant_generator"
       ]
+    },
+    {
+      "username": "service-account-epistola-suite",
+      "enabled": true,
+      "serviceAccountClientId": "epistola-suite",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users"
+        ]
+      }
     }
   ],
   "roles": {
