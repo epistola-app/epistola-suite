@@ -40,11 +40,14 @@ class ShellModelInterceptor : HandlerInterceptor {
             modelAndView.addObject("tenantName", tenant?.name ?: tenantId)
         }
 
-        // Resolve isAdmin for the tenant
+        // Resolve auth context for the tenant
         if (tenantId != null) {
             val principal = SecurityContext.currentOrNull()
             if (principal != null) {
-                modelAndView.addObject("isManager", principal.isManager(TenantKey.of(tenantId)))
+                val tenantKey = TenantKey.of(tenantId)
+                val auth = AuthContext.from(principal, tenantKey)
+                modelAndView.addObject("auth", auth)
+                modelAndView.addObject("isManager", auth.has("TENANT_SETTINGS"))
             }
         }
 

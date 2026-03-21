@@ -5,7 +5,8 @@
         <div class="page-header">
             <h1>Attributes</h1>
             <div class="page-actions">
-                <a th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary">
+                <a th:if="${auth != null and auth.has('TENANT_SETTINGS')}"
+                   th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Attribute
                 </a>
@@ -18,7 +19,8 @@
             </div>
             <div class="empty-state-title">No attributes yet</div>
             <div class="empty-state-description">Define attributes to classify template variants (e.g., language, brand, audience).</div>
-            <a th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+            <a th:if="${auth != null and auth.has('TENANT_SETTINGS')}"
+               th:href="@{/tenants/{tenantId}/attributes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Attribute
             </a>
@@ -48,7 +50,7 @@
                             <span th:if="${attr.allowedValues.isEmpty()}" class="text-muted">Any value</span>
                         </td>
                         <td th:text="${#temporals.format(attr.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions">
+                        <td class="actions" th:if="${auth != null and auth.has('TENANT_SETTINGS')}">
                             <button type="button" class="btn btn-sm btn-icon btn-ghost"
                                     th:hx-get="@{/tenants/{tenantId}/attributes/{attributeId}/edit(tenantId=${tenantId},attributeId=${attr.id})}"
                                     hx-target="#edit-attribute-dialog-body"

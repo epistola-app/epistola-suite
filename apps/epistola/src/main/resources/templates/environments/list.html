@@ -10,7 +10,8 @@
                     searchUrl=@{/tenants/{tenantId}/environments/search(tenantId=${tenantId})},
                     targetId='environment-rows'
                 )}"></div>
-                <a th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary">
+                <a th:if="${auth != null and auth.has('TENANT_SETTINGS')}"
+                   th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Environment
                 </a>
@@ -23,7 +24,8 @@
             </div>
             <div class="empty-state-title">No environments yet</div>
             <div class="empty-state-description">Create environments to control where template versions are deployed.</div>
-            <a th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+            <a th:if="${auth != null and auth.has('TENANT_SETTINGS')}"
+               th:href="@{/tenants/{tenantId}/environments/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Environment
             </a>
@@ -44,7 +46,7 @@
                         <td style="font-weight: 500;" th:text="${env.name}"></td>
                         <td><code th:text="${env.id}" style="font-size: var(--ep-text-xs); color: var(--ep-muted-foreground);"></code></td>
                         <td th:text="${#temporals.format(env.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                        <td class="actions">
+                        <td class="actions" th:if="${auth != null and auth.has('TENANT_SETTINGS')}">
                             <button type="button"
                                     class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
                                     title="Delete environment"

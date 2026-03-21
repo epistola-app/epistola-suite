@@ -2,6 +2,7 @@ package app.epistola.suite.tenants
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.environments.queries.ListEnvironments
+import app.epistola.suite.handlers.AuthContext
 import app.epistola.suite.htmx.HxSwap
 import app.epistola.suite.htmx.executeOrFormError
 import app.epistola.suite.htmx.form
@@ -11,6 +12,7 @@ import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.loadtest.queries.ListLoadTestRuns
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.TenantProvisioningPort
 import app.epistola.suite.tenants.commands.CreateTenant
@@ -29,7 +31,8 @@ class TenantHandler(
     private val log = LoggerFactory.getLogger(javaClass)
     fun list(request: ServerRequest): ServerResponse {
         val tenants = ListTenants().query()
-        return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants))
+        val auth = AuthContext.platformOnly(SecurityContext.current())
+        return ServerResponse.ok().render("tenants/list", mapOf("tenants" to tenants, "auth" to auth))
     }
 
     /**
@@ -73,6 +76,7 @@ class TenantHandler(
     }
 
     fun create(request: ServerRequest): ServerResponse {
+        val auth = AuthContext.platformOnly(SecurityContext.current())
         val form = request.form {
             field("slug") {
                 required()
@@ -89,6 +93,7 @@ class TenantHandler(
         if (form.hasErrors()) {
             return request.htmx {
                 fragment("tenants/list", "create-form") {
+                    "auth" to auth
                     "formData" to form.formData
                     "errors" to form.errors
                 }
@@ -103,6 +108,7 @@ class TenantHandler(
             val errors = mapOf("slug" to "Invalid tenant ID format")
             return request.htmx {
                 fragment("tenants/list", "create-form") {
+                    "auth" to auth
                     "formData" to form.formData
                     "errors" to errors
                 }
@@ -121,6 +127,7 @@ class TenantHandler(
         if (result.hasErrors()) {
             return request.htmx {
                 fragment("tenants/list", "create-form") {
+                    "auth" to auth
                     "formData" to result.formData
                     "errors" to result.errors
                 }
