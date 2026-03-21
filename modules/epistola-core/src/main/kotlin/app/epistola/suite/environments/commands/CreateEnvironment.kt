@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
@@ -13,7 +15,11 @@ import org.springframework.stereotype.Component
 data class CreateEnvironment(
     val id: EnvironmentId,
     val name: String,
-) : Command<Environment> {
+) : Command<Environment>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_SETTINGS
+    override val tenantKey get() = id.tenantKey
+
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= 100) { "Name must be 100 characters or less" }

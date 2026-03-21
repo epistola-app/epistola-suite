@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.FeedbackAssetId
 import app.epistola.suite.feedback.FeedbackAsset
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -14,7 +16,11 @@ data class AddFeedbackAsset(
     val content: ByteArray,
     val contentType: String,
     val filename: String?,
-) : Command<FeedbackAsset> {
+) : Command<FeedbackAsset>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = id.tenantKey
+
     init {
         require(content.isNotEmpty()) { "Asset content must not be empty" }
         require(contentType.isNotBlank()) { "Content type is required" }

@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.security.TenantRole
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
@@ -19,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional
 data class SyncTenantMemberships(
     val userId: UserKey,
     val memberships: Map<TenantKey, Set<TenantRole>>,
-) : Command<Unit>
+) : Command<Unit>,
+    SystemInternal
 
 @Component
 class SyncTenantMembershipsHandler(

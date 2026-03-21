@@ -1,5 +1,16 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.common.TenantScoped
+import app.epistola.suite.security.Authorized
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.RequiresAuthentication
+import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.security.RequiresPlatformRole
+import app.epistola.suite.security.SystemInternal
+import app.epistola.suite.security.currentUser
+import app.epistola.suite.security.requirePermission
+import app.epistola.suite.security.requireTenantAccess
+import app.epistola.suite.security.requireTenantManager
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import org.slf4j.LoggerFactory
@@ -45,6 +56,8 @@ class SpringMediator(
 
     @Suppress("UNCHECKED_CAST")
     override fun <R> send(command: Command<R>): R {
+        enforceAuthorization(command)
+
         val commandName = command::class.simpleName ?: "Unknown"
         logger.debug("Dispatching command: {}", commandName)
 
@@ -84,6 +97,8 @@ class SpringMediator(
 
     @Suppress("UNCHECKED_CAST")
     override fun <R> query(query: Query<R>): R {
+        enforceAuthorization(query)
+
         val queryName = query::class.simpleName ?: "Unknown"
         logger.debug("Dispatching query: {}", queryName)
 
@@ -158,6 +173,27 @@ class SpringMediator(
         return allHandlers.find { handler ->
             extractMessageType(handler, QueryHandler::class) == queryClass
         } ?: throw IllegalArgumentException("No handler found for query: ${queryClass.simpleName}")
+    }
+
+    private fun enforceAuthorization(message: Any) {
+        when (message) {
+            is SystemInternal -> { /* no-op: system-internal operations bypass auth */ }
+            is RequiresPermission -> {
+                requireTenantAccess(message.tenantKey)
+                requirePermission(message.tenantKey, message.permission)
+            }
+            is RequiresPlatformRole -> {
+                when (message.platformRole) {
+                    PlatformRole.TENANT_MANAGER -> requireTenantManager()
+                }
+            }
+            is RequiresAuthentication -> {
+                currentUser()
+                if (message is TenantScoped) requireTenantAccess(message.tenantId)
+            }
+            is Authorized -> error("Unhandled Authorized subtype: ${message::class.simpleName}")
+            else -> error("${message::class.simpleName} must implement Authorized")
+        }
     }
 
     private fun extractMessageType(

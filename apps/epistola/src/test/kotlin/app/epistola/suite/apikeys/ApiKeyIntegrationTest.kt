@@ -60,7 +60,7 @@ class ApiKeyIntegrationTest : BaseIntegrationTest() {
 
         whenever {
             created = CreateApiKey(tenantId = tenant.id, name = "To Revoke").execute()
-            RevokeApiKey(id = created.apiKey.id).execute()
+            RevokeApiKey(tenantId = tenant.id, id = created.apiKey.id).execute()
         }
 
         then {

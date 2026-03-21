@@ -10,6 +10,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -29,7 +30,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     private lateinit var contentStore: ContentStore
 
     @Test
-    fun `GetGenerationJob returns job with items`() {
+    fun `GetGenerationJob returns job with items`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -69,7 +70,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `GetGenerationJob returns null for non-existent job`() {
+    fun `GetGenerationJob returns null for non-existent job`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val randomId = GenerationRequestKey.generate()
 
@@ -79,7 +80,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `GetGenerationJob returns null for job from different tenant`() {
+    fun `GetGenerationJob returns null for job from different tenant`() = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -116,7 +117,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `ListGenerationJobs filters by status`() {
+    fun `ListGenerationJobs filters by status`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -168,7 +169,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `ListGenerationJobs respects pagination`() {
+    fun `ListGenerationJobs respects pagination`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -218,7 +219,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `GetDocument returns document with content`() {
+    fun `GetDocument returns document with content`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -251,8 +252,10 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
             .atMost(10, TimeUnit.SECONDS)
             .pollInterval(100, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
             }
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
@@ -276,7 +279,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `GetDocument returns null for non-existent document`() {
+    fun `GetDocument returns null for non-existent document`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
 
         val document = mediator.query(GetDocument(tenant.id, DocumentKey.generate()))
@@ -285,7 +288,7 @@ class DocumentQueriesTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `ListDocuments filters by template`() {
+    fun `ListDocuments filters by template`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
 

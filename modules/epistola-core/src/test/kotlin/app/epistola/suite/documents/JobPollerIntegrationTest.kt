@@ -5,12 +5,18 @@ import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.commands.GenerateDocument
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.mediator.MediatorContext
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -60,8 +66,25 @@ class JobPollerIntegrationTest {
 
     private val objectMapper = ObjectMapper()
 
+    private val testUser = EpistolaPrincipal(
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
+        externalId = "test-user",
+        email = "test@example.com",
+        displayName = "Test User",
+        tenantMemberships = emptyMap(),
+        globalRoles = TenantRole.entries.toSet(),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
+        currentTenantId = null,
+    )
+
+    private fun <T> withAuthentication(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
+
     @Test
-    fun `JobPoller processes pending requests asynchronously with real PDF generation`() {
+    fun `JobPoller processes pending requests asynchronously with real PDF generation`() = withAuthentication {
         // Create test data
         val tenant = mediator.send(
             CreateTenant(
@@ -115,9 +138,11 @@ class JobPollerIntegrationTest {
             .atMost(30, TimeUnit.SECONDS) // Longer timeout for real generation
             .pollInterval(500, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job).isNotNull
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
+                    assertThat(job).isNotNull
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
             }
 
         // Verify real document was created with valid PDF

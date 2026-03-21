@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.commands.ImportTemplateInput
 import app.epistola.suite.templates.commands.ImportVariantInput
 import app.epistola.suite.templates.model.TemplateDocument
@@ -14,7 +17,11 @@ import tools.jackson.databind.ObjectMapper
 
 data class ExportTemplates(
     val tenantId: TenantId,
-) : Query<ExportResult>
+) : Query<ExportResult>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = tenantId.key
+}
 
 data class ExportResult(
     val templates: List<ImportTemplateInput>,

@@ -6,6 +6,8 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -24,7 +26,11 @@ import java.util.UUID
 data class GetAssetContent(
     val tenantId: TenantKey,
     val assetId: AssetKey,
-) : Query<AssetContent?>
+) : Query<AssetContent?>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class GetAssetContentHandler(

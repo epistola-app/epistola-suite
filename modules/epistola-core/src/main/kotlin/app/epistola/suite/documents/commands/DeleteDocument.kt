@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -19,7 +21,11 @@ import org.springframework.stereotype.Component
 data class DeleteDocument(
     val tenantId: TenantKey,
     val documentId: DocumentKey,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class DeleteDocumentHandler(

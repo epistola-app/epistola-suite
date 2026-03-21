@@ -3,6 +3,8 @@ package app.epistola.suite.attributes.commands
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 
@@ -19,7 +21,11 @@ class AttributeInUseException(
 
 data class DeleteAttributeDefinition(
     val id: AttributeId,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_SETTINGS
+    override val tenantKey get() = id.tenantKey
+}
 
 @Component
 class DeleteAttributeDefinitionHandler(

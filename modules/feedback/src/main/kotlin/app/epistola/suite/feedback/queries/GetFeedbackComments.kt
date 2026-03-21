@@ -4,13 +4,19 @@ import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
 data class GetFeedbackComments(
     val id: FeedbackId,
-) : Query<List<FeedbackComment>>
+) : Query<List<FeedbackComment>>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = id.tenantKey
+}
 
 @Component
 class GetFeedbackCommentsHandler(

@@ -10,6 +10,8 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import org.jdbi.v3.core.Jdbi
@@ -76,7 +78,11 @@ class BatchValidationException(
 data class GenerateDocumentBatch(
     val tenantId: TenantKey,
     val items: List<BatchGenerationItem>,
-) : Command<BatchKey> {
+) : Command<BatchKey>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val tenantKey get() = tenantId
+
     init {
         require(items.isNotEmpty()) { "At least one item is required" }
         validateUniqueness()

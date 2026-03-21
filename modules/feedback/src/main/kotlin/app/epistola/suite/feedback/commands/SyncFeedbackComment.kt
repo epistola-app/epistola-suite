@@ -7,6 +7,7 @@ import app.epistola.suite.feedback.CommentSource
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -18,7 +19,8 @@ data class SyncFeedbackComment(
     val authorName: String,
     val authorEmail: String?,
     val externalCommentId: String,
-) : Command<FeedbackComment?>
+) : Command<FeedbackComment?>,
+    SystemInternal
 
 @Component
 class SyncFeedbackCommentHandler(

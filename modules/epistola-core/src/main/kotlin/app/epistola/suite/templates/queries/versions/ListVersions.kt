@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.queries.versions
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.VersionSummary
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -10,7 +13,11 @@ import org.springframework.stereotype.Component
 
 data class ListVersions(
     val variantId: VariantId,
-) : Query<List<VersionSummary>>
+) : Query<List<VersionSummary>>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = variantId.tenantKey
+}
 
 @Component
 class ListVersionsHandler(

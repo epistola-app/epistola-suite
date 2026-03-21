@@ -26,7 +26,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test
-    fun `creates batch generation request`() {
+    fun `creates batch generation request`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -80,7 +80,7 @@ class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `validates all items before creating request`() {
+    fun `validates all items before creating request`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)

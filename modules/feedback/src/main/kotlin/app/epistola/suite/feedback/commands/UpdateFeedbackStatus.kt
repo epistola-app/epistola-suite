@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -11,7 +13,11 @@ import org.springframework.stereotype.Component
 data class UpdateFeedbackStatus(
     val id: FeedbackId,
     val status: FeedbackStatus,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = id.tenantKey
+}
 
 @Component
 class UpdateFeedbackStatusHandler(

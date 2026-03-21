@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
@@ -27,7 +30,11 @@ data class UpdateDataExample(
     val name: String? = null,
     val data: ObjectNode? = null,
     val forceUpdate: Boolean = false,
-) : Command<UpdateDataExampleResult?>
+) : Command<UpdateDataExampleResult?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = templateId.tenantKey
+}
 
 /**
  * Result of updating a data example.

@@ -5,6 +5,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -18,7 +20,11 @@ import org.springframework.stereotype.Component
 data class CancelGenerationJob(
     val tenantId: TenantKey,
     val requestId: GenerationRequestKey,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class CancelGenerationJobHandler(

@@ -9,6 +9,7 @@ import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -22,7 +23,7 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test
-    fun `deletes document successfully`() {
+    fun `deletes document successfully`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -57,12 +58,14 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
             .atMost(10, TimeUnit.SECONDS)
             .pollInterval(100, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job!!.request.status).isIn(
-                    app.epistola.suite.documents.model.RequestStatus.COMPLETED,
-                    app.epistola.suite.documents.model.RequestStatus.FAILED,
-                    app.epistola.suite.documents.model.RequestStatus.CANCELLED,
-                )
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
+                    assertThat(job!!.request.status).isIn(
+                        app.epistola.suite.documents.model.RequestStatus.COMPLETED,
+                        app.epistola.suite.documents.model.RequestStatus.FAILED,
+                        app.epistola.suite.documents.model.RequestStatus.CANCELLED,
+                    )
+                }
             }
 
         val job = mediator.query(GetGenerationJob(tenant.id, request.id))!!
@@ -79,7 +82,7 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `returns false for non-existent document`() {
+    fun `returns false for non-existent document`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
 
         val deleted = mediator.send(DeleteDocument(tenant.id, DocumentKey.generate()))
@@ -88,7 +91,7 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `returns false for document from different tenant`() {
+    fun `returns false for document from different tenant`() = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -123,12 +126,14 @@ class DeleteDocumentHandlerTest : CoreIntegrationTestBase() {
             .atMost(10, TimeUnit.SECONDS)
             .pollInterval(100, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant1.id, request.id))
-                assertThat(job!!.request.status).isIn(
-                    app.epistola.suite.documents.model.RequestStatus.COMPLETED,
-                    app.epistola.suite.documents.model.RequestStatus.FAILED,
-                    app.epistola.suite.documents.model.RequestStatus.CANCELLED,
-                )
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant1.id, request.id))
+                    assertThat(job!!.request.status).isIn(
+                        app.epistola.suite.documents.model.RequestStatus.COMPLETED,
+                        app.epistola.suite.documents.model.RequestStatus.FAILED,
+                        app.epistola.suite.documents.model.RequestStatus.CANCELLED,
+                    )
+                }
             }
 
         val job = mediator.query(GetGenerationJob(tenant1.id, request.id))!!

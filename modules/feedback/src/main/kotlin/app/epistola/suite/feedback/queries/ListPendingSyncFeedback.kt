@@ -4,6 +4,7 @@ import app.epistola.suite.feedback.Feedback
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -11,7 +12,8 @@ import org.springframework.stereotype.Component
 data class ListPendingSyncFeedback(
     val limit: Int = 50,
     val maxAttempts: Int = MAX_SYNC_ATTEMPTS,
-) : Query<List<Feedback>> {
+) : Query<List<Feedback>>,
+    SystemInternal {
     companion object {
         const val MAX_SYNC_ATTEMPTS = 5
     }

@@ -7,6 +7,8 @@ import app.epistola.suite.config.bindJsonb
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.RequiresPlatformRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.validation.executeOrThrowDuplicate
 import app.epistola.suite.validation.validate
@@ -25,7 +27,9 @@ data class CreateTenant(
     val name: String,
 ) : Command<Tenant>,
     EntityIdentifiable,
-    Routable {
+    Routable,
+    RequiresPlatformRole {
+    override val platformRole = PlatformRole.TENANT_MANAGER
     override val entityId: String get() = id.value
     override val routingKey: String get() = id.value
     init {

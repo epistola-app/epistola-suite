@@ -5,6 +5,8 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -22,7 +24,11 @@ data class ListGenerationJobs(
     val status: RequestStatus? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<DocumentGenerationRequest>>
+) : Query<List<DocumentGenerationRequest>>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class ListGenerationJobsHandler(

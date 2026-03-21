@@ -1,9 +1,12 @@
 package app.epistola.suite.templates.commands.activations
 
 import app.epistola.suite.common.ids.EnvironmentId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -18,7 +21,11 @@ import org.springframework.stereotype.Component
 data class RemoveActivation(
     val variantId: VariantId,
     val environmentId: EnvironmentId,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_PUBLISH
+    override val tenantKey: TenantKey get() = variantId.tenantKey
+}
 
 @Component
 class RemoveActivationHandler(

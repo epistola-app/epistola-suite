@@ -3,6 +3,7 @@ package app.epistola.suite.tenants.queries
 import app.epistola.suite.config.withHandle
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.RequiresAuthentication
 import app.epistola.suite.tenants.Tenant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -11,7 +12,8 @@ import org.springframework.stereotype.Component
 data class ListTenants(
     val searchTerm: String? = null,
     val idPrefix: String? = null,
-) : Query<List<Tenant>>
+) : Query<List<Tenant>>,
+    RequiresAuthentication
 
 @Component
 class ListTenantsHandler(

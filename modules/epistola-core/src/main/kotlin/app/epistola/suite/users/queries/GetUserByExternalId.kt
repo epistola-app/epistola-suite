@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
@@ -20,7 +21,8 @@ import java.time.OffsetDateTime
 data class GetUserByExternalId(
     val externalId: String,
     val provider: AuthProvider,
-) : Query<User?>
+) : Query<User?>,
+    SystemInternal
 
 @Component
 class GetUserByExternalIdHandler(

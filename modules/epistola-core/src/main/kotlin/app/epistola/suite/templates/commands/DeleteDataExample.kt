@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import org.jdbi.v3.core.Jdbi
@@ -16,7 +19,11 @@ import tools.jackson.databind.ObjectMapper
 data class DeleteDataExample(
     val templateId: TemplateId,
     val exampleId: String,
-) : Command<DeleteDataExampleResult?>
+) : Command<DeleteDataExampleResult?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = templateId.tenantKey
+}
 
 /**
  * Result of deleting a data example.

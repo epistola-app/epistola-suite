@@ -1,9 +1,12 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.validation.DataModelValidationException
@@ -31,7 +34,11 @@ data class UpdateDocumentTemplate(
     val dataExamples: List<DataExample>? = null,
     val pdfaEnabled: Boolean? = null,
     val forceUpdate: Boolean = false,
-) : Command<UpdateDocumentTemplateResult?>
+) : Command<UpdateDocumentTemplateResult?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = id.tenantKey
+}
 
 /**
  * Result of updating a document template.

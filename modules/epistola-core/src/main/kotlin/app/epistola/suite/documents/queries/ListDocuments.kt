@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
@@ -28,7 +30,11 @@ data class ListDocuments(
     val correlationId: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<DocumentMetadata>>
+) : Query<List<DocumentMetadata>>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class ListDocumentsHandler(

@@ -1,5 +1,6 @@
 package app.epistola.suite.mediator
 
+import app.epistola.suite.security.SystemInternal
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -21,11 +22,19 @@ class SpringMediatorMetricsTest {
     private lateinit var meterRegistry: SimpleMeterRegistry
     private lateinit var mediator: SpringMediator
 
-    // Test commands and queries
-    data class GreetCommand(val name: String) : Command<String>
-    data class FailingCommand(val message: String) : Command<Unit>
-    data class LookupQuery(val id: Int) : Query<String?>
-    data class FailingQuery(val reason: String) : Query<Nothing>
+    // Test commands and queries (SystemInternal to bypass authorization)
+    data class GreetCommand(val name: String) :
+        Command<String>,
+        SystemInternal
+    data class FailingCommand(val message: String) :
+        Command<Unit>,
+        SystemInternal
+    data class LookupQuery(val id: Int) :
+        Query<String?>,
+        SystemInternal
+    data class FailingQuery(val reason: String) :
+        Query<Nothing>,
+        SystemInternal
 
     // Handlers
     class GreetHandler : CommandHandler<GreetCommand, String> {

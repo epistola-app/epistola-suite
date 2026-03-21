@@ -3,10 +3,13 @@ package app.epistola.suite.templates.commands
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.templates.model.TemplateDocument
 import org.jdbi.v3.core.Handle
@@ -22,7 +25,11 @@ import tools.jackson.databind.node.ObjectNode
 data class ImportTemplates(
     val tenantId: TenantId,
     val templates: List<ImportTemplateInput>,
-) : Command<List<ImportTemplateResult>>
+) : Command<List<ImportTemplateResult>>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = tenantId.key
+}
 
 data class ImportTemplateInput(
     val slug: String,

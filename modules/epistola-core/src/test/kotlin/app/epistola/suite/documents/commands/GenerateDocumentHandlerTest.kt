@@ -24,7 +24,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     private lateinit var context: org.springframework.context.ApplicationContext
 
     @Test
-    fun `creates generation request with valid inputs`() {
+    fun `creates generation request with valid inputs`() = withAuthentication {
         // Debug: List all command handlers
         val handlers = context.getBeansOfType(app.epistola.suite.mediator.CommandHandler::class.java)
         println("DEBUG: Found ${handlers.size} command handlers")
@@ -68,7 +68,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `fails with non-existent template`() {
+    fun `fails with non-existent template`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val data = objectMapper.createObjectNode().put("test", "value")
 
@@ -89,7 +89,7 @@ class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `fails with non-existent version`() {
+    fun `fails with non-existent version`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)

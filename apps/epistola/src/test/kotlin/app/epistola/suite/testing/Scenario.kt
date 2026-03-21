@@ -4,11 +4,16 @@ import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.Query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -49,6 +54,17 @@ annotation class ScenarioDsl
 class ScenarioFactory(
     private val mediator: Mediator,
 ) {
+    private val testUser = EpistolaPrincipal(
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
+        externalId = "test-user",
+        email = "test@example.com",
+        displayName = "Test User",
+        tenantMemberships = emptyMap(),
+        globalRoles = TenantRole.entries.toSet(),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
+        currentTenantId = null,
+    )
+
     /**
      * Creates and executes a scenario with automatic resource cleanup.
      */
@@ -56,19 +72,21 @@ class ScenarioFactory(
         namespace: String,
         block: ScenarioBuilder.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
-        val builder = ScenarioBuilder(namespace)
-        try {
-            builder.block()
-        } finally {
-            builder.cleanup()
+        SecurityContext.runWithPrincipal(testUser) {
+            val builder = ScenarioBuilder(namespace)
+            try {
+                builder.block()
+            } finally {
+                builder.cleanup()
+            }
         }
     }
 
-    /**
-     * Runs the given block with the mediator bound to the current scope.
-     * This enables use of Command.execute() and Query.query() extension functions.
-     */
-    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
+    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
 }
 
 /**

@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.queries
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
@@ -27,7 +30,11 @@ data class EditorContext(
  */
 data class GetEditorContext(
     val variantId: VariantId,
-) : Query<EditorContext?>
+) : Query<EditorContext?>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = variantId.tenantKey
+}
 
 @Component
 class GetEditorContextHandler(
