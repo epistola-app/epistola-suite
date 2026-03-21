@@ -10,12 +10,15 @@ import app.epistola.suite.users.commands.UpdateLastLogin
 import app.epistola.suite.users.queries.GetUserByExternalId
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException
 import org.springframework.security.oauth2.core.OAuth2Error
+import org.springframework.security.oauth2.core.oidc.user.OidcUser
 import org.springframework.security.oauth2.core.user.OAuth2User
 import org.springframework.stereotype.Component
 
@@ -48,65 +51,7 @@ class OAuth2UserProvisioningService(
 
     override fun loadUser(request: OAuth2UserRequest): OAuth2User {
         val oauth2User = delegate.loadUser(request)
-        val provider = deriveAuthProvider(request.clientRegistration.registrationId)
-
-        val externalId = oauth2User.getAttribute<String>("sub")
-            ?: throw OAuth2AuthenticationException(
-                OAuth2Error("missing_sub_claim"),
-                "Missing 'sub' claim in OAuth2 user info",
-            )
-        val email = oauth2User.getAttribute<String>("email")
-            ?: throw OAuth2AuthenticationException(
-                OAuth2Error("missing_email_claim"),
-                "Missing 'email' claim in OAuth2 user info",
-            )
-        val displayName = oauth2User.getAttribute<String>("name") ?: email
-
-        val user = try {
-            getOrCreateUser(
-                externalId = externalId,
-                email = email,
-                displayName = displayName,
-                provider = provider,
-            )
-        } catch (e: Exception) {
-            logger.error("Failed to provision user: $email", e)
-            throw OAuth2AuthenticationException(
-                OAuth2Error("user_provisioning_failed"),
-                "Failed to provision user",
-                e,
-            )
-        }
-
-        updateLastLogin(user.id)
-
-        // Parse group memberships from OIDC groups attribute
-        val groups = extractGroupsList(oauth2User)
-        val parsed = parseGroupMemberships(groups)
-
-        // Merge: token-derived roles take precedence over DB-loaded roles
-        val tokenMemberships = parsed.tenantRoles
-        val mergedMemberships = if (tokenMemberships.isNotEmpty() || parsed.globalRoles.isNotEmpty()) {
-            tokenMemberships
-        } else {
-            user.tenantMemberships
-        }
-
-        // Sync memberships to DB for API key fallback and audit
-        if (tokenMemberships.isNotEmpty()) {
-            try {
-                mediator.send(SyncTenantMemberships(user.id, tokenMemberships))
-            } catch (e: Exception) {
-                logger.warn("Failed to sync tenant memberships for user {}: {}", user.email, e.message)
-            }
-        }
-
-        val principal = user.toEpistolaPrincipal(
-            memberships = mergedMemberships,
-            globalRoles = parsed.globalRoles,
-            platformRoles = parsed.platformRoles,
-        )
-
+        val principal = provision(oauth2User, request.clientRegistration.registrationId)
         return OAuth2UserWrapper(oauth2User, principal)
     }
 
@@ -168,6 +113,63 @@ class OAuth2UserProvisioningService(
     }
 
     /**
+     * Provisions the user and returns an EpistolaPrincipal.
+     * Shared between OAuth2 and OIDC flows.
+     */
+    fun provision(oauth2User: OAuth2User, registrationId: String): EpistolaPrincipal {
+        val provider = deriveAuthProvider(registrationId)
+
+        val externalId = oauth2User.getAttribute<String>("sub")
+            ?: throw OAuth2AuthenticationException(
+                OAuth2Error("missing_sub_claim"),
+                "Missing 'sub' claim in OAuth2 user info",
+            )
+        val email = oauth2User.getAttribute<String>("email")
+            ?: throw OAuth2AuthenticationException(
+                OAuth2Error("missing_email_claim"),
+                "Missing 'email' claim in OAuth2 user info",
+            )
+        val displayName = oauth2User.getAttribute<String>("name") ?: email
+
+        val user = try {
+            getOrCreateUser(externalId, email, displayName, provider)
+        } catch (e: Exception) {
+            logger.error("Failed to provision user: $email", e)
+            throw OAuth2AuthenticationException(
+                OAuth2Error("user_provisioning_failed"),
+                "Failed to provision user",
+                e,
+            )
+        }
+
+        updateLastLogin(user.id)
+
+        val groups = extractGroupsList(oauth2User)
+        val parsed = parseGroupMemberships(groups)
+
+        val tokenMemberships = parsed.tenantRoles
+        val mergedMemberships = if (tokenMemberships.isNotEmpty() || parsed.globalRoles.isNotEmpty()) {
+            tokenMemberships
+        } else {
+            user.tenantMemberships
+        }
+
+        if (tokenMemberships.isNotEmpty()) {
+            try {
+                mediator.send(SyncTenantMemberships(user.id, tokenMemberships))
+            } catch (e: Exception) {
+                logger.warn("Failed to sync tenant memberships for user {}: {}", user.email, e.message)
+            }
+        }
+
+        return user.toEpistolaPrincipal(
+            memberships = mergedMemberships,
+            globalRoles = parsed.globalRoles,
+            platformRoles = parsed.platformRoles,
+        )
+    }
+
+    /**
      * Wrapper that combines OAuth2User (for Spring Security) with EpistolaPrincipal.
      * Implements Serializable for JDBC session persistence.
      */
@@ -190,6 +192,39 @@ class OAuth2UserProvisioningService(
         fun deriveAuthProvider(registrationId: String): AuthProvider = when (registrationId.lowercase()) {
             "keycloak" -> AuthProvider.KEYCLOAK
             else -> AuthProvider.GENERIC_OIDC
+        }
+    }
+}
+
+/**
+ * OIDC user service that delegates to [OAuth2UserProvisioningService] for user provisioning,
+ * then wraps the result as an [OidcUser] with an [EpistolaPrincipal].
+ *
+ * Spring Security calls this service (not OAuth2UserService) when the provider supports OpenID Connect.
+ */
+@Component
+@ConditionalOnBean(ClientRegistrationRepository::class)
+class OidcUserProvisioningService(
+    private val oauth2Service: OAuth2UserProvisioningService,
+) : OAuth2UserService<OidcUserRequest, OidcUser> {
+
+    private val delegate = OidcUserService()
+
+    override fun loadUser(request: OidcUserRequest): OidcUser {
+        val oidcUser = delegate.loadUser(request)
+        val principal = oauth2Service.provision(oidcUser, request.clientRegistration.registrationId)
+        return OidcUserWrapper(oidcUser, principal)
+    }
+
+    private class OidcUserWrapper(
+        private val delegate: OidcUser,
+        override val epistolaPrincipal: EpistolaPrincipal,
+    ) : OidcUser by delegate,
+        EpistolaPrincipalHolder,
+        java.io.Serializable {
+
+        companion object {
+            private const val serialVersionUID: Long = 3L
         }
     }
 }

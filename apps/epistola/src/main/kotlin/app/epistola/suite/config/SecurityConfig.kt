@@ -38,6 +38,7 @@ import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher
 @EnableWebSecurity
 class SecurityConfig(
     private val oauth2UserProvisioningService: app.epistola.suite.security.OAuth2UserProvisioningService? = null,
+    private val oidcUserProvisioningService: app.epistola.suite.security.OidcUserProvisioningService? = null,
     private val clientRegistrationRepository: ClientRegistrationRepository? = null,
     private val userDetailsService: UserDetailsService? = null,
     private val apiKeyRepository: ApiKeyRepository,
@@ -158,9 +159,14 @@ class SecurityConfig(
                 oauth2Config
                     .loginPage("/login")
                     .successHandler(popupAwareAuthenticationSuccessHandler)
-                if (oauth2UserProvisioningService != null) {
+                if (oauth2UserProvisioningService != null || oidcUserProvisioningService != null) {
                     oauth2Config.userInfoEndpoint { userInfo ->
-                        userInfo.userService(oauth2UserProvisioningService)
+                        if (oauth2UserProvisioningService != null) {
+                            userInfo.userService(oauth2UserProvisioningService)
+                        }
+                        if (oidcUserProvisioningService != null) {
+                            userInfo.oidcUserService(oidcUserProvisioningService)
+                        }
                     }
                 }
             }
