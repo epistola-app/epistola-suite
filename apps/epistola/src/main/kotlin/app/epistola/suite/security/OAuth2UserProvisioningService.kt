@@ -43,6 +43,7 @@ import org.springframework.stereotype.Component
 class OAuth2UserProvisioningService(
     private val mediator: Mediator,
     private val authProperties: AuthProperties,
+    private val membershipResolver: LoginMembershipResolver? = null,
 ) : OAuth2UserService<OAuth2UserRequest, OAuth2User> {
 
     private val delegate = DefaultOAuth2UserService()
@@ -149,6 +150,16 @@ class OAuth2UserProvisioningService(
         val tokenMemberships = parsed.tenantRoles
         val mergedMemberships = if (tokenMemberships.isNotEmpty() || parsed.globalRoles.isNotEmpty()) {
             tokenMemberships
+        } else if (membershipResolver != null) {
+            val resolved = membershipResolver.resolve(email, user)
+            if (resolved != null) {
+                return user.toEpistolaPrincipal(
+                    memberships = resolved.tenantMemberships,
+                    globalRoles = resolved.globalRoles,
+                    platformRoles = resolved.platformRoles,
+                )
+            }
+            user.tenantMemberships
         } else {
             user.tenantMemberships
         }
