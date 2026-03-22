@@ -1,8 +1,11 @@
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.themes.LastThemeException
 import app.epistola.suite.themes.ThemeInUseException
 import org.jdbi.v3.core.Jdbi
@@ -20,7 +23,11 @@ import org.springframework.stereotype.Component
  */
 data class DeleteTheme(
     val id: ThemeId,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission = Permission.THEME_EDIT
+    override val tenantKey: TenantKey get() = id.tenantKey
+}
 
 @Component
 class DeleteThemeHandler(

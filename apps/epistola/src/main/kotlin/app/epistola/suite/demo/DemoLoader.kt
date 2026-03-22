@@ -26,6 +26,10 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.metadata.AppMetadataService
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -92,77 +96,85 @@ class DemoLoader(
     }
 
     private fun recreateDemoTenant() {
-        MediatorContext.runWithMediator(mediator) {
-            transactionTemplate.executeWithoutResult {
-                // Find and delete existing demo tenant (if exists)
-                val existingTenants = mediator.query(ListTenants())
-                val demoTenant = existingTenants.find { it.name == DEMO_TENANT_NAME }
+        SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
+            MediatorContext.runWithMediator(mediator) {
+                transactionTemplate.executeWithoutResult {
+                    // Find and delete existing demo tenant(s) (if exists)
+                    val existingTenants = mediator.query(ListTenants())
+                    val oldTenantId = TenantKey.of("demo-tenant")
+                    val demoTenants = existingTenants.filter {
+                        it.id == TenantKey.of(DEMO_TENANT_ID) ||
+                            it.name == DEMO_TENANT_NAME ||
+                            it.id == oldTenantId ||
+                            it.name == "Demo Tenant"
+                    }
 
-                if (demoTenant != null) {
-                    log.info("Deleting existing demo tenant (id={})", demoTenant.id)
-                    mediator.send(DeleteTenant(id = demoTenant.id))
+                    for (tenant in demoTenants) {
+                        log.info("Deleting existing demo tenant (id={})", tenant.id)
+                        mediator.send(DeleteTenant(id = tenant.id))
+                    }
+
+                    // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
+                    val tenant = mediator.send(CreateTenant(id = TenantKey.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
+                    log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
+                    log.info("Tenant has default theme: {}", tenant.defaultThemeKey)
+
+                    // Create local dev users in the database (matches LocalUserDetailsService)
+                    seedLocalUsers(tenant.id)
+
+                    // Upload demo logo asset with well-known ID
+                    val logoBytes = generateDemoLogoPng()
+                    val tenantId = TenantId(tenant.id)
+                    mediator.send(
+                        UploadAsset(
+                            tenantId = tenant.id,
+                            id = AssetKey.of(DEMO_LOGO_ASSET_ID),
+                            name = "Epistola Logo",
+                            mediaType = AssetMediaType.PNG,
+                            content = logoBytes,
+                            width = 120,
+                            height = 40,
+                        ),
+                    )
+                    log.info("Uploaded demo logo asset (id={})", DEMO_LOGO_ASSET_ID)
+
+                    // Create additional demo themes
+                    val corporateThemeId = createDemoThemes(tenantId)
+
+                    // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
+                    if (corporateThemeId != null) {
+                        mediator.send(app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
+                        log.info("Set Corporate theme as tenant default")
+                    }
+
+                    // Create demo API key
+                    createDemoApiKey(tenantId)
+
+                    // Create environments
+                    val staging = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("staging"), tenantId), name = "Staging"))
+                    val production = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
+                    log.info("Created environments: staging, production")
+
+                    // Create attribute definitions
+                    mediator.send(
+                        CreateAttributeDefinition(
+                            id = AttributeId(AttributeKey.of("language"), tenantId),
+                            displayName = "Language",
+                            allowedValues = listOf("nl", "en"),
+                        ),
+                    )
+                    log.info("Created attribute definition: language (nl, en)")
+
+                    // Load and create templates from JSON definitions
+                    val definitions = loadTemplateDefinitions()
+                    log.info("Loaded {} template definitions", definitions.size)
+
+                    definitions.forEach { definition ->
+                        createTemplateFromDefinition(tenantId, definition, EnvironmentId(staging.id, tenantId), EnvironmentId(production.id, tenantId))
+                    }
+
+                    log.info("Created {} demo templates with environments and variants", definitions.size)
                 }
-
-                // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
-                val tenant = mediator.send(CreateTenant(id = TenantKey.of(DEMO_TENANT_ID), name = DEMO_TENANT_NAME))
-                log.info("Created demo tenant: {} (id={})", tenant.name, tenant.id)
-                log.info("Tenant has default theme: {}", tenant.defaultThemeKey)
-
-                // Create local dev users in the database (matches LocalUserDetailsService)
-                seedLocalUsers(tenant.id)
-
-                // Upload demo logo asset with well-known ID
-                val logoBytes = generateDemoLogoPng()
-                val tenantId = TenantId(tenant.id)
-                mediator.send(
-                    UploadAsset(
-                        tenantId = tenant.id,
-                        id = AssetKey.of(DEMO_LOGO_ASSET_ID),
-                        name = "Epistola Logo",
-                        mediaType = AssetMediaType.PNG,
-                        content = logoBytes,
-                        width = 120,
-                        height = 40,
-                    ),
-                )
-                log.info("Uploaded demo logo asset (id={})", DEMO_LOGO_ASSET_ID)
-
-                // Create additional demo themes
-                val corporateThemeId = createDemoThemes(tenantId)
-
-                // Set "Corporate" as the default theme instead of the auto-created "Tenant Default"
-                if (corporateThemeId != null) {
-                    mediator.send(app.epistola.suite.tenants.commands.SetTenantDefaultTheme(tenantId = tenant.id, themeId = corporateThemeId))
-                    log.info("Set Corporate theme as tenant default")
-                }
-
-                // Create demo API key
-                createDemoApiKey(tenantId)
-
-                // Create environments
-                val staging = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("staging"), tenantId), name = "Staging"))
-                val production = mediator.send(CreateEnvironment(id = EnvironmentId(EnvironmentKey.of("production"), tenantId), name = "Production"))
-                log.info("Created environments: staging, production")
-
-                // Create attribute definitions
-                mediator.send(
-                    CreateAttributeDefinition(
-                        id = AttributeId(AttributeKey.of("language"), tenantId),
-                        displayName = "Language",
-                        allowedValues = listOf("nl", "en"),
-                    ),
-                )
-                log.info("Created attribute definition: language (nl, en)")
-
-                // Load and create templates from JSON definitions
-                val definitions = loadTemplateDefinitions()
-                log.info("Loaded {} template definitions", definitions.size)
-
-                definitions.forEach { definition ->
-                    createTemplateFromDefinition(tenantId, definition, EnvironmentId(staging.id, tenantId), EnvironmentId(production.id, tenantId))
-                }
-
-                log.info("Created {} demo templates with environments and variants", definitions.size)
             }
         }
     }
@@ -494,14 +506,26 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "10.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "11.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
-        private const val DEMO_TENANT_ID = "demo-tenant"
-        private const val DEMO_TENANT_NAME = "Demo Tenant"
+        private const val DEMO_TENANT_ID = "demo"
+        private const val DEMO_TENANT_NAME = "Demo"
         private const val DEMO_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000001"
         private const val DEMO_MEMBER_USER_ID = "00000000-0000-0000-0000-000000000002"
         private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-100000000001"
         private const val DEMO_API_KEY_ID = "00000000-0000-0000-0000-200000000001"
         const val DEMO_API_KEY = "epk_demo_000000000000000000000000000000000000"
+
+        /** Bootstrap principal used by DemoLoader — has full access to all operations. */
+        private val SYSTEM_PRINCIPAL = EpistolaPrincipal(
+            userId = UserKey.of(DEMO_ADMIN_USER_ID),
+            externalId = "system",
+            email = "system@epistola.app",
+            displayName = "System",
+            tenantMemberships = emptyMap(),
+            globalRoles = TenantRole.entries.toSet(),
+            platformRoles = PlatformRole.entries.toSet(),
+            currentTenantId = null,
+        )
     }
 }

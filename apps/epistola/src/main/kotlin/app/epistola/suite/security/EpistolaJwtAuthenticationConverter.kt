@@ -1,6 +1,5 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
@@ -19,11 +18,12 @@ import org.springframework.stereotype.Component
  * - `sub`: user external ID
  * - `email`: user email
  * - `preferred_username` or `name`: display name
- * - `epistola_tenants`: tenant memberships with roles
+ * - `groups`: Keycloak group memberships (parsed via [parseGroupMemberships])
  *
- * The `epistola_tenants` claim supports two formats:
- * - **Structured** (preferred): `[{"id": "acme", "role": "ADMIN"}, {"id": "beta", "role": "MEMBER"}]`
- * - **Legacy** (flat list): `["acme", "beta"]` — all users default to MEMBER role
+ * The `groups` claim contains Keycloak group names with the `ep_` prefix convention:
+ * - `ep_{tenant}_{role}` → per-tenant role (e.g., `ep_acme-corp_reader`)
+ * - `ep_{role}` → global role for all tenants (e.g., `ep_reader`)
+ * - `ep_tenant-manager` → platform role
  *
  * Only active when an OAuth2 ClientRegistrationRepository is present.
  */
@@ -40,84 +40,31 @@ class EpistolaJwtAuthenticationConverter : Converter<Jwt, AbstractAuthentication
             ?: jwt.getClaimAsString("name")
             ?: subject
 
-        val tenantMemberships = extractTenantMemberships(jwt)
+        val groups = jwt.getClaimAsStringList("groups") ?: emptyList()
+        val parsed = parseGroupMemberships(groups)
 
         val principal = EpistolaPrincipal(
             userId = UserKey.of(deriveUserId(subject)),
             externalId = subject,
             email = email,
             displayName = displayName,
-            tenantMemberships = tenantMemberships,
-            currentTenantId = tenantMemberships.keys.firstOrNull(),
+            tenantMemberships = parsed.tenantRoles,
+            globalRoles = parsed.globalRoles,
+            platformRoles = parsed.platformRoles,
+            currentTenantId = parsed.tenantRoles.keys.firstOrNull(),
         )
 
-        val authorities = jwt.getClaimAsStringList("roles")
-            ?.map { SimpleGrantedAuthority("ROLE_$it") }
-            ?: listOf(SimpleGrantedAuthority("ROLE_API_USER"))
+        val authorities = buildList {
+            jwt.getClaimAsStringList("roles")
+                ?.forEach { add(SimpleGrantedAuthority("ROLE_$it")) }
+                ?: add(SimpleGrantedAuthority("ROLE_API_USER"))
+
+            parsed.platformRoles.forEach { add(SimpleGrantedAuthority("ROLE_${it.name}")) }
+        }
 
         return JwtAuthenticationToken(jwt, authorities, subject).apply {
             details = principal
         }
-    }
-
-    /**
-     * Extracts tenant memberships from the `epistola_tenants` JWT claim.
-     *
-     * Supports structured format `[{"id": "acme", "role": "ADMIN"}]` and
-     * falls back to legacy flat list `["acme"]` (defaulting to MEMBER role).
-     */
-    @Suppress("UNCHECKED_CAST")
-    private fun extractTenantMemberships(jwt: Jwt): Map<TenantKey, TenantRole> {
-        val claim = jwt.getClaim<Any>("epistola_tenants") ?: return emptyMap()
-
-        return when (claim) {
-            is List<*> -> parseClaimList(claim)
-            else -> {
-                log.warn("Unexpected epistola_tenants claim type: {}", claim::class.simpleName)
-                emptyMap()
-            }
-        }
-    }
-
-    private fun parseClaimList(items: List<*>): Map<TenantKey, TenantRole> {
-        val result = mutableMapOf<TenantKey, TenantRole>()
-
-        for (item in items) {
-            when (item) {
-                // Structured format: {"id": "acme", "role": "ADMIN"}
-                is Map<*, *> -> {
-                    val id = item["id"]?.toString()
-                    val role = item["role"]?.toString()
-                    if (id != null) {
-                        try {
-                            val tenantKey = TenantKey.of(id)
-                            val tenantRole = role?.let { parseTenantRole(it) } ?: TenantRole.MEMBER
-                            result[tenantKey] = tenantRole
-                        } catch (e: IllegalArgumentException) {
-                            log.warn("Invalid tenant ID in JWT claim: {}", id)
-                        }
-                    }
-                }
-                // Legacy format: plain string tenant ID
-                is String -> {
-                    try {
-                        result[TenantKey.of(item)] = TenantRole.MEMBER
-                    } catch (e: IllegalArgumentException) {
-                        log.warn("Invalid tenant ID in JWT claim: {}", item)
-                    }
-                }
-                else -> log.warn("Unexpected item type in epistola_tenants: {}", item?.javaClass?.simpleName)
-            }
-        }
-
-        return result
-    }
-
-    private fun parseTenantRole(role: String): TenantRole = try {
-        TenantRole.valueOf(role.uppercase())
-    } catch (e: IllegalArgumentException) {
-        log.warn("Unknown tenant role in JWT claim: {}, defaulting to MEMBER", role)
-        TenantRole.MEMBER
     }
 
     /**

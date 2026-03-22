@@ -7,6 +7,8 @@ import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Routable
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.themes.ThemeNotFoundException
 import org.jdbi.v3.core.Jdbi
@@ -24,7 +26,10 @@ data class SetTenantDefaultTheme(
 ) : Command<Tenant>,
     TenantScoped,
     EntityIdentifiable,
-    Routable {
+    Routable,
+    RequiresPermission {
+    override val permission = Permission.TENANT_SETTINGS
+    override val tenantKey: TenantKey get() = tenantId
     override val entityId: String get() = tenantId.value
     override val routingKey: String get() = tenantId.value
 }

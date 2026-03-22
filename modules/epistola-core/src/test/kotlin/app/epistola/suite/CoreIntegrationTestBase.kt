@@ -7,7 +7,9 @@ import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.testing.FakeExecutorTestConfiguration
@@ -63,7 +65,9 @@ abstract class CoreIntegrationTestBase {
         externalId = "test-user",
         email = "test@example.com",
         displayName = "Test User",
-        tenantMemberships = emptyMap(), // Will be updated as tenants are created
+        tenantMemberships = emptyMap(),
+        globalRoles = TenantRole.entries.toSet(),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         currentTenantId = null,
     )
 
@@ -101,7 +105,11 @@ abstract class CoreIntegrationTestBase {
      * }
      * ```
      */
-    protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
+    protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
 
     /**
      * Creates a test scenario with type-safe Given-When-Then DSL.

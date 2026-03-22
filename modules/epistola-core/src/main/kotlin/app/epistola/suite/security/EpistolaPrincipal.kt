@@ -28,28 +28,63 @@ data class EpistolaPrincipal(
     val externalId: String,
     val email: String,
     val displayName: String,
-    val tenantMemberships: Map<TenantKey, TenantRole>,
+    val tenantMemberships: Map<TenantKey, Set<TenantRole>>,
+    val globalRoles: Set<TenantRole> = emptySet(),
+    val platformRoles: Set<PlatformRole> = emptySet(),
     val currentTenantId: TenantKey?, // Can be set per-request via tenant selector
 ) : Serializable {
 
     companion object {
-        private const val serialVersionUID: Long = 2L
+        private const val serialVersionUID: Long = 5L
     }
 
     /**
-     * Check if the user has access to the specified tenant (any role).
+     * Check if the user has access to the specified tenant.
+     * Returns true if the user has per-tenant membership OR has any global roles
+     * (global roles grant access to all tenants).
      */
-    fun hasAccessToTenant(tenantId: TenantKey): Boolean = tenantMemberships.containsKey(tenantId)
+    fun hasAccessToTenant(tenantId: TenantKey): Boolean = tenantMemberships.containsKey(tenantId) || globalRoles.isNotEmpty()
 
     /**
-     * Check if the user is an admin of the specified tenant.
+     * Check if the user has a specific role in the given tenant.
+     * Merges per-tenant roles with global roles.
      */
-    fun isAdmin(tenantId: TenantKey): Boolean = tenantMemberships[tenantId] == TenantRole.ADMIN
+    fun hasRole(tenantId: TenantKey, role: TenantRole): Boolean = role in rolesFor(tenantId)
 
     /**
-     * Get the user's role for a specific tenant, or null if not a member.
+     * Check if the user has the manager role in the specified tenant.
      */
-    fun roleFor(tenantId: TenantKey): TenantRole? = tenantMemberships[tenantId]
+    fun isManager(tenantId: TenantKey): Boolean = hasRole(tenantId, TenantRole.MANAGER)
+
+    /**
+     * Get the user's effective roles for a specific tenant.
+     * Per-tenant roles are merged with global roles.
+     */
+    fun rolesFor(tenantId: TenantKey): Set<TenantRole> {
+        val perTenant = tenantMemberships[tenantId] ?: emptySet()
+        return if (globalRoles.isEmpty()) perTenant else perTenant + globalRoles
+    }
+
+    /**
+     * Check if the user has a specific permission in the given tenant.
+     * Effective permissions are the union of all the user's role grants
+     * (per-tenant + global).
+     */
+    fun hasPermission(tenantId: TenantKey, permission: Permission): Boolean {
+        val roles = rolesFor(tenantId)
+        if (roles.isEmpty()) return false
+        return permission in roles.effectivePermissions()
+    }
+
+    /**
+     * Check if the user has the specified platform role.
+     */
+    fun hasPlatformRole(role: PlatformRole): Boolean = role in platformRoles
+
+    /**
+     * Check if the user is a tenant manager (can create/manage tenants).
+     */
+    fun isTenantManager(): Boolean = hasPlatformRole(PlatformRole.TENANT_MANAGER)
 
     /**
      * Get the effective tenant ID (current or first membership if current is null).

@@ -4,13 +4,19 @@ import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class GetAttributeDefinition(
     val id: AttributeId,
-) : Query<VariantAttributeDefinition?>
+) : Query<VariantAttributeDefinition?>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey get() = id.tenantKey
+}
 
 @Component
 class GetAttributeDefinitionHandler(

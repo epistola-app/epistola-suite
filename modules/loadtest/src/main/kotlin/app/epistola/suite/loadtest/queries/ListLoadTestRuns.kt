@@ -4,6 +4,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.loadtest.model.LoadTestRun
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -18,7 +20,11 @@ import org.springframework.stereotype.Component
 data class ListLoadTestRuns(
     val tenantId: TenantKey,
     val limit: Int = 50,
-) : Query<List<LoadTestRun>> {
+) : Query<List<LoadTestRun>>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = tenantId
+
     init {
         require(limit in 1..200) {
             "Limit must be between 1 and 200, got $limit"

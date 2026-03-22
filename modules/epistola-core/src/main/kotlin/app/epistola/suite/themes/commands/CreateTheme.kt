@@ -1,8 +1,11 @@
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -21,7 +24,11 @@ data class CreateTheme(
     val documentStyles: DocumentStyles = emptyMap(),
     val pageSettings: PageSettings? = null,
     val blockStylePresets: BlockStylePresets? = null,
-) : Command<Theme> {
+) : Command<Theme>,
+    RequiresPermission {
+    override val permission = Permission.THEME_EDIT
+    override val tenantKey: TenantKey get() = id.tenantKey
+
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= 255) { "Name must be 255 characters or less" }

@@ -8,6 +8,7 @@ import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.documents.TestTemplateBuilder
 import app.epistola.suite.documents.queries.GetGenerationJob
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
@@ -21,7 +22,7 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test
-    fun `returns false for non-existent job`() {
+    fun `returns false for non-existent job`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val randomId = GenerationRequestKey.generate()
 
@@ -31,7 +32,7 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `returns false for job from different tenant`() {
+    fun `returns false for job from different tenant`() = withAuthentication {
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
 
@@ -69,7 +70,7 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `cannot cancel completed job`() {
+    fun `cannot cancel completed job`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -103,12 +104,14 @@ class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
             .atMost(10, TimeUnit.SECONDS)
             .pollInterval(100, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, request.id))
-                assertThat(job!!.request.status).isIn(
-                    app.epistola.suite.documents.model.RequestStatus.COMPLETED,
-                    app.epistola.suite.documents.model.RequestStatus.FAILED,
-                    app.epistola.suite.documents.model.RequestStatus.CANCELLED,
-                )
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant.id, request.id))
+                    assertThat(job!!.request.status).isIn(
+                        app.epistola.suite.documents.model.RequestStatus.COMPLETED,
+                        app.epistola.suite.documents.model.RequestStatus.FAILED,
+                        app.epistola.suite.documents.model.RequestStatus.CANCELLED,
+                    )
+                }
             }
 
         // Try to cancel completed job

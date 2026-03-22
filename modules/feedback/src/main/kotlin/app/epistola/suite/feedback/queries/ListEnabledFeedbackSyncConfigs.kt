@@ -3,11 +3,12 @@ package app.epistola.suite.feedback.queries
 import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
-data object ListEnabledFeedbackSyncConfigs : Query<List<FeedbackSyncConfig>>
+data object ListEnabledFeedbackSyncConfigs : Query<List<FeedbackSyncConfig>>, SystemInternal
 
 @Component
 class ListEnabledFeedbackSyncConfigsHandler(

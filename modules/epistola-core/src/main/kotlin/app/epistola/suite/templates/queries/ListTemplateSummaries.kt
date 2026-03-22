@@ -2,8 +2,11 @@ package app.epistola.suite.templates.queries
 
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
@@ -26,7 +29,11 @@ data class ListTemplateSummaries(
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<TemplateSummary>>
+) : Query<List<TemplateSummary>>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = tenantId.key
+}
 
 @Component
 class ListTemplateSummariesHandler(

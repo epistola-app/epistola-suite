@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.core.annotation.Order
 import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 
@@ -52,6 +53,9 @@ class SecurityFilter : OncePerRequestFilter() {
                 request.session?.invalidate()
                 null
             }
+            // JWT bearer tokens: EpistolaJwtAuthenticationConverter stores principal in details
+            authentication is JwtAuthenticationToken && authentication.details is EpistolaPrincipal ->
+                authentication.details as EpistolaPrincipal
             else -> {
                 log.warn(
                     "Authenticated but unrecognized principal type: {} (interfaces: {})",

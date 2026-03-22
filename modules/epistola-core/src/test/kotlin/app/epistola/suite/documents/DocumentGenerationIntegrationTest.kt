@@ -18,6 +18,7 @@ import app.epistola.suite.documents.queries.GetDocument
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
 import app.epistola.suite.documents.queries.ListGenerationJobs
+import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
@@ -83,9 +84,11 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
                 .atMost(10, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted {
-                    val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
-                    assertThat(job).isNotNull
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    SecurityContext.runWithPrincipal(testUser) {
+                        val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
+                        assertThat(job).isNotNull
+                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    }
                 }
 
             // Verify job result
@@ -112,7 +115,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `generate document batch successfully`() {
+    fun `generate document batch successfully`() = withAuthentication {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
@@ -160,8 +163,10 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
             .atMost(15, TimeUnit.SECONDS)
             .pollInterval(200, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
             }
 
         // Verify all items completed (in flattened structure, each request is an "item")
@@ -188,7 +193,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
      */
     @Test
     @org.junit.jupiter.api.Disabled("Requires schema validation to test partial failures")
-    fun `batch generation continues on partial failures`() {
+    fun `batch generation continues on partial failures`() = withAuthentication {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
@@ -254,8 +259,10 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
             .atMost(15, TimeUnit.SECONDS)
             .pollInterval(200, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
             }
 
         // Verify partial success - need to check all requests in the batch, not just one
@@ -284,7 +291,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `cancel pending generation job`() {
+    fun `cancel pending generation job`() = withAuthentication {
         // Create test data
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
@@ -335,15 +342,17 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
                 .atMost(5, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted {
-                    val job = mediator.query(GetGenerationJob(tenant.id, requestId))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.CANCELLED)
+                    SecurityContext.runWithPrincipal(testUser) {
+                        val job = mediator.query(GetGenerationJob(tenant.id, requestId))
+                        assertThat(job!!.request.status).isEqualTo(RequestStatus.CANCELLED)
+                    }
                 }
         }
         // If cancellation failed, job completed too quickly - that's OK for this test
     }
 
     @Test
-    fun `list generation jobs filtered by status`() {
+    fun `list generation jobs filtered by status`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -425,8 +434,10 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
                 .atMost(10, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted {
-                    val job = query(GetGenerationJob(setup.tenant.id, request.id))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    SecurityContext.runWithPrincipal(testUser) {
+                        val job = query(GetGenerationJob(setup.tenant.id, request.id))
+                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    }
                 }
 
             val job = query(GetGenerationJob(setup.tenant.id, request.id))!!
@@ -447,7 +458,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `multi-tenant isolation for generation jobs`() {
+    fun `multi-tenant isolation for generation jobs`() = withAuthentication {
         // Create two tenants
         val tenant1 = createTenant("Tenant 1")
         val tenant2 = createTenant("Tenant 2")
@@ -485,8 +496,10 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
             .atMost(10, TimeUnit.SECONDS)
             .pollInterval(100, TimeUnit.MILLISECONDS)
             .untilAsserted {
-                val job = mediator.query(GetGenerationJob(tenant1.id, request1.id))
-                assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                SecurityContext.runWithPrincipal(testUser) {
+                    val job = mediator.query(GetGenerationJob(tenant1.id, request1.id))
+                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                }
             }
 
         // Tenant 2 should not be able to access tenant 1's job
@@ -501,7 +514,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     // ================== Correlation ID Tests ==================
 
     @Test
-    fun `batch with correlation IDs stores and returns them`() {
+    fun `batch with correlation IDs stores and returns them`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -582,7 +595,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `batch with duplicate correlationIds fails validation`() {
+    fun `batch with duplicate correlationIds fails validation`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -628,7 +641,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `batch with duplicate filenames fails validation`() {
+    fun `batch with duplicate filenames fails validation`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -674,7 +687,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `batch with multiple null correlationIds is allowed`() {
+    fun `batch with multiple null correlationIds is allowed`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -716,7 +729,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `batch with multiple null filenames is allowed`() {
+    fun `batch with multiple null filenames is allowed`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -783,7 +796,7 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `list documents filtered by correlationId`() {
+    fun `list documents filtered by correlationId`() = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -897,8 +910,10 @@ class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
                 .atMost(10, TimeUnit.SECONDS)
                 .pollInterval(100, TimeUnit.MILLISECONDS)
                 .untilAsserted {
-                    val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
-                    assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    SecurityContext.runWithPrincipal(testUser) {
+                        val job = mediator.query(GetGenerationJob(setup.tenant.id, request.id))
+                        assertThat(job!!.request.status).isEqualTo(RequestStatus.COMPLETED)
+                    }
                 }
 
             // Verify correlationId on job item

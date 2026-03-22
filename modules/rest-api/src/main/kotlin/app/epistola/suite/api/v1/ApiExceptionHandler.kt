@@ -5,6 +5,8 @@ import app.epistola.api.model.ValidationErrorResponse
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.security.PermissionDeniedException
+import app.epistola.suite.security.PlatformAccessDeniedException
 import app.epistola.suite.security.TenantAccessDeniedException
 import app.epistola.suite.templates.commands.variants.DefaultVariantDeletionException
 import app.epistola.suite.templates.commands.versions.VersionStillActiveException
@@ -295,6 +297,38 @@ class ApiExceptionHandler {
             ApiErrorResponse(
                 code = "ACCESS_DENIED",
                 message = "Access denied to tenant: ${ex.tenantId}",
+            ),
+        )
+    }
+
+    /**
+     * Handles permission denied errors (fine-grained permissions).
+     * Returns 403 Forbidden.
+     */
+    @ExceptionHandler(PermissionDeniedException::class)
+    fun handlePermissionDeniedException(ex: PermissionDeniedException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Permission denied: user={} tenant={} permission={}", ex.userEmail, ex.tenantId, ex.permission)
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            ApiErrorResponse(
+                code = "PERMISSION_DENIED",
+                message = "Insufficient permissions",
+            ),
+        )
+    }
+
+    /**
+     * Handles platform access denied errors (missing platform role).
+     * Returns 403 Forbidden.
+     */
+    @ExceptionHandler(PlatformAccessDeniedException::class)
+    fun handlePlatformAccessDeniedException(ex: PlatformAccessDeniedException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Platform access denied: user={} requiredRole={}", ex.userEmail, ex.requiredRole)
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            ApiErrorResponse(
+                code = "PLATFORM_ACCESS_DENIED",
+                message = "Platform role required: ${ex.requiredRole.name.lowercase().replace('_', '-')}",
             ),
         )
     }

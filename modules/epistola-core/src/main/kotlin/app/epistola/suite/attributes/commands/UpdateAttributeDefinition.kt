@@ -4,6 +4,8 @@ import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.validate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -15,7 +17,11 @@ data class UpdateAttributeDefinition(
     val id: AttributeId,
     val displayName: String,
     val allowedValues: List<String> = emptyList(),
-) : Command<VariantAttributeDefinition?> {
+) : Command<VariantAttributeDefinition?>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_SETTINGS
+    override val tenantKey get() = id.tenantKey
+
     init {
         validate("displayName", displayName.isNotBlank()) { "Display name is required" }
         validate("displayName", displayName.length <= 100) { "Display name must be 100 characters or less" }

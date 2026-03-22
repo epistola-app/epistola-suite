@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
@@ -39,7 +41,11 @@ data class DocumentMetadata(
 data class GetDocumentMetadata(
     val tenantId: TenantKey,
     val documentId: DocumentKey,
-) : Query<DocumentMetadata?>
+) : Query<DocumentMetadata?>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class GetDocumentMetadataHandler(

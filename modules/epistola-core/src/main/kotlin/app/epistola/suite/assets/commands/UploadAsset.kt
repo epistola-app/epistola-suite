@@ -8,6 +8,8 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import org.jdbi.v3.core.Jdbi
@@ -35,7 +37,11 @@ data class UploadAsset(
     val width: Int?,
     val height: Int?,
     val id: AssetKey? = null,
-) : Command<Asset> {
+) : Command<Asset>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_EDIT
+    override val tenantKey get() = tenantId
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is UploadAsset) return false

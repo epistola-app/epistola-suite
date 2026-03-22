@@ -3,6 +3,8 @@ package app.epistola.suite.themes.queries
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.themes.Theme
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -10,7 +12,11 @@ import org.springframework.stereotype.Component
 
 data class GetTheme(
     val id: ThemeId,
-) : Query<Theme?>
+) : Query<Theme?>,
+    RequiresPermission {
+    override val permission get() = Permission.THEME_VIEW
+    override val tenantKey get() = id.tenantKey
+}
 
 @Component
 class GetThemeHandler(

@@ -1,8 +1,11 @@
 package app.epistola.suite.themes.commands
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
 import app.epistola.suite.themes.BlockStylePresets
@@ -26,7 +29,11 @@ data class UpdateTheme(
     val clearPageSettings: Boolean = false,
     val blockStylePresets: BlockStylePresets? = null,
     val clearBlockStylePresets: Boolean = false,
-) : Command<Theme?> {
+) : Command<Theme?>,
+    RequiresPermission {
+    override val permission = Permission.THEME_EDIT
+    override val tenantKey: TenantKey get() = id.tenantKey
+
     init {
         if (name != null) {
             validate("name", name.isNotBlank()) { "Name cannot be blank" }

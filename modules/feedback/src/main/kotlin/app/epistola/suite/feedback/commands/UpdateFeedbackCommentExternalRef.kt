@@ -3,6 +3,7 @@ package app.epistola.suite.feedback.commands
 import app.epistola.suite.common.ids.FeedbackCommentId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -10,7 +11,8 @@ import org.springframework.stereotype.Component
 data class UpdateFeedbackCommentExternalRef(
     val id: FeedbackCommentId,
     val externalCommentId: String,
-) : Command<Boolean>
+) : Command<Boolean>,
+    SystemInternal
 
 @Component
 class UpdateFeedbackCommentExternalRefHandler(

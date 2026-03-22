@@ -3,6 +3,7 @@ package app.epistola.suite.users.commands
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -12,7 +13,8 @@ import org.springframework.stereotype.Component
  */
 data class UpdateLastLogin(
     val userId: UserKey,
-) : Command<Unit>
+) : Command<Unit>,
+    SystemInternal
 
 @Component
 class UpdateLastLoginHandler(

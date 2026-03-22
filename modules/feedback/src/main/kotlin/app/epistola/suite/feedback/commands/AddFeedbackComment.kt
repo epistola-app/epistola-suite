@@ -5,6 +5,8 @@ import app.epistola.suite.feedback.CommentSource
 import app.epistola.suite.feedback.FeedbackComment
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -14,7 +16,11 @@ data class AddFeedbackComment(
     val body: String,
     val authorName: String,
     val authorEmail: String?,
-) : Command<FeedbackComment> {
+) : Command<FeedbackComment>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = id.tenantKey
+
     init {
         require(body.isNotBlank()) { "Comment body is required" }
     }

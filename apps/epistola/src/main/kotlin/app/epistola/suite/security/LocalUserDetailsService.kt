@@ -2,6 +2,7 @@ package app.epistola.suite.security
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
+import app.epistola.suite.security.PlatformRole
 import org.springframework.context.annotation.Profile
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UserDetailsService
@@ -15,8 +16,8 @@ import org.springframework.stereotype.Component
  * Provides hardcoded test users without requiring external OAuth2 providers or database setup.
  *
  * Users:
- * - admin@local / admin - Admin user with access to demo-tenant (ADMIN role)
- * - user@local / user - Regular user with access to demo-tenant (MEMBER role)
+ * - admin@local / admin - Admin user with access to demo (ADMIN role)
+ * - user@local / user - Regular user with access to demo (MEMBER role)
  *
  * Active when 'local' or 'demo' profile is active.
  */
@@ -33,14 +34,19 @@ class LocalUserDetailsService : UserDetailsService {
             email = "admin@local",
             displayName = "Local Admin",
             password = "admin",
-            tenantMemberships = mapOf(TenantKey.of("demo-tenant") to TenantRole.ADMIN),
+            tenantMemberships = mapOf(
+                TenantKey.of("demo") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR, TenantRole.MANAGER),
+            ),
+            platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         ),
         "user@local" to LocalUser(
             userId = UserKey.of("00000000-0000-0000-0000-000000000002"),
             email = "user@local",
             displayName = "Local User",
             password = "user",
-            tenantMemberships = mapOf(TenantKey.of("demo-tenant") to TenantRole.MEMBER),
+            tenantMemberships = mapOf(
+                TenantKey.of("demo") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR),
+            ),
         ),
     )
 
@@ -54,6 +60,7 @@ class LocalUserDetailsService : UserDetailsService {
             email = localUser.email,
             displayName = localUser.displayName,
             tenantMemberships = localUser.tenantMemberships,
+            platformRoles = localUser.platformRoles,
             currentTenantId = localUser.tenantMemberships.keys.firstOrNull(),
         )
 
@@ -72,7 +79,8 @@ class LocalUserDetailsService : UserDetailsService {
         val email: String,
         val displayName: String,
         val password: String,
-        val tenantMemberships: Map<TenantKey, TenantRole>,
+        val tenantMemberships: Map<TenantKey, Set<TenantRole>>,
+        val platformRoles: Set<PlatformRole> = emptySet(),
     )
 
     /**

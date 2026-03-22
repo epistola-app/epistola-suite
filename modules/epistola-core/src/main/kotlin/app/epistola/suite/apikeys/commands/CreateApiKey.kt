@@ -9,6 +9,8 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.validation.validate
 import org.springframework.stereotype.Component
 import java.time.Instant
@@ -18,7 +20,11 @@ data class CreateApiKey(
     val name: String,
     val expiresAt: Instant? = null,
     val createdBy: UserKey? = null,
-) : Command<ApiKeyWithSecret> {
+) : Command<ApiKeyWithSecret>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_USERS
+    override val tenantKey get() = tenantId
+
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= 100) { "Name must be 100 characters or less" }

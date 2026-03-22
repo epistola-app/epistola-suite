@@ -5,16 +5,21 @@ import app.epistola.suite.feedback.FeedbackSyncConfig
 import app.epistola.suite.feedback.SyncProviderType
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
 data class SaveFeedbackSyncConfig(
-    val tenantKey: TenantKey,
+    override val tenantKey: TenantKey,
     val enabled: Boolean,
     val providerType: SyncProviderType,
     val settings: String,
-) : Command<FeedbackSyncConfig>
+) : Command<FeedbackSyncConfig>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_SETTINGS
+}
 
 @Component
 class SaveFeedbackSyncConfigHandler(

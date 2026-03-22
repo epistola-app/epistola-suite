@@ -1,9 +1,12 @@
 package app.epistola.suite.templates.queries.versions
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.template.model.TemplateDocument
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -39,7 +42,11 @@ private data class PreviewContextRow(
  */
 data class GetPreviewContext(
     val variantId: VariantId,
-) : Query<PreviewContext?>
+) : Query<PreviewContext?>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = variantId.tenantKey
+}
 
 @Component
 class GetPreviewContextHandler(

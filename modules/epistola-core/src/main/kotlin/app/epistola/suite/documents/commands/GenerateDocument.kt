@@ -10,6 +10,8 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.services.VariantResolver
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import org.jdbi.v3.core.Jdbi
@@ -44,7 +46,11 @@ data class GenerateDocument(
     val data: ObjectNode,
     val filename: String?,
     val correlationId: String? = null,
-) : Command<DocumentGenerationRequest> {
+) : Command<DocumentGenerationRequest>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val tenantKey get() = tenantId
+
     init {
         require(variantId == null || variantSelectionCriteria == null) {
             "Cannot specify both variantId and variantSelectionCriteria"

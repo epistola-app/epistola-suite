@@ -1,10 +1,15 @@
 package app.epistola.suite
 
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
 import app.epistola.suite.tenants.commands.DeleteTenant
@@ -21,7 +26,11 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 
-@Import(TestcontainersConfiguration::class, UnloggedTablesTestConfiguration::class)
+@Import(
+    TestcontainersConfiguration::class,
+    UnloggedTablesTestConfiguration::class,
+    app.epistola.suite.config.TestSecurityContextConfiguration::class,
+)
 @SpringBootTest(
     properties = [
         "epistola.demo.enabled=false",
@@ -42,6 +51,17 @@ abstract class BaseIntegrationTest {
     private val classNamespace = this::class.simpleName!!.lowercase().take(20)
     private var tenantCounter = 0
 
+    private val testUser = EpistolaPrincipal(
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
+        externalId = "test-user",
+        email = "test@example.com",
+        displayName = "Test User",
+        tenantMemberships = emptyMap(),
+        globalRoles = TenantRole.entries.toSet(),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
+        currentTenantId = null,
+    )
+
     private fun nextTenantSlug(): String = "$classNamespace-${++tenantCounter}"
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(classNamespace, block)
@@ -58,7 +78,11 @@ abstract class BaseIntegrationTest {
      * }
      * ```
      */
-    protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
+    protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
 
     /**
      * Creates a test scenario with type-safe Given-When-Then DSL and automatic cleanup.

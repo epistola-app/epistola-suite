@@ -6,16 +6,21 @@ import app.epistola.suite.feedback.FeedbackStatus
 import app.epistola.suite.feedback.FeedbackSummary
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
 
 data class ListFeedback(
-    val tenantKey: TenantKey,
+    override val tenantKey: TenantKey,
     val status: FeedbackStatus? = null,
     val category: FeedbackCategory? = null,
     val sourceUrl: String? = null,
-) : Query<List<FeedbackSummary>>
+) : Query<List<FeedbackSummary>>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+}
 
 @Component
 class ListFeedbackHandler(

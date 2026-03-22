@@ -24,10 +24,14 @@ COMMENT ON COLUMN tenants.created_at IS 'When the tenant was created';
 -- ============================================================================
 
 -- Tenant memberships (many-to-many between users and tenants)
+-- Roles are sourced from Keycloak (JWT claim) and synced to the DB
+-- for offline queries, audit trails, and API key fallback.
 CREATE TABLE tenant_memberships (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tenant_key TENANT_KEY NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    roles VARCHAR(20)[] NOT NULL DEFAULT ARRAY['READER']::VARCHAR[],
     joined_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    last_synced_at TIMESTAMP WITH TIME ZONE,
     PRIMARY KEY (user_id, tenant_key)
 );
 
@@ -37,4 +41,6 @@ CREATE INDEX idx_tenant_memberships_tenant_key ON tenant_memberships(tenant_key)
 COMMENT ON TABLE tenant_memberships IS 'Many-to-many link between users and tenants they can access';
 COMMENT ON COLUMN tenant_memberships.user_id IS 'FK to users.id';
 COMMENT ON COLUMN tenant_memberships.tenant_key IS 'FK to tenants.id';
+COMMENT ON COLUMN tenant_memberships.roles IS 'Composable tenant roles: READER, EDITOR, GENERATOR, MANAGER. Synced from Keycloak JWT claim.';
 COMMENT ON COLUMN tenant_memberships.joined_at IS 'When the user was granted access to this tenant';
+COMMENT ON COLUMN tenant_memberships.last_synced_at IS 'When this membership was last confirmed from the IDP (JWT claim sync).';

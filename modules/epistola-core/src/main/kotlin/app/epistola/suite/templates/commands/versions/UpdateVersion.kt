@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateDocument
 import app.epistola.suite.templates.model.TemplateVersion
 import org.jdbi.v3.core.Jdbi
@@ -17,7 +20,11 @@ import tools.jackson.databind.ObjectMapper
 data class UpdateVersion(
     val versionId: VersionId,
     val templateModel: TemplateDocument,
-) : Command<TemplateVersion?>
+) : Command<TemplateVersion?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = versionId.tenantKey
+}
 
 @Component
 class UpdateVersionHandler(

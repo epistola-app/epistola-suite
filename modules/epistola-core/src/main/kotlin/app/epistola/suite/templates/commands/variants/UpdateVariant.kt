@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.commands.variants
 
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.TemplateVariant
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -13,7 +16,11 @@ data class UpdateVariant(
     val variantId: VariantId,
     val title: String?,
     val attributes: Map<String, String>,
-) : Command<TemplateVariant?>
+) : Command<TemplateVariant?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = variantId.tenantKey
+}
 
 @Component
 class UpdateVariantHandler(

@@ -10,7 +10,8 @@
                     searchUrl=@{/tenants/{tenantId}/themes/search(tenantId=${tenantId})},
                     targetId='theme-rows'
                 )}"></div>
-                <a th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary">
+                <a th:if="${auth.has('THEME_EDIT')}"
+                   th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary">
                     <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                     New Theme
                 </a>
@@ -23,7 +24,8 @@
             </div>
             <div class="empty-state-title">No themes yet</div>
             <div class="empty-state-description">Create a theme to define the visual styling of your documents.</div>
-            <a th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
+            <a th:if="${auth.has('THEME_EDIT')}"
+               th:href="@{/tenants/{tenantId}/themes/new(tenantId=${tenantId})}" class="btn btn-primary" style="margin-top: var(--ep-space-4);">
                 <th:block th:replace="~{fragments/icon :: icon(name='plus', class='ep-icon')}" />
                 New Theme
             </a>
@@ -56,7 +58,8 @@
                                class="btn btn-sm btn-icon btn-ghost" title="Edit theme">
                                 <th:block th:replace="~{fragments/icon :: icon(name='pencil', class='ep-icon ep-icon-sm')}" />
                             </a>
-                            <form th:unless="${tenant?.defaultThemeKey == theme.id}"
+                            <form th:if="${auth.has('TENANT_SETTINGS')}"
+                                  th:unless="${tenant?.defaultThemeKey == theme.id}"
                                   th:hx-post="@{/tenants/{tenantId}/default-theme(tenantId=${tenantId})}"
                                   hx-target="#theme-rows"
                                   hx-swap="innerHTML"
@@ -66,7 +69,7 @@
                                     <th:block th:replace="~{fragments/icon :: icon(name='star', class='ep-icon ep-icon-sm')}" />
                                 </button>
                             </form>
-                            <button th:if="${tenant?.defaultThemeKey != theme.id and #lists.size(themes) > 1}"
+                            <button th:if="${auth.has('THEME_EDIT') and tenant?.defaultThemeKey != theme.id and #lists.size(themes) > 1}"
                                     type="button"
                                     class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
                                     title="Delete theme"

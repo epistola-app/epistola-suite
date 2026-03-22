@@ -11,6 +11,8 @@ import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -25,7 +27,11 @@ data class CreateFeedback(
     val consoleLogs: String?,
     val metadata: String?,
     val createdBy: UserKey,
-) : Command<Feedback> {
+) : Command<Feedback>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = id.tenantKey
+
     init {
         require(title.isNotBlank()) { "Title is required" }
         require(description.isNotBlank()) { "Description is required" }

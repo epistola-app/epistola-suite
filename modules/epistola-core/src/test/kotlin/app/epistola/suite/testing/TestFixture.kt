@@ -11,7 +11,9 @@ import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
 import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -39,6 +41,8 @@ class TestFixtureFactory(
         email = "test@example.com",
         displayName = "Test User",
         tenantMemberships = emptyMap(),
+        globalRoles = TenantRole.entries.toSet(),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         currentTenantId = null,
     )
 

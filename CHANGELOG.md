@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added
+- **Authorization enforcement in mediator**: All commands and queries now declare authorization requirements via marker interfaces (`RequiresPermission`, `RequiresPlatformRole`, `RequiresAuthentication`, `SystemInternal`). The `SpringMediator` enforces these before dispatching — unauthenticated or unauthorized requests are rejected with `PermissionDeniedException`, `TenantAccessDeniedException`, or `PlatformAccessDeniedException`.
+- **Authorization coverage safety net**: `AuthorizationCoverageTest` uses classpath scanning to verify every `Command` and `Query` implements `Authorized`, preventing unprotected operations from being added.
+- **Enterprise authorization model**: Four-layer authorization architecture (L1: Authentication, L2: Tenant access, L3: Coarse roles, L4: Fine-grained permissions). Keycloak owns L1-L3; Epistola owns L4.
+- **Permission enum**: Fine-grained permissions (`TEMPLATE_VIEW`, `TEMPLATE_EDIT`, `TEMPLATE_PUBLISH`, `DOCUMENT_VIEW`, `DOCUMENT_GENERATE`, `THEME_VIEW`, `THEME_EDIT`, `TENANT_SETTINGS`, `TENANT_USERS`) mapped from coarse tenant roles in application code.
+- **Permission and platform role checks**: `requirePermission()`, `requireTenantManager()` security extensions with dedicated exception types (`PermissionDeniedException`, `PlatformAccessDeniedException`).
+- **Keycloak group-based authorization**: Roles and platform roles are now derived from Keycloak groups using the `ep_` prefix convention (`ep_{tenant}_{role}`, `ep_{role}`, `ep_tenant-manager`). Replaces custom `epistola_tenants` claim and `resource_access` client roles.
+- **Global tenant roles**: Users assigned to groups like `ep_reader` gain the role across all tenants. Global roles are merged with per-tenant roles at runtime.
+- **Group membership parser**: Shared `GroupMembershipParser` utility used by both JWT converter and OAuth2 provisioning to parse the `groups` JWT claim.
+- **Keycloak Admin Client**: REST client for the Keycloak Admin API, using client credentials for group management. Configured via `epistola.keycloak.*` properties.
+- **Tenant provisioning**: `TenantProvisioningPort` interface with Keycloak implementation that auto-creates groups (`ep_{key}_reader/editor/generator/manager`) when a tenant is created. Falls back to no-op when Keycloak is not configured.
+- **Membership sync on login**: `SyncTenantMemberships` command upserts JWT-derived memberships to `tenant_memberships` table on OAuth2 login for API key fallback and audit.
+- **Tenant membership role column**: `tenant_memberships` table now includes `role` and `last_synced_at` columns for JWT claim sync.
+
+### Changed
+- **Keycloak realm export**: Replaced `epistola-tenants-mapper` (organization membership) and `epistola-client-roles-mapper` (client roles) with built-in Group Membership Mapper. Removed `tenant-manager` client role. Test users now assigned to `ep_*` groups.
+- **Platform roles sourcing**: `TENANT_MANAGER` is now sourced from the `ep_tenant-manager` group instead of `resource_access.epistola-suite.roles` client role.
+- **EpistolaPrincipal**: Added `globalRoles` field. `hasAccessToTenant()`, `rolesFor()`, `hasPermission()`, and `hasRole()` now merge global roles with per-tenant roles.
+
 ### Changed
 - **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
 

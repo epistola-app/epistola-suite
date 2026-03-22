@@ -4,13 +4,19 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.environments.EnvironmentInUseException
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.springframework.stereotype.Component
 
 data class DeleteEnvironment(
     val id: EnvironmentId,
-) : Command<Boolean>
+) : Command<Boolean>,
+    RequiresPermission {
+    override val permission get() = Permission.TENANT_SETTINGS
+    override val tenantKey get() = id.tenantKey
+}
 
 @Component
 class DeleteEnvironmentHandler(

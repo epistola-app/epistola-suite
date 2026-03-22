@@ -3,6 +3,7 @@ package app.epistola.suite.feedback.commands
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -11,7 +12,8 @@ import java.time.Instant
 data class UpdateFeedbackSyncConfigLastPolledAt(
     val tenantKey: TenantKey,
     val lastPolledAt: Instant,
-) : Command<Boolean>
+) : Command<Boolean>,
+    SystemInternal
 
 @Component
 class UpdateFeedbackSyncConfigLastPolledAtHandler(

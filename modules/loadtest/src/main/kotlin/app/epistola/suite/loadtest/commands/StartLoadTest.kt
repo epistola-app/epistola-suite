@@ -11,6 +11,8 @@ import app.epistola.suite.loadtest.model.LoadTestRunKey
 import app.epistola.suite.loadtest.model.LoadTestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
 import org.slf4j.LoggerFactory
@@ -39,7 +41,11 @@ data class StartLoadTest(
     val targetCount: Int,
     val concurrencyLevel: Int,
     val testData: ObjectNode,
-) : Command<LoadTestRun> {
+) : Command<LoadTestRun>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_GENERATE
+    override val tenantKey get() = tenantId
+
     init {
         // Validate that exactly one of versionId or environmentId is set
         require((versionId != null) xor (environmentId != null)) {

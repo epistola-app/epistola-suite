@@ -4,12 +4,15 @@ import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VersionId
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.model.EnvironmentActivation
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -37,7 +40,11 @@ import tools.jackson.databind.ObjectMapper
 data class PublishToEnvironment(
     val versionId: VersionId,
     val environmentId: EnvironmentId,
-) : Command<PublishToEnvironmentResult?>
+) : Command<PublishToEnvironmentResult?>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_PUBLISH
+    override val tenantKey: TenantKey get() = versionId.tenantKey
+}
 
 data class PublishToEnvironmentResult(
     val version: TemplateVersion,

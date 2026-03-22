@@ -2,12 +2,43 @@
   "realm": "epistola",
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "bruteForceProtected": true,
+  "organizationsEnabled": true,
+  "groups": [
+    {
+      "name": "ep_demo_reader"
+    },
+    {
+      "name": "ep_demo_editor"
+    },
+    {
+      "name": "ep_demo_generator"
+    },
+    {
+      "name": "ep_demo_manager"
+    },
+    {
+      "name": "ep_tenant-manager"
+    },
+    {
+      "name": "ep_reader"
+    },
+    {
+      "name": "ep_editor"
+    },
+    {
+      "name": "ep_generator"
+    },
+    {
+      "name": "ep_manager"
+    }
+  ],
   "clients": [
     {
       "clientId": "epistola-suite",
@@ -15,6 +46,7 @@
       "enabled": true,
       "clientAuthenticatorType": "client-secret",
       "secret": "epistola-dev-secret",
+      "serviceAccountsEnabled": true,
       "redirectUris": [
         "http://localhost:4000/*"
       ],
@@ -34,13 +66,28 @@
         "roles",
         "email",
         "openid"
+      ],
+      "protocolMappers": [
+        {
+          "name": "group-membership-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "groups",
+            "userinfo.token.claim": "true"
+          }
+        }
       ]
     }
   ],
   "users": [
     {
-      "username": "admin@test",
-      "email": "admin@test",
+      "username": "admin@demo",
+      "email": "admin@demo",
       "emailVerified": true,
       "enabled": true,
       "firstName": "Admin",
@@ -52,23 +99,111 @@
           "temporary": false
         }
       ],
-      "realmRoles": ["default-roles-epistola"]
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_editor",
+        "ep_demo_generator",
+        "ep_demo_manager",
+        "ep_tenant-manager",
+        "ep_reader",
+        "ep_editor",
+        "ep_generator",
+        "ep_manager"
+      ]
     },
     {
-      "username": "user@test",
-      "email": "user@test",
+      "username": "reader@demo",
+      "email": "reader@demo",
       "emailVerified": true,
       "enabled": true,
-      "firstName": "Regular",
+      "firstName": "Reader",
       "lastName": "User",
       "credentials": [
         {
           "type": "password",
-          "value": "user",
+          "value": "reader",
           "temporary": false
         }
       ],
-      "realmRoles": ["default-roles-epistola"]
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader"
+      ]
+    },
+    {
+      "username": "editor@demo",
+      "email": "editor@demo",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Editor",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "editor",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_editor"
+      ]
+    },
+    {
+      "username": "generator@demo",
+      "email": "generator@demo",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Generator",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "generator",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_generator"
+      ]
+    },
+    {
+      "username": "manager@demo",
+      "email": "manager@demo",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Manager",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_editor",
+        "ep_demo_generator",
+        "ep_demo_manager"
+      ]
+    },
+    {
+      "username": "service-account-epistola-suite",
+      "enabled": true,
+      "serviceAccountClientId": "epistola-suite",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users"
+        ]
+      }
     }
   ],
   "roles": {

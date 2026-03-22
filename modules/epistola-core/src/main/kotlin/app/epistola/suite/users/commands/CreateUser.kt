@@ -3,6 +3,7 @@ package app.epistola.suite.users.commands
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
 import org.jdbi.v3.core.Jdbi
@@ -20,7 +21,8 @@ data class CreateUser(
     val email: String,
     val displayName: String,
     val provider: AuthProvider,
-) : Command<User>
+) : Command<User>,
+    SystemInternal
 
 @Component
 class CreateUserHandler(

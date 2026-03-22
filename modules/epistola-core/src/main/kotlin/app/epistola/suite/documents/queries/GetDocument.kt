@@ -9,6 +9,8 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
@@ -26,7 +28,11 @@ import java.util.UUID
 data class GetDocument(
     val tenantId: TenantKey,
     val documentId: DocumentKey,
-) : Query<Document?>
+) : Query<Document?>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class GetDocumentHandler(

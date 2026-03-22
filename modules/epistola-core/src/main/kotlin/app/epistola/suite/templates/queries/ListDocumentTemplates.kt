@@ -1,8 +1,11 @@
 package app.epistola.suite.templates.queries
 
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.mapTo
@@ -13,7 +16,11 @@ data class ListDocumentTemplates(
     val searchTerm: String? = null,
     val limit: Int = 50,
     val offset: Int = 0,
-) : Query<List<DocumentTemplate>>
+) : Query<List<DocumentTemplate>>,
+    RequiresPermission {
+    override val permission: Permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey: TenantKey get() = tenantId.key
+}
 
 @Component
 class ListDocumentTemplatesHandler(

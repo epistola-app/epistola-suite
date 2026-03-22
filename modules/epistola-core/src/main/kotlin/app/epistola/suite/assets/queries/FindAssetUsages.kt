@@ -5,6 +5,8 @@ import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import org.jdbi.v3.core.Handle
 import org.jdbi.v3.core.Jdbi
 import org.springframework.stereotype.Component
@@ -15,7 +17,11 @@ import org.springframework.stereotype.Component
 data class FindAssetUsages(
     val tenantId: TenantKey,
     val assetId: AssetKey,
-) : Query<List<AssetUsage>>
+) : Query<List<AssetUsage>>,
+    RequiresPermission {
+    override val permission get() = Permission.TEMPLATE_VIEW
+    override val tenantKey get() = tenantId
+}
 
 @Component
 class FindAssetUsagesHandler(

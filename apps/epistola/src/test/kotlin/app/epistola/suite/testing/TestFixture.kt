@@ -4,11 +4,16 @@ import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.mediator.MediatorContext
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.PlatformRole
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
@@ -27,31 +32,36 @@ annotation class TestFixtureDsl
 class TestFixtureFactory(
     private val mediator: Mediator,
 ) {
+    private val testUser = EpistolaPrincipal(
+        userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
+        externalId = "test-user",
+        email = "test@example.com",
+        displayName = "Test User",
+        tenantMemberships = emptyMap(),
+        globalRoles = TenantRole.entries.toSet(),
+        platformRoles = setOf(PlatformRole.TENANT_MANAGER),
+        currentTenantId = null,
+    )
+
     fun <T> fixture(
         namespace: String,
         block: TestFixture.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
-        val fixture = TestFixture(namespace)
-        try {
-            fixture.block()
-        } finally {
-            fixture.cleanup()
+        SecurityContext.runWithPrincipal(testUser) {
+            val fixture = TestFixture(namespace)
+            try {
+                fixture.block()
+            } finally {
+                fixture.cleanup()
+            }
         }
     }
 
-    /**
-     * Runs the given block with the mediator bound to the current scope.
-     * This enables use of Command.execute() and Query.query() extension functions in tests.
-     *
-     * Usage:
-     * ```kotlin
-     * withMediator {
-     *     val tenant = CreateTenant("name").execute()
-     *     val tenants = ListTenants().query()
-     * }
-     * ```
-     */
-    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator, block)
+    fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
+        SecurityContext.runWithPrincipal(testUser) {
+            block()
+        }
+    }
 }
 
 @TestFixtureDsl

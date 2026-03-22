@@ -4,6 +4,7 @@ import app.epistola.suite.common.ids.FeedbackId
 import app.epistola.suite.feedback.SyncStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.SystemInternal
 import org.jdbi.v3.core.Jdbi
 import org.jdbi.v3.core.kotlin.withHandleUnchecked
 import org.springframework.stereotype.Component
@@ -12,7 +13,8 @@ data class UpdateFeedbackSyncStatus(
     val id: FeedbackId,
     val syncStatus: SyncStatus,
     val incrementAttempts: Boolean = false,
-) : Command<Boolean>
+) : Command<Boolean>,
+    SystemInternal
 
 @Component
 class UpdateFeedbackSyncStatusHandler(

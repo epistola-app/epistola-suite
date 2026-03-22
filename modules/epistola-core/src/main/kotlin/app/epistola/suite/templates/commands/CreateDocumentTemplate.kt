@@ -1,10 +1,13 @@
 package app.epistola.suite.templates.commands
 
 import app.epistola.suite.common.ids.TemplateId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.Node
 import app.epistola.suite.templates.model.Slot
@@ -24,7 +27,11 @@ data class CreateDocumentTemplate(
     val id: TemplateId,
     val name: String,
     val schema: String? = null,
-) : Command<DocumentTemplate> {
+) : Command<DocumentTemplate>,
+    RequiresPermission {
+    override val permission = Permission.TEMPLATE_EDIT
+    override val tenantKey: TenantKey get() = id.tenantKey
+
     init {
         validate("name", name.isNotBlank()) { "Name is required" }
         validate("name", name.length <= 255) { "Name must be 255 characters or less" }
