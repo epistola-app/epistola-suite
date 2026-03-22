@@ -102,8 +102,10 @@ class DemoLoader(
                     // Find and delete existing demo tenant(s) (if exists)
                     val existingTenants = mediator.query(ListTenants())
                     val demoTenants = existingTenants.filter {
-                        it.id == TenantKey.of(DEMO_TENANT_ID) || it.name == DEMO_TENANT_NAME ||
-                            it.id == TenantKey.of("demo-tenant") || it.name == "Demo Tenant"
+                        it.id == TenantKey.of(DEMO_TENANT_ID)
+                            || it.name == DEMO_TENANT_NAME
+                            || it.id == TenantKey.of("demo-tenant")
+                            || it.name == "Demo Tenant"
                     }
 
                     for (tenant in demoTenants) {
