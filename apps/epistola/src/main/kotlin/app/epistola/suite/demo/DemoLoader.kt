@@ -99,13 +99,16 @@ class DemoLoader(
         SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
             MediatorContext.runWithMediator(mediator) {
                 transactionTemplate.executeWithoutResult {
-                    // Find and delete existing demo tenant (if exists)
+                    // Find and delete existing demo tenant(s) (if exists)
                     val existingTenants = mediator.query(ListTenants())
-                    val demoTenant = existingTenants.find { it.name == DEMO_TENANT_NAME }
+                    val demoTenants = existingTenants.filter {
+                        it.id == TenantKey.of(DEMO_TENANT_ID) || it.name == DEMO_TENANT_NAME ||
+                            it.id == TenantKey.of("demo-tenant") || it.name == "Demo Tenant"
+                    }
 
-                    if (demoTenant != null) {
-                        log.info("Deleting existing demo tenant (id={})", demoTenant.id)
-                        mediator.send(DeleteTenant(id = demoTenant.id))
+                    for (tenant in demoTenants) {
+                        log.info("Deleting existing demo tenant (id={})", tenant.id)
+                        mediator.send(DeleteTenant(id = tenant.id))
                     }
 
                     // Create new demo tenant (CreateTenant now auto-creates a "Tenant Default" theme)
