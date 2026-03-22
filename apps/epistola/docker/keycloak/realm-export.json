@@ -12,16 +12,16 @@
   "organizationsEnabled": true,
   "groups": [
     {
-      "name": "ep_demo-tenant_reader"
+      "name": "ep_demo_reader"
     },
     {
-      "name": "ep_demo-tenant_editor"
+      "name": "ep_demo_editor"
     },
     {
-      "name": "ep_demo-tenant_generator"
+      "name": "ep_demo_generator"
     },
     {
-      "name": "ep_demo-tenant_manager"
+      "name": "ep_demo_manager"
     },
     {
       "name": "ep_tenant-manager"
@@ -86,8 +86,8 @@
   ],
   "users": [
     {
-      "username": "admin@test",
-      "email": "admin@test",
+      "username": "admin@demo",
+      "email": "admin@demo",
       "emailVerified": true,
       "enabled": true,
       "firstName": "Admin",
@@ -101,10 +101,10 @@
       ],
       "realmRoles": ["default-roles-epistola"],
       "groups": [
-        "ep_demo-tenant_reader",
-        "ep_demo-tenant_editor",
-        "ep_demo-tenant_generator",
-        "ep_demo-tenant_manager",
+        "ep_demo_reader",
+        "ep_demo_editor",
+        "ep_demo_generator",
+        "ep_demo_manager",
         "ep_tenant-manager",
         "ep_reader",
         "ep_editor",
@@ -113,24 +113,84 @@
       ]
     },
     {
-      "username": "user@test",
-      "email": "user@test",
+      "username": "reader@demo",
+      "email": "reader@demo",
       "emailVerified": true,
       "enabled": true,
-      "firstName": "Regular",
+      "firstName": "Reader",
       "lastName": "User",
       "credentials": [
         {
           "type": "password",
-          "value": "user",
+          "value": "reader",
           "temporary": false
         }
       ],
       "realmRoles": ["default-roles-epistola"],
       "groups": [
-        "ep_demo-tenant_reader",
-        "ep_demo-tenant_editor",
-        "ep_demo-tenant_generator"
+        "ep_demo_reader"
+      ]
+    },
+    {
+      "username": "editor@demo",
+      "email": "editor@demo",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Editor",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "editor",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_editor"
+      ]
+    },
+    {
+      "username": "generator@demo",
+      "email": "generator@demo",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Generator",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "generator",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_generator"
+      ]
+    },
+    {
+      "username": "manager@demo",
+      "email": "manager@demo",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Manager",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["default-roles-epistola"],
+      "groups": [
+        "ep_demo_reader",
+        "ep_demo_editor",
+        "ep_demo_generator",
+        "ep_demo_manager"
       ]
     },
     {

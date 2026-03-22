@@ -500,10 +500,10 @@ class DemoLoader(
     }
 
     companion object {
-        private const val DEMO_VERSION = "10.0.0" // Bump this to reset demo tenant
+        private const val DEMO_VERSION = "11.0.0" // Bump this to reset demo tenant
         private const val DEMO_VERSION_KEY = "demo_version"
-        private const val DEMO_TENANT_ID = "demo-tenant"
-        private const val DEMO_TENANT_NAME = "Demo Tenant"
+        private const val DEMO_TENANT_ID = "demo"
+        private const val DEMO_TENANT_NAME = "Demo"
         private const val DEMO_ADMIN_USER_ID = "00000000-0000-0000-0000-000000000001"
         private const val DEMO_MEMBER_USER_ID = "00000000-0000-0000-0000-000000000002"
         private const val DEMO_LOGO_ASSET_ID = "00000000-0000-0000-0000-100000000001"

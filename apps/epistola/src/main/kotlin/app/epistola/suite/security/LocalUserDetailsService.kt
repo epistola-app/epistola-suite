@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component
  * Provides hardcoded test users without requiring external OAuth2 providers or database setup.
  *
  * Users:
- * - admin@local / admin - Admin user with access to demo-tenant (ADMIN role)
- * - user@local / user - Regular user with access to demo-tenant (MEMBER role)
+ * - admin@local / admin - Admin user with access to demo (ADMIN role)
+ * - user@local / user - Regular user with access to demo (MEMBER role)
  *
  * Active when 'local' or 'demo' profile is active.
  */
@@ -35,7 +35,7 @@ class LocalUserDetailsService : UserDetailsService {
             displayName = "Local Admin",
             password = "admin",
             tenantMemberships = mapOf(
-                TenantKey.of("demo-tenant") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR, TenantRole.MANAGER),
+                TenantKey.of("demo") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR, TenantRole.MANAGER),
             ),
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         ),
@@ -45,7 +45,7 @@ class LocalUserDetailsService : UserDetailsService {
             displayName = "Local User",
             password = "user",
             tenantMemberships = mapOf(
-                TenantKey.of("demo-tenant") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR),
+                TenantKey.of("demo") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR),
             ),
         ),
     )
