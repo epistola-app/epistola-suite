@@ -40,7 +40,6 @@ class DemoLoginMembershipResolver(
         log.info("Demo mode: assigned user {} to tenant {} with all roles", email, tenantKey.value)
         return ResolvedMemberships(
             tenantMemberships = mapOf(tenantKey to TenantRole.entries.toSet()),
-            platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         )
     }
 
@@ -52,11 +51,11 @@ class DemoLoginMembershipResolver(
     }
 
     private fun ensureTenantExists(tenantKey: TenantKey) {
-        val existing = mediator.query(GetTenant(tenantKey))
-        if (existing != null) return
-
-        log.info("Demo mode: auto-creating tenant {}", tenantKey.value)
         SecurityContext.runWithPrincipal(SYSTEM_PRINCIPAL) {
+            val existing = mediator.query(GetTenant(tenantKey))
+            if (existing != null) return@runWithPrincipal
+
+            log.info("Demo mode: auto-creating tenant {}", tenantKey.value)
             mediator.send(CreateTenant(id = tenantKey, name = tenantKey.value))
         }
     }

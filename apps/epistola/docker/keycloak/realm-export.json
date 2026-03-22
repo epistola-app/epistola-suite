@@ -3,6 +3,7 @@
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
