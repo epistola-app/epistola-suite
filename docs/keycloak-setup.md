@@ -6,6 +6,23 @@ This document explains how to configure Keycloak for use with Epistola Suite.
 
 Epistola uses Keycloak's **Group Membership Mapper** to derive tenant roles, global roles, and platform roles from JWT group names. All Epistola groups use the `ep_` prefix.
 
+## Keycloak Roles vs Groups
+
+Keycloak has two user assignment mechanisms. Epistola uses **groups**, not realm roles.
+
+| Concept | What it is | Used by |
+|---------|-----------|---------|
+| **Realm roles** | Flat labels (e.g., `ROLE_USER`, `ROLE_ADMIN`). Spring Security auto-maps them to `GrantedAuthority`. | Valtimo (for its own authorization) |
+| **Groups** | Organizational containers for users. No built-in Spring Security meaning — require a **protocol mapper** to appear in the JWT. | Epistola (via `groups` claim) |
+
+**Why groups instead of roles?** Groups support the `ep_{tenant}_{role}` naming convention. With flat realm roles, you'd need a separate role per tenant per permission, which doesn't scale. Groups allow tenant-scoped authorization by convention.
+
+**How it works:**
+1. Admin assigns users to Keycloak groups (e.g., `ep_acme_reader`)
+2. The `oidc-group-membership-mapper` puts group names into the JWT `groups` claim
+3. Epistola's `parseGroupMemberships()` extracts tenant roles, global roles, and platform roles
+4. The `EpistolaPrincipal` is constructed with the parsed memberships
+
 ## Group Naming Convention
 
 | Pattern | Example | Meaning |
@@ -20,10 +37,23 @@ Epistola uses Keycloak's **Group Membership Mapper** to derive tenant roles, glo
 - `reader` — view templates, themes, documents
 - `editor` — edit templates and themes
 - `generator` — generate documents
-- `manager` — full tenant management
+- `manager` — full tenant management (publish, settings, users)
 
 **Platform roles**:
 - `tenant-manager` — create and manage tenants across the platform
+
+### Permissions
+
+Tenant roles map to fine-grained permissions in application code (not in Keycloak):
+
+| Role | Permissions |
+|------|------------|
+| `reader` | `TEMPLATE_VIEW`, `DOCUMENT_VIEW`, `THEME_VIEW` |
+| `editor` | `TEMPLATE_EDIT`, `THEME_EDIT` |
+| `generator` | `DOCUMENT_GENERATE` |
+| `manager` | `TEMPLATE_PUBLISH`, `TENANT_SETTINGS`, `TENANT_USERS` |
+
+Roles are **composable** — a user's effective permissions are the union of all their roles. For example, a user with `reader` + `editor` can view and edit templates and themes.
 
 ### How Parsing Works
 
@@ -52,7 +82,7 @@ Effective roles:
 Create an OpenID Connect client named `epistola-suite`:
 - Client authentication: ON (confidential)
 - Standard flow: ON
-- Service accounts: ON (needed for admin API)
+- Service accounts: ON (needed for tenant group provisioning)
 - Redirect URIs: your app URL (e.g., `http://localhost:4000/*`)
 
 ### 2. Group Membership Mapper
@@ -102,15 +132,17 @@ epistola:
     client-secret: ${KEYCLOAK_CLIENT_SECRET}  # Client secret
 ```
 
-The `epistola-suite` client needs service account roles for group management:
-- `manage-users` realm role (or scoped `manage-groups` if available)
+The `epistola-suite` client's service account needs `realm-management` client roles:
+- `manage-users` — required for creating and deleting groups
+- `view-users` — required for listing groups
+- `query-users` — required for searching groups
 
 ## Local Development
 
 Start Keycloak with the provided Docker Compose setup:
 
 ```bash
-docker compose -f apps/epistola/docker/keycloak/docker-compose.yaml up -d
+docker compose -f apps/epistola/docker/docker-compose.yaml up -d
 ```
 
 Run the app with the `keycloak` profile:
@@ -119,9 +151,23 @@ Run the app with the `keycloak` profile:
 ./gradlew :apps:epistola:bootRun --args='--spring.profiles.active=local,keycloak'
 ```
 
-Test users (pre-configured in realm export):
-- `admin@test / admin` — all demo-tenant roles + tenant-manager
-- `user@test / user` — reader, editor, generator in demo-tenant
+### Test Users
+
+Pre-configured in the realm export (`apps/epistola/docker/keycloak/realm-export.json`):
+
+| Username | Password | Roles on `demo` tenant | Platform roles |
+|----------|----------|----------------------|----------------|
+| `admin@demo` | `admin` | All roles | `tenant-manager` + all global roles |
+| `reader@demo` | `reader` | Reader | — |
+| `editor@demo` | `editor` | Reader, Editor | — |
+| `generator@demo` | `generator` | Reader, Generator | — |
+| `manager@demo` | `manager` | All tenant roles | — |
+
+Self-registration is enabled — new users can register with email + password. In demo mode (`epistola.demo.enabled=true`), users without group memberships are automatically assigned to a tenant derived from their email domain (e.g., `user@acme.io` → tenant `acme-io` with all roles).
+
+### OIDC Logout
+
+Logging out of Epistola also ends the Keycloak SSO session (via OIDC RP-Initiated Logout), so the next login shows the Keycloak login form instead of auto-authenticating.
 
 ## JWT Claim Example
 
@@ -130,10 +176,10 @@ After login, the JWT will contain:
 ```json
 {
   "groups": [
-    "ep_demo-tenant_reader",
-    "ep_demo-tenant_editor",
-    "ep_demo-tenant_generator",
-    "ep_demo-tenant_manager",
+    "ep_demo_reader",
+    "ep_demo_editor",
+    "ep_demo_generator",
+    "ep_demo_manager",
     "ep_tenant-manager"
   ]
 }
