@@ -1,8 +1,13 @@
 package app.epistola.suite.documents.batch
 
 import app.epistola.suite.common.ids.GenerationRequestKey
+import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.documents.JobPollingProperties
 import app.epistola.suite.documents.model.DocumentGenerationRequest
+import app.epistola.suite.security.EpistolaPrincipal
+import app.epistola.suite.security.SecurityContext
+import app.epistola.suite.security.TenantRole
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import jakarta.annotation.PreDestroy
@@ -13,6 +18,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.InetAddress
+import java.util.UUID
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
@@ -201,7 +207,9 @@ class JobPoller(
                     jobThreadExecutor.submit {
                         var jobOutcome = "success"
                         try {
-                            jobExecutor.execute(request)
+                            SecurityContext.runWithPrincipal(systemPrincipal(request.tenantKey)) {
+                                jobExecutor.execute(request)
+                            }
                             jobsCompletedCounter.increment()
                         } catch (e: Exception) {
                             jobOutcome = "failure"
@@ -335,5 +343,26 @@ class JobPoller(
                 .bind("errorMessage", errorMessage?.take(1000))
                 .execute()
         }
+    }
+
+    companion object {
+        /**
+         * Creates a system principal for background job execution.
+         *
+         * Background jobs (virtual threads) run outside the HTTP request scope,
+         * so they have no SecurityContext. This principal grants all tenant roles
+         * for the tenant that owns the generation request, allowing the mediator's
+         * authorization checks to pass.
+         */
+        private val SYSTEM_USER_ID = UserKey.of(UUID.fromString("00000000-0000-0000-0000-000000000000"))
+
+        private fun systemPrincipal(tenantKey: TenantKey): EpistolaPrincipal = EpistolaPrincipal(
+            userId = SYSTEM_USER_ID,
+            externalId = "system:job-poller",
+            email = "job-poller@system.epistola",
+            displayName = "Document Generation System",
+            tenantMemberships = mapOf(tenantKey to TenantRole.entries.toSet()),
+            currentTenantId = tenantKey,
+        )
     }
 }
