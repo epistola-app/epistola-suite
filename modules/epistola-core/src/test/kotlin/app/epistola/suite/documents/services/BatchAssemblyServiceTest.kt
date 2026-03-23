@@ -43,7 +43,7 @@ class BatchAssemblyServiceTest : CoreIntegrationTestBase() {
     private fun createBatchWithDownloadFormats(
         formats: List<BatchDownloadFormat>,
         itemCount: Int = 3,
-    ): Pair<BatchKey, app.epistola.suite.common.ids.TenantKey> {
+    ): Pair<BatchKey, app.epistola.suite.common.ids.TenantKey> = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -67,7 +67,7 @@ class BatchAssemblyServiceTest : CoreIntegrationTestBase() {
         }
 
         val batchId = mediator.send(GenerateDocumentBatch(tenant.id, items, formats))
-        return batchId to tenant.id
+        batchId to tenant.id
     }
 
     private fun awaitBatchCompletion(batchId: BatchKey) {

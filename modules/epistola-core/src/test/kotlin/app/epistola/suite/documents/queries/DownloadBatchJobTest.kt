@@ -40,7 +40,7 @@ class DownloadBatchJobTest : CoreIntegrationTestBase() {
     private fun createAndCompleteBatch(
         formats: List<BatchDownloadFormat> = listOf(BatchDownloadFormat.ZIP),
         itemCount: Int = 3,
-    ): Pair<BatchKey, TenantKey> {
+    ): Pair<BatchKey, TenantKey> = withAuthentication {
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
         val templateId = TemplateId(TestIdHelpers.nextTemplateId(), tenantId)
@@ -82,7 +82,7 @@ class DownloadBatchJobTest : CoreIntegrationTestBase() {
         // Assemble downloads
         batchAssemblyService.assembleDownloads(tenant.id, batchId)
 
-        return batchId to tenant.id
+        batchId to tenant.id
     }
 
     @Test
@@ -143,7 +143,7 @@ class DownloadBatchJobTest : CoreIntegrationTestBase() {
     }
 
     @Test
-    fun `returns 409 for incomplete batch`() {
+    fun `returns 409 for incomplete batch`() = withAuthentication {
         // Create a batch but don't wait for completion
         val tenant = createTenant("Test Tenant")
         val tenantId = TenantId(tenant.id)
@@ -170,7 +170,7 @@ class DownloadBatchJobTest : CoreIntegrationTestBase() {
 
         // Try downloading immediately (batch likely not complete)
         assertThatThrownBy {
-            withMediator { DownloadBatchJob(tenant.id, batchId, "zip", 1).query() }
+            DownloadBatchJob(tenant.id, batchId, "zip", 1).query()
         }.isInstanceOf(BatchDownloadException::class.java)
             .satisfies({ ex ->
                 val bde = ex as BatchDownloadException

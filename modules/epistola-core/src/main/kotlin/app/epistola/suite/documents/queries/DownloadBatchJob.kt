@@ -7,6 +7,8 @@ import app.epistola.suite.documents.model.AssemblyStatus
 import app.epistola.suite.documents.model.BatchDownloadFormat
 import app.epistola.suite.mediator.Query
 import app.epistola.suite.mediator.QueryHandler
+import app.epistola.suite.security.Permission
+import app.epistola.suite.security.RequiresPermission
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.storage.StoredContent
@@ -39,11 +41,14 @@ class BatchDownloadException(
  * @property part The part number (1-based)
  */
 data class DownloadBatchJob(
-    val tenantKey: TenantKey,
+    override val tenantKey: TenantKey,
     val batchKey: BatchKey,
     val format: String,
     val part: Int,
-) : Query<DownloadResult>
+) : Query<DownloadResult>,
+    RequiresPermission {
+    override val permission get() = Permission.DOCUMENT_VIEW
+}
 
 @Component
 class DownloadBatchJobHandler(
