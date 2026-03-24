@@ -1,6 +1,7 @@
 package app.epistola.suite.generation
 
-import app.epistola.generation.pdf.AssetResolver
+import app.epistola.generation.AssetResolver
+import app.epistola.generation.html.DirectHtmlRenderer
 import app.epistola.generation.pdf.DirectPdfRenderer
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
@@ -39,6 +40,7 @@ class GenerationService(
     private val schemaValidator: JsonSchemaValidator,
     private val themeStyleResolver: ThemeStyleResolver,
     private val pdfRenderer: DirectPdfRenderer = DirectPdfRenderer(),
+    private val htmlRenderer: DirectHtmlRenderer = DirectHtmlRenderer(),
 ) {
     /**
      * Renders a PDF from a template document and data context.
@@ -141,6 +143,61 @@ class GenerationService(
     ) {
         pdfRenderer.render(document = templateModel, data = data, outputStream = outputStream, metadata = metadata)
     }
+
+    /**
+     * Renders HTML from a template document and data context with theme resolution.
+     */
+    fun renderHtml(
+        tenantId: TenantKey,
+        templateModel: TemplateDocument,
+        data: Map<String, Any?>,
+        templateDefaultThemeId: ThemeKey? = null,
+        tenantDefaultThemeId: ThemeKey? = null,
+        assetResolver: AssetResolver? = null,
+        renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+    ): String {
+        val resolvedStyles = themeStyleResolver.resolveStyles(
+            tenantId,
+            templateDefaultThemeId,
+            tenantDefaultThemeId,
+            templateModel,
+        )
+
+        return htmlRenderer.render(
+            document = templateModel,
+            data = data,
+            blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
+            resolvedDocumentStyles = resolvedStyles.documentStyles,
+            assetResolver = assetResolver,
+            renderingDefaults = renderingDefaults,
+        )
+    }
+
+    /**
+     * Renders HTML using a pre-resolved theme snapshot (for published versions).
+     */
+    fun renderHtmlWithSnapshot(
+        templateModel: TemplateDocument,
+        data: Map<String, Any?>,
+        themeSnapshot: ResolvedThemeSnapshot,
+        renderingDefaults: RenderingDefaults,
+        assetResolver: AssetResolver? = null,
+    ): String = htmlRenderer.render(
+        document = templateModel,
+        data = data,
+        blockStylePresets = themeSnapshot.blockStylePresets,
+        resolvedDocumentStyles = themeSnapshot.documentStyles,
+        assetResolver = assetResolver,
+        renderingDefaults = renderingDefaults,
+    )
+
+    /**
+     * Renders HTML without theme resolution.
+     */
+    fun renderHtmlWithoutTheme(
+        templateModel: TemplateDocument,
+        data: Map<String, Any?>,
+    ): String = htmlRenderer.render(document = templateModel, data = data)
 
     /**
      * Converts a Map representation of a template document to a TemplateDocument instance.

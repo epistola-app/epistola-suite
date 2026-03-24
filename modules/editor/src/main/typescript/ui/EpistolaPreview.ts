@@ -1,11 +1,16 @@
 import { LitElement, html, nothing } from 'lit'
 import { customElement, property, state } from 'lit/decorators.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
-import { PreviewService, type PreviewState, type FetchPreviewFn } from './preview-service.js'
+import {
+  PreviewService,
+  type PreviewState,
+  type FetchPreviewFn,
+  type PreviewFormat,
+} from './preview-service.js'
 import { icon } from './icons.js'
 
 /**
- * <epistola-preview> — PDF preview panel.
+ * <epistola-preview> — Preview panel supporting PDF and HTML output.
  *
  * Subscribes to engine `doc:change` and `example:change` events to trigger
  * debounced preview refreshes. Renders an iframe with the blob URL on success,
@@ -23,6 +28,7 @@ export class EpistolaPreview extends LitElement {
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn
 
   @state() private _previewState: PreviewState = { status: 'idle' }
+  @state() private _format: PreviewFormat = 'pdf'
 
   private _service?: PreviewService
   private _unsubDoc?: () => void
@@ -81,10 +87,26 @@ export class EpistolaPreview extends LitElement {
     }
   }
 
+  private _handleFormatChange(format: PreviewFormat): void {
+    if (this._format === format) return
+    this._format = format
+    this._service?.setFormat(format)
+  }
+
   override render() {
     return html`
       <div class="preview-header">
         <span class="preview-header-title">Preview</span>
+        <div class="preview-format-toggle">
+          <button
+            class="preview-format-btn ${this._format === 'pdf' ? 'active' : ''}"
+            @click=${() => this._handleFormatChange('pdf')}
+          >PDF</button>
+          <button
+            class="preview-format-btn ${this._format === 'html' ? 'active' : ''}"
+            @click=${() => this._handleFormatChange('html')}
+          >HTML</button>
+        </div>
         ${this._previewState.status === 'loading'
           ? html`<span class="preview-header-status">${icon('loader-2', 14)} Loading...</span>`
           : nothing}
@@ -111,7 +133,7 @@ export class EpistolaPreview extends LitElement {
         return html`<iframe
           class="preview-iframe"
           .src=${this._previewState.blobUrl}
-          title="PDF Preview"
+          title="${this._previewState.format === 'html' ? 'HTML' : 'PDF'} Preview"
         ></iframe>`
 
       case 'error':

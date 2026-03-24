@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.batch
 
-import app.epistola.generation.pdf.AssetResolution
-import app.epistola.generation.pdf.AssetResolver
+import app.epistola.generation.AssetResolution
+import app.epistola.generation.AssetResolver
 import app.epistola.generation.pdf.PdfMetadata
 import app.epistola.generation.pdf.RenderingDefaults
 import app.epistola.suite.assets.queries.GetAssetContent
