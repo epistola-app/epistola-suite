@@ -38,6 +38,38 @@
     letter-spacing: 0.05em;
   }
 
+  .preview-format-toggle {
+    display: inline-flex;
+    gap: 1px;
+    background: var(--ep-gray-200);
+    border-radius: var(--ep-radius-sm);
+    overflow: hidden;
+  }
+
+  .preview-format-btn {
+    padding: 2px var(--ep-space-2);
+    font-size: var(--ep-text-xs);
+    font-weight: 500;
+    color: var(--ep-gray-500);
+    background: var(--ep-gray-50, #f9fafb);
+    border: none;
+    cursor: pointer;
+    transition:
+      background-color var(--ep-transition-fast),
+      color var(--ep-transition-fast);
+
+    &:hover {
+      color: var(--ep-gray-700);
+      background: var(--ep-gray-100);
+    }
+
+    &.active {
+      color: var(--ep-blue-600);
+      background: var(--ep-white);
+      font-weight: 600;
+    }
+  }
+
   .preview-header-status {
     display: inline-flex;
     align-items: center;

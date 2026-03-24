@@ -1,7 +1,7 @@
 package app.epistola.suite.templates
 
-import app.epistola.generation.pdf.AssetResolution
-import app.epistola.generation.pdf.AssetResolver
+import app.epistola.generation.AssetResolution
+import app.epistola.generation.AssetResolver
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.generation.GenerationService
@@ -18,7 +18,7 @@ import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
 
 /**
- * Request body for PDF preview generation.
+ * Request body for preview generation.
  *
  * @property data The data context for expression evaluation
  * @property templateModel Optional template model for live preview (uses current editor state instead of saved draft)
@@ -29,8 +29,8 @@ data class PreviewRequest(
 )
 
 /**
- * Handles PDF preview generation for document templates.
- * Generates PDF previews for draft versions with optional live template model.
+ * Handles preview generation for document templates.
+ * Supports both PDF and HTML output formats via the `format` query parameter.
  */
 @Component
 class TemplatePreviewHandler(
@@ -39,8 +39,8 @@ class TemplatePreviewHandler(
 ) {
 
     /**
-     * Generates a PDF preview of a variant's draft version.
-     * Streams the PDF directly to the response.
+     * Generates a preview of a variant's draft version.
+     * Supports PDF (default) and HTML output via `?format=html` query parameter.
      *
      * If `templateModel` is provided in the request body, it will be used for rendering
      * instead of fetching from the database. This enables live preview of unsaved changes.
@@ -51,6 +51,8 @@ class TemplatePreviewHandler(
             ?: return ServerResponse.badRequest().build()
         val variantId = request.variantId(templateId)
             ?: return ServerResponse.badRequest().build()
+
+        val format = request.param("format").orElse("pdf")
 
         // Parse the request body
         val previewRequest: PreviewRequest = try {
@@ -103,21 +105,36 @@ class TemplatePreviewHandler(
                 ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
         }
 
-        return ServerResponse.ok()
-            .contentType(MediaType.APPLICATION_PDF)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
-            .build { _, response ->
-                generationService.renderPdf(
+        return when (format) {
+            "html" -> {
+                val html = generationService.renderHtml(
                     tenantId.key,
                     templateModel,
                     data,
-                    response.outputStream,
                     previewContext.templateThemeId,
                     previewContext.tenantDefaultThemeId,
                     assetResolver = assetResolver,
                 )
-                response.outputStream.flush()
-                null // Return null to indicate no view to render
+                ServerResponse.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(html)
             }
+            else -> ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
+                .build { _, response ->
+                    generationService.renderPdf(
+                        tenantId.key,
+                        templateModel,
+                        data,
+                        response.outputStream,
+                        previewContext.templateThemeId,
+                        previewContext.tenantDefaultThemeId,
+                        assetResolver = assetResolver,
+                    )
+                    response.outputStream.flush()
+                    null
+                }
+        }
     }
 }

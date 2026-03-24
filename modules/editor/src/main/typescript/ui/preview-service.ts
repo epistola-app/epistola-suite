@@ -14,16 +14,19 @@ import type { TemplateDocument } from '../types/index.js'
 // State types
 // ---------------------------------------------------------------------------
 
+export type PreviewFormat = 'pdf' | 'html'
+
 export type PreviewState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; blobUrl: string }
+  | { status: 'success'; blobUrl: string; format: PreviewFormat }
   | { status: 'error'; message: string }
 
 export type FetchPreviewFn = (
   doc: TemplateDocument,
   data: object | undefined,
   signal: AbortSignal,
+  format: PreviewFormat,
 ) => Promise<Blob>
 
 export type OnStateChange = (state: PreviewState) => void
@@ -38,6 +41,9 @@ export class PreviewService {
   private _abortController: AbortController | null = null
   private _currentBlobUrl: string | null = null
   private _disposed = false
+  private _format: PreviewFormat = 'pdf'
+  private _lastDoc: TemplateDocument | null = null
+  private _lastData: object | undefined = undefined
 
   readonly _fetchFn: FetchPreviewFn
   readonly _onChange: OnStateChange
@@ -47,6 +53,21 @@ export class PreviewService {
     this._fetchFn = fetchFn
     this._onChange = onChange
     this._debounceMs = debounceMs
+  }
+
+  get format(): PreviewFormat {
+    return this._format
+  }
+
+  /**
+   * Change the preview format and trigger a refresh with the last known doc/data.
+   */
+  setFormat(format: PreviewFormat): void {
+    if (this._format === format) return
+    this._format = format
+    if (this._lastDoc) {
+      this.forceRefresh(this._lastDoc, this._lastData)
+    }
   }
 
   get state(): PreviewState {
@@ -59,6 +80,8 @@ export class PreviewService {
    */
   scheduleRefresh(doc: TemplateDocument, data: object | undefined): void {
     if (this._disposed) return
+    this._lastDoc = doc
+    this._lastData = data
     this._clearDebounce()
     this._debounceTimer = setTimeout(() => {
       this._debounceTimer = null
@@ -71,6 +94,8 @@ export class PreviewService {
    */
   forceRefresh(doc: TemplateDocument, data: object | undefined): void {
     if (this._disposed) return
+    this._lastDoc = doc
+    this._lastData = data
     this._clearDebounce()
     this._doFetch(doc, data)
   }
@@ -125,7 +150,7 @@ export class PreviewService {
     this._setState({ status: 'loading' })
 
     try {
-      const blob = await this._fetchFn(doc, data, controller.signal)
+      const blob = await this._fetchFn(doc, data, controller.signal, this._format)
 
       // Check if we were disposed or aborted during the await
       if (this._disposed || controller.signal.aborted) return
@@ -136,7 +161,7 @@ export class PreviewService {
       const blobUrl = URL.createObjectURL(blob)
       this._currentBlobUrl = blobUrl
       this._abortController = null
-      this._setState({ status: 'success', blobUrl })
+      this._setState({ status: 'success', blobUrl, format: this._format })
     } catch (err: unknown) {
       // Silently ignore AbortError — it means we intentionally cancelled
       if (err instanceof DOMException && err.name === 'AbortError') return

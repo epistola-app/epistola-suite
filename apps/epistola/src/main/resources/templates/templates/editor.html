@@ -154,14 +154,16 @@
                     throw new Error('Failed to save draft: ' + response.statusText);
                 }
             },
-            onFetchPreview: async (doc, data, signal) => {
+            onFetchPreview: async (doc, data, signal, format) => {
+                const fmt = format || 'pdf';
+                const accept = fmt === 'html' ? 'text/html' : 'application/pdf';
                 const response = await fetch(
-                    '/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/preview',
+                    '/tenants/' + tenantId + '/templates/' + templateId + '/variants/' + variantId + '/preview?format=' + fmt,
                     {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Accept': 'application/pdf',
+                            'Accept': accept,
                             'X-XSRF-TOKEN': window.getCsrfToken(),
                         },
                         body: JSON.stringify({ templateModel: doc, data: data?.data ?? data }),
