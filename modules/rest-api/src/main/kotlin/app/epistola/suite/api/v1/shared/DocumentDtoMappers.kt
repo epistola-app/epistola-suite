@@ -1,5 +1,7 @@
 package app.epistola.suite.api.v1.shared
 
+import app.epistola.api.model.BatchDownloadInfo
+import app.epistola.api.model.BatchDownloadPartInfo
 import app.epistola.api.model.DocumentDto
 import app.epistola.api.model.DocumentGenerationItemDto
 import app.epistola.api.model.DocumentGenerationJobDto
@@ -14,6 +16,7 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.model.AssemblyStatus
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
@@ -54,6 +57,7 @@ internal fun DocumentGenerationRequest.toJobDto() = DocumentGenerationJobDto(
     startedAt = startedAt,
     completedAt = completedAt,
     progressPercentage = if (isTerminal) 100.0 else 0.0,
+    assemblyStatus = app.epistola.api.model.AssemblyStatus.NONE,
 )
 
 internal fun DocumentGenerationRequest.toJobResponse() = GenerationJobResponse(
@@ -94,10 +98,39 @@ internal fun DocumentGenerationRequest.toItemDto(objectMapper: ObjectMapper) = D
 
 // ==================== Generation Job Result ====================
 
-internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper) = GenerationJobDetail(
-    request = request.toJobDto(),
-    items = items.map { it.toItemDto(objectMapper) },
-)
+internal fun GenerationJobResult.toDto(objectMapper: ObjectMapper): GenerationJobDetail {
+    val batchSnapshot = batch
+    val jobDto = if (batchSnapshot != null) {
+        // Batch job: use batch-level assembly status
+        request.toJobDto().copy(
+            assemblyStatus = app.epistola.api.model.AssemblyStatus.valueOf(batchSnapshot.assemblyStatus.name),
+        )
+    } else {
+        request.toJobDto()
+    }
+
+    val downloads = if (batchSnapshot != null && batchSnapshot.assemblyStatus == AssemblyStatus.COMPLETED) {
+        batchSnapshot.downloadParts.map { (format, parts) ->
+            BatchDownloadInfo(
+                format = app.epistola.api.model.BatchDownloadFormat.valueOf(format),
+                parts = parts.map { part ->
+                    BatchDownloadPartInfo(
+                        partNumber = part.partNumber,
+                        sizeBytes = part.sizeBytes,
+                    )
+                },
+            )
+        }
+    } else {
+        null
+    }
+
+    return GenerationJobDetail(
+        request = jobDto,
+        items = items.map { it.toItemDto(objectMapper) },
+        downloads = downloads,
+    )
+}
 
 // ==================== Request DTOs to Commands ====================
 
@@ -161,4 +194,10 @@ internal fun GenerateBatchRequest.toCommand(
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
     items = items.map { it.toBatchItem(objectMapper) },
+    downloadFormats = downloadFormats?.map { it.toDomain() } ?: emptyList(),
 )
+
+private fun app.epistola.api.model.BatchDownloadFormat.toDomain(): app.epistola.suite.documents.model.BatchDownloadFormat = when (this) {
+    app.epistola.api.model.BatchDownloadFormat.ZIP -> app.epistola.suite.documents.model.BatchDownloadFormat.ZIP
+    app.epistola.api.model.BatchDownloadFormat.MERGED_PDF -> app.epistola.suite.documents.model.BatchDownloadFormat.MERGED_PDF
+}

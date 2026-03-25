@@ -2,6 +2,7 @@ package app.epistola.suite.documents.model
 
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.TenantKey
+import org.jdbi.v3.json.Json
 import java.time.OffsetDateTime
 
 /**
@@ -15,6 +16,8 @@ import java.time.OffsetDateTime
  * @property totalCount Total number of requests in this batch
  * @property completedCount Number of requests successfully completed
  * @property failedCount Number of requests that failed
+ * @property assemblyStatus Status of batch download assembly
+ * @property downloadFormats Requested download formats for batch assembly
  * @property createdAt When the batch was created
  * @property completedAt When all requests in the batch completed (success or failure)
  */
@@ -24,6 +27,9 @@ data class DocumentGenerationBatch(
     val totalCount: Int,
     val completedCount: Int,
     val failedCount: Int,
+    val assemblyStatus: AssemblyStatus = AssemblyStatus.NONE,
+    @Json val downloadFormats: List<BatchDownloadFormat> = emptyList(),
+    @Json val downloadParts: Map<String, List<DownloadPartInfo>> = emptyMap(),
     val createdAt: OffsetDateTime,
     val completedAt: OffsetDateTime?,
 ) {

@@ -9,6 +9,9 @@ dependencies {
     // iText 9 for PDF generation
     implementation("com.itextpdf:itext-core:9.5.0")
 
+    // Apache PDFBox for PDF merging (Apache 2.0 license)
+    implementation("org.apache.pdfbox:pdfbox:3.0.4")
+
     // Kotlin reflection for expression evaluation
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 

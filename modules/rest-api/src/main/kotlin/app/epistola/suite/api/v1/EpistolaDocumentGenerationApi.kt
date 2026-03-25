@@ -18,6 +18,7 @@ import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.documents.commands.CancelGenerationJob
 import app.epistola.suite.documents.commands.DeleteDocument
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.queries.DownloadBatchJob
 import app.epistola.suite.documents.queries.GetDocumentMetadata
 import app.epistola.suite.documents.queries.GetGenerationJob
 import app.epistola.suite.documents.queries.ListDocuments
@@ -121,6 +122,27 @@ class EpistolaDocumentGenerationApi(
             // Job not found or cannot be cancelled
             ResponseEntity.status(HttpStatus.CONFLICT).build()
         }
+    }
+
+    // ================== Batch Download ==================
+
+    override fun downloadBatchJob(
+        tenantId: String,
+        requestId: UUID,
+        format: String,
+        part: Int,
+    ): ResponseEntity<Resource> {
+        val result = DownloadBatchJob(
+            tenantKey = TenantKey.of(tenantId),
+            batchKey = app.epistola.suite.common.ids.BatchKey.of(requestId),
+            format = format,
+            part = part,
+        ).query()
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(result.contentType))
+            .contentLength(result.content.sizeBytes)
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${result.filename}\"")
+            .body(InputStreamResource(result.content.content))
     }
 
     // ================== Document Download ==================

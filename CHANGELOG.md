@@ -6,36 +6,17 @@
 - **Document generation fails with "No authenticated user in current scope"**: The `JobPoller` executes generation jobs on virtual threads outside the HTTP request scope, where no `SecurityContext` principal is bound. The mediator's authorization checks (`RequiresPermission`, `RequiresAuthentication`) would then reject all queries. Fixed by creating a system principal with full tenant access for the request's tenant and binding it via `SecurityContext.runWithPrincipal()` before executing the job.
 
 ### Added
-- **Authorization enforcement in mediator**: All commands and queries now declare authorization requirements via marker interfaces (`RequiresPermission`, `RequiresPlatformRole`, `RequiresAuthentication`, `SystemInternal`). The `SpringMediator` enforces these before dispatching — unauthenticated or unauthorized requests are rejected with `PermissionDeniedException`, `TenantAccessDeniedException`, or `PlatformAccessDeniedException`.
-- **Authorization coverage safety net**: `AuthorizationCoverageTest` uses classpath scanning to verify every `Command` and `Query` implements `Authorized`, preventing unprotected operations from being added.
-- **Enterprise authorization model**: Four-layer authorization architecture (L1: Authentication, L2: Tenant access, L3: Coarse roles, L4: Fine-grained permissions). Keycloak owns L1-L3; Epistola owns L4.
-- **Permission enum**: Fine-grained permissions (`TEMPLATE_VIEW`, `TEMPLATE_EDIT`, `TEMPLATE_PUBLISH`, `DOCUMENT_VIEW`, `DOCUMENT_GENERATE`, `THEME_VIEW`, `THEME_EDIT`, `TENANT_SETTINGS`, `TENANT_USERS`) mapped from coarse tenant roles in application code.
-- **Permission and platform role checks**: `requirePermission()`, `requireTenantManager()` security extensions with dedicated exception types (`PermissionDeniedException`, `PlatformAccessDeniedException`).
-- **Keycloak group-based authorization**: Roles and platform roles are now derived from Keycloak groups using the `ep_` prefix convention (`ep_{tenant}_{role}`, `ep_{role}`, `ep_tenant-manager`). Replaces custom `epistola_tenants` claim and `resource_access` client roles.
-- **Global tenant roles**: Users assigned to groups like `ep_reader` gain the role across all tenants. Global roles are merged with per-tenant roles at runtime.
-- **Group membership parser**: Shared `GroupMembershipParser` utility used by both JWT converter and OAuth2 provisioning to parse the `groups` JWT claim.
-- **Keycloak Admin Client**: REST client for the Keycloak Admin API, using client credentials for group management. Configured via `epistola.keycloak.*` properties.
-- **Tenant provisioning**: `TenantProvisioningPort` interface with Keycloak implementation that auto-creates groups (`ep_{key}_reader/editor/generator/manager`) when a tenant is created. Falls back to no-op when Keycloak is not configured.
-- **Membership sync on login**: `SyncTenantMemberships` command upserts JWT-derived memberships to `tenant_memberships` table on OAuth2 login for API key fallback and audit.
-- **Tenant membership role column**: `tenant_memberships` table now includes `role` and `last_synced_at` columns for JWT claim sync.
-
-### Changed
-- **Keycloak realm export**: Replaced `epistola-tenants-mapper` (organization membership) and `epistola-client-roles-mapper` (client roles) with built-in Group Membership Mapper. Removed `tenant-manager` client role. Test users now assigned to `ep_*` groups.
-- **Platform roles sourcing**: `TENANT_MANAGER` is now sourced from the `ep_tenant-manager` group instead of `resource_access.epistola-suite.roles` client role.
-- **EpistolaPrincipal**: Added `globalRoles` field. `hasAccessToTenant()`, `rolesFor()`, `hasPermission()`, and `hasRole()` now merge global roles with per-tenant roles.
-
-### Changed
-- **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
-
-### Changed
-- **template-model moved to epistola-contract**: The `template-model` module (JSON schema types for documents, themes, components) has been moved to the `epistola-contract` repository as `editor-model` and is now consumed as an external Maven artifact (`app.epistola.contract:editor-model`) and npm package (`@epistola/editor-model`). This eliminates the last Gradle configuration cache blocker.
-- **Gradle configuration cache**: Fully enabled — all tasks in the build graph are now configuration cache compatible. Fixed 2 blockers in the editor module (project reference in `doLast`, redundant `upToDateWhen`).
-- **Convention plugins**: Extracted shared Kotlin/test/kover configuration into `epistola-kotlin-conventions` and `epistola-kover-conventions` buildSrc plugins, eliminating `allprojects`/`subprojects`/`configure` blocks from the root build file. Repositories moved to `settings.gradle.kts` via `dependencyResolutionManagement`.
+- **Batch download foundations**: Added Apache PDFBox dependency for PDF merging. Added `sequence` column to generation requests for deterministic ordering, `assembly_status` and `download_formats` columns to batches for tracking download assembly. New `AssemblyStatus` and `BatchDownloadFormat` domain enums. `GenerateDocumentBatch` command now accepts `downloadFormats` and sets `sequence` from array index.
+- **Batch download assembly and retrieval**: `BatchAssemblyService` assembles ZIP and merged PDF downloads from completed batches using local temp staging, parallel ContentStore downloads, and 250MB part-size splitting. `BatchDownloadService` validates batch state and serves assembled files. Assembly is triggered automatically when a batch completes with download formats requested. Single-document batches return the PDF directly. Added `download_parts` JSONB column to track part metadata. `downloadBatchJob` REST endpoint delegates to `BatchDownloadService`. DTO mappers updated to include `assemblyStatus` and `downloads` in job detail responses.
 
 ### Fixed
-- **Editor save error**: `UpdateDraft` SQL queries were missing `template_key` filter, causing errors when multiple templates share the same variant slug (e.g., "default"). Added `template_key` to UPDATE, SELECT, and MAX(id) queries.
-- **Autocomplete missing data model variables**: `GetEditorContext` cast JSONB `data_model` directly to `ObjectNode` instead of deserializing from `PGobject`, causing it to always be null. Variable autocomplete now correctly shows data model variables.
-- **Version list showing all variants' versions**: SQL JOINs in `ListVersions`, `GetVersion`, and `GetVariant` subqueries were missing `template_key` in JOIN conditions, causing version lists to include versions from other templates when variant slugs collide.
+- **Batch download validation ordering**: Fixed validation order so that a batch with no download formats returns 400 (bad request) instead of 409 (conflict). Added explicit empty-formats check before assembly status check.
+- **Batch download error response bodies**: Error responses from the download endpoint now include `ApiErrorResponse` bodies with descriptive messages instead of empty bodies. Moved error handling from inline try-catch to `@ExceptionHandler` in `ApiExceptionHandler`.
+- **Merged PDF download filename**: Added `-merged` infix to merged PDF download filenames per spec. Now produces `batch-{id}-merged.pdf` (single part) and `batch-{id}-merged-part-{n}.pdf` (multi-part) instead of `batch-{id}.pdf`.
+- **ZIP duplicate filename deduplication**: ZIP assembly now deduplicates filenames with numeric suffixes (e.g., `letter.pdf`, `letter (2).pdf`) as a safety net, even though submission-time validation prevents duplicates.
+- **Batch download part filename format**: Part filenames now use `batch-{id}-part-{n}.zip` format (with hyphen before number) instead of `batch-{id}-partn.zip`.
+- **Batch assembly JDBI mapping**: Fixed `DocumentGenerationBatch` constructor parameter mismatch where `completedCount`/`failedCount` couldn't be matched to DB columns `final_completed_count`/`final_failed_count`. Added SQL aliases in the query.
+- **Fake PDF in tests**: Replaced minimal PDF bytes with a valid PDF structure (catalog + page) so PDFBox can parse and merge test documents.
 - **New template form**: Removed the "JSON Schema" textarea from the template creation form — data contracts are managed through the dedicated data contract editor instead.
 - **Page header/footer overlap**: Page header and footer content no longer overlaps with body content in PDF output. The document margins are now automatically increased to reserve space for header/footer bands when present.
 - **Theme margin update crash**: Setting margins in the theme editor no longer crashes with a Jackson null deserialization error. `PageSettings` now has default values for `format` (A4) and `orientation` (portrait), allowing partial payloads from the frontend.

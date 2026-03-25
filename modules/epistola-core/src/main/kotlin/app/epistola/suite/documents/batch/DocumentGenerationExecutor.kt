@@ -12,11 +12,14 @@ import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
+import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantId
 import app.epistola.suite.common.ids.VersionId
+import app.epistola.suite.documents.model.AssemblyStatus
 import app.epistola.suite.documents.model.Document
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
+import app.epistola.suite.documents.services.BatchAssemblyService
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
 import app.epistola.suite.storage.ContentKey
@@ -52,6 +55,7 @@ class DocumentGenerationExecutor(
     private val objectMapper: ObjectMapper,
     private val contentStore: ContentStore,
     private val meterRegistry: MeterRegistry,
+    private val batchAssemblyService: BatchAssemblyService,
     @Value("\${epistola.generation.jobs.retention-days:7}")
     private val retentionDays: Int,
     @Value("\${epistola.generation.documents.max-size-mb:50}")
@@ -394,12 +398,37 @@ class DocumentGenerationExecutor(
 
         if (counts.isComplete) {
             jdbi.useHandle<Exception> { handle ->
+                // Get download formats and tenant before updating
+                val batchInfo = handle.createQuery(
+                    """
+                    SELECT tenant_key, download_formats
+                    FROM document_generation_batches
+                    WHERE id = :batchId AND completed_at IS NULL
+                    """,
+                )
+                    .bind("batchId", batchId)
+                    .map { rs, _ ->
+                        Pair(rs.getString("tenant_key"), rs.getString("download_formats"))
+                    }
+                    .findOne()
+                    .orElse(null) ?: return@useHandle // Already finalized
+
+                val (tenantKeyStr, formatsJson) = batchInfo
+                val hasDownloadFormats = formatsJson != null && formatsJson != "[]" && formatsJson.isNotBlank()
+
+                val assemblyStatus = if (hasDownloadFormats && counts.failed == 0) {
+                    AssemblyStatus.PENDING
+                } else {
+                    AssemblyStatus.NONE
+                }
+
                 val updated = handle.createUpdate(
                     """
                     UPDATE document_generation_batches
                     SET
                         final_completed_count = :completed,
                         final_failed_count = :failed,
+                        assembly_status = :assemblyStatus,
                         completed_at = NOW()
                     WHERE id = :batchId
                       AND completed_at IS NULL
@@ -408,6 +437,7 @@ class DocumentGenerationExecutor(
                     .bind("batchId", batchId)
                     .bind("completed", counts.completed)
                     .bind("failed", counts.failed)
+                    .bind("assemblyStatus", assemblyStatus.name)
                     .execute()
 
                 if (updated > 0) {
@@ -417,6 +447,12 @@ class DocumentGenerationExecutor(
                         counts.completed,
                         counts.failed,
                     )
+
+                    // Trigger async assembly if download formats were requested and no failures
+                    if (assemblyStatus == AssemblyStatus.PENDING) {
+                        val tenantKey = TenantKey.of(tenantKeyStr)
+                        batchAssemblyService.assembleDownloads(tenantKey, batchId)
+                    }
                 }
             }
         }

@@ -12,6 +12,8 @@ group = "app.epistola"
 version = findProperty("releaseVersion") as String? ?: "dev"
 description = "Epistola Document Suite"
 
+
+
 // Configure Kover for test coverage — all modules must be listed explicitly for aggregation
 dependencies {
     kover(project(":apps:epistola"))
