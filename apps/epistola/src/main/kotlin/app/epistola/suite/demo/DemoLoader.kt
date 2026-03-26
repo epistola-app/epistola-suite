@@ -286,7 +286,7 @@ class DemoLoader(
                                 "fontStyle" to "italic",
                                 "color" to "#666666",
                                 "marginLeft" to "sp(5)", // 20pt
-                                "borderLeft" to "3px solid #cccccc",
+                                "borderLeft" to "2pt solid #cccccc",
                                 "paddingLeft" to "sp(3)", // 12pt
                             ),
                         ),
@@ -338,7 +338,7 @@ class DemoLoader(
                                 "paddingRight" to "sp(4)",
                                 "paddingBottom" to "sp(4)",
                                 "paddingLeft" to "sp(4)",
-                                "borderRadius" to "8px",
+                                "borderRadius" to "6pt",
                             ),
                         ),
                     ),

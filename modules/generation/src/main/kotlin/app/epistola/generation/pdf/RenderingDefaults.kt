@@ -72,8 +72,10 @@ data class RenderingDefaults(
         private const val ITEXT_VERSION = "9.5.0"
 
         /**
-         * V1: Initial rendering defaults capturing all hardcoded values as of the first release.
-         * These values must NEVER be changed — create V2 instead.
+         * V1: Rendering defaults using the 4pt spacing grid (see [SpacingScale]).
+         *
+         * All spacing values align to multiples of [SpacingScale.DEFAULT_BASE_UNIT] (4pt).
+         * Component spacing uses `sp()` tokens. Typography sizes are in pt.
          */
         val V1 = RenderingDefaults(
             version = 1,
@@ -83,85 +85,44 @@ data class RenderingDefaults(
                 margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
             ),
             componentSpacing = mapOf(
-                "text" to mapOf("marginBottom" to "0.5em"),
-                "container" to mapOf("marginBottom" to "0.5em"),
-                "columns" to mapOf("marginBottom" to "0.5em"),
-                "table" to mapOf("marginBottom" to "0.5em"),
-                "datatable" to mapOf("marginBottom" to "0.5em"),
-                "image" to mapOf("marginBottom" to "0.5em"),
-            ),
-            headingSizes = mapOf(
-                1 to 24f, // 2em
-                2 to 18f, // 1.5em
-                3 to 14f, // 1.17em
-            ),
-            headingMargins = mapOf(
-                1 to 9.6f, // 0.4em × 24pt
-                2 to 5.4f, // 0.3em × 18pt
-                3 to 2.8f, // 0.2em × 14pt
-            ),
-            paragraphMarginBottom = 6f, // 0.5em × 12pt
-            listMarginBottom = 3.6f, // 0.3em × 12pt
-            listMarginLeft = 18f, // 1.5em × 12pt
-            listItemMarginBottom = 1.8f, // 0.15em × 12pt
-            tableBorderWidth = 0.5f,
-            tableBorderColorHex = "#808080", // ColorConstants.GRAY equivalent
-            tableCellPadding = 8f,
-            datatableDefaultColumnWidthPercent = 33f,
-            columnGap = 8f,
-            baseFontSizePt = 12f,
-        )
-
-        /**
-         * V2: Systematic spacing based on a 4pt grid (see [SpacingScale]).
-         *
-         * Changes from V1:
-         * - Component spacing uses `sp()` tokens instead of em-based values
-         * - Heading margins snapped to 4pt grid (was arbitrary em-derived floats)
-         * - List spacing snapped to 4pt grid
-         * - All values now align to multiples of [SpacingScale.DEFAULT_BASE_UNIT]
-         *
-         * These values must NEVER be changed — create V3 instead.
-         */
-        val V2 = RenderingDefaults(
-            version = 2,
-            defaultPageSettings = V1.defaultPageSettings, // unchanged: A4, portrait, 20mm margins
-            componentSpacing = mapOf(
-                "text" to mapOf("marginBottom" to "sp(1.5)"), // 6pt (was "0.5em" ≈ 6pt)
+                "text" to mapOf("marginBottom" to "sp(1.5)"), // 6pt
                 "container" to mapOf("marginBottom" to "sp(1.5)"),
                 "columns" to mapOf("marginBottom" to "sp(1.5)"),
                 "table" to mapOf("marginBottom" to "sp(1.5)"),
                 "datatable" to mapOf("marginBottom" to "sp(1.5)"),
                 "image" to mapOf("marginBottom" to "sp(1.5)"),
             ),
-            headingSizes = V1.headingSizes, // typography sizes stay in pt
-            headingMargins = mapOf(
-                1 to 12f, // sp(3) = 12pt (was 9.6f)
-                2 to 8f, // sp(2) = 8pt (was 5.4f)
-                3 to 4f, // sp(1) = 4pt (was 2.8f)
+            headingSizes = mapOf(
+                1 to 24f,
+                2 to 18f,
+                3 to 14f,
             ),
-            paragraphMarginBottom = 6f, // sp(1.5) = 6pt (unchanged)
-            listMarginBottom = 4f, // sp(1) = 4pt (was 3.6f)
-            listMarginLeft = 20f, // sp(5) = 20pt (was 18f)
-            listItemMarginBottom = 2f, // sp(0.5) = 2pt (was 1.8f)
-            tableBorderWidth = 0.5f, // not spacing
+            headingMargins = mapOf(
+                1 to 12f, // sp(3)
+                2 to 8f, // sp(2)
+                3 to 4f, // sp(1)
+            ),
+            paragraphMarginBottom = 6f, // sp(1.5)
+            listMarginBottom = 4f, // sp(1)
+            listMarginLeft = 20f, // sp(5)
+            listItemMarginBottom = 2f, // sp(0.5)
+            tableBorderWidth = 0.5f,
             tableBorderColorHex = "#808080",
-            tableCellPadding = 8f, // sp(2) = 8pt (unchanged)
+            tableCellPadding = 8f, // sp(2)
             datatableDefaultColumnWidthPercent = 33f,
-            columnGap = 8f, // sp(2) = 8pt (unchanged)
+            columnGap = 8f, // sp(2)
             baseFontSizePt = 12f,
-            pageHeaderPadding = 20f, // sp(5) = 20pt (unchanged)
-            pageHeaderHeight = 60f, // content dimension, not spacing
-            pageFooterPadding = 20f, // sp(5) = 20pt (unchanged)
+            pageHeaderPadding = 20f, // sp(5)
+            pageHeaderHeight = 60f,
+            pageFooterPadding = 20f, // sp(5)
             pageFooterHeight = 60f,
         )
 
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V2
+        val CURRENT = V1
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
-            2 to V2,
         )
 
         /**

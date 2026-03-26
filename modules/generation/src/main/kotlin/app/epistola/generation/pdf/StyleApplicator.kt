@@ -198,11 +198,8 @@ object StyleApplicator {
     }
 
     private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f): Float? = when {
-        fontSize.endsWith("px") -> fontSize.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f } // px to pt
         fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
-        fontSize.endsWith("em") -> fontSize.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
-        fontSize.endsWith("rem") -> fontSize.removeSuffix("rem").toFloatOrNull()?.let { it * baseFontSizePt }
-        else -> fontSize.toFloatOrNull()
+        else -> fontSize.toFloatOrNull() // unitless number treated as pt
     }
 
     private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
@@ -210,12 +207,9 @@ object StyleApplicator {
         SpacingScale.parseSp(size, spacingUnit)?.let { return it }
 
         return when {
-            size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
             size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
-            size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // mm to pt
-            size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
-            size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
-            else -> size.toFloatOrNull()
+            size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // page margins
+            else -> size.toFloatOrNull() // unitless number treated as pt
         }
     }
 

@@ -32,7 +32,7 @@ export const defaultStyleRegistry: StyleRegistry = {
           label: 'Size',
           type: 'unit',
           inheritable: true,
-          units: ['px', 'em', 'rem', 'pt'],
+          units: ['pt'],
         },
         {
           key: 'fontWeight',
@@ -50,16 +50,15 @@ export const defaultStyleRegistry: StyleRegistry = {
         {
           key: 'lineHeight',
           label: 'Line Height',
-          type: 'unit',
+          type: 'number',
           inheritable: true,
-          units: ['px', 'em', '%'],
         },
         {
           key: 'letterSpacing',
           label: 'Letter Spacing',
           type: 'unit',
           inheritable: true,
-          units: ['px', 'em'],
+          units: ['pt'],
         },
         {
           key: 'textAlign',
@@ -79,8 +78,8 @@ export const defaultStyleRegistry: StyleRegistry = {
       name: 'spacing',
       label: 'Spacing',
       properties: [
-        { key: 'padding', label: 'Padding', type: 'spacing', units: ['sp', 'pt', 'px', 'em', 'rem'] },
-        { key: 'margin', label: 'Margin', type: 'spacing', units: ['sp', 'pt', 'px', 'em', 'rem'] },
+        { key: 'padding', label: 'Padding', type: 'spacing', units: ['sp', 'pt'] },
+        { key: 'margin', label: 'Margin', type: 'spacing', units: ['sp', 'pt'] },
       ],
     },
     {
@@ -94,7 +93,7 @@ export const defaultStyleRegistry: StyleRegistry = {
       name: 'borders',
       label: 'Borders',
       properties: [
-        { key: 'borderWidth', label: 'Width', type: 'unit', units: ['px', 'em'] },
+        { key: 'borderWidth', label: 'Width', type: 'unit', units: ['pt'] },
         {
           key: 'borderStyle',
           label: 'Style',
@@ -107,7 +106,7 @@ export const defaultStyleRegistry: StyleRegistry = {
           ],
         },
         { key: 'borderColor', label: 'Color', type: 'color' },
-        { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['px', 'em', 'rem', '%'] },
+        { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt'] },
       ],
     },
   ],

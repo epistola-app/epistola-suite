@@ -39,17 +39,12 @@ export function renderUnitInput(
   units: string[],
   onChange: (value: string) => void,
 ): unknown {
-  const defaultUnit = units[0] ?? 'px'
+  const defaultUnit = units[0] ?? 'pt'
   const parsed = parseValueWithUnit(value, defaultUnit)
 
   const handleNumberChange = (e: Event) => {
     const num = parseFloat((e.target as HTMLInputElement).value) || 0
     onChange(formatValueWithUnit(num, parsed.unit))
-  }
-
-  const handleUnitChange = (e: Event) => {
-    const newUnit = (e.target as HTMLSelectElement).value
-    onChange(formatValueWithUnit(parsed.value, newUnit))
   }
 
   return html`
@@ -60,14 +55,16 @@ export function renderUnitInput(
         .value=${String(parsed.value)}
         @change=${handleNumberChange}
       />
-      <select
-        class="ep-select style-unit-select"
-        @change=${handleUnitChange}
-      >
-        ${units.map(u => html`
-          <option .value=${u} ?selected=${u === parsed.unit}>${u}</option>
-        `)}
-      </select>
+      ${units.length > 1 ? html`
+        <select
+          class="ep-select style-unit-select"
+          @change=${(e: Event) => onChange(formatValueWithUnit(parsed.value, (e.target as HTMLSelectElement).value))}
+        >
+          ${units.map(u => html`
+            <option .value=${u} ?selected=${u === parsed.unit}>${u}</option>
+          `)}
+        </select>
+      ` : html`<span class="style-unit-label">${defaultUnit}</span>`}
     </div>
   `
 }
@@ -164,35 +161,23 @@ function detectSpacingUnit(parsed: SpacingValue, defaultUnit: string): string {
 }
 
 /**
- * Convert a single side value to a new unit.
- * Handles sp() ↔ absolute conversions.
+ * Convert a single side value between sp and pt.
  */
-function convertSideValue(value: string, fromUnit: string, toUnit: string, baseUnit: number, defaultAbsUnit: string): string {
+function convertSideValue(value: string, fromUnit: string, toUnit: string, baseUnit: number): string {
   if (fromUnit === toUnit) return value
 
-  if (fromUnit === 'sp' && toUnit !== 'sp') {
-    // sp → absolute: resolve token to pt, then format in target unit
+  if (fromUnit === 'sp' && toUnit === 'pt') {
     const step = parseSpacingToken(value)
     const multiplier = step != null ? (parseFloat(step) || 0) : 0
-    const pt = multiplier * baseUnit
-    // For simplicity, output in pt (the PDF native unit)
-    return formatValueWithUnit(pt, toUnit)
+    return formatValueWithUnit(multiplier * baseUnit, 'pt')
   }
 
-  if (fromUnit !== 'sp' && toUnit === 'sp') {
-    // absolute → sp: parse to number, find nearest step
-    const p = parseValueWithUnit(value, defaultAbsUnit)
-    // Convert to pt first if needed
-    let pt = p.value
-    if (p.unit === 'px') pt = p.value * 0.75
-    else if (p.unit === 'em' || p.unit === 'rem') pt = p.value * 12 // approximate
-    const step = nearestSpacingStep(pt, baseUnit)
-    return formatSpacingToken(step)
+  if (fromUnit === 'pt' && toUnit === 'sp') {
+    const p = parseValueWithUnit(value, 'pt')
+    return formatSpacingToken(nearestSpacingStep(p.value, baseUnit))
   }
 
-  // absolute → absolute: keep numeric value, change unit suffix
-  const p = parseValueWithUnit(value, defaultAbsUnit)
-  return formatValueWithUnit(p.value, toUnit)
+  return value
 }
 
 /** Check if a CSS value is an sp() token. */
@@ -321,7 +306,7 @@ export function renderSpacingInput(
             const newUnit = (e.target as HTMLSelectElement).value
             const result: SpacingValue = { top: '', right: '', bottom: '', left: '' }
             for (const side of sides) {
-              result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit, firstAbsUnit)
+              result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit)
             }
             onChange(result)
           }}
@@ -357,7 +342,7 @@ export function expandSpacingToStyles(
   }
   for (const [suffix, sideValue] of Object.entries(sides)) {
     const key = `${prefix}${suffix}`
-    if (sideValue && sideValue !== '0px' && sideValue !== '0em' && sideValue !== '0rem' && sideValue !== 'sp(0)') {
+    if (sideValue && sideValue !== '0pt' && sideValue !== 'sp(0)') {
       styles[key] = sideValue
     } else {
       delete styles[key]

@@ -48,30 +48,30 @@ class StyleApplicatorTest {
 
     @Test
     fun `resolveBlockStyles returns inline when no preset`() {
-        val inline = mapOf("marginBottom" to "10px" as Any)
+        val inline = mapOf("marginBottom" to "10pt" as Any)
         val result = StyleApplicator.resolveBlockStyles(emptyMap(), null, inline)
         assertEquals(inline, result)
     }
 
     @Test
     fun `resolveBlockStyles returns preset when no inline`() {
-        val presets = mapOf("compact" to mapOf("marginBottom" to "5px" as Any))
+        val presets = mapOf("compact" to mapOf("marginBottom" to "4pt" as Any))
         val result = StyleApplicator.resolveBlockStyles(presets, "compact", null)
-        assertEquals(mapOf("marginBottom" to "5px"), result)
+        assertEquals(mapOf("marginBottom" to "4pt"), result)
     }
 
     @Test
     fun `resolveBlockStyles merges preset and inline with inline winning`() {
-        val presets = mapOf("compact" to mapOf("marginBottom" to "5px" as Any, "color" to "red" as Any))
-        val inline = mapOf("marginBottom" to "10px" as Any)
+        val presets = mapOf("compact" to mapOf("marginBottom" to "4pt" as Any, "color" to "red" as Any))
+        val inline = mapOf("marginBottom" to "8pt" as Any)
         val result = StyleApplicator.resolveBlockStyles(presets, "compact", inline)
         assertNotNull(result)
-        assertEquals("10px", result["marginBottom"]) // inline wins
+        assertEquals("8pt", result["marginBottom"]) // inline wins
         assertEquals("red", result["color"]) // preset value preserved
     }
 
     // -----------------------------------------------------------------------
-    // applyStylesWithPreset (smoke tests, verifies no exceptions)
+    // applyStylesWithPreset (smoke tests)
     // -----------------------------------------------------------------------
 
     @Test
@@ -84,14 +84,14 @@ class StyleApplicatorTest {
             blockStylePresets = emptyMap(),
             documentStyles = null,
             fontCache = fontCache,
-            defaultStyles = mapOf("marginBottom" to "0.5em"),
+            defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
         )
     }
 
     @Test
     fun `applyStylesWithPreset full cascade does not throw`() {
         val div = Div()
-        val presets = mapOf("heading" to mapOf("fontSize" to "24px" as Any))
+        val presets = mapOf("heading" to mapOf("fontSize" to "24pt" as Any))
         StyleApplicator.applyStylesWithPreset(
             div,
             blockInlineStyles = mapOf("color" to "#333"),
@@ -99,16 +99,16 @@ class StyleApplicatorTest {
             blockStylePresets = presets,
             documentStyles = mapOf("fontFamily" to "Arial"),
             fontCache = fontCache,
-            defaultStyles = mapOf("marginBottom" to "0.5em"),
+            defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
         )
     }
 
     @Test
-    fun `applyStylesWithPreset with null defaultStyles is backward compatible`() {
+    fun `applyStylesWithPreset with null defaultStyles does not throw`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
-            blockInlineStyles = mapOf("fontSize" to "14px"),
+            blockInlineStyles = mapOf("fontSize" to "14pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
             documentStyles = null,
@@ -118,15 +118,13 @@ class StyleApplicatorTest {
 
     @Test
     fun `applyStylesWithPreset filters non-inheritable document styles`() {
-        // This is a structural test - backgroundColor in docStyles should not throw
-        // and should not propagate to block elements
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
             blockInlineStyles = null,
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
-            documentStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14px"),
+            documentStyles = mapOf("backgroundColor" to "#ff0000", "fontSize" to "14pt"),
             fontCache = fontCache,
         )
     }
@@ -136,7 +134,7 @@ class StyleApplicatorTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `applyStylesWithPreset handles sp() tokens in styles`() {
+    fun `applyStylesWithPreset handles sp() tokens in inline styles`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
@@ -146,7 +144,6 @@ class StyleApplicatorTest {
             documentStyles = null,
             fontCache = fontCache,
         )
-        // sp(2) with default base unit 4pt = 8pt → should not throw
     }
 
     @Test
@@ -161,11 +158,10 @@ class StyleApplicatorTest {
             fontCache = fontCache,
             defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
         )
-        // sp(1.5) with default base unit 4pt = 6pt → should not throw
     }
 
     @Test
-    fun `applyStylesWithPreset passes spacingUnit to sp() resolution`() {
+    fun `applyStylesWithPreset uses custom spacingUnit`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
@@ -174,22 +170,20 @@ class StyleApplicatorTest {
             blockStylePresets = emptyMap(),
             documentStyles = null,
             fontCache = fontCache,
-            spacingUnit = 6f, // custom base: sp(2) = 12pt
+            spacingUnit = 6f, // sp(2) = 12pt
         )
-        // Should not throw
     }
 
     @Test
-    fun `applyStylesWithPreset still handles legacy px and em values`() {
+    fun `applyStylesWithPreset handles pt values`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
-            blockInlineStyles = mapOf("marginBottom" to "16px", "paddingTop" to "0.5em"),
+            blockInlineStyles = mapOf("marginBottom" to "16pt", "paddingTop" to "8pt"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
             documentStyles = null,
             fontCache = fontCache,
         )
-        // Legacy values should still work
     }
 }
