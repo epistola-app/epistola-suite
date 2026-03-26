@@ -2,7 +2,11 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
+import com.itextpdf.layout.borders.DashedBorder
+import com.itextpdf.layout.borders.DottedBorder
+import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.layout.element.BlockElement
+import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
 
@@ -194,8 +198,61 @@ object StyleApplicator {
             element.setFont(font)
         }
 
+        // Borders: individual properties (borderWidth + borderStyle + borderColor)
+        val borderWidth = (styles["borderWidth"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+        val borderStyle = styles["borderStyle"] as? String ?: "solid"
+        val borderColor = (styles["borderColor"] as? String)?.let { parseColor(it) }
+        if (borderWidth != null && borderWidth > 0f && borderStyle != "none") {
+            val color = borderColor ?: DeviceRgb(0, 0, 0)
+            val border = createBorder(borderStyle, borderWidth, color)
+            element.setBorder(border)
+        }
+
+        // Borders: compound shorthand per side (e.g., "2pt solid #2563eb")
+        for ((side, setter) in BORDER_SIDE_SETTERS) {
+            (styles[side] as? String)?.let { shorthand ->
+                parseBorderShorthand(shorthand, baseFontSizePt, spacingUnit)?.let { border ->
+                    setter(element, border)
+                }
+            }
+        }
+
+        // Border radius
+        (styles["borderRadius"] as? String)?.let { radius ->
+            parseSize(radius, baseFontSizePt, spacingUnit)?.let { element.setBorderRadius(BorderRadius(it)) }
+        }
+
         // Note: lineHeight is handled differently in iText - skipping for now
     }
+
+    private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border = when (style) {
+        "dashed" -> DashedBorder(color, width)
+        "dotted" -> DottedBorder(color, width)
+        else -> SolidBorder(color, width)
+    }
+
+    /**
+     * Parses a CSS border shorthand like "2pt solid #2563eb" into an iText Border.
+     */
+    private fun parseBorderShorthand(shorthand: String, baseFontSizePt: Float, spacingUnit: Float): com.itextpdf.layout.borders.Border? {
+        val parts = shorthand.trim().split("\\s+".toRegex())
+        if (parts.isEmpty()) return null
+
+        val width = parseSize(parts[0], baseFontSizePt, spacingUnit) ?: return null
+        val style = parts.getOrNull(1) ?: "solid"
+        val color = parts.getOrNull(2)?.let { parseColor(it) } ?: DeviceRgb(0, 0, 0)
+        if (style == "none") return null
+
+        return createBorder(style, width, color)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private val BORDER_SIDE_SETTERS = mapOf<String, (BlockElement<*>, com.itextpdf.layout.borders.Border) -> Unit>(
+        "borderTop" to { el, b -> (el as BlockElement<Any>).setBorderTop(b) },
+        "borderRight" to { el, b -> (el as BlockElement<Any>).setBorderRight(b) },
+        "borderBottom" to { el, b -> (el as BlockElement<Any>).setBorderBottom(b) },
+        "borderLeft" to { el, b -> (el as BlockElement<Any>).setBorderLeft(b) },
+    )
 
     private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
         SpacingScale.parseSp(fontSize, spacingUnit)?.let { return it }
