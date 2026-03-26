@@ -245,13 +245,19 @@ export function renderSpacingInput(
  * Each side shows a dropdown with scale tokens (resolved to pt for preview).
  * A "Custom" option reveals a raw number + unit input for escape-hatch values.
  */
+/** Absolute units available for custom spacing values (excludes 'sp'). */
+function customSpacingUnits(units: string[]): string[] {
+  return units.filter(u => u !== 'sp')
+}
+
 export function renderSpacingTokenInput(
   value: unknown,
   units: string[],
   onChange: (value: SpacingValue) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
 ): unknown {
-  const defaultUnit = units[0] ?? 'px'
+  const absUnits = customSpacingUnits(units)
+  const defaultUnit = absUnits[0] ?? 'pt'
   const parsed = parseSpacingValue(value, defaultUnit)
   const sides = ['top', 'right', 'bottom', 'left'] as const
 
@@ -264,44 +270,69 @@ export function renderSpacingTokenInput(
       ${sides.map(side => {
         const sideValue = parsed[side]
         const token = isSpacingToken(sideValue) ? parseSpacingToken(sideValue) : null
-        const isCustom = sideValue !== `0${defaultUnit}` && !isSpacingToken(sideValue) && sideValue !== ''
+        const isCustom = !isSpacingToken(sideValue) && sideValue !== `0${defaultUnit}` && sideValue !== ''
+        // For the mode selector: 'sp' when using a token, 'custom' when using raw values
+        const mode = token != null ? 'sp' : (isCustom ? 'custom' : 'sp')
 
         return html`
           <div class="style-spacing-side">
             <span class="style-spacing-label">${side[0].toUpperCase()}</span>
             <select
-              class="ep-select style-spacing-token-select"
+              class="ep-select style-spacing-mode-select"
               @change=${(e: Event) => {
                 const val = (e.target as HTMLSelectElement).value
-                if (val === '__custom__') {
-                  // Switch to custom: use current resolved value or 0
-                  const currentParsed = parseValueWithUnit(sideValue, 'pt')
-                  handleSideChange(side, formatValueWithUnit(currentParsed.value, currentParsed.unit))
+                if (val === 'custom') {
+                  handleSideChange(side, formatValueWithUnit(0, defaultUnit))
                 } else {
-                  handleSideChange(side, formatSpacingToken(val))
+                  handleSideChange(side, formatSpacingToken('0'))
                 }
               }}
             >
-              ${SPACING_SCALE.map(s => html`
-                <option
-                  .value=${s.token}
-                  ?selected=${token === s.token}
-                >${spacingTokenLabel(s.token, s.multiplier, baseUnit)}</option>
-              `)}
-              <option value="__custom__" ?selected=${isCustom}>Custom...</option>
+              <option value="sp" ?selected=${mode === 'sp'}>Scale</option>
+              <option value="custom" ?selected=${mode === 'custom'}>Custom</option>
             </select>
-            ${isCustom ? html`
-              <input
-                type="number"
-                class="ep-input style-spacing-number"
-                .value=${String(parseValueWithUnit(sideValue, defaultUnit).value)}
+            ${mode === 'sp' ? html`
+              <select
+                class="ep-select style-spacing-token-select"
                 @change=${(e: Event) => {
-                  const num = parseFloat((e.target as HTMLInputElement).value) || 0
-                  const unit = parseValueWithUnit(sideValue, defaultUnit).unit
-                  handleSideChange(side, formatValueWithUnit(num, unit))
+                  handleSideChange(side, formatSpacingToken((e.target as HTMLSelectElement).value))
                 }}
-              />
-            ` : nothing}
+              >
+                ${SPACING_SCALE.map(s => html`
+                  <option
+                    .value=${s.token}
+                    ?selected=${token === s.token}
+                  >${spacingTokenLabel(s.token, s.multiplier, baseUnit)}</option>
+                `)}
+              </select>
+            ` : html`
+              <div class="style-unit-input">
+                <input
+                  type="number"
+                  class="ep-input style-spacing-number"
+                  .value=${String(parseValueWithUnit(sideValue, defaultUnit).value)}
+                  @change=${(e: Event) => {
+                    const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                    const unit = parseValueWithUnit(sideValue, defaultUnit).unit
+                    handleSideChange(side, formatValueWithUnit(num, unit))
+                  }}
+                />
+                ${absUnits.length > 1 ? html`
+                  <select
+                    class="ep-select style-unit-select"
+                    @change=${(e: Event) => {
+                      const newUnit = (e.target as HTMLSelectElement).value
+                      const p = parseValueWithUnit(sideValue, defaultUnit)
+                      handleSideChange(side, formatValueWithUnit(p.value, newUnit))
+                    }}
+                  >
+                    ${absUnits.map(u => html`
+                      <option .value=${u} ?selected=${u === parseValueWithUnit(sideValue, defaultUnit).unit}>${u}</option>
+                    `)}
+                  </select>
+                ` : nothing}
+              </div>
+            `}
           </div>
         `
       })}
