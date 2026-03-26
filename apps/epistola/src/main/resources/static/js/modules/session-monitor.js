@@ -13,6 +13,7 @@ const CHECK_INTERVAL_MS = 30000; // Check every 30 seconds
 let warningShown = false;
 let expiredShown = false;
 let checkIntervalId = null;
+let cookieSeen = false;
 
 /**
  * Gets the session expiry timestamp from the cookie.
@@ -29,7 +30,12 @@ function getSessionExpiry() {
  */
 function getTimeRemaining() {
     const expiry = getSessionExpiry();
-    return expiry ? expiry - Date.now() : Infinity;
+    if (expiry) {
+        cookieSeen = true;
+        return expiry - Date.now();
+    }
+    // Cookie gone — if we previously saw it, session has expired
+    return cookieSeen ? -1 : Infinity;
 }
 
 /**
