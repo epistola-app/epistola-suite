@@ -181,21 +181,16 @@ object StyleApplicator {
             }
         }
 
-        // Font weight
-        val isBold = (styles["fontWeight"] as? String)?.let { weight ->
-            weight == "bold" || weight.toIntOrNull()?.let { it >= 700 } == true
-        } ?: false
-
-        // Font style
+        // Font: resolve family, weight, and style together
+        val fontFamily = FontCache.resolveFontFamily(styles["fontFamily"] as? String)
+        val fontWeight = (styles["fontWeight"] as? String)?.let { weight ->
+            weight.toIntOrNull() ?: if (weight == "bold") 700 else 400
+        } ?: 400
         val isItalic = (styles["fontStyle"] as? String) == "italic"
 
-        // Apply font based on weight/style combination
-        if (isBold || isItalic) {
-            val font = when {
-                isBold -> fontCache.bold
-                else -> fontCache.italic
-            }
-            element.setFont(font)
+        // Apply font when any font property is explicitly set
+        if (styles.containsKey("fontFamily") || styles.containsKey("fontWeight") || styles.containsKey("fontStyle")) {
+            element.setFont(fontCache.getFont(fontFamily, fontWeight, isItalic))
         }
 
         // Borders: individual properties (borderWidth + borderStyle + borderColor)

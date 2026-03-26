@@ -19,12 +19,9 @@ export const defaultStyleRegistry: StyleRegistry = {
           type: 'select',
           inheritable: true,
           options: [
-            { label: 'System Default', value: 'system-ui, -apple-system, sans-serif' },
-            { label: 'Arial', value: 'Arial, sans-serif' },
-            { label: 'Georgia', value: 'Georgia, serif' },
-            { label: 'Times New Roman', value: '"Times New Roman", serif' },
-            { label: 'Courier New', value: '"Courier New", monospace' },
-            { label: 'Verdana', value: 'Verdana, sans-serif' },
+            { label: 'Sans (Helvetica)', value: 'Helvetica, Arial, sans-serif' },
+            { label: 'Serif (Times)', value: '"Times New Roman", Georgia, serif' },
+            { label: 'Mono (Courier)', value: '"Courier New", monospace' },
           ],
         },
         {
