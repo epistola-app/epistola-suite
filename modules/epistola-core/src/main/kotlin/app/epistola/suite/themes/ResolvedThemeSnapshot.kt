@@ -1,5 +1,6 @@
 package app.epistola.suite.themes
 
+import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.suite.templates.model.DocumentStyles
 import app.epistola.suite.templates.model.PageSettings
@@ -17,12 +18,14 @@ import app.epistola.suite.templates.model.PageSettings
  * @param documentStyles The merged document styles (theme + template overrides)
  * @param pageSettings The theme's page settings fallback (null if no theme or no page settings)
  * @param blockStylePresets The theme's block style presets as a plain map (preset name -> styles map)
+ * @param spacingUnit The theme's spacing base unit in points (see [SpacingScale])
  */
 data class ResolvedThemeSnapshot(
     val themeKey: ThemeKey?,
     val documentStyles: DocumentStyles,
     val pageSettings: PageSettings?,
     val blockStylePresets: Map<String, Map<String, Any>>,
+    val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
 ) {
     companion object {
         /**
@@ -33,6 +36,7 @@ data class ResolvedThemeSnapshot(
             documentStyles = resolvedStyles.documentStyles,
             pageSettings = resolvedStyles.pageSettings,
             blockStylePresets = resolvedStyles.blockStylePresets.mapValues { (_, preset) -> preset.styles },
+            spacingUnit = resolvedStyles.spacingUnit,
         )
     }
 }

@@ -47,7 +47,8 @@ class SessionExpiryCookieFilter : OncePerRequestFilter() {
             val cookie = Cookie(COOKIE_NAME, expiresAt.toString())
             cookie.path = "/"
             cookie.isHttpOnly = false // JS needs to read this
-            cookie.maxAge = session.maxInactiveInterval
+            // Keep cookie alive 10 minutes past session expiry so JS can detect it
+            cookie.maxAge = session.maxInactiveInterval + 600
             cookie.secure = request.isSecure
             response.addCookie(cookie)
         }

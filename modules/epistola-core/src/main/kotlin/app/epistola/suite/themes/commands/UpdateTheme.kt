@@ -29,6 +29,8 @@ data class UpdateTheme(
     val clearPageSettings: Boolean = false,
     val blockStylePresets: BlockStylePresets? = null,
     val clearBlockStylePresets: Boolean = false,
+    val spacingUnit: Float? = null,
+    val clearSpacingUnit: Boolean = false,
 ) : Command<Theme?>,
     RequiresPermission {
     override val permission = Permission.THEME_EDIT
@@ -80,6 +82,13 @@ class UpdateThemeHandler(
         } else if (command.blockStylePresets != null) {
             updates.add("block_style_presets = :blockStylePresets::jsonb")
             bindings["blockStylePresets"] = objectMapper.writeValueAsString(command.blockStylePresets)
+        }
+
+        if (command.clearSpacingUnit) {
+            updates.add("spacing_unit = NULL")
+        } else if (command.spacingUnit != null) {
+            updates.add("spacing_unit = :spacingUnit")
+            bindings["spacingUnit"] = command.spacingUnit
         }
 
         if (updates.isEmpty()) {

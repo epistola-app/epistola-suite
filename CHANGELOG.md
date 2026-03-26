@@ -18,13 +18,14 @@
 - **Tenant provisioning**: `TenantProvisioningPort` interface with Keycloak implementation that auto-creates groups (`ep_{key}_reader/editor/generator/manager`) when a tenant is created. Falls back to no-op when Keycloak is not configured.
 - **Membership sync on login**: `SyncTenantMemberships` command upserts JWT-derived memberships to `tenant_memberships` table on OAuth2 login for API key fallback and audit.
 - **Tenant membership role column**: `tenant_memberships` table now includes `role` and `last_synced_at` columns for JWT claim sync.
+- **Spacing scale system**: Introduced a systematic spacing scale based on a 4pt base grid with `Nsp` notation. All spacing values are now multiples of a configurable base unit (default 4pt), providing consistent visual rhythm across documents. Themes can customize the `spacingUnit` for tighter or looser designs.
+- **Border rendering in PDF**: StyleApplicator now renders borderWidth/borderStyle/borderColor, compound shorthands (borderTop/Bottom/Left/Right), and borderRadius.
 
 ### Changed
 - **Keycloak realm export**: Replaced `epistola-tenants-mapper` (organization membership) and `epistola-client-roles-mapper` (client roles) with built-in Group Membership Mapper. Removed `tenant-manager` client role. Test users now assigned to `ep_*` groups.
 - **Platform roles sourcing**: `TENANT_MANAGER` is now sourced from the `ep_tenant-manager` group instead of `resource_access.epistola-suite.roles` client role.
 - **EpistolaPrincipal**: Added `globalRoles` field. `hasAccessToTenant()`, `rolesFor()`, `hasPermission()`, and `hasRole()` now merge global roles with per-tenant roles.
-
-### Changed
+- **Simplified unit system**: Only 3 units — pt (all sizes), sp (spacing scale), mm (page margins). Removed px, em, rem, cm.
 - **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
 
 ### Changed
@@ -33,6 +34,7 @@
 - **Convention plugins**: Extracted shared Kotlin/test/kover configuration into `epistola-kotlin-conventions` and `epistola-kover-conventions` buildSrc plugins, eliminating `allprojects`/`subprojects`/`configure` blocks from the root build file. Repositories moved to `settings.gradle.kts` via `dependencyResolutionManagement`.
 
 ### Fixed
+- **Session expired dialog never showing**: The `session_expires_at` cookie had the same lifetime as the session, so the browser deleted it at the exact moment the expired dialog should appear. Cookie now outlives the session by 10 minutes, and the JS monitor treats a vanished cookie as an expired session.
 - **Editor save error**: `UpdateDraft` SQL queries were missing `template_key` filter, causing errors when multiple templates share the same variant slug (e.g., "default"). Added `template_key` to UPDATE, SELECT, and MAX(id) queries.
 - **Autocomplete missing data model variables**: `GetEditorContext` cast JSONB `data_model` directly to `ObjectNode` instead of deserializing from `PGobject`, causing it to always be null. Variable autocomplete now correctly shows data model variables.
 - **Version list showing all variants' versions**: SQL JOINs in `ListVersions`, `GetVersion`, and `GetVariant` subqueries were missing `template_key` in JOIN conditions, causing version lists to include versions from other templates when variant slugs collide.

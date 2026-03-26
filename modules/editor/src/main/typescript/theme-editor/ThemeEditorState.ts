@@ -15,6 +15,7 @@ export interface ThemeData {
   documentStyles: Record<string, unknown>
   pageSettings?: PageSettings
   blockStylePresets: Record<string, BlockStylePreset>
+  spacingUnit?: number | null
 }
 
 export class ThemeEditorState extends EventTarget {
@@ -93,6 +94,15 @@ export class ThemeEditorState extends EventTarget {
       ...this._current.pageSettings.margins,
       [side]: value,
     }
+    this._fireChange()
+  }
+
+  // -----------------------------------------------------------------------
+  // Spacing unit
+  // -----------------------------------------------------------------------
+
+  updateSpacingUnit(value: number | null): void {
+    this._current.spacingUnit = value
     this._fireChange()
   }
 
@@ -193,6 +203,14 @@ export class ThemeEditorState extends EventTarget {
         patch.clearBlockStylePresets = true
       } else {
         patch.blockStylePresets = this._current.blockStylePresets
+      }
+    }
+
+    if (this._current.spacingUnit !== this._original.spacingUnit) {
+      if (this._current.spacingUnit == null) {
+        patch.clearSpacingUnit = true
+      } else {
+        patch.spacingUnit = this._current.spacingUnit
       }
     }
 

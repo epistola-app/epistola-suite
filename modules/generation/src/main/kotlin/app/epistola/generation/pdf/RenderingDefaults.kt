@@ -72,8 +72,10 @@ data class RenderingDefaults(
         private const val ITEXT_VERSION = "9.5.0"
 
         /**
-         * V1: Initial rendering defaults capturing all hardcoded values as of the first release.
-         * These values must NEVER be changed — create V2 instead.
+         * V1: Rendering defaults using the 4pt spacing grid (see [SpacingScale]).
+         *
+         * All spacing values align to multiples of [SpacingScale.DEFAULT_BASE_UNIT] (4pt).
+         * Component spacing uses `sp` unit tokens. Typography sizes are in pt.
          */
         val V1 = RenderingDefaults(
             version = 1,
@@ -83,33 +85,37 @@ data class RenderingDefaults(
                 margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
             ),
             componentSpacing = mapOf(
-                "text" to mapOf("marginBottom" to "0.5em"),
-                "container" to mapOf("marginBottom" to "0.5em"),
-                "columns" to mapOf("marginBottom" to "0.5em"),
-                "table" to mapOf("marginBottom" to "0.5em"),
-                "datatable" to mapOf("marginBottom" to "0.5em"),
-                "image" to mapOf("marginBottom" to "0.5em"),
+                "text" to mapOf("marginBottom" to "1.5sp"), // 6pt
+                "container" to mapOf("marginBottom" to "1.5sp"),
+                "columns" to mapOf("marginBottom" to "1.5sp"),
+                "table" to mapOf("marginBottom" to "1.5sp"),
+                "datatable" to mapOf("marginBottom" to "1.5sp"),
+                "image" to mapOf("marginBottom" to "1.5sp"),
             ),
             headingSizes = mapOf(
-                1 to 24f, // 2em
-                2 to 18f, // 1.5em
-                3 to 14f, // 1.17em
+                1 to 24f,
+                2 to 18f,
+                3 to 14f,
             ),
             headingMargins = mapOf(
-                1 to 9.6f, // 0.4em × 24pt
-                2 to 5.4f, // 0.3em × 18pt
-                3 to 2.8f, // 0.2em × 14pt
+                1 to 12f, // 3sp
+                2 to 8f, // 2sp
+                3 to 4f, // 1sp
             ),
-            paragraphMarginBottom = 6f, // 0.5em × 12pt
-            listMarginBottom = 3.6f, // 0.3em × 12pt
-            listMarginLeft = 18f, // 1.5em × 12pt
-            listItemMarginBottom = 1.8f, // 0.15em × 12pt
+            paragraphMarginBottom = 6f, // 1.5sp
+            listMarginBottom = 4f, // 1sp
+            listMarginLeft = 20f, // 5sp
+            listItemMarginBottom = 2f, // 0.5sp
             tableBorderWidth = 0.5f,
-            tableBorderColorHex = "#808080", // ColorConstants.GRAY equivalent
-            tableCellPadding = 8f,
+            tableBorderColorHex = "#808080",
+            tableCellPadding = 8f, // 2sp
             datatableDefaultColumnWidthPercent = 33f,
-            columnGap = 8f,
+            columnGap = 8f, // 2sp
             baseFontSizePt = 12f,
+            pageHeaderPadding = 20f, // 5sp
+            pageHeaderHeight = 60f,
+            pageFooterPadding = 20f, // 5sp
+            pageFooterHeight = 60f,
         )
 
         /** The defaults version used for newly published template versions. */

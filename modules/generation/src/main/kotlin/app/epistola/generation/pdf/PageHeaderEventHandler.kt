@@ -32,7 +32,9 @@ class PageHeaderEventHandler(
         val leftPadding = 36f
         val rightPadding = 36f
         val topPadding = context.renderingDefaults.pageHeaderPadding
-        val headerHeight = context.renderingDefaults.pageHeaderHeight
+        val headerNode = document.nodes[headerNodeId]
+        val headerHeight = parseNodeHeight(headerNode, context)
+            ?: context.renderingDefaults.pageHeaderHeight
 
         // Rectangle y is measured from the bottom of the page.
         // So for a header we place it at: top - topPadding - headerHeight
@@ -50,7 +52,6 @@ class PageHeaderEventHandler(
         val canvas = Canvas(pdfCanvas, headerRect)
 
         // Render the header node's slots with page-scoped system parameters
-        val headerNode = document.nodes[headerNodeId]
         if (headerNode != null) {
             val pageNumber = pdfDoc.getPageNumber(page)
             val pageContext = context.withPageParams(pageNumber)

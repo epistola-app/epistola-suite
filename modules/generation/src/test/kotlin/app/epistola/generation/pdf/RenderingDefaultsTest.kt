@@ -32,7 +32,7 @@ class RenderingDefaultsTest {
     }
 
     // -----------------------------------------------------------------------
-    // V1 default page settings
+    // Default page settings
     // -----------------------------------------------------------------------
 
     @Test
@@ -47,7 +47,7 @@ class RenderingDefaultsTest {
     }
 
     // -----------------------------------------------------------------------
-    // Component spacing
+    // Component spacing (sp tokens)
     // -----------------------------------------------------------------------
 
     @Test
@@ -57,9 +57,11 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `V1 component spacing all have marginBottom 0_5em`() {
+    fun `V1 component spacing all use sp tokens`() {
         for ((type, defaults) in RenderingDefaults.V1.componentSpacing) {
-            assertEquals("0.5em", defaults["marginBottom"], "Expected marginBottom for $type")
+            val marginBottom = defaults["marginBottom"] as? String
+            assertNotNull(marginBottom, "Expected marginBottom for $type")
+            assert(marginBottom.endsWith("sp")) { "$type marginBottom should use sp unit, was: $marginBottom" }
         }
     }
 
@@ -67,7 +69,7 @@ class RenderingDefaultsTest {
     fun `componentDefaults returns correct map for known type`() {
         val defaults = RenderingDefaults.V1.componentDefaults("text")
         assertNotNull(defaults)
-        assertEquals("0.5em", defaults["marginBottom"])
+        assertEquals("1.5sp", defaults["marginBottom"])
     }
 
     @Test
@@ -92,16 +94,37 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `V1 heading margins`() {
-        assertEquals(9.6f, RenderingDefaults.V1.headingMargin(1))
-        assertEquals(5.4f, RenderingDefaults.V1.headingMargin(2))
-        assertEquals(2.8f, RenderingDefaults.V1.headingMargin(3))
+    fun `V1 heading margins are grid-aligned`() {
+        val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
+        for ((level, margin) in RenderingDefaults.V1.headingMargins) {
+            val remainder = margin % baseUnit
+            assertEquals(0f, remainder, "H$level heading margin ${margin}pt should be a multiple of ${baseUnit}pt")
+        }
     }
 
     @Test
     fun `headingMargin falls back to proportional value for unknown level`() {
         val expected = 0.2f * RenderingDefaults.V1.baseFontSizePt
         assertEquals(expected, RenderingDefaults.V1.headingMargin(4))
+    }
+
+    // -----------------------------------------------------------------------
+    // Grid alignment
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `V1 list spacing is grid-aligned`() {
+        val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
+        assertEquals(0f, RenderingDefaults.V1.listMarginBottom % baseUnit, "listMarginBottom not grid-aligned")
+        assertEquals(0f, RenderingDefaults.V1.listMarginLeft % baseUnit, "listMarginLeft not grid-aligned")
+        assertEquals(0f, RenderingDefaults.V1.listItemMarginBottom % (baseUnit / 2f), "listItemMarginBottom not grid-aligned")
+    }
+
+    @Test
+    fun `V1 table and column spacing is grid-aligned`() {
+        val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
+        assertEquals(0f, RenderingDefaults.V1.tableCellPadding % baseUnit, "tableCellPadding not grid-aligned")
+        assertEquals(0f, RenderingDefaults.V1.columnGap % baseUnit, "columnGap not grid-aligned")
     }
 
     // -----------------------------------------------------------------------

@@ -29,6 +29,7 @@ internal fun Theme.toDto(objectMapper: ObjectMapper) = ThemeDto(
             applicableTo = value.applicableTo,
         )
     },
+    spacingUnit = spacingUnit?.toBigDecimal(),
     createdAt = createdAt,
     lastModified = lastModified,
 )

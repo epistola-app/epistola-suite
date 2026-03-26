@@ -62,6 +62,7 @@ class EpistolaThemeApi(
             documentStyles = createThemeRequest.documentStyles.toDomainDocumentStyles(objectMapper),
             pageSettings = createThemeRequest.pageSettings?.toDomain(),
             blockStylePresets = createThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
+            spacingUnit = createThemeRequest.spacingUnit?.toFloat(),
         ).execute()
 
         return ResponseEntity
@@ -96,6 +97,7 @@ class EpistolaThemeApi(
             documentStyles = updateThemeRequest.documentStyles?.toDomainDocumentStyles(objectMapper),
             pageSettings = updateThemeRequest.pageSettings?.toDomain(),
             blockStylePresets = updateThemeRequest.blockStylePresets?.toDomainPresets(objectMapper),
+            spacingUnit = updateThemeRequest.spacingUnit?.toFloat(),
         ).execute() ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(theme.toDto(objectMapper))

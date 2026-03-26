@@ -28,6 +28,8 @@ data class RenderContext(
     val assetResolver: AssetResolver? = null,
     /** Versioned rendering defaults (font sizes, spacing, borders, etc.) */
     val renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+    /** Theme-configurable spacing base unit in points (see [SpacingScale]). */
+    val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     /** System parameters injected by the rendering engine (e.g., page number in headers/footers). */
     val systemParams: Map<String, Any?> = emptyMap(),
 ) {

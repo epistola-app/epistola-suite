@@ -422,6 +422,17 @@ export class EpistolaInspector extends LitElement {
             <label class="inspector-field-label">${field.label}</label>
           </div>
         `
+      case 'unit':
+        return html`
+          <div class="inspector-field">
+            <label class="inspector-field-label">${field.label}</label>
+            ${renderUnitInput(
+              value,
+              field.units ?? ['pt'],
+              (v) => this._handlePropChange(field.key, v),
+            )}
+          </div>
+        `
       case 'select':
         return html`
           <div class="inspector-field">

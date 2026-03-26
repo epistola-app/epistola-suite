@@ -24,6 +24,7 @@ data class CreateTheme(
     val documentStyles: DocumentStyles = emptyMap(),
     val pageSettings: PageSettings? = null,
     val blockStylePresets: BlockStylePresets? = null,
+    val spacingUnit: Float? = null,
 ) : Command<Theme>,
     RequiresPermission {
     override val permission = Permission.THEME_EDIT
@@ -44,8 +45,8 @@ class CreateThemeHandler(
         jdbi.withHandle<Theme, Exception> { handle ->
             handle.createQuery(
                 """
-                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, block_style_presets, created_at, last_modified)
-                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, NOW(), NOW())
+                INSERT INTO themes (id, tenant_key, name, description, document_styles, page_settings, block_style_presets, spacing_unit, created_at, last_modified)
+                VALUES (:id, :tenantId, :name, :description, :documentStyles::jsonb, :pageSettings::jsonb, :blockStylePresets::jsonb, :spacingUnit, NOW(), NOW())
                 RETURNING *
                 """,
             )
@@ -56,6 +57,7 @@ class CreateThemeHandler(
                 .bind("documentStyles", objectMapper.writeValueAsString(command.documentStyles))
                 .bind("pageSettings", command.pageSettings?.let { objectMapper.writeValueAsString(it) })
                 .bind("blockStylePresets", command.blockStylePresets?.let { objectMapper.writeValueAsString(it) })
+                .bind("spacingUnit", command.spacingUnit)
                 .mapTo<Theme>()
                 .one()
         }

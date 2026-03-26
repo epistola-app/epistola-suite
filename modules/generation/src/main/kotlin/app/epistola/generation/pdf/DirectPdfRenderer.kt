@@ -59,6 +59,7 @@ class DirectPdfRenderer(
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
         val writer = PdfWriter(outputStream)
         val pdfDocument = if (pdfaCompliant) {
@@ -96,6 +97,7 @@ class DirectPdfRenderer(
             document = document,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
         )
 
         // Set default font on the document so all text uses embedded Liberation Sans
@@ -129,10 +131,16 @@ class DirectPdfRenderer(
 
         // Apply margins from page settings, reserving extra space for header/footer
         val margins = pageSettings.margins
+        val headerHeight = headerNode?.let {
+            parseNodeHeight(it, context) ?: renderingDefaults.pageHeaderHeight
+        } ?: 0f
+        val footerHeight = footerNode?.let {
+            parseNodeHeight(it, context) ?: renderingDefaults.pageFooterHeight
+        } ?: 0f
         val topMargin = margins.top.toFloat() +
-            if (headerNode != null) renderingDefaults.pageHeaderReservedHeight else 0f
+            if (headerNode != null) renderingDefaults.pageHeaderPadding + headerHeight else 0f
         val bottomMargin = margins.bottom.toFloat() +
-            if (footerNode != null) renderingDefaults.pageFooterReservedHeight else 0f
+            if (footerNode != null) renderingDefaults.pageFooterPadding + footerHeight else 0f
         iTextDocument.setMargins(
             topMargin,
             margins.right.toFloat(),

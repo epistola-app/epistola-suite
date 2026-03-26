@@ -55,7 +55,7 @@ export function createTableDefinition(): ComponentDefinition {
     slots: [{ name: 'cell-{r}-{c}', dynamic: true }],
     allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
       {
         key: 'borderStyle',

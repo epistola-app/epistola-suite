@@ -2,7 +2,11 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.DocumentStyles
 import com.itextpdf.kernel.colors.DeviceRgb
+import com.itextpdf.layout.borders.DashedBorder
+import com.itextpdf.layout.borders.DottedBorder
+import com.itextpdf.layout.borders.SolidBorder
 import com.itextpdf.layout.element.BlockElement
+import com.itextpdf.layout.properties.BorderRadius
 import com.itextpdf.layout.properties.TextAlignment
 import com.itextpdf.layout.properties.UnitValue
 
@@ -35,12 +39,13 @@ object StyleApplicator {
         documentStyles: DocumentStyles?,
         fontCache: FontCache,
         baseFontSizePt: Float = 12f,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        documentStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply block-specific styles (override document styles)
-        blockStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        blockStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
     }
 
     /**
@@ -69,15 +74,16 @@ object StyleApplicator {
         fontCache: FontCache,
         defaultStyles: Map<String, Any>? = null,
         baseFontSizePt: Float = 12f,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
         // Apply component default styles first (lowest priority)
-        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply only inheritable document-level styles
         documentStyles?.let { docStyles ->
             val inheritable = docStyles.filterKeys { it in INHERITABLE_KEYS }
             if (inheritable.isNotEmpty()) {
-                applyBlockStyles(element, inheritable, fontCache, baseFontSizePt)
+                applyBlockStyles(element, inheritable, fontCache, baseFontSizePt, spacingUnit)
             }
         }
 
@@ -85,10 +91,10 @@ object StyleApplicator {
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
 
         // Apply preset styles (override document styles)
-        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply block inline styles (override preset styles)
-        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
     }
 
     /**
@@ -115,10 +121,10 @@ object StyleApplicator {
         }
     }
 
-    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache, baseFontSizePt: Float = 12f) {
+    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT) {
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
-            parseFontSize(fontSize, baseFontSizePt)?.let { element.setFontSize(it) }
+            parseFontSize(fontSize, baseFontSizePt, spacingUnit)?.let { element.setFontSize(it) }
         }
 
         // Color
@@ -138,30 +144,30 @@ object StyleApplicator {
 
         // Margins
         (styles["marginTop"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginTop(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginTop(it) }
         }
         (styles["marginRight"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginRight(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginRight(it) }
         }
         (styles["marginBottom"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginBottom(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginBottom(it) }
         }
         (styles["marginLeft"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginLeft(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginLeft(it) }
         }
 
         // Padding
         (styles["paddingTop"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingTop(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingTop(it) }
         }
         (styles["paddingRight"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingRight(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingRight(it) }
         }
         (styles["paddingBottom"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingBottom(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingBottom(it) }
         }
         (styles["paddingLeft"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingLeft(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingLeft(it) }
         }
 
         // Width
@@ -171,7 +177,7 @@ object StyleApplicator {
                     element.setWidth(UnitValue.createPercentValue(it))
                 }
             } else {
-                parseSize(width, baseFontSizePt)?.let { element.setWidth(it) }
+                parseSize(width, baseFontSizePt, spacingUnit)?.let { element.setWidth(it) }
             }
         }
 
@@ -192,24 +198,79 @@ object StyleApplicator {
             element.setFont(font)
         }
 
+        // Borders: individual properties (borderWidth + borderStyle + borderColor)
+        val borderWidth = (styles["borderWidth"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+        val borderStyle = styles["borderStyle"] as? String ?: "solid"
+        val borderColor = (styles["borderColor"] as? String)?.let { parseColor(it) }
+        if (borderWidth != null && borderWidth > 0f && borderStyle != "none") {
+            val color = borderColor ?: DeviceRgb(0, 0, 0)
+            val border = createBorder(borderStyle, borderWidth, color)
+            element.setBorder(border)
+        }
+
+        // Borders: compound shorthand per side (e.g., "2pt solid #2563eb")
+        for ((side, setter) in BORDER_SIDE_SETTERS) {
+            (styles[side] as? String)?.let { shorthand ->
+                parseBorderShorthand(shorthand, baseFontSizePt, spacingUnit)?.let { border ->
+                    setter(element, border)
+                }
+            }
+        }
+
+        // Border radius
+        (styles["borderRadius"] as? String)?.let { radius ->
+            parseSize(radius, baseFontSizePt, spacingUnit)?.let { element.setBorderRadius(BorderRadius(it)) }
+        }
+
         // Note: lineHeight is handled differently in iText - skipping for now
     }
 
-    private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f): Float? = when {
-        fontSize.endsWith("px") -> fontSize.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f } // px to pt
-        fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
-        fontSize.endsWith("em") -> fontSize.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
-        fontSize.endsWith("rem") -> fontSize.removeSuffix("rem").toFloatOrNull()?.let { it * baseFontSizePt }
-        else -> fontSize.toFloatOrNull()
+    private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border = when (style) {
+        "dashed" -> DashedBorder(color, width)
+        "dotted" -> DottedBorder(color, width)
+        else -> SolidBorder(color, width)
     }
 
-    private fun parseSize(size: String, baseFontSizePt: Float = 12f): Float? = when {
-        size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
-        size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
-        size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // mm to pt
-        size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
-        size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
-        else -> size.toFloatOrNull()
+    /**
+     * Parses a CSS border shorthand like "2pt solid #2563eb" into an iText Border.
+     */
+    private fun parseBorderShorthand(shorthand: String, baseFontSizePt: Float, spacingUnit: Float): com.itextpdf.layout.borders.Border? {
+        val parts = shorthand.trim().split("\\s+".toRegex())
+        if (parts.isEmpty()) return null
+
+        val width = parseSize(parts[0], baseFontSizePt, spacingUnit) ?: return null
+        val style = parts.getOrNull(1) ?: "solid"
+        val color = parts.getOrNull(2)?.let { parseColor(it) } ?: DeviceRgb(0, 0, 0)
+        if (style == "none") return null
+
+        return createBorder(style, width, color)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private val BORDER_SIDE_SETTERS = mapOf<String, (BlockElement<*>, com.itextpdf.layout.borders.Border) -> Unit>(
+        "borderTop" to { el, b -> (el as BlockElement<Any>).setBorderTop(b) },
+        "borderRight" to { el, b -> (el as BlockElement<Any>).setBorderRight(b) },
+        "borderBottom" to { el, b -> (el as BlockElement<Any>).setBorderBottom(b) },
+        "borderLeft" to { el, b -> (el as BlockElement<Any>).setBorderLeft(b) },
+    )
+
+    private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
+        SpacingScale.parseSp(fontSize, spacingUnit)?.let { return it }
+        return when {
+            fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
+            else -> fontSize.toFloatOrNull() // unitless number treated as pt
+        }
+    }
+
+    private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
+        // Try spacing token first (e.g., "2sp" → 8pt with default base unit)
+        SpacingScale.parseSp(size, spacingUnit)?.let { return it }
+
+        return when {
+            size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
+            size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // page margins
+            else -> size.toFloatOrNull() // unitless number treated as pt
+        }
     }
 
     private fun parseColor(color: String): DeviceRgb? = try {

@@ -45,9 +45,11 @@ export interface SlotTemplate {
 export interface InspectorField {
   key: string
   label: string
-  type: 'text' | 'number' | 'boolean' | 'select' | 'expression' | 'json' | 'color'
+  type: 'text' | 'number' | 'boolean' | 'select' | 'expression' | 'json' | 'color' | 'unit'
   options?: { label: string; value: unknown }[]
   defaultValue?: unknown
+  /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
+  units?: string[]
 }
 
 export interface ComponentDefinition {
@@ -336,7 +338,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'none' },
     applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
     defaultProps: { content: null },
   })
 
@@ -349,7 +351,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
   })
 
   registry.register(createColumnsDefinition())
@@ -414,7 +416,9 @@ export function createDefaultRegistry(): ComponentRegistry {
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
-    inspector: [],
+    inspector: [
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+    ],
     maxInstancesPerDocument: 1,
   })
 
@@ -426,7 +430,9 @@ export function createDefaultRegistry(): ComponentRegistry {
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
-    inspector: [],
+    inspector: [
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+    ],
     maxInstancesPerDocument: 1,
   })
 
