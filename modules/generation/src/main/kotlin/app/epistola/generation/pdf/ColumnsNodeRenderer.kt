@@ -65,6 +65,7 @@ class ColumnsNodeRenderer : NodeRenderer {
             context.fontCache,
             context.renderingDefaults.componentDefaults("columns"),
             context.renderingDefaults.baseFontSizePt,
+            context.spacingUnit,
         )
 
         // Gap between columns (simulated via cell padding)

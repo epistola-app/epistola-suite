@@ -266,7 +266,7 @@ class DemoLoader(
                                 "fontSize" to "24pt",
                                 "fontWeight" to "bold",
                                 "color" to "#1a1a1a",
-                                "marginBottom" to "16px",
+                                "marginBottom" to "sp(4)", // 16pt
                             ),
                             applicableTo = listOf("text", "container"),
                         ),
@@ -276,7 +276,7 @@ class DemoLoader(
                                 "fontSize" to "18pt",
                                 "fontWeight" to "bold",
                                 "color" to "#2a2a2a",
-                                "marginBottom" to "12px",
+                                "marginBottom" to "sp(3)", // 12pt
                             ),
                             applicableTo = listOf("text", "container"),
                         ),
@@ -285,9 +285,9 @@ class DemoLoader(
                             styles = mapOf(
                                 "fontStyle" to "italic",
                                 "color" to "#666666",
-                                "marginLeft" to "20px",
+                                "marginLeft" to "sp(5)", // 20pt
                                 "borderLeft" to "3px solid #cccccc",
-                                "paddingLeft" to "12px",
+                                "paddingLeft" to "sp(3)", // 12pt
                             ),
                         ),
                     ),
@@ -316,7 +316,7 @@ class DemoLoader(
                                 "fontSize" to "28pt",
                                 "fontWeight" to "700",
                                 "color" to "#111827",
-                                "marginBottom" to "20px",
+                                "marginBottom" to "sp(5)", // 20pt
                             ),
                             applicableTo = listOf("text", "container"),
                         ),
@@ -326,7 +326,7 @@ class DemoLoader(
                                 "fontSize" to "20pt",
                                 "fontWeight" to "600",
                                 "color" to "#374151",
-                                "marginBottom" to "14px",
+                                "marginBottom" to "sp(4)", // 16pt (was 14px, snapped to grid)
                             ),
                             applicableTo = listOf("text", "container"),
                         ),
@@ -334,7 +334,10 @@ class DemoLoader(
                             label = "Accent Box",
                             styles = mapOf(
                                 "backgroundColor" to "#f3f4f6",
-                                "padding" to "16px",
+                                "paddingTop" to "sp(4)", // 16pt
+                                "paddingRight" to "sp(4)",
+                                "paddingBottom" to "sp(4)",
+                                "paddingLeft" to "sp(4)",
                                 "borderRadius" to "8px",
                             ),
                         ),

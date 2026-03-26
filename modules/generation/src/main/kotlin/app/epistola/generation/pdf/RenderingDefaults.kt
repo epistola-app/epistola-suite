@@ -112,11 +112,56 @@ data class RenderingDefaults(
             baseFontSizePt = 12f,
         )
 
+        /**
+         * V2: Systematic spacing based on a 4pt grid (see [SpacingScale]).
+         *
+         * Changes from V1:
+         * - Component spacing uses `sp()` tokens instead of em-based values
+         * - Heading margins snapped to 4pt grid (was arbitrary em-derived floats)
+         * - List spacing snapped to 4pt grid
+         * - All values now align to multiples of [SpacingScale.DEFAULT_BASE_UNIT]
+         *
+         * These values must NEVER be changed — create V3 instead.
+         */
+        val V2 = RenderingDefaults(
+            version = 2,
+            defaultPageSettings = V1.defaultPageSettings, // unchanged: A4, portrait, 20mm margins
+            componentSpacing = mapOf(
+                "text" to mapOf("marginBottom" to "sp(1.5)"), // 6pt (was "0.5em" ≈ 6pt)
+                "container" to mapOf("marginBottom" to "sp(1.5)"),
+                "columns" to mapOf("marginBottom" to "sp(1.5)"),
+                "table" to mapOf("marginBottom" to "sp(1.5)"),
+                "datatable" to mapOf("marginBottom" to "sp(1.5)"),
+                "image" to mapOf("marginBottom" to "sp(1.5)"),
+            ),
+            headingSizes = V1.headingSizes, // typography sizes stay in pt
+            headingMargins = mapOf(
+                1 to 12f, // sp(3) = 12pt (was 9.6f)
+                2 to 8f, // sp(2) = 8pt (was 5.4f)
+                3 to 4f, // sp(1) = 4pt (was 2.8f)
+            ),
+            paragraphMarginBottom = 6f, // sp(1.5) = 6pt (unchanged)
+            listMarginBottom = 4f, // sp(1) = 4pt (was 3.6f)
+            listMarginLeft = 20f, // sp(5) = 20pt (was 18f)
+            listItemMarginBottom = 2f, // sp(0.5) = 2pt (was 1.8f)
+            tableBorderWidth = 0.5f, // not spacing
+            tableBorderColorHex = "#808080",
+            tableCellPadding = 8f, // sp(2) = 8pt (unchanged)
+            datatableDefaultColumnWidthPercent = 33f,
+            columnGap = 8f, // sp(2) = 8pt (unchanged)
+            baseFontSizePt = 12f,
+            pageHeaderPadding = 20f, // sp(5) = 20pt (unchanged)
+            pageHeaderHeight = 60f, // content dimension, not spacing
+            pageFooterPadding = 20f, // sp(5) = 20pt (unchanged)
+            pageFooterHeight = 60f,
+        )
+
         /** The defaults version used for newly published template versions. */
-        val CURRENT = V1
+        val CURRENT = V2
 
         private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
             1 to V1,
+            2 to V2,
         )
 
         /**

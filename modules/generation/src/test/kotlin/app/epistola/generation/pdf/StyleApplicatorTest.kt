@@ -130,4 +130,66 @@ class StyleApplicatorTest {
             fontCache = fontCache,
         )
     }
+
+    // -----------------------------------------------------------------------
+    // sp() token support
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `applyStylesWithPreset handles sp() tokens in styles`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("marginBottom" to "sp(2)"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // sp(2) with default base unit 4pt = 8pt → should not throw
+    }
+
+    @Test
+    fun `applyStylesWithPreset handles sp() tokens in default styles`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = null,
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+            defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
+        )
+        // sp(1.5) with default base unit 4pt = 6pt → should not throw
+    }
+
+    @Test
+    fun `applyStylesWithPreset passes spacingUnit to sp() resolution`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("marginBottom" to "sp(2)"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+            spacingUnit = 6f, // custom base: sp(2) = 12pt
+        )
+        // Should not throw
+    }
+
+    @Test
+    fun `applyStylesWithPreset still handles legacy px and em values`() {
+        val div = Div()
+        StyleApplicator.applyStylesWithPreset(
+            div,
+            blockInlineStyles = mapOf("marginBottom" to "16px", "paddingTop" to "0.5em"),
+            blockStylePreset = null,
+            blockStylePresets = emptyMap(),
+            documentStyles = null,
+            fontCache = fontCache,
+        )
+        // Legacy values should still work
+    }
 }

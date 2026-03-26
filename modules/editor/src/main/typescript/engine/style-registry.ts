@@ -79,8 +79,8 @@ export const defaultStyleRegistry: StyleRegistry = {
       name: 'spacing',
       label: 'Spacing',
       properties: [
-        { key: 'padding', label: 'Padding', type: 'spacing', units: ['px', 'em', 'rem'] },
-        { key: 'margin', label: 'Margin', type: 'spacing', units: ['px', 'em', 'rem'] },
+        { key: 'padding', label: 'Padding', type: 'spacing', units: ['sp', 'pt', 'px', 'em', 'rem'] },
+        { key: 'margin', label: 'Margin', type: 'spacing', units: ['sp', 'pt', 'px', 'em', 'rem'] },
       ],
     },
     {

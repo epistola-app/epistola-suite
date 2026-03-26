@@ -104,6 +104,51 @@ export function renderColorInput(
 }
 
 // ---------------------------------------------------------------------------
+// Spacing scale: systematic spacing based on multiples of a base unit.
+// Mirrors SpacingScale.kt on the backend.
+// ---------------------------------------------------------------------------
+
+export const SPACING_SCALE = [
+  { token: '0', multiplier: 0 },
+  { token: '0.5', multiplier: 0.5 },
+  { token: '1', multiplier: 1 },
+  { token: '1.5', multiplier: 1.5 },
+  { token: '2', multiplier: 2 },
+  { token: '3', multiplier: 3 },
+  { token: '4', multiplier: 4 },
+  { token: '5', multiplier: 5 },
+  { token: '6', multiplier: 6 },
+  { token: '8', multiplier: 8 },
+  { token: '10', multiplier: 10 },
+  { token: '12', multiplier: 12 },
+  { token: '16', multiplier: 16 },
+] as const
+
+export const DEFAULT_SPACING_UNIT = 4 // pt
+
+/** Format a spacing token label with resolved pt value. */
+export function spacingTokenLabel(token: string, multiplier: number, baseUnit: number): string {
+  const pt = multiplier * baseUnit
+  return `${token} (${pt}pt)`
+}
+
+/** Check if a CSS value is an sp() token. */
+export function isSpacingToken(value: string): boolean {
+  return /^sp\([^)]+\)$/.test(value)
+}
+
+/** Parse an sp() token, returning the step name or null. */
+export function parseSpacingToken(value: string): string | null {
+  const match = value.match(/^sp\(([^)]+)\)$/)
+  return match ? match[1] : null
+}
+
+/** Format a spacing token: sp(2) */
+export function formatSpacingToken(step: string): string {
+  return `sp(${step})`
+}
+
+// ---------------------------------------------------------------------------
 // Spacing input: 4-value (top/right/bottom/left)
 // ---------------------------------------------------------------------------
 
@@ -192,6 +237,79 @@ export function renderSpacingInput(
 }
 
 // ---------------------------------------------------------------------------
+// Spacing token input: per-side dropdown with sp() scale + custom escape hatch
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders a spacing input that uses the spacing scale by default.
+ * Each side shows a dropdown with scale tokens (resolved to pt for preview).
+ * A "Custom" option reveals a raw number + unit input for escape-hatch values.
+ */
+export function renderSpacingTokenInput(
+  value: unknown,
+  units: string[],
+  onChange: (value: SpacingValue) => void,
+  baseUnit: number = DEFAULT_SPACING_UNIT,
+): unknown {
+  const defaultUnit = units[0] ?? 'px'
+  const parsed = parseSpacingValue(value, defaultUnit)
+  const sides = ['top', 'right', 'bottom', 'left'] as const
+
+  const handleSideChange = (side: string, newValue: string) => {
+    onChange({ ...parsed, [side]: newValue })
+  }
+
+  return html`
+    <div class="style-spacing-input">
+      ${sides.map(side => {
+        const sideValue = parsed[side]
+        const token = isSpacingToken(sideValue) ? parseSpacingToken(sideValue) : null
+        const isCustom = sideValue !== `0${defaultUnit}` && !isSpacingToken(sideValue) && sideValue !== ''
+
+        return html`
+          <div class="style-spacing-side">
+            <span class="style-spacing-label">${side[0].toUpperCase()}</span>
+            <select
+              class="ep-select style-spacing-token-select"
+              @change=${(e: Event) => {
+                const val = (e.target as HTMLSelectElement).value
+                if (val === '__custom__') {
+                  // Switch to custom: use current resolved value or 0
+                  const currentParsed = parseValueWithUnit(sideValue, 'pt')
+                  handleSideChange(side, formatValueWithUnit(currentParsed.value, currentParsed.unit))
+                } else {
+                  handleSideChange(side, formatSpacingToken(val))
+                }
+              }}
+            >
+              ${SPACING_SCALE.map(s => html`
+                <option
+                  .value=${s.token}
+                  ?selected=${token === s.token}
+                >${spacingTokenLabel(s.token, s.multiplier, baseUnit)}</option>
+              `)}
+              <option value="__custom__" ?selected=${isCustom}>Custom...</option>
+            </select>
+            ${isCustom ? html`
+              <input
+                type="number"
+                class="ep-input style-spacing-number"
+                .value=${String(parseValueWithUnit(sideValue, defaultUnit).value)}
+                @change=${(e: Event) => {
+                  const num = parseFloat((e.target as HTMLInputElement).value) || 0
+                  const unit = parseValueWithUnit(sideValue, defaultUnit).unit
+                  handleSideChange(side, formatValueWithUnit(num, unit))
+                }}
+              />
+            ` : nothing}
+          </div>
+        `
+      })}
+    </div>
+  `
+}
+
+// ---------------------------------------------------------------------------
 // Spacing: individual key expansion/reading
 // ---------------------------------------------------------------------------
 
@@ -215,7 +333,7 @@ export function expandSpacingToStyles(
   }
   for (const [suffix, sideValue] of Object.entries(sides)) {
     const key = `${prefix}${suffix}`
-    if (sideValue && sideValue !== '0px' && sideValue !== '0em' && sideValue !== '0rem') {
+    if (sideValue && sideValue !== '0px' && sideValue !== '0em' && sideValue !== '0rem' && sideValue !== 'sp(0)') {
       styles[key] = sideValue
     } else {
       delete styles[key]

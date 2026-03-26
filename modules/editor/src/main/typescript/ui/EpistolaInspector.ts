@@ -12,6 +12,7 @@ import {
   renderUnitInput,
   renderColorInput,
   renderSpacingInput,
+  renderSpacingTokenInput,
   renderSelectInput,
   expandSpacingToStyles,
   readSpacingFromStyles,
@@ -340,12 +341,21 @@ export class EpistolaInspector extends LitElement {
           value,
           (v) => onChange(v || undefined),
         )
-      case 'spacing':
+      case 'spacing': {
+        const units = prop.units ?? ['px']
+        if (units.includes('sp')) {
+          return renderSpacingTokenInput(
+            value,
+            units,
+            (v) => onChange(v),
+          )
+        }
         return renderSpacingInput(
           value,
-          prop.units ?? ['px'],
+          units,
           (v) => onChange(v),
         )
+      }
       case 'number':
         return html`
           <input

@@ -27,8 +27,13 @@ class RenderingDefaultsTest {
     }
 
     @Test
-    fun `CURRENT is V1`() {
-        assertSame(RenderingDefaults.V1, RenderingDefaults.CURRENT)
+    fun `forVersion returns V2 for version 2`() {
+        assertSame(RenderingDefaults.V2, RenderingDefaults.forVersion(2))
+    }
+
+    @Test
+    fun `CURRENT is V2`() {
+        assertSame(RenderingDefaults.V2, RenderingDefaults.CURRENT)
     }
 
     // -----------------------------------------------------------------------
@@ -112,5 +117,48 @@ class RenderingDefaultsTest {
     fun `engineVersionString follows expected format`() {
         val version = RenderingDefaults.V1.engineVersionString()
         assert(version.startsWith("epistola-gen-1+itext-")) { "Unexpected format: $version" }
+    }
+
+    // -----------------------------------------------------------------------
+    // V2: spacing scale alignment
+    // -----------------------------------------------------------------------
+
+    @Test
+    fun `V2 component spacing uses sp tokens`() {
+        for ((type, defaults) in RenderingDefaults.V2.componentSpacing) {
+            val marginBottom = defaults["marginBottom"] as? String
+            assertNotNull(marginBottom, "Expected marginBottom for $type")
+            assert(marginBottom.startsWith("sp(")) { "$type marginBottom should use sp() token, was: $marginBottom" }
+        }
+    }
+
+    @Test
+    fun `V2 heading margins are grid-aligned`() {
+        val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
+        for ((level, margin) in RenderingDefaults.V2.headingMargins) {
+            val remainder = margin % baseUnit
+            assertEquals(0f, remainder, "H$level heading margin ${margin}pt should be a multiple of ${baseUnit}pt")
+        }
+    }
+
+    @Test
+    fun `V2 list spacing is grid-aligned`() {
+        val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
+        assertEquals(0f, RenderingDefaults.V2.listMarginBottom % baseUnit, "listMarginBottom not grid-aligned")
+        assertEquals(0f, RenderingDefaults.V2.listMarginLeft % baseUnit, "listMarginLeft not grid-aligned")
+        assertEquals(0f, RenderingDefaults.V2.listItemMarginBottom % (baseUnit / 2f), "listItemMarginBottom not grid-aligned")
+    }
+
+    @Test
+    fun `V2 table and column spacing is grid-aligned`() {
+        val baseUnit = SpacingScale.DEFAULT_BASE_UNIT
+        assertEquals(0f, RenderingDefaults.V2.tableCellPadding % baseUnit, "tableCellPadding not grid-aligned")
+        assertEquals(0f, RenderingDefaults.V2.columnGap % baseUnit, "columnGap not grid-aligned")
+    }
+
+    @Test
+    fun `V2 engineVersionString follows expected format`() {
+        val version = RenderingDefaults.V2.engineVersionString()
+        assert(version.startsWith("epistola-gen-2+itext-")) { "Unexpected format: $version" }
     }
 }

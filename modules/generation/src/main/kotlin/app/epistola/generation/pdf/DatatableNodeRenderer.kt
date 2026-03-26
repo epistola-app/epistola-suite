@@ -76,6 +76,7 @@ class DatatableNodeRenderer : NodeRenderer {
             context.fontCache,
             context.renderingDefaults.componentDefaults("datatable"),
             context.renderingDefaults.baseFontSizePt,
+            context.spacingUnit,
         )
 
         // Border style
@@ -158,6 +159,7 @@ class DatatableNodeRenderer : NodeRenderer {
             context.documentStyles,
             context.fontCache,
             baseFontSizePt = context.renderingDefaults.baseFontSizePt,
+            spacingUnit = context.spacingUnit,
         )
     }
 }

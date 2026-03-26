@@ -18,13 +18,14 @@
 - **Tenant provisioning**: `TenantProvisioningPort` interface with Keycloak implementation that auto-creates groups (`ep_{key}_reader/editor/generator/manager`) when a tenant is created. Falls back to no-op when Keycloak is not configured.
 - **Membership sync on login**: `SyncTenantMemberships` command upserts JWT-derived memberships to `tenant_memberships` table on OAuth2 login for API key fallback and audit.
 - **Tenant membership role column**: `tenant_memberships` table now includes `role` and `last_synced_at` columns for JWT claim sync.
+- **Spacing scale system**: Introduced a systematic spacing scale based on a 4pt base grid with `Nsp` notation. All spacing values are now multiples of a configurable base unit (default 4pt), providing consistent visual rhythm across documents. Themes can customize the `spacingUnit` for tighter or looser designs.
+- **Border rendering in PDF**: StyleApplicator now renders borderWidth/borderStyle/borderColor, compound shorthands (borderTop/Bottom/Left/Right), and borderRadius.
 
 ### Changed
 - **Keycloak realm export**: Replaced `epistola-tenants-mapper` (organization membership) and `epistola-client-roles-mapper` (client roles) with built-in Group Membership Mapper. Removed `tenant-manager` client role. Test users now assigned to `ep_*` groups.
 - **Platform roles sourcing**: `TENANT_MANAGER` is now sourced from the `ep_tenant-manager` group instead of `resource_access.epistola-suite.roles` client role.
 - **EpistolaPrincipal**: Added `globalRoles` field. `hasAccessToTenant()`, `rolesFor()`, `hasPermission()`, and `hasRole()` now merge global roles with per-tenant roles.
-
-### Changed
+- **Simplified unit system**: Only 3 units — pt (all sizes), sp (spacing scale), mm (page margins). Removed px, em, rem, cm.
 - **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
 
 ### Changed

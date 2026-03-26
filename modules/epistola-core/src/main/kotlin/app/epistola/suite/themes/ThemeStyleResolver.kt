@@ -1,5 +1,6 @@
 package app.epistola.suite.themes
 
+import app.epistola.generation.pdf.SpacingScale
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.ThemeKey
 import app.epistola.template.model.DocumentStyles
@@ -17,6 +18,7 @@ data class ResolvedStyles(
     val documentStyles: DocumentStyles,
     val pageSettings: PageSettings?,
     val blockStylePresets: BlockStylePresets,
+    val spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
 )
 
 /**
@@ -96,6 +98,7 @@ class ThemeStyleResolver(
                 documentStyles = mergeDocumentStyles(theme.documentStyles, templateDocumentStyles),
                 pageSettings = theme.pageSettings, // Theme page settings as fallback
                 blockStylePresets = theme.blockStylePresets ?: BlockStylePresets.EMPTY,
+                spacingUnit = theme.spacingUnit ?: SpacingScale.DEFAULT_BASE_UNIT,
             )
         } else {
             ResolvedStyles(

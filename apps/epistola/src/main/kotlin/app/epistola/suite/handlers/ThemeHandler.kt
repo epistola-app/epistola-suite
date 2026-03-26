@@ -38,6 +38,8 @@ data class UpdateThemeRequest(
     val clearPageSettings: Boolean = false,
     val blockStylePresets: BlockStylePresets? = null,
     val clearBlockStylePresets: Boolean = false,
+    val spacingUnit: Float? = null,
+    val clearSpacingUnit: Boolean = false,
 )
 
 @Component
@@ -158,6 +160,7 @@ class ThemeHandler(
             "documentStyles" to theme.documentStyles,
             "pageSettings" to theme.pageSettings,
             "blockStylePresets" to (theme.blockStylePresets ?: emptyMap()),
+            "spacingUnit" to theme.spacingUnit,
         )
 
         return ServerResponse.ok().page("themes/detail") {
@@ -186,6 +189,8 @@ class ThemeHandler(
             clearPageSettings = updateRequest.clearPageSettings,
             blockStylePresets = updateRequest.blockStylePresets,
             clearBlockStylePresets = updateRequest.clearBlockStylePresets,
+            spacingUnit = updateRequest.spacingUnit,
+            clearSpacingUnit = updateRequest.clearSpacingUnit,
         ).execute()
             ?: return ServerResponse.notFound().build()
 
@@ -199,6 +204,7 @@ class ThemeHandler(
                     "documentStyles" to theme.documentStyles,
                     "pageSettings" to theme.pageSettings,
                     "blockStylePresets" to theme.blockStylePresets,
+                    "spacingUnit" to theme.spacingUnit,
                     "lastModified" to theme.lastModified,
                 ),
             )

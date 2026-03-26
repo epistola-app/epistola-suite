@@ -89,6 +89,7 @@ class GenerationService(
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
+            spacingUnit = resolvedStyles.spacingUnit,
         )
     }
 
@@ -122,6 +123,7 @@ class GenerationService(
             pdfaCompliant = pdfaCompliant,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
+            spacingUnit = themeSnapshot.spacingUnit,
         )
     }
 

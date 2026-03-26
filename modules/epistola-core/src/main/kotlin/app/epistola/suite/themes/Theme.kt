@@ -104,6 +104,8 @@ data class Theme(
     @Json val documentStyles: DocumentStyles,
     @Json val pageSettings: PageSettings?,
     @Json val blockStylePresets: BlockStylePresets?,
+    /** Spacing base unit in points (see [app.epistola.generation.pdf.SpacingScale]). Null means default (4pt). */
+    val spacingUnit: Float?,
     val createdAt: OffsetDateTime,
     val lastModified: OffsetDateTime,
 )

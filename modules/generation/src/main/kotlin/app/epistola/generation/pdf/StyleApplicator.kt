@@ -35,12 +35,13 @@ object StyleApplicator {
         documentStyles: DocumentStyles?,
         fontCache: FontCache,
         baseFontSizePt: Float = 12f,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
         // Apply document-level styles first (as defaults)
-        documentStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        documentStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply block-specific styles (override document styles)
-        blockStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        blockStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
     }
 
     /**
@@ -69,15 +70,16 @@ object StyleApplicator {
         fontCache: FontCache,
         defaultStyles: Map<String, Any>? = null,
         baseFontSizePt: Float = 12f,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
         // Apply component default styles first (lowest priority)
-        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        defaultStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply only inheritable document-level styles
         documentStyles?.let { docStyles ->
             val inheritable = docStyles.filterKeys { it in INHERITABLE_KEYS }
             if (inheritable.isNotEmpty()) {
-                applyBlockStyles(element, inheritable, fontCache, baseFontSizePt)
+                applyBlockStyles(element, inheritable, fontCache, baseFontSizePt, spacingUnit)
             }
         }
 
@@ -85,10 +87,10 @@ object StyleApplicator {
         val presetStyles = blockStylePreset?.let { blockStylePresets[it] }
 
         // Apply preset styles (override document styles)
-        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        presetStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
 
         // Apply block inline styles (override preset styles)
-        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt) }
+        blockInlineStyles?.let { applyBlockStyles(element, it, fontCache, baseFontSizePt, spacingUnit) }
     }
 
     /**
@@ -115,7 +117,7 @@ object StyleApplicator {
         }
     }
 
-    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache, baseFontSizePt: Float = 12f) {
+    private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT) {
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
             parseFontSize(fontSize, baseFontSizePt)?.let { element.setFontSize(it) }
@@ -138,30 +140,30 @@ object StyleApplicator {
 
         // Margins
         (styles["marginTop"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginTop(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginTop(it) }
         }
         (styles["marginRight"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginRight(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginRight(it) }
         }
         (styles["marginBottom"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginBottom(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginBottom(it) }
         }
         (styles["marginLeft"] as? String)?.let { margin ->
-            parseSize(margin, baseFontSizePt)?.let { element.setMarginLeft(it) }
+            parseSize(margin, baseFontSizePt, spacingUnit)?.let { element.setMarginLeft(it) }
         }
 
         // Padding
         (styles["paddingTop"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingTop(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingTop(it) }
         }
         (styles["paddingRight"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingRight(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingRight(it) }
         }
         (styles["paddingBottom"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingBottom(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingBottom(it) }
         }
         (styles["paddingLeft"] as? String)?.let { padding ->
-            parseSize(padding, baseFontSizePt)?.let { element.setPaddingLeft(it) }
+            parseSize(padding, baseFontSizePt, spacingUnit)?.let { element.setPaddingLeft(it) }
         }
 
         // Width
@@ -171,7 +173,7 @@ object StyleApplicator {
                     element.setWidth(UnitValue.createPercentValue(it))
                 }
             } else {
-                parseSize(width, baseFontSizePt)?.let { element.setWidth(it) }
+                parseSize(width, baseFontSizePt, spacingUnit)?.let { element.setWidth(it) }
             }
         }
 
@@ -203,13 +205,18 @@ object StyleApplicator {
         else -> fontSize.toFloatOrNull()
     }
 
-    private fun parseSize(size: String, baseFontSizePt: Float = 12f): Float? = when {
-        size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
-        size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
-        size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // mm to pt
-        size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
-        size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
-        else -> size.toFloatOrNull()
+    private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
+        // Try spacing token first (e.g., "sp(2)" → 8pt with default base unit)
+        SpacingScale.parseSp(size, spacingUnit)?.let { return it }
+
+        return when {
+            size.endsWith("px") -> size.removeSuffix("px").toFloatOrNull()?.let { it * 0.75f }
+            size.endsWith("pt") -> size.removeSuffix("pt").toFloatOrNull()
+            size.endsWith("mm") -> size.removeSuffix("mm").toFloatOrNull()?.let { it * 2.83465f } // mm to pt
+            size.endsWith("cm") -> size.removeSuffix("cm").toFloatOrNull()?.let { it * 28.3465f }
+            size.endsWith("em") -> size.removeSuffix("em").toFloatOrNull()?.let { it * baseFontSizePt }
+            else -> size.toFloatOrNull()
+        }
     }
 
     private fun parseColor(color: String): DeviceRgb? = try {

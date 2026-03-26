@@ -86,6 +86,7 @@ class ImageNodeRenderer : NodeRenderer {
             context.fontCache,
             context.renderingDefaults.componentDefaults("image"),
             context.renderingDefaults.baseFontSizePt,
+            context.spacingUnit,
         )
         div.add(image)
 

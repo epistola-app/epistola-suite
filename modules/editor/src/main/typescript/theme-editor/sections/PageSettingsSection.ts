@@ -5,7 +5,7 @@
  */
 
 import { html } from 'lit'
-import { renderColorInput } from '../../ui/inputs/style-inputs.js'
+import { renderColorInput, DEFAULT_SPACING_UNIT } from '../../ui/inputs/style-inputs.js'
 import type { ThemeEditorState } from '../ThemeEditorState.js'
 
 const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 }
@@ -68,6 +68,27 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
           backgroundColor,
           (value) => state.updatePageSetting('backgroundColor', value || undefined),
         )}
+      </div>
+
+      <div class="inspector-field">
+        <label class="inspector-field-label">Spacing Unit (pt)</label>
+        <p class="theme-section-hint">
+          Base unit for the spacing scale. All sp() values are multiples of this.
+        </p>
+        <input
+          type="number"
+          class="ep-input"
+          min="1"
+          max="16"
+          step="0.5"
+          .value=${String(state.theme.spacingUnit ?? DEFAULT_SPACING_UNIT)}
+          @change=${(e: Event) => {
+            const val = parseFloat((e.target as HTMLInputElement).value)
+            if (val >= 1 && val <= 16) {
+              state.updateSpacingUnit(val === DEFAULT_SPACING_UNIT ? null : val)
+            }
+          }}
+        />
       </div>
     </section>
   `

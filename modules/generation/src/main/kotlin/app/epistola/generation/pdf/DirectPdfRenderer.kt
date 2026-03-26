@@ -59,6 +59,7 @@ class DirectPdfRenderer(
         pdfaCompliant: Boolean = false,
         assetResolver: AssetResolver? = null,
         renderingDefaults: RenderingDefaults = RenderingDefaults.CURRENT,
+        spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT,
     ) {
         val writer = PdfWriter(outputStream)
         val pdfDocument = if (pdfaCompliant) {
@@ -96,6 +97,7 @@ class DirectPdfRenderer(
             document = document,
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
+            spacingUnit = spacingUnit,
         )
 
         // Set default font on the document so all text uses embedded Liberation Sans

@@ -30,6 +30,7 @@ class TextNodeRenderer : NodeRenderer {
             context.fontCache,
             context.renderingDefaults.componentDefaults("text"),
             context.renderingDefaults.baseFontSizePt,
+            context.spacingUnit,
         )
 
         // Convert TipTap content to iText elements
