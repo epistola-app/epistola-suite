@@ -212,12 +212,27 @@ object StyleApplicator {
             }
         }
 
-        // Border radius
+        // Borders: per-side individual properties (borderTopWidth + borderTopStyle + borderTopColor)
+        for ((side, setter) in BORDER_SIDE_SETTERS) {
+            val sideWidth = (styles["${side}Width"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+            val sideStyle = styles["${side}Style"] as? String ?: "solid"
+            val sideColor = (styles["${side}Color"] as? String)?.let { parseColor(it) }
+            if (sideWidth != null && sideWidth > 0f && sideStyle != "none") {
+                val color = sideColor ?: DeviceRgb(0, 0, 0)
+                setter(element, createBorder(sideStyle, sideWidth, color))
+            }
+        }
+
+        // Border radius: unified or per-corner
         (styles["borderRadius"] as? String)?.let { radius ->
             parseSize(radius, baseFontSizePt, spacingUnit)?.let { element.setBorderRadius(BorderRadius(it)) }
         }
+        applyPerCornerRadius(element, styles, baseFontSizePt, spacingUnit)
 
-        // Note: lineHeight is handled differently in iText - skipping for now
+        // Letter spacing
+        (styles["letterSpacing"] as? String)?.let { spacing ->
+            parseSize(spacing, baseFontSizePt, spacingUnit)?.let { element.setCharacterSpacing(it) }
+        }
     }
 
     private fun createBorder(style: String, width: Float, color: DeviceRgb): com.itextpdf.layout.borders.Border = when (style) {
@@ -239,6 +254,25 @@ object StyleApplicator {
         if (style == "none") return null
 
         return createBorder(style, width, color)
+    }
+
+    private fun <T : BlockElement<T>> applyPerCornerRadius(
+        element: T,
+        styles: Map<String, Any>,
+        baseFontSizePt: Float,
+        spacingUnit: Float,
+    ) {
+        val tl = (styles["borderTopLeftRadius"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+        val tr = (styles["borderTopRightRadius"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+        val br = (styles["borderBottomRightRadius"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+        val bl = (styles["borderBottomLeftRadius"] as? String)?.let { parseSize(it, baseFontSizePt, spacingUnit) }
+
+        if (tl != null || tr != null || br != null || bl != null) {
+            element.setBorderTopLeftRadius(BorderRadius(tl ?: 0f))
+            element.setBorderTopRightRadius(BorderRadius(tr ?: 0f))
+            element.setBorderBottomRightRadius(BorderRadius(br ?: 0f))
+            element.setBorderBottomLeftRadius(BorderRadius(bl ?: 0f))
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
