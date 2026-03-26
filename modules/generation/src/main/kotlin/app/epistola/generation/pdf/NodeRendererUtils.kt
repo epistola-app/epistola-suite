@@ -3,6 +3,7 @@ package app.epistola.generation.pdf
 import app.epistola.template.model.BorderStyle
 import app.epistola.template.model.Expression
 import app.epistola.template.model.ExpressionLanguage
+import app.epistola.template.model.Node
 import com.itextpdf.kernel.colors.Color
 import com.itextpdf.kernel.colors.ColorConstants
 import com.itextpdf.kernel.colors.DeviceRgb
@@ -112,4 +113,23 @@ internal fun parseHexBorderColor(hex: String): Color = try {
     }
 } catch (_: Exception) {
     ColorConstants.GRAY
+}
+
+/**
+ * Parses a node's `height` prop as a size value (pt or sp) to points.
+ * Returns null if no height prop is set or if it can't be parsed.
+ */
+internal fun parseNodeHeight(node: Node?, context: RenderContext): Float? {
+    val value = node?.props?.get("height") ?: return null
+    return when (value) {
+        is Number -> value.toFloat()
+        is String -> {
+            SpacingScale.parseSp(value, context.spacingUnit)?.let { return it }
+            when {
+                value.endsWith("pt") -> value.removeSuffix("pt").toFloatOrNull()
+                else -> value.toFloatOrNull()
+            }
+        }
+        else -> null
+    }
 }

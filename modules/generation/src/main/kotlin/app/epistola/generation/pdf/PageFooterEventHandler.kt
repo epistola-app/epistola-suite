@@ -32,7 +32,9 @@ class PageFooterEventHandler(
         val leftPadding = 36f
         val rightPadding = 36f
         val bottomPadding = context.renderingDefaults.pageFooterPadding
-        val footerHeight = context.renderingDefaults.pageFooterHeight
+        val footerNode = document.nodes[footerNodeId]
+        val footerHeight = parseNodeHeight(footerNode, context)
+            ?: context.renderingDefaults.pageFooterHeight
 
         val footerRect = Rectangle(
             pageSize.left + leftPadding,
@@ -47,7 +49,6 @@ class PageFooterEventHandler(
         val canvas = Canvas(pdfCanvas, footerRect)
 
         // Render the footer node's slots with page-scoped system parameters
-        val footerNode = document.nodes[footerNodeId]
         if (footerNode != null) {
             val pageNumber = pdfDoc.getPageNumber(page)
             val pageContext = context.withPageParams(pageNumber)

@@ -416,7 +416,9 @@ export function createDefaultRegistry(): ComponentRegistry {
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
-    inspector: [],
+    inspector: [
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+    ],
     maxInstancesPerDocument: 1,
   })
 
@@ -428,7 +430,9 @@ export function createDefaultRegistry(): ComponentRegistry {
     slots: [{ name: 'children' }],
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
-    inspector: [],
+    inspector: [
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
+    ],
     maxInstancesPerDocument: 1,
   })
 
