@@ -123,12 +123,6 @@ export const SPACING_SCALE = [
 
 export const DEFAULT_SPACING_UNIT = 4 // pt
 
-/** Format a spacing token label with resolved pt value. */
-export function spacingTokenLabel(token: string, multiplier: number, baseUnit: number): string {
-  const pt = multiplier * baseUnit
-  return `${token} (${pt}pt)`
-}
-
 /** Find the nearest spacing scale step for a given pt value. */
 export function nearestSpacingStep(ptValue: number, baseUnit: number): string {
   const multiplier = ptValue / baseUnit
@@ -235,9 +229,8 @@ export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingVal
 /**
  * Renders a spacing input with 4 side controls (T/R/B/L) + a shared unit selector.
  *
- * When the unit is 'sp', each side renders as a dropdown of spacing scale steps.
- * When the unit is 'pt'/'px'/'em'/'rem', each side renders as a number input.
- * Switching units converts values automatically (sp↔absolute).
+ * All units use number inputs — sp values are multipliers (e.g., 2 = 2sp = 8pt),
+ * pt values are absolute points. Switching units converts values automatically.
  */
 export function renderSpacingInput(
   value: unknown,
@@ -254,51 +247,38 @@ export function renderSpacingInput(
     onChange({ ...parsed, [side]: newValue })
   }
 
-  const isSp = currentUnit === 'sp'
+  /** Extract numeric value from a side, whether sp or pt. */
+  const sideNumber = (sideValue: string): number => {
+    if (currentUnit === 'sp') {
+      return parseFloat(parseSpacingToken(sideValue) ?? '0') || 0
+    }
+    return parseValueWithUnit(sideValue, currentUnit).value
+  }
+
+  /** Format a number back with the current unit. */
+  const formatSide = (num: number): string => {
+    if (currentUnit === 'sp') return formatSpacingToken(String(num))
+    return formatValueWithUnit(num, currentUnit)
+  }
 
   return html`
     <div class="style-spacing-input">
-      ${sides.map(side => {
-        const sideValue = parsed[side]
-
-        if (isSp) {
-          // Scale mode: dropdown with spacing scale steps
-          const token = parseSpacingToken(sideValue) ?? '0'
-          return html`
-            <div class="style-spacing-side">
-              <span class="style-spacing-label">${side[0].toUpperCase()}</span>
-              <select
-                class="ep-select style-spacing-number"
-                @change=${(e: Event) => {
-                  handleSideChange(side, formatSpacingToken((e.target as HTMLSelectElement).value))
-                }}
-              >
-                ${SPACING_SCALE.map(s => html`
-                  <option .value=${s.token} ?selected=${token === s.token}
-                  >${spacingTokenLabel(s.token, s.multiplier, baseUnit)}</option>
-                `)}
-              </select>
-            </div>
-          `
-        }
-
-        // Absolute mode: number input
-        const sideParsed = parseValueWithUnit(sideValue, currentUnit)
-        return html`
-          <div class="style-spacing-side">
-            <span class="style-spacing-label">${side[0].toUpperCase()}</span>
-            <input
-              type="number"
-              class="ep-input style-spacing-number"
-              .value=${String(sideParsed.value)}
-              @change=${(e: Event) => {
-                const num = parseFloat((e.target as HTMLInputElement).value) || 0
-                handleSideChange(side, formatValueWithUnit(num, currentUnit))
-              }}
-            />
-          </div>
-        `
-      })}
+      ${sides.map(side => html`
+        <div class="style-spacing-side">
+          <span class="style-spacing-label">${side[0].toUpperCase()}</span>
+          <input
+            type="number"
+            class="ep-input style-spacing-number"
+            step=${currentUnit === 'sp' ? '0.5' : '1'}
+            min="0"
+            .value=${String(sideNumber(parsed[side]))}
+            @change=${(e: Event) => {
+              const num = parseFloat((e.target as HTMLInputElement).value) || 0
+              handleSideChange(side, formatSide(num))
+            }}
+          />
+        </div>
+      `)}
       ${units.length > 1 ? html`
         <select
           class="ep-select style-spacing-unit"
