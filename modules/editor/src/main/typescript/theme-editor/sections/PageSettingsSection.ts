@@ -73,7 +73,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
       <div class="inspector-field">
         <label class="inspector-field-label">Spacing Unit (pt)</label>
         <p class="theme-section-hint">
-          Base unit for the spacing scale. All sp() values are multiples of this.
+          Base unit for the spacing scale. All sp values are multiples of this.
         </p>
         <input
           type="number"

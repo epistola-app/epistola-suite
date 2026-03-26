@@ -120,7 +120,7 @@ object StyleApplicator {
     private fun <T : BlockElement<T>> applyBlockStyles(element: T, styles: Map<String, Any>, fontCache: FontCache, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT) {
         // Font size
         (styles["fontSize"] as? String)?.let { fontSize ->
-            parseFontSize(fontSize, baseFontSizePt)?.let { element.setFontSize(it) }
+            parseFontSize(fontSize, baseFontSizePt, spacingUnit)?.let { element.setFontSize(it) }
         }
 
         // Color
@@ -197,9 +197,12 @@ object StyleApplicator {
         // Note: lineHeight is handled differently in iText - skipping for now
     }
 
-    private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f): Float? = when {
-        fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
-        else -> fontSize.toFloatOrNull() // unitless number treated as pt
+    private fun parseFontSize(fontSize: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
+        SpacingScale.parseSp(fontSize, spacingUnit)?.let { return it }
+        return when {
+            fontSize.endsWith("pt") -> fontSize.removeSuffix("pt").toFloatOrNull()
+            else -> fontSize.toFloatOrNull() // unitless number treated as pt
+        }
     }
 
     private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {

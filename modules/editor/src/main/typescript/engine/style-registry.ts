@@ -32,7 +32,7 @@ export const defaultStyleRegistry: StyleRegistry = {
           label: 'Size',
           type: 'unit',
           inheritable: true,
-          units: ['pt'],
+          units: ['pt', 'sp'],
         },
         {
           key: 'fontWeight',
@@ -58,7 +58,7 @@ export const defaultStyleRegistry: StyleRegistry = {
           label: 'Letter Spacing',
           type: 'unit',
           inheritable: true,
-          units: ['pt'],
+          units: ['pt', 'sp'],
         },
         {
           key: 'textAlign',
@@ -93,7 +93,7 @@ export const defaultStyleRegistry: StyleRegistry = {
       name: 'borders',
       label: 'Borders',
       properties: [
-        { key: 'borderWidth', label: 'Width', type: 'unit', units: ['pt'] },
+        { key: 'borderWidth', label: 'Width', type: 'unit', units: ['pt', 'sp'] },
         {
           key: 'borderStyle',
           label: 'Style',
@@ -106,7 +106,7 @@ export const defaultStyleRegistry: StyleRegistry = {
           ],
         },
         { key: 'borderColor', label: 'Color', type: 'color' },
-        { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt'] },
+        { key: 'borderRadius', label: 'Radius', type: 'unit', units: ['pt', 'sp'] },
       ],
     },
   ],

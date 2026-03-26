@@ -38,6 +38,7 @@ export function renderUnitInput(
   value: unknown,
   units: string[],
   onChange: (value: string) => void,
+  baseUnit: number = DEFAULT_SPACING_UNIT,
 ): unknown {
   const defaultUnit = units[0] ?? 'pt'
   const parsed = parseValueWithUnit(value, defaultUnit)
@@ -47,18 +48,32 @@ export function renderUnitInput(
     onChange(formatValueWithUnit(num, parsed.unit))
   }
 
+  const handleUnitChange = (e: Event) => {
+    const newUnit = (e.target as HTMLSelectElement).value
+    const oldUnit = parsed.unit
+    let newValue = parsed.value
+    // Convert between sp and pt
+    if (oldUnit === 'pt' && newUnit === 'sp') {
+      newValue = parseFloat(nearestSpacingStep(parsed.value, baseUnit))
+    } else if (oldUnit === 'sp' && newUnit === 'pt') {
+      newValue = parsed.value * baseUnit
+    }
+    onChange(formatValueWithUnit(newValue, newUnit))
+  }
+
   return html`
     <div class="style-unit-input">
       <input
         type="number"
         class="ep-input style-unit-number"
+        step=${parsed.unit === 'sp' ? '0.5' : '1'}
         .value=${String(parsed.value)}
         @change=${handleNumberChange}
       />
       ${units.length > 1 ? html`
         <select
           class="ep-select style-unit-select"
-          @change=${(e: Event) => onChange(formatValueWithUnit(parsed.value, (e.target as HTMLSelectElement).value))}
+          @change=${handleUnitChange}
         >
           ${units.map(u => html`
             <option .value=${u} ?selected=${u === parsed.unit}>${u}</option>
