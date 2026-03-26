@@ -109,12 +109,12 @@ describe('resolveNodeStyles', () => {
     const docStyles = { fontFamily: 'Arial', fontSize: '14px', color: '#000', backgroundColor: '#fff' }
     const preset = { fontSize: '18px', paddingTop: '10px' }
     const inline = { color: 'red' }
-    const defaults = { marginBottom: '0.5em', color: 'black' }
+    const defaults = { marginBottom: '1.5sp', color: 'black' }
 
     const result = resolveNodeStyles(docStyles, inheritableKeys, preset, inline, defaults)
 
     expect(result).toEqual({
-      marginBottom: '0.5em',   // from defaults (not overridden)
+      marginBottom: '1.5sp',   // from defaults (not overridden)
       fontFamily: 'Arial',     // from doc (inheritable)
       fontSize: '18px',        // overridden by preset
       color: 'red',            // overridden by inline (defaults → doc → inline)
@@ -157,26 +157,26 @@ describe('resolveNodeStyles', () => {
 
   it('applies defaultStyles as lowest priority layer', () => {
     const docStyles = {}
-    const defaults = { marginBottom: '0.5em', fontSize: '12px' }
+    const defaults = { marginBottom: '1.5sp', fontSize: '12px' }
 
     const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined, defaults)
 
-    expect(result).toEqual({ marginBottom: '0.5em', fontSize: '12px' })
+    expect(result).toEqual({ marginBottom: '1.5sp', fontSize: '12px' })
   })
 
   it('defaultStyles are overridden by inheritable doc styles', () => {
     const docStyles = { fontSize: '16px' }
-    const defaults = { marginBottom: '0.5em', fontSize: '12px' }
+    const defaults = { marginBottom: '1.5sp', fontSize: '12px' }
 
     const result = resolveNodeStyles(docStyles, inheritableKeys, undefined, undefined, defaults)
 
     expect(result.fontSize).toBe('16px') // doc overrides default
-    expect(result.marginBottom).toBe('0.5em') // default preserved
+    expect(result.marginBottom).toBe('1.5sp') // default preserved
   })
 
   it('defaultStyles are overridden by preset', () => {
     const preset = { marginBottom: '1em' }
-    const defaults = { marginBottom: '0.5em' }
+    const defaults = { marginBottom: '1.5sp' }
 
     const result = resolveNodeStyles({}, inheritableKeys, preset, undefined, defaults)
 
@@ -185,7 +185,7 @@ describe('resolveNodeStyles', () => {
 
   it('defaultStyles are overridden by inline', () => {
     const inline = { marginBottom: '2em' }
-    const defaults = { marginBottom: '0.5em' }
+    const defaults = { marginBottom: '1.5sp' }
 
     const result = resolveNodeStyles({}, inheritableKeys, undefined, inline, defaults)
 

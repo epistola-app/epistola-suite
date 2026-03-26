@@ -31,7 +31,7 @@ export function createColumnsDefinition(): ComponentDefinition {
     inspector: [
       { key: 'gap', label: 'Gap', type: 'number', defaultValue: 0 },
     ],
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
     defaultProps: { columnSizes: [1, 1], gap: 0 },
     createInitialSlots: (nodeId: NodeId) => {
       const sizes = [1, 1] // matches defaultProps.columnSizes

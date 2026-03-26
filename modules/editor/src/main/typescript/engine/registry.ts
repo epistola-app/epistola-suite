@@ -336,7 +336,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'none' },
     applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
     defaultProps: { content: null },
   })
 
@@ -349,7 +349,7 @@ export function createDefaultRegistry(): ComponentRegistry {
     allowedChildren: { mode: 'all' },
     applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
   })
 
   registry.register(createColumnsDefinition())

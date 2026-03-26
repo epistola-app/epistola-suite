@@ -22,13 +22,18 @@ function resolveContentUrl(pattern: string, assetId: string): string {
   return pattern.replace('{assetId}', assetId)
 }
 
-/** Parse a CSS px value, returning the numeric part or null for non-px / empty values. */
-function parsePx(value: unknown): number | null {
+/** Parse a pt value, returning the numeric part or null for non-pt / empty values. */
+function parsePt(value: unknown): number | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
-  if (!trimmed.endsWith('px')) return null
+  if (!trimmed.endsWith('pt')) return null
   const num = parseFloat(trimmed)
   return Number.isFinite(num) && num > 0 ? num : null
+}
+
+/** Convert image pixel dimensions to pt (1px = 0.75pt). */
+function pxToPt(px: number): number {
+  return Math.round(px * 0.75)
 }
 
 export function createImageDefinition(options: ImageOptions): ComponentDefinition {
@@ -40,7 +45,7 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
     slots: [],
     allowedChildren: { mode: 'none' },
     applicableStyles: IMAGE_STYLES,
-    defaultStyles: { marginBottom: '0.5em' },
+    defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
       { key: 'alt', label: 'Alt Text', type: 'text' },
       { key: 'width', label: 'Width', type: 'text' },
@@ -58,18 +63,18 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
     onPropChange: (key, value, props) => {
       if (!props.aspectRatioLocked) return props
 
-      const oldWidth = parsePx(props.width)
-      const oldHeight = parsePx(props.height)
+      const oldWidth = parsePt(props.width)
+      const oldHeight = parsePt(props.height)
 
       if (key === 'width' && oldHeight && oldWidth) {
-        const newWidth = parsePx(value)
+        const newWidth = parsePt(value)
         if (newWidth) {
-          props.height = `${Math.round(oldHeight * (newWidth / oldWidth))}px`
+          props.height = `${Math.round(oldHeight * (newWidth / oldWidth))}pt`
         }
       } else if (key === 'height' && oldWidth && oldHeight) {
-        const newHeight = parsePx(value)
+        const newHeight = parsePt(value)
         if (newHeight) {
-          props.width = `${Math.round(oldWidth * (newHeight / oldHeight))}px`
+          props.width = `${Math.round(oldWidth * (newHeight / oldHeight))}pt`
         }
       }
 
@@ -90,8 +95,8 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
             ...node.props,
             assetId: asset.id,
             alt: asset.name,
-            width: asset.width ? `${asset.width}px` : '',
-            height: asset.height ? `${asset.height}px` : '',
+            width: asset.width ? `${pxToPt(asset.width)}pt` : '',
+            height: asset.height ? `${pxToPt(asset.height)}pt` : '',
           },
         })
       }
@@ -130,8 +135,8 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       return {
         assetId: asset.id,
         alt: asset.name,
-        width: asset.width ? `${asset.width}px` : '',
-        height: asset.height ? `${asset.height}px` : '',
+        width: asset.width ? `${pxToPt(asset.width)}pt` : '',
+        height: asset.height ? `${pxToPt(asset.height)}pt` : '',
       }
     },
   }
