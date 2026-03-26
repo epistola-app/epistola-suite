@@ -132,6 +132,69 @@ export function spacingTokenLabel(token: string, multiplier: number, baseUnit: n
   return `${token} (${pt}pt)`
 }
 
+/** Find the nearest spacing scale step for a given pt value. */
+export function nearestSpacingStep(ptValue: number, baseUnit: number): string {
+  const multiplier = ptValue / baseUnit
+  let bestToken = SPACING_SCALE[0].token as string
+  let bestDist = Math.abs(multiplier - SPACING_SCALE[0].multiplier)
+  for (const s of SPACING_SCALE) {
+    const dist = Math.abs(multiplier - s.multiplier)
+    if (dist < bestDist) {
+      bestToken = s.token
+      bestDist = dist
+    }
+  }
+  return bestToken
+}
+
+/**
+ * Detect the current unit from a set of spacing side values.
+ * Returns 'sp' if any side uses an sp() token, otherwise parses the unit suffix.
+ */
+function detectSpacingUnit(parsed: SpacingValue, defaultUnit: string): string {
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
+    const v = parsed[side]
+    if (v && isSpacingToken(v)) return 'sp'
+    if (v && v !== '0' && v !== '') {
+      const p = parseValueWithUnit(v, defaultUnit)
+      if (p.unit && p.unit !== defaultUnit) return p.unit
+    }
+  }
+  return defaultUnit
+}
+
+/**
+ * Convert a single side value to a new unit.
+ * Handles sp() ↔ absolute conversions.
+ */
+function convertSideValue(value: string, fromUnit: string, toUnit: string, baseUnit: number, defaultAbsUnit: string): string {
+  if (fromUnit === toUnit) return value
+
+  if (fromUnit === 'sp' && toUnit !== 'sp') {
+    // sp → absolute: resolve token to pt, then format in target unit
+    const step = parseSpacingToken(value)
+    const multiplier = step != null ? (parseFloat(step) || 0) : 0
+    const pt = multiplier * baseUnit
+    // For simplicity, output in pt (the PDF native unit)
+    return formatValueWithUnit(pt, toUnit)
+  }
+
+  if (fromUnit !== 'sp' && toUnit === 'sp') {
+    // absolute → sp: parse to number, find nearest step
+    const p = parseValueWithUnit(value, defaultAbsUnit)
+    // Convert to pt first if needed
+    let pt = p.value
+    if (p.unit === 'px') pt = p.value * 0.75
+    else if (p.unit === 'em' || p.unit === 'rem') pt = p.value * 12 // approximate
+    const step = nearestSpacingStep(pt, baseUnit)
+    return formatSpacingToken(step)
+  }
+
+  // absolute → absolute: keep numeric value, change unit suffix
+  const p = parseValueWithUnit(value, defaultAbsUnit)
+  return formatValueWithUnit(p.value, toUnit)
+}
+
 /** Check if a CSS value is an sp() token. */
 export function isSpacingToken(value: string): boolean {
   return /^sp\([^)]+\)$/.test(value)
@@ -184,23 +247,58 @@ export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingVal
   return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] }
 }
 
+/**
+ * Renders a spacing input with 4 side controls (T/R/B/L) + a shared unit selector.
+ *
+ * When the unit is 'sp', each side renders as a dropdown of spacing scale steps.
+ * When the unit is 'pt'/'px'/'em'/'rem', each side renders as a number input.
+ * Switching units converts values automatically (sp↔absolute).
+ */
 export function renderSpacingInput(
   value: unknown,
   units: string[],
   onChange: (value: SpacingValue) => void,
+  baseUnit: number = DEFAULT_SPACING_UNIT,
 ): unknown {
-  const defaultUnit = units[0] ?? 'px'
-  const parsed = parseSpacingValue(value, defaultUnit)
+  const firstAbsUnit = units.find(u => u !== 'sp') ?? 'pt'
+  const parsed = parseSpacingValue(value, firstAbsUnit)
+  const currentUnit = detectSpacingUnit(parsed, firstAbsUnit)
   const sides = ['top', 'right', 'bottom', 'left'] as const
 
   const handleSideChange = (side: string, newValue: string) => {
     onChange({ ...parsed, [side]: newValue })
   }
 
+  const isSp = currentUnit === 'sp'
+
   return html`
     <div class="style-spacing-input">
       ${sides.map(side => {
-        const sideParsed = parseValueWithUnit(parsed[side], defaultUnit)
+        const sideValue = parsed[side]
+
+        if (isSp) {
+          // Scale mode: dropdown with spacing scale steps
+          const token = parseSpacingToken(sideValue) ?? '0'
+          return html`
+            <div class="style-spacing-side">
+              <span class="style-spacing-label">${side[0].toUpperCase()}</span>
+              <select
+                class="ep-select style-spacing-number"
+                @change=${(e: Event) => {
+                  handleSideChange(side, formatSpacingToken((e.target as HTMLSelectElement).value))
+                }}
+              >
+                ${SPACING_SCALE.map(s => html`
+                  <option .value=${s.token} ?selected=${token === s.token}
+                  >${spacingTokenLabel(s.token, s.multiplier, baseUnit)}</option>
+                `)}
+              </select>
+            </div>
+          `
+        }
+
+        // Absolute mode: number input
+        const sideParsed = parseValueWithUnit(sideValue, currentUnit)
         return html`
           <div class="style-spacing-side">
             <span class="style-spacing-label">${side[0].toUpperCase()}</span>
@@ -210,7 +308,7 @@ export function renderSpacingInput(
               .value=${String(sideParsed.value)}
               @change=${(e: Event) => {
                 const num = parseFloat((e.target as HTMLInputElement).value) || 0
-                handleSideChange(side, formatValueWithUnit(num, sideParsed.unit))
+                handleSideChange(side, formatValueWithUnit(num, currentUnit))
               }}
             />
           </div>
@@ -223,119 +321,14 @@ export function renderSpacingInput(
             const newUnit = (e.target as HTMLSelectElement).value
             const result: SpacingValue = { top: '', right: '', bottom: '', left: '' }
             for (const side of sides) {
-              const p = parseValueWithUnit(parsed[side], defaultUnit)
-              result[side] = formatValueWithUnit(p.value, newUnit)
+              result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit, firstAbsUnit)
             }
             onChange(result)
           }}
         >
-          ${units.map(u => html`<option .value=${u}>${u}</option>`)}
+          ${units.map(u => html`<option .value=${u} ?selected=${u === currentUnit}>${u}</option>`)}
         </select>
       ` : nothing}
-    </div>
-  `
-}
-
-// ---------------------------------------------------------------------------
-// Spacing token input: per-side dropdown with sp() scale + custom escape hatch
-// ---------------------------------------------------------------------------
-
-/**
- * Renders a spacing input that uses the spacing scale by default.
- * Each side shows a dropdown with scale tokens (resolved to pt for preview).
- * A "Custom" option reveals a raw number + unit input for escape-hatch values.
- */
-/** Absolute units available for custom spacing values (excludes 'sp'). */
-function customSpacingUnits(units: string[]): string[] {
-  return units.filter(u => u !== 'sp')
-}
-
-export function renderSpacingTokenInput(
-  value: unknown,
-  units: string[],
-  onChange: (value: SpacingValue) => void,
-  baseUnit: number = DEFAULT_SPACING_UNIT,
-): unknown {
-  const absUnits = customSpacingUnits(units)
-  const defaultUnit = absUnits[0] ?? 'pt'
-  const parsed = parseSpacingValue(value, defaultUnit)
-  const sides = ['top', 'right', 'bottom', 'left'] as const
-
-  const handleSideChange = (side: string, newValue: string) => {
-    onChange({ ...parsed, [side]: newValue })
-  }
-
-  return html`
-    <div class="style-spacing-input">
-      ${sides.map(side => {
-        const sideValue = parsed[side]
-        const token = isSpacingToken(sideValue) ? parseSpacingToken(sideValue) : null
-        const isCustom = !isSpacingToken(sideValue) && sideValue !== `0${defaultUnit}` && sideValue !== ''
-        // For the mode selector: 'sp' when using a token, 'custom' when using raw values
-        const mode = token != null ? 'sp' : (isCustom ? 'custom' : 'sp')
-
-        return html`
-          <div class="style-spacing-side">
-            <span class="style-spacing-label">${side[0].toUpperCase()}</span>
-            <select
-              class="ep-select style-spacing-mode-select"
-              @change=${(e: Event) => {
-                const val = (e.target as HTMLSelectElement).value
-                if (val === 'custom') {
-                  handleSideChange(side, formatValueWithUnit(0, defaultUnit))
-                } else {
-                  handleSideChange(side, formatSpacingToken('0'))
-                }
-              }}
-            >
-              <option value="sp" ?selected=${mode === 'sp'}>Scale</option>
-              <option value="custom" ?selected=${mode === 'custom'}>Custom</option>
-            </select>
-            ${mode === 'sp' ? html`
-              <select
-                class="ep-select style-spacing-token-select"
-                @change=${(e: Event) => {
-                  handleSideChange(side, formatSpacingToken((e.target as HTMLSelectElement).value))
-                }}
-              >
-                ${SPACING_SCALE.map(s => html`
-                  <option
-                    .value=${s.token}
-                    ?selected=${token === s.token}
-                  >${spacingTokenLabel(s.token, s.multiplier, baseUnit)}</option>
-                `)}
-              </select>
-            ` : html`
-              <div class="style-unit-input">
-                <input
-                  type="number"
-                  class="ep-input style-spacing-number"
-                  .value=${String(parseValueWithUnit(sideValue, defaultUnit).value)}
-                  @change=${(e: Event) => {
-                    const num = parseFloat((e.target as HTMLInputElement).value) || 0
-                    const unit = parseValueWithUnit(sideValue, defaultUnit).unit
-                    handleSideChange(side, formatValueWithUnit(num, unit))
-                  }}
-                />
-                ${absUnits.length > 1 ? html`
-                  <select
-                    class="ep-select style-unit-select"
-                    @change=${(e: Event) => {
-                      const newUnit = (e.target as HTMLSelectElement).value
-                      const p = parseValueWithUnit(sideValue, defaultUnit)
-                      handleSideChange(side, formatValueWithUnit(p.value, newUnit))
-                    }}
-                  >
-                    ${absUnits.map(u => html`
-                      <option .value=${u} ?selected=${u === parseValueWithUnit(sideValue, defaultUnit).unit}>${u}</option>
-                    `)}
-                  </select>
-                ` : nothing}
-              </div>
-            `}
-          </div>
-        `
-      })}
     </div>
   `
 }

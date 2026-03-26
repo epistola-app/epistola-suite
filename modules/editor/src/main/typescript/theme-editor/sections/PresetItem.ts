@@ -13,7 +13,6 @@ import {
   renderUnitInput,
   renderColorInput,
   renderSpacingInput,
-  renderSpacingTokenInput,
   renderSelectInput,
   readSpacingFromStyles,
 } from '../../ui/inputs/style-inputs.js'
@@ -173,21 +172,12 @@ function renderPresetStyleInput(
         value,
         (v) => onChange(v || undefined),
       )
-    case 'spacing': {
-      const units = prop.units ?? ['px']
-      if (units.includes('sp')) {
-        return renderSpacingTokenInput(
-          value,
-          units,
-          (v) => onChange(v),
-        )
-      }
+    case 'spacing':
       return renderSpacingInput(
         value,
-        units,
+        prop.units ?? ['px'],
         (v) => onChange(v),
       )
-    }
     default:
       return html`
         <input
