@@ -45,9 +45,11 @@ export interface SlotTemplate {
 export interface InspectorField {
   key: string
   label: string
-  type: 'text' | 'number' | 'boolean' | 'select' | 'expression' | 'json' | 'color'
+  type: 'text' | 'number' | 'boolean' | 'select' | 'expression' | 'json' | 'color' | 'unit'
   options?: { label: string; value: unknown }[]
   defaultValue?: unknown
+  /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
+  units?: string[]
 }
 
 export interface ComponentDefinition {

@@ -48,8 +48,8 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
     defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
       { key: 'alt', label: 'Alt Text', type: 'text' },
-      { key: 'width', label: 'Width', type: 'text' },
-      { key: 'height', label: 'Height', type: 'text' },
+      { key: 'width', label: 'Width', type: 'unit', units: ['pt', 'sp', '%'] },
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp', '%'] },
       { key: 'aspectRatioLocked', label: 'Lock Aspect Ratio', type: 'boolean', defaultValue: true },
     ],
     defaultProps: {
