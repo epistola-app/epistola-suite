@@ -180,20 +180,20 @@ function convertSideValue(value: string, fromUnit: string, toUnit: string, baseU
   return value
 }
 
-/** Check if a CSS value is an sp() token. */
+/** Check if a CSS value is an sp token (e.g., "2sp", "0.5sp"). */
 export function isSpacingToken(value: string): boolean {
-  return /^sp\([^)]+\)$/.test(value)
+  return /^[\d.]+sp$/.test(value)
 }
 
-/** Parse an sp() token, returning the step name or null. */
+/** Parse an sp token, returning the step name or null. */
 export function parseSpacingToken(value: string): string | null {
-  const match = value.match(/^sp\(([^)]+)\)$/)
+  const match = value.match(/^([\d.]+)sp$/)
   return match ? match[1] : null
 }
 
-/** Format a spacing token: sp(2) */
+/** Format a spacing token: "2sp" */
 export function formatSpacingToken(step: string): string {
-  return `sp(${step})`
+  return `${step}sp`
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +342,7 @@ export function expandSpacingToStyles(
   }
   for (const [suffix, sideValue] of Object.entries(sides)) {
     const key = `${prefix}${suffix}`
-    if (sideValue && sideValue !== '0pt' && sideValue !== 'sp(0)') {
+    if (sideValue && sideValue !== '0pt' && sideValue !== '0sp') {
       styles[key] = sideValue
     } else {
       delete styles[key]

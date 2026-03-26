@@ -61,7 +61,7 @@ class RenderingDefaultsTest {
         for ((type, defaults) in RenderingDefaults.V1.componentSpacing) {
             val marginBottom = defaults["marginBottom"] as? String
             assertNotNull(marginBottom, "Expected marginBottom for $type")
-            assert(marginBottom.startsWith("sp(")) { "$type marginBottom should use sp() token, was: $marginBottom" }
+            assert(marginBottom.endsWith("sp")) { "$type marginBottom should use sp unit, was: $marginBottom" }
         }
     }
 
@@ -69,7 +69,7 @@ class RenderingDefaultsTest {
     fun `componentDefaults returns correct map for known type`() {
         val defaults = RenderingDefaults.V1.componentDefaults("text")
         assertNotNull(defaults)
-        assertEquals("sp(1.5)", defaults["marginBottom"])
+        assertEquals("1.5sp", defaults["marginBottom"])
     }
 
     @Test

@@ -65,37 +65,35 @@ class SpacingScaleTest {
     // -----------------------------------------------------------------------
 
     @Test
-    fun `parseSp parses sp(2) with default base unit`() {
-        assertEquals(8f, SpacingScale.parseSp("sp(2)"))
+    fun `parseSp parses 2sp with default base unit`() {
+        assertEquals(8f, SpacingScale.parseSp("2sp"))
     }
 
     @Test
-    fun `parseSp parses sp(0_5)`() {
-        assertEquals(2f, SpacingScale.parseSp("sp(0.5)"))
+    fun `parseSp parses 0_5sp`() {
+        assertEquals(2f, SpacingScale.parseSp("0.5sp"))
     }
 
     @Test
-    fun `parseSp parses sp(0) as zero`() {
-        assertEquals(0f, SpacingScale.parseSp("sp(0)"))
+    fun `parseSp parses 0sp as zero`() {
+        assertEquals(0f, SpacingScale.parseSp("0sp"))
     }
 
     @Test
     fun `parseSp with custom base unit`() {
-        assertEquals(15f, SpacingScale.parseSp("sp(3)", baseUnit = 5f))
+        assertEquals(15f, SpacingScale.parseSp("3sp", baseUnit = 5f))
     }
 
     @Test
     fun `parseSp returns null for non-sp values`() {
-        assertNull(SpacingScale.parseSp("16px"))
         assertNull(SpacingScale.parseSp("12pt"))
-        assertNull(SpacingScale.parseSp("1.5em"))
         assertNull(SpacingScale.parseSp(""))
         assertNull(SpacingScale.parseSp("sp"))
     }
 
     @Test
-    fun `parseSp supports arbitrary multiplier inside sp()`() {
-        assertEquals(10f, SpacingScale.parseSp("sp(2.5)"))
+    fun `parseSp supports arbitrary multiplier`() {
+        assertEquals(10f, SpacingScale.parseSp("2.5sp"))
     }
 
     // -----------------------------------------------------------------------

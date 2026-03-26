@@ -84,7 +84,7 @@ class StyleApplicatorTest {
             blockStylePresets = emptyMap(),
             documentStyles = null,
             fontCache = fontCache,
-            defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
+            defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
     }
 
@@ -99,7 +99,7 @@ class StyleApplicatorTest {
             blockStylePresets = presets,
             documentStyles = mapOf("fontFamily" to "Arial"),
             fontCache = fontCache,
-            defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
+            defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
     }
 
@@ -130,15 +130,15 @@ class StyleApplicatorTest {
     }
 
     // -----------------------------------------------------------------------
-    // sp() token support
+    // sp unit support
     // -----------------------------------------------------------------------
 
     @Test
-    fun `applyStylesWithPreset handles sp() tokens in inline styles`() {
+    fun `applyStylesWithPreset handles sp values in inline styles`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
-            blockInlineStyles = mapOf("marginBottom" to "sp(2)"),
+            blockInlineStyles = mapOf("marginBottom" to "2sp"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
             documentStyles = null,
@@ -147,7 +147,7 @@ class StyleApplicatorTest {
     }
 
     @Test
-    fun `applyStylesWithPreset handles sp() tokens in default styles`() {
+    fun `applyStylesWithPreset handles sp values in default styles`() {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
@@ -156,7 +156,7 @@ class StyleApplicatorTest {
             blockStylePresets = emptyMap(),
             documentStyles = null,
             fontCache = fontCache,
-            defaultStyles = mapOf("marginBottom" to "sp(1.5)"),
+            defaultStyles = mapOf("marginBottom" to "1.5sp"),
         )
     }
 
@@ -165,12 +165,12 @@ class StyleApplicatorTest {
         val div = Div()
         StyleApplicator.applyStylesWithPreset(
             div,
-            blockInlineStyles = mapOf("marginBottom" to "sp(2)"),
+            blockInlineStyles = mapOf("marginBottom" to "2sp"),
             blockStylePreset = null,
             blockStylePresets = emptyMap(),
             documentStyles = null,
             fontCache = fontCache,
-            spacingUnit = 6f, // sp(2) = 12pt
+            spacingUnit = 6f, // 2sp = 12pt
         )
     }
 

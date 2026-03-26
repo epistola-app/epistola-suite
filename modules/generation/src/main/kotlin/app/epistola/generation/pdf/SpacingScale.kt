@@ -3,17 +3,14 @@ package app.epistola.generation.pdf
 /**
  * Systematic spacing scale based on multiples of a configurable base unit.
  *
- * The scale uses `sp(N)` notation where N is a multiplier applied to the base unit.
- * For example, with the default base unit of 4pt:
- * - `sp(2)` resolves to 8pt
- * - `sp(3)` resolves to 12pt
- * - `sp(0.5)` resolves to 2pt
+ * Uses `Nsp` suffix notation (e.g., `2sp`, `0.5sp`) where N is a multiplier
+ * applied to the base unit. With the default base unit of 4pt:
+ * - `2sp` resolves to 8pt
+ * - `3sp` resolves to 12pt
+ * - `0.5sp` resolves to 2pt
  *
  * The scale is intentionally non-linear to provide fine control at small sizes
  * and larger jumps at bigger sizes, matching the perceptual needs of document layout.
- *
- * Arbitrary multipliers (e.g., `sp(2.5)`) are supported as an escape hatch
- * while still staying on-grid relative to the base unit.
  */
 object SpacingScale {
 
@@ -55,11 +52,11 @@ object SpacingScale {
     }
 
     /**
-     * Parses an `sp(N)` token string to an absolute pt value.
+     * Parses an `Nsp` value string to an absolute pt value.
      *
-     * @param value The string value, e.g., `"sp(3)"` or `"sp(0.5)"`
+     * @param value The string value, e.g., `"3sp"` or `"0.5sp"`
      * @param baseUnit The base unit in points (default: [DEFAULT_BASE_UNIT])
-     * @return The resolved pt value, or null if the string is not an `sp()` token
+     * @return The resolved pt value, or null if the string is not an sp value
      */
     fun parseSp(value: String, baseUnit: Float = DEFAULT_BASE_UNIT): Float? {
         val match = SP_PATTERN.matchEntire(value) ?: return null
@@ -67,5 +64,5 @@ object SpacingScale {
         return resolve(step, baseUnit)
     }
 
-    private val SP_PATTERN = Regex("""sp\(([^)]+)\)""")
+    private val SP_PATTERN = Regex("""([\d.]+)sp""")
 }

@@ -203,7 +203,7 @@ object StyleApplicator {
     }
 
     private fun parseSize(size: String, baseFontSizePt: Float = 12f, spacingUnit: Float = SpacingScale.DEFAULT_BASE_UNIT): Float? {
-        // Try spacing token first (e.g., "sp(2)" → 8pt with default base unit)
+        // Try spacing token first (e.g., "2sp" → 8pt with default base unit)
         SpacingScale.parseSp(size, spacingUnit)?.let { return it }
 
         return when {

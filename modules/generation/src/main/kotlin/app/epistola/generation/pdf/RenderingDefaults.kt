@@ -75,7 +75,7 @@ data class RenderingDefaults(
          * V1: Rendering defaults using the 4pt spacing grid (see [SpacingScale]).
          *
          * All spacing values align to multiples of [SpacingScale.DEFAULT_BASE_UNIT] (4pt).
-         * Component spacing uses `sp()` tokens. Typography sizes are in pt.
+         * Component spacing uses `sp` unit tokens. Typography sizes are in pt.
          */
         val V1 = RenderingDefaults(
             version = 1,
@@ -85,12 +85,12 @@ data class RenderingDefaults(
                 margins = Margins(top = 20, right = 20, bottom = 20, left = 20),
             ),
             componentSpacing = mapOf(
-                "text" to mapOf("marginBottom" to "sp(1.5)"), // 6pt
-                "container" to mapOf("marginBottom" to "sp(1.5)"),
-                "columns" to mapOf("marginBottom" to "sp(1.5)"),
-                "table" to mapOf("marginBottom" to "sp(1.5)"),
-                "datatable" to mapOf("marginBottom" to "sp(1.5)"),
-                "image" to mapOf("marginBottom" to "sp(1.5)"),
+                "text" to mapOf("marginBottom" to "1.5sp"), // 6pt
+                "container" to mapOf("marginBottom" to "1.5sp"),
+                "columns" to mapOf("marginBottom" to "1.5sp"),
+                "table" to mapOf("marginBottom" to "1.5sp"),
+                "datatable" to mapOf("marginBottom" to "1.5sp"),
+                "image" to mapOf("marginBottom" to "1.5sp"),
             ),
             headingSizes = mapOf(
                 1 to 24f,
@@ -98,23 +98,23 @@ data class RenderingDefaults(
                 3 to 14f,
             ),
             headingMargins = mapOf(
-                1 to 12f, // sp(3)
-                2 to 8f, // sp(2)
-                3 to 4f, // sp(1)
+                1 to 12f, // 3sp
+                2 to 8f, // 2sp
+                3 to 4f, // 1sp
             ),
-            paragraphMarginBottom = 6f, // sp(1.5)
-            listMarginBottom = 4f, // sp(1)
-            listMarginLeft = 20f, // sp(5)
-            listItemMarginBottom = 2f, // sp(0.5)
+            paragraphMarginBottom = 6f, // 1.5sp
+            listMarginBottom = 4f, // 1sp
+            listMarginLeft = 20f, // 5sp
+            listItemMarginBottom = 2f, // 0.5sp
             tableBorderWidth = 0.5f,
             tableBorderColorHex = "#808080",
-            tableCellPadding = 8f, // sp(2)
+            tableCellPadding = 8f, // 2sp
             datatableDefaultColumnWidthPercent = 33f,
-            columnGap = 8f, // sp(2)
+            columnGap = 8f, // 2sp
             baseFontSizePt = 12f,
-            pageHeaderPadding = 20f, // sp(5)
+            pageHeaderPadding = 20f, // 5sp
             pageHeaderHeight = 60f,
-            pageFooterPadding = 20f, // sp(5)
+            pageFooterPadding = 20f, // 5sp
             pageFooterHeight = 60f,
         )
 
