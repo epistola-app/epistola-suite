@@ -344,9 +344,9 @@
         "type": "container",
         "slots": ["s-header-children"],
         "styles": {
-          "marginBottom": "30px",
-          "paddingBottom": "20px",
-          "borderBottom": "2px solid #2563eb"
+          "marginBottom": "6sp",
+          "paddingBottom": "4sp",
+          "borderBottom": "2pt solid #2563eb"
         }
       },
       "n-header-columns": {
@@ -363,11 +363,11 @@
         "id": "n-vendor-logo",
         "type": "image",
         "slots": [],
-        "styles": { "marginBottom": "8px" },
+        "styles": { "marginBottom": "1.5sp" },
         "props": {
           "assetId": "00000000-0000-0000-0000-000000000001",
           "alt": "Vendor Logo",
-          "width": "120px"
+          "width": "90pt"
         }
       },
 
@@ -379,7 +379,7 @@
           "fontSize": "16pt",
           "fontWeight": "bold",
           "color": "#1e40af",
-          "marginBottom": "8px"
+          "marginBottom": "1.5sp"
         },
         "props": {
           "content": {
@@ -467,7 +467,7 @@
           "fontWeight": "bold",
           "color": "#1e40af",
           "textAlign": "right",
-          "marginBottom": "10px"
+          "marginBottom": "2sp"
         },
         "props": {
           "content": {
@@ -549,10 +549,10 @@
         "type": "container",
         "slots": ["s-customer-children"],
         "styles": {
-          "marginBottom": "30px",
-          "padding": "15px",
+          "marginBottom": "6sp",
+          "padding": "3sp",
           "backgroundColor": "#f8fafc",
-          "borderRadius": "4px"
+          "borderRadius": "3pt"
         }
       },
       "n-bill-to-label": {
@@ -563,7 +563,7 @@
           "fontSize": "11pt",
           "fontWeight": "bold",
           "color": "#1e40af",
-          "marginBottom": "8px"
+          "marginBottom": "1.5sp"
         },
         "props": {
           "content": {
@@ -653,7 +653,7 @@
           "s-lit-cell-0-0", "s-lit-cell-0-1", "s-lit-cell-0-2", "s-lit-cell-0-3"
         ],
         "styles": {
-          "marginBottom": "20px"
+          "marginBottom": "4sp"
         },
         "props": {
           "columnWidths": [50, 10, 15, 15],
@@ -671,7 +671,7 @@
           "fontWeight": "bold",
           "backgroundColor": "#2563eb",
           "color": "#ffffff",
-          "padding": "8px"
+          "padding": "1.5sp"
         },
         "props": {
           "content": {
@@ -698,7 +698,7 @@
           "fontWeight": "bold",
           "backgroundColor": "#2563eb",
           "color": "#ffffff",
-          "padding": "8px",
+          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -726,7 +726,7 @@
           "fontWeight": "bold",
           "backgroundColor": "#2563eb",
           "color": "#ffffff",
-          "padding": "8px",
+          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -754,7 +754,7 @@
           "fontWeight": "bold",
           "backgroundColor": "#2563eb",
           "color": "#ffffff",
-          "padding": "8px",
+          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -806,7 +806,7 @@
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "8px"
+          "padding": "1.5sp"
         },
         "props": {
           "content": {
@@ -833,7 +833,7 @@
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "8px",
+          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -861,7 +861,7 @@
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "8px",
+          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -893,7 +893,7 @@
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "8px",
+          "padding": "1.5sp",
           "textAlign": "right",
           "fontWeight": "600"
         },
@@ -927,8 +927,8 @@
         "type": "container",
         "slots": ["s-totals-children"],
         "styles": {
-          "marginTop": "20px",
-          "marginBottom": "30px"
+          "marginTop": "4sp",
+          "marginBottom": "6sp"
         }
       },
       "n-totals-columns": {
@@ -945,9 +945,9 @@
         "type": "container",
         "slots": ["s-totals-box-children"],
         "styles": {
-          "padding": "15px",
+          "padding": "3sp",
           "backgroundColor": "#f8fafc",
-          "borderRadius": "4px"
+          "borderRadius": "3pt"
         }
       },
       "n-subtotal-line": {
@@ -955,7 +955,7 @@
         "type": "text",
         "slots": [],
         "styles": {
-          "marginBottom": "8px",
+          "marginBottom": "1.5sp",
           "fontSize": "10pt"
         },
         "props": {
@@ -994,9 +994,9 @@
         "type": "text",
         "slots": [],
         "styles": {
-          "marginBottom": "12px",
-          "paddingBottom": "12px",
-          "borderBottom": "1px solid #cbd5e1",
+          "marginBottom": "3sp",
+          "paddingBottom": "3sp",
+          "borderBottom": "1pt solid #cbd5e1",
           "fontSize": "10pt"
         },
         "props": {
@@ -1099,9 +1099,9 @@
         "type": "container",
         "slots": ["s-notes-children"],
         "styles": {
-          "marginTop": "30px",
-          "paddingTop": "20px",
-          "borderTop": "1px solid #cbd5e1"
+          "marginTop": "6sp",
+          "paddingTop": "4sp",
+          "borderTop": "1pt solid #cbd5e1"
         }
       },
       "n-notes-label": {
@@ -1111,7 +1111,7 @@
         "styles": {
           "fontSize": "10pt",
           "fontWeight": "bold",
-          "marginBottom": "8px"
+          "marginBottom": "1.5sp"
         },
         "props": {
           "content": {
@@ -1165,9 +1165,9 @@
         "type": "container",
         "slots": ["s-footer-children"],
         "styles": {
-          "marginTop": "40px",
-          "paddingTop": "20px",
-          "borderTop": "2px solid #e5e7eb",
+          "marginTop": "8sp",
+          "paddingTop": "4sp",
+          "borderTop": "2pt solid #e5e7eb",
           "textAlign": "center"
         }
       },
