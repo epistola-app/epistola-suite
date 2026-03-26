@@ -365,7 +365,7 @@
         "slots": [],
         "styles": { "marginBottom": "1.5sp" },
         "props": {
-          "assetId": "00000000-0000-0000-0000-000000000001",
+          "assetId": "00000000-0000-0000-0000-100000000001",
           "alt": "Vendor Logo",
           "width": "90pt"
         }
