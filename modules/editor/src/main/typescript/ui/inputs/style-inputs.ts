@@ -39,6 +39,7 @@ export function renderUnitInput(
   units: string[],
   onChange: (value: string) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
+  onClear?: () => void,
 ): unknown {
   const defaultUnit = units[0] ?? 'pt'
   const parsed = parseValueWithUnit(value, defaultUnit)
@@ -80,6 +81,7 @@ export function renderUnitInput(
           `)}
         </select>
       ` : html`<span class="style-unit-label">${defaultUnit}</span>`}
+      ${onClear ? html`<button class="style-input-clear" title="Clear" @click=${onClear}>&times;</button>` : nothing}
     </div>
   `
 }
@@ -91,6 +93,7 @@ export function renderUnitInput(
 export function renderColorInput(
   value: unknown,
   onChange: (value: string) => void,
+  onClear?: () => void,
 ): unknown {
   const colorValue = value != null ? String(value) : ''
   // Ensure the color picker gets a valid hex value
@@ -111,6 +114,7 @@ export function renderColorInput(
         @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
         placeholder="#000000"
       />
+      ${onClear ? html`<button class="style-input-clear" title="Clear" @click=${onClear}>&times;</button>` : nothing}
     </div>
   `
 }
@@ -206,7 +210,19 @@ export function formatSpacingToken(step: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Spacing input: 4-value (top/right/bottom/left)
+// Linking state for box inputs (margin/padding/border)
+// ---------------------------------------------------------------------------
+
+export interface BoxLinkState {
+  all: boolean
+  horizontal: boolean
+  vertical: boolean
+}
+
+export const DEFAULT_BOX_LINK_STATE: BoxLinkState = { all: true, horizontal: false, vertical: false }
+
+// ---------------------------------------------------------------------------
+// Spacing input: 4-value (top/right/bottom/left) with linking
 // ---------------------------------------------------------------------------
 
 export interface SpacingValue {
@@ -242,76 +258,113 @@ export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingVal
 }
 
 /**
- * Renders a spacing input with 4 side controls (T/R/B/L) + a shared unit selector.
+ * Renders a spacing input with linking support.
  *
- * All units use number inputs — sp values are multipliers (e.g., 2 = 2sp = 8pt),
- * pt values are absolute points. Switching units converts values automatically.
+ * When linked "All": single input for all 4 sides.
+ * When unlinked: 4 individual inputs (T/R/B/L).
+ * Supports sp and pt units with automatic conversion.
  */
 export function renderSpacingInput(
   value: unknown,
   units: string[],
   onChange: (value: SpacingValue) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
+  linkState: BoxLinkState = DEFAULT_BOX_LINK_STATE,
+  onLinkStateChange?: (state: BoxLinkState) => void,
+  onClear?: () => void,
 ): unknown {
   const firstAbsUnit = units.find(u => u !== 'sp') ?? 'pt'
   const parsed = parseSpacingValue(value, firstAbsUnit)
   const currentUnit = detectSpacingUnit(parsed, firstAbsUnit)
-  const sides = ['top', 'right', 'bottom', 'left'] as const
 
-  const handleSideChange = (side: string, newValue: string) => {
-    onChange({ ...parsed, [side]: newValue })
-  }
-
-  /** Extract numeric value from a side, whether sp or pt. */
   const sideNumber = (sideValue: string): number => {
-    if (currentUnit === 'sp') {
-      return parseFloat(parseSpacingToken(sideValue) ?? '0') || 0
-    }
+    if (currentUnit === 'sp') return parseFloat(parseSpacingToken(sideValue) ?? '0') || 0
     return parseValueWithUnit(sideValue, currentUnit).value
   }
 
-  /** Format a number back with the current unit. */
   const formatSide = (num: number): string => {
     if (currentUnit === 'sp') return formatSpacingToken(String(num))
     return formatValueWithUnit(num, currentUnit)
   }
 
+  const setAll = (num: number) => {
+    const v = formatSide(num)
+    onChange({ top: v, right: v, bottom: v, left: v })
+  }
+
+  const setSide = (side: string, num: number) => {
+    const v = formatSide(num)
+    // Sync linked sides
+    const result = { ...parsed }
+    if (linkState.all) {
+      result.top = v; result.right = v; result.bottom = v; result.left = v
+    } else {
+      (result as Record<string, string>)[side] = v
+      if (linkState.horizontal && (side === 'top' || side === 'bottom')) {
+        result.top = v; result.bottom = v
+      }
+      if (linkState.vertical && (side === 'left' || side === 'right')) {
+        result.left = v; result.right = v
+      }
+    }
+    onChange(result)
+  }
+
+  const toggleAll = () => {
+    const newAll = !linkState.all
+    if (newAll) setAll(sideNumber(parsed.top))
+    onLinkStateChange?.({ all: newAll, horizontal: false, vertical: false })
+  }
+
+  const sideInput = (side: 'top' | 'right' | 'bottom' | 'left', label: string) => html`
+    <div class="style-spacing-side">
+      <span class="style-spacing-label">${label}</span>
+      <input
+        type="number"
+        class="ep-input style-spacing-number"
+        step=${currentUnit === 'sp' ? '0.5' : '1'}
+        min="0"
+        .value=${String(sideNumber(parsed[side]))}
+        @change=${(e: Event) => setSide(side, parseFloat((e.target as HTMLInputElement).value) || 0)}
+      />
+    </div>
+  `
+
+  const unitSelect = units.length > 1 ? html`
+    <div class="style-spacing-side">
+      <span class="style-spacing-label">&nbsp;</span>
+      <select
+        class="ep-select style-spacing-unit"
+        @change=${(e: Event) => {
+          const newUnit = (e.target as HTMLSelectElement).value
+          const sides = ['top', 'right', 'bottom', 'left'] as const
+          const result: SpacingValue = { top: '', right: '', bottom: '', left: '' }
+          for (const s of sides) result[s] = convertSideValue(parsed[s], currentUnit, newUnit, baseUnit)
+          onChange(result)
+        }}
+      >
+        ${units.map(u => html`<option .value=${u} ?selected=${u === currentUnit}>${u}</option>`)}
+      </select>
+    </div>
+  ` : nothing
+
   return html`
-    <div class="style-spacing-input">
-      ${sides.map(side => html`
-        <div class="style-spacing-side">
-          <span class="style-spacing-label">${side[0].toUpperCase()}</span>
-          <input
-            type="number"
-            class="ep-input style-spacing-number"
-            step=${currentUnit === 'sp' ? '0.5' : '1'}
-            min="0"
-            .value=${String(sideNumber(parsed[side]))}
-            @change=${(e: Event) => {
-              const num = parseFloat((e.target as HTMLInputElement).value) || 0
-              handleSideChange(side, formatSide(num))
-            }}
-          />
-        </div>
-      `)}
-      ${units.length > 1 ? html`
-        <div class="style-spacing-side">
-          <span class="style-spacing-label">&nbsp;</span>
-          <select
-            class="ep-select style-spacing-unit"
-            @change=${(e: Event) => {
-              const newUnit = (e.target as HTMLSelectElement).value
-              const result: SpacingValue = { top: '', right: '', bottom: '', left: '' }
-              for (const side of sides) {
-                result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit)
-              }
-              onChange(result)
-            }}
-          >
-            ${units.map(u => html`<option .value=${u} ?selected=${u === currentUnit}>${u}</option>`)}
-          </select>
+    <div class="style-box-input">
+      ${onLinkStateChange ? html`
+        <div class="style-box-header">
+          <label class="style-box-link-label">
+            <input type="checkbox" .checked=${linkState.all} @change=${toggleAll} />
+            All
+          </label>
+          ${onClear ? html`<button class="style-input-clear" title="Clear" @click=${onClear}>&times;</button>` : nothing}
         </div>
       ` : nothing}
+      <div class="style-spacing-input">
+        ${linkState.all
+          ? html`${sideInput('top', 'All')}${unitSelect}`
+          : html`${sideInput('top', 'T')}${sideInput('right', 'R')}${sideInput('bottom', 'B')}${sideInput('left', 'L')}${unitSelect}`
+        }
+      </div>
     </div>
   `
 }

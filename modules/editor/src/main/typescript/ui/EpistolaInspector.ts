@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
+import { customElement, property, state } from 'lit/decorators.js'
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js'
 import type { EditorEngine } from '../engine/EditorEngine.js'
 import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
@@ -15,7 +15,9 @@ import {
   renderSelectInput,
   expandSpacingToStyles,
   readSpacingFromStyles,
+  DEFAULT_BOX_LINK_STATE,
   type SpacingValue,
+  type BoxLinkState,
 } from './inputs/style-inputs.js'
 
 @customElement('epistola-inspector')
@@ -27,6 +29,17 @@ export class EpistolaInspector extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine
   @property({ attribute: false }) doc?: TemplateDocument
   @property({ attribute: false }) selectedNodeId: NodeId | null = null
+
+  /** Per-node link states for box inputs (margin/padding). Keyed by `${nodeId}:${fieldKey}`. */
+  @state() private _boxLinkStates: Map<string, BoxLinkState> = new Map()
+
+  private _getBoxLinkState(nodeId: string, fieldKey: string): BoxLinkState {
+    return this._boxLinkStates.get(`${nodeId}:${fieldKey}`) ?? DEFAULT_BOX_LINK_STATE
+  }
+
+  private _setBoxLinkState(nodeId: string, fieldKey: string, state: BoxLinkState) {
+    this._boxLinkStates = new Map(this._boxLinkStates).set(`${nodeId}:${fieldKey}`, state)
+  }
 
   override render() {
     if (!this.engine || !this.doc) {
@@ -289,6 +302,7 @@ export class EpistolaInspector extends LitElement {
                   prop,
                   value,
                   (v) => this._handleNodeStyleChange(prop.key, v),
+                  node.id,
                 )
               })}
             </div>
@@ -308,11 +322,12 @@ export class EpistolaInspector extends LitElement {
     prop: StyleProperty,
     value: unknown,
     onChange: (value: unknown) => void,
+    nodeId?: string,
   ): unknown {
     return html`
       <div class="inspector-field">
         <label class="inspector-field-label">${prop.label}</label>
-        ${this._renderStyleInput(prop, value, onChange)}
+        ${this._renderStyleInput(prop, value, onChange, nodeId)}
       </div>
     `
   }
@@ -321,6 +336,7 @@ export class EpistolaInspector extends LitElement {
     prop: StyleProperty,
     value: unknown,
     onChange: (value: unknown) => void,
+    nodeId?: string,
   ): unknown {
     switch (prop.type) {
       case 'select':
@@ -332,19 +348,26 @@ export class EpistolaInspector extends LitElement {
       case 'unit':
         return renderUnitInput(
           value,
-          prop.units ?? ['px'],
+          prop.units ?? ['pt'],
           (v) => onChange(v),
+          undefined, // baseUnit
+          () => onChange(undefined),
         )
       case 'color':
         return renderColorInput(
           value,
           (v) => onChange(v || undefined),
+          () => onChange(undefined),
         )
       case 'spacing':
         return renderSpacingInput(
           value,
-          prop.units ?? ['px'],
+          prop.units ?? ['pt'],
           (v) => onChange(v),
+          undefined, // baseUnit — use default
+          nodeId ? this._getBoxLinkState(nodeId, prop.key) : DEFAULT_BOX_LINK_STATE,
+          nodeId ? (s) => this._setBoxLinkState(nodeId, prop.key, s) : undefined,
+          () => onChange(undefined),
         )
       case 'number':
         return html`
