@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **CI build failure due to import ordering**: Fixed lexicographic import ordering in `DocumentGenerationExecutor.kt` that caused ktlint check to fail.
 - **Document generation fails with "No authenticated user in current scope"**: The `JobPoller` executes generation jobs on virtual threads outside the HTTP request scope, where no `SecurityContext` principal is bound. The mediator's authorization checks (`RequiresPermission`, `RequiresAuthentication`) would then reject all queries. Fixed by creating a system principal with full tenant access for the request's tenant and binding it via `SecurityContext.runWithPrincipal()` before executing the job.
 
 ### Changed
