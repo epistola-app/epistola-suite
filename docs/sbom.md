@@ -41,21 +41,21 @@ gradle :apps:epistola:generateSbom :modules:editor:npmSbom
 
 ## SBOM Locations
 
-| Location | File | Contents |
-|----------|------|----------|
-| GitHub Release | `epistola-backend-{version}-sbom.json` | Backend dependencies |
-| GitHub Release | `epistola-editor-{version}-sbom.json` | Frontend dependencies |
-| Docker Image | `META-INF/sbom/bom.json` | Backend dependencies |
-| CI Artifact | `sbom` (workflow artifact) | Both SBOMs |
+| Location       | File                                   | Contents              |
+| -------------- | -------------------------------------- | --------------------- |
+| GitHub Release | `epistola-backend-{version}-sbom.json` | Backend dependencies  |
+| GitHub Release | `epistola-editor-{version}-sbom.json`  | Frontend dependencies |
+| Docker Image   | `META-INF/sbom/bom.json`               | Backend dependencies  |
+| CI Artifact    | `sbom` (workflow artifact)             | Both SBOMs            |
 
 ## Format Details
 
-| Property | Backend | Frontend |
-|----------|---------|----------|
-| Standard | CycloneDX | CycloneDX |
-| Format | JSON | JSON |
-| Schema Version | 1.6 | 1.4 |
-| Components | ~290 | ~55 |
+| Property       | Backend   | Frontend  |
+| -------------- | --------- | --------- |
+| Standard       | CycloneDX | CycloneDX |
+| Format         | JSON      | JSON      |
+| Schema Version | 1.6       | 1.4       |
+| Components     | ~290      | ~55       |
 
 ## Using the SBOM
 

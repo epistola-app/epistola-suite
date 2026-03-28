@@ -14,15 +14,18 @@
 - **Refactored TemplatePreviewHandler**: Now delegates to the `PreviewDraft` query instead of containing its own rendering logic.
 
 ### Fixed
+
 - **CI build failure due to import ordering**: Fixed lexicographic import ordering in `DocumentGenerationExecutor.kt` that caused ktlint check to fail.
 - **Document generation fails with "No authenticated user in current scope"**: The `JobPoller` executes generation jobs on virtual threads outside the HTTP request scope, where no `SecurityContext` principal is bound. The mediator's authorization checks (`RequiresPermission`, `RequiresAuthentication`) would then reject all queries. Fixed by creating a system principal with full tenant access for the request's tenant and binding it via `SecurityContext.runWithPrincipal()` before executing the job.
 
 ### Changed
+
 - **Data contract example editor UX polish**: Added focus-visible ring styles for keyboard accessibility. Refactored hover states to nested CSS selectors. Redesigned empty states with icons, larger dimensions, and dashed borders. Improved tree layout with larger inputs, better spacing, and grid-based label/input arrangement. Added semantic color-coded type badges for object/list fields. Added validation success indicator to toolbar. Enhanced array item rows with numbered indicators, inline remove buttons, and collapsible object items.
 
 - **Data contract example editor accessibility**: Added role="list"/"listitem" semantics for array containers. Added aria-describedby to inputs with validation errors for screen reader announcements. Added aria-hidden to decorative elements (badges, icons, error dots). Added aria-label to collapsible details elements for context. Added aria-label to checkbox inputs in boolean fields. Added for/id association between example name label and input. Enhanced chip buttons with aria-label describing example name and validation status.
 
 ### Added
+
 - **Authorization enforcement in mediator**: All commands and queries now declare authorization requirements via marker interfaces (`RequiresPermission`, `RequiresPlatformRole`, `RequiresAuthentication`, `SystemInternal`). The `SpringMediator` enforces these before dispatching — unauthenticated or unauthorized requests are rejected with `PermissionDeniedException`, `TenantAccessDeniedException`, or `PlatformAccessDeniedException`.
 - **Authorization coverage safety net**: `AuthorizationCoverageTest` uses classpath scanning to verify every `Command` and `Query` implements `Authorized`, preventing unprotected operations from being added.
 - **Enterprise authorization model**: Four-layer authorization architecture (L1: Authentication, L2: Tenant access, L3: Coarse roles, L4: Fine-grained permissions). Keycloak owns L1-L3; Epistola owns L4.
@@ -39,6 +42,7 @@
 - **Border rendering in PDF**: StyleApplicator now renders borderWidth/borderStyle/borderColor, compound shorthands (borderTop/Bottom/Left/Right), and borderRadius.
 
 ### Changed
+
 - **Keycloak realm export**: Replaced `epistola-tenants-mapper` (organization membership) and `epistola-client-roles-mapper` (client roles) with built-in Group Membership Mapper. Removed `tenant-manager` client role. Test users now assigned to `ep_*` groups.
 - **Platform roles sourcing**: `TENANT_MANAGER` is now sourced from the `ep_tenant-manager` group instead of `resource_access.epistola-suite.roles` client role.
 - **EpistolaPrincipal**: Added `globalRoles` field. `hasAccessToTenant()`, `rolesFor()`, `hasPermission()`, and `hasRole()` now merge global roles with per-tenant roles.
@@ -46,12 +50,14 @@
 - **Release workflow**: GitHub Releases and versioned Docker images are now only created when a release is published (via GitHub UI or `gh release create`), no longer on every push to main. Main branch pushes still build, test, and push `latest`/SHA-tagged Docker images.
 
 ### Changed
+
 - **template-model moved to epistola-contract**: The `template-model` module (JSON schema types for documents, themes, components) has been moved to the `epistola-contract` repository as `editor-model` and is now consumed as an external Maven artifact (`app.epistola.contract:editor-model`) and npm package (`@epistola/editor-model`). This eliminates the last Gradle configuration cache blocker.
 - **Gradle configuration cache**: Fully enabled — all tasks in the build graph are now configuration cache compatible. Fixed 2 blockers in the editor module (project reference in `doLast`, redundant `upToDateWhen`).
 - **Convention plugins**: Extracted shared Kotlin/test/kover configuration into `epistola-kotlin-conventions` and `epistola-kover-conventions` buildSrc plugins, eliminating `allprojects`/`subprojects`/`configure` blocks from the root build file. Repositories moved to `settings.gradle.kts` via `dependencyResolutionManagement`.
 - **Linting and formatting tooling**: Replaced ESLint + Prettier with Oxlint + Oxfmt for faster (50-100x) TypeScript/JavaScript linting and formatting. Added `oxlint-tsgolint` for type-aware rules. CI now enforces `lint:check` and `format:check`. Thymeleaf templates and Helm charts are excluded from formatting via `ignorePatterns`.
 
 ### Fixed
+
 - **Session expired dialog never showing**: The `session_expires_at` cookie had the same lifetime as the session, so the browser deleted it at the exact moment the expired dialog should appear. Cookie now outlives the session by 10 minutes, and the JS monitor treats a vanished cookie as an expired session.
 - **Editor save error**: `UpdateDraft` SQL queries were missing `template_key` filter, causing errors when multiple templates share the same variant slug (e.g., "default"). Added `template_key` to UPDATE, SELECT, and MAX(id) queries.
 - **Autocomplete missing data model variables**: `GetEditorContext` cast JSONB `data_model` directly to `ObjectNode` instead of deserializing from `PGobject`, causing it to always be null. Variable autocomplete now correctly shows data model variables.
@@ -61,23 +67,29 @@
 - **Theme margin update crash**: Setting margins in the theme editor no longer crashes with a Jackson null deserialization error. `PageSettings` now has default values for `format` (A4) and `orientation` (portrait), allowing partial payloads from the frontend.
 
 ### Added
+
 - **PDF link rendering**: `TipTapConverter` now renders ProseMirror `link` marks as clickable hyperlinks in PDF output. Links are styled with blue color and underline, and support both `https://` and `mailto:` URIs. Other marks (bold, italic, etc.) are correctly applied on top of links.
 - **Local dev Docker Compose**: Unified `apps/epistola/docker/docker-compose.yaml` with PostgreSQL and Keycloak services. Single `docker compose up -d` to start all local dependencies.
 
 ### Fixed
+
 - **API docs link broken**: The nav and footer links to `/api-docs/index.html` pointed to a page that no longer existed since the OpenAPI spec moved to the `epistola-contract` repo. Replaced with an `/api-docs` page powered by Scalar that loads the bundled spec from the contract artifact. Removed the stale `rest-api` `package.json` (no longer needed).
 
 ### Changed
+
 - **epistola-contract updated to 0.1.14**: The server artifact now bundles `epistola-contract.yaml` on the classpath, served at `/api-docs/epistola-contract.yaml`.
 
 ### Fixed
+
 - **Template import: cross-template version collision**: When importing multiple templates that share the same variant key (e.g., `"default"`), SQL queries in `upsertDraft` and `publishDraft` filtered by `(tenant_key, variant_key)` without `template_key`, causing them to match version rows from other templates. This resulted in FK violations on `environment_activations` for all but the first template. Added `template_key` filter to all 6 affected queries.
 
 ### Added
+
 - **Feedback integration tests**: 22 integration tests across 7 test groups covering CreateFeedback, GetFeedback, ListFeedback (with status/category filters), Comments (local + external dedup), Assets (storage + fromDataUrl), SyncStatus (updates, retry attempts, max attempts exclusion), SyncConfig, and tenant isolation.
 - **GitHubIssueSyncAdapter unit tests**: Comprehensive test suite (12 tests) covering issue creation, screenshot upload via Contents API, graceful degradation on upload failure, multiple asset handling, console logs rendering, comment posting with author attribution, and status updates. Uses `MockRestServiceServer` for HTTP layer mocking without Spring context.
 
 ### Changed
+
 - **Feedback sync: mediator consistency**: Extracted all direct JDBI calls in sync handlers/schedulers into proper CQRS commands and queries (`UpdateFeedbackCommentExternalRef`, `UpdateFeedbackSyncStatus`, `GetFeedbackByExternalRef`, `UpdateFeedbackSyncConfigLastPolledAt`, `ListEnabledFeedbackSyncConfigs`). Sync code now follows the same mediator pattern as the rest of the codebase.
 - **Feedback sync: retry limit**: Added `sync_attempts` column to feedback table. After 5 failed sync attempts, feedback is marked as `FAILED` and excluded from retry. Prevents infinite retry loops when external service is misconfigured.
 - **Feedback sync: config check consistency**: `OnFeedbackCreated` and `OnFeedbackCommentAdded` now check both `config != null` and `config.enabled` before attempting sync.
@@ -87,19 +99,24 @@
 - **Badge template fragments**: Extracted inline Thymeleaf ternary chains for status/priority/category badges into reusable `feedback/fragments/badges.html` fragments.
 
 ### Changed
+
 - **Feedback assets: dedicated storage with GitHub upload**: Screenshots are now stored in a dedicated `feedback_assets` table instead of the shared assets system. The `screenshot_key` column has been removed from the `feedback` table. When syncing feedback to GitHub, screenshots are uploaded to `.epistola/screenshots/` in the target repository and embedded as images in the issue body. The `FeedbackSyncPort.createTicket()` signature now accepts `List<FeedbackAssetContent>` instead of `ByteArray?`, enabling multiple attachments per feedback item in the future.
 
 ### Added
+
 - **Feedback FAB with page issues popover**: The feedback floating action button now shows a popover with open feedback items for the current page (matched by URL pathname). Includes a badge count, inline links to feedback detail, and a "New" button to submit feedback. The FAB is a self-contained JS module loaded from the feedback module. The `/search` endpoint now accepts a `url` query parameter to filter feedback by source URL.
 
 ### Changed
+
 - **Feedback sync: PAT-based auth**: Replaced GitHub App authentication (JWT + installation tokens) with per-tenant Personal Access Token (PAT) authentication. Tenant admins now enter a fine-grained PAT in the settings page instead of a server-level GitHub App installation ID. Removed `GitHubAppAuthService`, `app-id`, and `private-key-path` configuration. PAT is masked in the UI for security.
 - **Removed webhook support**: Removed `GitHubWebhookController`, `GitHubWebhookVerifier`, and `GitHubAppProperties`. Inbound sync now uses polling exclusively. PAT-based auth does not support inbound webhooks.
 
 ### Added
+
 - **Feedback sync settings UI**: New settings page at `/tenants/{id}/settings/feedback-sync` for configuring per-tenant feedback sync. Supports enabling/disabling sync, selecting provider (GitHub), and entering provider-specific settings (PAT, repository owner/name, optional label). Includes form validation and persistence via existing `SaveFeedbackSyncConfig` / `GetFeedbackSyncConfig` commands.
 
 ### Changed
+
 - **Feedback sync generalization**: Refactored the feedback sync layer from GitHub-specific to provider-agnostic architecture.
   - **Port renamed**: `IssueSyncPort` → `FeedbackSyncPort` with `createTicket` (was `createIssue`), `fetchUpdates` (new), and `verifyWebhookSignature` removed from the interface.
   - **Generic config model**: `FeedbackConfig` replaced by `FeedbackSyncConfig` with `providerType` enum and `settings` JSONB column. Provider-specific settings (repo, installation ID, label) parsed by each adapter from the JSONB payload.
@@ -109,6 +126,7 @@
   - **Inbound polling**: New `FeedbackPollScheduler` polls external trackers for comments and status changes. Controlled via `epistola.feedback.sync.polling.enabled`.
 
 ### Added
+
 - **Feedback system**: In-app feedback submission with optional GitHub Issues integration for tracking bugs, feature requests, and questions.
   - **Per-tenant roles**: JWT `epistola_tenants` claim now supports structured role objects (`MEMBER`, `ADMIN`) alongside legacy flat list format. Roles control feedback access (detail/comments visible to admin or creator only).
   - **Feedback module**: New `modules/feedback` module with full CQRS domain model — `Feedback`, `FeedbackComment`, `FeedbackSyncConfig` entities with commands for create, status update, comment, and sync operations.
@@ -139,10 +157,12 @@
 - **System parameter editor support**: Expression dialog shows system parameters in a dedicated "System parameters" section with visual distinction (badge). Mock values are injected for expression preview (e.g., `sys.page.number` previews as "1").
 
 ### Changed
+
 - **Registry-driven system parameters**: `SystemParameterRegistry` is now the runtime source of truth for system parameter injection. Adding a new system parameter only requires adding a descriptor (with `mockValue`) to the registry and updating `buildPageParams()`/`buildGlobalParams()` — no scattered code changes needed. Mock data injection for the editor is centralised in `EditorEngine.getExampleData()`, eliminating duplication across UI call sites.
 - **Editor feedback flow alignment after rebase**: Removed the temporary `editor-notice` event path and restored the mainline drag-and-drop handler contract (`handleDrop` returns `void`). Shortcut feedback remains centralized through `LeaderModeController`.
 
 ### Fixed
+
 - **CycloneDX SBOM generation fails in Gradle 9**: The `cyclonedxDirectBom` task used module jar outputs without declaring task dependencies, causing build failures with Gradle's strict task dependency validation. Fixed by declaring `runtimeClasspath` as a task input so Gradle infers dependencies automatically.
 - **Security scan workflow fails**: The `security-scan.yml` workflow ran `generateSbom` without building the frontend first, causing `verifyFrontendBuild` to fail because the `dist/` directory didn't exist.
 - **Footer always shows "vdev"**: Replaced `@ControllerAdvice`-based `VersionConfig` with a `HandlerInterceptor` (`VersionInterceptor`) so that `appVersion` and `appName` are injected into all Thymeleaf models, including functional route handlers. The old `@ModelAttribute` approach only applied to annotated `@Controller` beans.
@@ -154,11 +174,13 @@
 - **GetEditorContext query**: Added missing `template_key` to the LEFT JOIN on `template_versions`, preventing potential cross-template draft version matching when two templates share a variant slug.
 
 ### Changed
+
 - **Handler ID extraction**: Added `ServerRequest` extension functions (`tenantId()`, `templateId()`, `variantId()`, `versionId()`, `themeId()`, `environmentId()`, `attributeId()`) that replace repetitive composite ID construction boilerplate across all 9 handler files.
 - **Load test form upgrade**: Replaced static text inputs with dynamic HTMX-driven dropdowns for variant, version, data example, and environment selection. Variants, versions, and data examples load dynamically based on template and variant selection. Selecting a data example pre-fills the test data JSON. Version and environment fields are now dropdowns. Fixed blank test data submission bug.
 - **Editor shortcuts architecture refactoring**: Major simplification of the keyboard shortcuts system — extracted LeaderModeController into a standalone testable class (17 new tests), made KeybindingDefinition generic to eliminate 13 type casts, collapsed the dual config/foundation type system by making runtime files self-contained (removing ~570 lines of translation boilerplate), unified the two ShortcutResolver instances into one using context-based routing, and slimmed shortcuts-config.ts from ~395 to ~70 lines. Adding a new shortcut now requires 1-2 files instead of 3.
 
 ### Added
+
 - **Bulk template import endpoint** `POST /api/tenants/{tenantId}/templates/import`
   - Create-or-update semantics for idempotent template synchronization
   - Processes templates individually (one failure doesn't block others)
@@ -167,12 +189,14 @@
   - New command: `ImportTemplates` with `ImportTemplatesHandler`
 
 ### Changed
+
 - **Editor shortcuts command-system hardening**: Completed migration cleanup and helper projection hardening. Shortcut helper sections now render from runtime registry projection with deterministic layout thresholds, live filter, and active-key feedback. Legacy helper/leader lookup builders were removed from `shortcuts-config.ts`.
 - **Docker image size reduction**: Replaced `paketobuildpacks/run-noble-full` (765MB) with a custom run image based on `run-noble-base` (188MB) plus only fontconfig and DejaVu fonts. Reduces total image size by ~565MB (from ~1.26GB to ~500MB). The custom image is built automatically as part of the `bootBuildImage` task. Removed the `Aptfile` in favor of a Dockerfile at `apps/epistola/docker/run-image/`.
 - **Editor preview toggle focus behavior**: Using `Leader + P` to open preview now automatically focuses the resize handle once it is mounted, so width adjustment works immediately with arrow keys.
 - **Editor resize handle visual states**: Resize handle CSS now uses host-driven hover/active/focus states, shows click-focus immediately (not only `:focus-visible`), and provides a subtler grip with a larger hit area.
 
 ### Added
+
 - **Shortcut startup validation and plugin extension guardrails**: Added startup validation that checks merged core/plugin shortcut registries, plus plugin namespace validation and failure-mode tests for invalid plugin-provided bindings.
 - **Shortcut docs refresh**: Added shortcut foundation/runtime docs and plugin shortcut extension guidance.
 - **API key authentication**: External systems can authenticate REST API calls using an `X-API-Key` header. Keys use the `epk_` prefix, are SHA-256 hashed for storage, and support enable/disable and expiration. API key identities are Non-Personal Accounts (NPA) scoped to a single tenant.
@@ -183,28 +207,34 @@
 - **Keyboard resizing for preview panel**: Focused resize handle now supports `ArrowLeft`/`ArrowRight` adjustments with a configurable `KEYBOARD_RESIZE_STEP` constant (16px), and `ArrowRight` at minimum width closes preview.
 
 ### Changed
+
 - **BREAKING: REST API mounted under `/api` prefix**: All REST API endpoints now live under `/api/` (e.g., `/api/tenants` instead of `/tenants`). This enables a dedicated stateless security filter chain for API traffic.
 - **Dual security filter chains**: `SecurityConfig` is split into an API chain (`/api/**` — stateless, no CSRF, API key + JWT auth) and a UI chain (session-based, form/OAuth2 login, CSRF enabled).
 - **SecurityFilter ordering fix**: `SecurityFilter` now runs at `@Order(-99)` instead of `HIGHEST_PRECEDENCE + 1`, so it executes after Spring Security populates the `SecurityContext`.
 
 ### Fixed
+
 - **Docker image version**: Application now displays the correct release version in the UI footer instead of "vdev". The Gradle build version is now set from a `-PreleaseVersion` property passed by CI, replacing the misleading hardcoded `0.0.1-SNAPSHOT`.
 - **AccessDeniedException returns 403 instead of 500**: Introduced `TenantAccessDeniedException` and added exception handlers for 401/403 responses in `ApiExceptionHandler`.
 - **Editor resize handle click focus**: Removed pointer-event default suppression that prevented mouse click from focusing the resize handle, restoring consistent click and keyboard focus behavior.
 
 ### Added
+
 - **Pluggable content storage**: Binary content (images, PDFs) is now stored via a `ContentStore` abstraction instead of inline PostgreSQL BYTEA columns. Four backends are available: `postgres` (default, zero-config), `s3` (for production at scale), `filesystem` (local dev), and `memory` (fast tests). Configured via `epistola.storage.backend` property.
 - **`content_store` table**: New key-value table for the PostgreSQL backend, storing binary content with S3-style keys (`assets/{tenantId}/{assetId}`, `documents/{tenantId}/{documentId}`).
 - **Streaming document downloads**: REST API document downloads now use `InputStreamResource` instead of `ByteArrayResource`, enabling streaming of large PDFs without loading them entirely into heap memory.
 
 ### Changed
+
 - **BREAKING**: The `content` column has been removed from both `assets` and `documents` tables. Binary content is now stored in the `content_store` table (PostgreSQL backend) or external storage (S3/filesystem). The `Document` model no longer has a `content` field.
 
 ### Changed
+
 - **Demo invoice template improvements**: Added a vendor logo image block to the invoice header, converted multi-paragraph address/metadata blocks to use `hard_break` for tighter line spacing, and normalized `hardBreak` to `hard_break` for ProseMirror schema consistency. `UploadAsset` command now accepts an optional pre-defined `id` parameter.
 - **Proper spacing architecture**: Unified the spacing system between the editor canvas and PDF renderer to eliminate the 2x vertical spacing mismatch. Individual spacing keys (`marginTop`, `marginBottom`, etc.) are now used throughout instead of compound objects, ensuring user-configured spacing is correctly applied in both the editor and PDF output. Added component default styles (`marginBottom: 0.5em`) for content blocks. TipTap paragraph and list spacing now matches the editor's ProseMirror CSS values.
 
 ### Added
+
 - **Block deletion from canvas**: Blocks can now be deleted by pressing Delete/Backspace on the keyboard when selected, or by clicking the trash icon that appears in the block header. Escape key deselects the current block. Keyboard shortcuts are suppressed when focus is inside text editors, inputs, or textareas.
 - **Asset deletion protection**: Assets referenced by draft or published template versions cannot be deleted. The system scans template document JSONB for image nodes referencing the asset before allowing deletion. Returns a descriptive error listing which templates use the asset.
 - **Asset manager**: Tenant-scoped image asset management with upload, list, search, delete, and raw content serving. Assets are stored as PostgreSQL BYTEA with a 5MB size limit. Supports PNG, JPEG, SVG, and WebP. Includes a dedicated asset manager page with drag-and-drop upload and thumbnail grid.
@@ -213,26 +243,31 @@
 - **Static resource cache busting**: Content-hash based URLs for CSS, JS, and SVG assets (e.g. `/css/main-abc123.css`). Combined with 1-year cache headers, browsers cache aggressively but always get fresh content after deployments. Uses Spring Boot's `VersionResourceResolver` — no build-time file renaming needed. Disabled in local dev profile for fast iteration.
 
 ### Fixed
+
 - **Drag-and-drop bypasses onBeforeInsert hooks**: Dragging a component (image, table, datatable) from the palette onto the canvas now triggers the `onBeforeInsert` hook (e.g. asset picker dialog, table config). Previously, `handleDrop` called `createNode()` directly, inserting nodes with default/null props. Clicking an image placeholder or an existing image on the canvas now opens the asset picker to (re-)select an image.
 - **Intermittent integration test hangs**: Added `@PreDestroy` lifecycle management to `JobPoller`, `StaleJobRecovery`, and `PartitionMaintenanceScheduler`. `JobPoller` now shuts down its virtual thread and drain executors on context close, preventing in-flight jobs from blocking on a closed HikariCP pool. Replaced `Thread.sleep` polling in `awaitIdle()` with a `CountDownLatch` for immediate wakeup. All scheduled components now guard against execution during shutdown.
 - **Flyway `clean-on-validation-error` removed in Flyway 10+**: Replaced the deprecated YAML property with a programmatic `FlywayMigrationStrategy` that catches `FlywayValidateException` and auto-cleans when `clean-disabled=false`. Production (`clean-disabled=true`) re-throws validation errors as before.
 
 ### Changed
+
 - **PDF/A-2b compliance**: PDF/A-2b (ISO 19005-2 Level B) is now available as an opt-in per-template setting (default: off). When enabled, fonts are embedded (Liberation Sans), an sRGB ICC output intent is included, and XMP metadata is written. Templates that don't need archival compliance use standard PDF with non-embedded Helvetica for smaller, faster output. Preview rendering always uses standard PDF regardless of the setting.
 - **Document metadata**: Generated PDFs include title (from template name), author (from tenant name), and creator metadata. Preview PDFs include default creator metadata.
 - **Test execution speed**: Optimized backend test infrastructure for parallel execution. Gradle parallel builds, JUnit 5 parallel class execution, per-class tenant namespacing for DB isolation, Testcontainers reuse with tmpfs, UNLOGGED tables in tests, HikariCP pool tuning, and JVM heap pre-sizing. Tests that need exclusive DB access are annotated with `@Isolated`.
 
 ### Changed
+
 - **Bean-driven security architecture**: `SecurityConfig` and `LoginHandler` now detect authentication methods from bean presence (`UserDetailsService`, `ClientRegistrationRepository`) instead of checking profile names. Adding a new form-login profile only requires updating `LocalUserDetailsService`'s `@Profile` annotation.
 - **`OAuth2UserProvisioningService`**: Replaced `@Profile("!local & !test")` with `@ConditionalOnBean(ClientRegistrationRepository::class)`. `AuthProvider` is now derived from the OAuth2 registration ID instead of a config property.
 - **Simplified `AuthProperties`**: Removed `provider` and `registrationId` fields (redundant). Only `autoProvision` remains.
 - **Removed `epistola.auth.provider` and `epistola.auth.registration-id`** from all YAML profile configs.
 
 ### Added
+
 - **`AuthenticationSafetyValidator`**: Fails fast on startup if `local`/`demo` profiles are combined with `prod` (known passwords in production) or if no authentication mechanism is configured (silent 403s).
 - **Excluded `UserDetailsServiceAutoConfiguration`**: Prevents Spring Boot from creating a default in-memory user when no profile is active, letting the safety validator catch the misconfiguration instead.
 
 ### Added
+
 - **`demo` Spring profile**: New profile for K8s deployments that enables form-based login with in-memory users (`admin@local`/`admin`, `user@local`/`user`) without requiring Keycloak. Includes safe Flyway settings (no auto-clean) and demo data loading. Set `SPRING_PROFILES_ACTIVE=demo` in your deployment.
 - **Auto-recover database on incompatible Flyway migrations**: When Flyway detects checksum mismatches or missing migrations (common during pre-production development), the database is automatically cleaned and recreated from scratch. DemoLoader re-populates demo data after recreation. Production profile explicitly disables this behavior for safety.
 - **AI chat file attachments**: Users can attach PDF and DOCX files to AI chat messages via a paperclip button. Files appear as removable chips above the text input, are displayed as badges in sent messages, and are passed through to the transport layer. Validates file type (PDF/DOCX only) and size (max 10 MB). Sending with files-only (no text) is supported. Mock transport acknowledges uploaded files in its response.
@@ -240,9 +275,11 @@
 - **Editor plugin architecture**: The template editor now supports a plugin system for extending the UI with additional sidebar tabs, toolbar actions, and lifecycle hooks. Plugins implement the `EditorPlugin` interface and are passed via the `plugins` option in `mountEditor()`. The sidebar and toolbar render plugin contributions dynamically alongside built-in controls. See `docs/plugins.md` for the design document.
 
 ### Fixed
+
 - **Generation job cancellation race condition**: Cancelling an in-progress generation job no longer gets overwritten by the worker completing the request. The executor now guards status updates with `AND status != 'CANCELLED'` to preserve cancellation.
 
 ### Added
+
 - **Data table component** (`datatable`): Data-driven table that iterates over an array expression and generates rows dynamically. Columns are child nodes (`datatable-column`) with configurable headers, widths, per-column styling, and template body slots repeated per data item. Supports border style variants, optional header row, and custom item/index aliases. Editor canvas renders a CSS grid with header row and droppable template slots. PDF renderer combines loop iteration with iText table generation. Column management uses standard InsertNode/RemoveNode/MoveNode commands.
 - **Static table component**: Full table support in the editor with CSS Grid rendering, row/column management, cell merging/unmerging via click+shift-click selection, per-column width controls, header rows, and border style options. Each cell is a slot that can contain any block type. Backend PDF renderer supports merged cells via iText rowSpan/colSpan.- **Data Contract Editor — Date field type**: Added `date` as a first-class schema field type. Renders as `<input type="date">` in the example form. Stored as `{ type: "string", format: "date" }` in JSON Schema. Validates ISO date format (YYYY-MM-DD). Auto-inferred from date-like strings when generating schema from examples.
 - **Data Contract Editor — Test Data chip list**: Replaced the `<select>` dropdown with a horizontal chip list showing all examples at a glance. Each chip displays the example name and a validation badge (green checkmark or red error count). Active chip is highlighted in blue.
@@ -253,20 +290,25 @@
 - **Data Contract Editor — Infinite nesting**: Schema fields can now be nested to arbitrary depth (previously limited to 2 levels). The `isNested: boolean` flag is replaced by a numeric `depth` parameter.
 
 ### Changed
+
 - **Data Contract Editor — Unified save**: Schema and examples are now saved together with a single "Save" button in the tab bar, replacing the separate per-section save buttons. The save operation first persists the schema (with migration check), then batch-saves all examples.
 - **Data Contract Editor — Command architecture**: Schema mutations are now expressed as `SchemaCommand` discriminated union types (`addField`, `deleteField`, `updateField`, `generateFromExample`), executed through pure tree operations. VisualSchema is the primary editing state; JSON Schema conversion only happens on load and save, eliminating redundant roundtrips and ID instability.
 
 ### Fixed
+
 - **Data Contract Editor — Expand/collapse broken**: Object and array fields could not be expanded because `jsonSchemaToVisualSchema()` generated new random IDs on every render, causing expanded-field state to be lost. Field IDs are now deterministic, based on the field path (e.g., `field:name`, `field:address.street`).
 
 ### Changed
+
 - **Data Contract Editor — Schema field alignment**: Switched schema field header and rows from flex to CSS grid for consistent column alignment across expand button, name, type, array-item-type, required, and action columns.
 - **Data Contract Editor — Compact example form**: Redesigned the test data example form with a compact tree layout: labels and inputs are side-by-side on each row, objects/arrays use collapsible `<details>` (collapsed by default for deeply nested), and spacing is minimal.
 
 ### Added
+
 - **Data Contract Editor**: Replaced the React-based schema-manager module with a Lit web component data contract editor integrated into `modules/editor/`. Features a visual schema field builder, schema-driven example form (auto-generated inputs from JSON Schema), and migration assistant. Produces `data-contract-editor.js` (53 kB) and `data-contract-editor.css` (30 kB).
 
 ### Removed
+
 - **schema-manager module**: Deleted `modules/schema-manager/` entirely. All functionality has been ported to the Lit-based data contract editor in `modules/editor/`, eliminating the React dependency from the project.
 
 - **Test profiles**: JUnit 5 tag-based test categorization with Gradle tasks (`unitTest`, `integrationTest`, `uiTest`) for running test categories independently
@@ -276,6 +318,7 @@
 - **Attribute edit dialog error handling**: Validation errors during attribute updates now re-render the form inside the dialog with the error message, instead of silently discarding the response.
 
 ### Changed
+
 - **Handler standardization**: All UI handlers now extract `TenantId` as a typed value at method entry, use standardized error keys (`error` and `errors`), and follow consistent delete patterns. Removed duplicate DELETE route for variants.
 - **Variant delete uses confirm dialog**: Variant delete buttons now use `openConfirmDialog()` (matching themes/environments/attributes) instead of `hx-confirm` with `hx-delete`. The confirm dialog now supports configurable swap mode via `data-confirm-swap`.
 - **Variant delete error reporting**: Attempting to delete the default variant now shows an error message in the UI instead of silently doing nothing.
@@ -295,6 +338,7 @@
 - **DemoLoader Enhancements**: Demo tenant now includes staging/production environments, language attribute definitions, Dutch/English multi-variant templates, and published versions across environments.
 
 ### Fixed
+
 - **Editor: subtree undo loss** — Undoing a container deletion now correctly restores all descendant nodes and slots, preventing dangling references
 - **ListVariants missing columns** — Added `title` and `description` to the SELECT clause so variant list views display all fields
 - **GetEditorContext unsafe JSONB cast** — Replaced `as? Map` cast with Jackson deserialization for `variant_attributes`, fixing silent data loss
@@ -316,10 +360,12 @@
 - **Editor save not working** — `mountEditor` set the `onSave` callback after calling `initEngine`, but `initEngine` checks `this.onSave` to create the SaveService. Moved callback assignments before `initEngine` so save/autosave/Ctrl+S all work correctly
 
 ### Removed
+
 - `SetActivation` command and REST API endpoint — replaced by the publish-to-environment action
 - `PublishVersion` command — replaced by `PublishToEnvironment` which combines publish + activate
 
 ### Added
+
 - **Playwright UI Testing**: Added Playwright Java test infrastructure with `BasePlaywrightTest` base class and `VariantCardUiTest` covering card grid rendering, attribute filtering, and HTMX interactions
 - `PublishToEnvironment` command: single action that freezes draft content (if needed) and activates in target environment
 - `VersionStillActiveException`: thrown when attempting to archive a version still active in environments
@@ -331,6 +377,7 @@
   - Merged V12 (variant_attribute_definitions) and V13 (tags→attributes rename) into V3
 
 ### Added
+
 - **Explicit Default Variant Flag**: Decoupled default variant from empty attributes with an explicit `is_default` boolean column
   - First variant created for a template is automatically the default
   - Default variant can now have any attributes (no longer requires empty `{}`)
@@ -417,9 +464,11 @@
 - **Editor V2: Resolved expression values in chips**: Expression chips now show the resolved value from the currently selected data example (e.g., "John Doe" instead of `{{customer.name}}`). Falls back to showing the raw expression when no data example is selected, the expression evaluates to undefined/null/empty, or the result is a non-displayable type (object/array). Uses JSONata for full expression evaluation support including aggregations, string concatenation, and conditionals. Hovering a resolved chip shows the expression path in a tooltip. Switching data examples refreshes all chips asynchronously with a generation counter to prevent stale results.
 
 ### Fixed
+
 - **Preview PDF generation**: Fixed `ClassCastException` (LinkedHashMap cannot be cast to BlockStylePreset) when previewing templates with a theme that has block style presets. Root cause was Java type erasure in JDBI's `@Json` deserialization of `Map<String, BlockStylePreset>`. Introduced `BlockStylePresets` wrapper type with explicit Jackson serializers, following the same pattern as `DataExamples`.
 
 ### Changed (Breaking)
+
 - **Block style presets format**: Changed `blockStylePresets` from flat `Map<String, Map<String, Any>>` to typed `Map<String, BlockStylePreset>` where `BlockStylePreset` has `{label, styles, applicableTo}` fields. This aligns the Kotlin backend with the TypeScript template-model type. Existing preset data in the database needs to be migrated to the new nested structure.
 - **Complete editor rewrite from v1 to v2**: Replaced the entire editor stack (React + TipTap + Zustand → Lit + ProseMirror + headless engine) and data model (flat `blocks[]` → normalized node/slot graph). This is a full-stack change:
   - **Data model**: `TemplateModel` replaced by `TemplateDocument` with `nodes: Map<String, Node>` and `slots: Map<String, Slot>`. All domain commands, queries, services, and REST API updated.
@@ -430,13 +479,16 @@
   - **V1 model types removed**: All `Block`, `TextBlock`, `ContainerBlock`, etc. types deleted from `template-model` module
 
 ### Changed
+
 - **Editor V2: Unified Change interface for undo/redo**: Extracted all undo/redo logic from EditorEngine into self-contained Change classes (`CommandChange`, `TextChange`). Engine's `undo()` and `redo()` are now type-agnostic two-liners that delegate to `Change.undoStep()`/`redoStep()`. Eliminates ~60 lines of type-branching code from EditorEngine. `TextChangeEntry` interface replaced by `TextChange` class. `UndoEntry` union type replaced by `Change` interface.
 - **Editor V2: PM state preservation across block deletion**: When a text block is deleted, its ProseMirror EditorState is cached by the engine. If the user undoes the deletion, the cached state is restored — preserving character-level undo history. TextChange entries are revived with fresh ops when the PM view reconnects. Content divergence check prevents stale state restoration.
 
 ### Changed
+
 - **Editor V2: Merged palette, tree, and inspector into tabbed sidebar**: Combined the three separate tool panels (palette, tree, inspector) into a single left-side `<epistola-sidebar>` component with tabs (Blocks, Structure, Inspector/Document). This reduces horizontal space usage and simplifies the layout from `palette | tree | canvas | inspector` to `sidebar | canvas`. Inspector tab label dynamically shows "Document" when no node is selected. Only the active panel is rendered in the DOM, ensuring proper DnD lifecycle management.
 
 ### Changed
+
 - **Comprehensive UI redesign with shadcn/ui-inspired design system**: Unified visual language across the entire application (main app and editor-v2) targeting modern, polished aesthetics
   - **Design system**: Enhanced tokens with complete color palettes (blue 50-900, amber, purple, green), semantic aliases, 5-level shadows, ring-based focus system, transition tokens, Inter font
   - **Base resets**: Antialiased rendering, global focus-visible ring, improved heading/link/paragraph defaults
@@ -450,9 +502,11 @@
   - **Editor-v2 icons**: Undo/redo toolbar buttons, palette block type icons, tree node type icons — all using inline Lucide SVGs
 
 ### Changed
+
 - **Editor V2: TextChange as first-class undo entry**: Replaced the `UndoHandler` strategy pattern with `TextChangeEntry` on the engine's undo stack. Text editing sessions now delegate undo/redo to ProseMirror's native history using `undoDepth()` as session boundaries. Character-level undo works even after blurring the text block (PM history persists). Snapshot fallback handles destroyed PM views. Removes focus/blur handler registration, `_hasPendingFlush`/`_isSyncing` guards, coalesced undo entries, and the `beforeinput` interception for strategy-based double-undo prevention.
 
 ### Changed
+
 - **Editor V2: EventEmitter, debounce, and dual undo stack**:
   - **Typed EventEmitter** (`engine/events.ts`): Replaced 3 ad-hoc listener Sets in `EditorEngine` with a single typed `EventEmitter<EngineEvents>` supporting `doc:change`, `selection:change`, and `example:change` events. Old `subscribe()`, `onSelectionChange()`, and `onExampleChange()` methods are preserved as deprecated wrappers for backward compatibility.
   - **Conditional index rebuild**: Added `structureChanged` flag to `CommandOk`. Structural commands (InsertNode, RemoveNode, MoveNode) trigger index rebuild; property/style commands skip it for better keystroke performance.
@@ -462,6 +516,7 @@
   - UI components (`EpistolaEditor`, `EpistolaToolbar`) migrated to new `events.on(...)` API.
 
 ### Added
+
 - **Editor V2: Rich text editing with ProseMirror** (Phase 4):
   - **ProseMirror integration**: Direct ProseMirror (no TipTap wrapper) for rich text editing in text blocks, with full JSON compatibility with the existing TipTap-based backend converter
   - **Inline formatting**: Bold, italic, underline, strikethrough marks with keyboard shortcuts (Ctrl+B/I/U)
@@ -477,13 +532,16 @@
   - **28 new tests** for ProseMirror schema (roundtrip, marks, lists), input rules (regex matching, handler), and schema-paths (flat, nested, arrays, depth limit)
 
 ### Added
+
 - **Kotlin codegen from JSON Schema**: Template model types (PageSettings, Margins, PageFormat, Orientation, Expression, ExpressionLanguage, BorderStyle, etc.) are now generated from JSON Schema using `json-kotlin-schema-codegen`, establishing the schemas as the single source of truth for both TypeScript and Kotlin types
 - **Open DocumentStyles**: `DocumentStyles` changed from a closed data class with 8 named properties to `Map<String, Any>`, matching the JSON Schema open object and letting the style-registry drive available properties
 
 ### Removed
+
 - **TextAlign enum**: Removed from JSON Schema and all backend code. Text alignment is now a plain string value in the open DocumentStyles map
 
 ### Changed
+
 - **Backend: Generated types replace handwritten types**: PageSettings, Margins, Orientation, PageFormat, Expression, ExpressionLanguage, and BorderStyle are now generated from JSON Schema. Enum values use lowercase matching JSON (e.g., `Orientation.portrait` instead of `Orientation.Portrait`). Margins properties changed from `Int` to `Long`. PageSettings/Margins no longer have default parameter values.
 - **Editor V2: Style editing and theme resolution** (Phase 3):
   - **Open DocumentStyles data model**: `DocumentStyles` changed from a closed interface with 8 hardcoded properties to `Record<string, unknown>`, matching block styles and letting the style-registry drive available properties
@@ -519,6 +577,7 @@
   - 14 new unit tests for drop logic (resolveDropOnBlockEdge, resolveDropOnEmptySlot, canDropHere)
 
 ### Changed
+
 - **Editor V2: Replace StylePolicy with applicableStyles**: Each component now declares which style property keys it supports via `applicableStyles: 'all' | string[]` instead of the old `StylePolicy` discriminated union. This makes components the authority over their own styles — groups remain a UI concern for inspector organization only. Layout components (columns, table, conditional, loop) now only support layout styles (spacing, background, borders) while content components (text, container, pageheader, pagefooter) support all styles. Canvas rendering also filters resolved styles through `applicableStyles`.
 - **Editor V2: Improved architecture separation**: Extracted shared logic from UI components into headless modules
   - New `dnd/drop-handler.ts`: shared drop execution (InsertNode/MoveNode dispatch) used by canvas and tree panels
@@ -548,6 +607,7 @@
   - CSS output: 7.97 kB (1.77 kB gzipped)
 
 ### Added
+
 - **Editor V2 module (`modules/editor-v2/`)**: New template editor built with Lit web components + headless engine architecture, replacing React + TipTap + Zustand
   - **Node/slot data model**: Normalized graph (`TemplateDocument` with flat `nodes` and `slots` maps) replaces recursive `blocks[]` with composite IDs. Every insert/move/remove is a uniform slot.children update.
   - **JSON Schemas**: Draft 2020-12 schemas for `TemplateDocument`, `Theme`, `ComponentManifest`, `StyleRegistry` in `modules/template-model/schemas/`
@@ -561,16 +621,20 @@
   - **45 engine tests** covering all commands, undo/redo, registry, selection, subscription, and immutability
 
 ### Changed
+
 - **Editor README replaced with architecture documentation**: Replaced Vite boilerplate README with a comprehensive technical specification covering public API, data structures, state management, block system, rich text, expression evaluation, drag & drop, style system, PDF preview, table system, schema/validation, and utility functions. Serves as a rewrite specification with language-agnostic descriptions and collapsible TypeScript reference sections.
 
 ### Fixed
+
 - **CI commits now signed by GitHub**: Coverage badge commits made during CI builds are now created via GitHub API instead of direct git commits, ensuring they are automatically signed by GitHub. This fixes issues with unsigned commits causing problems when merging main into feature branches that require signed commits.
 
- ### Added
+### Added
+
 - **OpenAPI spec included in GitHub Releases**: The bundled OpenAPI specification (`epistola-openapi.yaml`) is now attached to each release alongside the SBOMs
 - **Simplified release artifact names**: Removed version numbers from release artifact filenames since the release itself is versioned. Artifacts are now named `epistola-backend-sbom.json`, `epistola-editor-sbom.json`, and `epistola-openapi.yaml`
 
 ### Changed
+
 - **BREAKING: Simplified load test data model - eliminated redundant table**: Removed `load_test_requests` table which duplicated data already present in `document_generation_requests`
   - Load test configuration and metrics remain in `load_test_runs` table with new `batch_id` link
   - Request details queried directly from `document_generation_requests` via `batch_id` (single source of truth)
@@ -581,6 +645,7 @@
   - Breaking change acceptable since project is not yet in production
 
 ### Performance
+
 - **Table partitioning for efficient TTL enforcement**: Implemented PostgreSQL table partitioning with automatic partition dropping for instant cleanup
   - Partitioned tables: `documents`, `document_generation_requests` (monthly RANGE partitions by created_at)
   - `PartitionMaintenanceScheduler` creates next month's partition at start of current month (daily execution at 2 AM)
@@ -592,6 +657,7 @@
   - Configurable via `epistola.partitions.*` properties
 
 ### Changed
+
 - **BREAKING: Calculated batch counters**: Removed real-time batch counter columns in favor of on-demand calculation
   - Removed `completed_count` and `failed_count` columns from `document_generation_batches` (calculated on-demand)
   - Added `final_completed_count` and `final_failed_count` columns (persisted only when batch completes)
@@ -613,9 +679,11 @@
   - 8-hour session timeout
 
 ### Fixed
+
 - **Load test documents now follow standard retention policy**: Removed immediate deletion of load test documents. Documents now follow the standard 30-day retention policy managed by DocumentCleanupScheduler, allowing proper inspection of generated documents.
 
 ### Performance
+
 - **Load test executor uses batch submission**: Replaced N individual `GenerateDocument` commands with single `GenerateDocumentBatch` call
   - 10-50x faster submission for large load tests (100+ documents)
   - One database transaction instead of N transactions
@@ -625,6 +693,7 @@
   - **UI Change**: Removed "Concurrency Level" field from load test form (no longer applicable with batch submission)
 
 ### Changed
+
 - **Improved load test results display**: Added proper CSS styling for metrics cards to display in a responsive grid layout. Cards now display in a clean grid instead of stacking vertically, with comprehensive styling for all UI components (progress bar, error summary, forms, alerts).
 - **Improved document generation performance**: Refactored JobPoller with drain loop pattern for faster throughput
   - Increased `max-concurrent-jobs` from 2 to 20 (10x parallelism)
@@ -635,6 +704,7 @@
   - Expected improvement: 100 documents now processed in ~execution time instead of several minutes
 
 ### Added
+
 - **Adaptive batch job polling**: Job poller now dynamically adjusts batch size based on system performance
   - Uses Exponential Moving Average (EMA) to track job processing times
   - Increases batch size when jobs complete quickly (< 2s default)
@@ -645,6 +715,7 @@
   - Respects `max-concurrent-jobs` limit when claiming batches
 
 ### Changed
+
 - **BREAKING: Flattened document generation architecture for horizontal scaling**
   - Database schema (V5): Updated in place to eliminate two-table structure
     - Removed `document_generation_items` table entirely
@@ -673,15 +744,16 @@
   - Database migrations moved from app to epistola-core (schema belongs with domain)
   - Domain integration tests moved from app to epistola-core (tests with tested code)
   - Benefits:
-    * Clear layering: Core → REST API → App
-    * epistola-core is pure business logic (no HTTP dependencies)
-    * REST API can be deployed independently
-    * Tests live with the code they test
+    - Clear layering: Core → REST API → App
+    - epistola-core is pure business logic (no HTTP dependencies)
+    - REST API can be deployed independently
+    - Tests live with the code they test
 - Enforce strict separation between UI handlers and REST API endpoints
 - Editor now saves drafts via UI handler (`PUT /tenants/.../draft`) instead of REST API endpoint (`PUT /v1/tenants/.../draft`)
 - All UI code now uses `application/json` content-type instead of REST API content-type (`application/vnd.epistola.v1+json`)
 
 ### Added
+
 - New `modules/epistola-core` module for business logic
 - Core module test infrastructure: `CoreIntegrationTestBase`, `CoreTestApplication`, `CoreTestcontainersConfiguration`
 - Jackson and Flyway dependencies in epistola-core for independent testing
@@ -710,27 +782,29 @@
   - All templates updated to use the shared HTMX fragment
 
 ### Module Architecture
+
 - **Dependencies flow**:
   ```
   template-model → generation → epistola-core → rest-api → apps/epistola
   ```
 - **epistola-core** contains:
-  * Domain logic (tenants, templates, documents, themes, environments)
-  * CQRS mediator pattern (commands, queries, handlers)
-  * JDBI configuration and database access
-  * Database migrations (`db/migration/*.sql`)
-  * Domain integration tests (42 tests)
+  - Domain logic (tenants, templates, documents, themes, environments)
+  - CQRS mediator pattern (commands, queries, handlers)
+  - JDBI configuration and database access
+  - Database migrations (`db/migration/*.sql`)
+  - Domain integration tests (42 tests)
 - **rest-api** contains:
-  * OpenAPI specification files
-  * REST API controllers (@RestController)
-  * DTO mappers
-  * External system integration layer
+  - OpenAPI specification files
+  - REST API controllers (@RestController)
+  - DTO mappers
+  - External system integration layer
 - **apps/epistola** contains:
-  * Thymeleaf templates and HTMX
-  * UI handlers (functional routing)
-  * HTTP/UI integration tests (36 tests)
+  - Thymeleaf templates and HTMX
+  - UI handlers (functional routing)
+  - HTTP/UI integration tests (36 tests)
 
 ### Testing
+
 - **Total: 153 tests** (111 unit + 42 integration)
 - **epistola-core**: 153 tests (domain logic + integration)
 - **apps/epistola**: HTTP/UI tests only
@@ -738,6 +812,7 @@
 - Tests live with the code they test
 
 ### Changed
+
 - **BREAKING: TenantId changed from UUID to slug format**: Tenant IDs are now human-readable, URL-safe slugs instead of UUIDs
   - Format: 3-63 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
   - Must start with a letter, cannot end with hyphen, no consecutive hyphens
@@ -833,6 +908,7 @@
 - **Added logging to mediator**: `SpringMediator` now logs command/query dispatch and completion
 
 ### Added
+
 - **Tenant Default Theme**: Each tenant now has a default theme that serves as the ultimate fallback in the theme cascade
   - Theme cascade order: Variant theme → Template theme → Tenant default theme
   - Creating a new tenant automatically creates a "Tenant Default" theme with sensible defaults
@@ -843,6 +919,7 @@
   - Demo tenant now uses "Corporate" as default theme instead of auto-created "Tenant Default"
 
 ### Fixed
+
 - **CSRF 403 errors for AJAX requests**: Fixed Spring Security CSRF validation failing for AJAX requests (saving examples, schema, themes, PDF preview).
   - Replaced manual `CookieCsrfTokenRepository` + `CsrfTokenRequestAttributeHandler` configuration with Spring Security 7's `csrf.spa()` method which automatically handles SPA/AJAX patterns including BREACH protection
   - Added global `window.getCsrfToken()` helper function in htmx.html fragment that reads from the XSRF-TOKEN cookie
@@ -861,6 +938,7 @@
 - **CreateVersion command now idempotent**: Fixed unique constraint violation when clicking "Create Draft" multiple times. The command now checks for an existing draft first and returns it if found, making the operation safe to call repeatedly without errors.
 
 ### Changed
+
 - **EditorContext theme resolution simplified**: Removed `tenantDefaultTheme` field from `EditorContext` data class. The theme cascade (template → tenant) is now resolved server-side, returning a single `defaultTheme` field containing the effective theme for the editor.
 - **Theme dropdown shows inherited theme**: When a variant has no theme override but the parent template has a default theme, the dropdown now shows "Default ({theme name})" instead of "No theme", making the theme cascade more obvious to users.
 - **BREAKING: Template model now required for versions**: The `template_model` column in `template_versions` is now `NOT NULL`. All template versions must have content.
@@ -871,6 +949,7 @@
   - Existing databases with NULL template_model values will need migration (reset database for development)
 
 ### Added
+
 - **Theme System for Reusable Styling**: Introduced themes for defining reusable style collections across multiple templates
   - New `Theme` entity with document-level styles, page settings, and named block style presets
   - REST API endpoints for theme CRUD operations (`/v1/tenants/{tenantId}/themes`)
@@ -899,6 +978,7 @@
   - `DemoLoader.recreateDemoTenant()` now runs in a single transaction - if any operation fails, the entire demo recreation is rolled back
 
 ### Changed
+
 - **Test suite performance optimization**: Reduced test execution time from ~2 minutes to ~35 seconds (82% faster)
   - Added synchronous job execution mode for tests (`epistola.generation.synchronous=true`)
   - `SynchronousGenerationListener` executes document generation jobs immediately via Spring events
@@ -908,6 +988,7 @@
   - JUnit 5 parallel execution prepared but disabled (data isolation needed for future enablement)
 
 ### Added
+
 - **ScopedValue-based Mediator context**: Cleaner command/query dispatch using extension functions
   - `MediatorContext` object using JDK 21+ `ScopedValue` for thread-safe, virtual thread compatible mediator access
   - Extension functions: `Command<R>.execute()` and `Query<R>.query()` for idiomatic dispatch
@@ -919,6 +1000,7 @@
   - DSL scopes (`GivenScope`, `WhenScope`) capture mediator at construction for thread-safety (supports awaitility callbacks)
 
 ### Changed
+
 - **BREAKING**: Added type-safe entity ID wrapper classes for compile-time type safety
   - New value classes: `TenantId`, `TemplateId`, `VariantId`, `VersionId`, `EnvironmentId`, `DocumentId`, `GenerationRequestId`, `GenerationItemId`
   - Prevents accidental misuse of IDs (e.g., passing `TemplateId` where `TenantId` is expected)
@@ -928,11 +1010,13 @@
   - Commands, queries, and entities now use typed IDs instead of raw `UUID`
 
 ### Fixed
+
 - **JSON deserialization of `List<DataExample>`**: Fixed `ClassCastException` when deserializing template data examples from database
   - Created `DataExamples` wrapper type with custom Jackson serializer/deserializer
   - Properly handles Java type erasure that caused `List<LinkedHashMap>` instead of `List<DataExample>`
 
 ### Changed
+
 - **BREAKING**: Migrated all entity IDs from database-generated Long/BIGSERIAL to client-provided UUIDv7
   - All entity IDs (Tenant, Template, Variant, Version, Environment, Document, GenerationRequest, GenerationItem) now use UUID
   - IDs must be provided by the client when creating entities via API or commands
@@ -944,6 +1028,7 @@
   - Test DSL updated: `tenant()`, `template()`, `variant()`, `version()` helpers now generate UUIDv7 IDs automatically
 
 ### Added
+
 - **Type-safe Scenario DSL for integration tests**: New `scenario {}` DSL with Given-When-Then pattern
   - Type-safe flow: `given` block returns typed setup data accessible in `whenever` and `then` blocks
   - Automatic cleanup: `tenant()` helper automatically registers cleanup on scenario completion
@@ -953,6 +1038,7 @@
   - Coexists with existing `fixture {}` DSL - no breaking changes
 
 ### Changed
+
 - **Simplified gradlew wrapper**: Replaced traditional Gradle wrapper with mise-aware scripts
   - `gradlew` and `gradlew.bat` now activate mise environment and delegate to mise-managed Gradle
   - Removed `gradle/wrapper/gradle-wrapper.jar` and `gradle-wrapper.properties`
@@ -961,8 +1047,9 @@
   - Prerequisite: mise must be installed (`brew install mise` or see mise.jdx.dev)
 
 ### Changed
+
 - **BREAKING**: Replaced Spring Batch with custom polling-based job executor for document generation
-  - Removed Spring Batch dependency and all BATCH_* database tables
+  - Removed Spring Batch dependency and all BATCH\_\* database tables
   - New architecture uses `SELECT FOR UPDATE SKIP LOCKED` for safe multi-instance job distribution
   - Jobs execute on virtual threads for non-blocking, high-concurrency processing
   - Added `JobPoller` for scheduled polling and claiming of pending jobs
@@ -977,36 +1064,37 @@
     - `stale-timeout-minutes`: Timeout before reclaiming stale jobs (default: 10 min)
 
 ### Added
+
 - **Correlation ID Support for Document Generation**: Client-provided tracking IDs for documents
-    - Added optional `correlationId` field (max 255 chars) to generation requests
-    - `correlationId` is stored in both generation items and resulting documents
-    - Query documents by `correlationId` using `GET /documents?correlationId=X`
-    - Batch validation: rejects requests with duplicate `correlationId` values (null excluded)
-    - Batch validation: rejects requests with duplicate `filename` values (null excluded)
-    - Clear error messages identify which values are duplicated
+  - Added optional `correlationId` field (max 255 chars) to generation requests
+  - `correlationId` is stored in both generation items and resulting documents
+  - Query documents by `correlationId` using `GET /documents?correlationId=X`
+  - Batch validation: rejects requests with duplicate `correlationId` values (null excluded)
+  - Batch validation: rejects requests with duplicate `filename` values (null excluded)
+  - Clear error messages identify which values are duplicated
 - **Comprehensive Document Generation Test Suite**: Complete integration and unit tests for document generation API
-    - Integration tests for single and batch document generation
-    - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument
-    - Query tests for GetDocument, ListDocuments, GetGenerationJob, ListGenerationJobs
-    - Test utilities: TestTemplateBuilder for minimal TemplateModel construction
-    - Multi-tenant isolation verification tests
-    - Partial failure handling in batch processing
-    - Job cancellation and document deletion workflows
-    - PDF content validation (magic bytes verification)
-    - All tests compile successfully with proper error handling
+  - Integration tests for single and batch document generation
+  - Command handler tests for GenerateDocument, GenerateDocumentBatch, CancelGenerationJob, DeleteDocument
+  - Query tests for GetDocument, ListDocuments, GetGenerationJob, ListGenerationJobs
+  - Test utilities: TestTemplateBuilder for minimal TemplateModel construction
+  - Multi-tenant isolation verification tests
+  - Partial failure handling in batch processing
+  - Job cancellation and document deletion workflows
+  - PDF content validation (magic bytes verification)
+  - All tests compile successfully with proper error handling
 - **Asynchronous Document Generation API**: Comprehensive async document generation system
-    - Single document generation with immediate job ID response (202 Accepted)
-    - Batch document generation supporting multiple documents in one request
-    - Job status tracking with real-time progress monitoring
-    - Document download and listing endpoints
-    - Job cancellation for pending/in-progress jobs
-    - Automatic cleanup of expired jobs and old documents
-    - PostgreSQL BYTEA storage for generated PDFs (future migration path to S3/MinIO)
-    - Polling-based job execution with virtual threads for high concurrency
-    - Fault tolerance: batch processing continues on partial failures
-    - Multi-tenant isolation with proper security
-    - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
-    - Configurable retention: jobs (7 days), documents (30 days)
+  - Single document generation with immediate job ID response (202 Accepted)
+  - Batch document generation supporting multiple documents in one request
+  - Job status tracking with real-time progress monitoring
+  - Document download and listing endpoints
+  - Job cancellation for pending/in-progress jobs
+  - Automatic cleanup of expired jobs and old documents
+  - PostgreSQL BYTEA storage for generated PDFs (future migration path to S3/MinIO)
+  - Polling-based job execution with virtual threads for high concurrency
+  - Fault tolerance: batch processing continues on partial failures
+  - Multi-tenant isolation with proper security
+  - REST API endpoints under `/v1/tenants/{tenantId}/documents/`
+  - Configurable retention: jobs (7 days), documents (30 days)
 - **Undo/Redo in Template Editor**: Full history management for structural and text changes
   - Zustand store integration using zundo temporal middleware
   - Tracks template changes (blocks, styles) with 100-entry history limit
@@ -1041,11 +1129,11 @@
 ### Changed
 
 - **OpenSpec Migration**: Updated to new OPSX workflow structure
-    - Migrated from legacy commands (`/openspec:proposal`, `/openspec:apply`, `/openspec:archive`) to new OPSX commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:apply`, `/opsx:verify`, `/opsx:sync`, `/opsx:archive`, `/opsx:bulk-archive`, `/opsx:explore`)
-    - Replaced `.claude/commands/openspec/` with `.claude/skills/openspec-*/` skill structure
-    - Created `openspec/config.yaml` for context injection (replaces passive `project.md` approach)
-    - Removed `openspec/AGENTS.md` and OpenSpec marker blocks from documentation
-    - New workflow supports flexible, action-based development instead of rigid phase-locked process
+  - Migrated from legacy commands (`/openspec:proposal`, `/openspec:apply`, `/openspec:archive`) to new OPSX commands (`/opsx:new`, `/opsx:continue`, `/opsx:ff`, `/opsx:apply`, `/opsx:verify`, `/opsx:sync`, `/opsx:archive`, `/opsx:bulk-archive`, `/opsx:explore`)
+  - Replaced `.claude/commands/openspec/` with `.claude/skills/openspec-*/` skill structure
+  - Created `openspec/config.yaml` for context injection (replaces passive `project.md` approach)
+  - Removed `openspec/AGENTS.md` and OpenSpec marker blocks from documentation
+  - New workflow supports flexible, action-based development instead of rigid phase-locked process
 - **BREAKING**: Reorganized template-related packages into aggregate root structure
   - Moved `variants/` package into `templates/commands/variants/` and `templates/queries/variants/`
   - Moved `versions/` package into `templates/commands/versions/` and `templates/queries/versions/`
@@ -1104,6 +1192,7 @@
   - Impact: Multiple PDF renders (e.g., preview multiple templates) now work correctly
 
 ### Added
+
 - **Enhanced Demo Loader with Realistic Template Content**
   - Demo templates now loaded from JSON files in `resources/demo/templates/`
   - Complete template definitions include: data model (JSON Schema), data examples, and visual layout (blocks, styles)
@@ -1228,6 +1317,7 @@
 - AnimateUI Switch component from shadcn
 
 ### Changed
+
 - Refactored Data Contract Manager for better UX
   - Local-first draft state: edits are local until explicit save
   - Save & Stay Open pattern: dialog remains open after save with success feedback
@@ -1247,6 +1337,7 @@
 - SaveButton refactored with useCallback optimization
 
 ### Fixed
+
 - Schema-manager state management and schema-data synchronization
   - Fixed tab switching losing local changes by introducing shared draft state across tabs
   - Moved useDataContractDraft from individual sections to App.tsx for single source of truth
@@ -1274,6 +1365,7 @@
 - Corrected main.tsx path in index.html
 
 ### Added
+
 - OpenAPI spec-driven API development infrastructure
   - New `modules/api-spec` module containing OpenAPI 3.1 YAML specifications
   - New `modules/api-server` module with generated Kotlin interfaces and DTOs (Jackson 3.x)
@@ -1302,6 +1394,7 @@
 - Updated project context (`openspec/project.md`) with tech stack, conventions, and domain model
 
 ### Changed
+
 - Template content (templateModel) moved from DocumentTemplate to TemplateVersion
   - DocumentTemplate now only contains metadata: name, dataModel, dataExamples
   - Visual layout (templateModel) is stored in versions, enabling versioned content
@@ -1313,11 +1406,13 @@
   - All documentation updated to use `gradle` command instead of `./gradlew`
 
 ### Fixed
+
 - Security scan workflow failing due to non-existent Gradle task `:modules:editor:npmSbom`
   - Frontend SBOM is generated via npm, not Gradle
   - Workflow now runs npm commands directly in the editor module directory
 
 ### Added
+
 - GitHub MCP server integration for AI-assisted issue and project management (`scripts/gh-mcp/`)
   - Cross-platform secure token storage using OS credential managers (macOS Keychain, Windows Credential Vault)
   - `pnpm run setup:github-mcp` script guides fine-grained PAT creation with minimal permissions
@@ -1331,6 +1426,7 @@
   - Repository linking verified but not automated (requires admin; workflow fails with instructions if missing)
 
 ### Changed
+
 - Separated frontend (pnpm) and backend (Gradle) build steps for simpler configuration
   - Frontend: `pnpm install && pnpm build` builds all modules in `modules/`
   - Backend: `gradle build` compiles, tests, and packages (requires frontend built first)
@@ -1339,6 +1435,7 @@
   - CI workflow updated to run pnpm build before Gradle with proper caching
 
 ### Added
+
 - pnpm workspaces for frontend module management
   - Root `pnpm-workspace.yaml` orchestrates all modules in `modules/`
   - Unified dependency management and build commands from repo root
@@ -1351,11 +1448,13 @@
   - Shared dependencies loaded once and cached, reducing page load time for multiple interactive components
 
 ### Changed
+
 - Simplified template editor data passing by using Thymeleaf's native JavaScript serialization
   - Removed unnecessary JSON stringify/parse roundtrip in template handler
   - `templateModel` is now passed directly to the view and serialized by Thymeleaf
 
 ### Added
+
 - Docker image build configuration with JVM and native options
   - JVM image (default): `gradle bootBuildImage`
   - Native image (disabled): `gradle bootBuildImage -PnativeImage=true` - broken due to JDBI/Kotlin reflection ([jdbi#2475](https://github.com/jdbi/jdbi/issues/2475))
@@ -1421,12 +1520,12 @@
   - Spring Boot serves editor files from filesystem in `local` profile for fast iteration
   - Development workflow: run Spring Boot with `local` profile, editor rebuilds on file changes
 - Editor component integration with Thymeleaf templates
-    - Library build mode for the React editor (`mountEditor()` API)
-    - Editor can be embedded in Thymeleaf pages while sharing the app layout
-    - New `/templates/{id}/editor` route to open the visual template editor
-    - REST API endpoints for saving template content (`PUT /api/templates/{id}`)
-    - CSS isolation to prevent style conflicts between editor and parent page
-    - Edit links added to the templates list page
+  - Library build mode for the React editor (`mountEditor()` API)
+  - Editor can be embedded in Thymeleaf pages while sharing the app layout
+  - New `/templates/{id}/editor` route to open the visual template editor
+  - REST API endpoints for saving template content (`PUT /api/templates/{id}`)
+  - CSS isolation to prevent style conflicts between editor and parent page
+  - Edit links added to the templates list page
 - HTMX utilities for WebMvc.fn functional endpoints
   - `ServerRequest.isHtmx` extension property for detecting HTMX requests
   - `ServerRequest.render()` helper for HTMX-aware template rendering
@@ -1454,6 +1553,7 @@
   - Flyway migration for document_templates table
 
 ### Changed
+
 - Migrated version management from asdf to mise for faster tool installation
 
 - Updated documentation to reflect server-side rendering architecture (Thymeleaf + HTMX) instead of implying a Vite/TypeScript SPA frontend
@@ -1463,12 +1563,14 @@
   - .github/labels.yml: Updated frontend label description
 
 ### Fixed
+
 - Docker image now uses JDK 25 to match the build environment, fixing Kotlin reflection errors at runtime
 - Labels sync workflow now works with private repositories by adding `contents: read` permission
 - Docker image build in CI now explicitly sets image name to `epistola-suite` via `--imageName` flag to ensure consistent naming across build and push steps
 - Helm chart security scan failures (AVD-KSV-0014, AVD-KSV-0118): added proper pod and container security contexts with `readOnlyRootFilesystem`, `seccompProfile`, `allowPrivilegeEscalation: false`, and capability drops
 
 ### Added
+
 - Test coverage reporting using Kover with dynamic badge
   - Generates coverage reports via `gradle koverXmlReport`
   - Coverage badge updated automatically on main branch builds

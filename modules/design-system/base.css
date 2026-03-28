@@ -62,7 +62,12 @@
   }
 
   /* Headings */
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-weight: 600;
     letter-spacing: var(--ep-tracking-tight);
     line-height: var(--ep-leading-tight);
@@ -70,10 +75,18 @@
     margin: 0;
   }
 
-  h1 { font-size: var(--ep-text-3xl); }
-  h2 { font-size: var(--ep-text-2xl); }
-  h3 { font-size: var(--ep-text-xl); }
-  h4 { font-size: var(--ep-text-lg); }
+  h1 {
+    font-size: var(--ep-text-3xl);
+  }
+  h2 {
+    font-size: var(--ep-text-2xl);
+  }
+  h3 {
+    font-size: var(--ep-text-xl);
+  }
+  h4 {
+    font-size: var(--ep-text-lg);
+  }
 
   /* Links */
   a {

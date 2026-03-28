@@ -2,8 +2,8 @@ name: Security Scan
 
 on:
   schedule:
-    - cron: '0 6 * * *'  # Daily at 6 AM UTC
-  workflow_dispatch:      # Manual trigger
+    - cron: "0 6 * * *" # Daily at 6 AM UTC
+  workflow_dispatch: # Manual trigger
 
 jobs:
   scan:
@@ -34,21 +34,21 @@ jobs:
         id: trivy-backend
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'sbom'
-          scan-ref: 'apps/epistola/build/sbom/bom.json'
-          format: 'json'
-          output: 'backend-results.json'
-          severity: 'CRITICAL,HIGH'
+          scan-type: "sbom"
+          scan-ref: "apps/epistola/build/sbom/bom.json"
+          format: "json"
+          output: "backend-results.json"
+          severity: "CRITICAL,HIGH"
 
       - name: Scan frontend SBOM for vulnerabilities
         id: trivy-frontend
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'sbom'
-          scan-ref: 'modules/editor/build/sbom.json'
-          format: 'json'
-          output: 'frontend-results.json'
-          severity: 'CRITICAL,HIGH'
+          scan-type: "sbom"
+          scan-ref: "modules/editor/build/sbom.json"
+          format: "json"
+          output: "frontend-results.json"
+          severity: "CRITICAL,HIGH"
 
       - name: Generate badge JSON
         id: badge

@@ -27,16 +27,19 @@ font metrics, or internal rendering behavior — even patch releases.
 ### Procedure
 
 1. **Update the version** in `modules/generation/build.gradle.kts`:
+
    ```kotlin
    implementation("com.itextpdf:itext-core:X.Y.Z")
    ```
 
 2. **Update the version constant** in `RenderingDefaults.kt`:
+
    ```kotlin
    private const val ITEXT_VERSION = "X.Y.Z"
    ```
 
 3. **Run the regression tests** — they will likely fail:
+
    ```bash
    ./gradlew :modules:generation:test --tests "*.PdfRenderingRegressionTest"
    ```
@@ -45,11 +48,13 @@ font metrics, or internal rendering behavior — even patch releases.
    Look for unexpected content changes, missing text, or reordered elements.
 
 5. **If changes are acceptable**, regenerate baselines:
+
    ```bash
    ./gradlew :modules:generation:test -DupdateBaselines=true
    ```
 
 6. **Run the full test suite** to verify nothing else broke:
+
    ```bash
    ./gradlew test
    ```
@@ -85,6 +90,7 @@ change table border width):
 1. **Never modify an existing version** — `V1` values are frozen forever.
 
 2. **Create a new version** in `RenderingDefaults.kt`:
+
    ```kotlin
    val V2 = RenderingDefaults(
        version = 2,
@@ -93,6 +99,7 @@ change table border width):
    ```
 
 3. **Register it**:
+
    ```kotlin
    private val REGISTRY: Map<Int, RenderingDefaults> = mapOf(
        1 to V1,
@@ -101,6 +108,7 @@ change table border width):
    ```
 
 4. **Update CURRENT**:
+
    ```kotlin
    val CURRENT = V2
    ```
@@ -114,16 +122,19 @@ change table border width):
 ## Engine Version Tracking
 
 Every generated PDF embeds an `EngineVersion` metadata field in the PDF info dictionary:
+
 ```
 epistola-gen-1+itext-9.5.0
 ```
 
 This allows tracing which rendering engine produced a given PDF. The format is:
+
 ```
 epistola-gen-<rendering-defaults-version>+itext-<itext-version>
 ```
 
 You can inspect this with any PDF metadata viewer, or programmatically with iText:
+
 ```kotlin
 val reader = PdfReader(inputStream)
 val document = PdfDocument(reader)
@@ -132,11 +143,11 @@ val engineVersion = document.documentInfo.getMoreInfo("EngineVersion")
 
 ## Architecture Reference
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| `RenderingDefaults` | `modules/generation/.../pdf/RenderingDefaults.kt` | Versioned rendering constants |
-| `ResolvedThemeSnapshot` | `modules/epistola-core/.../themes/ResolvedThemeSnapshot.kt` | Frozen theme at publish time |
-| `PdfContentExtractor` | `modules/generation/src/test/.../PdfContentExtractor.kt` | Text extraction for regression tests |
-| `PdfRenderingRegressionTest` | `modules/generation/src/test/.../PdfRenderingRegressionTest.kt` | Canonical template baselines |
-| Baselines | `modules/generation/src/test/resources/baselines/` | Stored expected output |
-| Migration V16 | `apps/epistola/src/main/resources/db/migration/V16__*.sql` | Schema for snapshot columns |
+| Component                    | Location                                                        | Purpose                              |
+| ---------------------------- | --------------------------------------------------------------- | ------------------------------------ |
+| `RenderingDefaults`          | `modules/generation/.../pdf/RenderingDefaults.kt`               | Versioned rendering constants        |
+| `ResolvedThemeSnapshot`      | `modules/epistola-core/.../themes/ResolvedThemeSnapshot.kt`     | Frozen theme at publish time         |
+| `PdfContentExtractor`        | `modules/generation/src/test/.../PdfContentExtractor.kt`        | Text extraction for regression tests |
+| `PdfRenderingRegressionTest` | `modules/generation/src/test/.../PdfRenderingRegressionTest.kt` | Canonical template baselines         |
+| Baselines                    | `modules/generation/src/test/resources/baselines/`              | Stored expected output               |
+| Migration V16                | `apps/epistola/src/main/resources/db/migration/V16__*.sql`      | Schema for snapshot columns          |

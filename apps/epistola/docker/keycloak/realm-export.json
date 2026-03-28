@@ -47,12 +47,8 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "epistola-dev-secret",
       "serviceAccountsEnabled": true,
-      "redirectUris": [
-        "http://localhost:4000/*"
-      ],
-      "webOrigins": [
-        "http://localhost:4000"
-      ],
+      "redirectUris": ["http://localhost:4000/*"],
+      "webOrigins": ["http://localhost:4000"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
       "publicClient": false,
@@ -60,13 +56,7 @@
       "attributes": {
         "post.logout.redirect.uris": "http://localhost:4000/*"
       },
-      "defaultClientScopes": [
-        "web-origins",
-        "profile",
-        "roles",
-        "email",
-        "openid"
-      ],
+      "defaultClientScopes": ["web-origins", "profile", "roles", "email", "openid"],
       "protocolMappers": [
         {
           "name": "group-membership-mapper",
@@ -127,9 +117,7 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": [
-        "ep_demo_reader"
-      ]
+      "groups": ["ep_demo_reader"]
     },
     {
       "username": "editor@demo",
@@ -146,10 +134,7 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": [
-        "ep_demo_reader",
-        "ep_demo_editor"
-      ]
+      "groups": ["ep_demo_reader", "ep_demo_editor"]
     },
     {
       "username": "generator@demo",
@@ -166,10 +151,7 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": [
-        "ep_demo_reader",
-        "ep_demo_generator"
-      ]
+      "groups": ["ep_demo_reader", "ep_demo_generator"]
     },
     {
       "username": "manager@demo",
@@ -186,23 +168,14 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": [
-        "ep_demo_reader",
-        "ep_demo_editor",
-        "ep_demo_generator",
-        "ep_demo_manager"
-      ]
+      "groups": ["ep_demo_reader", "ep_demo_editor", "ep_demo_generator", "ep_demo_manager"]
     },
     {
       "username": "service-account-epistola-suite",
       "enabled": true,
       "serviceAccountClientId": "epistola-suite",
       "clientRoles": {
-        "realm-management": [
-          "manage-users",
-          "view-users",
-          "query-users"
-        ]
+        "realm-management": ["manage-users", "view-users", "query-users"]
       }
     }
   ],

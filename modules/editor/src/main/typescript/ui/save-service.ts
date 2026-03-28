@@ -13,39 +13,39 @@
  *   error → dirty (on markDirty)
  */
 
-import type { TemplateDocument } from '../types/index.js'
+import type { TemplateDocument } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
 // State types
 // ---------------------------------------------------------------------------
 
 export type SaveState =
-  | { status: 'idle' }
-  | { status: 'dirty' }
-  | { status: 'saving' }
-  | { status: 'saved' }
-  | { status: 'error'; message: string }
+  | { status: "idle" }
+  | { status: "dirty" }
+  | { status: "saving" }
+  | { status: "saved" }
+  | { status: "error"; message: string };
 
-export type SaveFn = (doc: TemplateDocument) => Promise<void>
+export type SaveFn = (doc: TemplateDocument) => Promise<void>;
 
-export type OnSaveStateChange = (state: SaveState) => void
+export type OnSaveStateChange = (state: SaveState) => void;
 
 // ---------------------------------------------------------------------------
 // SaveService
 // ---------------------------------------------------------------------------
 
 export class SaveService {
-  private _state: SaveState = { status: 'idle' }
-  private _debounceTimer: ReturnType<typeof setTimeout> | null = null
-  private _savedTimer: ReturnType<typeof setTimeout> | null = null
-  private _disposed = false
-  private _saving = false
-  private _pendingDoc: TemplateDocument | null = null
+  private _state: SaveState = { status: "idle" };
+  private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private _savedTimer: ReturnType<typeof setTimeout> | null = null;
+  private _disposed = false;
+  private _saving = false;
+  private _pendingDoc: TemplateDocument | null = null;
 
-  readonly _saveFn: SaveFn
-  readonly _onChange: OnSaveStateChange
-  readonly _debounceMs: number
-  readonly _savedDisplayMs: number
+  readonly _saveFn: SaveFn;
+  readonly _onChange: OnSaveStateChange;
+  readonly _debounceMs: number;
+  readonly _savedDisplayMs: number;
 
   constructor(
     saveFn: SaveFn,
@@ -53,14 +53,14 @@ export class SaveService {
     debounceMs: number = 3000,
     savedDisplayMs: number = 2000,
   ) {
-    this._saveFn = saveFn
-    this._onChange = onChange
-    this._debounceMs = debounceMs
-    this._savedDisplayMs = savedDisplayMs
+    this._saveFn = saveFn;
+    this._onChange = onChange;
+    this._debounceMs = debounceMs;
+    this._savedDisplayMs = savedDisplayMs;
   }
 
   get state(): SaveState {
-    return this._state
+    return this._state;
   }
 
   /**
@@ -68,12 +68,12 @@ export class SaveService {
    * so the UI reflects changes on first keystroke.
    */
   markDirty(): void {
-    if (this._disposed) return
+    if (this._disposed) return;
     // Always transition to dirty (even from saving — we track pending)
-    if (this._state.status !== 'dirty' && this._state.status !== 'saving') {
-      this._clearSavedTimer()
-      this._setState({ status: 'dirty' })
-    } else if (this._state.status === 'saving') {
+    if (this._state.status !== "dirty" && this._state.status !== "saving") {
+      this._clearSavedTimer();
+      this._setState({ status: "dirty" });
+    } else if (this._state.status === "saving") {
       // During save, we stay in 'saving' state but note we're dirty again
       // The post-save handler will check _pendingDoc
     }
@@ -84,13 +84,13 @@ export class SaveService {
    * changes — only the last document version is saved.
    */
   scheduleAutoSave(doc: TemplateDocument): void {
-    if (this._disposed) return
-    this._clearDebounce()
-    this._pendingDoc = doc
+    if (this._disposed) return;
+    this._clearDebounce();
+    this._pendingDoc = doc;
     this._debounceTimer = setTimeout(() => {
-      this._debounceTimer = null
-      this._doSave(doc)
-    }, this._debounceMs)
+      this._debounceTimer = null;
+      this._doSave(doc);
+    }, this._debounceMs);
   }
 
   /**
@@ -98,16 +98,13 @@ export class SaveService {
    * No-op when clean (idle or saved with no pending changes).
    */
   forceSave(doc: TemplateDocument): void {
-    if (this._disposed) return
+    if (this._disposed) return;
     // No-op when there's nothing to save
-    if (
-      (this._state.status === 'idle' || this._state.status === 'saved') &&
-      !this._pendingDoc
-    ) {
-      return
+    if ((this._state.status === "idle" || this._state.status === "saved") && !this._pendingDoc) {
+      return;
     }
-    this._clearDebounce()
-    this._doSave(doc)
+    this._clearDebounce();
+    this._doSave(doc);
   }
 
   /**
@@ -116,19 +113,17 @@ export class SaveService {
    */
   get isDirtyOrSaving(): boolean {
     return (
-      this._state.status === 'dirty' ||
-      this._state.status === 'saving' ||
-      this._pendingDoc !== null
-    )
+      this._state.status === "dirty" || this._state.status === "saving" || this._pendingDoc !== null
+    );
   }
 
   /**
    * Clean up all resources: clear timers, prevent further saves.
    */
   dispose(): void {
-    this._disposed = true
-    this._clearDebounce()
-    this._clearSavedTimer()
+    this._disposed = true;
+    this._clearDebounce();
+    this._clearSavedTimer();
   }
 
   // ---------------------------------------------------------------------------
@@ -136,66 +131,66 @@ export class SaveService {
   // ---------------------------------------------------------------------------
 
   private _setState(state: SaveState): void {
-    this._state = state
-    this._onChange(state)
+    this._state = state;
+    this._onChange(state);
   }
 
   private _clearDebounce(): void {
     if (this._debounceTimer !== null) {
-      clearTimeout(this._debounceTimer)
-      this._debounceTimer = null
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = null;
     }
   }
 
   private _clearSavedTimer(): void {
     if (this._savedTimer !== null) {
-      clearTimeout(this._savedTimer)
-      this._savedTimer = null
+      clearTimeout(this._savedTimer);
+      this._savedTimer = null;
     }
   }
 
   private async _doSave(doc: TemplateDocument): Promise<void> {
     // Prevent concurrent saves — queue as pending
     if (this._saving) {
-      this._pendingDoc = doc
-      return
+      this._pendingDoc = doc;
+      return;
     }
 
-    this._saving = true
-    this._pendingDoc = null
-    this._setState({ status: 'saving' })
+    this._saving = true;
+    this._pendingDoc = null;
+    this._setState({ status: "saving" });
 
     try {
-      await this._saveFn(doc)
+      await this._saveFn(doc);
 
-      if (this._disposed) return
+      if (this._disposed) return;
 
       // If changes arrived during save, go to dirty and auto-save again
       if (this._pendingDoc) {
-        const pendingDoc = this._pendingDoc
-        this._saving = false
-        this._setState({ status: 'dirty' })
-        this.scheduleAutoSave(pendingDoc)
-        return
+        const pendingDoc = this._pendingDoc;
+        this._saving = false;
+        this._setState({ status: "dirty" });
+        this.scheduleAutoSave(pendingDoc);
+        return;
       }
 
-      this._saving = false
-      this._setState({ status: 'saved' })
+      this._saving = false;
+      this._setState({ status: "saved" });
 
       // Auto-transition saved → idle after display period
       this._savedTimer = setTimeout(() => {
-        this._savedTimer = null
-        if (this._disposed) return
-        if (this._state.status === 'saved') {
-          this._setState({ status: 'idle' })
+        this._savedTimer = null;
+        if (this._disposed) return;
+        if (this._state.status === "saved") {
+          this._setState({ status: "idle" });
         }
-      }, this._savedDisplayMs)
+      }, this._savedDisplayMs);
     } catch (err: unknown) {
-      if (this._disposed) return
-      this._saving = false
-      this._pendingDoc = null
-      const message = err instanceof Error ? err.message : 'Save failed'
-      this._setState({ status: 'error', message })
+      if (this._disposed) return;
+      this._saving = false;
+      this._pendingDoc = null;
+      const message = err instanceof Error ? err.message : "Save failed";
+      this._setState({ status: "error", message });
     }
   }
 }

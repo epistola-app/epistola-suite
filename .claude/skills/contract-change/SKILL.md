@@ -10,6 +10,7 @@ Guide through making REST API contract changes.
 ## Decision Points
 
 Ask the user:
+
 - Is this a new endpoint or a modification to an existing one?
 - Does the OpenAPI spec (in the separate `epistola-contract` repo) need updating?
 - Or can the change be handled within the existing generated interfaces?
@@ -51,6 +52,7 @@ class EpistolaXxxApi(
 ```
 
 **Conventions**:
+
 - Controllers only do: ID conversion, command/query dispatch, DTO mapping
 - No business logic in controllers
 - Use `.execute()` for commands, `.query()` for queries
@@ -58,6 +60,7 @@ class EpistolaXxxApi(
 - Path: `/api/v1/*` or `/v1/*`
 
 **Response status codes**:
+
 - `200 OK` — successful GET/PATCH/PUT
 - `201 CREATED` — successful POST creating a resource
 - `202 ACCEPTED` — async operations (e.g., document generation)
@@ -67,11 +70,11 @@ class EpistolaXxxApi(
 
 **Reference files** (all in `modules/rest-api/.../api/v1/shared/`):
 
-| File | Responsibility |
-|------|---------------|
-| `DtoMappers.kt` | Core entity mappers: Tenant, Environment, DocumentTemplate, TemplateVariant, TemplateVersion |
-| `ThemeDtoMappers.kt` | Theme mappers: Theme, DocumentStyles, PageSettings, Margins, BlockStylePresets |
-| `DocumentDtoMappers.kt` | Document generation mappers: DocumentMetadata, GenerationRequest, GenerationJobResult |
+| File                    | Responsibility                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `DtoMappers.kt`         | Core entity mappers: Tenant, Environment, DocumentTemplate, TemplateVariant, TemplateVersion |
+| `ThemeDtoMappers.kt`    | Theme mappers: Theme, DocumentStyles, PageSettings, Margins, BlockStylePresets               |
+| `DocumentDtoMappers.kt` | Document generation mappers: DocumentMetadata, GenerationRequest, GenerationJobResult        |
 
 ### Domain → DTO (outbound)
 
@@ -106,19 +109,20 @@ Scoped to `@RestControllerAdvice(basePackages = ["app.epistola.suite.api.v1"])` 
 Returns structured `ApiErrorResponse` with `code`, `message`, and optional `details`.
 
 **Two response patterns**:
+
 1. Simple error: `ApiErrorResponse(code = "CONFLICT", message = "...")`
 2. Validation error with details: `ApiErrorResponse(code = "VALIDATION_ERROR", message = "...", details = mapOf(...))`
 
 Common mappings:
 
-| Exception | HTTP Status |
-|-----------|-------------|
-| `ValidationException` | 400 BAD_REQUEST |
-| `ThemeInUseException` | 409 CONFLICT |
-| `DefaultVariantDeletionException` | 409 CONFLICT |
-| `VersionStillActiveException` | 409 CONFLICT |
-| `DataModelValidationException` | 422 UNPROCESSABLE_ENTITY |
-| `NoMatchingVariantException` | 404 NOT_FOUND |
+| Exception                         | HTTP Status              |
+| --------------------------------- | ------------------------ |
+| `ValidationException`             | 400 BAD_REQUEST          |
+| `ThemeInUseException`             | 409 CONFLICT             |
+| `DefaultVariantDeletionException` | 409 CONFLICT             |
+| `VersionStillActiveException`     | 409 CONFLICT             |
+| `DataModelValidationException`    | 422 UNPROCESSABLE_ENTITY |
+| `NoMatchingVariantException`      | 404 NOT_FOUND            |
 
 ## Testing
 

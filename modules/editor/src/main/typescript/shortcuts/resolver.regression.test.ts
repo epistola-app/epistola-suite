@@ -3,8 +3,7 @@ import { defineShortcutRegistry } from "./foundation.js";
 import { ShortcutResolver, type ShortcutKeyboardEvent } from "./resolver.js";
 
 function keyboardEvent(
-  input: Partial<ShortcutKeyboardEvent> &
-    Pick<ShortcutKeyboardEvent, "key" | "code">,
+  input: Partial<ShortcutKeyboardEvent> & Pick<ShortcutKeyboardEvent, "key" | "code">,
 ): ShortcutKeyboardEvent {
   return {
     key: input.key,

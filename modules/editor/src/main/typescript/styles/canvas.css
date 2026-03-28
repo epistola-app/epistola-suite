@@ -96,7 +96,9 @@
     color: var(--ep-gray-400);
     cursor: pointer;
     padding: 0;
-    transition: color var(--ep-transition-base), background var(--ep-transition-base);
+    transition:
+      color var(--ep-transition-base),
+      background var(--ep-transition-base);
   }
 
   .canvas-block-delete:hover {

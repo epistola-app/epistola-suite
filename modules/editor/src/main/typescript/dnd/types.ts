@@ -6,20 +6,24 @@
  * - block: dragging an existing block from the canvas
  */
 
-import type { NodeId } from '../types/index.js'
+import type { NodeId } from "../types/index.js";
 
 export type DragData =
-  | { source: 'palette'; blockType: string }
-  | { source: 'block'; nodeId: NodeId; blockType: string }
+  | { source: "palette"; blockType: string }
+  | { source: "block"; nodeId: NodeId; blockType: string };
 
-export function isPaletteDrag(data: Record<string, unknown>): data is DragData & { source: 'palette' } {
-  return data.source === 'palette' && typeof data.blockType === 'string'
+export function isPaletteDrag(
+  data: Record<string, unknown>,
+): data is DragData & { source: "palette" } {
+  return data.source === "palette" && typeof data.blockType === "string";
 }
 
-export function isBlockDrag(data: Record<string, unknown>): data is DragData & { source: 'block' } {
-  return data.source === 'block' && typeof data.nodeId === 'string' && typeof data.blockType === 'string'
+export function isBlockDrag(data: Record<string, unknown>): data is DragData & { source: "block" } {
+  return (
+    data.source === "block" && typeof data.nodeId === "string" && typeof data.blockType === "string"
+  );
 }
 
 export function isDragData(data: Record<string, unknown>): data is DragData {
-  return isPaletteDrag(data) || isBlockDrag(data)
+  return isPaletteDrag(data) || isBlockDrag(data);
 }

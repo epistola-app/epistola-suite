@@ -6,24 +6,24 @@
  */
 
 export interface AssetInfo {
-  id: string
-  name: string
-  mediaType: string
-  sizeBytes: number
-  width: number | null
-  height: number | null
-  contentUrl: string
+  id: string;
+  name: string;
+  mediaType: string;
+  sizeBytes: number;
+  width: number | null;
+  height: number | null;
+  contentUrl: string;
 }
 
 export interface AssetPickerCallbacks {
-  listAssets: () => Promise<AssetInfo[]>
-  uploadAsset: (file: File) => Promise<AssetInfo>
+  listAssets: () => Promise<AssetInfo[]>;
+  uploadAsset: (file: File) => Promise<AssetInfo>;
 }
 
 export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<AssetInfo | null> {
   return new Promise((resolve) => {
-    const dialog = document.createElement('dialog')
-    dialog.className = 'asset-picker-dialog'
+    const dialog = document.createElement("dialog");
+    dialog.className = "asset-picker-dialog";
 
     dialog.innerHTML = `
       <div class="asset-picker-content">
@@ -49,120 +49,126 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
           <button type="button" class="asset-picker-btn insert" disabled>Insert</button>
         </div>
       </div>
-    `
+    `;
 
-    const grid = dialog.querySelector<HTMLElement>('#asset-picker-grid')!
-    const uploadZone = dialog.querySelector<HTMLElement>('#asset-picker-upload')!
-    const fileInput = dialog.querySelector<HTMLInputElement>('#asset-picker-file')!
-    const closeBtn = dialog.querySelector<HTMLElement>('.asset-picker-close')!
-    const cancelBtn = dialog.querySelector<HTMLElement>('.cancel')!
-    const insertBtn = dialog.querySelector<HTMLButtonElement>('.insert')!
+    const grid = dialog.querySelector<HTMLElement>("#asset-picker-grid")!;
+    const uploadZone = dialog.querySelector<HTMLElement>("#asset-picker-upload")!;
+    const fileInput = dialog.querySelector<HTMLInputElement>("#asset-picker-file")!;
+    const closeBtn = dialog.querySelector<HTMLElement>(".asset-picker-close")!;
+    const cancelBtn = dialog.querySelector<HTMLElement>(".cancel")!;
+    const insertBtn = dialog.querySelector<HTMLButtonElement>(".insert")!;
 
-    let selectedAsset: AssetInfo | null = null
+    let selectedAsset: AssetInfo | null = null;
 
     const close = (result: AssetInfo | null) => {
-      dialog.close()
-      dialog.remove()
-      resolve(result)
-    }
+      dialog.close();
+      dialog.remove();
+      resolve(result);
+    };
 
     function renderGrid(assets: AssetInfo[]) {
       if (assets.length === 0) {
-        grid.innerHTML = '<div class="asset-picker-empty">No assets yet. Upload an image above.</div>'
-        return
+        grid.innerHTML =
+          '<div class="asset-picker-empty">No assets yet. Upload an image above.</div>';
+        return;
       }
 
-      grid.innerHTML = ''
+      grid.innerHTML = "";
       for (const asset of assets) {
-        const card = document.createElement('div')
-        card.className = 'asset-picker-card'
-        card.dataset.assetId = asset.id
+        const card = document.createElement("div");
+        card.className = "asset-picker-card";
+        card.dataset.assetId = asset.id;
         card.innerHTML = `
           <div class="asset-picker-card-img">
             <img src="${asset.contentUrl}" alt="${asset.name}" loading="lazy" />
           </div>
           <div class="asset-picker-card-name" title="${asset.name}">${asset.name}</div>
-        `
-        card.addEventListener('click', () => {
+        `;
+        card.addEventListener("click", () => {
           // Deselect previous
-          grid.querySelectorAll('.asset-picker-card').forEach(c => c.classList.remove('selected'))
-          card.classList.add('selected')
-          selectedAsset = asset
-          insertBtn.disabled = false
-        })
-        card.addEventListener('dblclick', () => {
-          selectedAsset = asset
-          close(selectedAsset)
-        })
-        grid.appendChild(card)
+          grid
+            .querySelectorAll(".asset-picker-card")
+            .forEach((c) => c.classList.remove("selected"));
+          card.classList.add("selected");
+          selectedAsset = asset;
+          insertBtn.disabled = false;
+        });
+        card.addEventListener("dblclick", () => {
+          selectedAsset = asset;
+          close(selectedAsset);
+        });
+        grid.appendChild(card);
       }
     }
 
     // Load existing assets
-    callbacks.listAssets().then(assets => {
-      renderGrid(assets)
-    }).catch(() => {
-      grid.innerHTML = '<div class="asset-picker-empty">Failed to load assets.</div>'
-    })
+    callbacks
+      .listAssets()
+      .then((assets) => {
+        renderGrid(assets);
+      })
+      .catch(() => {
+        grid.innerHTML = '<div class="asset-picker-empty">Failed to load assets.</div>';
+      });
 
     // Upload handling
     const handleUpload = async (file: File) => {
-      uploadZone.classList.add('uploading')
+      uploadZone.classList.add("uploading");
       try {
-        const asset = await callbacks.uploadAsset(file)
+        const asset = await callbacks.uploadAsset(file);
         // Refresh the grid and auto-select the new asset
-        const assets = await callbacks.listAssets()
-        renderGrid(assets)
+        const assets = await callbacks.listAssets();
+        renderGrid(assets);
         // Select the newly uploaded asset
-        const newCard = grid.querySelector(`[data-asset-id="${asset.id}"]`)
+        const newCard = grid.querySelector(`[data-asset-id="${asset.id}"]`);
         if (newCard) {
-          newCard.classList.add('selected')
-          selectedAsset = asset
-          insertBtn.disabled = false
+          newCard.classList.add("selected");
+          selectedAsset = asset;
+          insertBtn.disabled = false;
         }
       } catch (err) {
-        console.error('Asset upload failed:', err)
+        console.error("Asset upload failed:", err);
       } finally {
-        uploadZone.classList.remove('uploading')
+        uploadZone.classList.remove("uploading");
       }
-    }
+    };
 
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0]
-      if (file) handleUpload(file)
-      fileInput.value = ''
-    })
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (file) handleUpload(file);
+      fileInput.value = "";
+    });
 
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault()
-      uploadZone.classList.add('dragover')
-    })
-    uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('dragover')
-    })
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault()
-      uploadZone.classList.remove('dragover')
-      const file = e.dataTransfer?.files[0]
-      if (file) handleUpload(file)
-    })
+    uploadZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadZone.classList.add("dragover");
+    });
+    uploadZone.addEventListener("dragleave", () => {
+      uploadZone.classList.remove("dragover");
+    });
+    uploadZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove("dragover");
+      const file = e.dataTransfer?.files[0];
+      if (file) handleUpload(file);
+    });
 
     // Button actions
-    closeBtn.addEventListener('click', () => close(null))
-    cancelBtn.addEventListener('click', () => close(null))
-    insertBtn.addEventListener('click', () => close(selectedAsset))
+    closeBtn.addEventListener("click", () => close(null));
+    cancelBtn.addEventListener("click", () => close(null));
+    insertBtn.addEventListener("click", () => close(selectedAsset));
 
-    dialog.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        close(null)
+    dialog.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close(null);
       }
-    })
-    dialog.addEventListener('click', (e) => {
-      if (e.target === dialog) close(null)
-    })
+    });
+    dialog.addEventListener("click", (e) => {
+      if (e.target === dialog) close(null);
+    });
 
-    document.body.appendChild(dialog)
-    dialog.showModal()
-  })
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  });
 }

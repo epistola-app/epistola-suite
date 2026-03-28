@@ -6,17 +6,17 @@
  * Tree operations (update, delete, add) work at arbitrary depth via recursion.
  */
 
-import type { SchemaField, SchemaFieldUpdate, VisualSchema } from '../types.js'
-import { applyFieldUpdate, createEmptyField } from './schemaUtils.js'
+import type { SchemaField, SchemaFieldUpdate, VisualSchema } from "../types.js";
+import { applyFieldUpdate, createEmptyField } from "./schemaUtils.js";
 
 // =============================================================================
 // Command types
 // =============================================================================
 
 export type SchemaCommand =
-  | { type: 'addField'; parentFieldId: string | null; name?: string }
-  | { type: 'deleteField'; fieldId: string }
-  | { type: 'updateField'; fieldId: string; updates: SchemaFieldUpdate }
+  | { type: "addField"; parentFieldId: string | null; name?: string }
+  | { type: "deleteField"; fieldId: string }
+  | { type: "updateField"; fieldId: string; updates: SchemaFieldUpdate };
 
 // =============================================================================
 // Command executor (pure function)
@@ -28,14 +28,16 @@ export type SchemaCommand =
  */
 export function executeSchemaCommand(schema: VisualSchema, command: SchemaCommand): VisualSchema {
   switch (command.type) {
-    case 'addField': {
-      const newField = createEmptyField(command.name ?? `field${countAllFields(schema.fields) + 1}`)
-      return { fields: addFieldToTree(schema.fields, command.parentFieldId, newField) }
+    case "addField": {
+      const newField = createEmptyField(
+        command.name ?? `field${countAllFields(schema.fields) + 1}`,
+      );
+      return { fields: addFieldToTree(schema.fields, command.parentFieldId, newField) };
     }
-    case 'deleteField':
-      return { fields: deleteFieldFromTree(schema.fields, command.fieldId) }
-    case 'updateField':
-      return { fields: updateFieldInTree(schema.fields, command.fieldId, command.updates) }
+    case "deleteField":
+      return { fields: deleteFieldFromTree(schema.fields, command.fieldId) };
+    case "updateField":
+      return { fields: updateFieldInTree(schema.fields, command.fieldId, command.updates) };
   }
 }
 
@@ -54,18 +56,18 @@ export function updateFieldInTree(
 ): SchemaField[] {
   return fields.map((field) => {
     if (field.id === fieldId) {
-      return applyFieldUpdate(field, updates)
+      return applyFieldUpdate(field, updates);
     }
     // Recurse into nested fields
-    const nested = getNestedFields(field)
+    const nested = getNestedFields(field);
     if (nested && nested.length > 0) {
-      const updatedNested = updateFieldInTree(nested, fieldId, updates)
+      const updatedNested = updateFieldInTree(nested, fieldId, updates);
       if (updatedNested !== nested) {
-        return applyFieldUpdate(field, { nestedFields: updatedNested })
+        return applyFieldUpdate(field, { nestedFields: updatedNested });
       }
     }
-    return field
-  })
+    return field;
+  });
 }
 
 /**
@@ -73,25 +75,25 @@ export function updateFieldInTree(
  * Returns a new array — does not mutate the input.
  */
 export function deleteFieldFromTree(fields: SchemaField[], fieldId: string): SchemaField[] {
-  let changed = false
-  const result: SchemaField[] = []
+  let changed = false;
+  const result: SchemaField[] = [];
   for (const field of fields) {
     if (field.id === fieldId) {
-      changed = true
-      continue // skip this field (delete it)
+      changed = true;
+      continue; // skip this field (delete it)
     }
-    const nested = getNestedFields(field)
+    const nested = getNestedFields(field);
     if (nested && nested.length > 0) {
-      const updatedNested = deleteFieldFromTree(nested, fieldId)
+      const updatedNested = deleteFieldFromTree(nested, fieldId);
       if (updatedNested !== nested) {
-        result.push(applyFieldUpdate(field, { nestedFields: updatedNested }))
-        changed = true
-        continue
+        result.push(applyFieldUpdate(field, { nestedFields: updatedNested }));
+        changed = true;
+        continue;
       }
     }
-    result.push(field)
+    result.push(field);
   }
-  return changed ? result : fields
+  return changed ? result : fields;
 }
 
 /**
@@ -104,24 +106,24 @@ export function addFieldToTree(
   newField: SchemaField,
 ): SchemaField[] {
   if (parentFieldId === null) {
-    return [...fields, newField]
+    return [...fields, newField];
   }
 
   return fields.map((field) => {
     if (field.id === parentFieldId) {
-      const nested = getNestedFields(field) ?? []
-      return applyFieldUpdate(field, { nestedFields: [...nested, newField] })
+      const nested = getNestedFields(field) ?? [];
+      return applyFieldUpdate(field, { nestedFields: [...nested, newField] });
     }
     // Recurse into nested fields
-    const nested = getNestedFields(field)
+    const nested = getNestedFields(field);
     if (nested && nested.length > 0) {
-      const updatedNested = addFieldToTree(nested, parentFieldId, newField)
+      const updatedNested = addFieldToTree(nested, parentFieldId, newField);
       if (updatedNested !== nested) {
-        return applyFieldUpdate(field, { nestedFields: updatedNested })
+        return applyFieldUpdate(field, { nestedFields: updatedNested });
       }
     }
-    return field
-  })
+    return field;
+  });
 }
 
 // =============================================================================
@@ -129,19 +131,19 @@ export function addFieldToTree(
 // =============================================================================
 
 function getNestedFields(field: SchemaField): SchemaField[] | undefined {
-  if (field.type === 'object') return field.nestedFields
-  if (field.type === 'array') return field.nestedFields
-  return undefined
+  if (field.type === "object") return field.nestedFields;
+  if (field.type === "array") return field.nestedFields;
+  return undefined;
 }
 
 function countAllFields(fields: SchemaField[]): number {
-  let count = 0
+  let count = 0;
   for (const field of fields) {
-    count++
-    const nested = getNestedFields(field)
+    count++;
+    const nested = getNestedFields(field);
     if (nested) {
-      count += countAllFields(nested)
+      count += countAllFields(nested);
     }
   }
-  return count
+  return count;
 }

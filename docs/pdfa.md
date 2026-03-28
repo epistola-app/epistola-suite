@@ -15,14 +15,14 @@ This matters for regulated industries (finance, healthcare, government) and any 
 
 ## Standard vs PDF/A output
 
-| Aspect | Standard PDF (default) | PDF/A-2b |
-|--------|----------------------|----------|
-| Fonts | Helvetica (non-embedded, standard 14) | Liberation Sans (embedded TTF) |
-| Color profile | None | sRGB ICC profile embedded |
-| XMP metadata | No | Yes (pdfaid:part, pdfaid:conformance) |
-| File size | Smaller (~5-15 KB for simple docs) | Larger (~400+ KB due to embedded fonts) |
-| Render speed | Faster | Slower (font embedding + ICC) |
-| Archival safe | No | Yes (ISO 19005-2 Level B) |
+| Aspect        | Standard PDF (default)                | PDF/A-2b                                |
+| ------------- | ------------------------------------- | --------------------------------------- |
+| Fonts         | Helvetica (non-embedded, standard 14) | Liberation Sans (embedded TTF)          |
+| Color profile | None                                  | sRGB ICC profile embedded               |
+| XMP metadata  | No                                    | Yes (pdfaid:part, pdfaid:conformance)   |
+| File size     | Smaller (~5-15 KB for simple docs)    | Larger (~400+ KB due to embedded fonts) |
+| Render speed  | Faster                                | Slower (font embedding + ICC)           |
+| Archival safe | No                                    | Yes (ISO 19005-2 Level B)               |
 
 ## Enabling PDF/A
 
@@ -64,10 +64,10 @@ Preview rendering (`TemplatePreviewHandler`) always uses the default `pdfaCompli
 
 `FontCache` manages font creation based on the compliance mode:
 
-| Mode | Font family | Strategy |
-|------|-------------|----------|
-| Standard | Helvetica (built-in) | Non-embedded, references PDF standard 14 fonts |
-| PDF/A | Liberation Sans (TTF) | Force-embedded via `PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED` |
+| Mode     | Font family           | Strategy                                                             |
+| -------- | --------------------- | -------------------------------------------------------------------- |
+| Standard | Helvetica (built-in)  | Non-embedded, references PDF standard 14 fonts                       |
+| PDF/A    | Liberation Sans (TTF) | Force-embedded via `PdfFontFactory.EmbeddingStrategy.FORCE_EMBEDDED` |
 
 Liberation Sans is metrically compatible with Helvetica — documents render identically in both modes, but PDF/A embeds the actual font data (~400 KB for all 4 variants).
 
@@ -78,6 +78,7 @@ Font variants available: regular, bold, italic, bold-italic.
 Both modes set document metadata (title, author, subject, creator) via the PDF info dictionary. In PDF/A mode, this metadata is additionally written as XMP (required by the standard).
 
 Metadata is populated from:
+
 - **title** — template name
 - **author** — tenant name
 - **creator** — "Epistola Suite" (default)
@@ -97,15 +98,15 @@ ALTER TABLE document_templates ADD COLUMN pdfa_enabled BOOLEAN NOT NULL DEFAULT 
 
 ## Key files
 
-| File | Purpose |
-|------|---------|
-| `modules/generation/.../pdf/DirectPdfRenderer.kt` | Branches between `PdfDocument` and `PdfADocument` |
-| `modules/generation/.../pdf/FontCache.kt` | Dual font strategy (embedded vs standard) |
-| `modules/generation/.../pdf/PdfMetadata.kt` | Metadata model |
-| `modules/generation/src/main/resources/fonts/` | Liberation Sans TTF fonts (SIL OFL license) |
-| `modules/generation/src/main/resources/color/sRGB.icc` | ICC color profile |
-| `modules/epistola-core/.../templates/DocumentTemplate.kt` | `pdfaEnabled` field |
-| `modules/epistola-core/.../documents/batch/DocumentGenerationExecutor.kt` | Reads `template.pdfaEnabled` for batch jobs |
+| File                                                                      | Purpose                                           |
+| ------------------------------------------------------------------------- | ------------------------------------------------- |
+| `modules/generation/.../pdf/DirectPdfRenderer.kt`                         | Branches between `PdfDocument` and `PdfADocument` |
+| `modules/generation/.../pdf/FontCache.kt`                                 | Dual font strategy (embedded vs standard)         |
+| `modules/generation/.../pdf/PdfMetadata.kt`                               | Metadata model                                    |
+| `modules/generation/src/main/resources/fonts/`                            | Liberation Sans TTF fonts (SIL OFL license)       |
+| `modules/generation/src/main/resources/color/sRGB.icc`                    | ICC color profile                                 |
+| `modules/epistola-core/.../templates/DocumentTemplate.kt`                 | `pdfaEnabled` field                               |
+| `modules/epistola-core/.../documents/batch/DocumentGenerationExecutor.kt` | Reads `template.pdfaEnabled` for batch jobs       |
 
 ## Limitations
 

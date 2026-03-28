@@ -178,7 +178,7 @@ To see all adaptive behavior logs, ensure your logging configuration includes:
 ```yaml
 logging:
   level:
-    app.epistola.suite.documents.batch: DEBUG  # Shows all adaptive decisions
+    app.epistola.suite.documents.batch: DEBUG # Shows all adaptive decisions
 ```
 
 For production, use INFO level to see only batch size changes:
@@ -186,5 +186,5 @@ For production, use INFO level to see only batch size changes:
 ```yaml
 logging:
   level:
-    app.epistola.suite.documents.batch: INFO  # Shows only scaling events
+    app.epistola.suite.documents.batch: INFO # Shows only scaling events
 ```

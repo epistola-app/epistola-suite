@@ -87,6 +87,7 @@ CREATE INDEX idx_template_variants_template ON template_variants(tenant_key, tem
 ```
 
 Also add `variant_attribute_definitions` (merged from V12):
+
 ```sql
 CREATE TABLE variant_attribute_definitions (
     id VARCHAR(50) NOT NULL,
@@ -159,6 +160,7 @@ CREATE TABLE environment_activations (
 ### V5: `documents`
 
 Update FKs to use composite references:
+
 ```sql
 FOREIGN KEY (tenant_key, template_key) REFERENCES document_templates(tenant_key, id) ON DELETE CASCADE,
 FOREIGN KEY (tenant_key, variant_key) REFERENCES template_variants(tenant_key, id) ON DELETE CASCADE,
@@ -168,6 +170,7 @@ FOREIGN KEY (tenant_key, variant_key, version_key) REFERENCES template_versions(
 ### V5: `document_generation_requests`
 
 Update FKs to use composite references:
+
 ```sql
 FOREIGN KEY (tenant_key, template_key) REFERENCES document_templates(tenant_key, id) ON DELETE CASCADE,
 FOREIGN KEY (tenant_key, variant_key) REFERENCES template_variants(tenant_key, id) ON DELETE CASCADE,
@@ -181,6 +184,7 @@ CONSTRAINT fk_requests_variant_version
 ### V11: `load_test_runs`
 
 Update FKs to use composite references:
+
 ```sql
 FOREIGN KEY (tenant_key, template_key) REFERENCES document_templates(tenant_key, id) ON DELETE CASCADE,
 FOREIGN KEY (tenant_key, variant_key) REFERENCES template_variants(tenant_key, id) ON DELETE CASCADE,
@@ -191,6 +195,7 @@ FOREIGN KEY (tenant_key, variant_key, version_key) REFERENCES template_versions(
 ### Delete V12 and V13
 
 Remove these files (content merged into V3):
+
 - `V12__create_variant_attribute_definitions.sql`
 - `V13__rename_tags_to_attributes.sql`
 
@@ -242,53 +247,54 @@ WHERE tv.template_key = :templateId
 
 ### Files to update (queries)
 
-| File | Change |
-|------|--------|
-| `queries/variants/ListVariants.kt` | Remove JOIN to document_templates, add `tv.tenant_key` to SELECT, WHERE on `tv.tenant_key` |
-| `queries/variants/GetVariant.kt` | Remove JOIN to document_templates, add `tv.tenant_key` to SELECT, WHERE on `tv.tenant_key` |
-| `queries/variants/GetVariant.kt` (GetVariantSummaries) | Add `tv.tenant_key` to WHERE |
-| `queries/versions/GetVersion.kt` | Update JOINs to include tenant_key in FK conditions |
-| `queries/versions/GetDraft.kt` | Update JOINs to include tenant_key in FK conditions |
-| `queries/versions/GetDraftForPreview.kt` | Update JOINs to include tenant_key in FK conditions |
-| `queries/versions/ListVersions.kt` | Update JOINs to include tenant_key in FK conditions |
-| `queries/activations/GetActiveVersion.kt` | Update JOINs for composite FKs |
-| `queries/activations/ListActivations.kt` | Update JOINs for composite FKs |
-| `queries/GetDocumentTemplate.kt` | Update WHERE to `WHERE dt.tenant_key = :tenantId AND dt.id = :id` |
-| `queries/ListDocumentTemplates.kt` | Verify tenant_key in WHERE |
-| `queries/ListTemplateSummaries.kt` | Update JOINs for composite FKs |
-| `queries/GetEditorContext.kt` | Update JOINs for composite FKs |
-| `environments/queries/GetEnvironment.kt` | Update WHERE to use composite PK |
-| `environments/queries/ListEnvironments.kt` | Verify tenant_key in WHERE |
-| `documents/queries/*.kt` | Update JOINs for composite FKs where applicable |
+| File                                                   | Change                                                                                     |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `queries/variants/ListVariants.kt`                     | Remove JOIN to document_templates, add `tv.tenant_key` to SELECT, WHERE on `tv.tenant_key` |
+| `queries/variants/GetVariant.kt`                       | Remove JOIN to document_templates, add `tv.tenant_key` to SELECT, WHERE on `tv.tenant_key` |
+| `queries/variants/GetVariant.kt` (GetVariantSummaries) | Add `tv.tenant_key` to WHERE                                                               |
+| `queries/versions/GetVersion.kt`                       | Update JOINs to include tenant_key in FK conditions                                        |
+| `queries/versions/GetDraft.kt`                         | Update JOINs to include tenant_key in FK conditions                                        |
+| `queries/versions/GetDraftForPreview.kt`               | Update JOINs to include tenant_key in FK conditions                                        |
+| `queries/versions/ListVersions.kt`                     | Update JOINs to include tenant_key in FK conditions                                        |
+| `queries/activations/GetActiveVersion.kt`              | Update JOINs for composite FKs                                                             |
+| `queries/activations/ListActivations.kt`               | Update JOINs for composite FKs                                                             |
+| `queries/GetDocumentTemplate.kt`                       | Update WHERE to `WHERE dt.tenant_key = :tenantId AND dt.id = :id`                          |
+| `queries/ListDocumentTemplates.kt`                     | Verify tenant_key in WHERE                                                                 |
+| `queries/ListTemplateSummaries.kt`                     | Update JOINs for composite FKs                                                             |
+| `queries/GetEditorContext.kt`                          | Update JOINs for composite FKs                                                             |
+| `environments/queries/GetEnvironment.kt`               | Update WHERE to use composite PK                                                           |
+| `environments/queries/ListEnvironments.kt`             | Verify tenant_key in WHERE                                                                 |
+| `documents/queries/*.kt`                               | Update JOINs for composite FKs where applicable                                            |
 
 ### Files to update (commands)
 
-| File | Change |
-|------|--------|
-| `commands/CreateDocumentTemplate.kt` | No SQL change needed (already INSERTs tenant_key) |
-| `commands/UpdateDocumentTemplate.kt` | Update WHERE to `WHERE tenant_key = :tenantId AND id = :id` |
-| `commands/DeleteDocumentTemplate.kt` | Update WHERE to `WHERE tenant_key = :tenantId AND id = :id` |
-| `commands/UpdateDataExample.kt` | Update WHERE for composite PK |
-| `commands/DeleteDataExample.kt` | Update WHERE for composite PK |
-| `commands/variants/CreateVariant.kt` | Add `tenant_key` to INSERT, update ownership check |
-| `commands/variants/UpdateVariant.kt` | Simplify ownership check (no JOIN needed), add tenant_key to WHERE |
-| `commands/variants/DeleteVariant.kt` | Simplify ownership check (no JOIN needed), add tenant_key to WHERE |
-| `commands/versions/UpdateDraft.kt` | Update JOINs for composite FKs |
-| `commands/versions/PublishVersion.kt` | Update JOINs for composite FKs |
-| `commands/versions/ArchiveVersion.kt` | Update JOINs for composite FKs |
-| `commands/activations/SetActivation.kt` | Add tenant_key to INSERT/UPSERT, update FKs |
-| `commands/activations/RemoveActivation.kt` | Update WHERE for composite FKs |
-| `environments/commands/CreateEnvironment.kt` | Verify PK usage |
-| `environments/commands/UpdateEnvironment.kt` | Update WHERE for composite PK |
-| `environments/commands/DeleteEnvironment.kt` | Update WHERE and JOINs |
-| `documents/commands/GenerateDocument.kt` | Update FK verification queries |
-| `documents/commands/GenerateDocumentBatch.kt` | Update FK verification queries |
+| File                                          | Change                                                             |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| `commands/CreateDocumentTemplate.kt`          | No SQL change needed (already INSERTs tenant_key)                  |
+| `commands/UpdateDocumentTemplate.kt`          | Update WHERE to `WHERE tenant_key = :tenantId AND id = :id`        |
+| `commands/DeleteDocumentTemplate.kt`          | Update WHERE to `WHERE tenant_key = :tenantId AND id = :id`        |
+| `commands/UpdateDataExample.kt`               | Update WHERE for composite PK                                      |
+| `commands/DeleteDataExample.kt`               | Update WHERE for composite PK                                      |
+| `commands/variants/CreateVariant.kt`          | Add `tenant_key` to INSERT, update ownership check                 |
+| `commands/variants/UpdateVariant.kt`          | Simplify ownership check (no JOIN needed), add tenant_key to WHERE |
+| `commands/variants/DeleteVariant.kt`          | Simplify ownership check (no JOIN needed), add tenant_key to WHERE |
+| `commands/versions/UpdateDraft.kt`            | Update JOINs for composite FKs                                     |
+| `commands/versions/PublishVersion.kt`         | Update JOINs for composite FKs                                     |
+| `commands/versions/ArchiveVersion.kt`         | Update JOINs for composite FKs                                     |
+| `commands/activations/SetActivation.kt`       | Add tenant_key to INSERT/UPSERT, update FKs                        |
+| `commands/activations/RemoveActivation.kt`    | Update WHERE for composite FKs                                     |
+| `environments/commands/CreateEnvironment.kt`  | Verify PK usage                                                    |
+| `environments/commands/UpdateEnvironment.kt`  | Update WHERE for composite PK                                      |
+| `environments/commands/DeleteEnvironment.kt`  | Update WHERE and JOINs                                             |
+| `documents/commands/GenerateDocument.kt`      | Update FK verification queries                                     |
+| `documents/commands/GenerateDocumentBatch.kt` | Update FK verification queries                                     |
 
 ---
 
 ## Step 4: Service Updates
 
 **Modify**: `templates/services/VariantResolver.kt`
+
 - No structural change needed — it calls `ListVariants(tenantId, templateId)` which already passes both IDs
 
 ---
@@ -296,14 +302,19 @@ WHERE tv.template_key = :templateId
 ## Step 5: REST API
 
 ### DTO Mappers
+
 **Modify**: `rest-api/.../shared/DtoMappers.kt`
+
 - `TemplateVariant.toDto()`: no change needed (tenantId not exposed in DTO)
 
 ### Controllers
+
 **Modify**: `rest-api/.../v1/EpistolaTemplateApi.kt`
+
 - Already passes `tenantId` to all commands/queries — review for correctness but likely no changes
 
 **Modify**: `rest-api/.../v1/EpistolaTenantApi.kt`
+
 - Review environment operations
 
 ---
@@ -312,13 +323,13 @@ WHERE tv.template_key = :templateId
 
 All handlers already extract `tenantId` from the path. Changes are minimal — ensure commands/queries receive it where newly needed.
 
-| File | Change |
-|------|--------|
-| `handlers/DocumentTemplateHandler.kt` | Review command/query calls |
-| `handlers/VariantRouteHandler.kt` | Pass tenantId to variant commands |
-| `handlers/VersionRouteHandler.kt` | Pass tenantId to version commands |
-| `handlers/EnvironmentHandler.kt` | Review command/query calls |
-| `handlers/TemplatePreviewHandler.kt` | Review ID passing |
+| File                                  | Change                            |
+| ------------------------------------- | --------------------------------- |
+| `handlers/DocumentTemplateHandler.kt` | Review command/query calls        |
+| `handlers/VariantRouteHandler.kt`     | Pass tenantId to variant commands |
+| `handlers/VersionRouteHandler.kt`     | Pass tenantId to version commands |
+| `handlers/EnvironmentHandler.kt`      | Review command/query calls        |
+| `handlers/TemplatePreviewHandler.kt`  | Review ID passing                 |
 
 ---
 
@@ -326,19 +337,20 @@ All handlers already extract `tenantId` from the path. Changes are minimal — e
 
 These tables (`documents`, `document_generation_requests`, `load_test_runs`) already have `tenant_key` columns. The FK references just need updating to point at composite PKs. The Kotlin code already passes `tenantId` in commands.
 
-| File | Change |
-|------|--------|
-| `documents/commands/GenerateDocument.kt` | Update FK verification queries to use composite keys |
-| `documents/commands/GenerateDocumentBatch.kt` | Update FK verification queries |
-| `documents/batch/DocumentGenerationExecutor.kt` | Review ID usage |
-| `loadtest/commands/StartLoadTest.kt` | Review FK verification |
-| `loadtest/batch/LoadTestExecutor.kt` | Review ID usage |
+| File                                            | Change                                               |
+| ----------------------------------------------- | ---------------------------------------------------- |
+| `documents/commands/GenerateDocument.kt`        | Update FK verification queries to use composite keys |
+| `documents/commands/GenerateDocumentBatch.kt`   | Update FK verification queries                       |
+| `documents/batch/DocumentGenerationExecutor.kt` | Review ID usage                                      |
+| `loadtest/commands/StartLoadTest.kt`            | Review FK verification                               |
+| `loadtest/batch/LoadTestExecutor.kt`            | Review ID usage                                      |
 
 ---
 
 ## Step 8: Demo Data
 
 **Modify**: `apps/epistola/.../demo/DemoLoader.kt`
+
 - Likely no changes — commands already accept tenantId. But verify variant/version creation.
 
 ---
@@ -346,13 +358,16 @@ These tables (`documents`, `document_generation_requests`, `load_test_runs`) alr
 ## Step 9: Tests
 
 ### Test infrastructure
+
 - Update `CoreIntegrationTestBase` / test fixtures if they create templates/variants directly
 - Update `TestIdHelpers` if slug uniqueness assumptions change
 
 ### Tenant isolation test
+
 - `TenantIsolationTest.kt`: This is the **critical** test — verify that two tenants can now create templates with the same slug (e.g., both create "invoice")
 
 ### All existing tests
+
 - Should continue to pass since they already use unique IDs per test. Run full suite and fix any failures.
 
 ---

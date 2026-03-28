@@ -66,16 +66,16 @@ val currentUrl = request.htmxCurrentUrl  // HX-Current-URL header
 val isBoosted = request.htmxBoosted      // HX-Boosted header
 ```
 
-| Property | Header | Description |
-|----------|--------|-------------|
-| `isHtmx` | `HX-Request` | True if request was made by HTMX |
-| `htmxTrigger` | `HX-Trigger` | ID of the element that triggered the request |
-| `htmxTriggerName` | `HX-Trigger-Name` | Name of the element that triggered the request |
-| `htmxTarget` | `HX-Target` | ID of the target element |
-| `htmxCurrentUrl` | `HX-Current-URL` | Current URL of the browser |
-| `htmxBoosted` | `HX-Boosted` | True if request is via hx-boost |
-| `htmxHistoryRestoreRequest` | `HX-History-Restore-Request` | True if restoring history |
-| `htmxPrompt` | `HX-Prompt` | User response to hx-prompt |
+| Property                    | Header                       | Description                                    |
+| --------------------------- | ---------------------------- | ---------------------------------------------- |
+| `isHtmx`                    | `HX-Request`                 | True if request was made by HTMX               |
+| `htmxTrigger`               | `HX-Trigger`                 | ID of the element that triggered the request   |
+| `htmxTriggerName`           | `HX-Trigger-Name`            | Name of the element that triggered the request |
+| `htmxTarget`                | `HX-Target`                  | ID of the target element                       |
+| `htmxCurrentUrl`            | `HX-Current-URL`             | Current URL of the browser                     |
+| `htmxBoosted`               | `HX-Boosted`                 | True if request is via hx-boost                |
+| `htmxHistoryRestoreRequest` | `HX-History-Restore-Request` | True if restoring history                      |
+| `htmxPrompt`                | `HX-Prompt`                  | User response to hx-prompt                     |
 
 ### Parameter Retrieval Helpers
 
@@ -195,7 +195,9 @@ The OOB fragments must have corresponding elements with matching IDs in your HTM
 
 ```html
 <!-- Primary target -->
-<tbody id="table-rows" hx-swap-oob="true">...</tbody>
+<tbody id="table-rows" hx-swap-oob="true">
+  ...
+</tbody>
 
 <!-- OOB targets (updated automatically) -->
 <span id="item-count" hx-swap-oob="true">...</span>
@@ -253,16 +255,16 @@ return request.htmx {
 
 The `HxSwap` enum provides all HTMX swap modes:
 
-| Value | Description |
-|-------|-------------|
-| `INNER_HTML` | Replace inner HTML (default) |
-| `OUTER_HTML` | Replace entire element |
-| `BEFORE_BEGIN` | Insert before the element |
-| `AFTER_BEGIN` | Insert as first child |
-| `BEFORE_END` | Insert as last child |
-| `AFTER_END` | Insert after the element |
-| `DELETE` | Delete the element |
-| `NONE` | Don't swap (useful with OOB) |
+| Value          | Description                  |
+| -------------- | ---------------------------- |
+| `INNER_HTML`   | Replace inner HTML (default) |
+| `OUTER_HTML`   | Replace entire element       |
+| `BEFORE_BEGIN` | Insert before the element    |
+| `AFTER_BEGIN`  | Insert as first child        |
+| `BEFORE_END`   | Insert as last child         |
+| `AFTER_END`    | Insert after the element     |
+| `DELETE`       | Delete the element           |
+| `NONE`         | Don't swap (useful with OOB) |
 
 ## Complete Example
 
@@ -330,39 +332,38 @@ Define reusable fragments in your Thymeleaf templates:
 <!-- items/list.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>...</head>
-<body>
+  <head>
+    ...
+  </head>
+  <body>
     <main>
-        <h1>Items</h1>
+      <h1>Items</h1>
 
-        <table>
-            <thead>...</thead>
-            <tbody id="table-body" th:fragment="table-body">
-                <tr th:each="item : ${items}">
-                    <td th:text="${item.id}"></td>
-                    <td th:text="${item.name}"></td>
-                    <td>
-                        <button hx-delete="/items/${item.id}"
-                                hx-target="closest tr"
-                                hx-swap="delete">
-                            Delete
-                        </button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+      <table>
+        <thead>
+          ...
+        </thead>
+        <tbody id="table-body" th:fragment="table-body">
+          <tr th:each="item : ${items}">
+            <td th:text="${item.id}"></td>
+            <td th:text="${item.name}"></td>
+            <td>
+              <button hx-delete="/items/${item.id}" hx-target="closest tr" hx-swap="delete">
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </main>
-</body>
+  </body>
 </html>
 ```
 
 ```html
 <!-- components/toast.html -->
-<div th:fragment="success"
-     id="toast"
-     class="toast success"
-     hx-swap-oob="true">
-    <span th:text="${message}"></span>
+<div th:fragment="success" id="toast" class="toast success" hx-swap-oob="true">
+  <span th:text="${message}"></span>
 </div>
 ```
 
@@ -407,6 +408,7 @@ These patterns reduce boilerplate and improve code consistency across handlers a
 Eliminate repetitive `render("layout/shell", mapOf(...))` boilerplate with the `page()` extension:
 
 **Before:**
+
 ```kotlin
 return ServerResponse.ok().render(
     "layout/shell",
@@ -420,6 +422,7 @@ return ServerResponse.ok().render(
 ```
 
 **After:**
+
 ```kotlin
 return ServerResponse.ok().page("environments/list") {
     "pageTitle" to "Environments - Epistola"
@@ -435,24 +438,35 @@ The `page()` extension automatically wraps your content view inside `layout/shel
 Reusable form field fragments reduce boilerplate by 80%. Instead of repeating 4-5 lines per field:
 
 **Before (environments/new.html):**
+
 ```html
 <div class="form-group" th:classappend="${errors?.containsKey('slug')} ? 'error' : ''">
-    <label class="ep-label" for="slug">Environment ID</label>
-    <input type="text" id="slug" name="slug" class="ep-input"
-           required pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-           minlength="3" maxlength="30"
-           th:value="${formData?.slug}">
-    <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens</span>
-    <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
+  <label class="ep-label" for="slug">Environment ID</label>
+  <input
+    type="text"
+    id="slug"
+    name="slug"
+    class="ep-input"
+    required
+    pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    minlength="3"
+    maxlength="30"
+    th:value="${formData?.slug}"
+  />
+  <span class="form-hint">3-30 characters, lowercase letters, numbers, and hyphens</span>
+  <span class="form-error" th:if="${errors?.containsKey('slug')}" th:text="${errors.slug}"></span>
 </div>
 ```
 
 **After (using form-fields.html macros):**
+
 ```html
-<th:block th:replace="~{fragments/form-fields :: text-field(
+<th:block
+  th:replace="~{fragments/form-fields :: text-field(
     'slug', 'Environment ID', 'production', '3-30 characters', true,
     '^[a-z][a-z0-9]*(-[a-z0-9]+)*$', 3, 30
-)}"/>
+)}"
+/>
 ```
 
 Available macros: `text-field`, `textarea-field`, `select-field`, `checkbox-field`, `form-actions`.
@@ -513,6 +527,7 @@ if (result.hasErrors()) {
 Eliminate `if (!request.isHtmx)` branches by using `onNonHtmx { page(...) }` inside the htmx DSL:
 
 **Before (separate conditional):**
+
 ```kotlin
 fun newForm(request: ServerRequest): ServerResponse {
     val tenantId = TenantId.of(request.pathVariable("tenantId"))
@@ -533,6 +548,7 @@ fun newForm(request: ServerRequest): ServerResponse {
 ```
 
 **After (unified DSL):**
+
 ```kotlin
 fun newForm(request: ServerRequest): ServerResponse {
     val tenantId = TenantId.of(request.pathVariable("tenantId"))
@@ -556,6 +572,7 @@ The `onNonHtmx { }` block now supports both `page()` and `redirect()` calls, uni
 Simplify inline form error responses with the `formError()` helper:
 
 **Before (verbose):**
+
 ```kotlin
 return request.htmx {
     fragment("tenants/list", "create-form") {
@@ -568,6 +585,7 @@ return request.htmx {
 ```
 
 **After (concise):**
+
 ```kotlin
 return request.htmx {
     formError("tenants/list", "create-form", formData)
@@ -577,6 +595,7 @@ return request.htmx {
 ```
 
 The `formError()` helper:
+
 - Automatically spreads `formData.formData` and `formData.errors`
 - Sets `HxSwap.OUTER_HTML` as default
 - Works with any `FormData` object from the form validation DSL
@@ -609,10 +628,16 @@ Without the `htmxBoosted` check, boosted navigation receives a fragment instead 
 When multiple `<select>` elements drive a single dynamic section, use `hx-include="closest form"` so the server receives all current form values, and `HX-Trigger-Name` to know which field changed:
 
 ```html
-<select name="templateId" hx-get="/new" hx-target="#options" hx-include="closest form">...</select>
+<select name="templateId" hx-get="/new" hx-target="#options" hx-include="closest form">
+  ...
+</select>
 <!-- Inside the swapped fragment: -->
-<select name="variantId" hx-get="/new" hx-target="#options" hx-include="closest form">...</select>
-<select name="exampleId" hx-get="/new" hx-target="#options" hx-include="closest form">...</select>
+<select name="variantId" hx-get="/new" hx-target="#options" hx-include="closest form">
+  ...
+</select>
+<select name="exampleId" hx-get="/new" hx-target="#options" hx-include="closest form">
+  ...
+</select>
 ```
 
 ```kotlin
@@ -631,22 +656,23 @@ To make two fields mutually exclusive (e.g., explicit version vs environment), p
 ```html
 <!-- Version dropdown: hidden when an environment is selected -->
 <div th:if="${#strings.isEmpty(selectedEnvironmentId)}">
-    <select name="versionId" hx-get="/new" hx-target="#options" hx-include="closest form">
-        <option value="">Use environment instead</option>
-        ...
-    </select>
+  <select name="versionId" hx-get="/new" hx-target="#options" hx-include="closest form">
+    <option value="">Use environment instead</option>
+    ...
+  </select>
 </div>
 
 <!-- Environment dropdown: hidden when a version is selected -->
 <div th:if="${#strings.isEmpty(selectedVersionId)}">
-    <select name="environmentId" hx-get="/new" hx-target="#options" hx-include="closest form">
-        <option value="">No environment</option>
-        ...
-    </select>
+  <select name="environmentId" hx-get="/new" hx-target="#options" hx-include="closest form">
+    <option value="">No environment</option>
+    ...
+  </select>
 </div>
 ```
 
 The handler clears the opposing field when one is selected:
+
 ```kotlin
 val selectedVersionId = when (triggerName) {
     "environmentId" -> ""  // environment selected: clear version
@@ -690,9 +716,7 @@ fun start(request: ServerRequest): ServerResponse {
 
 ```html
 <div id="form-error"><!-- error fragment swapped here --></div>
-<form hx-post="/items" hx-target="#form-error" hx-swap="innerHTML">
-    ...
-</form>
+<form hx-post="/items" hx-target="#form-error" hx-swap="innerHTML">...</form>
 ```
 
 **Important:** HTMX does not swap content on non-2xx responses by default. Return 200 with error content for inline error display.
@@ -704,9 +728,10 @@ Kotlin `@JvmInline value class` types (e.g., `VariantId(val value: String)`) are
 ```html
 <!-- Correct: variant.id is already a String at runtime -->
 <option th:value="${variant.id}" th:selected="${#strings.toString(variant.id) == selectedId}">
+  <!-- Wrong: fails with EL1008E "Property 'value' not found on String" -->
+</option>
 
-<!-- Wrong: fails with EL1008E "Property 'value' not found on String" -->
-<option th:value="${variant.id.value}">
+<option th:value="${variant.id.value}"></option>
 ```
 
 ## See Also

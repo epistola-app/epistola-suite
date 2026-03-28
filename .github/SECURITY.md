@@ -3,7 +3,7 @@
 ## Supported Versions
 
 | Version | Supported |
-|---------|-----------|
+| ------- | --------- |
 | Latest  | Yes       |
 
 Currently, only the latest version receives security updates. As the project matures, we may extend support to additional versions.
@@ -45,6 +45,7 @@ This ensures your report remains private until we can address it.
 ### Scope
 
 This security policy applies to:
+
 - The Epistola Suite application (`apps/epistola`)
 - The Editor module (`modules/editor`)
 - Official Docker images
@@ -58,6 +59,7 @@ This security policy applies to:
 ## Security Best Practices
 
 When contributing, please:
+
 - Never commit secrets, credentials, or API keys
 - Follow secure coding practices
 - Keep dependencies up to date

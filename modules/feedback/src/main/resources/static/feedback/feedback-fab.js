@@ -14,10 +14,10 @@
 const fabIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="7" x2="12" y2="13"/><line x1="9" y1="10" x2="15" y2="10"/></svg>`;
 
 function injectStyles() {
-    if (document.getElementById('feedback-fab-styles')) return;
-    const style = document.createElement('style');
-    style.id = 'feedback-fab-styles';
-    style.textContent = `
+  if (document.getElementById("feedback-fab-styles")) return;
+  const style = document.createElement("style");
+  style.id = "feedback-fab-styles";
+  style.textContent = `
 .feedback-fab {
     position: fixed;
     bottom: var(--ep-space-5, 1.25rem);
@@ -131,26 +131,26 @@ function injectStyles() {
     gap: var(--ep-space-2, 0.5rem);
 }
 `;
-    document.head.appendChild(style);
+  document.head.appendChild(style);
 }
 
 export function initFeedbackFab(tenantId) {
-    if (!tenantId) return;
+  if (!tenantId) return;
 
-    // Clean up previous instance (boosted navigation re-init)
-    document.getElementById('feedback-fab-container')?.remove();
+  // Clean up previous instance (boosted navigation re-init)
+  document.getElementById("feedback-fab-container")?.remove();
 
-    injectStyles();
+  injectStyles();
 
-    const pathname = window.location.pathname;
-    const searchUrl = `/tenants/${tenantId}/feedback/search?url=${encodeURIComponent(pathname)}`;
+  const pathname = window.location.pathname;
+  const searchUrl = `/tenants/${tenantId}/feedback/search?url=${encodeURIComponent(pathname)}`;
 
-    // -- DOM --------------------------------------------------------------
+  // -- DOM --------------------------------------------------------------
 
-    const container = document.createElement('div');
-    container.id = 'feedback-fab-container';
+  const container = document.createElement("div");
+  container.id = "feedback-fab-container";
 
-    container.innerHTML = `
+  container.innerHTML = `
 <button id="feedback-fab" class="feedback-fab" type="button" title="Page Feedback">
     ${fabIcon}
     <span id="feedback-fab-badge" class="feedback-fab-badge feedback-fab-badge--hidden"></span>
@@ -169,64 +169,64 @@ export function initFeedbackFab(tenantId) {
 </dialog>
 `;
 
-    document.body.appendChild(container);
+  document.body.appendChild(container);
 
-    // Let HTMX discover the hx-* attributes and fire the "load" trigger
-    if (window.htmx) {
-        htmx.process(container);
+  // Let HTMX discover the hx-* attributes and fire the "load" trigger
+  if (window.htmx) {
+    htmx.process(container);
+  }
+
+  // -- Interactions -----------------------------------------------------
+
+  const fab = document.getElementById("feedback-fab");
+  const popover = document.getElementById("feedback-popover");
+  const dialog = document.getElementById("feedback-fab-dialog");
+
+  fab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    popover.classList.toggle("feedback-popover--open");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!popover.contains(e.target) && e.target !== fab && !fab.contains(e.target)) {
+      popover.classList.remove("feedback-popover--open");
+    }
+  });
+
+  dialog?.addEventListener("click", (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  // Update badge count when popover content is swapped in
+  const badge = document.getElementById("feedback-fab-badge");
+
+  function updateBadge() {
+    const header = document.querySelector("#feedback-popover-content .feedback-popover-header");
+    const count = parseInt(header?.dataset?.feedbackCount ?? "0", 10);
+    badge.textContent = count;
+    badge.classList.toggle("feedback-fab-badge--hidden", count === 0);
+  }
+
+  document.body.addEventListener("htmx:afterSwap", (e) => {
+    const target = e.detail?.target;
+
+    // Badge update after page-issues content loads
+    if (target?.id === "feedback-popover-content") {
+      updateBadge();
     }
 
-    // -- Interactions -----------------------------------------------------
+    // When submit form loads into the FAB dialog, populate the sourceUrl field
+    if (target?.id === "feedback-fab-dialog-content") {
+      const sourceUrlField = target.querySelector("#fb-sourceUrl");
+      if (sourceUrlField) sourceUrlField.value = window.location.href;
 
-    const fab = document.getElementById('feedback-fab');
-    const popover = document.getElementById('feedback-popover');
-    const dialog = document.getElementById('feedback-fab-dialog');
-
-    fab.addEventListener('click', (e) => {
-        e.stopPropagation();
-        popover.classList.toggle('feedback-popover--open');
-    });
-
-    document.addEventListener('click', (e) => {
-        if (!popover.contains(e.target) && e.target !== fab && !fab.contains(e.target)) {
-            popover.classList.remove('feedback-popover--open');
+      // After successful feedback submission, refresh the popover content
+      if (target.querySelector(".ep-dialog-body")?.textContent?.includes("Thank you")) {
+        const content = document.getElementById("feedback-popover-content");
+        if (content && window.htmx) {
+          htmx.trigger(content, "load");
         }
-    });
-
-    dialog?.addEventListener('click', (e) => {
-        if (e.target === dialog) dialog.close();
-    });
-
-    // Update badge count when popover content is swapped in
-    const badge = document.getElementById('feedback-fab-badge');
-
-    function updateBadge() {
-        const header = document.querySelector('#feedback-popover-content .feedback-popover-header');
-        const count = parseInt(header?.dataset?.feedbackCount ?? '0', 10);
-        badge.textContent = count;
-        badge.classList.toggle('feedback-fab-badge--hidden', count === 0);
+      }
     }
-
-    document.body.addEventListener('htmx:afterSwap', (e) => {
-        const target = e.detail?.target;
-
-        // Badge update after page-issues content loads
-        if (target?.id === 'feedback-popover-content') {
-            updateBadge();
-        }
-
-        // When submit form loads into the FAB dialog, populate the sourceUrl field
-        if (target?.id === 'feedback-fab-dialog-content') {
-            const sourceUrlField = target.querySelector('#fb-sourceUrl');
-            if (sourceUrlField) sourceUrlField.value = window.location.href;
-
-            // After successful feedback submission, refresh the popover content
-            if (target.querySelector('.ep-dialog-body')?.textContent?.includes('Thank you')) {
-                const content = document.getElementById('feedback-popover-content');
-                if (content && window.htmx) {
-                    htmx.trigger(content, 'load');
-                }
-            }
-        }
-    });
+  });
 }

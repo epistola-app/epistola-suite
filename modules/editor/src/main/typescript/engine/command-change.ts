@@ -6,33 +6,33 @@
  * Redo is symmetric.
  */
 
-import type { AnyCommand } from './commands.js'
-import type { Change, ChangeContext } from './change.js'
+import type { AnyCommand } from "./commands.js";
+import type { Change, ChangeContext } from "./change.js";
 
 export class CommandChange implements Change {
-  readonly command: AnyCommand
+  readonly command: AnyCommand;
 
   constructor(command: AnyCommand) {
-    this.command = command
+    this.command = command;
   }
 
   undoStep(ctx: ChangeContext): boolean {
-    ctx.stack.popUndo()
-    const result = ctx.applySilent(this.command)
-    if (!result.ok) return false
+    ctx.stack.popUndo();
+    const result = ctx.applySilent(this.command);
+    if (!result.ok) return false;
     if (result.inverse) {
-      ctx.stack.pushRedo(new CommandChange(result.inverse))
+      ctx.stack.pushRedo(new CommandChange(result.inverse));
     }
-    return true
+    return true;
   }
 
   redoStep(ctx: ChangeContext): boolean {
-    ctx.stack.popRedo()
-    const result = ctx.applySilent(this.command)
-    if (!result.ok) return false
+    ctx.stack.popRedo();
+    const result = ctx.applySilent(this.command);
+    if (!result.ok) return false;
     if (result.inverse) {
-      ctx.stack.pushUndo(new CommandChange(result.inverse))
+      ctx.stack.pushUndo(new CommandChange(result.inverse));
     }
-    return true
+    return true;
   }
 }

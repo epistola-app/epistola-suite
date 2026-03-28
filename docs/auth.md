@@ -2,11 +2,11 @@
 
 Epistola Suite uses **bean-driven authentication** that adapts to the runtime environment based on which Spring beans are present:
 
-| Bean Present | Authentication Method | Provided By |
-|-------------|----------------------|-------------|
-| `UserDetailsService` | Form-based login with in-memory users | `LocalUserDetailsService` (`local` / `demo` profiles) |
-| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, etc.) | Spring Security auto-config from `application-prod.yaml` or `application-keycloak.yaml` |
-| Neither | **Startup failure** — safety validator blocks | — |
+| Bean Present                   | Authentication Method                         | Provided By                                                                             |
+| ------------------------------ | --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `UserDetailsService`           | Form-based login with in-memory users         | `LocalUserDetailsService` (`local` / `demo` profiles)                                   |
+| `ClientRegistrationRepository` | OAuth2/OIDC (Keycloak, etc.)                  | Spring Security auto-config from `application-prod.yaml` or `application-keycloak.yaml` |
+| Neither                        | **Startup failure** — safety validator blocks | —                                                                                       |
 
 ## How It Works
 
@@ -43,10 +43,10 @@ Start the application with the `local` profile:
 
 ### Test Accounts
 
-| Username | Password | Description |
-|----------|----------|-------------|
-| `admin@local` | `admin` | Admin user with access to all tenants |
-| `user@local` | `user` | Regular user with access to demo-tenant |
+| Username      | Password | Description                             |
+| ------------- | -------- | --------------------------------------- |
+| `admin@local` | `admin`  | Admin user with access to all tenants   |
+| `user@local`  | `user`   | Regular user with access to demo-tenant |
 
 ## Demo Environment
 
@@ -91,10 +91,10 @@ spring:
 
 The `AuthProvider` stored on `User` records is derived from the OAuth2 registration ID:
 
-| Registration ID | AuthProvider |
-|----------------|-------------|
-| `keycloak` | `KEYCLOAK` |
-| anything else | `GENERIC_OIDC` |
+| Registration ID | AuthProvider   |
+| --------------- | -------------- |
+| `keycloak`      | `KEYCLOAK`     |
+| anything else   | `GENERIC_OIDC` |
 
 No configuration property is needed — the registration ID from the OAuth2 login flow is used directly.
 
@@ -109,16 +109,16 @@ When a user logs in via OAuth2 for the first time, they are automatically create
 ```yaml
 epistola:
   auth:
-    auto-provision: true  # Default in prod
+    auto-provision: true # Default in prod
 ```
 
 Disable this to require manual user creation before login.
 
 ## Configuration Properties
 
-| Property | Default | Description |
-|----------|---------|-------------|
-| `epistola.auth.auto-provision` | `true` | Auto-provision OAuth2 users on first login |
+| Property                       | Default | Description                                |
+| ------------------------------ | ------- | ------------------------------------------ |
+| `epistola.auth.auto-provision` | `true`  | Auto-provision OAuth2 users on first login |
 
 ## Session Management
 
@@ -282,6 +282,7 @@ class MyHandlerTest : CoreIntegrationTestBase() {
 ### App Fails to Start with "No authentication mechanism configured"
 
 No `UserDetailsService` or `ClientRegistrationRepository` bean was found. Either:
+
 - Activate a profile with form login: `--spring.profiles.active=local` or `demo`
 - Configure OAuth2 registrations: use `prod` or `keycloak` profile
 

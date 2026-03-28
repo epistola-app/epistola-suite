@@ -22,17 +22,20 @@ Your requirements (event sourcing, workflows, sagas, guaranteed delivery) repres
 Your codebase **already implements the correct patterns** for safe multi-instance deployment:
 
 **Job Distribution** (`apps/epistola/src/main/kotlin/app/epistola/suite/documents/batch/JobPoller.kt:73-111`):
+
 - Uses PostgreSQL `FOR UPDATE SKIP LOCKED` for atomic job claiming
 - Only one instance can claim each job (database-level guarantee)
 - Instance ID tracking with hostname-pid combination
 - No race conditions possible
 
 **Failure Recovery** (`apps/epistola/src/main/kotlin/app/epistola/suite/documents/batch/StaleJobRecovery.kt`):
+
 - Automatic recovery of stale jobs after 10 minutes
 - Handles instance crashes gracefully
 - Configurable timeout via `epistola.generation.polling.stale-timeout-minutes`
 
 **Concurrency Control**:
+
 - Explicit transaction boundaries via `jdbi.inTransaction<>` blocks
 - Virtual threads (JDK 25) with ScopedValue for safe concurrent execution
 - Semaphore limiting per instance (`epistola.generation.async.concurrency: 10`)
@@ -44,6 +47,7 @@ Your codebase **already implements the correct patterns** for safe multi-instanc
 **Status: ✅ Excellent**
 
 Direct SQL + Testcontainers provides superior testability compared to repository abstractions:
+
 - Tests verify real database behavior (not mocked repository behavior)
 - Catches SQL errors, constraint violations, schema mismatches
 - No need to maintain both "unit tests with mocks" and "integration tests"
@@ -53,6 +57,7 @@ Direct SQL + Testcontainers provides superior testability compared to repository
 **Status: ✅ Strong**
 
 All SQL visible in handlers provides transparency:
+
 - No hidden queries, no N+1 problems
 - Easy to debug: copy SQL directly into psql for testing
 - Performance issues immediately obvious
@@ -62,6 +67,7 @@ All SQL visible in handlers provides transparency:
 **Status: ✅ Follows Best Practices**
 
 Your architecture demonstrates modern patterns:
+
 - CQRS-lite with mediator
 - Explicit transaction control
 - PostgreSQL-optimized (JSONB, CTEs, `FOR UPDATE SKIP LOCKED`)
@@ -72,18 +78,21 @@ Your architecture demonstrates modern patterns:
 Based on your answers, you need:
 
 **Eventing:**
+
 - ✅ Domain events (notify on state changes)
 - ✅ Event sourcing (events as source of truth)
 - ✅ Inter-service events (future service boundaries)
 - ✅ Audit trail (compliance/debugging)
 
 **Durable Execution:**
+
 - ✅ Workflow orchestration (long-running processes)
 - ✅ Saga pattern (distributed transactions with compensation)
 - ✅ Retry mechanisms (automatic failure recovery)
 - ✅ Guaranteed delivery (at-least-once processing)
 
 **Messaging:**
+
 - ❓ Not sure yet (need guidance on PostgreSQL patterns)
 
 ## Recommended Implementation Path
@@ -95,6 +104,7 @@ Based on your answers, you need:
 **Purpose**: Guaranteed delivery of events with exactly-once semantics
 
 **Schema** (`apps/epistola/src/main/resources/db/migration/V10__create_outbox.sql`):
+
 ```sql
 CREATE TABLE outbox_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -114,6 +124,7 @@ WHERE published_at IS NULL;
 ```
 
 **Benefits**:
+
 - Events and state changes in same transaction (atomicity)
 - Guaranteed delivery (at-least-once)
 - Works across multiple instances (FOR UPDATE SKIP LOCKED)
@@ -124,6 +135,7 @@ WHERE published_at IS NULL;
 **Only for aggregates with complex state transitions or audit requirements.**
 
 **Schema**:
+
 ```sql
 CREATE TABLE event_store (
     sequence_number BIGSERIAL PRIMARY KEY,
@@ -139,6 +151,7 @@ CREATE TABLE event_store (
 ```
 
 **Benefits**:
+
 - Complete audit trail (every state change is an event)
 - Time travel (rebuild state at any point)
 - Event replay (fix bugs by replaying events with new logic)
@@ -148,6 +161,7 @@ CREATE TABLE event_store (
 **For distributed transactions with compensation.**
 
 **Schema**:
+
 ```sql
 CREATE TYPE saga_status AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'COMPENSATING', 'COMPENSATED', 'FAILED');
 
@@ -177,6 +191,7 @@ CREATE TABLE saga_steps (
 ```
 
 **Benefits**:
+
 - Distributed transactions with rollback (compensation)
 - Automatic retry of failed steps
 - Works across multiple instances
@@ -184,6 +199,7 @@ CREATE TABLE saga_steps (
 ### Phase 4: Workflow Orchestration (Weeks 7-8)
 
 Use existing saga infrastructure, add:
+
 - Timeouts per step
 - Human approvals (wait for external event)
 - Scheduled triggers
@@ -201,16 +217,16 @@ Use existing saga infrastructure, add:
 ### What Changes
 
 1. **Handlers write events to outbox** (Phase 1)
-    - Minimal change: Add `handle.publishToOutbox()` call
-    - No impact on testability
+   - Minimal change: Add `handle.publishToOutbox()` call
+   - No impact on testability
 
 2. **Event-sourced aggregates use event store** (Phase 2)
-    - NEW handlers for event-sourced aggregates
-    - Existing CRUD handlers unchanged
+   - NEW handlers for event-sourced aggregates
+   - Existing CRUD handlers unchanged
 
 3. **Long-running operations use sagas** (Phase 3)
-    - NEW saga orchestrator
-    - Existing commands can be saga steps
+   - NEW saga orchestrator
+   - Existing commands can be saga steps
 
 ### What Stays the Same
 
@@ -222,14 +238,14 @@ Use existing saga infrastructure, add:
 
 ### When to Use Each Pattern
 
-| Use Case | Pattern | Example |
-|----------|---------|---------|
-| Simple CRUD | Current (direct SQL) | Create tenant, update theme |
-| Audit trail needed | Outbox events | Template changes, user actions |
-| Complex state history | Event sourcing | Document lifecycle |
-| Distributed transaction | Saga | Multi-step document generation |
-| Long-running process | Workflow | Document review & approval |
-| Real-time notifications | LISTEN/NOTIFY | UI updates |
+| Use Case                | Pattern              | Example                        |
+| ----------------------- | -------------------- | ------------------------------ |
+| Simple CRUD             | Current (direct SQL) | Create tenant, update theme    |
+| Audit trail needed      | Outbox events        | Template changes, user actions |
+| Complex state history   | Event sourcing       | Document lifecycle             |
+| Distributed transaction | Saga                 | Multi-step document generation |
+| Long-running process    | Workflow             | Document review & approval     |
+| Real-time notifications | LISTEN/NOTIFY        | UI updates                     |
 
 ## Hexagonal Architecture: When and Where
 
@@ -238,6 +254,7 @@ Use existing saga infrastructure, add:
 ### Where to Apply Hexagonal
 
 **Domain Layer** (NEW):
+
 ```
 apps/epistola/src/main/kotlin/app/epistola/suite/
 ├── domain/              # NEW - Domain logic for event-sourced aggregates
@@ -272,6 +289,7 @@ apps/epistola/src/main/kotlin/app/epistola/suite/
 ### Incremental Migration Path
 
 **Week 1-2**: Outbox events
+
 - Add outbox table
 - Add `publishToOutbox()` extension
 - Update 2-3 critical handlers
@@ -279,23 +297,27 @@ apps/epistola/src/main/kotlin/app/epistola/suite/
 - Implement AuditTrailHandler
 
 **Week 3-4**: Event sourcing (optional)
+
 - Add event_store table
 - Identify 1-2 aggregates for event sourcing
 - Build event-sourced handler alongside existing handler
 - Compare approaches, choose winner
 
 **Week 5-6**: Saga pattern
+
 - Add sagas tables
 - Implement SagaOrchestrator
 - Convert document generation to saga
 - Test compensation logic
 
 **Week 7-8**: Workflow orchestration
+
 - Add workflow-specific fields
 - Implement timeout handling
 - Implement wait-for-event logic
 
 **Week 9-10**: Messaging optimization
+
 - Evaluate LISTEN/NOTIFY vs polling
 - Implement chosen pattern
 - Measure latency improvements
@@ -303,6 +325,7 @@ apps/epistola/src/main/kotlin/app/epistola/suite/
 ### Rollback Strategy
 
 Each phase is independent:
+
 - Outbox can be disabled via feature flag
 - Event-sourced aggregates coexist with CRUD handlers
 - Sagas optional for new features
@@ -313,40 +336,40 @@ Each phase is independent:
 ### Immediate Actions
 
 1. **Read about patterns**:
-    - Outbox: https://microservices.io/patterns/data/transactional-outbox.html
-    - Event sourcing: https://martinfowler.com/eaaDev/EventSourcing.html
-    - Saga: https://microservices.io/patterns/data/saga.html
+   - Outbox: https://microservices.io/patterns/data/transactional-outbox.html
+   - Event sourcing: https://martinfowler.com/eaaDev/EventSourcing.html
+   - Saga: https://microservices.io/patterns/data/saga.html
 
 2. **Start with Phase 1** (Outbox):
-    - Simplest pattern
-    - Immediate value (audit trail, guaranteed delivery)
-    - Foundation for all other patterns
+   - Simplest pattern
+   - Immediate value (audit trail, guaranteed delivery)
+   - Foundation for all other patterns
 
 3. **Defer Phase 2** (Event Sourcing):
-    - Most complex pattern
-    - Only use if you need time travel
-    - Start with 1 aggregate, evaluate before expanding
+   - Most complex pattern
+   - Only use if you need time travel
+   - Start with 1 aggregate, evaluate before expanding
 
 4. **Consider alternatives to custom implementation**:
-    - Axon Framework (event sourcing + CQRS + sagas)
-    - Eventuate (event sourcing + sagas)
-    - Temporal (workflow orchestration)
+   - Axon Framework (event sourcing + CQRS + sagas)
+   - Eventuate (event sourcing + sagas)
+   - Temporal (workflow orchestration)
 
 ## Critical Files (Reference Implementation)
 
 These files demonstrate correct patterns:
 
 - `apps/epistola/src/main/kotlin/app/epistola/suite/documents/batch/JobPoller.kt`
-    - Multi-instance job claiming with `FOR UPDATE SKIP LOCKED`
+  - Multi-instance job claiming with `FOR UPDATE SKIP LOCKED`
 
 - `apps/epistola/src/main/kotlin/app/epistola/suite/documents/batch/StaleJobRecovery.kt`
-    - Automatic recovery from instance failures
+  - Automatic recovery from instance failures
 
 - `apps/epistola/src/main/kotlin/app/epistola/suite/templates/commands/CreateDocumentTemplate.kt`
-    - Multi-step transaction creating related entities
+  - Multi-step transaction creating related entities
 
 - `apps/epistola/src/main/kotlin/app/epistola/suite/mediator/SpringMediator.kt`
-    - Handler discovery and dispatch
+  - Handler discovery and dispatch
 
 ## Conclusion
 

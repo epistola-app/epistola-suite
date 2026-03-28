@@ -86,7 +86,9 @@
   text-align: center;
   font-size: var(--ep-text-sm);
   color: var(--ep-muted-foreground);
-  transition: border-color 0.15s, background-color 0.15s;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
 }
 
 .asset-picker-upload-zone p {

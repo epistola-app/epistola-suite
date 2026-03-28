@@ -8,12 +8,7 @@ export const SHORTCUT_CONTEXT_IDS = [
 
 const SHORTCUT_CONTEXT_ID_SET = new Set<string>(SHORTCUT_CONTEXT_IDS);
 
-const CORE_COMMAND_NAMESPACES = [
-  "editor",
-  "text",
-  "insertDialog",
-  "resize",
-] as const;
+const CORE_COMMAND_NAMESPACES = ["editor", "text", "insertDialog", "resize"] as const;
 
 const CORE_COMMAND_NAMESPACE_SET = new Set<string>(CORE_COMMAND_NAMESPACES);
 
@@ -28,14 +23,7 @@ export type CommandId =
   | `resize.${string}`
   | `plugin.${string}.${string}`;
 
-export const COMMAND_CATEGORIES = [
-  "Leader",
-  "Core",
-  "Text",
-  "Insert",
-  "Resize",
-  "Plugin",
-] as const;
+export const COMMAND_CATEGORIES = ["Leader", "Core", "Text", "Insert", "Resize", "Plugin"] as const;
 
 export type CommandCategory = (typeof COMMAND_CATEGORIES)[number];
 
@@ -109,10 +97,7 @@ function normalizeBindingKey(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function buildBindingConflictKey(
-  context: ShortcutContextId,
-  key: string,
-): string {
+function buildBindingConflictKey(context: ShortcutContextId, key: string): string {
   return `${context}::${key}`;
 }
 
@@ -216,11 +201,7 @@ export function validateShortcutRegistry<TContext>(
       });
     }
 
-    if (
-      binding.matchBy !== undefined &&
-      binding.matchBy !== "key" &&
-      binding.matchBy !== "code"
-    ) {
+    if (binding.matchBy !== undefined && binding.matchBy !== "key" && binding.matchBy !== "code") {
       issues.push({
         code: "invalid-binding-match-by",
         message: `Binding at index ${index} has invalid match mode "${String(binding.matchBy)}"`,
@@ -229,9 +210,7 @@ export function validateShortcutRegistry<TContext>(
 
     const normalizedKeys = [
       ...new Set(
-        binding.keys
-          .map((key) => normalizeBindingKey(key))
-          .filter((key) => key.length > 0),
+        binding.keys.map((key) => normalizeBindingKey(key)).filter((key) => key.length > 0),
       ),
     ];
     if (normalizedKeys.length === 0) {
@@ -244,10 +223,7 @@ export function validateShortcutRegistry<TContext>(
 
     const hasWhenPredicate = typeof binding.when === "function";
     for (const normalizedKey of normalizedKeys) {
-      const conflictKey = buildBindingConflictKey(
-        binding.context,
-        normalizedKey,
-      );
+      const conflictKey = buildBindingConflictKey(binding.context, normalizedKey);
       const existing = seenBindings.get(conflictKey);
       if (!existing) {
         seenBindings.set(conflictKey, {
@@ -284,9 +260,7 @@ export function formatShortcutRegistryIssues(
   if (issues.length === 0) {
     return "No validation issues";
   }
-  return issues
-    .map((issue, index) => `${index + 1}. [${issue.code}] ${issue.message}`)
-    .join("\n");
+  return issues.map((issue, index) => `${index + 1}. [${issue.code}] ${issue.message}`).join("\n");
 }
 
 export function assertValidShortcutRegistry<TContext>(
@@ -294,8 +268,6 @@ export function assertValidShortcutRegistry<TContext>(
 ): void {
   const result = validateShortcutRegistry(registry);
   if (!result.valid) {
-    throw new Error(
-      `Invalid shortcut registry:\n${formatShortcutRegistryIssues(result.issues)}`,
-    );
+    throw new Error(`Invalid shortcut registry:\n${formatShortcutRegistryIssues(result.issues)}`);
   }
 }

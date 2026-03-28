@@ -5,28 +5,28 @@
  * pattern as the inspector. The preset is an expandable card.
  */
 
-import { html, nothing } from 'lit'
-import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry'
-import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme'
-import { defaultStyleRegistry } from '../../engine/style-registry.js'
+import { html, nothing } from "lit";
+import type { StyleProperty } from "@epistola.app/editor-model/generated/style-registry";
+import type { BlockStylePreset } from "@epistola.app/editor-model/generated/theme";
+import { defaultStyleRegistry } from "../../engine/style-registry.js";
 import {
   renderUnitInput,
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
   readSpacingFromStyles,
-} from '../../ui/inputs/style-inputs.js'
-import type { ThemeEditorState } from '../ThemeEditorState.js'
+} from "../../ui/inputs/style-inputs.js";
+import type { ThemeEditorState } from "../ThemeEditorState.js";
 
 /** Node types available for applicableTo multi-select. */
 const NODE_TYPES = [
-  { label: 'Text', value: 'text' },
-  { label: 'Container', value: 'container' },
-  { label: 'Columns', value: 'columns' },
-  { label: 'Table', value: 'table' },
-  { label: 'Conditional', value: 'conditional' },
-  { label: 'Loop', value: 'loop' },
-]
+  { label: "Text", value: "text" },
+  { label: "Container", value: "container" },
+  { label: "Columns", value: "columns" },
+  { label: "Table", value: "table" },
+  { label: "Conditional", value: "conditional" },
+  { label: "Loop", value: "loop" },
+];
 
 export function renderPresetItem(
   state: ThemeEditorState,
@@ -39,18 +39,23 @@ export function renderPresetItem(
   return html`
     <div class="preset-card">
       <div class="preset-card-header" @click=${onToggle}>
-        <span class="preset-card-toggle">${expanded ? '\u25BE' : '\u25B8'}</span>
+        <span class="preset-card-toggle">${expanded ? "\u25BE" : "\u25B8"}</span>
         <span class="preset-card-name">${preset.label || name}</span>
         <span class="preset-card-key">${name}</span>
         <button
           class="preset-card-remove"
           title="Remove preset"
-          @click=${(e: Event) => { e.stopPropagation(); onRemove() }}
-        >&times;</button>
+          @click=${(e: Event) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+        >
+          &times;
+        </button>
       </div>
       ${expanded ? renderPresetBody(state, name, preset) : nothing}
     </div>
-  `
+  `;
 }
 
 function renderPresetBody(
@@ -58,8 +63,8 @@ function renderPresetBody(
   name: string,
   preset: BlockStylePreset,
 ): unknown {
-  const styles = (preset.styles ?? {}) as Record<string, unknown>
-  const applicableTo = preset.applicableTo ?? []
+  const styles = (preset.styles ?? {}) as Record<string, unknown>;
+  const applicableTo = preset.applicableTo ?? [];
 
   return html`
     <div class="preset-card-body">
@@ -71,9 +76,9 @@ function renderPresetBody(
           class="ep-input mono"
           .value=${name}
           @change=${(e: Event) => {
-            const newName = (e.target as HTMLInputElement).value.trim()
+            const newName = (e.target as HTMLInputElement).value.trim();
             if (newName && newName !== name) {
-              state.renamePreset(name, newName)
+              state.renamePreset(name, newName);
             }
           }}
         />
@@ -86,7 +91,8 @@ function renderPresetBody(
           type="text"
           class="ep-input"
           .value=${preset.label}
-          @change=${(e: Event) => state.updatePresetLabel(name, (e.target as HTMLInputElement).value)}
+          @change=${(e: Event) =>
+            state.updatePresetLabel(name, (e.target as HTMLInputElement).value)}
         />
       </div>
 
@@ -94,46 +100,49 @@ function renderPresetBody(
       <div class="inspector-field">
         <label class="inspector-field-label">Applicable To</label>
         <div class="preset-applicable-to">
-          ${NODE_TYPES.map(nt => html`
-            <label class="preset-checkbox-label">
-              <input
-                type="checkbox"
-                .checked=${applicableTo.includes(nt.value)}
-                @change=${(e: Event) => {
-                  const checked = (e.target as HTMLInputElement).checked
-                  const current = preset.applicableTo ?? []
-                  const updated = checked
-                    ? [...current, nt.value]
-                    : current.filter(t => t !== nt.value)
-                  state.updatePresetApplicableTo(name, updated)
-                }}
-              />
-              ${nt.label}
-            </label>
-          `)}
+          ${NODE_TYPES.map(
+            (nt) => html`
+              <label class="preset-checkbox-label">
+                <input
+                  type="checkbox"
+                  .checked=${applicableTo.includes(nt.value)}
+                  @change=${(e: Event) => {
+                    const checked = (e.target as HTMLInputElement).checked;
+                    const current = preset.applicableTo ?? [];
+                    const updated = checked
+                      ? [...current, nt.value]
+                      : current.filter((t) => t !== nt.value);
+                    state.updatePresetApplicableTo(name, updated);
+                  }}
+                />
+                ${nt.label}
+              </label>
+            `,
+          )}
         </div>
         <span class="preset-hint">Leave all unchecked to apply to all node types.</span>
       </div>
 
       <!-- Style properties -->
-      ${defaultStyleRegistry.groups.map(group => html`
-        <div class="inspector-style-group">
-          <div class="inspector-style-group-label">${group.label}</div>
-          ${group.properties.map(prop => {
-            // For spacing properties, reconstruct compound value from individual keys
-            const value = prop.type === 'spacing'
-              ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
-              : styles[prop.key]
-            return renderPresetStyleProperty(
-              prop,
-              value,
-              (v) => state.updatePresetStyle(name, prop.key, v),
-            )
-          })}
-        </div>
-      `)}
+      ${defaultStyleRegistry.groups.map(
+        (group) => html`
+          <div class="inspector-style-group">
+            <div class="inspector-style-group-label">${group.label}</div>
+            ${group.properties.map((prop) => {
+              // For spacing properties, reconstruct compound value from individual keys
+              const value =
+                prop.type === "spacing"
+                  ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? "px")
+                  : styles[prop.key];
+              return renderPresetStyleProperty(prop, value, (v) =>
+                state.updatePresetStyle(name, prop.key, v),
+              );
+            })}
+          </div>
+        `,
+      )}
     </div>
-  `
+  `;
 }
 
 function renderPresetStyleProperty(
@@ -146,7 +155,7 @@ function renderPresetStyleProperty(
       <label class="inspector-field-label">${prop.label}</label>
       ${renderPresetStyleInput(prop, value, onChange)}
     </div>
-  `
+  `;
 }
 
 function renderPresetStyleInput(
@@ -155,37 +164,22 @@ function renderPresetStyleInput(
   onChange: (value: unknown) => void,
 ): unknown {
   switch (prop.type) {
-    case 'select':
-      return renderSelectInput(
-        value,
-        prop.options ?? [],
-        (v) => onChange(v || undefined),
-      )
-    case 'unit':
-      return renderUnitInput(
-        value,
-        prop.units ?? ['px'],
-        (v) => onChange(v),
-      )
-    case 'color':
-      return renderColorInput(
-        value,
-        (v) => onChange(v || undefined),
-      )
-    case 'spacing':
-      return renderSpacingInput(
-        value,
-        prop.units ?? ['px'],
-        (v) => onChange(v),
-      )
+    case "select":
+      return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
+    case "unit":
+      return renderUnitInput(value, prop.units ?? ["px"], (v) => onChange(v));
+    case "color":
+      return renderColorInput(value, (v) => onChange(v || undefined));
+    case "spacing":
+      return renderSpacingInput(value, prop.units ?? ["px"], (v) => onChange(v));
     default:
       return html`
         <input
           type="text"
           class="ep-input"
-          .value=${String(value ?? '')}
+          .value=${String(value ?? "")}
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
         />
-      `
+      `;
   }
 }

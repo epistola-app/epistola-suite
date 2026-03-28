@@ -22,6 +22,7 @@ epistola-suite/
 ## Architecture
 
 The frontend uses a **server-side rendering** approach:
+
 - **Thymeleaf**: Template engine for rendering HTML on the server
 - **HTMX**: For dynamic interactions without full page reloads
 - **Client components**: Embedded JavaScript modules (like the editor) for features requiring rich client-side interactivity
@@ -39,6 +40,7 @@ The frontend uses a **server-side rendering** approach:
 ```
 
 This will:
+
 - Configure mise in your shell (bash/zsh) if not already done
 - Install the required tool versions (Java Temurin 25, Node.js 24)
 - Install Git hooks (commitlint for conventional commit validation)
@@ -58,13 +60,13 @@ gradle :apps:epistola:bootRun --args='--spring.profiles.active=local'
 
 A Spring profile **must** be set to configure authentication. Without one, the app will fail to start.
 
-| Profile | Auth Method | Use Case |
-|---------|-------------|----------|
-| `local` | Form login (in-memory users) | Local development |
-| `demo` | Form login (in-memory users) | K8s demo environments |
-| `keycloak` | OAuth2/OIDC (local Keycloak) | Testing OAuth2 locally |
-| `prod` | OAuth2/OIDC (external Keycloak) | Production |
-| `local,keycloak` | Both form + OAuth2 | Testing both login methods |
+| Profile          | Auth Method                     | Use Case                   |
+| ---------------- | ------------------------------- | -------------------------- |
+| `local`          | Form login (in-memory users)    | Local development          |
+| `demo`           | Form login (in-memory users)    | K8s demo environments      |
+| `keycloak`       | OAuth2/OIDC (local Keycloak)    | Testing OAuth2 locally     |
+| `prod`           | OAuth2/OIDC (external Keycloak) | Production                 |
+| `local,keycloak` | Both form + OAuth2              | Testing both login methods |
 
 **Local development** — uses in-memory users, no external dependencies:
 
@@ -192,11 +194,13 @@ pnpm run setup:github-mcp
 ```
 
 This will:
+
 1. Open GitHub to create a fine-grained Personal Access Token with minimal permissions
 2. Validate the token
 3. Store it securely in your OS credential manager (macOS Keychain or Windows Credential Vault)
 
 **Features:**
+
 - Create and manage GitHub Issues
 - Work with Pull Requests
 - Track backlog in GitHub Projects
@@ -219,6 +223,7 @@ The project uses GitHub Actions for CI/CD:
 ### Conventional Commits
 
 Version bumps are determined automatically from commit messages:
+
 - `feat:` - minor version bump
 - `fix:` - patch version bump
 - `feat!:` or `fix!:` with `BREAKING CHANGE` - major version bump

@@ -12,16 +12,16 @@
  * @see https://docs.github.com/en/issues/planning-and-tracking-with-projects
  */
 
-import {readFileSync} from 'fs';
-import {execSync} from 'child_process';
-import {parse} from 'yaml';
+import { readFileSync } from "fs";
+import { execSync } from "child_process";
+import { parse } from "yaml";
 
 // =============================================================================
 // Configuration
 // =============================================================================
 
-const CONFIG_PATH = '.github/project.yml';
-const config = parse(readFileSync(CONFIG_PATH, 'utf8'));
+const CONFIG_PATH = ".github/project.yml";
+const config = parse(readFileSync(CONFIG_PATH, "utf8"));
 
 // =============================================================================
 // Logging Utilities
@@ -44,7 +44,7 @@ const log = {
  * Escape a string for use in GraphQL inline values
  */
 function escapeGraphQL(str) {
-  return (str || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return (str || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 /**
@@ -59,20 +59,20 @@ function graphql(query, variables = {}) {
   // Build variable arguments: -f for strings, -F for non-strings
   const variableArgs = Object.entries(variables)
     .map(([key, value]) => {
-      const flag = typeof value === 'string' ? '-f' : '-F';
+      const flag = typeof value === "string" ? "-f" : "-F";
       return `${flag} ${key}=${JSON.stringify(value)}`;
     })
-    .join(' ');
+    .join(" ");
 
   const escapedQuery = query.replace(/'/g, "'\\''");
   const cmd = `gh api graphql -f query='${escapedQuery}' ${variableArgs}`.trim();
 
   try {
-    const result = execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const result = execSync(cmd, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
     const parsed = JSON.parse(result);
 
     if (parsed.errors) {
-      const errorMsg = parsed.errors.map((e) => e.message).join('; ');
+      const errorMsg = parsed.errors.map((e) => e.message).join("; ");
       throw new Error(errorMsg);
     }
 
@@ -83,7 +83,7 @@ function graphql(query, variables = {}) {
       try {
         const response = JSON.parse(error.stdout);
         if (response.errors) {
-          throw new Error(response.errors.map((e) => e.message).join('; '));
+          throw new Error(response.errors.map((e) => e.message).join("; "));
         }
       } catch {
         // Ignore parse errors, use original error
@@ -104,11 +104,11 @@ function graphqlInline(query) {
   const escapedQuery = query.replace(/'/g, "'\\''");
   const cmd = `gh api graphql -f query='${escapedQuery}'`;
 
-  const result = execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+  const result = execSync(cmd, { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
   const parsed = JSON.parse(result);
 
   if (parsed.errors) {
-    const errorMsg = parsed.errors.map((e) => e.message).join('; ');
+    const errorMsg = parsed.errors.map((e) => e.message).join("; ");
     throw new Error(errorMsg);
   }
 
@@ -123,8 +123,10 @@ function graphqlInline(query) {
  * Check if an error indicates the resource already exists
  */
 function isAlreadyExistsError(error) {
-  const msg = error.message || '';
-  return msg.includes('already been taken') || msg.includes('reserved') || msg.includes('already linked');
+  const msg = error.message || "";
+  return (
+    msg.includes("already been taken") || msg.includes("reserved") || msg.includes("already linked")
+  );
 }
 
 /**
@@ -255,9 +257,9 @@ async function getProjectFields(projectId) {
 
 /** Data type mapping from config to GitHub API */
 const FIELD_TYPES = {
-  single_select: 'SINGLE_SELECT',
-  date: 'DATE',
-  text: 'TEXT',
+  single_select: "SINGLE_SELECT",
+  date: "DATE",
+  text: "TEXT",
 };
 
 /**
@@ -265,8 +267,8 @@ const FIELD_TYPES = {
  */
 function buildOption(option) {
   const name = escapeGraphQL(option.name);
-  const color = option.color || 'GRAY';
-  const description = escapeGraphQL(option.description || '');
+  const color = option.color || "GRAY";
+  const description = escapeGraphQL(option.description || "");
   return `{ name: "${name}", color: ${color}, description: "${description}" }`;
 }
 
@@ -310,7 +312,7 @@ async function createSingleSelectField(projectId, fieldConfig) {
         projectId: "${projectId}",
         dataType: SINGLE_SELECT,
         name: "${escapeGraphQL(fieldConfig.name)}",
-        singleSelectOptions: [${options.join(', ')}]
+        singleSelectOptions: [${options.join(", ")}]
       }) {
         projectV2Field {
           ... on ProjectV2SingleSelectField {
@@ -333,11 +335,13 @@ async function updateSingleSelectOptions(fieldId, desiredOptions, existingOption
   const missingOptions = desiredOptions.filter((o) => !existingNames.has(o.name));
 
   if (missingOptions.length === 0) {
-    log.success('Options up to date');
+    log.success("Options up to date");
     return;
   }
 
-  log.info(`    Adding ${missingOptions.length} option(s): ${missingOptions.map((o) => o.name).join(', ')}`);
+  log.info(
+    `    Adding ${missingOptions.length} option(s): ${missingOptions.map((o) => o.name).join(", ")}`,
+  );
 
   // GitHub API replaces ALL options, so we must include existing + new
   // Note: API doesn't accept 'id' in input, options are matched by name
@@ -347,7 +351,7 @@ async function updateSingleSelectOptions(fieldId, desiredOptions, existingOption
     mutation {
       updateProjectV2Field(input: {
         fieldId: "${fieldId}",
-        singleSelectOptions: [${allOptions.join(', ')}]
+        singleSelectOptions: [${allOptions.join(", ")}]
       }) {
         projectV2Field {
           ... on ProjectV2SingleSelectField {
@@ -360,7 +364,7 @@ async function updateSingleSelectOptions(fieldId, desiredOptions, existingOption
 
   try {
     graphqlInline(query);
-    log.success('Options updated');
+    log.success("Options updated");
   } catch (error) {
     log.warn(`Could not update options: ${error.message}`);
   }
@@ -372,10 +376,10 @@ async function updateSingleSelectOptions(fieldId, desiredOptions, existingOption
 async function createField(projectId, fieldConfig) {
   const safeCreate = handleExistsError(async () => {
     switch (fieldConfig.type) {
-      case 'single_select':
+      case "single_select":
         return await createSingleSelectField(projectId, fieldConfig);
-      case 'date':
-      case 'text':
+      case "date":
+      case "text":
         return await createSimpleField(projectId, fieldConfig, FIELD_TYPES[fieldConfig.type]);
       default:
         log.warn(`Unknown field type: ${fieldConfig.type}`);
@@ -393,14 +397,14 @@ async function syncField(projectId, fieldConfig, existingFields) {
   const existing = existingFields.find((f) => f.name === fieldConfig.name);
 
   if (existing) {
-    log.field(fieldConfig.name, 'exists');
+    log.field(fieldConfig.name, "exists");
 
     // Update options for single select fields
-    if (fieldConfig.type === 'single_select' && fieldConfig.options) {
+    if (fieldConfig.type === "single_select" && fieldConfig.options) {
       await updateSingleSelectOptions(existing.id, fieldConfig.options, existing.options);
     }
   } else {
-    log.field(fieldConfig.name, 'creating...');
+    log.field(fieldConfig.name, "creating...");
     await createField(projectId, fieldConfig);
   }
 }
@@ -462,20 +466,22 @@ async function verifyRepositories(projectId, owner, requiredRepos) {
  * Print instructions for manually linking repositories
  */
 function printLinkInstructions(projectTitle, missingRepos) {
-  console.log('\n' + '='.repeat(70));
-  console.log('ACTION REQUIRED: Repository linking requires admin permissions');
-  console.log('='.repeat(70));
-  console.log('\nThe following repositories need to be linked to the project:');
+  console.log("\n" + "=".repeat(70));
+  console.log("ACTION REQUIRED: Repository linking requires admin permissions");
+  console.log("=".repeat(70));
+  console.log("\nThe following repositories need to be linked to the project:");
   missingRepos.forEach((repo) => console.log(`  - ${repo}`));
-  console.log('\nTo fix this, an organization admin should:');
+  console.log("\nTo fix this, an organization admin should:");
   console.log(`  1. Go to the "${projectTitle}" project settings`);
   console.log('  2. Click "Manage access" in the sidebar');
   console.log('  3. Under "Link a repository", add the missing repositories');
-  console.log('\nAlternatively, use the GitHub CLI (requires admin permissions):');
+  console.log("\nAlternatively, use the GitHub CLI (requires admin permissions):");
   missingRepos.forEach((repo) => {
-    console.log(`  gh project link <PROJECT_NUMBER> --owner epistola-app --repo ${repo.split('/')[1]}`);
+    console.log(
+      `  gh project link <PROJECT_NUMBER> --owner epistola-app --repo ${repo.split("/")[1]}`,
+    );
   });
-  console.log('\n' + '='.repeat(70));
+  console.log("\n" + "=".repeat(70));
 }
 
 // =============================================================================
@@ -485,16 +491,16 @@ function printLinkInstructions(projectTitle, missingRepos) {
 async function main() {
   const { project, fields } = config;
 
-  log.header('GitHub Project Sync');
+  log.header("GitHub Project Sync");
   log.info(`Project: ${project.title}`);
   log.info(`Owner:   ${project.owner}`);
 
   // 1. Find or create project
-  log.header('Project');
+  log.header("Project");
   let projectId = await findProject(project.owner, project.title);
 
   if (!projectId) {
-    log.info('Creating project...');
+    log.info("Creating project...");
     projectId = await createProject(project);
     log.success(`Created: ${projectId}`);
   } else {
@@ -502,7 +508,7 @@ async function main() {
   }
 
   // 2. Sync fields
-  log.header('Fields');
+  log.header("Fields");
   const existingFields = await getProjectFields(projectId);
 
   for (const field of fields) {
@@ -511,7 +517,7 @@ async function main() {
 
   // 3. Verify repositories are linked (linking requires admin permissions)
   if (project.repositories?.length > 0) {
-    log.header('Repositories');
+    log.header("Repositories");
     const missingRepos = await verifyRepositories(projectId, project.owner, project.repositories);
 
     if (missingRepos.length > 0) {
@@ -520,7 +526,7 @@ async function main() {
     }
   }
 
-  log.header('Sync Complete');
+  log.header("Sync Complete");
 }
 
 main().catch((error) => {

@@ -10,6 +10,7 @@ Create a new HTMX form flow for a domain entity.
 ## Decision Points
 
 Ask the user (if not already specified):
+
 - What is the entity name?
 - What fields does the form need?
 - Which **form pattern** applies? (see variants below)
@@ -28,6 +29,7 @@ Full-page form that submits with POST and redirects on success.
 **When**: Creating a new top-level entity (environments, themes, templates, attributes).
 
 **Handler pattern**:
+
 ```kotlin
 fun create(request: ServerRequest): ServerResponse {
     val tenantId = TenantId.of(request.pathVariable("tenantId"))
@@ -79,6 +81,7 @@ Edit form loaded into a `<dialog>` via HTMX GET, submitted via HTMX PATCH.
 **When**: Editing an existing entity in a modal dialog.
 
 **Handler pattern** (on validation error):
+
 ```kotlin
 return request.htmx {
     fragment("attributes/list", "edit-attribute-form") {
@@ -110,6 +113,7 @@ Routes are co-located in the same package (e.g., `EnvironmentRoutes.kt`).
 ### tenantId — always typed at method entry
 
 Every handler method starts with:
+
 ```kotlin
 val tenantId = TenantId.of(request.pathVariable("tenantId"))
 ```
@@ -124,13 +128,16 @@ Templates receive `tenantId.value` (String), never the wrapper. Commands/queries
 ### Delete pattern
 
 All list/detail page deletes use `openConfirmDialog()`:
+
 ```html
-<button type="button"
-        class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
-        data-confirm-title="Delete <Entity>"
-        th:attr="data-confirm-message='...', data-confirm-url=@{...}"
-        data-confirm-target="#<entity>-rows"
-        onclick="openConfirmDialog(this)">
+<button
+  type="button"
+  class="btn btn-sm btn-icon btn-ghost btn-ghost-destructive"
+  data-confirm-title="Delete <Entity>"
+  th:attr="data-confirm-message='...', data-confirm-url=@{...}"
+  data-confirm-target="#<entity>-rows"
+  onclick="openConfirmDialog(this)"
+></button>
 ```
 
 Include the confirm dialog fragment: `<th:block th:replace="~{fragments/confirm-dialog :: confirm-dialog}" />`

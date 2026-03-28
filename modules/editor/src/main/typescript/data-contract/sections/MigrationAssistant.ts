@@ -6,24 +6,24 @@
  * items, and provides Apply / Save Anyway / Cancel actions.
  */
 
-import { html, nothing } from 'lit'
-import type { MigrationSuggestion, MigrationIssueType } from '../utils/schemaMigration.js'
+import { html, nothing } from "lit";
+import type { MigrationSuggestion, MigrationIssueType } from "../utils/schemaMigration.js";
 
 export interface MigrationDialogCallbacks {
-  onApply: (selectedMigrations: MigrationSuggestion[]) => void
-  onForceSave: () => void
-  onCancel: () => void
-  onToggleMigration: (migration: MigrationSuggestion) => void
-  onSelectAll: () => void
-  onSelectNone: () => void
+  onApply: (selectedMigrations: MigrationSuggestion[]) => void;
+  onForceSave: () => void;
+  onCancel: () => void;
+  onToggleMigration: (migration: MigrationSuggestion) => void;
+  onSelectAll: () => void;
+  onSelectNone: () => void;
 }
 
 /** Issue type labels for display */
 const ISSUE_LABELS: Record<MigrationIssueType, string> = {
-  TYPE_MISMATCH: 'Type mismatch',
-  MISSING_REQUIRED: 'Missing required',
-  UNKNOWN_FIELD: 'Unknown field',
-}
+  TYPE_MISMATCH: "Type mismatch",
+  MISSING_REQUIRED: "Missing required",
+  UNKNOWN_FIELD: "Unknown field",
+};
 
 /**
  * Render the migration assistant dialog content.
@@ -36,24 +36,23 @@ export function renderMigrationDialog(
   selectedMigrations: Set<string>,
   callbacks: MigrationDialogCallbacks,
 ): unknown {
-  if (migrations.length === 0) return nothing
+  if (migrations.length === 0) return nothing;
 
   // Group by example
-  const grouped = groupByExample(migrations)
-  const autoMigratableCount = migrations.filter((m) => m.autoMigratable).length
-  const selectedCount = selectedMigrations.size
+  const grouped = groupByExample(migrations);
+  const autoMigratableCount = migrations.filter((m) => m.autoMigratable).length;
+  const selectedCount = selectedMigrations.size;
 
   return html`
     <div class="dc-migration-dialog">
       <div class="dc-migration-header">
         <h3 class="dc-migration-title">Schema Changes Detected</h3>
         <p class="dc-migration-subtitle">
-          ${migrations.length} issue${migrations.length !== 1 ? 's' : ''} found across
-          ${grouped.length} example${grouped.length !== 1 ? 's' : ''}.
+          ${migrations.length} issue${migrations.length !== 1 ? "s" : ""} found across
+          ${grouped.length} example${grouped.length !== 1 ? "s" : ""}.
           ${autoMigratableCount > 0
             ? html`${autoMigratableCount} can be auto-fixed.`
-            : html`None can be auto-fixed.`
-          }
+            : html`None can be auto-fixed.`}
         </p>
       </div>
 
@@ -61,43 +60,43 @@ export function renderMigrationDialog(
       ${autoMigratableCount > 0
         ? html`
             <div class="dc-migration-select-controls">
-              <button
-                class="btn btn-sm btn-ghost"
-                @click=${() => callbacks.onSelectAll()}
-              >Select all</button>
-              <button
-                class="btn btn-sm btn-ghost"
-                @click=${() => callbacks.onSelectNone()}
-              >Select none</button>
+              <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onSelectAll()}>
+                Select all
+              </button>
+              <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onSelectNone()}>
+                Select none
+              </button>
             </div>
           `
-        : nothing
-      }
+        : nothing}
 
       <!-- Grouped migration items -->
       <div class="dc-migration-groups">
-        ${grouped.map(({ exampleName, migrations: exampleMigrations }) => html`
-          <div class="dc-migration-group">
-            <div class="dc-migration-group-header">${exampleName}</div>
-            <div class="dc-migration-group-items">
-              ${exampleMigrations.map((m) => renderMigrationItem(m, selectedMigrations, callbacks))}
+        ${grouped.map(
+          ({ exampleName, migrations: exampleMigrations }) => html`
+            <div class="dc-migration-group">
+              <div class="dc-migration-group-header">${exampleName}</div>
+              <div class="dc-migration-group-items">
+                ${exampleMigrations.map((m) =>
+                  renderMigrationItem(m, selectedMigrations, callbacks),
+                )}
+              </div>
             </div>
-          </div>
-        `)}
+          `,
+        )}
       </div>
 
       <!-- Footer actions -->
       <div class="dc-migration-footer">
-        <button
-          class="btn btn-sm btn-ghost"
-          @click=${() => callbacks.onCancel()}
-        >Cancel</button>
+        <button class="btn btn-sm btn-ghost" @click=${() => callbacks.onCancel()}>Cancel</button>
 
         <button
           class="btn btn-sm dc-migration-force-save-btn"
           @click=${() => callbacks.onForceSave()}
           title="Save schema without fixing examples"
-        >Save Anyway</button>
+        >
+          Save Anyway
+        </button>
 
         ${autoMigratableCount > 0
           ? html`
@@ -105,18 +104,19 @@ export function renderMigrationDialog(
                 class="btn btn-sm btn-primary"
                 ?disabled=${selectedCount === 0}
                 @click=${() => {
-                  const selected = migrations.filter(
-                    (m) => selectedMigrations.has(migrationKey(m)),
-                  )
-                  callbacks.onApply(selected)
+                  const selected = migrations.filter((m) =>
+                    selectedMigrations.has(migrationKey(m)),
+                  );
+                  callbacks.onApply(selected);
                 }}
-              >Apply ${selectedCount} Fix${selectedCount !== 1 ? 'es' : ''}</button>
+              >
+                Apply ${selectedCount} Fix${selectedCount !== 1 ? "es" : ""}
+              </button>
             `
-          : nothing
-        }
+          : nothing}
       </div>
     </div>
-  `
+  `;
 }
 
 /**
@@ -127,11 +127,11 @@ function renderMigrationItem(
   selectedMigrations: Set<string>,
   callbacks: MigrationDialogCallbacks,
 ): unknown {
-  const key = migrationKey(migration)
-  const isSelected = selectedMigrations.has(key)
+  const key = migrationKey(migration);
+  const isSelected = selectedMigrations.has(key);
 
   return html`
-    <div class="dc-migration-item ${migration.autoMigratable ? '' : 'dc-migration-item-manual'}">
+    <div class="dc-migration-item ${migration.autoMigratable ? "" : "dc-migration-item-manual"}">
       <div class="dc-migration-item-check">
         ${migration.autoMigratable
           ? html`
@@ -143,8 +143,7 @@ function renderMigrationItem(
                 @change=${() => callbacks.onToggleMigration(migration)}
               />
             `
-          : html`<span class="dc-migration-item-icon" title="Cannot be auto-fixed">\u2717</span>`
-        }
+          : html`<span class="dc-migration-item-icon" title="Cannot be auto-fixed">✗</span>`}
       </div>
       <div class="dc-migration-item-details">
         <div class="dc-migration-item-path">
@@ -153,34 +152,33 @@ function renderMigrationItem(
             ${ISSUE_LABELS[migration.issue]}
           </span>
         </div>
-        ${migration.issue === 'TYPE_MISMATCH'
+        ${migration.issue === "TYPE_MISMATCH"
           ? html`
               <div class="dc-migration-item-conversion">
                 <span class="dc-migration-current">${formatValue(migration.currentValue)}</span>
-                <span class="dc-migration-arrow">\u2192</span>
+                <span class="dc-migration-arrow">→</span>
                 <span class="dc-migration-expected">${migration.expectedType}</span>
                 ${migration.suggestedValue !== null
                   ? html`
-                      <span class="dc-migration-arrow">\u2192</span>
-                      <span class="dc-migration-suggested">${formatValue(migration.suggestedValue)}</span>
+                      <span class="dc-migration-arrow">→</span>
+                      <span class="dc-migration-suggested"
+                        >${formatValue(migration.suggestedValue)}</span
+                      >
                     `
-                  : nothing
-                }
+                  : nothing}
               </div>
             `
-          : nothing
-        }
-        ${migration.issue === 'MISSING_REQUIRED'
+          : nothing}
+        ${migration.issue === "MISSING_REQUIRED"
           ? html`
               <div class="dc-migration-item-info">
                 Expected type: <code>${migration.expectedType}</code>
               </div>
             `
-          : nothing
-        }
+          : nothing}
       </div>
     </div>
-  `
+  `;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,32 +186,32 @@ function renderMigrationItem(
 // ---------------------------------------------------------------------------
 
 interface MigrationGroup {
-  exampleName: string
-  migrations: MigrationSuggestion[]
+  exampleName: string;
+  migrations: MigrationSuggestion[];
 }
 
 function groupByExample(migrations: MigrationSuggestion[]): MigrationGroup[] {
-  const groups = new Map<string, MigrationGroup>()
+  const groups = new Map<string, MigrationGroup>();
   for (const m of migrations) {
-    const existing = groups.get(m.exampleId)
+    const existing = groups.get(m.exampleId);
     if (existing) {
-      existing.migrations.push(m)
+      existing.migrations.push(m);
     } else {
-      groups.set(m.exampleId, { exampleName: m.exampleName, migrations: [m] })
+      groups.set(m.exampleId, { exampleName: m.exampleName, migrations: [m] });
     }
   }
-  return Array.from(groups.values())
+  return Array.from(groups.values());
 }
 
 /** Generate a unique key for a migration suggestion. */
 export function migrationKey(m: MigrationSuggestion): string {
-  return `${m.exampleId}:${m.path}:${m.issue}`
+  return `${m.exampleId}:${m.path}:${m.issue}`;
 }
 
 /** Format a JSON value for display. */
 function formatValue(value: unknown): string {
-  if (value === null) return 'null'
-  if (value === undefined) return 'undefined'
-  if (typeof value === 'string') return `"${value}"`
-  return String(value)
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (typeof value === "string") return `"${value}"`;
+  return String(value);
 }

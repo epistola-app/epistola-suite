@@ -13,11 +13,7 @@ import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
 import type { EditorEngine } from "../engine/EditorEngine.js";
 import { isAnchoredPageBlock } from "../engine/registry.js";
 import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
-import {
-  resolveDropOnBlockEdge,
-  canDropHere,
-  type Edge,
-} from "../dnd/drop-logic.js";
+import { resolveDropOnBlockEdge, canDropHere, type Edge } from "../dnd/drop-logic.js";
 import { handleDrop } from "../dnd/drop-handler.js";
 import { icon } from "./icons.js";
 import "../ui/EpistolaTextEditor.js";
@@ -64,15 +60,10 @@ export class EpistolaCanvas extends LitElement {
     if (!node || node.type !== "text") return;
 
     requestAnimationFrame(() => {
-      const blockEl = this.querySelector<HTMLElement>(
-        `.canvas-block[data-node-id="${nodeId}"]`,
-      );
-      const textEditor = blockEl?.querySelector<HTMLElement>(
-        "epistola-text-editor",
-      );
+      const blockEl = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
+      const textEditor = blockEl?.querySelector<HTMLElement>("epistola-text-editor");
       if (!textEditor) return;
-      const focusEditor = (textEditor as { focusEditor?: () => void })
-        .focusEditor;
+      const focusEditor = (textEditor as { focusEditor?: () => void }).focusEditor;
       focusEditor?.call(textEditor);
     });
   }
@@ -86,12 +77,9 @@ export class EpistolaCanvas extends LitElement {
     if (this.engine && this.engine !== this._subscribedEngine) {
       this._unsubComponentState?.();
       this._subscribedEngine = this.engine;
-      this._unsubComponentState = this.engine.events.on(
-        "component-state:change",
-        () => {
-          this.requestUpdate();
-        },
-      );
+      this._unsubComponentState = this.engine.events.on("component-state:change", () => {
+        this.requestUpdate();
+      });
     }
   }
 
@@ -112,9 +100,7 @@ export class EpistolaCanvas extends LitElement {
     const cleanups: (() => void)[] = [];
 
     // Setup drag sources on canvas blocks (skip root)
-    const blocks = this.querySelectorAll<HTMLElement>(
-      ".canvas-block[data-node-id]",
-    );
+    const blocks = this.querySelectorAll<HTMLElement>(".canvas-block[data-node-id]");
     for (const blockEl of blocks) {
       const nodeId = blockEl.dataset.nodeId as NodeId | undefined;
       if (!nodeId || nodeId === this.doc.root) continue;
@@ -128,9 +114,7 @@ export class EpistolaCanvas extends LitElement {
         cleanups.push(
           draggable({
             element: blockEl,
-            dragHandle:
-              blockEl.querySelector<HTMLElement>(".canvas-block-header") ??
-              blockEl,
+            dragHandle: blockEl.querySelector<HTMLElement>(".canvas-block-header") ?? blockEl,
             getInitialData: (): DragData => ({
               source: "block",
               nodeId,
@@ -147,17 +131,13 @@ export class EpistolaCanvas extends LitElement {
         dropTargetForElements({
           element: blockEl,
           getData: ({ input, element }) =>
-            attachClosestEdge(
-              { nodeId },
-              { element, input, allowedEdges: ["top", "bottom"] },
-            ),
+            attachClosestEdge({ nodeId }, { element, input, allowedEdges: ["top", "bottom"] }),
           canDrop: ({ source }) => {
             const dragData = source.data as Record<string, unknown>;
             if (!isDragData(dragData)) return false;
 
             // Can't drop a block on itself
-            if (isBlockDrag(dragData) && dragData.nodeId === nodeId)
-              return false;
+            if (isBlockDrag(dragData) && dragData.nodeId === nodeId) return false;
 
             // Resolve parent slot of this block via DOM
             const slotEl = blockEl.closest<HTMLElement>("[data-slot-id]");
@@ -214,11 +194,7 @@ export class EpistolaCanvas extends LitElement {
             );
             if (!dropLocation) return;
 
-            this._handleDrop(
-              dragData,
-              dropLocation.targetSlotId,
-              dropLocation.index,
-            );
+            this._handleDrop(dragData, dropLocation.targetSlotId, dropLocation.index);
           },
         }),
       );
@@ -227,9 +203,7 @@ export class EpistolaCanvas extends LitElement {
     // Setup drop targets on ALL slots (empty and non-empty).
     // Empty slots accept drops at index 0.
     // Non-empty slots accept drops in the empty space below children (append).
-    const slots = this.querySelectorAll<HTMLElement>(
-      ".canvas-slot[data-slot-id]",
-    );
+    const slots = this.querySelectorAll<HTMLElement>(".canvas-slot[data-slot-id]");
     for (const slotEl of slots) {
       const slotId = slotEl.dataset.slotId as SlotId | undefined;
       if (!slotId) continue;
@@ -369,10 +343,7 @@ export class EpistolaCanvas extends LitElement {
     // Resolve styles through the full cascade, filtered by component's applicable styles
     const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
     const applicableStyles = def?.applicableStyles;
-    const filteredStyles = filterByApplicableStyles(
-      resolvedStyles,
-      applicableStyles,
-    );
+    const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles);
     const contentStyle = toStyleMap(filteredStyles);
 
     return html`
@@ -406,9 +377,7 @@ export class EpistolaCanvas extends LitElement {
 
         <!-- Block content area -->
         <div
-          class="canvas-block-content ${node.type === "text"
-            ? "text-type"
-            : ""}"
+          class="canvas-block-content ${node.type === "text" ? "text-type" : ""}"
           style=${styleMap(contentStyle)}
         >
           ${this._renderBlockContent(nodeId)}
@@ -454,10 +423,7 @@ export class EpistolaCanvas extends LitElement {
         const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
         const def = this.engine!.registry.get(node.type);
         const applicableStyles = def?.applicableStyles;
-        const filteredStyles = filterByApplicableStyles(
-          resolvedStyles,
-          applicableStyles,
-        );
+        const filteredStyles = filterByApplicableStyles(resolvedStyles, applicableStyles);
         const textStyles = toStyleMap(filteredStyles);
         return html`
           <epistola-text-editor

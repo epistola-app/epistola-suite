@@ -15,13 +15,13 @@ epistola:
   storage:
     backend: memory
   auth:
-    auto-provision: false  # Not needed for in-memory test users
+    auto-provision: false # Not needed for in-memory test users
   demo:
-    enabled: false  # Disable demo loading in tests
+    enabled: false # Disable demo loading in tests
   generation:
-    synchronous: true  # Execute jobs immediately in tests (no polling needed)
+    synchronous: true # Execute jobs immediately in tests (no polling needed)
     polling:
-      enabled: false   # Disable poller when using synchronous execution
+      enabled: false # Disable poller when using synchronous execution
       interval-ms: 500
       max-concurrent-jobs: 5
       stale-timeout-minutes: 1

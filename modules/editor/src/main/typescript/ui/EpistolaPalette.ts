@@ -1,192 +1,200 @@
-import { LitElement, html } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
-import type { EditorEngine } from '../engine/EditorEngine.js'
-import { type ComponentDefinition, type ComponentCategory, PAGE_HEADER_TYPE, PAGE_FOOTER_TYPE } from '../engine/registry.js'
-import type { DragData } from '../dnd/types.js'
-import { icon, type IconName, ICONS } from './icons.js'
+import { LitElement, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import type { EditorEngine } from "../engine/EditorEngine.js";
+import {
+  type ComponentDefinition,
+  type ComponentCategory,
+  PAGE_HEADER_TYPE,
+  PAGE_FOOTER_TYPE,
+} from "../engine/registry.js";
+import type { DragData } from "../dnd/types.js";
+import { icon, type IconName, ICONS } from "./icons.js";
 
-const CATEGORY_ORDER: ComponentCategory[] = ['content', 'layout', 'logic', 'page']
+const CATEGORY_ORDER: ComponentCategory[] = ["content", "layout", "logic", "page"];
 const CATEGORY_LABELS: Record<ComponentCategory, string> = {
-  content: 'Content',
-  layout: 'Layout',
-  logic: 'Logic',
-  page: 'Page',
-}
+  content: "Content",
+  layout: "Layout",
+  logic: "Logic",
+  page: "Page",
+};
 
-@customElement('epistola-palette')
+@customElement("epistola-palette")
 export class EpistolaPalette extends LitElement {
   override createRenderRoot() {
-    return this
+    return this;
   }
 
-  @property({ attribute: false }) engine?: EditorEngine
+  @property({ attribute: false }) engine?: EditorEngine;
 
-  private _dndCleanup: (() => void) | null = null
-  private _unsubDocChange?: () => void
+  private _dndCleanup: (() => void) | null = null;
+  private _unsubDocChange?: () => void;
 
   private async _handleInsert(type: string) {
-    if (!this.engine) return
+    if (!this.engine) return;
 
     // Delegate to component's onBeforeInsert hook if present
-    const def = this.engine.registry.get(type)
+    const def = this.engine.registry.get(type);
     if (def?.onBeforeInsert) {
-      const overrideProps = await def.onBeforeInsert(this.engine)
-      if (!overrideProps) return // cancelled
-      this._insertNode(type, overrideProps)
-      return
+      const overrideProps = await def.onBeforeInsert(this.engine);
+      if (!overrideProps) return; // cancelled
+      this._insertNode(type, overrideProps);
+      return;
     }
 
-    this._insertNode(type)
+    this._insertNode(type);
   }
 
   private _insertNode(type: string, overrideProps?: Record<string, unknown>) {
-    if (!this.engine) return
+    if (!this.engine) return;
 
-    const doc = this.engine.doc
-    const rootNode = doc.nodes[doc.root]
-    if (!rootNode || rootNode.slots.length === 0) return
+    const doc = this.engine.doc;
+    const rootNode = doc.nodes[doc.root];
+    if (!rootNode || rootNode.slots.length === 0) return;
 
-    const targetSlotId = rootNode.slots[0]
-    const targetSlot = doc.slots[targetSlotId]
-    if (!targetSlot) return
+    const targetSlotId = rootNode.slots[0];
+    const targetSlot = doc.slots[targetSlotId];
+    if (!targetSlot) return;
 
-    const footerIndex = targetSlot.children.findIndex((id) => doc.nodes[id]?.type === PAGE_FOOTER_TYPE)
-    const insertIndex = type === PAGE_HEADER_TYPE
-      ? 0
-      : type === PAGE_FOOTER_TYPE
-        ? targetSlot.children.length
-        : footerIndex >= 0
-          ? footerIndex
-          : targetSlot.children.length
+    const footerIndex = targetSlot.children.findIndex(
+      (id) => doc.nodes[id]?.type === PAGE_FOOTER_TYPE,
+    );
+    const insertIndex =
+      type === PAGE_HEADER_TYPE
+        ? 0
+        : type === PAGE_FOOTER_TYPE
+          ? targetSlot.children.length
+          : footerIndex >= 0
+            ? footerIndex
+            : targetSlot.children.length;
 
-    const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps)
+    const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps);
 
     const result = this.engine.dispatch({
-      type: 'InsertNode',
+      type: "InsertNode",
       node,
       slots,
       targetSlotId,
       index: insertIndex,
       _restoreNodes: extraNodes,
-    })
+    });
 
-    if (!result.ok) return
+    if (!result.ok) return;
 
     // Select the newly inserted node
-    this.engine.selectNode(node.id)
+    this.engine.selectNode(node.id);
   }
 
   override updated(changed: Map<string, unknown>) {
-    if (changed.has('engine')) {
-      this._subscribeToEngine()
+    if (changed.has("engine")) {
+      this._subscribeToEngine();
     }
 
-    this._dndCleanup?.()
-    this._dndCleanup = this._setupDnD()
+    this._dndCleanup?.();
+    this._dndCleanup = this._setupDnD();
   }
 
   override disconnectedCallback() {
-    this._unsubDocChange?.()
-    this._unsubDocChange = undefined
-    this._dndCleanup?.()
-    this._dndCleanup = null
-    super.disconnectedCallback()
+    this._unsubDocChange?.();
+    this._unsubDocChange = undefined;
+    this._dndCleanup?.();
+    this._dndCleanup = null;
+    super.disconnectedCallback();
   }
 
   private _subscribeToEngine(): void {
-    this._unsubDocChange?.()
-    this._unsubDocChange = undefined
+    this._unsubDocChange?.();
+    this._unsubDocChange = undefined;
 
-    if (!this.engine) return
+    if (!this.engine) return;
 
-    this._unsubDocChange = this.engine.events.on('doc:change', ({ structureChanged }) => {
+    this._unsubDocChange = this.engine.events.on("doc:change", ({ structureChanged }) => {
       if (structureChanged) {
-        this.requestUpdate()
+        this.requestUpdate();
       }
-    })
+    });
   }
 
   private _setupDnD(): (() => void) | null {
-    const items = this.querySelectorAll<HTMLElement>('.palette-item[data-block-type]')
-    if (items.length === 0) return null
+    const items = this.querySelectorAll<HTMLElement>(".palette-item[data-block-type]");
+    if (items.length === 0) return null;
 
-    const cleanups: (() => void)[] = []
+    const cleanups: (() => void)[] = [];
 
     for (const item of items) {
-      const blockType = item.dataset.blockType
-      if (!blockType) continue
+      const blockType = item.dataset.blockType;
+      if (!blockType) continue;
 
       const cleanup = draggable({
         element: item,
-        getInitialData: (): DragData => ({ source: 'palette', blockType }),
-        onDragStart: () => item.classList.add('dragging'),
-        onDrop: () => item.classList.remove('dragging'),
-      })
-      cleanups.push(cleanup)
+        getInitialData: (): DragData => ({ source: "palette", blockType }),
+        onDragStart: () => item.classList.add("dragging"),
+        onDrop: () => item.classList.remove("dragging"),
+      });
+      cleanups.push(cleanup);
     }
 
-    return () => cleanups.forEach(fn => fn())
+    return () => cleanups.forEach((fn) => fn());
   }
 
   private _renderIcon(def: ComponentDefinition) {
     if (def.icon && def.icon in ICONS) {
-      return icon(def.icon as IconName, 14)
+      return icon(def.icon as IconName, 14);
     }
-    return html`<span style="font-size: 11px; color: var(--ep-gray-400)">+</span>`
+    return html`<span style="font-size: 11px; color: var(--ep-gray-400)">+</span>`;
   }
 
   override render() {
     if (!this.engine) {
-      return html`<div class="panel-empty">No engine</div>`
+      return html`<div class="panel-empty">No engine</div>`;
     }
 
     const definitions = this.engine.registry
       .insertable(this.engine.doc)
-      .filter(d => d.type !== 'root') // Don't show root in palette
+      .filter((d) => d.type !== "root"); // Don't show root in palette
 
-    const grouped = new Map<ComponentCategory, ComponentDefinition[]>()
+    const grouped = new Map<ComponentCategory, ComponentDefinition[]>();
     for (const cat of CATEGORY_ORDER) {
-      grouped.set(cat, [])
+      grouped.set(cat, []);
     }
     for (const def of definitions) {
-      const list = grouped.get(def.category)
-      if (list) list.push(def)
+      const list = grouped.get(def.category);
+      if (list) list.push(def);
     }
 
     return html`
       <div class="epistola-palette">
-        ${CATEGORY_ORDER.map(cat => {
-          const items = grouped.get(cat)
-          if (!items || items.length === 0) return ''
+        ${CATEGORY_ORDER.map((cat) => {
+          const items = grouped.get(cat);
+          if (!items || items.length === 0) return "";
 
           return html`
             <div class="palette-category">
-              <div class="palette-category-label">
-                ${CATEGORY_LABELS[cat]}
-              </div>
-              ${items.map(def => html`
-                <button
-                  class="palette-item"
-                  data-testid=${`palette-item-${def.type}`}
-                  data-block-type=${def.type}
-                  @click=${() => this._handleInsert(def.type)}
-                  title="Click to insert ${def.label}"
-                >
-                  <span class="palette-item-icon">${this._renderIcon(def)}</span>
-                  <span>${def.label}</span>
-                </button>
-              `)}
+              <div class="palette-category-label">${CATEGORY_LABELS[cat]}</div>
+              ${items.map(
+                (def) => html`
+                  <button
+                    class="palette-item"
+                    data-testid=${`palette-item-${def.type}`}
+                    data-block-type=${def.type}
+                    @click=${() => this._handleInsert(def.type)}
+                    title="Click to insert ${def.label}"
+                  >
+                    <span class="palette-item-icon">${this._renderIcon(def)}</span>
+                    <span>${def.label}</span>
+                  </button>
+                `,
+              )}
             </div>
-          `
+          `;
         })}
       </div>
-    `
+    `;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'epistola-palette': EpistolaPalette
+    "epistola-palette": EpistolaPalette;
   }
 }

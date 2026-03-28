@@ -5,6 +5,7 @@ This document describes the architecture for interactive JavaScript components i
 ## Overview
 
 Epistola uses a **hybrid rendering approach**:
+
 - **Server-side**: Thymeleaf + HTMX for most UI (navigation, forms, lists)
 - **Client-side**: JavaScript modules for rich interactive components that require complex state management
 
@@ -17,29 +18,32 @@ Interactive components are built as **embeddable modules** that expose mount fun
 Interactive modules share common dependencies (React, Zustand, etc.) to avoid duplication. This is achieved via **Import Maps** with self-hosted ESM dependencies.
 
 **How it works:**
+
 1. Shared dependencies are copied as ESM bundles to `/vendor/`
 2. An import map in the HTML maps bare specifiers to these files
 3. Modules are built with dependencies marked as **externals**
 4. Browser resolves imports at runtime via the import map
 
 **Example import map:**
+
 ```html
 <script type="importmap">
-{
-  "imports": {
-    "react": "/vendor/react.js",
-    "react-dom": "/vendor/react-dom.js",
-    "react-dom/client": "/vendor/react-dom-client.js",
-    "react/jsx-runtime": "/vendor/react-jsx-runtime.js",
-    "zustand": "/vendor/zustand.js",
-    "zustand/middleware/immer": "/vendor/zustand-middleware-immer.js",
-    "immer": "/vendor/immer.js"
+  {
+    "imports": {
+      "react": "/vendor/react.js",
+      "react-dom": "/vendor/react-dom.js",
+      "react-dom/client": "/vendor/react-dom-client.js",
+      "react/jsx-runtime": "/vendor/react-jsx-runtime.js",
+      "zustand": "/vendor/zustand.js",
+      "zustand/middleware/immer": "/vendor/zustand-middleware-immer.js",
+      "immer": "/vendor/immer.js"
+    }
   }
-}
 </script>
 ```
 
 **Benefits:**
+
 - Dependencies loaded once, shared across all modules
 - Smaller module bundles (template-editor.js is ~750KB vs ~1.1MB when React was bundled)
 - Native browser feature (Chrome 89+, Firefox 108+, Safari 16.4+)
@@ -80,12 +84,14 @@ epistola-suite/
 ```
 
 **Root `pnpm-workspace.yaml`:**
+
 ```yaml
 packages:
-  - 'modules/*'
+  - "modules/*"
 ```
 
 **Root scripts:**
+
 ```bash
 pnpm build              # Build all modules in dependency order
 pnpm dev                # Run all dev servers in parallel
@@ -182,7 +188,12 @@ export interface TemplateModel {
 
 // types/schema.ts - Zod-based schema types
 export const FieldTypeSchema = z.enum([
-  'string', 'number', 'integer', 'boolean', 'array', 'object'
+  "string",
+  "number",
+  "integer",
+  "boolean",
+  "array",
+  "object",
 ]);
 ```
 
@@ -203,15 +214,15 @@ The template editor (`modules/editor/`) provides a visual editor for designing d
 ### Mount API
 
 ```typescript
-import { mountEditor } from '/editor/template-editor.js';
+import { mountEditor } from "/editor/template-editor.js";
 
 const instance = mountEditor({
-  container: document.getElementById('editor-container'),
+  container: document.getElementById("editor-container"),
   template: templateData,
-  dataStructure: dataStructureData,  // For expression autocomplete
+  dataStructure: dataStructureData, // For expression autocomplete
   onSave: async (template) => {
     await fetch(`/api/templates/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify({ templateModel: template }),
     });
   },
@@ -229,62 +240,66 @@ instance.unmount();
 
 The template editor supports these block types:
 
-| Type | Description |
-|------|-------------|
-| `TextBlock` | Rich text content with expression chips (`{{customer.name}}`) |
-| `ContainerBlock` | Generic nestable container |
-| `ConditionalBlock` | If/else based on expression (`{{hasDiscount}}`) |
-| `LoopBlock` | Array iteration with item/index aliases |
-| `ColumnsBlock` | Multi-column layout with flexible widths |
-| `TableBlock` | Structured tables with headers and data rows |
+| Type               | Description                                                   |
+| ------------------ | ------------------------------------------------------------- |
+| `TextBlock`        | Rich text content with expression chips (`{{customer.name}}`) |
+| `ContainerBlock`   | Generic nestable container                                    |
+| `ConditionalBlock` | If/else based on expression (`{{hasDiscount}}`)               |
+| `LoopBlock`        | Array iteration with item/index aliases                       |
+| `ColumnsBlock`     | Multi-column layout with flexible widths                      |
+| `TableBlock`       | Structured tables with headers and data rows                  |
 
 ### Thymeleaf Integration
 
 Pages using interactive modules include the import map via a shared fragment, then load the module:
 
 **Layout fragment** (`fragments/importmap.html`):
+
 ```html
 <script type="importmap" th:fragment="importmap">
-{
-  "imports": {
-    "react": "/vendor/react.js",
-    "react-dom": "/vendor/react-dom.js",
-    "react-dom/client": "/vendor/react-dom-client.js",
-    "react/jsx-runtime": "/vendor/react-jsx-runtime.js",
-    "zustand": "/vendor/zustand.js",
-    "zustand/middleware/immer": "/vendor/zustand-middleware-immer.js",
-    "immer": "/vendor/immer.js"
+  {
+    "imports": {
+      "react": "/vendor/react.js",
+      "react-dom": "/vendor/react-dom.js",
+      "react-dom/client": "/vendor/react-dom-client.js",
+      "react/jsx-runtime": "/vendor/react-jsx-runtime.js",
+      "zustand": "/vendor/zustand.js",
+      "zustand/middleware/immer": "/vendor/zustand-middleware-immer.js",
+      "immer": "/vendor/immer.js"
+    }
   }
-}
 </script>
 ```
 
 **Editor page** (`templates/editor.html`):
+
 ```html
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+  <head>
     <th:block th:replace="~{fragments/importmap :: importmap}" />
-    <link rel="stylesheet" th:href="@{/editor/template-editor.css}">
-</head>
-<body>
+    <link rel="stylesheet" th:href="@{/editor/template-editor.css}" />
+  </head>
+  <body>
     <div id="editor-container"></div>
 
     <script th:inline="javascript">
-        window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
-        window.DATA_STRUCTURE = /*[[${dataStructure}]]*/ null;
+      window.TEMPLATE_MODEL = /*[[${templateModel}]]*/ {};
+      window.DATA_STRUCTURE = /*[[${dataStructure}]]*/ null;
     </script>
     <script type="module">
-        import { mountEditor } from '/editor/template-editor.js';
+      import { mountEditor } from "/editor/template-editor.js";
 
-        mountEditor({
-            container: document.getElementById('editor-container'),
-            template: window.TEMPLATE_MODEL,
-            dataStructure: window.DATA_STRUCTURE,
-            onSave: async (template) => { /* save via REST */ }
-        });
+      mountEditor({
+        container: document.getElementById("editor-container"),
+        template: window.TEMPLATE_MODEL,
+        dataStructure: window.DATA_STRUCTURE,
+        onSave: async (template) => {
+          /* save via REST */
+        },
+      });
     </script>
-</body>
+  </body>
 </html>
 ```
 
@@ -306,6 +321,7 @@ The Data Contract Manager is a dialog component embedded within the template edi
 The Data Contract Manager is opened via the editor header's "Data" button. It consists of:
 
 **Main Components:**
+
 - `DataContractManager.tsx` - Main dialog with tab-based UI
 - `DataExamplesManager.tsx` - Example selection dropdown and settings
 - `MigrationAssistant.tsx` - Schema migration suggestions dialog
@@ -313,9 +329,11 @@ The Data Contract Manager is opened via the editor header's "Data" button. It co
 - `DialogFooterActions.tsx` - Save/Close with unsaved changes indicator
 
 **State Management:**
+
 - `useDataContractDraft.ts` hook - Local-first draft state with dirty tracking
 
 **Key Features:**
+
 - Visual schema editor with nested field support
 - "Generate from example" to infer schema from test data
 - Advanced JSON toggle for direct JSON Schema editing
@@ -328,6 +346,7 @@ The Data Contract Manager is opened via the editor header's "Data" button. It co
 The schema editor supports a **core subset** of JSON Schema 2020-12:
 
 **Supported types:**
+
 - `string` - Text values
 - `number` - Floating-point numbers
 - `integer` - Whole numbers
@@ -337,32 +356,36 @@ The schema editor supports a **core subset** of JSON Schema 2020-12:
 
 **Supported constraints:**
 
-| Type | Constraints |
-|------|-------------|
+| Type   | Constraints                                   |
+| ------ | --------------------------------------------- |
 | String | `minLength`, `maxLength`, `pattern`, `format` |
-| Number | `minimum`, `maximum` |
-| Array | `items` (single type) |
-| Object | `properties`, `required` |
+| Number | `minimum`, `maximum`                          |
+| Array  | `items` (single type)                         |
+| Object | `properties`, `required`                      |
 
 ### UX Patterns
 
 **Local-First Draft State:**
+
 - All edits modify local draft state
 - Backend persistence only on explicit Save
 - Unsaved changes indicator in dialog footer
 - Close confirmation when dirty
 
 **Save & Stay Open:**
+
 - Save button persists changes and shows success feedback
 - Dialog remains open for iterative editing
 - Close button exits (with confirmation if dirty)
 
 **Validation Display:**
+
 - Red errors block saving (JSON syntax, structure)
 - Yellow warnings allow saving (schema validation)
 - Parallel display of both error types
 
 **Migration Assistant:**
+
 - Detects when schema changes break existing examples
 - Offers auto-fix for simple type conversions (string↔number, string↔boolean)
 - Allows force update to save despite warnings
@@ -370,6 +393,7 @@ The schema editor supports a **core subset** of JSON Schema 2020-12:
 ### Example Usage
 
 Given this schema defined in Data Contract Manager:
+
 ```json
 {
   "type": "object",
@@ -397,6 +421,7 @@ Given this schema defined in Data Contract Manager:
 ```
 
 Templates can use expressions like:
+
 - `{{customer.name}}`
 - `{{customer.email}}`
 - `{{items[0].description}}`

@@ -1,14 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "labels": ["dependencies"],
   "prHourlyLimit": 5,
   "prConcurrentLimit": 10,
-  "ignorePaths": [
-    "**/test/resources/**"
-  ],
+  "ignorePaths": ["**/test/resources/**"],
   "constraints": { "pnpm": "10.28.2", "node": "24.13.0" },
   "lockFileMaintenance": { "enabled": true },
   "packageRules": [
@@ -28,9 +24,6 @@
     }
   ],
   "gradle": {
-    "fileMatch": [
-      "(^|/)build\\.gradle\\.kts$",
-      "(^|/)settings\\.gradle\\.kts$"
-    ]
+    "fileMatch": ["(^|/)build\\.gradle\\.kts$", "(^|/)settings\\.gradle\\.kts$"]
   }
 }

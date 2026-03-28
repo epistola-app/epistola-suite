@@ -132,12 +132,7 @@ export type ShortcutChordCancelReason =
   | "context-changed"
   | "manual";
 
-export type ShortcutCommandExecutionStatus =
-  | "pending"
-  | "ok"
-  | "rejected"
-  | "error"
-  | "cancelled";
+export type ShortcutCommandExecutionStatus = "pending" | "ok" | "rejected" | "error" | "cancelled";
 
 export interface ShortcutCommandExecutionResult {
   status: ShortcutCommandExecutionStatus;
@@ -275,9 +270,7 @@ function parseStrokeToken(
   }
 
   const normalizedKey =
-    matchBy === "code"
-      ? normalizeEventCode(keyToken)
-      : normalizeEventKey(keyToken);
+    matchBy === "code" ? normalizeEventCode(keyToken) : normalizeEventKey(keyToken);
   const stroke = serializeStroke({ mod, shift, alt, key: normalizedKey });
   if (!stroke) {
     return null;
@@ -303,9 +296,7 @@ function parseBindingSequence<TContext>(
     return null;
   }
 
-  const strokeTokens = normalizedSequence
-    .split(" ")
-    .filter((token) => token.length > 0);
+  const strokeTokens = normalizedSequence.split(" ").filter((token) => token.length > 0);
   if (strokeTokens.length === 0) {
     return null;
   }
@@ -372,12 +363,8 @@ function buildContextPriority(
   return ordered;
 }
 
-function matchesStroke(
-  stroke: NormalizedBindingStroke,
-  event: NormalizedShortcutEvent,
-): boolean {
-  const eventStroke =
-    stroke.matchBy === "code" ? event.codeStroke : event.keyStroke;
+function matchesStroke(stroke: NormalizedBindingStroke, event: NormalizedShortcutEvent): boolean {
+  const eventStroke = stroke.matchBy === "code" ? event.codeStroke : event.keyStroke;
   return eventStroke === stroke.stroke;
 }
 
@@ -395,9 +382,7 @@ function mergeEventPolicy<TContext>(
 ): ShortcutEventPolicyResult {
   return {
     preventDefault: bindings.some((binding) => binding.preventDefault ?? false),
-    stopPropagation: bindings.some(
-      (binding) => binding.stopPropagation ?? false,
-    ),
+    stopPropagation: bindings.some((binding) => binding.stopPropagation ?? false),
   };
 }
 
@@ -418,9 +403,7 @@ function isAbortError(error: unknown): boolean {
   return false;
 }
 
-function toCommandExecutionResult(
-  result: CommandResult,
-): ShortcutCommandExecutionResult {
+function toCommandExecutionResult(result: CommandResult): ShortcutCommandExecutionResult {
   if (result.ok) {
     return {
       status: "ok",
@@ -436,9 +419,7 @@ function toCommandExecutionResult(
   };
 }
 
-function toCommandExecutionError(
-  error: unknown,
-): ShortcutCommandExecutionResult {
+function toCommandExecutionError(error: unknown): ShortcutCommandExecutionResult {
   return {
     status: "error",
     message: error instanceof Error ? error.message : "Shortcut command threw",
@@ -454,9 +435,7 @@ function toCancelledResult(reason?: string): ShortcutCommandExecutionResult {
   };
 }
 
-function normalizeChordCancelStrokes(
-  cancelKeys: readonly string[],
-): Set<string> {
+function normalizeChordCancelStrokes(cancelKeys: readonly string[]): Set<string> {
   const normalized = new Set<string>();
   for (const rawKey of cancelKeys) {
     const stroke = parseStrokeToken(rawKey, "key");
@@ -472,9 +451,7 @@ function chordCancelKey(stroke: NormalizedBindingStroke): string {
   return `${stroke.matchBy}:${stroke.stroke}`;
 }
 
-export function normalizeShortcutEvent(
-  event: ShortcutKeyboardEvent,
-): NormalizedShortcutEvent {
+export function normalizeShortcutEvent(event: ShortcutKeyboardEvent): NormalizedShortcutEvent {
   const key = normalizeEventKey(event.key);
   const code = normalizeEventCode(event.code);
   const mod = event.metaKey || event.ctrlKey;
@@ -504,10 +481,7 @@ export function normalizeShortcutEvent(
 
 export class ShortcutResolver<TContext> {
   private readonly fallbackContexts: readonly ShortcutContextId[];
-  private readonly bindingsByContext: Map<
-    ShortcutContextId,
-    PreparedBinding<TContext>[]
-  >;
+  private readonly bindingsByContext: Map<ShortcutContextId, PreparedBinding<TContext>[]>;
   private readonly chordTimeoutMs: number;
   private readonly chordCancelStrokes: Set<string>;
 
@@ -531,10 +505,7 @@ export class ShortcutResolver<TContext> {
     }
 
     this.bindingsByContext = new Map(
-      SHORTCUT_CONTEXT_IDS.map((context) => [
-        context,
-        [] as PreparedBinding<TContext>[],
-      ]),
+      SHORTCUT_CONTEXT_IDS.map((context) => [context, [] as PreparedBinding<TContext>[]]),
     );
 
     let order = 0;
@@ -546,9 +517,7 @@ export class ShortcutResolver<TContext> {
         );
       }
 
-      const sequences = binding.keys.map((key) =>
-        parseBindingSequence(binding, key),
-      );
+      const sequences = binding.keys.map((key) => parseBindingSequence(binding, key));
       if (sequences.some((sequence) => sequence === null)) {
         throw new Error(
           `Binding at index ${bindingIndex} for command "${binding.commandId}" has invalid key format`,
@@ -573,16 +542,9 @@ export class ShortcutResolver<TContext> {
   resolve(input: ShortcutResolveInput<TContext>): ShortcutResolution<TContext> {
     const nowMs = input.timestampMs ?? Date.now();
     const normalizedEvent = normalizeShortcutEvent(input.event);
-    const contextPriority = buildContextPriority(
-      input.activeContexts,
-      this.fallbackContexts,
-    );
+    const contextPriority = buildContextPriority(input.activeContexts, this.fallbackContexts);
 
-    const fromActiveChord = this.resolveFromActiveChord(
-      normalizedEvent,
-      contextPriority,
-      nowMs,
-    );
+    const fromActiveChord = this.resolveFromActiveChord(normalizedEvent, contextPriority, nowMs);
     if (fromActiveChord && fromActiveChord.kind !== "chord-cancelled") {
       return fromActiveChord;
     }
@@ -607,9 +569,7 @@ export class ShortcutResolver<TContext> {
     return this.toChordSnapshot(this.activeChord);
   }
 
-  cancelActiveChord():
-    | ShortcutResolutionChordCancelled
-    | ShortcutResolutionNone {
+  cancelActiveChord(): ShortcutResolutionChordCancelled | ShortcutResolutionNone {
     if (!this.activeChord) {
       return { kind: "none" };
     }
@@ -691,8 +651,7 @@ export class ShortcutResolver<TContext> {
       return candidate.sequence.strokes.length === stepIndex + 1;
     });
 
-    const matchedStroke =
-      matchingCandidates[0]?.sequence.strokes[stepIndex]?.sourceStroke ?? "";
+    const matchedStroke = matchingCandidates[0]?.sequence.strokes[stepIndex]?.sourceStroke ?? "";
     const nextMatchedStrokes = [...chord.matchedStrokes, matchedStroke];
 
     if (completed) {
@@ -734,9 +693,7 @@ export class ShortcutResolver<TContext> {
     return {
       kind: "chord-awaiting",
       state: this.toChordSnapshot(this.activeChord),
-      eventPolicy: mergeEventPolicy(
-        matchingCandidates.map((candidate) => candidate.entry.binding),
-      ),
+      eventPolicy: mergeEventPolicy(matchingCandidates.map((candidate) => candidate.entry.binding)),
     };
   }
 
@@ -789,8 +746,7 @@ export class ShortcutResolver<TContext> {
       }
 
       if (chordCandidates.length > 0) {
-        const firstStroke =
-          chordCandidates[0]?.sequence.strokes[0]?.sourceStroke ?? "";
+        const firstStroke = chordCandidates[0]?.sequence.strokes[0]?.sourceStroke ?? "";
         this.activeChord = {
           context,
           candidates: chordCandidates,
@@ -815,13 +771,9 @@ export class ShortcutResolver<TContext> {
     };
   }
 
-  private toChordSnapshot(
-    chord: ActiveChordState<TContext>,
-  ): ShortcutChordStateSnapshot {
+  private toChordSnapshot(chord: ActiveChordState<TContext>): ShortcutChordStateSnapshot {
     const commandIds = [
-      ...new Set(
-        chord.candidates.map((candidate) => candidate.entry.command.id),
-      ),
+      ...new Set(chord.candidates.map((candidate) => candidate.entry.command.id)),
     ];
     const remainingSteps =
       chord.candidates.length > 0
@@ -829,8 +781,7 @@ export class ShortcutResolver<TContext> {
             0,
             Math.min(
               ...chord.candidates.map(
-                (candidate) =>
-                  candidate.sequence.strokes.length - chord.nextStepIndex,
+                (candidate) => candidate.sequence.strokes.length - chord.nextStepIndex,
               ),
             ),
           )

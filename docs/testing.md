@@ -25,13 +25,13 @@ gradle test --tests "app.epistola.suite.tenants.*"
 
 ## Test Frameworks
 
-| Framework | Purpose |
-|-----------|---------|
-| JUnit 5 | Core testing framework |
-| Testcontainers | Docker containers for integration tests |
-| Spring Boot Test | Spring context and web testing |
-| AssertJ | Fluent assertion library |
-| Kover | Code coverage for Kotlin |
+| Framework        | Purpose                                 |
+| ---------------- | --------------------------------------- |
+| JUnit 5          | Core testing framework                  |
+| Testcontainers   | Docker containers for integration tests |
+| Spring Boot Test | Spring context and web testing          |
+| AssertJ          | Fluent assertion library                |
+| Kover            | Code coverage for Kotlin                |
 
 ## Test Directory Structure
 
@@ -66,6 +66,7 @@ class HtmxRequestTest {
 ```
 
 **Characteristics:**
+
 - No `@SpringBootTest` annotation
 - No database or Docker required
 - Fast execution
@@ -93,6 +94,7 @@ class TenantCommandsTest : BaseIntegrationTest() {
 ```
 
 **Characteristics:**
+
 - Extend `BaseIntegrationTest`
 - Full Spring context loaded
 - PostgreSQL container started automatically
@@ -119,6 +121,7 @@ abstract class BaseIntegrationTest {
 ```
 
 **Provides:**
+
 - Testcontainers configuration (PostgreSQL)
 - `Mediator` for executing commands and queries
 - `TestFixtureFactory` for building test scenarios
@@ -276,6 +279,7 @@ class TestcontainersConfiguration {
 ```
 
 **Features:**
+
 - Uses `@ServiceConnection` for automatic connection property configuration
 - PostgreSQL container starts automatically when tests run
 - Container is shared across all tests in the same test run
@@ -303,6 +307,7 @@ gradle koverHtmlReport
 ```
 
 **Excluded from coverage:**
+
 - Spring framework code
 - AOT-generated classes
 - Test configuration classes
@@ -416,6 +421,7 @@ Port 5432 is already in use
 ### Tests Hanging
 
 If tests hang, check:
+
 1. Docker has enough resources (memory/CPU)
 2. No zombie containers: `docker ps -a`
 3. Clean up: `docker system prune`
@@ -423,6 +429,7 @@ If tests hang, check:
 ### Flaky Tests
 
 If tests pass locally but fail in CI:
+
 1. Ensure tests don't depend on execution order
 2. Use `@Order` annotation if order matters
 3. Check for race conditions in async code

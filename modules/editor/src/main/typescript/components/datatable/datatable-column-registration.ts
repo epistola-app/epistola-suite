@@ -8,24 +8,21 @@
  * Hidden from the palette — users add columns via the datatable inspector.
  */
 
-import type { ComponentDefinition } from '../../engine/registry.js'
+import type { ComponentDefinition } from "../../engine/registry.js";
 
 export function createDatatableColumnDefinition(): ComponentDefinition {
   return {
-    type: 'datatable-column',
-    label: 'Data Table Column',
-    category: 'layout',
+    type: "datatable-column",
+    label: "Data Table Column",
+    category: "layout",
     hidden: true,
-    slots: [{ name: 'body' }],
-    allowedChildren: { mode: 'all' },
-    applicableStyles: [
-      'padding', 'backgroundColor',
-      'borderWidth', 'borderStyle', 'borderColor',
-    ],
+    slots: [{ name: "body" }],
+    allowedChildren: { mode: "all" },
+    applicableStyles: ["padding", "backgroundColor", "borderWidth", "borderStyle", "borderColor"],
     inspector: [
-      { key: 'header', label: 'Header', type: 'text' },
-      { key: 'width', label: 'Width', type: 'number', defaultValue: 33 },
+      { key: "header", label: "Header", type: "text" },
+      { key: "width", label: "Width", type: "number", defaultValue: 33 },
     ],
-    defaultProps: { header: '', width: 33 },
-  }
+    defaultProps: { header: "", width: 33 },
+  };
 }

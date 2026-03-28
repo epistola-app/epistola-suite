@@ -4,16 +4,16 @@
  * These are framework-agnostic and testable without DOM or DnD library dependencies.
  */
 
-import type { NodeId, SlotId, TemplateDocument } from '../types/index.js'
-import type { DocumentIndexes } from '../engine/indexes.js'
-import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js'
-import type { DragData } from './types.js'
+import type { NodeId, SlotId, TemplateDocument } from "../types/index.js";
+import type { DocumentIndexes } from "../engine/indexes.js";
+import { type ComponentRegistry, isAnchoredPageBlock } from "../engine/registry.js";
+import type { DragData } from "./types.js";
 
-export type Edge = 'top' | 'bottom'
+export type Edge = "top" | "bottom";
 
 export interface DropLocation {
-  targetSlotId: SlotId
-  index: number
+  targetSlotId: SlotId;
+  index: number;
 }
 
 /**
@@ -31,26 +31,26 @@ export function resolveDropOnBlockEdge(
   doc: TemplateDocument,
   indexes: DocumentIndexes,
 ): DropLocation | null {
-  const parentSlotId = indexes.parentSlotByNodeId.get(blockNodeId)
-  if (!parentSlotId) return null
+  const parentSlotId = indexes.parentSlotByNodeId.get(blockNodeId);
+  if (!parentSlotId) return null;
 
-  const parentSlot = doc.slots[parentSlotId]
-  if (!parentSlot) return null
+  const parentSlot = doc.slots[parentSlotId];
+  if (!parentSlot) return null;
 
-  const blockIndex = parentSlot.children.indexOf(blockNodeId)
-  if (blockIndex === -1) return null
+  const blockIndex = parentSlot.children.indexOf(blockNodeId);
+  if (blockIndex === -1) return null;
 
   return {
     targetSlotId: parentSlotId,
-    index: edge === 'top' ? blockIndex : blockIndex + 1,
-  }
+    index: edge === "top" ? blockIndex : blockIndex + 1,
+  };
 }
 
 /**
  * Resolve a drop on an empty slot.
  */
 export function resolveDropOnEmptySlot(slotId: SlotId): DropLocation {
-  return { targetSlotId: slotId, index: 0 }
+  return { targetSlotId: slotId, index: 0 };
 }
 
 /**
@@ -64,14 +64,14 @@ export function resolveDropOnEmptySlot(slotId: SlotId): DropLocation {
  * @returns the first slot with index at end, or null if the node has no slots
  */
 export function resolveDropInsideNode(nodeId: NodeId, doc: TemplateDocument): DropLocation | null {
-  const node = doc.nodes[nodeId]
-  if (!node || node.slots.length === 0) return null
+  const node = doc.nodes[nodeId];
+  if (!node || node.slots.length === 0) return null;
 
-  const firstSlotId = node.slots[0]
-  const firstSlot = doc.slots[firstSlotId]
-  if (!firstSlot) return null
+  const firstSlotId = node.slots[0];
+  const firstSlot = doc.slots[firstSlotId];
+  if (!firstSlot) return null;
 
-  return { targetSlotId: firstSlotId, index: firstSlot.children.length }
+  return { targetSlotId: firstSlotId, index: firstSlot.children.length };
 }
 
 /**
@@ -89,44 +89,44 @@ export function canDropHere(
   indexes: DocumentIndexes,
   registry: ComponentRegistry,
 ): boolean {
-  const targetSlot = doc.slots[targetSlotId]
-  if (!targetSlot) return false
+  const targetSlot = doc.slots[targetSlotId];
+  if (!targetSlot) return false;
 
-  const parentNode = doc.nodes[targetSlot.nodeId]
-  if (!parentNode) return false
+  const parentNode = doc.nodes[targetSlot.nodeId];
+  if (!parentNode) return false;
 
-  const rootNode = doc.nodes[doc.root]
-  const rootSlotId = rootNode?.slots[0]
+  const rootNode = doc.nodes[doc.root];
+  const rootSlotId = rootNode?.slots[0];
 
   if (isAnchoredPageBlock(dragData.blockType)) {
     if (!rootSlotId || targetSlotId !== rootSlotId) {
-      return false
+      return false;
     }
   }
 
-  if (dragData.source === 'palette' && !registry.canInsertInDocument(dragData.blockType, doc)) {
-    return false
+  if (dragData.source === "palette" && !registry.canInsertInDocument(dragData.blockType, doc)) {
+    return false;
   }
 
-  if (dragData.source === 'block' && isAnchoredPageBlock(dragData.blockType)) {
-    return false
+  if (dragData.source === "block" && isAnchoredPageBlock(dragData.blockType)) {
+    return false;
   }
 
   // Check containment constraint
   if (!registry.canContain(parentNode.type, dragData.blockType)) {
-    return false
+    return false;
   }
 
   // For block drags: prevent cycle (can't move into own descendant)
-  if (dragData.source === 'block') {
+  if (dragData.source === "block") {
     // Can't drop into itself
-    if (targetSlot.nodeId === dragData.nodeId) return false
+    if (targetSlot.nodeId === dragData.nodeId) return false;
 
     // Can't drop into a descendant of itself
-    if (isDescendant(targetSlot.nodeId, dragData.nodeId, indexes)) return false
+    if (isDescendant(targetSlot.nodeId, dragData.nodeId, indexes)) return false;
   }
 
-  return true
+  return true;
 }
 
 /**
@@ -134,15 +134,15 @@ export function canDropHere(
  * Walks up from nodeId looking for ancestorId.
  */
 function isDescendant(nodeId: NodeId, ancestorId: NodeId, indexes: DocumentIndexes): boolean {
-  const visited = new Set<NodeId>()
-  let current: NodeId | undefined = indexes.parentNodeByNodeId.get(nodeId)
+  const visited = new Set<NodeId>();
+  let current: NodeId | undefined = indexes.parentNodeByNodeId.get(nodeId);
 
   while (current !== undefined) {
-    if (current === ancestorId) return true
-    if (visited.has(current)) return false
-    visited.add(current)
-    current = indexes.parentNodeByNodeId.get(current)
+    if (current === ancestorId) return true;
+    if (visited.has(current)) return false;
+    visited.add(current);
+    current = indexes.parentNodeByNodeId.get(current);
   }
 
-  return false
+  return false;
 }

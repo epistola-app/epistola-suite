@@ -5,6 +5,7 @@
 The current undo/redo integration between ProseMirror (PM) and the EditorEngine uses a side-channel approach: PM text editors register as an `UndoHandler` on focus and unregister on blur. The engine delegates to this handler before consulting its own undo stack. On blur, a "coalesced" undo entry is pushed to the engine stack.
 
 This works but has significant complexity:
+
 - Focus/blur registration dance (`setActiveUndoHandler`)
 - `_hasPendingFlush` guard to prevent `_syncFromExternal` from wiping PM history during editing
 - `_isSyncing` flag (effectively dead for async Lit renders)
@@ -17,6 +18,7 @@ The coalesced entry is also poor UX: after blurring a text block, Cmd+Z reverts 
 ### Why PM's history can't be serialized or externalized
 
 Investigation of PM's internals revealed:
+
 - The `history()` plugin's `spec.state` has no `toJSON`/`fromJSON` — history state cannot be serialized
 - `HistoryState`, `Branch`, `Item`, and `historyKey` are all private internals
 - `EditorState.create()` always calls `init()` which creates empty history — no way to inject pre-existing history
@@ -55,17 +57,18 @@ Cmd+Z → engine.undo()
 
 ```typescript
 interface TextChangeEntry {
-  type: 'TextChange'
-  nodeId: NodeId
-  pmView: EditorView | null     // null if PM was destroyed
-  contentBefore: unknown         // snapshot for fallback undo
-  contentAfter?: unknown         // snapshot for fallback redo (captured lazily)
-  undoDepthAtStart: number       // boundary: don't undo past this depth
-  undoDepthAtEnd?: number        // target: redo until reaching this depth (set lazily)
+  type: "TextChange";
+  nodeId: NodeId;
+  pmView: EditorView | null; // null if PM was destroyed
+  contentBefore: unknown; // snapshot for fallback undo
+  contentAfter?: unknown; // snapshot for fallback redo (captured lazily)
+  undoDepthAtStart: number; // boundary: don't undo past this depth
+  undoDepthAtEnd?: number; // target: redo until reaching this depth (set lazily)
 }
 ```
 
 Only two depth values needed — no step counters:
+
 - `undoDepthAtStart`: recorded on creation (before first change in this session)
 - `undoDepthAtEnd`: recorded lazily on first undo encounter (= depth after all typing)
 
@@ -79,9 +82,9 @@ if (!this._isCurrentSessionOnStack()) {
   this.engine.pushTextChange({
     nodeId: this.nodeId,
     pmView: this._pmView,
-    contentBefore: this.content,  // current engine content = "before" snapshot
+    contentBefore: this.content, // current engine content = "before" snapshot
     undoDepthAtStart: undoDepth(this._pmView.state),
-  })
+  });
 }
 ```
 
@@ -167,15 +170,15 @@ External content changes (engine undo restoring content via snapshot fallback, i
 
 ```typescript
 // In Lit updated():
-if (changed.has('content') && this._pmView) {
+if (changed.has("content") && this._pmView) {
   // Only sync if the content actually differs from PM's current state
-  const pmJson = JSON.stringify(this._pmView.state.doc.toJSON())
-  const engineJson = JSON.stringify(this.content)
+  const pmJson = JSON.stringify(this._pmView.state.doc.toJSON());
+  const engineJson = JSON.stringify(this.content);
   if (pmJson !== engineJson) {
     // Replace PM state (this is a genuine external change)
-    const doc = this._parseContent(this.content)
-    const newState = EditorState.create({ doc, plugins: this._pmView.state.plugins })
-    this._pmView.updateState(newState)
+    const doc = this._parseContent(this.content);
+    const newState = EditorState.create({ doc, plugins: this._pmView.state.plugins });
+    this._pmView.updateState(newState);
   }
 }
 ```
@@ -193,6 +196,7 @@ Stack: [TextChange(A, session1), MoveBlock, TextChange(A, session2)]
 If the move destroys and recreates the PM view, `session1`'s pmView reference is stale. When undo reaches it, the fallback snapshot restore kicks in.
 
 If the move preserves the PM view (same Lit element), `undoDepthAtStart` correctly delineates sessions:
+
 - session2: `undoDepthAtStart = N` (depth after session1)
 - session1: `undoDepthAtStart = 0`
 
@@ -201,6 +205,7 @@ Undo undoes session2 until depth reaches N, then MoveBlock, then session1 until 
 ### 2. Type, PM-undo partially, type more
 
 User types "hello", undoes "lo" (PM undo), types "la":
+
 - PM state: "hella"
 - PM's redo stack is cleared by the new typing (standard PM behavior)
 - The TextChange entry is still on top of the engine stack (same session)
@@ -218,6 +223,7 @@ Redo: session A (undoDepthAtEnd=3, depth 0→1→2→3), then session B (undoDep
 ### 4. Node deleted while TextChange is on stack
 
 User types in block A, then deletes block A:
+
 ```
 Stack: [TextChange(A, pmView), RemoveNode(A)]
 ```
@@ -247,14 +253,14 @@ This is better UX than the current approach, where blur pushes a coalesced entry
 The `UndoStack` currently only holds `Command` objects. It needs to become polymorphic:
 
 ```typescript
-type UndoEntry = Command | TextChangeEntry
+type UndoEntry = Command | TextChangeEntry;
 
 class UndoStack {
-  private _undoStack: UndoEntry[] = []
-  private _redoStack: UndoEntry[] = []
+  private _undoStack: UndoEntry[] = [];
+  private _redoStack: UndoEntry[] = [];
 
-  peek(): UndoEntry | undefined    // new: peek without popping
-  peekRedo(): UndoEntry | undefined // new: peek redo stack
+  peek(): UndoEntry | undefined; // new: peek without popping
+  peekRedo(): UndoEntry | undefined; // new: peek redo stack
 
   // push, undo (pop), redo (pop), pushRedo, pushUndo — same signatures but UndoEntry
 }
@@ -262,43 +268,43 @@ class UndoStack {
 
 ## What gets removed
 
-| Current code | Why |
-|---|---|
-| `UndoHandler` interface | TextChange entries replace the strategy pattern |
-| `setActiveUndoHandler()` | No registration needed |
-| Focus handler undo registration | TextChange works regardless of focus |
-| Blur handler undo unregistration | Same |
-| `_hasPendingFlush` guard | No `_syncFromExternal` history-wipe risk |
-| `_isSyncing` flag | Not needed with simplified sync |
-| `_contentBeforeEditing` | Captured in TextChange entry instead |
-| `_flushContent()` undo logic | No coalesced entries |
-| `beforeinput` handler | Only needed to prevent double-undo from strategy pattern |
-| `pushUndoEntry()` on engine | Replaced by `pushTextChange()` |
+| Current code                     | Why                                                      |
+| -------------------------------- | -------------------------------------------------------- |
+| `UndoHandler` interface          | TextChange entries replace the strategy pattern          |
+| `setActiveUndoHandler()`         | No registration needed                                   |
+| Focus handler undo registration  | TextChange works regardless of focus                     |
+| Blur handler undo unregistration | Same                                                     |
+| `_hasPendingFlush` guard         | No `_syncFromExternal` history-wipe risk                 |
+| `_isSyncing` flag                | Not needed with simplified sync                          |
+| `_contentBeforeEditing`          | Captured in TextChange entry instead                     |
+| `_flushContent()` undo logic     | No coalesced entries                                     |
+| `beforeinput` handler            | Only needed to prevent double-undo from strategy pattern |
+| `pushUndoEntry()` on engine      | Replaced by `pushTextChange()`                           |
 
 ### What gets added
 
-| New code | Where |
-|---|---|
-| `TextChangeEntry` type | `engine/undo.ts` |
-| `UndoEntry` union type | `engine/undo.ts` |
-| `peek()` / `peekRedo()` on UndoStack | `engine/undo.ts` |
-| `isTextChange()` type guard | `engine/undo.ts` |
-| `_undoTextChange()` / `_redoTextChange()` | `engine/EditorEngine.ts` |
-| `pushTextChange()` | `engine/EditorEngine.ts` |
-| `_isCurrentSessionOnStack()` | `ui/EpistolaTextEditor.ts` |
+| New code                                            | Where                      |
+| --------------------------------------------------- | -------------------------- |
+| `TextChangeEntry` type                              | `engine/undo.ts`           |
+| `UndoEntry` union type                              | `engine/undo.ts`           |
+| `peek()` / `peekRedo()` on UndoStack                | `engine/undo.ts`           |
+| `isTextChange()` type guard                         | `engine/undo.ts`           |
+| `_undoTextChange()` / `_redoTextChange()`           | `engine/EditorEngine.ts`   |
+| `pushTextChange()`                                  | `engine/EditorEngine.ts`   |
+| `_isCurrentSessionOnStack()`                        | `ui/EpistolaTextEditor.ts` |
 | PM lifecycle cleanup (nullify pmView on disconnect) | `ui/EpistolaTextEditor.ts` |
 
 ## Files changed
 
-| File | Change |
-|---|---|
-| `engine/undo.ts` | Add `TextChangeEntry`, `UndoEntry` union type, `peek()` methods |
-| `engine/EditorEngine.ts` | Remove `UndoHandler`, add TextChange handling in `undo()`/`redo()`, add `pushTextChange()` |
-| `engine/index.ts` | Update exports |
+| File                       | Change                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `engine/undo.ts`           | Add `TextChangeEntry`, `UndoEntry` union type, `peek()` methods                                 |
+| `engine/EditorEngine.ts`   | Remove `UndoHandler`, add TextChange handling in `undo()`/`redo()`, add `pushTextChange()`      |
+| `engine/index.ts`          | Update exports                                                                                  |
 | `ui/EpistolaTextEditor.ts` | Remove handler registration, simplify to push TextChange on first change, simplify content sync |
-| `ui/EpistolaEditor.ts` | No change (keydown handler stays the same) |
-| `prosemirror/plugins.ts` | No change (history plugin stays) |
-| `engine/engine.test.ts` | Replace UndoHandler strategy tests with TextChange tests |
+| `ui/EpistolaEditor.ts`     | No change (keydown handler stays the same)                                                      |
+| `prosemirror/plugins.ts`   | No change (history plugin stays)                                                                |
+| `engine/engine.test.ts`    | Replace UndoHandler strategy tests with TextChange tests                                        |
 
 ## Verification
 

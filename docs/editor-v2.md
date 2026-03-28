@@ -183,9 +183,11 @@ All mutations go through dispatch().
 # 7. Step 6 — Structural + Semantic Validation
 
 ## Structural
+
 - Ajv validates against template-document.schema.json
 
 ## Semantic
+
 - Slot references valid
 - No cycles
 - Header/footer singleton
@@ -251,6 +253,7 @@ Expose:
 - resolveNodeStyles(nodeId)
 
 Publishing policy decision:
+
 - Recommended: snapshot resolved defaults into TemplateVersion
 
 ---
@@ -340,28 +343,36 @@ Unknown plugin:
 # 16. Milestones
 
 Milestone 1:
+
 - Schemas finalized
 - Type generation working
 
 Milestone 2:
+
 - Engine supports insert/move/remove + undo
 
 Milestone 3:
+
 - Minimal UI with tree + canvas
 
 Milestone 4:
+
 - Styles + presets working
 
 Milestone 5:
+
 - Rich text integrated
 
 Milestone 6:
+
 - Preview system working
 
 Milestone 7:
+
 - Publish flow complete
 
 Milestone 8:
+
 - Plugin extension proof of concept
 
 ---

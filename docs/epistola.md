@@ -33,17 +33,17 @@ A block-based WYSIWYG editor built with Lit 3 web components and ProseMirror for
 
 **Block types:**
 
-| Type | Category | Purpose |
-|------|----------|---------|
-| Text | Content | Rich text with inline expression chips (e.g. `{{customer.name}}`) |
-| Container | Layout | Generic wrapper for grouping blocks |
-| Columns | Layout | Multi-column layout with configurable widths |
-| Table | Layout | Structured table with header rows and dynamic column widths |
-| Conditional | Logic | Show/hide content based on a data expression |
-| Loop | Logic | Repeat content for each item in an array |
-| Page break | Page | Force a page break in PDF output |
-| Page header | Page | Repeated header on every page |
-| Page footer | Page | Repeated footer on every page |
+| Type        | Category | Purpose                                                           |
+| ----------- | -------- | ----------------------------------------------------------------- |
+| Text        | Content  | Rich text with inline expression chips (e.g. `{{customer.name}}`) |
+| Container   | Layout   | Generic wrapper for grouping blocks                               |
+| Columns     | Layout   | Multi-column layout with configurable widths                      |
+| Table       | Layout   | Structured table with header rows and dynamic column widths       |
+| Conditional | Logic    | Show/hide content based on a data expression                      |
+| Loop        | Logic    | Repeat content for each item in an array                          |
+| Page break  | Page     | Force a page break in PDF output                                  |
+| Page header | Page     | Repeated header on every page                                     |
+| Page footer | Page     | Repeated footer on every page                                     |
 
 **Editor capabilities:**
 
@@ -59,11 +59,11 @@ A block-based WYSIWYG editor built with Lit 3 web components and ProseMirror for
 
 Templates support three expression languages, stored per expression:
 
-| Language | Implementation | Use case |
-|----------|----------------|----------|
-| **JSONata** (default) | Dashjoin JSONata (Java) | Concise data transformation — paths, filters, aggregations, formatting |
-| **JavaScript** | GraalJS (sandboxed, no file/network access) | Full JS for advanced calculations |
-| **Simple path** | Custom lightweight evaluator | Fast, safe dot-path traversal only |
+| Language              | Implementation                              | Use case                                                               |
+| --------------------- | ------------------------------------------- | ---------------------------------------------------------------------- |
+| **JSONata** (default) | Dashjoin JSONata (Java)                     | Concise data transformation — paths, filters, aggregations, formatting |
+| **JavaScript**        | GraalJS (sandboxed, no file/network access) | Full JS for advanced calculations                                      |
+| **Simple path**       | Custom lightweight evaluator                | Fast, safe dot-path traversal only                                     |
 
 Expressions are used for data binding in text blocks, conditional visibility, loop iteration, and calculated values.
 
@@ -71,10 +71,10 @@ Expressions are used for data binding in text blocks, conditional visibility, lo
 
 Server-side rendering via **iText Core 9.5.0** — direct PDF construction from the node/slot graph, with no intermediate HTML step.
 
-| Document complexity | Typical render time |
-|---------------------|---------------------|
-| Simple (text + table) | 10–50 ms |
-| Complex (loops, conditionals, multi-page) | 50–200 ms |
+| Document complexity                       | Typical render time |
+| ----------------------------------------- | ------------------- |
+| Simple (text + table)                     | 10–50 ms            |
+| Complex (loops, conditionals, multi-page) | 50–200 ms           |
 
 The rendering pipeline: load template version → evaluate expressions against input data → traverse node/slot graph → map each node type to an iText element (Paragraph, Table, Div, AreaBreak, etc.) → apply resolved styles → write PDF bytes.
 
@@ -130,43 +130,43 @@ Batch generation is tracked as jobs with status progression: `PENDING` → `PROC
 
 ### Backend
 
-| Component | Technology |
-|-----------|------------|
-| Framework | Spring Boot 4.0.0 |
-| Language | Kotlin 2.3.0 on JDK 25 |
-| Database | PostgreSQL |
-| SQL mapping | JDBI 3 |
-| Migrations | Flyway |
-| JSON | Jackson 3 |
-| PDF engine | iText Core 9.5.0 (direct rendering) |
-| Expression sandbox | GraalJS |
-| JSONata | Dashjoin JSONata (Java) |
-| JSON Schema | Draft 2020-12 validation |
+| Component          | Technology                          |
+| ------------------ | ----------------------------------- |
+| Framework          | Spring Boot 4.0.0                   |
+| Language           | Kotlin 2.3.0 on JDK 25              |
+| Database           | PostgreSQL                          |
+| SQL mapping        | JDBI 3                              |
+| Migrations         | Flyway                              |
+| JSON               | Jackson 3                           |
+| PDF engine         | iText Core 9.5.0 (direct rendering) |
+| Expression sandbox | GraalJS                             |
+| JSONata            | Dashjoin JSONata (Java)             |
+| JSON Schema        | Draft 2020-12 validation            |
 
 ### Frontend
 
-| Component | Technology |
-|-----------|------------|
-| Server rendering | Thymeleaf |
-| Dynamic interactions | HTMX |
-| Editor | Lit 3 (web components) + ProseMirror |
-| Drag & drop | Atlassian Pragmatic DnD |
-| Editor build | Vite 7, TypeScript 5.9 |
-| Editor tests | Vitest |
+| Component            | Technology                           |
+| -------------------- | ------------------------------------ |
+| Server rendering     | Thymeleaf                            |
+| Dynamic interactions | HTMX                                 |
+| Editor               | Lit 3 (web components) + ProseMirror |
+| Drag & drop          | Atlassian Pragmatic DnD              |
+| Editor build         | Vite 7, TypeScript 5.9               |
+| Editor tests         | Vitest                               |
 
 The frontend uses **server-side rendering** with Thymeleaf and HTMX for most pages (navigation, forms, lists). Only components that require rich client-side interactivity — primarily the template editor — are built as embedded JavaScript modules. This avoids the complexity of a full SPA while keeping the interactive editor experience.
 
 ### Infrastructure
 
-| Component | Technology |
-|-----------|------------|
-| Build system | Gradle (Kotlin DSL) + pnpm workspace |
-| Containers | Docker (Spring Boot Buildpacks) |
-| Orchestration | Helm / Kubernetes |
-| CI/CD | GitHub Actions |
-| Tool versions | mise |
-| API docs | Redocly (OpenAPI 3.1) |
-| Linting | ktlint (Kotlin), ESLint + Prettier (TypeScript) |
+| Component     | Technology                                      |
+| ------------- | ----------------------------------------------- |
+| Build system  | Gradle (Kotlin DSL) + pnpm workspace            |
+| Containers    | Docker (Spring Boot Buildpacks)                 |
+| Orchestration | Helm / Kubernetes                               |
+| CI/CD         | GitHub Actions                                  |
+| Tool versions | mise                                            |
+| API docs      | Redocly (OpenAPI 3.1)                           |
+| Linting       | ktlint (Kotlin), ESLint + Prettier (TypeScript) |
 
 ## Architecture Overview
 
@@ -213,14 +213,14 @@ Each `Node` references its child `Slot` IDs; each `Slot` references its parent `
 
 ## Quick Links
 
-| Document | Description |
-|----------|-------------|
-| [README.md](../README.md) | Setup, build commands, getting started |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contribution guidelines |
-| [CHANGELOG.md](../CHANGELOG.md) | Release history |
-| [Roadmap](roadmap.md) | Development phases and planned features |
-| [Generation Architecture](generation.md) | PDF rendering pipeline details |
-| [Editor Architecture](editor.md) | Frontend component architecture |
-| [Visual Styleguide](brandguide.md) | UI design system and colour palette |
-| [Testing](testing.md) | Test strategy and conventions |
-| [GitHub Workflows](github.md) | CI/CD pipeline documentation |
+| Document                                 | Description                             |
+| ---------------------------------------- | --------------------------------------- |
+| [README.md](../README.md)                | Setup, build commands, getting started  |
+| [CONTRIBUTING.md](../CONTRIBUTING.md)    | Contribution guidelines                 |
+| [CHANGELOG.md](../CHANGELOG.md)          | Release history                         |
+| [Roadmap](roadmap.md)                    | Development phases and planned features |
+| [Generation Architecture](generation.md) | PDF rendering pipeline details          |
+| [Editor Architecture](editor.md)         | Frontend component architecture         |
+| [Visual Styleguide](brandguide.md)       | UI design system and colour palette     |
+| [Testing](testing.md)                    | Test strategy and conventions           |
+| [GitHub Workflows](github.md)            | CI/CD pipeline documentation            |
