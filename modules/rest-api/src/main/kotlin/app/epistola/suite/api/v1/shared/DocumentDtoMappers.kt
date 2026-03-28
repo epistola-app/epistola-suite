@@ -7,6 +7,7 @@ import app.epistola.api.model.GenerateBatchRequest
 import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.api.model.VariantSelectionAttribute
 import app.epistola.suite.common.ids.BatchKey
 import app.epistola.suite.common.ids.EnvironmentKey
@@ -17,6 +18,7 @@ import app.epistola.suite.common.ids.VersionKey
 import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.queries.DocumentMetadata
 import app.epistola.suite.documents.queries.GenerationJobResult
+import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.templates.services.VariantSelectionCriteria
 import tools.jackson.databind.ObjectMapper
 
@@ -161,4 +163,18 @@ internal fun GenerateBatchRequest.toCommand(
 ) = app.epistola.suite.documents.commands.GenerateDocumentBatch(
     tenantId = TenantKey.of(tenantId),
     items = items.map { it.toBatchItem(objectMapper) },
+)
+
+// ==================== Preview ====================
+
+internal fun PreviewDocumentRequest.toQuery(
+    tenantId: String,
+) = PreviewDocument(
+    tenantId = TenantKey.of(tenantId),
+    templateId = TemplateKey.of(templateId),
+    variantId = variantId?.let { VariantKey.of(it) },
+    variantSelectionCriteria = attributes?.toSelectionCriteria(),
+    data = data,
+    versionId = versionId?.let { VersionKey.of(it) },
+    environmentId = environmentId?.let { EnvironmentKey.of(it) },
 )

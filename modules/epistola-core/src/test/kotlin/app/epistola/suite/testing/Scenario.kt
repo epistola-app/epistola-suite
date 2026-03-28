@@ -270,11 +270,15 @@ class WhenResult<G, W>(
 }
 
 /**
- * Scope for the "then" block. Currently a marker class for DSL consistency.
- * Assertions are made using the parameters passed to the block.
+ * Scope for the "then" block.
+ * Provides [query] and [execute] helpers so assertions can invoke additional
+ * commands/queries (e.g. to verify side-effects or test error paths).
  */
 @ScenarioDsl
-class ThenScope
+class ThenScope {
+    fun <R> execute(command: Command<R>): R = MediatorContext.current().send(command)
+    fun <R> query(query: Query<R>): R = MediatorContext.current().query(query)
+}
 
 // ============================================================================
 // Reusable setup data classes
