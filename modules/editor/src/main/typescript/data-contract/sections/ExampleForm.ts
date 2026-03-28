@@ -16,9 +16,14 @@
  * collapsed groups containing errors.
  */
 
-import { html, nothing } from 'lit'
-import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js'
-import type { SchemaValidationError } from '../utils/schemaValidation.js'
+import { html, nothing } from "lit";
+import type {
+  JsonObject,
+  JsonSchema,
+  JsonSchemaProperty,
+  JsonValue,
+} from "../types.js";
+import type { SchemaValidationError } from "../utils/schemaValidation.js";
 
 // ---------------------------------------------------------------------------
 // Deep value helpers
@@ -28,63 +33,74 @@ import type { SchemaValidationError } from '../utils/schemaValidation.js'
  * Read a nested value from an object using a dot-separated path.
  * Supports array indices as numeric segments (e.g., "items.0.name").
  */
-export function getNestedValue(obj: JsonObject, path: string): JsonValue | undefined {
-  if (!path) return undefined
+export function getNestedValue(
+  obj: JsonObject,
+  path: string,
+): JsonValue | undefined {
+  if (!path) return undefined;
 
-  const segments = path.split('.')
-  let current: unknown = obj
+  const segments = path.split(".");
+  let current: unknown = obj;
 
   for (const segment of segments) {
-    if (current === null || current === undefined) return undefined
+    if (current === null || current === undefined) return undefined;
 
     if (Array.isArray(current)) {
-      const index = parseInt(segment, 10)
-      if (isNaN(index)) return undefined
-      current = current[index]
-    } else if (typeof current === 'object') {
-      current = (current as Record<string, unknown>)[segment]
+      const index = parseInt(segment, 10);
+      if (isNaN(index)) return undefined;
+      current = current[index];
+    } else if (typeof current === "object") {
+      current = (current as Record<string, unknown>)[segment];
     } else {
-      return undefined
+      return undefined;
     }
   }
 
-  return current as JsonValue | undefined
+  return current as JsonValue | undefined;
 }
 
 /**
  * Immutably set a nested value in an object using a dot-separated path.
  * Creates intermediate objects/arrays as needed.
  */
-export function setNestedValue(obj: JsonObject, path: string, value: JsonValue): JsonObject {
-  if (!path) return obj
+export function setNestedValue(
+  obj: JsonObject,
+  path: string,
+  value: JsonValue,
+): JsonObject {
+  if (!path) return obj;
 
-  const segments = path.split('.')
-  const result = structuredClone(obj)
-  let current: Record<string, unknown> = result
+  const segments = path.split(".");
+  const result = structuredClone(obj);
+  let current: Record<string, unknown> = result;
 
   for (let i = 0; i < segments.length - 1; i++) {
-    const segment = segments[i]
-    const nextSegment = segments[i + 1]
-    const isNextIndex = /^\d+$/.test(nextSegment)
+    const segment = segments[i];
+    const nextSegment = segments[i + 1];
+    const isNextIndex = /^\d+$/.test(nextSegment);
 
-    if (!(segment in current) || current[segment] === null || current[segment] === undefined) {
-      current[segment] = isNextIndex ? [] : {}
+    if (
+      !(segment in current) ||
+      current[segment] === null ||
+      current[segment] === undefined
+    ) {
+      current[segment] = isNextIndex ? [] : {};
     }
 
     if (Array.isArray(current[segment])) {
       // Make a shallow copy of the array to preserve immutability along the path
-      current[segment] = [...(current[segment] as unknown[])]
-    } else if (typeof current[segment] === 'object') {
-      current[segment] = { ...(current[segment] as Record<string, unknown>) }
+      current[segment] = [...(current[segment] as unknown[])];
+    } else if (typeof current[segment] === "object") {
+      current[segment] = { ...(current[segment] as Record<string, unknown>) };
     }
 
-    current = current[segment] as Record<string, unknown>
+    current = current[segment] as Record<string, unknown>;
   }
 
-  const lastSegment = segments[segments.length - 1]
-  current[lastSegment] = value
+  const lastSegment = segments[segments.length - 1];
+  current[lastSegment] = value;
 
-  return result
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,43 +113,52 @@ export function setNestedValue(obj: JsonObject, path: string, value: JsonValue):
  */
 export function validationPathToFormPath(path: string): string {
   return path
-    .replace(/^\$\./, '')           // strip leading "$."
-    .replace(/\[(\d+)\]/g, '.$1')  // convert [0] to .0
+    .replace(/^\$\./, "") // strip leading "$."
+    .replace(/\[(\d+)\]/g, ".$1"); // convert [0] to .0
 }
 
 /**
  * Build a Map<formPath, errorMessage> from validation errors.
  * Used to drive inline error indicators on form fields.
  */
-export function buildFieldErrorMap(errors: SchemaValidationError[]): Map<string, string> {
-  const map = new Map<string, string>()
+export function buildFieldErrorMap(
+  errors: SchemaValidationError[],
+): Map<string, string> {
+  const map = new Map<string, string>();
   for (const err of errors) {
-    const formPath = validationPathToFormPath(err.path)
+    const formPath = validationPathToFormPath(err.path);
     // Keep the first error per path (most relevant)
     if (!map.has(formPath)) {
-      map.set(formPath, err.message)
+      map.set(formPath, err.message);
     }
   }
-  return map
+  return map;
 }
 
 /**
  * Check if any error path starts with the given prefix.
  * Used to show red dots on collapsed groups containing errors.
  */
-export function hasChildErrors(parentPath: string, errors: Map<string, string>): boolean {
-  const prefix = parentPath + '.'
+export function hasChildErrors(
+  parentPath: string,
+  errors: Map<string, string>,
+): boolean {
+  const prefix = parentPath + ".";
   for (const key of errors.keys()) {
-    if (key === parentPath || key.startsWith(prefix)) return true
+    if (key === parentPath || key.startsWith(prefix)) return true;
   }
-  return false
+  return false;
 }
 
 // ---------------------------------------------------------------------------
 // Render helpers
 // ---------------------------------------------------------------------------
 
-const NO_ERRORS: Map<string, string> = new Map()
+const NO_ERRORS: Map<string, string> = new Map();
+
+function pathToErrorId(path: string): string {
+  return `error-${path.replace(/\./g, "-")}`;
+}
 
 /**
  * Render the example form from a JSON Schema.
@@ -147,23 +172,34 @@ export function renderExampleForm(
   onChange: (path: string, value: JsonValue) => void,
   errors: Map<string, string> = NO_ERRORS,
 ): unknown {
-  if (!schema || !schema.properties || Object.keys(schema.properties).length === 0) {
+  if (
+    !schema ||
+    !schema.properties ||
+    Object.keys(schema.properties).length === 0
+  ) {
     return html`
-      <div class="dc-form-empty">
-        Define a schema first to create examples.
-      </div>
-    `
+      <div class="dc-form-empty">Define a schema first to create examples.</div>
+    `;
   }
 
-  const requiredSet = new Set(schema.required ?? [])
+  const requiredSet = new Set(schema.required ?? []);
 
   return html`
     <div class="dc-tree">
       ${Object.entries(schema.properties).map(([name, propSchema]) =>
-        renderFormField(name, propSchema, name, data, requiredSet.has(name), onChange, 0, errors),
+        renderFormField(
+          name,
+          propSchema,
+          name,
+          data,
+          requiredSet.has(name),
+          onChange,
+          0,
+          errors,
+        ),
       )}
     </div>
-  `
+  `;
 }
 
 /**
@@ -180,78 +216,107 @@ function renderFormField(
   depth: number,
   errors: Map<string, string>,
 ): unknown {
-  const rawType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type
-  const type = (rawType === 'string' && propSchema.format === 'date') ? 'date' : rawType
-  const value = getNestedValue(rootData, path)
-  const fieldError = errors.get(path)
+  const rawType = Array.isArray(propSchema.type)
+    ? propSchema.type[0]
+    : propSchema.type;
+  const type =
+    rawType === "string" && propSchema.format === "date" ? "date" : rawType;
+  const value = getNestedValue(rootData, path);
+  const fieldError = errors.get(path);
+
+  const errorId = fieldError ? pathToErrorId(path) : undefined;
 
   const label = html`
     <label class="dc-tree-label">
-      ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
+      ${name}${isRequired
+        ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
+        : nothing}
     </label>
-  `
+  `;
 
   switch (type) {
-    case 'string':
+    case "string":
       return html`
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
             <input
               type="text"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              .value=${String(value ?? '')}
+              class="ep-input dc-tree-input ${fieldError
+                ? "dc-input-error"
+                : ""}"
+              .value=${String(value ?? "")}
               placeholder="${name}"
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              aria-describedby=${fieldError ? errorId : nothing}
+              @change=${(e: Event) =>
+                onChange(path, (e.target as HTMLInputElement).value)}
             />
-            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
+              : nothing}
           </div>
         </div>
-      `
+      `;
 
-    case 'number':
+    case "number":
       return html`
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
             <input
               type="number"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              class="ep-input dc-tree-input ${fieldError
+                ? "dc-input-error"
+                : ""}"
               step="any"
-              .value=${value != null ? String(value) : ''}
+              .value=${value != null ? String(value) : ""}
               placeholder="${name}"
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value
-                onChange(path, raw === '' ? null : parseFloat(raw))
+                const raw = (e.target as HTMLInputElement).value;
+                onChange(path, raw === "" ? null : parseFloat(raw));
               }}
             />
-            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
+              : nothing}
           </div>
         </div>
-      `
+      `;
 
-    case 'integer':
+    case "integer":
       return html`
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
             <input
               type="number"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              class="ep-input dc-tree-input ${fieldError
+                ? "dc-input-error"
+                : ""}"
               step="1"
-              .value=${value != null ? String(value) : ''}
+              .value=${value != null ? String(value) : ""}
               placeholder="${name}"
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => {
-                const raw = (e.target as HTMLInputElement).value
-                onChange(path, raw === '' ? null : parseInt(raw, 10))
+                const raw = (e.target as HTMLInputElement).value;
+                onChange(path, raw === "" ? null : parseInt(raw, 10));
               }}
             />
-            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
+              : nothing}
           </div>
         </div>
-      `
+      `;
 
-    case 'boolean':
+    case "boolean":
       return html`
         <div class="dc-tree-row">
           ${label}
@@ -261,35 +326,68 @@ function renderFormField(
                 type="checkbox"
                 class="ep-checkbox"
                 .checked=${value === true}
-                @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).checked)}
+                aria-label="${name}"
+                aria-describedby=${fieldError ? errorId : nothing}
+                @change=${(e: Event) =>
+                  onChange(path, (e.target as HTMLInputElement).checked)}
               />
             </label>
-            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
+              : nothing}
           </div>
         </div>
-      `
+      `;
 
-    case 'date':
+    case "date":
       return html`
         <div class="dc-tree-row">
           ${label}
           <div class="dc-tree-input-wrapper">
             <input
               type="date"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              .value=${String(value ?? '')}
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              class="ep-input dc-tree-input ${fieldError
+                ? "dc-input-error"
+                : ""}"
+              .value=${String(value ?? "")}
+              aria-describedby=${fieldError ? errorId : nothing}
+              @change=${(e: Event) =>
+                onChange(path, (e.target as HTMLInputElement).value)}
             />
-            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
+              : nothing}
           </div>
         </div>
-      `
+      `;
 
-    case 'object':
-      return renderObjectField(name, propSchema, path, rootData, isRequired, onChange, depth, errors)
+    case "object":
+      return renderObjectField(
+        name,
+        propSchema,
+        path,
+        rootData,
+        isRequired,
+        onChange,
+        depth,
+        errors,
+      );
 
-    case 'array':
-      return renderArrayField(name, propSchema, path, rootData, isRequired, onChange, depth, errors)
+    case "array":
+      return renderArrayField(
+        name,
+        propSchema,
+        path,
+        rootData,
+        isRequired,
+        onChange,
+        depth,
+        errors,
+      );
 
     default:
       return html`
@@ -298,15 +396,23 @@ function renderFormField(
           <div class="dc-tree-input-wrapper">
             <input
               type="text"
-              class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
-              .value=${String(value ?? '')}
+              class="ep-input dc-tree-input ${fieldError
+                ? "dc-input-error"
+                : ""}"
+              .value=${String(value ?? "")}
               placeholder="${name}"
-              @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
+              aria-describedby=${fieldError ? errorId : nothing}
+              @change=${(e: Event) =>
+                onChange(path, (e.target as HTMLInputElement).value)}
             />
-            ${fieldError ? html`<span class="dc-field-error">${fieldError}</span>` : nothing}
+            ${fieldError
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
+              : nothing}
           </div>
         </div>
-      `
+      `;
   }
 }
 
@@ -324,43 +430,66 @@ function renderObjectField(
   depth: number,
   errors: Map<string, string>,
 ): unknown {
-  if (!propSchema.properties || Object.keys(propSchema.properties).length === 0) {
+  if (
+    !propSchema.properties ||
+    Object.keys(propSchema.properties).length === 0
+  ) {
     return html`
       <div class="dc-tree-row">
         <label class="dc-tree-label">
-          ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
+          ${name}${isRequired
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
+            : nothing}
         </label>
         <span class="dc-tree-hint">No properties defined</span>
       </div>
-    `
+    `;
   }
 
-  const nestedRequired = new Set(propSchema.required ?? [])
-  const groupHasErrors = hasChildErrors(path, errors)
+  const nestedRequired = new Set(propSchema.required ?? []);
+  const groupHasErrors = hasChildErrors(path, errors);
+  const isTopLevel = depth === 0;
 
   return html`
-    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${false}>
+    <details
+      class="dc-tree-group ${groupHasErrors ? "dc-tree-group-has-errors" : ""}"
+      ?open=${isTopLevel}
+      aria-label="${name} properties"
+    >
       <summary class="dc-tree-group-header">
-        ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-        ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
-        <span class="dc-tree-type-badge">Object</span>
+        <span class="dc-tree-group-title">
+          ${name}${isRequired
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
+            : nothing}
+        </span>
+        ${groupHasErrors
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+          : nothing}
+        <span class="dc-tree-type-badge" data-type="object" aria-hidden="true"
+          >object</span
+        >
       </summary>
       <div class="dc-tree-group-body">
-        ${Object.entries(propSchema.properties).map(([nestedName, nestedProp]) =>
-          renderFormField(
-            nestedName,
-            nestedProp,
-            `${path}.${nestedName}`,
-            rootData,
-            nestedRequired.has(nestedName),
-            onChange,
-            depth + 1,
-            errors,
-          ),
+        ${Object.entries(propSchema.properties).map(
+          ([nestedName, nestedProp]) =>
+            renderFormField(
+              nestedName,
+              nestedProp,
+              `${path}.${nestedName}`,
+              rootData,
+              nestedRequired.has(nestedName),
+              onChange,
+              depth + 1,
+              errors,
+            ),
         )}
       </div>
     </details>
-  `
+  `;
 }
 
 /**
@@ -376,76 +505,144 @@ function renderArrayField(
   depth: number,
   errors: Map<string, string>,
 ): unknown {
-  const currentValue = getNestedValue(rootData, path)
-  const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : []
-  const itemSchema = propSchema.items
-  const rawItemType = itemSchema ? (Array.isArray(itemSchema.type) ? itemSchema.type[0] : itemSchema.type) : 'string'
-  const itemType = (rawItemType === 'string' && itemSchema?.format === 'date') ? 'date' : rawItemType
+  const currentValue = getNestedValue(rootData, path);
+  const items: JsonValue[] = Array.isArray(currentValue) ? currentValue : [];
+  const itemSchema = propSchema.items;
+  const rawItemType = itemSchema
+    ? Array.isArray(itemSchema.type)
+      ? itemSchema.type[0]
+      : itemSchema.type
+    : "string";
+  const itemType =
+    rawItemType === "string" && itemSchema?.format === "date"
+      ? "date"
+      : rawItemType;
 
   const addItem = () => {
-    const defaultValue = getDefaultValueForType(itemType, itemSchema)
-    const newItems = [...items, defaultValue]
-    onChange(path, newItems)
-  }
+    const defaultValue = getDefaultValueForType(itemType, itemSchema);
+    const newItems = [...items, defaultValue];
+    onChange(path, newItems);
+  };
 
   const removeItem = (index: number) => {
-    const newItems = items.filter((_, i) => i !== index)
-    onChange(path, newItems)
+    const newItems = items.filter((_, i) => i !== index);
+    onChange(path, newItems);
+  };
+
+  if (itemType === "object" && itemSchema?.properties) {
+    return renderArrayOfObjects(
+      name,
+      itemSchema,
+      path,
+      items,
+      rootData,
+      isRequired,
+      onChange,
+      addItem,
+      removeItem,
+      depth,
+      errors,
+    );
   }
 
-  if (itemType === 'object' && itemSchema?.properties) {
-    return renderArrayOfObjects(name, itemSchema, path, items, rootData, isRequired, onChange, addItem, removeItem, depth, errors)
-  }
-
-  const groupHasErrors = hasChildErrors(path, errors)
+  const groupHasErrors = hasChildErrors(path, errors);
 
   // Array of primitives
   return html`
-    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${false}>
+    <details
+      class="dc-tree-group ${groupHasErrors ? "dc-tree-group-has-errors" : ""}"
+      ?open=${items.length > 0}
+      aria-label="${name} array"
+    >
       <summary class="dc-tree-group-header">
-        ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-        ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
-        <span class="dc-tree-type-badge">List&lt;${itemType}&gt; (${items.length})</span>
+        <span class="dc-tree-group-title">
+          ${name}${isRequired
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
+            : nothing}
+        </span>
+        ${groupHasErrors
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+          : nothing}
+        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true"
+          >${itemType}[]</span
+        >
+        <span class="dc-tree-count-badge" aria-hidden="true"
+          >${items.length}</span
+        >
       </summary>
-      <div class="dc-tree-group-body">
+      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
         ${items.map((item, index) => {
-          const itemPath = `${path}.${index}`
-          const itemError = errors.get(itemPath)
+          const itemPath = `${path}.${index}`;
+          const itemError = errors.get(itemPath);
           return html`
-            <div class="dc-tree-row">
-              <label class="dc-tree-label">[${index}]</label>
-              <div class="dc-tree-array-item">
-                <div class="dc-tree-input-wrapper" style="flex:1;min-width:0">
+            <div class="dc-array-item-row" role="listitem">
+              <span class="dc-array-item-number" aria-hidden="true"
+                >${index + 1}</span
+              >
+              <div class="dc-array-item-content">
+                <div class="dc-array-item-input-wrapper">
                   ${renderPrimitiveInput(
                     itemType,
                     item,
                     `${name}[${index}]`,
                     (newValue) => {
-                      const newItems = [...items]
-                      newItems[index] = newValue
-                      onChange(path, newItems)
+                      const newItems = [...items];
+                      newItems[index] = newValue;
+                      onChange(path, newItems);
                     },
                     itemError,
                   )}
-                  ${itemError ? html`<span class="dc-field-error">${itemError}</span>` : nothing}
                 </div>
-                <button
-                  class="dc-array-item-remove"
-                  title="Remove item"
-                  aria-label="Remove item"
-                  @click=${() => removeItem(index)}
-                >\u00D7</button>
+                ${itemError
+                  ? html`<span class="dc-field-error">${itemError}</span>`
+                  : nothing}
               </div>
+              <button
+                class="dc-array-item-remove"
+                title="Remove item"
+                aria-label="Remove item ${index + 1}"
+                @click=${() => removeItem(index)}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
             </div>
-          `
+          `;
         })}
-        <button
-          class="ep-btn-outline btn-sm dc-tree-add-btn"
-          @click=${() => addItem()}
-        >+ Add</button>
+        <button class="dc-array-add-btn" @click=${() => addItem()}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          Add ${itemType} item
+        </button>
       </div>
     </details>
-  `
+  `;
 }
 
 /**
@@ -464,59 +661,124 @@ function renderArrayOfObjects(
   depth: number,
   errors: Map<string, string>,
 ): unknown {
-  const nestedRequired = new Set(itemSchema.required ?? [])
-  const groupHasErrors = hasChildErrors(path, errors)
+  const nestedRequired = new Set(itemSchema.required ?? []);
+  const groupHasErrors = hasChildErrors(path, errors);
 
   return html`
-    <details class="dc-tree-group ${groupHasErrors ? 'dc-tree-group-has-errors' : ''}" ?open=${false}>
+    <details
+      class="dc-tree-group ${groupHasErrors ? "dc-tree-group-has-errors" : ""}"
+      ?open=${items.length > 0}
+      aria-label="${name} array of objects"
+    >
       <summary class="dc-tree-group-header">
-        ${name}${isRequired ? html`<span class="dc-required-mark">*</span>` : nothing}
-        ${groupHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
-        <span class="dc-tree-type-badge">List&lt;Object&gt; (${items.length})</span>
+        <span class="dc-tree-group-title">
+          ${name}${isRequired
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
+            : nothing}
+        </span>
+        ${groupHasErrors
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
+          : nothing}
+        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true"
+          >object[]</span
+        >
+        <span class="dc-tree-count-badge" aria-hidden="true"
+          >${items.length}</span
+        >
       </summary>
-      <div class="dc-tree-group-body">
+      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
         ${items.map((_item, index) => {
-          const itemPath = `${path}.${index}`
-          const itemHasErrors = hasChildErrors(itemPath, errors)
+          const itemPath = `${path}.${index}`;
+          const itemHasErrors = hasChildErrors(itemPath, errors);
           return html`
-            <details class="dc-tree-group dc-tree-group-item ${itemHasErrors ? 'dc-tree-group-has-errors' : ''}" open>
-              <summary class="dc-tree-group-header dc-tree-group-header-item">
-                <span>#${index + 1}</span>
-                ${itemHasErrors ? html`<span class="dc-tree-group-error-dot"></span>` : nothing}
+            <details
+              class="dc-array-object-item ${itemHasErrors
+                ? "dc-tree-group-has-errors"
+                : ""}"
+              open
+              role="listitem"
+              aria-label="Item ${index + 1}"
+            >
+              <summary class="dc-array-object-header">
+                <span
+                  class="dc-array-item-number dc-array-item-number-lg"
+                  aria-hidden="true"
+                  >${index + 1}</span
+                >
+                ${itemHasErrors
+                  ? html`<span
+                      class="dc-tree-group-error-dot"
+                      aria-hidden="true"
+                    ></span>`
+                  : nothing}
+                <div class="dc-array-object-spacer" aria-hidden="true"></div>
                 <button
-                  class="dc-array-item-remove"
+                  class="dc-array-item-remove dc-array-item-remove-subtle"
                   title="Remove item"
-                  aria-label="Remove item #${index + 1}"
-                  @click=${(e: Event) => { e.preventDefault(); removeItem(index) }}
-                >\u00D7</button>
+                  aria-label="Remove item ${index + 1}"
+                  @click=${(e: Event) => {
+                    e.preventDefault();
+                    removeItem(index);
+                  }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M4 4l8 8M12 4l-8 8"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </button>
               </summary>
-              <div class="dc-tree-group-body">
+              <div class="dc-array-object-content">
                 ${itemSchema.properties
-                  ? Object.entries(itemSchema.properties).map(([nestedName, nestedProp]) =>
-                      renderFormField(
-                        nestedName,
-                        nestedProp,
-                        `${path}.${index}.${nestedName}`,
-                        rootData,
-                        nestedRequired.has(nestedName),
-                        onChange,
-                        depth + 1,
-                        errors,
-                      ),
+                  ? Object.entries(itemSchema.properties).map(
+                      ([nestedName, nestedProp]) =>
+                        renderFormField(
+                          nestedName,
+                          nestedProp,
+                          `${path}.${index}.${nestedName}`,
+                          rootData,
+                          nestedRequired.has(nestedName),
+                          onChange,
+                          depth + 1,
+                          errors,
+                        ),
                     )
-                  : nothing
-                }
+                  : nothing}
               </div>
             </details>
-          `
+          `;
         })}
-        <button
-          class="ep-btn-outline btn-sm dc-tree-add-btn"
-          @click=${() => addItem()}
-        >+ Add</button>
+        <button class="dc-array-add-btn" @click=${() => addItem()}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
+          Add object item
+        </button>
       </div>
     </details>
-  `
+  `;
 }
 
 /**
@@ -529,40 +791,40 @@ function renderPrimitiveInput(
   onChange: (value: JsonValue) => void,
   error?: string,
 ): unknown {
-  const errorClass = error ? 'dc-input-error' : ''
+  const errorClass = error ? "dc-input-error" : "";
 
   switch (type) {
-    case 'number':
+    case "number":
       return html`
         <input
           type="number"
           class="ep-input dc-array-item-input ${errorClass}"
           step="any"
-          .value=${value != null ? String(value) : ''}
+          .value=${value != null ? String(value) : ""}
           placeholder="${label}"
           aria-label="${label}"
           @change=${(e: Event) => {
-            const raw = (e.target as HTMLInputElement).value
-            onChange(raw === '' ? null : parseFloat(raw))
+            const raw = (e.target as HTMLInputElement).value;
+            onChange(raw === "" ? null : parseFloat(raw));
           }}
         />
-      `
-    case 'integer':
+      `;
+    case "integer":
       return html`
         <input
           type="number"
           class="ep-input dc-array-item-input ${errorClass}"
           step="1"
-          .value=${value != null ? String(value) : ''}
+          .value=${value != null ? String(value) : ""}
           placeholder="${label}"
           aria-label="${label}"
           @change=${(e: Event) => {
-            const raw = (e.target as HTMLInputElement).value
-            onChange(raw === '' ? null : parseInt(raw, 10))
+            const raw = (e.target as HTMLInputElement).value;
+            onChange(raw === "" ? null : parseInt(raw, 10));
           }}
         />
-      `
-    case 'boolean':
+      `;
+    case "boolean":
       return html`
         <label class="dc-form-checkbox-label">
           <input
@@ -570,60 +832,68 @@ function renderPrimitiveInput(
             class="ep-checkbox"
             .checked=${value === true}
             aria-label="${label}"
-            @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
+            @change=${(e: Event) =>
+              onChange((e.target as HTMLInputElement).checked)}
           />
         </label>
-      `
-    case 'date':
+      `;
+    case "date":
       return html`
         <input
           type="date"
           class="ep-input dc-array-item-input ${errorClass}"
-          .value=${String(value ?? '')}
+          .value=${String(value ?? "")}
           aria-label="${label}"
-          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          @change=${(e: Event) =>
+            onChange((e.target as HTMLInputElement).value)}
         />
-      `
+      `;
     default:
       return html`
         <input
           type="text"
           class="ep-input dc-array-item-input ${errorClass}"
-          .value=${String(value ?? '')}
+          .value=${String(value ?? "")}
           placeholder="${label}"
           aria-label="${label}"
-          @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          @change=${(e: Event) =>
+            onChange((e.target as HTMLInputElement).value)}
         />
-      `
+      `;
   }
 }
 
 /**
  * Get a sensible default value for a given JSON Schema type.
  */
-function getDefaultValueForType(type: string, schema?: JsonSchemaProperty | null): JsonValue {
+function getDefaultValueForType(
+  type: string,
+  schema?: JsonSchemaProperty | null,
+): JsonValue {
   switch (type) {
-    case 'string':
-      return ''
-    case 'number':
-    case 'integer':
-      return 0
-    case 'boolean':
-      return false
-    case 'date':
-      return ''
-    case 'object': {
-      if (!schema?.properties) return {}
-      const obj: Record<string, JsonValue> = {}
+    case "string":
+      return "";
+    case "number":
+    case "integer":
+      return 0;
+    case "boolean":
+      return false;
+    case "date":
+      return "";
+    case "object": {
+      if (!schema?.properties) return {};
+      const obj: Record<string, JsonValue> = {};
       for (const [key, propSchema] of Object.entries(schema.properties)) {
-        const propType = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type
-        obj[key] = getDefaultValueForType(propType, propSchema)
+        const propType = Array.isArray(propSchema.type)
+          ? propSchema.type[0]
+          : propSchema.type;
+        obj[key] = getDefaultValueForType(propType, propSchema);
       }
-      return obj
+      return obj;
     }
-    case 'array':
-      return []
+    case "array":
+      return [];
     default:
-      return ''
+      return "";
   }
 }
