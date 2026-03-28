@@ -19,12 +19,12 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
-import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.activations.GetActiveVersion
 import app.epistola.suite.templates.queries.versions.GetVersion
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.tenants.queries.GetTenant
 import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.MeterRegistry
