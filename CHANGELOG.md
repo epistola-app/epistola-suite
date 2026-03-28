@@ -5,6 +5,9 @@
 ### Fixed
 - **Document generation fails with "No authenticated user in current scope"**: The `JobPoller` executes generation jobs on virtual threads outside the HTTP request scope, where no `SecurityContext` principal is bound. The mediator's authorization checks (`RequiresPermission`, `RequiresAuthentication`) would then reject all queries. Fixed by creating a system principal with full tenant access for the request's tenant and binding it via `SecurityContext.runWithPrincipal()` before executing the job.
 
+### Changed
+- **Data contract example editor UX polish**: Added focus-visible ring styles for keyboard accessibility. Refactored hover states to nested CSS selectors. Redesigned empty states with icons, larger dimensions, and dashed borders. Improved tree layout with larger inputs, better spacing, and grid-based label/input arrangement. Added semantic color-coded type badges for object/list fields. Added validation success indicator to toolbar. Enhanced array item rows with numbered indicators, inline remove buttons, and collapsible object items.
+
 ### Added
 - **Authorization enforcement in mediator**: All commands and queries now declare authorization requirements via marker interfaces (`RequiresPermission`, `RequiresPlatformRole`, `RequiresAuthentication`, `SystemInternal`). The `SpringMediator` enforces these before dispatching — unauthenticated or unauthorized requests are rejected with `PermissionDeniedException`, `TenantAccessDeniedException`, or `PlatformAccessDeniedException`.
 - **Authorization coverage safety net**: `AuthorizationCoverageTest` uses classpath scanning to verify every `Command` and `Query` implements `Authorized`, preventing unprotected operations from being added.
