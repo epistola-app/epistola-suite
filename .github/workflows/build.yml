@@ -51,6 +51,12 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint:check
+
+      - name: Check format
+        run: pnpm format:check
+
       - name: Build frontend
         run: pnpm build
 
