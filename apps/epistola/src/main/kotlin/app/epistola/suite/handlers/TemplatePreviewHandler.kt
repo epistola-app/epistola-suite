@@ -1,6 +1,6 @@
 package app.epistola.suite.templates
 
-import app.epistola.suite.documents.queries.PreviewDocument
+import app.epistola.suite.documents.queries.PreviewDraft
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
@@ -71,7 +71,7 @@ class TemplatePreviewHandler(
         // Build the data as ObjectNode for the query
         val dataNode = objectMapper.valueToTree<ObjectNode>(data)
 
-        val query = PreviewDocument(
+        val query = PreviewDraft(
             tenantId = tenantId.key,
             templateId = templateId.key,
             variantId = variantId.key,
