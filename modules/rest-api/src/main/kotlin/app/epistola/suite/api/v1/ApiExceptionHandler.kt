@@ -263,6 +263,22 @@ class ApiExceptionHandler {
     }
 
     /**
+     * Handles illegal argument errors (e.g., require() failures in commands/queries).
+     * Returns 400 Bad Request.
+     */
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgumentException(ex: IllegalArgumentException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Bad request: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            ApiErrorResponse(
+                code = "BAD_REQUEST",
+                message = ex.message ?: "Invalid request",
+            ),
+        )
+    }
+
+    /**
      * Handles general validation errors (e.g., invalid field values).
      * Returns 400 Bad Request.
      */

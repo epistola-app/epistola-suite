@@ -7,10 +7,12 @@ import app.epistola.api.model.GenerateDocumentRequest
 import app.epistola.api.model.GenerationJobDetail
 import app.epistola.api.model.GenerationJobListResponse
 import app.epistola.api.model.GenerationJobResponse
+import app.epistola.api.model.PreviewDocumentRequest
 import app.epistola.suite.api.v1.shared.toCommand
 import app.epistola.suite.api.v1.shared.toDto
 import app.epistola.suite.api.v1.shared.toJobDto
 import app.epistola.suite.api.v1.shared.toJobResponse
+import app.epistola.suite.api.v1.shared.toQuery
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateKey
@@ -35,6 +37,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.ObjectMapper
+import java.io.ByteArrayInputStream
 import java.util.UUID
 
 @RestController
@@ -43,6 +46,21 @@ class EpistolaDocumentGenerationApi(
     private val objectMapper: ObjectMapper,
     private val contentStore: ContentStore,
 ) : GenerationApi {
+
+    // ================== Document Preview ==================
+
+    override fun previewDocument(
+        tenantId: String,
+        previewDocumentRequest: PreviewDocumentRequest,
+    ): ResponseEntity<Resource> {
+        val pdfBytes = previewDocumentRequest.toQuery(tenantId).query()
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_PDF)
+            .contentLength(pdfBytes.size.toLong())
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
+            .body(InputStreamResource(ByteArrayInputStream(pdfBytes)))
+    }
 
     // ================== Document Generation ==================
 

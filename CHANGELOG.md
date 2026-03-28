@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+- **Synchronous document preview API endpoint**: New `POST /api/tenants/{tenantId}/documents/preview` endpoint that generates a preview PDF and returns it directly. Supports variant selection (explicit, attribute-based, or default), version resolution (explicit version ID or environment-based), and data validation against template schema. Not PDF/A compliant, not stored — intended for preview purposes only.
+- **Unified preview query**: `PreviewDocument` query in epistola-core supports both the REST API preview (published versions) and the editor preview (drafts / live template model), replacing the previous `GetPreviewContext` query.
+- **IllegalArgumentException API handler**: `require()` failures in commands/queries now return 400 Bad Request instead of 500.
+
+### Changed
+- **Upgraded epistola-contract to 0.1.19**: Picks up the new `previewDocument` operation in the `GenerationApi` interface.
+- **Refactored TemplatePreviewHandler**: Now delegates to the unified `PreviewDocument` query instead of containing its own rendering logic.
+
 ### Fixed
 - **CI build failure due to import ordering**: Fixed lexicographic import ordering in `DocumentGenerationExecutor.kt` that caused ktlint check to fail.
 - **Document generation fails with "No authenticated user in current scope"**: The `JobPoller` executes generation jobs on virtual threads outside the HTTP request scope, where no `SecurityContext` principal is bound. The mediator's authorization checks (`RequiresPermission`, `RequiresAuthentication`) would then reject all queries. Fixed by creating a system principal with full tenant access for the request's tenant and binding it via `SecurityContext.runWithPrincipal()` before executing the job.

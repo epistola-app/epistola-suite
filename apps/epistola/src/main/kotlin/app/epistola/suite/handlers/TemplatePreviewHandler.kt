@@ -1,21 +1,18 @@
 package app.epistola.suite.templates
 
-import app.epistola.generation.pdf.AssetResolution
-import app.epistola.generation.pdf.AssetResolver
-import app.epistola.suite.assets.queries.GetAssetContent
-import app.epistola.suite.common.ids.AssetKey
+import app.epistola.suite.documents.queries.PreviewDocument
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.htmx.templateId
 import app.epistola.suite.htmx.tenantId
 import app.epistola.suite.htmx.variantId
 import app.epistola.suite.mediator.query
-import app.epistola.suite.templates.queries.versions.GetPreviewContext
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.function.ServerRequest
 import org.springframework.web.servlet.function.ServerResponse
 import tools.jackson.databind.ObjectMapper
+import tools.jackson.databind.node.ObjectNode
 
 /**
  * Request body for PDF preview generation.
@@ -30,7 +27,7 @@ data class PreviewRequest(
 
 /**
  * Handles PDF preview generation for document templates.
- * Generates PDF previews for draft versions with optional live template model.
+ * Delegates to the unified [PreviewDocument] query.
  */
 @Component
 class TemplatePreviewHandler(
@@ -66,58 +63,46 @@ class TemplatePreviewHandler(
 
         val data = previewRequest.data ?: emptyMap()
 
-        // Validate data against schema BEFORE starting the streaming response
-        val validationResult = generationService.validatePreviewData(
-            tenantId.key,
-            templateId.key,
-            data,
+        // Convert live template model if provided
+        val liveTemplateModel = previewRequest.templateModel?.let {
+            generationService.convertTemplateModel(it)
+        }
+
+        // Build the data as ObjectNode for the query
+        val dataNode = objectMapper.valueToTree<ObjectNode>(data)
+
+        val query = PreviewDocument(
+            tenantId = tenantId.key,
+            templateId = templateId.key,
+            variantId = variantId.key,
+            data = dataNode,
+            templateModel = liveTemplateModel,
         )
-        if (!validationResult.valid) {
+
+        val pdfBytes = try {
+            query.query()
+        } catch (e: IllegalArgumentException) {
+            // Data validation failure
             return ServerResponse.badRequest()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(
                     mapOf(
-                        "errors" to validationResult.errors.map { error ->
+                        "errors" to listOf(
                             mapOf(
-                                "path" to error.path,
-                                "message" to error.message,
-                            )
-                        },
+                                "path" to "",
+                                "message" to (e.message ?: "Validation failed"),
+                            ),
+                        ),
                     ),
                 )
-        }
-
-        // Get preview context: draft template model and template's default theme
-        val previewContext = GetPreviewContext(variantId = variantId).query()
-            ?: return ServerResponse.notFound().build()
-
-        // Resolve the template model - either from request (live preview) or from draft
-        val templateModel = if (previewRequest.templateModel != null) {
-            generationService.convertTemplateModel(previewRequest.templateModel)
-        } else {
-            previewContext.draftTemplateModel ?: return ServerResponse.notFound().build()
-        }
-
-        val assetResolver = AssetResolver { assetIdStr ->
-            GetAssetContent(tenantId.key, AssetKey.of(assetIdStr)).query()
-                ?.let { AssetResolution(it.content, it.mediaType.mimeType) }
+        } catch (e: IllegalStateException) {
+            // Template/variant/draft not found
+            return ServerResponse.notFound().build()
         }
 
         return ServerResponse.ok()
             .contentType(MediaType.APPLICATION_PDF)
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.pdf\"")
-            .build { _, response ->
-                generationService.renderPdf(
-                    tenantId.key,
-                    templateModel,
-                    data,
-                    response.outputStream,
-                    previewContext.templateThemeId,
-                    previewContext.tenantDefaultThemeId,
-                    assetResolver = assetResolver,
-                )
-                response.outputStream.flush()
-                null // Return null to indicate no view to render
-            }
+            .body(pdfBytes)
     }
 }
