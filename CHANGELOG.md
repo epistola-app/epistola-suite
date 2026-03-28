@@ -20,6 +20,8 @@
 
 ### Changed
 
+- **oxlint config simplified for gradual code quality improvements**: Enabled correctness, suspicious, perf, restriction as warnings (real code quality issues). Disabled pedantic and style categories (cosmetic noise). Added test file overrides for empty functions, magic numbers, and type assertions. Drops from ~9k warnings to ~1.8k warnings of real code quality issues, providing a foundation for incremental lint error fixes.
+
 - **Data contract example editor UX polish**: Added focus-visible ring styles for keyboard accessibility. Refactored hover states to nested CSS selectors. Redesigned empty states with icons, larger dimensions, and dashed borders. Improved tree layout with larger inputs, better spacing, and grid-based label/input arrangement. Added semantic color-coded type badges for object/list fields. Added validation success indicator to toolbar. Enhanced array item rows with numbered indicators, inline remove buttons, and collapsible object items.
 
 - **Data contract example editor accessibility**: Added role="list"/"listitem" semantics for array containers. Added aria-describedby to inputs with validation errors for screen reader announcements. Added aria-hidden to decorative elements (badges, icons, error dots). Added aria-label to collapsible details elements for context. Added aria-label to checkbox inputs in boolean fields. Added for/id association between example name label and input. Enhanced chip buttons with aria-label describing example name and validation status.

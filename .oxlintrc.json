@@ -6,10 +6,21 @@
   "categories": {
     "correctness": "warn",
     "suspicious": "warn",
-    "pedantic": "warn",
+    "pedantic": "off",
     "perf": "warn",
-    "style": "warn",
+    "style": "off",
     "restriction": "warn"
   },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts"],
+      "rules": {
+        "no-empty-function": "off",
+        "no-magic-numbers": "off",
+        "no-non-null-assertion": "off",
+        "no-unsafe-type-assertion": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/build/**", "**/.git/**"]
 }
