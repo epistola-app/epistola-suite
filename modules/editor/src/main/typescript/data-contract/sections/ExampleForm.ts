@@ -156,6 +156,10 @@ export function hasChildErrors(
 
 const NO_ERRORS: Map<string, string> = new Map();
 
+function pathToErrorId(path: string): string {
+  return `error-${path.replace(/\./g, "-")}`;
+}
+
 /**
  * Render the example form from a JSON Schema.
  * When no schema exists, shows a placeholder message.
@@ -220,10 +224,12 @@ function renderFormField(
   const value = getNestedValue(rootData, path);
   const fieldError = errors.get(path);
 
+  const errorId = fieldError ? pathToErrorId(path) : undefined;
+
   const label = html`
     <label class="dc-tree-label">
       ${name}${isRequired
-        ? html`<span class="dc-required-mark">*</span>`
+        ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
         : nothing}
     </label>
   `;
@@ -241,11 +247,14 @@ function renderFormField(
                 : ""}"
               .value=${String(value ?? "")}
               placeholder="${name}"
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) =>
                 onChange(path, (e.target as HTMLInputElement).value)}
             />
             ${fieldError
-              ? html`<span class="dc-field-error">${fieldError}</span>`
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
               : nothing}
           </div>
         </div>
@@ -264,13 +273,16 @@ function renderFormField(
               step="any"
               .value=${value != null ? String(value) : ""}
               placeholder="${name}"
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => {
                 const raw = (e.target as HTMLInputElement).value;
                 onChange(path, raw === "" ? null : parseFloat(raw));
               }}
             />
             ${fieldError
-              ? html`<span class="dc-field-error">${fieldError}</span>`
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
               : nothing}
           </div>
         </div>
@@ -289,13 +301,16 @@ function renderFormField(
               step="1"
               .value=${value != null ? String(value) : ""}
               placeholder="${name}"
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => {
                 const raw = (e.target as HTMLInputElement).value;
                 onChange(path, raw === "" ? null : parseInt(raw, 10));
               }}
             />
             ${fieldError
-              ? html`<span class="dc-field-error">${fieldError}</span>`
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
               : nothing}
           </div>
         </div>
@@ -311,12 +326,16 @@ function renderFormField(
                 type="checkbox"
                 class="ep-checkbox"
                 .checked=${value === true}
+                aria-label="${name}"
+                aria-describedby=${fieldError ? errorId : nothing}
                 @change=${(e: Event) =>
                   onChange(path, (e.target as HTMLInputElement).checked)}
               />
             </label>
             ${fieldError
-              ? html`<span class="dc-field-error">${fieldError}</span>`
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
               : nothing}
           </div>
         </div>
@@ -333,11 +352,14 @@ function renderFormField(
                 ? "dc-input-error"
                 : ""}"
               .value=${String(value ?? "")}
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) =>
                 onChange(path, (e.target as HTMLInputElement).value)}
             />
             ${fieldError
-              ? html`<span class="dc-field-error">${fieldError}</span>`
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
               : nothing}
           </div>
         </div>
@@ -379,11 +401,14 @@ function renderFormField(
                 : ""}"
               .value=${String(value ?? "")}
               placeholder="${name}"
+              aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) =>
                 onChange(path, (e.target as HTMLInputElement).value)}
             />
             ${fieldError
-              ? html`<span class="dc-field-error">${fieldError}</span>`
+              ? html`<span class="dc-field-error" id=${errorId}
+                  >${fieldError}</span
+                >`
               : nothing}
           </div>
         </div>
@@ -413,7 +438,9 @@ function renderObjectField(
       <div class="dc-tree-row">
         <label class="dc-tree-label">
           ${name}${isRequired
-            ? html`<span class="dc-required-mark">*</span>`
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
             : nothing}
         </label>
         <span class="dc-tree-hint">No properties defined</span>
@@ -429,17 +456,22 @@ function renderObjectField(
     <details
       class="dc-tree-group ${groupHasErrors ? "dc-tree-group-has-errors" : ""}"
       ?open=${isTopLevel}
+      aria-label="${name} properties"
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
           ${name}${isRequired
-            ? html`<span class="dc-required-mark">*</span>`
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
             : nothing}
         </span>
         ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot"></span>`
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        <span class="dc-tree-type-badge" data-type="object">object</span>
+        <span class="dc-tree-type-badge" data-type="object" aria-hidden="true"
+          >object</span
+        >
       </summary>
       <div class="dc-tree-group-body">
         ${Object.entries(propSchema.properties).map(
@@ -520,26 +552,35 @@ function renderArrayField(
     <details
       class="dc-tree-group ${groupHasErrors ? "dc-tree-group-has-errors" : ""}"
       ?open=${items.length > 0}
+      aria-label="${name} array"
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
           ${name}${isRequired
-            ? html`<span class="dc-required-mark">*</span>`
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
             : nothing}
         </span>
         ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot"></span>`
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        <span class="dc-tree-type-badge" data-type="list">${itemType}[]</span>
-        <span class="dc-tree-count-badge">${items.length}</span>
+        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true"
+          >${itemType}[]</span
+        >
+        <span class="dc-tree-count-badge" aria-hidden="true"
+          >${items.length}</span
+        >
       </summary>
-      <div class="dc-tree-group-body dc-tree-group-body-array">
+      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
         ${items.map((item, index) => {
           const itemPath = `${path}.${index}`;
           const itemError = errors.get(itemPath);
           return html`
-            <div class="dc-array-item-row">
-              <span class="dc-array-item-number">${index + 1}</span>
+            <div class="dc-array-item-row" role="listitem">
+              <span class="dc-array-item-number" aria-hidden="true"
+                >${index + 1}</span
+              >
               <div class="dc-array-item-content">
                 <div class="dc-array-item-input-wrapper">
                   ${renderPrimitiveInput(
@@ -564,7 +605,13 @@ function renderArrayField(
                 aria-label="Remove item ${index + 1}"
                 @click=${() => removeItem(index)}
               >
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
                   <path
                     d="M4 4l8 8M12 4l-8 8"
                     stroke="currentColor"
@@ -577,7 +624,13 @@ function renderArrayField(
           `;
         })}
         <button class="dc-array-add-btn" @click=${() => addItem()}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
               d="M8 3v10M3 8h10"
               stroke="currentColor"
@@ -615,20 +668,27 @@ function renderArrayOfObjects(
     <details
       class="dc-tree-group ${groupHasErrors ? "dc-tree-group-has-errors" : ""}"
       ?open=${items.length > 0}
+      aria-label="${name} array of objects"
     >
       <summary class="dc-tree-group-header">
         <span class="dc-tree-group-title">
           ${name}${isRequired
-            ? html`<span class="dc-required-mark">*</span>`
+            ? html`<span class="dc-required-mark" aria-hidden="true"
+                >*</span
+              >`
             : nothing}
         </span>
         ${groupHasErrors
-          ? html`<span class="dc-tree-group-error-dot"></span>`
+          ? html`<span class="dc-tree-group-error-dot" aria-hidden="true"></span>`
           : nothing}
-        <span class="dc-tree-type-badge" data-type="list">object[]</span>
-        <span class="dc-tree-count-badge">${items.length}</span>
+        <span class="dc-tree-type-badge" data-type="list" aria-hidden="true"
+          >object[]</span
+        >
+        <span class="dc-tree-count-badge" aria-hidden="true"
+          >${items.length}</span
+        >
       </summary>
-      <div class="dc-tree-group-body dc-tree-group-body-array">
+      <div class="dc-tree-group-body dc-tree-group-body-array" role="list">
         ${items.map((_item, index) => {
           const itemPath = `${path}.${index}`;
           const itemHasErrors = hasChildErrors(itemPath, errors);
@@ -638,15 +698,22 @@ function renderArrayOfObjects(
                 ? "dc-tree-group-has-errors"
                 : ""}"
               open
+              role="listitem"
+              aria-label="Item ${index + 1}"
             >
               <summary class="dc-array-object-header">
-                <span class="dc-array-item-number dc-array-item-number-lg"
+                <span
+                  class="dc-array-item-number dc-array-item-number-lg"
+                  aria-hidden="true"
                   >${index + 1}</span
                 >
                 ${itemHasErrors
-                  ? html`<span class="dc-tree-group-error-dot"></span>`
+                  ? html`<span
+                      class="dc-tree-group-error-dot"
+                      aria-hidden="true"
+                    ></span>`
                   : nothing}
-                <div class="dc-array-object-spacer"></div>
+                <div class="dc-array-object-spacer" aria-hidden="true"></div>
                 <button
                   class="dc-array-item-remove dc-array-item-remove-subtle"
                   title="Remove item"
@@ -656,7 +723,13 @@ function renderArrayOfObjects(
                     removeItem(index);
                   }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                  >
                     <path
                       d="M4 4l8 8M12 4l-8 8"
                       stroke="currentColor"
@@ -687,7 +760,13 @@ function renderArrayOfObjects(
           `;
         })}
         <button class="dc-array-add-btn" @click=${() => addItem()}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
               d="M8 3v10M3 8h10"
               stroke="currentColor"

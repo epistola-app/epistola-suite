@@ -8,6 +8,8 @@
 ### Changed
 - **Data contract example editor UX polish**: Added focus-visible ring styles for keyboard accessibility. Refactored hover states to nested CSS selectors. Redesigned empty states with icons, larger dimensions, and dashed borders. Improved tree layout with larger inputs, better spacing, and grid-based label/input arrangement. Added semantic color-coded type badges for object/list fields. Added validation success indicator to toolbar. Enhanced array item rows with numbered indicators, inline remove buttons, and collapsible object items.
 
+- **Data contract example editor accessibility**: Added role="list"/"listitem" semantics for array containers. Added aria-describedby to inputs with validation errors for screen reader announcements. Added aria-hidden to decorative elements (badges, icons, error dots). Added aria-label to collapsible details elements for context. Added aria-label to checkbox inputs in boolean fields. Added for/id association between example name label and input. Enhanced chip buttons with aria-label describing example name and validation status.
+
 ### Added
 - **Authorization enforcement in mediator**: All commands and queries now declare authorization requirements via marker interfaces (`RequiresPermission`, `RequiresPlatformRole`, `RequiresAuthentication`, `SystemInternal`). The `SpringMediator` enforces these before dispatching — unauthenticated or unauthorized requests are rejected with `PermissionDeniedException`, `TenantAccessDeniedException`, or `PlatformAccessDeniedException`.
 - **Authorization coverage safety net**: `AuthorizationCoverageTest` uses classpath scanning to verify every `Command` and `Query` implements `Authorized`, preventing unprotected operations from being added.

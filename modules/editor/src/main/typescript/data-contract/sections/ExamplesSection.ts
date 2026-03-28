@@ -60,6 +60,7 @@ export function renderExamplesSection(
                 : ""}"
               role="option"
               aria-selected="${isActive}"
+              aria-label="${ex.name}${errorCount > 0 ? `, ${errorCount} error${errorCount !== 1 ? 's' : ''}` : ', valid'}"
               @click=${() => callbacks.onSelectExample(ex.id)}
               title="${ex.name}"
             >
@@ -67,10 +68,12 @@ export function renderExamplesSection(
               ${errorCount > 0
                 ? html`<span
                     class="dc-example-chip-badge dc-example-chip-badge-error"
+                    aria-hidden="true"
                     >${errorCount}</span
                   >`
                 : html`<span
                     class="dc-example-chip-badge dc-example-chip-badge-ok"
+                    aria-hidden="true"
                     >&#10003;</span
                   >`}
             </button>
@@ -91,9 +94,10 @@ export function renderExamplesSection(
               <!-- Card Header -->
               <div class="dc-example-card-header">
                 <div class="dc-example-card-header-main">
-                    <label class="dc-example-field-label">Example Name</label>
+                    <label class="dc-example-field-label" for="example-name-input">Example Name</label>
                     <input
                       type="text"
+                      id="example-name-input"
                       class="ep-input dc-example-name-input"
                       .value=${selectedExample.name}
                       placeholder="Enter example name"
@@ -122,6 +126,7 @@ export function renderExamplesSection(
                     viewBox="0 0 16 16"
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
                   >
                     <path
                       d="M2 4h12M5.333 4V2.667a1.333 1.333 0 011.334-1.334h2.666a1.333 1.333 0 011.334 1.334V4m2 0v9.333a1.333 1.333 0 01-1.334 1.334H4.667a1.333 1.333 0 01-1.334-1.334V4H12z"
@@ -144,7 +149,7 @@ export function renderExamplesSection(
                     title="Undo (Ctrl+Z)"
                     aria-label="Undo"
                   >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                       <path
                         d="M3 6h7a4 4 0 014 4v0M3 6l3-3M3 6l3 3"
                         stroke="currentColor"
@@ -162,7 +167,7 @@ export function renderExamplesSection(
                     title="Redo (Ctrl+Shift+Z)"
                     aria-label="Redo"
                   >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                       <path
                         d="M13 6H6a4 4 0 00-4 4v0M13 6l-3-3M13 6l-3 3"
                         stroke="currentColor"
@@ -183,6 +188,7 @@ export function renderExamplesSection(
                           height="14"
                           viewBox="0 0 16 16"
                           fill="none"
+                          aria-hidden="true"
                         >
                           <circle
                             cx="8"
@@ -209,6 +215,7 @@ export function renderExamplesSection(
                           height="14"
                           viewBox="0 0 16 16"
                           fill="none"
+                          aria-hidden="true"
                         >
                           <circle
                             cx="8"
@@ -257,6 +264,7 @@ export function renderExamplesSection(
                     fill="none"
                     stroke="currentColor"
                     stroke-width="1.5"
+                    aria-hidden="true"
                   >
                     <path
                       d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z"
@@ -279,6 +287,7 @@ export function renderExamplesSection(
                     fill="none"
                     stroke="currentColor"
                     stroke-width="1.5"
+                    aria-hidden="true"
                   >
                     <path
                       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
