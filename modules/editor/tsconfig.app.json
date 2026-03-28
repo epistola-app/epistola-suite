@@ -27,8 +27,8 @@
     "noUncheckedSideEffectImports": true,
 
     /* Path aliases */
-    "baseUrl": ".",
     "paths": {
+      "*": ["./src/main/typescript/*"],
       "@/*": ["./src/main/typescript/*"]
     }
   },
