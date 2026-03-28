@@ -19,6 +19,7 @@ import app.epistola.suite.documents.model.DocumentGenerationRequest
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.generation.GenerationService
 import app.epistola.suite.mediator.Mediator
+import app.epistola.suite.templates.validation.JsonSchemaValidator
 import app.epistola.suite.storage.ContentKey
 import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.queries.GetDocumentTemplate
@@ -50,6 +51,7 @@ class DocumentGenerationExecutor(
     private val generationService: GenerationService,
     private val mediator: Mediator,
     private val objectMapper: ObjectMapper,
+    private val schemaValidator: JsonSchemaValidator,
     private val contentStore: ContentStore,
     private val meterRegistry: MeterRegistry,
     @Value("\${epistola.generation.jobs.retention-days:7}")
@@ -177,7 +179,16 @@ class DocumentGenerationExecutor(
         val tenant = mediator.query(GetTenant(id = request.tenantKey))
             ?: throw IllegalStateException("Tenant ${request.tenantKey} not found")
 
-        // 5. Generate PDF
+        // 5. Validate data against template schema (if defined)
+        if (template.dataModel != null) {
+            val errors = schemaValidator.validate(template.dataModel, request.data)
+            if (errors.isNotEmpty()) {
+                val errorMessages = errors.joinToString("; ") { "${it.path}: ${it.message}" }
+                throw IllegalArgumentException("Data validation failed: $errorMessages")
+            }
+        }
+
+        // 6. Generate PDF
         val outputStream = ByteArrayOutputStream()
 
         @Suppress("UNCHECKED_CAST")
@@ -232,16 +243,16 @@ class DocumentGenerationExecutor(
         val pdfBytes = outputStream.toByteArray()
         val sizeBytes = pdfBytes.size.toLong()
 
-        // 6. Validate size
+        // 7. Validate size
         val maxSizeBytes = maxDocumentSizeMb * 1024 * 1024
         if (sizeBytes > maxSizeBytes) {
             throw IllegalStateException("Generated document size ($sizeBytes bytes) exceeds maximum ($maxSizeBytes bytes)")
         }
 
-        // 7. Generate filename if not provided
+        // 8. Generate filename if not provided
         val filename = request.filename ?: "document-${request.id.value}.pdf"
 
-        // 8. Create Document entity (metadata only — content stored separately)
+        // 9. Create Document entity (metadata only — content stored separately)
         val document = Document(
             id = DocumentKey.generate(),
             tenantKey = request.tenantKey,
