@@ -57,18 +57,22 @@ All workflows are defined in `.github/workflows/`.
 **What it does:**
 
 #### On Push to Main
-1. Bumps version using semantic versioning based on conventional commits:
-   - `feat:` → minor version bump (0.1.0 → 0.2.0)
-   - `fix:` → patch version bump (0.1.0 → 0.1.1)
-   - `feat!:` or `BREAKING CHANGE` → major version bump (0.1.0 → 1.0.0)
-2. Creates a Git tag for the new version
-3. Builds Docker image using `gradle :apps:epistola:bootBuildImage`
-4. Pushes to GitHub Container Registry with tags:
-   - `ghcr.io/epistola-app/epistola-suite:<version>` (e.g., `1.2.3`)
+1. Builds and tests the project
+2. Pushes Docker image with SHA and `latest` tags:
+   - `ghcr.io/epistola-app/epistola-suite:<sha>`
+   - `ghcr.io/epistola-app/epistola-suite:latest`
+
+#### On Release Published
+When a GitHub release is created with a `vX.Y.Z` tag:
+1. Extracts the version from the release tag (e.g., `v0.7.0` → `0.7.0`)
+2. Builds Docker image using `gradle :apps:epistola:bootBuildImage`
+3. Pushes to GitHub Container Registry with tags:
+   - `ghcr.io/epistola-app/epistola-suite:<version>` (e.g., `0.7.0`)
    - `ghcr.io/epistola-app/epistola-suite:<sha>` (git commit SHA)
    - `ghcr.io/epistola-app/epistola-suite:latest`
-5. Signs the image using Cosign (keyless OIDC)
-6. Attaches SBOM attestation to the image
+4. Signs the image using Cosign (keyless OIDC)
+5. Attaches SBOM attestation to the image
+6. Uploads SBOM artifacts to the GitHub release
 
 #### On PR with `publish` Label
 1. Builds Docker image
@@ -150,21 +154,22 @@ Version bumps are determined automatically from commit messages:
 
 ### Release Process
 
-Releases are automated:
-1. Merge PR to `main`
-2. CI creates a new Git tag based on commit messages
-3. Docker image is built and pushed with the new version
-4. The `latest` tag is updated
-5. GitHub Release is created with:
-   - Auto-generated release notes
-   - SBOM file attached (`epistola-{version}-sbom.json`)
+Releases are **manually triggered** by creating a GitHub release:
 
-To create a major release with breaking changes:
-```
-feat!: redesign authentication API
+1. Determine the next version based on conventional commits since the last release:
+   - `feat:` commits → bump MINOR (e.g., 0.6.1 → 0.7.0)
+   - `fix:` commits only → bump PATCH (e.g., 0.6.1 → 0.6.2)
+   - `feat!:` or `BREAKING CHANGE` → bump MAJOR (e.g., 0.6.1 → 1.0.0)
+2. Create a GitHub release using `gh release create`:
+   ```bash
+   gh release create v0.7.0 --title "v0.7.0" --generate-notes
+   ```
+3. The `release: published` event triggers the CI workflow which:
+   - Builds and publishes the versioned Docker image
+   - Signs the image with Cosign
+   - Attaches SBOM artifacts to the release
 
-BREAKING CHANGE: The /auth endpoint now requires OAuth2 tokens instead of API keys.
-```
+**Important:** The release tag must follow the `vX.Y.Z` format (e.g., `v0.7.0`).
 
 ---
 
