@@ -449,12 +449,16 @@ describe("formatDateValue", () => {
 describe("evaluateExpression with $formatDate", () => {
   it("formats a date field", async () => {
     const data = { invoiceDate: "2024-01-15" };
-    expect(await evaluateExpression("$formatDate(invoiceDate, 'dd-MM-yyyy')", data)).toBe("15-01-2024");
+    expect(await evaluateExpression("$formatDate(invoiceDate, 'dd-MM-yyyy')", data)).toBe(
+      "15-01-2024",
+    );
   });
 
   it("formats in string concatenation", async () => {
     const data = { dueDate: "2024-02-15" };
-    expect(await evaluateExpression("\"Due: \" & $formatDate(dueDate, 'dd-MM-yyyy')", data)).toBe("Due: 15-02-2024");
+    expect(await evaluateExpression("\"Due: \" & $formatDate(dueDate, 'dd-MM-yyyy')", data)).toBe(
+      "Due: 15-02-2024",
+    );
   });
 
   it("returns raw value for non-date", async () => {

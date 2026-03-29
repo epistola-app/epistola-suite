@@ -12,14 +12,34 @@ import jsonata from "jsonata";
 // ---------------------------------------------------------------------------
 
 const MONTH_NAMES_FULL = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-]
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 const MONTH_NAMES_SHORT = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-]
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 /**
  * Format an ISO date or datetime string using a pattern.
@@ -40,22 +60,22 @@ const MONTH_NAMES_SHORT = [
  * Returns the original value if it cannot be parsed.
  */
 export function formatDateValue(value: string, pattern: string): string {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/)
-  if (!match) return value
-  const [, yyyy, mm, dd, HH = '00', min = '00', ss = '00'] = match
-  const month = parseInt(mm, 10)
-  const day = parseInt(dd, 10)
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!match) return value;
+  const [, yyyy, mm, dd, HH = "00", min = "00", ss = "00"] = match;
+  const month = parseInt(mm, 10);
+  const day = parseInt(dd, 10);
 
   return pattern
-    .replace('yyyy', yyyy)
-    .replace('MMMM', MONTH_NAMES_FULL[month - 1] ?? '')
-    .replace('MMM', MONTH_NAMES_SHORT[month - 1] ?? '')
-    .replace('MM', mm)
-    .replace('dd', dd)
-    .replace('HH', HH)
+    .replace("yyyy", yyyy)
+    .replace("MMMM", MONTH_NAMES_FULL[month - 1] ?? "")
+    .replace("MMM", MONTH_NAMES_SHORT[month - 1] ?? "")
+    .replace("MM", mm)
+    .replace("dd", dd)
+    .replace("HH", HH)
     .replace(/(?<![a-zA-Z])mm(?![a-zA-Z])/, min)
-    .replace('ss', ss)
-    .replace(/(?<![a-zA-Z])d(?![a-zA-Z])/, String(day))
+    .replace("ss", ss)
+    .replace(/(?<![a-zA-Z])d(?![a-zA-Z])/, String(day));
 }
 
 /**
@@ -63,10 +83,10 @@ export function formatDateValue(value: string, pattern: string): string {
  * Must be called before `expr.evaluate()`.
  */
 function registerCustomFunctions(expr: jsonata.Expression): void {
-  expr.registerFunction('formatDate', (value: unknown, pattern: unknown) => {
-    if (typeof value !== 'string' || typeof pattern !== 'string') return value
-    return formatDateValue(value, pattern)
-  })
+  expr.registerFunction("formatDate", (value: unknown, pattern: unknown) => {
+    if (typeof value !== "string" || typeof pattern !== "string") return value;
+    return formatDateValue(value, pattern);
+  });
 }
 
 /**
