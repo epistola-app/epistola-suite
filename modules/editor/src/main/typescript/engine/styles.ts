@@ -11,19 +11,19 @@
  * from resolved document styles into nodes.
  */
 
-import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry'
-import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme'
-import type { PageSettings } from '../types/index.js'
+import type { StyleRegistry } from "@epistola.app/editor-model/generated/style-registry";
+import type { BlockStylePreset } from "@epistola.app/editor-model/generated/theme";
+import type { PageSettings } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
 // Default page settings
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_PAGE_SETTINGS: PageSettings = {
-  format: 'A4',
-  orientation: 'portrait',
+  format: "A4",
+  orientation: "portrait",
   margins: { top: 20, right: 20, bottom: 20, left: 20 },
-}
+};
 
 // ---------------------------------------------------------------------------
 // Registry helpers
@@ -31,15 +31,15 @@ export const DEFAULT_PAGE_SETTINGS: PageSettings = {
 
 /** Get all inheritable property keys from the style registry. */
 export function getInheritableKeys(registry: StyleRegistry): Set<string> {
-  const keys = new Set<string>()
+  const keys = new Set<string>();
   for (const group of registry.groups) {
     for (const prop of group.properties) {
       if (prop.inheritable) {
-        keys.add(prop.key)
+        keys.add(prop.key);
       }
     }
   }
-  return keys
+  return keys;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ export function resolveDocumentStyles(
   return {
     ...themeDocStyles,
     ...templateOverrides,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -81,26 +81,26 @@ export function resolveNodeStyles(
   defaultStyles?: Record<string, unknown>,
 ): Record<string, unknown> {
   // Start with component defaults (lowest priority)
-  const result: Record<string, unknown> = defaultStyles ? { ...defaultStyles } : {}
+  const result: Record<string, unknown> = defaultStyles ? { ...defaultStyles } : {};
 
   // Overlay inheritable doc styles
   for (const key of inheritableKeys) {
     if (key in resolvedDocStyles) {
-      result[key] = resolvedDocStyles[key]
+      result[key] = resolvedDocStyles[key];
     }
   }
 
   // Overlay preset styles
   if (presetStyles) {
-    Object.assign(result, presetStyles)
+    Object.assign(result, presetStyles);
   }
 
   // Overlay inline styles
   if (inlineStyles) {
-    Object.assign(result, inlineStyles)
+    Object.assign(result, inlineStyles);
   }
 
-  return result
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,16 +112,16 @@ export function resolvePageSettings(
   themeSettings: PageSettings | undefined,
   templateOverrides: Partial<PageSettings> | undefined,
 ): PageSettings {
-  const base = themeSettings ?? DEFAULT_PAGE_SETTINGS
+  const base = themeSettings ?? DEFAULT_PAGE_SETTINGS;
 
-  if (!templateOverrides) return { ...base }
+  if (!templateOverrides) return { ...base };
 
   return {
     format: templateOverrides.format ?? base.format,
     orientation: templateOverrides.orientation ?? base.orientation,
     margins: templateOverrides.margins ?? base.margins,
     backgroundColor: templateOverrides.backgroundColor ?? base.backgroundColor,
-  }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +133,7 @@ export function resolvePresetStyles(
   presets: Record<string, BlockStylePreset> | undefined,
   presetName: string | undefined,
 ): Record<string, unknown> | undefined {
-  if (!presets || !presetName) return undefined
-  const preset = presets[presetName]
-  return preset?.styles
+  if (!presets || !presetName) return undefined;
+  const preset = presets[presetName];
+  return preset?.styles;
 }

@@ -6,23 +6,23 @@
  * Accepts VisualSchema directly — no conversion in the render path.
  */
 
-import { html } from 'lit'
-import type { VisualSchema } from '../types.js'
-import type { SchemaCommand } from '../utils/schemaCommands.js'
-import { renderSchemaFieldRow } from './SchemaFieldRow.js'
-import { renderValidationMessages } from './ValidationMessages.js'
+import { html } from "lit";
+import type { VisualSchema } from "../types.js";
+import type { SchemaCommand } from "../utils/schemaCommands.js";
+import { renderSchemaFieldRow } from "./SchemaFieldRow.js";
+import { renderValidationMessages } from "./ValidationMessages.js";
 
 export interface SchemaUiState {
-  warnings: Array<{ path: string; message: string }>
-  canUndo: boolean
-  canRedo: boolean
+  warnings: Array<{ path: string; message: string }>;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 export interface SchemaSectionCallbacks {
-  onCommand: (command: SchemaCommand) => void
-  onToggleFieldExpand: (fieldId: string) => void
-  onUndo: () => void
-  onRedo: () => void
+  onCommand: (command: SchemaCommand) => void;
+  onToggleFieldExpand: (fieldId: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export function renderSchemaSection(
@@ -31,14 +31,15 @@ export function renderSchemaSection(
   callbacks: SchemaSectionCallbacks,
   expandedFields: Set<string>,
 ): unknown {
-  const fields = visualSchema.fields
-  const hasFields = fields.length > 0
+  const fields = visualSchema.fields;
+  const hasFields = fields.length > 0;
 
   return html`
     <section class="dc-section">
       <h3 class="dc-section-label">Schema Definition</h3>
       <p class="dc-section-hint">
-        Define the data fields that templates can use. Each field becomes a variable available in template expressions.
+        Define the data fields that templates can use. Each field becomes a variable available in
+        template expressions.
       </p>
 
       <!-- Toolbar -->
@@ -51,7 +52,9 @@ export function renderSchemaSection(
           ?disabled=${!uiState.canUndo}
           title="Undo (Ctrl+Z)"
           aria-label="Undo"
-        >Undo</button>
+        >
+          Undo
+        </button>
 
         <button
           class="ep-btn-outline btn-sm dc-redo-btn"
@@ -59,7 +62,9 @@ export function renderSchemaSection(
           ?disabled=${!uiState.canRedo}
           title="Redo (Ctrl+Shift+Z)"
           aria-label="Redo"
-        >Redo</button>
+        >
+          Redo
+        </button>
       </div>
 
       <!-- Validation warnings -->
@@ -89,18 +94,15 @@ export function renderSchemaSection(
               )}
             </div>
           `
-        : html`
-            <div class="dc-empty-state">
-              No fields defined yet. Add a field below.
-            </div>
-          `
-      }
+        : html` <div class="dc-empty-state">No fields defined yet. Add a field below.</div> `}
 
       <!-- Add field button -->
       <button
         class="ep-btn-outline btn-sm dc-add-field-btn"
-        @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
-      >+ Add Field</button>
+        @click=${() => callbacks.onCommand({ type: "addField", parentFieldId: null })}
+      >
+        + Add Field
+      </button>
     </section>
-  `
+  `;
 }

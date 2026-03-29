@@ -6,8 +6,8 @@
  * simply delegate to the top-of-stack Change, eliminating type branching.
  */
 
-import type { AnyCommand, CommandResult } from './commands.js'
-import type { NodeId } from '../types/index.js'
+import type { AnyCommand, CommandResult } from "./commands.js";
+import type { NodeId } from "../types/index.js";
 
 // ---------------------------------------------------------------------------
 // Change — the uniform undo/redo contract
@@ -15,9 +15,9 @@ import type { NodeId } from '../types/index.js'
 
 export interface Change {
   /** Execute one undo step. Manages own stack operations via ctx. Returns true if applied. */
-  undoStep(ctx: ChangeContext): boolean
+  undoStep(ctx: ChangeContext): boolean;
   /** Execute one redo step. Manages own stack operations via ctx. Returns true if applied. */
-  redoStep(ctx: ChangeContext): boolean
+  redoStep(ctx: ChangeContext): boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -26,22 +26,22 @@ export interface Change {
 
 export interface ChangeContext {
   /** Access to the undo/redo stacks for push/pop/peek operations. */
-  readonly stack: ChangeStackOps
+  readonly stack: ChangeStackOps;
 
   /** Apply a command without recording it on the undo stack. Returns the result with inverse. */
-  applySilent(command: AnyCommand): CommandResult
+  applySilent(command: AnyCommand): CommandResult;
 
   /** Dispatch UpdateNodeProps with skipUndo (for PM content sync). */
-  syncContent(nodeId: NodeId, content: unknown): void
+  syncContent(nodeId: NodeId, content: unknown): void;
 
   /** Apply a content snapshot via structuredClone + dispatch (for fallback restore). */
-  applySnapshot(nodeId: NodeId, content: unknown): void
+  applySnapshot(nodeId: NodeId, content: unknown): void;
 
   /** Recursive undo (for TextChange fallthrough when session is exhausted). */
-  undo(): boolean
+  undo(): boolean;
 
   /** Recursive redo (for TextChange fallthrough when session is fully redone). */
-  redo(): boolean
+  redo(): boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,10 +49,10 @@ export interface ChangeContext {
 // ---------------------------------------------------------------------------
 
 export interface ChangeStackOps {
-  peekUndo(): Change | undefined
-  peekRedo(): Change | undefined
-  popUndo(): Change | undefined
-  popRedo(): Change | undefined
-  pushUndo(entry: Change): void
-  pushRedo(entry: Change): void
+  peekUndo(): Change | undefined;
+  peekRedo(): Change | undefined;
+  popUndo(): Change | undefined;
+  popRedo(): Change | undefined;
+  pushUndo(entry: Change): void;
+  pushRedo(entry: Change): void;
 }

@@ -24,61 +24,61 @@ Epistola Suite is a document generation platform designed for both developers an
 
 **Goal**: Minimal viable product that developers can integrate with.
 
-| Area | Features |
-|------|----------|
-| **API** | Versioned REST API (`/api/v1/`), OpenAPI 3.1 spec, RFC 7807 errors |
-| **Document Generation** | HTML output, PDF via Puppeteer (Chrome-based) |
-| **Editor** | Image blocks, undo/redo, table row repetition |
-| **Security** | API key authentication and management |
-| **Assets** | Image upload with pluggable storage |
+| Area                    | Features                                                           |
+| ----------------------- | ------------------------------------------------------------------ |
+| **API**                 | Versioned REST API (`/api/v1/`), OpenAPI 3.1 spec, RFC 7807 errors |
+| **Document Generation** | HTML output, PDF via Puppeteer (Chrome-based)                      |
+| **Editor**              | Image blocks, undo/redo, table row repetition                      |
+| **Security**            | API key authentication and management                              |
+| **Assets**              | Image upload with pluggable storage                                |
 
 ### Phase 2: Adoption
 
 **Goal**: Features for broader developer and business user adoption.
 
-| Area | Features |
-|------|----------|
-| **SDKs** | Java, Python, Node.js client libraries |
-| **Security** | Keycloak/OIDC integration, RBAC |
-| **Editor** | Headers/footers, page numbers, page breaks |
-| **Storage** | S3-compatible and PostgreSQL document storage |
-| **Operations** | Template import/export, Prometheus metrics |
-| **Documentation** | Landing page, product documentation |
+| Area              | Features                                      |
+| ----------------- | --------------------------------------------- |
+| **SDKs**          | Java, Python, Node.js client libraries        |
+| **Security**      | Keycloak/OIDC integration, RBAC               |
+| **Editor**        | Headers/footers, page numbers, page breaks    |
+| **Storage**       | S3-compatible and PostgreSQL document storage |
+| **Operations**    | Template import/export, Prometheus metrics    |
+| **Documentation** | Landing page, product documentation           |
 
 ### Phase 3: Enterprise
 
 **Goal**: Features required for enterprise deployment and compliance.
 
-| Area | Features |
-|------|----------|
-| **Security** | PBAC, GZAC plugin |
+| Area                    | Features                                                 |
+| ----------------------- | -------------------------------------------------------- |
+| **Security**            | PBAC, GZAC plugin                                        |
 | **Document Generation** | PDF accessibility (PDF/UA), digital signatures, metadata |
-| **Operations** | Usage tracking, API metrics, load testing |
-| **Integrations** | Open Notificaties events |
-| **Theming** | Theme definitions, consistent styling |
-| **Editor** | Reusable component library, background images |
+| **Operations**          | Usage tracking, API metrics, load testing                |
+| **Integrations**        | Open Notificaties events                                 |
+| **Theming**             | Theme definitions, consistent styling                    |
+| **Editor**              | Reusable component library, background images            |
 
 ### Phase 4: Governance (Later)
 
 **Goal**: Template lifecycle management for regulated industries.
 
-| Area | Features |
-|------|----------|
-| **Lifecycle** | Draft, published, archived states |
-| **Versioning** | Immutable template versions |
-| **Environments** | Staging to production promotion |
-| **Variants** | Language, brand, and audience variants |
+| Area             | Features                               |
+| ---------------- | -------------------------------------- |
+| **Lifecycle**    | Draft, published, archived states      |
+| **Versioning**   | Immutable template versions            |
+| **Environments** | Staging to production promotion        |
+| **Variants**     | Language, brand, and audience variants |
 
 ---
 
 ## Technical Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| PDF Engine | Puppeteer | Best HTML/CSS fidelity with Chrome rendering |
-| API Approach | Spec-first (OpenAPI) | Ensures consistent contracts, enables SDK generation |
-| Generation Model | Synchronous | Simpler implementation for MVP |
-| Asset Storage | Pluggable | Support S3, PostgreSQL, filesystem for different deployments |
+| Decision         | Choice               | Rationale                                                    |
+| ---------------- | -------------------- | ------------------------------------------------------------ |
+| PDF Engine       | Puppeteer            | Best HTML/CSS fidelity with Chrome rendering                 |
+| API Approach     | Spec-first (OpenAPI) | Ensures consistent contracts, enables SDK generation         |
+| Generation Model | Synchronous          | Simpler implementation for MVP                               |
+| Asset Storage    | Pluggable            | Support S3, PostgreSQL, filesystem for different deployments |
 
 ---
 

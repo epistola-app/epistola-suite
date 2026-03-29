@@ -11,43 +11,43 @@
  * request, AbortError silently ignored, onChange callback.
  */
 
-import { nanoid } from 'nanoid'
-import type { TemplateDocument, NodeId } from '../../types/index.js'
-import type { SendMessageFn, ChatMessage, ChatAttachment, ProposalStatus } from './types.js'
+import { nanoid } from "nanoid";
+import type { TemplateDocument, NodeId } from "../../types/index.js";
+import type { SendMessageFn, ChatMessage, ChatAttachment, ProposalStatus } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // State types
 // ---------------------------------------------------------------------------
 
-export type ChatStatus = 'idle' | 'streaming' | 'error'
+export type ChatStatus = "idle" | "streaming" | "error";
 
 export interface ChatState {
-  status: ChatStatus
-  messages: readonly ChatMessage[]
-  error?: string
+  status: ChatStatus;
+  messages: readonly ChatMessage[];
+  error?: string;
 }
 
-export type OnChatStateChange = (state: ChatState) => void
+export type OnChatStateChange = (state: ChatState) => void;
 
 // ---------------------------------------------------------------------------
 // AiChatService
 // ---------------------------------------------------------------------------
 
 export class AiChatService {
-  private _status: ChatStatus = 'idle'
-  private _messages: ChatMessage[] = []
-  private _error?: string
-  private _abortController: AbortController | null = null
-  private _disposed = false
-  private _conversationId: string
+  private _status: ChatStatus = "idle";
+  private _messages: ChatMessage[] = [];
+  private _error?: string;
+  private _abortController: AbortController | null = null;
+  private _disposed = false;
+  private _conversationId: string;
 
-  readonly _sendFn: SendMessageFn
-  readonly _onChange: OnChatStateChange
+  readonly _sendFn: SendMessageFn;
+  readonly _onChange: OnChatStateChange;
 
   constructor(sendFn: SendMessageFn, onChange: OnChatStateChange, conversationId?: string) {
-    this._sendFn = sendFn
-    this._onChange = onChange
-    this._conversationId = conversationId ?? nanoid()
+    this._sendFn = sendFn;
+    this._onChange = onChange;
+    this._conversationId = conversationId ?? nanoid();
   }
 
   get state(): ChatState {
@@ -55,15 +55,15 @@ export class AiChatService {
       status: this._status,
       messages: this._messages,
       error: this._error,
-    }
+    };
   }
 
   get messages(): readonly ChatMessage[] {
-    return this._messages
+    return this._messages;
   }
 
   get status(): ChatStatus {
-    return this._status
+    return this._status;
   }
 
   /**
@@ -76,39 +76,39 @@ export class AiChatService {
     selectedNodeId?: NodeId,
     attachments?: ChatAttachment[],
   ): Promise<void> {
-    if (this._disposed) return
+    if (this._disposed) return;
 
-    const trimmed = message.trim()
-    const hasAttachments = attachments && attachments.length > 0
-    if (!trimmed && !hasAttachments) return
+    const trimmed = message.trim();
+    const hasAttachments = attachments && attachments.length > 0;
+    if (!trimmed && !hasAttachments) return;
 
     // Abort any in-flight request
-    this.abort()
+    this.abort();
 
     // Add user message
     const userMessage: ChatMessage = {
       id: nanoid(),
-      role: 'user',
+      role: "user",
       content: trimmed,
       ...(hasAttachments ? { attachments } : {}),
       timestamp: Date.now(),
-    }
-    this._messages = [...this._messages, userMessage]
+    };
+    this._messages = [...this._messages, userMessage];
 
     // Create assistant message placeholder for streaming
     const assistantMessage: ChatMessage = {
       id: nanoid(),
-      role: 'assistant',
-      content: '',
+      role: "assistant",
+      content: "",
       timestamp: Date.now(),
-    }
-    this._messages = [...this._messages, assistantMessage]
+    };
+    this._messages = [...this._messages, assistantMessage];
 
     // Set up abort controller
-    const controller = new AbortController()
-    this._abortController = controller
+    const controller = new AbortController();
+    this._abortController = controller;
 
-    this._setStatus('streaming')
+    this._setStatus("streaming");
 
     try {
       await this._sendFn(
@@ -121,52 +121,52 @@ export class AiChatService {
         },
         controller.signal,
         (chunk) => {
-          if (this._disposed || controller.signal.aborted) return
+          if (this._disposed || controller.signal.aborted) return;
 
           switch (chunk.type) {
-            case 'text':
+            case "text":
               this._updateLastAssistantMessage((msg) => ({
                 ...msg,
                 content: msg.content + chunk.content,
-              }))
-              break
+              }));
+              break;
 
-            case 'proposal':
+            case "proposal":
               this._updateLastAssistantMessage((msg) => ({
                 ...msg,
                 proposal: chunk.proposal,
-                proposalStatus: 'pending',
-              }))
-              break
+                proposalStatus: "pending",
+              }));
+              break;
 
-            case 'error':
-              this._error = chunk.message
-              this._setStatus('error')
-              break
+            case "error":
+              this._error = chunk.message;
+              this._setStatus("error");
+              break;
 
-            case 'done':
+            case "done":
               // No-op, handled after await
-              break
+              break;
           }
         },
-      )
+      );
 
-      if (this._disposed || controller.signal.aborted) return
+      if (this._disposed || controller.signal.aborted) return;
 
       // Only transition to idle if we weren't already set to error by a chunk
-      if (this._status === 'streaming') {
-        this._setStatus('idle')
+      if (this._status === "streaming") {
+        this._setStatus("idle");
       }
     } catch (err: unknown) {
       // Silently ignore AbortError — it means we intentionally cancelled
-      if (err instanceof DOMException && err.name === 'AbortError') return
-      if (this._disposed) return
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (this._disposed) return;
 
-      this._error = err instanceof Error ? err.message : 'An error occurred'
-      this._setStatus('error')
+      this._error = err instanceof Error ? err.message : "An error occurred";
+      this._setStatus("error");
     } finally {
       if (this._abortController === controller) {
-        this._abortController = null
+        this._abortController = null;
       }
     }
   }
@@ -177,11 +177,11 @@ export class AiChatService {
    */
   abort(): void {
     if (this._abortController) {
-      this._abortController.abort()
-      this._abortController = null
+      this._abortController.abort();
+      this._abortController = null;
     }
-    if (this._status === 'streaming') {
-      this._setStatus('idle')
+    if (this._status === "streaming") {
+      this._setStatus("idle");
     }
   }
 
@@ -189,26 +189,26 @@ export class AiChatService {
    * Update the proposal status on a specific message.
    */
   setProposalStatus(messageId: string, status: ProposalStatus): void {
-    const idx = this._messages.findIndex((m) => m.id === messageId)
-    if (idx === -1) return
+    const idx = this._messages.findIndex((m) => m.id === messageId);
+    if (idx === -1) return;
 
-    const msg = this._messages[idx]
-    if (!msg.proposal) return
+    const msg = this._messages[idx];
+    if (!msg.proposal) return;
 
     this._messages = [
       ...this._messages.slice(0, idx),
       { ...msg, proposalStatus: status },
       ...this._messages.slice(idx + 1),
-    ]
-    this._notify()
+    ];
+    this._notify();
   }
 
   /**
    * Clean up all resources.
    */
   dispose(): void {
-    this._disposed = true
-    this.abort()
+    this._disposed = true;
+    this.abort();
   }
 
   // ---------------------------------------------------------------------------
@@ -216,8 +216,8 @@ export class AiChatService {
   // ---------------------------------------------------------------------------
 
   private _setStatus(status: ChatStatus): void {
-    this._status = status
-    this._notify()
+    this._status = status;
+    this._notify();
   }
 
   private _notify(): void {
@@ -225,17 +225,14 @@ export class AiChatService {
       status: this._status,
       messages: this._messages,
       error: this._error,
-    })
+    });
   }
 
   private _updateLastAssistantMessage(updater: (msg: ChatMessage) => ChatMessage): void {
-    const lastIdx = this._messages.length - 1
-    if (lastIdx < 0 || this._messages[lastIdx].role !== 'assistant') return
+    const lastIdx = this._messages.length - 1;
+    if (lastIdx < 0 || this._messages[lastIdx].role !== "assistant") return;
 
-    this._messages = [
-      ...this._messages.slice(0, lastIdx),
-      updater(this._messages[lastIdx]),
-    ]
-    this._notify()
+    this._messages = [...this._messages.slice(0, lastIdx), updater(this._messages[lastIdx])];
+    this._notify();
   }
 }

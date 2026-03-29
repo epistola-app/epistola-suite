@@ -24,6 +24,7 @@ git log "$LATEST_TAG"..HEAD --oneline
 ```
 
 Apply semantic versioning based on conventional commits:
+
 - Any `feat:` commit → bump **MINOR** (e.g., 0.6.1 → 0.7.0)
 - Only `fix:`/`docs:`/`chore:`/`refactor:`/`test:` → bump **PATCH** (e.g., 0.6.1 → 0.6.2)
 - Any `feat!:` or `BREAKING CHANGE` → bump **MAJOR** (e.g., 0.6.1 → 1.0.0)
@@ -45,6 +46,7 @@ docs: update changelog for vX.Y.Z release
 ### 3. Ask for confirmation
 
 Before creating the release, show the user:
+
 - The version number
 - The commits included
 - Ask for permission to proceed
@@ -61,6 +63,7 @@ The `--generate-notes` flag auto-generates release notes from PRs and commits.
 ### 5. Verify
 
 After creating the release, tell the user:
+
 - The release URL
 - That CI will automatically build and publish the Docker image
 - They can monitor the workflow at: `gh run list --workflow=build.yml --limit 1`

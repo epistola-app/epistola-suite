@@ -9,6 +9,7 @@ Epistola Suite is committed to providing a welcoming and inclusive environment f
 We adopt the [Contributor Covenant v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/) as our code of conduct.
 
 **In summary:**
+
 - Be respectful and inclusive
 - Accept constructive feedback gracefully
 - Focus on what's best for the community

@@ -20,6 +20,7 @@ For development setup instructions, see the [README](README.md). In short:
 ### Reporting Bugs
 
 Found a bug? Please [open an issue](../../issues/new?template=bug_report.yml) with:
+
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs actual behavior
@@ -28,6 +29,7 @@ Found a bug? Please [open an issue](../../issues/new?template=bug_report.yml) wi
 ### Suggesting Features
 
 Have an idea? [Open a feature request](../../issues/new?template=feature_request.yml) describing:
+
 - The problem you're trying to solve
 - Your proposed solution
 - Any alternatives you've considered
@@ -50,15 +52,16 @@ Documentation improvements are always welcome! [Open a documentation issue](../.
 
 Use descriptive branch names with these prefixes:
 
-| Prefix | Purpose |
-|--------|---------|
-| `feat/` | New features |
-| `fix/` | Bug fixes |
-| `docs/` | Documentation changes |
-| `chore/` | Maintenance tasks |
-| `refactor/` | Code refactoring |
+| Prefix      | Purpose               |
+| ----------- | --------------------- |
+| `feat/`     | New features          |
+| `fix/`      | Bug fixes             |
+| `docs/`     | Documentation changes |
+| `chore/`    | Maintenance tasks     |
+| `refactor/` | Code refactoring      |
 
 **Examples:**
+
 - `feat/add-pdf-export`
 - `fix/login-redirect-bug`
 - `docs/update-api-reference`
@@ -71,16 +74,17 @@ We use [Conventional Commits](https://www.conventionalcommits.org/). This enable
 
 **Format:** `<type>: <description>`
 
-| Type | Description |
-|------|-------------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `chore` | Maintenance, dependencies |
+| Type       | Description                             |
+| ---------- | --------------------------------------- |
+| `feat`     | New feature                             |
+| `fix`      | Bug fix                                 |
+| `docs`     | Documentation only                      |
+| `chore`    | Maintenance, dependencies               |
 | `refactor` | Code change that neither fixes nor adds |
-| `test` | Adding or updating tests |
+| `test`     | Adding or updating tests                |
 
 **Examples:**
+
 ```
 feat: add PDF export functionality
 fix: resolve login redirect loop
@@ -88,6 +92,7 @@ docs: update installation instructions
 ```
 
 **Breaking Changes:**
+
 - Add `!` after type: `feat!: remove deprecated API`
 - Or add `BREAKING CHANGE:` in the commit footer
 
@@ -96,11 +101,13 @@ docs: update installation instructions
 Commits should be signed using SSH keys. The `./scripts/init.sh` script configures this automatically.
 
 To verify signing is enabled:
+
 ```bash
 git config --get commit.gpgsign  # Should return "true"
 ```
 
 **Important:** Your SSH key must be added to GitHub as a **signing key** (not just authentication):
+
 1. Go to GitHub → Settings → SSH and GPG keys
 2. Click "New SSH key"
 3. Select **"Signing Key"** as the key type
@@ -109,17 +116,20 @@ git config --get commit.gpgsign  # Should return "true"
 ### Code Style
 
 #### Kotlin (Backend)
+
 - We use [ktlint](https://pinterest.github.io/ktlint/) for code formatting
 - Run `gradle ktlintCheck` to check
 - Run `gradle ktlintFormat` to auto-fix
 - EditorConfig is configured for consistent formatting
 
 #### Thymeleaf + HTMX (Frontend)
+
 - Server-side rendered templates in `apps/epistola/src/main/resources/templates/`
 - Use HTMX attributes for dynamic interactions
 - Follow existing patterns in the codebase
 
 #### TypeScript (Client Components)
+
 - For rich interactive components like the editor in `modules/editor/`
 - EditorConfig ensures consistent indentation
 
@@ -131,6 +141,7 @@ git config --get commit.gpgsign  # Should return "true"
 - **Frontend:** Add tests for new components/utilities
 
 Run tests locally:
+
 ```bash
 gradle test
 ```
@@ -155,17 +166,17 @@ gradle test
 
 Labels are automatically managed via [`.github/labels.yml`](.github/labels.yml). Key labels include:
 
-| Label | Description |
-|-------|-------------|
-| `bug` | Something isn't working |
-| `feature` | New feature request |
-| `documentation` | Documentation improvements |
-| `good first issue` | Good for newcomers |
-| `help wanted` | Extra attention needed |
-| `backend` | Kotlin/Spring Boot related |
-| `frontend` | Thymeleaf/HTMX/UI related |
-| `priority: critical/high/low` | Issue priority |
-| `status: blocked/in progress` | Current status |
+| Label                         | Description                |
+| ----------------------------- | -------------------------- |
+| `bug`                         | Something isn't working    |
+| `feature`                     | New feature request        |
+| `documentation`               | Documentation improvements |
+| `good first issue`            | Good for newcomers         |
+| `help wanted`                 | Extra attention needed     |
+| `backend`                     | Kotlin/Spring Boot related |
+| `frontend`                    | Thymeleaf/HTMX/UI related  |
+| `priority: critical/high/low` | Issue priority             |
+| `status: blocked/in progress` | Current status             |
 
 See the [labels config](.github/labels.yml) for the complete list.
 

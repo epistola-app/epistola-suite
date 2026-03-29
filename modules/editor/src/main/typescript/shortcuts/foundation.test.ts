@@ -12,7 +12,7 @@ import {
   EDITOR_SHORTCUT_COMMAND_IDS,
   getEditorShortcutRegistry,
   type EditorShortcutRuntimeContext,
-} from './editor-runtime.js'
+} from "./editor-runtime.js";
 
 describe("shortcut foundation", () => {
   it("accepts documented command id namespaces", () => {
@@ -76,12 +76,8 @@ describe("shortcut foundation", () => {
     });
 
     expect(result.valid).toBe(false);
-    expect(result.issues.map((issue) => issue.code)).toContain(
-      "missing-command-reference",
-    );
-    expect(result.issues.map((issue) => issue.code)).toContain(
-      "empty-binding-keys",
-    );
+    expect(result.issues.map((issue) => issue.code)).toContain("missing-command-reference");
+    expect(result.issues.map((issue) => issue.code)).toContain("empty-binding-keys");
   });
 
   it("reports invalid match mode when provided", () => {
@@ -105,9 +101,7 @@ describe("shortcut foundation", () => {
     });
 
     expect(result.valid).toBe(false);
-    expect(result.issues.map((issue) => issue.code)).toContain(
-      "invalid-binding-match-by",
-    );
+    expect(result.issues.map((issue) => issue.code)).toContain("invalid-binding-match-by");
   });
 
   it("reports conflicting unconditional bindings in same context", () => {
@@ -141,9 +135,7 @@ describe("shortcut foundation", () => {
     });
 
     expect(result.valid).toBe(false);
-    expect(result.issues.map((issue) => issue.code)).toContain(
-      "binding-conflict",
-    );
+    expect(result.issues.map((issue) => issue.code)).toContain("binding-conflict");
   });
 
   it("allows same key when all bindings are conditional", () => {
@@ -208,16 +200,14 @@ describe("shortcut foundation", () => {
       },
     ]);
 
-    expect(formatted).toContain(
-      "1. [empty-binding-keys] Binding at index 0 is empty",
-    );
+    expect(formatted).toContain("1. [empty-binding-keys] Binding at index 0 is empty");
     expect(formatted).toContain(
       "2. [missing-command-reference] Binding at index 0 references missing command",
     );
   });
 
-  it('validates runtime registry and runs the real toggle-preview command', async () => {
-    const runtimeRegistry = getEditorShortcutRegistry()
+  it("validates runtime registry and runs the real toggle-preview command", async () => {
+    const runtimeRegistry = getEditorShortcutRegistry();
     const validation = validateShortcutRegistry(runtimeRegistry);
     expect(validation.valid).toBe(true);
 
@@ -236,7 +226,7 @@ describe("shortcut foundation", () => {
       canDeselectSelectedBlock: false,
       deselectSelectedBlock: () => false,
       togglePreview: () => {
-        toggleCount += 1
+        toggleCount += 1;
       },
       duplicateSelectedBlock: () => false,
       openInsertDialog: () => false,
@@ -247,7 +237,7 @@ describe("shortcut foundation", () => {
       focusResizeHandle: () => false,
       moveSelectedBlockUp: () => false,
       moveSelectedBlockDown: () => false,
-    }
+    };
 
     const result = await Promise.resolve(
       command!.run(runtimeContext, { signal: new AbortController().signal }),

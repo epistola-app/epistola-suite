@@ -6,31 +6,31 @@
 backend:
   - changed-files:
       - any-glob-to-any-file:
-          - 'apps/epistola/**'
+          - "apps/epistola/**"
 
 frontend:
   - changed-files:
       - any-glob-to-any-file:
-          - 'modules/editor/**'
+          - "modules/editor/**"
 
 infrastructure:
   - changed-files:
       - any-glob-to-any-file:
-          - '.github/**'
-          - 'charts/**'
-          - 'Dockerfile'
-          - 'Dockerfile.*'
-          - 'docker-compose.yml'
-          - 'docker-compose.*.yml'
-          - 'docker-compose*.yml'
-          - 'build.gradle.kts'
-          - 'settings.gradle.kts'
-          - 'gradle/**'
+          - ".github/**"
+          - "charts/**"
+          - "Dockerfile"
+          - "Dockerfile.*"
+          - "docker-compose.yml"
+          - "docker-compose.*.yml"
+          - "docker-compose*.yml"
+          - "build.gradle.kts"
+          - "settings.gradle.kts"
+          - "gradle/**"
 
 # Type Labels
 documentation:
   - changed-files:
       - any-glob-to-any-file:
-          - 'docs/**'
-          - '*.md'
-          - '!CHANGELOG.md'
+          - "docs/**"
+          - "*.md"
+          - "!CHANGELOG.md"

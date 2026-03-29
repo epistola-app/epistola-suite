@@ -1,49 +1,52 @@
-import { defineConfig } from 'vitest/config'
-import path, { resolve } from 'path'
+import { defineConfig } from "vitest/config";
+import path, { resolve } from "path";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src/main/typescript'),
-      '@design': path.resolve(__dirname, '../design-system'),
+      "@": path.resolve(__dirname, "./src/main/typescript"),
+      "@design": path.resolve(__dirname, "../design-system"),
     },
   },
   // Replace process.env.NODE_ENV for browser bundles (some dependencies reference it).
   // Excluded during tests — it causes Vitest v4 to set import.meta.env.PROD = true,
   // which disables deepFreeze and breaks the immutability test.
-  define: mode !== 'test' ? {
-    'process.env.NODE_ENV': JSON.stringify('production'),
-  } : {},
+  define:
+    mode !== "test"
+      ? {
+          "process.env.NODE_ENV": JSON.stringify("production"),
+        }
+      : {},
   optimizeDeps: {
-    include: ['jsonata'],
+    include: ["jsonata"],
   },
   server: {
     port: 5174,
     cors: true,
-    origin: 'http://localhost:5174',
+    origin: "http://localhost:5174",
   },
   build: {
-    minify: 'esbuild',
+    minify: "esbuild",
     lib: {
       entry: {
-        'template-editor': resolve(__dirname, 'src/main/typescript/lib.ts'),
-        'theme-editor': resolve(__dirname, 'src/main/typescript/theme-editor-lib.ts'),
-        'data-contract-editor': resolve(__dirname, 'src/main/typescript/data-contract-lib.ts'),
-        'ai-plugin': resolve(__dirname, 'src/main/typescript/ai-plugin-lib.ts'),
+        "template-editor": resolve(__dirname, "src/main/typescript/lib.ts"),
+        "theme-editor": resolve(__dirname, "src/main/typescript/theme-editor-lib.ts"),
+        "data-contract-editor": resolve(__dirname, "src/main/typescript/data-contract-lib.ts"),
+        "ai-plugin": resolve(__dirname, "src/main/typescript/ai-plugin-lib.ts"),
       },
-      formats: ['es'],
+      formats: ["es"],
     },
     rollupOptions: {
       output: {
-        assetFileNames: '[name].[ext]',
+        assetFileNames: "[name].[ext]",
       },
     },
     cssCodeSplit: true,
   },
   test: {
     globals: true,
-    environment: 'node',
-    include: ['src/main/typescript/**/*.test.ts'],
+    environment: "node",
+    include: ["src/main/typescript/**/*.test.ts"],
   },
-}))
+}));

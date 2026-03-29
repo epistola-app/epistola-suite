@@ -1,13 +1,17 @@
-import { LitElement, html, nothing } from 'lit'
-import { customElement, property } from 'lit/decorators.js'
-import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js'
-import type { EditorEngine } from '../engine/EditorEngine.js'
-import type { ComponentDefinition, InspectorField } from '../engine/registry.js'
-import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry'
-import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme'
-import { getNestedValue, setNestedValue } from '../engine/props.js'
-import { isValidExpression, validateArrayResult, validateBooleanResult } from '../engine/resolve-expression.js'
-import { openExpressionDialog } from './expression-dialog.js'
+import { LitElement, html, nothing } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import type { TemplateDocument, NodeId, Node, PageSettings } from "../types/index.js";
+import type { EditorEngine } from "../engine/EditorEngine.js";
+import type { ComponentDefinition, InspectorField } from "../engine/registry.js";
+import type { StyleProperty } from "@epistola.app/editor-model/generated/style-registry";
+import type { BlockStylePreset } from "@epistola.app/editor-model/generated/theme";
+import { getNestedValue, setNestedValue } from "../engine/props.js";
+import {
+  isValidExpression,
+  validateArrayResult,
+  validateBooleanResult,
+} from "../engine/resolve-expression.js";
+import { openExpressionDialog } from "./expression-dialog.js";
 import {
   renderUnitInput,
   renderColorInput,
@@ -16,31 +20,31 @@ import {
   expandSpacingToStyles,
   readSpacingFromStyles,
   type SpacingValue,
-} from './inputs/style-inputs.js'
+} from "./inputs/style-inputs.js";
 
-@customElement('epistola-inspector')
+@customElement("epistola-inspector")
 export class EpistolaInspector extends LitElement {
   override createRenderRoot() {
-    return this
+    return this;
   }
 
-  @property({ attribute: false }) engine?: EditorEngine
-  @property({ attribute: false }) doc?: TemplateDocument
-  @property({ attribute: false }) selectedNodeId: NodeId | null = null
+  @property({ attribute: false }) engine?: EditorEngine;
+  @property({ attribute: false }) doc?: TemplateDocument;
+  @property({ attribute: false }) selectedNodeId: NodeId | null = null;
 
   override render() {
     if (!this.engine || !this.doc) {
-      return html`<div class="panel-empty">No document</div>`
+      return html`<div class="panel-empty">No document</div>`;
     }
 
     if (!this.selectedNodeId) {
-      return this._renderDocumentInspector()
+      return this._renderDocumentInspector();
     }
 
-    const node = this.doc.nodes[this.selectedNodeId]
-    if (!node) return html`<div class="panel-error">Node not found</div>`
+    const node = this.doc.nodes[this.selectedNodeId];
+    if (!node) return html`<div class="panel-error">Node not found</div>`;
 
-    const def = this.engine.registry.get(node.type)
+    const def = this.engine.registry.get(node.type);
 
     return html`
       <div class="epistola-inspector">
@@ -51,40 +55,27 @@ export class EpistolaInspector extends LitElement {
         </div>
 
         <!-- Component-specific inspector (columns, table, etc.) -->
-        ${def?.renderInspector
-          ? def.renderInspector({ node, engine: this.engine! })
-          : nothing
-        }
+        ${def?.renderInspector ? def.renderInspector({ node, engine: this.engine! }) : nothing}
 
         <!-- Props -->
         ${def?.inspector && def.inspector.length > 0
           ? this._renderInspectorFields(node, def)
-          : nothing
-        }
+          : nothing}
 
         <!-- Style preset -->
-        ${this._hasStyles(def?.applicableStyles)
-          ? this._renderStylePresetSection(node)
-          : nothing
-        }
+        ${this._hasStyles(def?.applicableStyles) ? this._renderStylePresetSection(node) : nothing}
 
         <!-- Style properties -->
         ${this._hasStyles(def?.applicableStyles)
           ? this._renderNodeStyleGroups(node, def?.applicableStyles)
-          : nothing
-        }
+          : nothing}
 
         <!-- Delete -->
         <div class="inspector-delete-section">
-          <button
-            class="ep-btn-danger"
-            @click=${this._handleDelete}
-          >
-            Delete Block
-          </button>
+          <button class="ep-btn-danger" @click=${this._handleDelete}>Delete Block</button>
         </div>
       </div>
-    `
+    `;
   }
 
   // -----------------------------------------------------------------------
@@ -92,7 +83,7 @@ export class EpistolaInspector extends LitElement {
   // -----------------------------------------------------------------------
 
   private _renderDocumentInspector(): unknown {
-    if (!this.engine) return nothing
+    if (!this.engine) return nothing;
 
     return html`
       <div class="epistola-inspector">
@@ -102,42 +93,42 @@ export class EpistolaInspector extends LitElement {
         <!-- Page settings -->
         ${this._renderPageSettings()}
       </div>
-    `
+    `;
   }
 
   private _renderDocumentStyleGroups(): unknown {
-    if (!this.engine) return nothing
+    if (!this.engine) return nothing;
 
-    const groups = this.engine.styleRegistry.groups
-    const docStyles = (this.doc?.documentStylesOverride ?? {}) as Record<string, unknown>
+    const groups = this.engine.styleRegistry.groups;
+    const docStyles = (this.doc?.documentStylesOverride ?? {}) as Record<string, unknown>;
 
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Document Styles</div>
-        ${groups.map(group => {
+        ${groups.map((group) => {
           // Only show inheritable properties for document styles
-          const inheritableProps = group.properties.filter(p => p.inheritable)
-          if (inheritableProps.length === 0) return nothing
+          const inheritableProps = group.properties.filter((p) => p.inheritable);
+          if (inheritableProps.length === 0) return nothing;
 
           return html`
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
-              ${inheritableProps.map(prop => this._renderStyleProperty(
-                prop,
-                docStyles[prop.key],
-                (value) => this._handleDocStyleChange(prop.key, value),
-              ))}
+              ${inheritableProps.map((prop) =>
+                this._renderStyleProperty(prop, docStyles[prop.key], (value) =>
+                  this._handleDocStyleChange(prop.key, value),
+                ),
+              )}
             </div>
-          `
+          `;
         })}
       </div>
-    `
+    `;
   }
 
   private _renderPageSettings(): unknown {
-    if (!this.engine) return nothing
+    if (!this.engine) return nothing;
 
-    const settings = this.engine.resolvedPageSettings
+    const settings = this.engine.resolvedPageSettings;
 
     return html`
       <div class="inspector-section">
@@ -147,11 +138,12 @@ export class EpistolaInspector extends LitElement {
           <label class="inspector-field-label">Format</label>
           <select
             class="ep-select"
-            @change=${(e: Event) => this._handlePageSettingChange('format', (e.target as HTMLSelectElement).value)}
+            @change=${(e: Event) =>
+              this._handlePageSettingChange("format", (e.target as HTMLSelectElement).value)}
           >
-            ${['A4', 'Letter', 'Custom'].map(f => html`
-              <option .value=${f} ?selected=${settings.format === f}>${f}</option>
-            `)}
+            ${["A4", "Letter", "Custom"].map(
+              (f) => html` <option .value=${f} ?selected=${settings.format === f}>${f}</option> `,
+            )}
           </select>
         </div>
 
@@ -159,61 +151,68 @@ export class EpistolaInspector extends LitElement {
           <label class="inspector-field-label">Orientation</label>
           <select
             class="ep-select"
-            @change=${(e: Event) => this._handlePageSettingChange('orientation', (e.target as HTMLSelectElement).value)}
+            @change=${(e: Event) =>
+              this._handlePageSettingChange("orientation", (e.target as HTMLSelectElement).value)}
           >
-            ${['portrait', 'landscape'].map(o => html`
-              <option .value=${o} ?selected=${settings.orientation === o}>${o[0].toUpperCase() + o.slice(1)}</option>
-            `)}
+            ${["portrait", "landscape"].map(
+              (o) => html`
+                <option .value=${o} ?selected=${settings.orientation === o}>
+                  ${o[0].toUpperCase() + o.slice(1)}
+                </option>
+              `,
+            )}
           </select>
         </div>
 
         <div class="inspector-field">
           <label class="inspector-field-label">Margins (mm)</label>
           <div class="inspector-margins-grid">
-            ${(['top', 'right', 'bottom', 'left'] as const).map(side => html`
-              <div class="inspector-margin-field">
-                <span class="style-spacing-label">${side[0].toUpperCase()}</span>
-                <input
-                  type="number"
-                  class="ep-input style-spacing-number"
-                  .value=${String(settings.margins[side])}
-                  @change=${(e: Event) => this._handleMarginChange(side, Number((e.target as HTMLInputElement).value))}
-                />
-              </div>
-            `)}
+            ${(["top", "right", "bottom", "left"] as const).map(
+              (side) => html`
+                <div class="inspector-margin-field">
+                  <span class="style-spacing-label">${side[0].toUpperCase()}</span>
+                  <input
+                    type="number"
+                    class="ep-input style-spacing-number"
+                    .value=${String(settings.margins[side])}
+                    @change=${(e: Event) =>
+                      this._handleMarginChange(side, Number((e.target as HTMLInputElement).value))}
+                  />
+                </div>
+              `,
+            )}
           </div>
         </div>
 
         <div class="inspector-field">
           <label class="inspector-field-label">Background Color</label>
-          ${renderColorInput(
-            settings.backgroundColor ?? '',
-            (value) => this._handlePageSettingChange('backgroundColor', value),
+          ${renderColorInput(settings.backgroundColor ?? "", (value) =>
+            this._handlePageSettingChange("backgroundColor", value),
           )}
         </div>
       </div>
-    `
+    `;
   }
 
   // -----------------------------------------------------------------------
   // Node style editing
   // -----------------------------------------------------------------------
 
-  private _hasStyles(applicableStyles: 'all' | string[] | undefined): boolean {
-    if (!applicableStyles) return false
-    if (applicableStyles === 'all') return true
-    return applicableStyles.length > 0
+  private _hasStyles(applicableStyles: "all" | string[] | undefined): boolean {
+    if (!applicableStyles) return false;
+    if (applicableStyles === "all") return true;
+    return applicableStyles.length > 0;
   }
 
   private _renderStylePresetSection(node: Node): unknown {
-    if (!this.engine) return nothing
+    if (!this.engine) return nothing;
 
-    const theme = this.engine.theme
-    const presets = theme?.blockStylePresets
+    const theme = this.engine.theme;
+    const presets = theme?.blockStylePresets;
 
     // If there's a theme with presets, show a dropdown
     if (presets && Object.keys(presets).length > 0) {
-      const applicablePresets = this._getApplicablePresets(presets, node.type)
+      const applicablePresets = this._getApplicablePresets(presets, node.type);
 
       if (applicablePresets.length > 0) {
         return html`
@@ -222,17 +221,21 @@ export class EpistolaInspector extends LitElement {
             <select
               class="ep-select"
               @change=${(e: Event) => {
-                const value = (e.target as HTMLSelectElement).value
-                this._handleStylePreset(value || undefined)
+                const value = (e.target as HTMLSelectElement).value;
+                this._handleStylePreset(value || undefined);
               }}
             >
               <option value="" ?selected=${!node.stylePreset}>None</option>
-              ${applicablePresets.map(([name, preset]) => html`
-                <option .value=${name} ?selected=${node.stylePreset === name}>${preset.label}</option>
-              `)}
+              ${applicablePresets.map(
+                ([name, preset]) => html`
+                  <option .value=${name} ?selected=${node.stylePreset === name}>
+                    ${preset.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
-        `
+        `;
       }
     }
 
@@ -243,15 +246,15 @@ export class EpistolaInspector extends LitElement {
         <input
           type="text"
           class="ep-input"
-          .value=${node.stylePreset ?? ''}
+          .value=${node.stylePreset ?? ""}
           @change=${(e: Event) => {
-            const value = (e.target as HTMLInputElement).value
-            this._handleStylePreset(value || undefined)
+            const value = (e.target as HTMLInputElement).value;
+            this._handleStylePreset(value || undefined);
           }}
           placeholder="None"
         />
       </div>
-    `
+    `;
   }
 
   private _getApplicablePresets(
@@ -259,49 +262,54 @@ export class EpistolaInspector extends LitElement {
     nodeType: string,
   ): [string, BlockStylePreset][] {
     return Object.entries(presets).filter(([, preset]) => {
-      if (!preset.applicableTo || preset.applicableTo.length === 0) return true
-      return preset.applicableTo.includes(nodeType)
-    })
+      if (!preset.applicableTo || preset.applicableTo.length === 0) return true;
+      return preset.applicableTo.includes(nodeType);
+    });
   }
 
-  private _renderNodeStyleGroups(node: Node, applicableStyles: 'all' | string[] | undefined): unknown {
-    if (!this.engine) return nothing
+  private _renderNodeStyleGroups(
+    node: Node,
+    applicableStyles: "all" | string[] | undefined,
+  ): unknown {
+    if (!this.engine) return nothing;
 
-    const groups = this.engine.styleRegistry.groups
-    const inlineStyles = (node.styles ?? {}) as Record<string, unknown>
+    const groups = this.engine.styleRegistry.groups;
+    const inlineStyles = (node.styles ?? {}) as Record<string, unknown>;
 
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Styles</div>
-        ${groups.map(group => {
-          const filteredProps = this._filterProperties(group.properties, applicableStyles)
-          if (filteredProps.length === 0) return nothing
+        ${groups.map((group) => {
+          const filteredProps = this._filterProperties(group.properties, applicableStyles);
+          if (filteredProps.length === 0) return nothing;
 
           return html`
             <div class="inspector-style-group">
               <div class="inspector-style-group-label">${group.label}</div>
-              ${filteredProps.map(prop => {
+              ${filteredProps.map((prop) => {
                 // For spacing properties, reconstruct compound value from individual keys
-                const value = prop.type === 'spacing'
-                  ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
-                  : inlineStyles[prop.key]
-                return this._renderStyleProperty(
-                  prop,
-                  value,
-                  (v) => this._handleNodeStyleChange(prop.key, v),
-                )
+                const value =
+                  prop.type === "spacing"
+                    ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? "px")
+                    : inlineStyles[prop.key];
+                return this._renderStyleProperty(prop, value, (v) =>
+                  this._handleNodeStyleChange(prop.key, v),
+                );
               })}
             </div>
-          `
+          `;
         })}
       </div>
-    `
+    `;
   }
 
-  private _filterProperties(properties: StyleProperty[], applicableStyles: 'all' | string[] | undefined): StyleProperty[] {
-    if (!applicableStyles || applicableStyles === 'all') return properties
-    if (applicableStyles.length === 0) return []
-    return properties.filter(p => applicableStyles.includes(p.key))
+  private _filterProperties(
+    properties: StyleProperty[],
+    applicableStyles: "all" | string[] | undefined,
+  ): StyleProperty[] {
+    if (!applicableStyles || applicableStyles === "all") return properties;
+    if (applicableStyles.length === 0) return [];
+    return properties.filter((p) => applicableStyles.includes(p.key));
   }
 
   private _renderStyleProperty(
@@ -314,7 +322,7 @@ export class EpistolaInspector extends LitElement {
         <label class="inspector-field-label">${prop.label}</label>
         ${this._renderStyleInput(prop, value, onChange)}
       </div>
-    `
+    `;
   }
 
   private _renderStyleInput(
@@ -323,48 +331,33 @@ export class EpistolaInspector extends LitElement {
     onChange: (value: unknown) => void,
   ): unknown {
     switch (prop.type) {
-      case 'select':
-        return renderSelectInput(
-          value,
-          prop.options ?? [],
-          (v) => onChange(v || undefined),
-        )
-      case 'unit':
-        return renderUnitInput(
-          value,
-          prop.units ?? ['px'],
-          (v) => onChange(v),
-        )
-      case 'color':
-        return renderColorInput(
-          value,
-          (v) => onChange(v || undefined),
-        )
-      case 'spacing':
-        return renderSpacingInput(
-          value,
-          prop.units ?? ['px'],
-          (v) => onChange(v),
-        )
-      case 'number':
+      case "select":
+        return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
+      case "unit":
+        return renderUnitInput(value, prop.units ?? ["px"], (v) => onChange(v));
+      case "color":
+        return renderColorInput(value, (v) => onChange(v || undefined));
+      case "spacing":
+        return renderSpacingInput(value, prop.units ?? ["px"], (v) => onChange(v));
+      case "number":
         return html`
           <input
             type="number"
             class="ep-input"
-            .value=${String(value ?? '')}
+            .value=${String(value ?? "")}
             @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
           />
-        `
-      case 'text':
+        `;
+      case "text":
       default:
         return html`
           <input
             type="text"
             class="ep-input"
-            .value=${String(value ?? '')}
+            .value=${String(value ?? "")}
             @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
           />
-        `
+        `;
     }
   }
 
@@ -376,29 +369,30 @@ export class EpistolaInspector extends LitElement {
     return html`
       <div class="inspector-section">
         <div class="inspector-section-label">Properties</div>
-        ${def.inspector.map(field => this._renderField(node, field))}
+        ${def.inspector.map((field) => this._renderField(node, field))}
       </div>
-    `
+    `;
   }
 
   private _renderField(node: Node, field: InspectorField): unknown {
-    const props = node.props ?? {}
-    const value = getNestedValue(props, field.key)
+    const props = node.props ?? {};
+    const value = getNestedValue(props, field.key);
 
     switch (field.type) {
-      case 'text':
+      case "text":
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
             <input
               type="text"
               class="ep-input"
-              .value=${String(value ?? '')}
-              @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
+              .value=${String(value ?? "")}
+              @change=${(e: Event) =>
+                this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
             />
           </div>
-        `
-      case 'number':
+        `;
+      case "number":
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
@@ -406,52 +400,59 @@ export class EpistolaInspector extends LitElement {
               type="number"
               class="ep-input"
               .value=${String(value ?? 0)}
-              @change=${(e: Event) => this._handlePropChange(field.key, Number((e.target as HTMLInputElement).value))}
+              @change=${(e: Event) =>
+                this._handlePropChange(field.key, Number((e.target as HTMLInputElement).value))}
             />
           </div>
-        `
-      case 'boolean':
+        `;
+      case "boolean":
         return html`
           <div class="inspector-checkbox-field">
             <input
               type="checkbox"
               class="ep-checkbox"
               .checked=${Boolean(value)}
-              @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLInputElement).checked)}
+              @change=${(e: Event) =>
+                this._handlePropChange(field.key, (e.target as HTMLInputElement).checked)}
             />
             <label class="inspector-field-label">${field.label}</label>
           </div>
-        `
-      case 'unit':
+        `;
+      case "unit":
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
-            ${renderUnitInput(
-              value,
-              field.units ?? ['pt'],
-              (v) => this._handlePropChange(field.key, v),
+            ${renderUnitInput(value, field.units ?? ["pt"], (v) =>
+              this._handlePropChange(field.key, v),
             )}
           </div>
-        `
-      case 'select':
+        `;
+      case "select":
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
             <select
               class="ep-select"
-              @change=${(e: Event) => this._handlePropChange(field.key, (e.target as HTMLSelectElement).value)}
+              @change=${(e: Event) =>
+                this._handlePropChange(field.key, (e.target as HTMLSelectElement).value)}
             >
-              ${(field.options ?? []).map(opt => html`
-                <option .value=${String(opt.value)} ?selected=${value === opt.value}>${opt.label}</option>
-              `)}
+              ${(field.options ?? []).map(
+                (opt) => html`
+                  <option .value=${String(opt.value)} ?selected=${value === opt.value}>
+                    ${opt.label}
+                  </option>
+                `,
+              )}
             </select>
           </div>
-        `
-      case 'expression': {
-        const exprValue = String(value ?? '')
+        `;
+      case "expression": {
+        const exprValue = String(value ?? "");
         const validClass = exprValue
-          ? (isValidExpression(exprValue) ? 'valid' : 'invalid')
-          : 'empty'
+          ? isValidExpression(exprValue)
+            ? "valid"
+            : "invalid"
+          : "empty";
 
         return html`
           <div class="inspector-field">
@@ -461,12 +462,15 @@ export class EpistolaInspector extends LitElement {
               @click=${() => this._openExpressionDialog(field.key, exprValue, node)}
             >
               ${exprValue
-                ? html`<code class="inspector-expression-value">${exprValue.length > 40 ? exprValue.slice(0, 40) + '...' : exprValue}</code>`
-                : html`<span class="inspector-expression-placeholder">Click to set expression...</span>`
-              }
+                ? html`<code class="inspector-expression-value"
+                    >${exprValue.length > 40 ? exprValue.slice(0, 40) + "..." : exprValue}</code
+                  >`
+                : html`<span class="inspector-expression-placeholder"
+                    >Click to set expression...</span
+                  >`}
             </button>
           </div>
-        `
+        `;
       }
       default:
         return html`
@@ -474,7 +478,7 @@ export class EpistolaInspector extends LitElement {
             <label class="inspector-field-label">${field.label}</label>
             <div class="inspector-unsupported">Unsupported field type: ${field.type}</div>
           </div>
-        `
+        `;
     }
   }
 
@@ -483,155 +487,159 @@ export class EpistolaInspector extends LitElement {
   // -----------------------------------------------------------------------
 
   private _handlePropChange(key: string, value: unknown) {
-    if (!this.engine || !this.selectedNodeId) return
+    if (!this.engine || !this.selectedNodeId) return;
 
-    const node = this.doc!.nodes[this.selectedNodeId]
-    if (!node) return
+    const node = this.doc!.nodes[this.selectedNodeId];
+    if (!node) return;
 
-    let newProps = structuredClone(node.props ?? {})
-    setNestedValue(newProps, key, value)
+    let newProps = structuredClone(node.props ?? {});
+    setNestedValue(newProps, key, value);
 
-    const def = this.engine.registry.get(node.type)
+    const def = this.engine.registry.get(node.type);
     if (def?.onPropChange) {
-      newProps = def.onPropChange(key, value, newProps)
+      newProps = def.onPropChange(key, value, newProps);
     }
 
     this.engine.dispatch({
-      type: 'UpdateNodeProps',
+      type: "UpdateNodeProps",
       nodeId: this.selectedNodeId,
       props: newProps,
-    })
+    });
   }
 
   private _handleStylePreset(value: string | undefined) {
-    if (!this.engine || !this.selectedNodeId) return
+    if (!this.engine || !this.selectedNodeId) return;
     this.engine.dispatch({
-      type: 'SetStylePreset',
+      type: "SetStylePreset",
       nodeId: this.selectedNodeId,
       stylePreset: value,
-    })
+    });
   }
 
   private _handleNodeStyleChange(key: string, value: unknown) {
-    if (!this.engine || !this.selectedNodeId) return
+    if (!this.engine || !this.selectedNodeId) return;
 
-    const node = this.doc!.nodes[this.selectedNodeId]
-    if (!node) return
+    const node = this.doc!.nodes[this.selectedNodeId];
+    if (!node) return;
 
-    const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>
+    const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>;
 
     // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles)
-    } else if (value === undefined || value === '') {
-      delete newStyles[key]
+    if ((key === "margin" || key === "padding") && value != null && typeof value === "object") {
+      expandSpacingToStyles(key, value as SpacingValue, newStyles);
+    } else if (value === undefined || value === "") {
+      delete newStyles[key];
     } else {
-      newStyles[key] = value
+      newStyles[key] = value;
     }
 
     this.engine.dispatch({
-      type: 'UpdateNodeStyles',
+      type: "UpdateNodeStyles",
       nodeId: this.selectedNodeId,
       styles: newStyles,
-    })
+    });
   }
 
   private _handleDocStyleChange(key: string, value: unknown) {
-    if (!this.engine || !this.doc) return
+    if (!this.engine || !this.doc) return;
 
-    const newStyles = structuredClone(this.doc.documentStylesOverride ?? {}) as Record<string, unknown>
+    const newStyles = structuredClone(this.doc.documentStylesOverride ?? {}) as Record<
+      string,
+      unknown
+    >;
 
     // Spacing properties: expand compound value to individual keys
-    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
-      expandSpacingToStyles(key, value as SpacingValue, newStyles)
-    } else if (value === undefined || value === '') {
-      delete newStyles[key]
+    if ((key === "margin" || key === "padding") && value != null && typeof value === "object") {
+      expandSpacingToStyles(key, value as SpacingValue, newStyles);
+    } else if (value === undefined || value === "") {
+      delete newStyles[key];
     } else {
-      newStyles[key] = value
+      newStyles[key] = value;
     }
 
     this.engine.dispatch({
-      type: 'UpdateDocumentStyles',
+      type: "UpdateDocumentStyles",
       styles: Object.keys(newStyles).length > 0 ? newStyles : undefined,
-    })
+    });
   }
 
   private _handlePageSettingChange(key: string, value: unknown) {
-    if (!this.engine || !this.doc) return
+    if (!this.engine || !this.doc) return;
 
-    const current = this.doc.pageSettingsOverride ?? {} as Partial<PageSettings>
-    const newSettings = { ...current, [key]: value } as PageSettings
+    const current = this.doc.pageSettingsOverride ?? ({} as Partial<PageSettings>);
+    const newSettings = { ...current, [key]: value } as PageSettings;
 
     this.engine.dispatch({
-      type: 'UpdatePageSettings',
+      type: "UpdatePageSettings",
       settings: newSettings,
-    })
+    });
   }
 
-  private _handleMarginChange(side: 'top' | 'right' | 'bottom' | 'left', value: number) {
-    if (!this.engine || !this.doc) return
+  private _handleMarginChange(side: "top" | "right" | "bottom" | "left", value: number) {
+    if (!this.engine || !this.doc) return;
 
-    const currentSettings = this.engine.resolvedPageSettings
-    const newMargins = { ...currentSettings.margins, [side]: value }
+    const currentSettings = this.engine.resolvedPageSettings;
+    const newMargins = { ...currentSettings.margins, [side]: value };
     const newSettings = {
       ...(this.doc.pageSettingsOverride ?? {}),
       margins: newMargins,
-    } as PageSettings
+    } as PageSettings;
 
     this.engine.dispatch({
-      type: 'UpdatePageSettings',
+      type: "UpdatePageSettings",
       settings: newSettings,
-    })
+    });
   }
 
   private _openExpressionDialog(key: string, currentValue: string, node: Node): void {
-    if (!this.engine || !this.selectedNodeId) return
+    if (!this.engine || !this.selectedNodeId) return;
 
     // For loop/datatable expressions, highlight array-type fields
-    const isLoopExpr = (node.type === 'loop' || node.type === 'datatable') && key === 'expression.raw'
-    const isConditionalExpr = node.type === 'conditional' && key === 'condition.raw'
+    const isLoopExpr =
+      (node.type === "loop" || node.type === "datatable") && key === "expression.raw";
+    const isConditionalExpr = node.type === "conditional" && key === "condition.raw";
     const placeholder = isLoopExpr
-      ? 'e.g. items'
+      ? "e.g. items"
       : isConditionalExpr
-        ? 'e.g. customer.active'
-        : 'e.g. customer.name'
+        ? "e.g. customer.active"
+        : "e.g. customer.name";
 
     const resultValidator = isLoopExpr
       ? validateArrayResult
       : isConditionalExpr
         ? validateBooleanResult
-        : undefined
+        : undefined;
 
     openExpressionDialog({
       initialValue: currentValue,
       fieldPaths: this.engine.fieldPaths,
       getExampleData: () => this.engine?.getExampleData(),
-      label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',
+      label: isLoopExpr ? "Loop Expression" : isConditionalExpr ? "Condition" : "Expression",
       placeholder,
-      fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,
+      fieldPathFilter: isLoopExpr ? (fp) => fp.type === "array" : undefined,
       resultValidator,
     }).then(({ value }) => {
       if (value !== null) {
-        this._handlePropChange(key, value)
+        this._handlePropChange(key, value);
       }
-    })
+    });
   }
 
   private _handleDelete() {
-    if (!this.engine || !this.selectedNodeId) return
-    const nextSelection = this.engine.getNextSelectionAfterRemove(this.selectedNodeId)
+    if (!this.engine || !this.selectedNodeId) return;
+    const nextSelection = this.engine.getNextSelectionAfterRemove(this.selectedNodeId);
     const result = this.engine.dispatch({
-      type: 'RemoveNode',
+      type: "RemoveNode",
       nodeId: this.selectedNodeId,
-    })
+    });
     if (result.ok) {
-      this.engine.selectNode(nextSelection)
+      this.engine.selectNode(nextSelection);
     }
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'epistola-inspector': EpistolaInspector
+    "epistola-inspector": EpistolaInspector;
   }
 }

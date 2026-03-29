@@ -22,49 +22,51 @@ Plugin shortcuts must be safe to merge with core shortcuts, deterministic at run
 import {
   definePluginShortcutContribution,
   type PluginShortcutContribution,
-} from '@/shortcuts/plugin-registry.js'
+} from "@/shortcuts/plugin-registry.js";
 
 interface AiShortcutContext {
-  openPanel: () => void
+  openPanel: () => void;
 }
 
-const aiShortcuts: PluginShortcutContribution<AiShortcutContext> =
-  definePluginShortcutContribution({
-    pluginId: 'ai',
+const aiShortcuts: PluginShortcutContribution<AiShortcutContext> = definePluginShortcutContribution(
+  {
+    pluginId: "ai",
     commands: [
       {
-        id: 'plugin.ai.open-panel',
-        label: 'Open AI panel',
-        category: 'Plugin',
+        id: "plugin.ai.open-panel",
+        label: "Open AI panel",
+        category: "Plugin",
         run: ({ openPanel }) => {
-          openPanel()
-          return { ok: true }
+          openPanel();
+          return { ok: true };
         },
       },
     ],
     keybindings: [
       {
-        commandId: 'plugin.ai.open-panel',
-        context: 'global',
-        keys: ['mod+space g'],
+        commandId: "plugin.ai.open-panel",
+        context: "global",
+        keys: ["mod+space g"],
         when: () => true,
-        display: 'Leader + G',
+        display: "Leader + G",
       },
     ],
-  })
+  },
+);
 ```
 
 ### 2) Validate at startup
 
 ```ts
-import { validateShortcutRegistriesOnStartup } from '@/shortcuts/startup-validation.js'
+import { validateShortcutRegistriesOnStartup } from "@/shortcuts/startup-validation.js";
 
-validateShortcutRegistriesOnStartup([aiShortcuts])
+validateShortcutRegistriesOnStartup([aiShortcuts]);
 ```
 
 ## What Validation Checks
 
 Validation covers:
+
 - plugin id shape
 - plugin namespace enforcement
 - missing command references
@@ -75,6 +77,7 @@ Validation covers:
 ## Expected Failure Modes
 
 Validation is intentionally strict and fails startup for:
+
 - command IDs outside `plugin.<pluginId>.*`
 - binding references to missing commands
 - plugin/core duplicate command IDs

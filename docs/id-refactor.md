@@ -23,15 +23,15 @@ sealed interface UuidId<T : UuidId<T>> : EntityId<T, UUID>
 
 ### Current ID Types
 
-| Entity ID | Type | Value | Example |
-|-----------|------|-------|---------|
-| `TenantId` | `SlugId` | String | `acme-corp` |
-| `TemplateId` | `UuidId` | UUID | `550e8400-e29b-41d4-a716-446655440000` |
-| `VariantId` | `UuidId` | UUID | UUID |
-| `VersionId` | `UuidId` | UUID | UUID |
-| `ThemeId` | `UuidId` | UUID | UUID |
-| `EnvironmentId` | `UuidId` | UUID | UUID |
-| `DocumentId` | `UuidId` | UUID | UUID |
+| Entity ID       | Type     | Value  | Example                                |
+| --------------- | -------- | ------ | -------------------------------------- |
+| `TenantId`      | `SlugId` | String | `acme-corp`                            |
+| `TemplateId`    | `UuidId` | UUID   | `550e8400-e29b-41d4-a716-446655440000` |
+| `VariantId`     | `UuidId` | UUID   | UUID                                   |
+| `VersionId`     | `UuidId` | UUID   | UUID                                   |
+| `ThemeId`       | `UuidId` | UUID   | UUID                                   |
+| `EnvironmentId` | `UuidId` | UUID   | UUID                                   |
+| `DocumentId`    | `UuidId` | UUID   | UUID                                   |
 
 ## Changing an Entity ID Type
 
@@ -80,6 +80,7 @@ value class MyEntityId(override val value: String) : SlugId<MyEntityId> {
 ```
 
 Key differences:
+
 - No `generate()` function for slugs (client-provided)
 - Add validation in `init` block
 - Add `validateOrNull()` for safe parsing
@@ -176,7 +177,7 @@ For path parameters:
   required: true
   schema:
     type: string
-    pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)*$'
+    pattern: "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
     minLength: 3
     maxLength: 63
 ```
@@ -245,12 +246,18 @@ Add slug input fields to forms:
 
 ```html
 <div class="form-group">
-    <label for="slug">Slug (ID)</label>
-    <input type="text" id="slug" name="slug" required
-           pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
-           minlength="3" maxlength="63"
-           placeholder="my-entity-slug">
-    <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
+  <label for="slug">Slug (ID)</label>
+  <input
+    type="text"
+    id="slug"
+    name="slug"
+    required
+    pattern="^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+    minlength="3"
+    maxlength="63"
+    placeholder="my-entity-slug"
+  />
+  <span class="form-hint">3-63 characters, lowercase letters, numbers, and hyphens only</span>
 </div>
 ```
 
@@ -262,6 +269,7 @@ Document the breaking change:
 ## [Unreleased]
 
 ### Changed
+
 - **BREAKING: MyEntityId changed from UUID to slug format**
   - Format: 3-63 lowercase characters, letters (a-z), numbers (0-9), and hyphens (-)
   - IDs must now be client-provided (no auto-generation)
@@ -304,12 +312,12 @@ This format is DNS subdomain compatible, suitable for use in URLs.
 
 When refactoring an entity ID, expect to modify:
 
-| Category | Files |
-|----------|-------|
-| Core | `EntityId.kt`, `JdbiConfig.kt` |
-| Database | Migration files (`V*.sql`) |
-| OpenAPI | Schema files, path files |
-| API | Controllers, DTO mappers |
-| Web | Handlers, Thymeleaf templates |
-| Tests | Unit tests, integration tests, fixtures |
-| Docs | `CHANGELOG.md` |
+| Category | Files                                   |
+| -------- | --------------------------------------- |
+| Core     | `EntityId.kt`, `JdbiConfig.kt`          |
+| Database | Migration files (`V*.sql`)              |
+| OpenAPI  | Schema files, path files                |
+| API      | Controllers, DTO mappers                |
+| Web      | Handlers, Thymeleaf templates           |
+| Tests    | Unit tests, integration tests, fixtures |
+| Docs     | `CHANGELOG.md`                          |

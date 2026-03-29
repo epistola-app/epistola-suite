@@ -94,7 +94,8 @@
   --ep-ring: var(--ep-blue-500);
 
   /* ── Typography ─────────────────────────────────────────────────────── */
-  --ep-font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --ep-font-sans:
+    "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --ep-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   /* Font sizes */
@@ -155,16 +156,17 @@
   --ep-ring-width: 2px;
   --ep-ring-color: var(--ep-blue-500);
   --ep-ring-offset: 2px;
-  --ep-ring: 0 0 0 var(--ep-ring-offset) var(--ep-white), 0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color);
+  --ep-ring:
+    0 0 0 var(--ep-ring-offset) var(--ep-white),
+    0 0 0 calc(var(--ep-ring-offset) + var(--ep-ring-width)) var(--ep-ring-color);
 
   /* ── Transitions ────────────────────────────────────────────────────── */
   --ep-transition-fast: 100ms ease;
   --ep-transition-base: 150ms ease;
   --ep-transition-slow: 200ms ease;
-  --ep-transition-colors: color var(--ep-transition-base),
-    background-color var(--ep-transition-base),
-    border-color var(--ep-transition-base),
-    box-shadow var(--ep-transition-base);
+  --ep-transition-colors:
+    color var(--ep-transition-base), background-color var(--ep-transition-base),
+    border-color var(--ep-transition-base), box-shadow var(--ep-transition-base);
 
   /* ── Component heights ──────────────────────────────────────────────── */
   --ep-h-8: 2rem;

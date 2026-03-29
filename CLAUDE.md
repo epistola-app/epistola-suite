@@ -1,9 +1,9 @@
-
 # Claude Code Instructions for Epistola Suite
 
 ## Project Overview
 
 Epistola Suite is a document suite application with:
+
 - **Backend**: Spring Boot 4.0.0 + Kotlin 2.3.0 (JDK 25)
 - **Frontend**: Server-side rendered using Thymeleaf + HTMX
 - **Client Components**: Vite + TypeScript editor module (Node.js 24) for rich editing
@@ -62,6 +62,7 @@ epistola-suite-modules/
 ## Frontend Architecture
 
 The frontend uses a **server-side rendering** approach:
+
 - **Thymeleaf**: Template engine for rendering HTML on the server
 - **HTMX**: For dynamic interactions without full page reloads
 - **Client components**: Embedded modules (like the editor) for features requiring rich client-side interactivity
@@ -71,6 +72,7 @@ The frontend uses a **server-side rendering** approach:
 The backend has **two distinct endpoint layers** that must NEVER be mixed:
 
 ### 1. REST API (External Systems Only)
+
 - **Path pattern**: `/api/tenants/*`, `/api/tenants/{tenantId}/templates/*`, etc. (all under `/api/` prefix)
 - **Authentication**: API key (`X-API-Key` header) or OAuth2 JWT Bearer token. Stateless, no CSRF.
 - **Implementation**: `@RestController` with `@RequestMapping("/api")` in `app.epistola.suite.api.v1` package
@@ -79,17 +81,20 @@ The backend has **two distinct endpoint layers** that must NEVER be mixed:
 - **Purpose**: External system integration (stable, versioned API)
 
 ### 2. UI Handlers (Internal Use Only)
+
 - **Path pattern**: `/tenants/*`, `/themes/*`, etc. (NO `/api` or `/v1` prefix)
 - **Implementation**: `@Component` with functional routing
 - **Returns**: Thymeleaf templates, HTMX fragments, or minimal JSON (`application/json`)
 - **Purpose**: Server-side rendered UI needs (can change freely)
 
 ### CRITICAL RULE
+
 **UI code (Thymeleaf/JavaScript/TypeScript) MUST NEVER call REST API endpoints.**
 
 Always create a UI handler endpoint for UI needs. The REST API is only for external systems.
 
 ### Verification
+
 ```bash
 ./gradlew test --tests UiRestApiSeparationTest
 ```
@@ -152,12 +157,14 @@ pnpm --filter @epistola/editor watch
 ## Code Style
 
 ### Kotlin
+
 - **Linter**: ktlint (enforced in CI)
 - **Always run `./gradlew ktlintFormat`** after making Kotlin changes to auto-fix formatting
 - **Always run `./gradlew ktlintCheck`** before committing to verify code style
 - EditorConfig is configured for consistent formatting
 
 ### TypeScript (Client Components)
+
 - Located in `modules/editor/` and other client-side modules
 - Used only for rich interactive components that require client-side logic
 - Follow existing patterns in the codebase
@@ -166,15 +173,15 @@ pnpm --filter @epistola/editor watch
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
 
-| Prefix | Purpose | Version Bump |
-|--------|---------|--------------|
-| `feat:` | New feature | MINOR |
-| `fix:` | Bug fix | PATCH |
-| `docs:` | Documentation | PATCH |
-| `chore:` | Maintenance | PATCH |
-| `refactor:` | Code restructuring | PATCH |
-| `test:` | Test changes | PATCH |
-| `ci:` | CI/CD changes | PATCH |
+| Prefix      | Purpose            | Version Bump |
+| ----------- | ------------------ | ------------ |
+| `feat:`     | New feature        | MINOR        |
+| `fix:`      | Bug fix            | PATCH        |
+| `docs:`     | Documentation      | PATCH        |
+| `chore:`    | Maintenance        | PATCH        |
+| `refactor:` | Code restructuring | PATCH        |
+| `test:`     | Test changes       | PATCH        |
+| `ci:`       | CI/CD changes      | PATCH        |
 
 **Breaking changes**: Use `feat!:` or `fix!:` or add `BREAKING CHANGE:` in footer.
 
@@ -199,25 +206,25 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ### When to Run Which Tests
 
-| Change type | Run |
-|-------------|-----|
-| Pure logic, algorithms, utilities | `./gradlew unitTest` |
-| Business logic, commands, queries, DB | `./gradlew integrationTest` |
-| Thymeleaf templates, HTMX handlers | `./gradlew integrationTest` |
-| UI interaction, JavaScript behavior | `./gradlew uiTest` |
-| Before committing | `./gradlew unitTest integrationTest` (minimum) |
-| Before creating a PR | `./gradlew test` (all) |
+| Change type                           | Run                                            |
+| ------------------------------------- | ---------------------------------------------- |
+| Pure logic, algorithms, utilities     | `./gradlew unitTest`                           |
+| Business logic, commands, queries, DB | `./gradlew integrationTest`                    |
+| Thymeleaf templates, HTMX handlers    | `./gradlew integrationTest`                    |
+| UI interaction, JavaScript behavior   | `./gradlew uiTest`                             |
+| Before committing                     | `./gradlew unitTest integrationTest` (minimum) |
+| Before creating a PR                  | `./gradlew test` (all)                         |
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `build.gradle.kts` | Root build configuration |
-| `apps/epistola/build.gradle.kts` | Main app build config |
-| `modules/editor/package.json` | Editor module config |
-| `CONTRIBUTING.md` | Contribution guidelines |
-| `docs/github.md` | GitHub workflows documentation |
-| `.github/labels.yml` | Issue label definitions |
+| File                             | Purpose                        |
+| -------------------------------- | ------------------------------ |
+| `build.gradle.kts`               | Root build configuration       |
+| `apps/epistola/build.gradle.kts` | Main app build config          |
+| `modules/editor/package.json`    | Editor module config           |
+| `CONTRIBUTING.md`                | Contribution guidelines        |
+| `docs/github.md`                 | GitHub workflows documentation |
+| `.github/labels.yml`             | Issue label definitions        |
 
 ## When Making Changes
 
@@ -246,6 +253,7 @@ This project uses a GitHub MCP server for AI-assisted issue and project manageme
 ### Using GitHub MCP Tools
 
 When working with the backlog or issues:
+
 - Use the GitHub MCP tools to create issues for new features or bugs
 - Reference issues in commits when fixing bugs (e.g., "fix: resolve login issue #123")
 - Check existing issues before creating duplicates
@@ -253,6 +261,7 @@ When working with the backlog or issues:
 ### Setup
 
 If the GitHub MCP server is not configured, run:
+
 ```bash
 pnpm run setup:github-mcp
 ```

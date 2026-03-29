@@ -4,9 +4,9 @@ Docker Compose setup for running Epistola Suite locally.
 
 ## Services
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| PostgreSQL 17 | 4001 | Application database |
+| Service       | Port | Purpose                                             |
+| ------------- | ---- | --------------------------------------------------- |
+| PostgreSQL 17 | 4001 | Application database                                |
 | Keycloak 26.5 | 8080 | OAuth2/OIDC (optional, requires `keycloak` profile) |
 
 ## Quick Start
@@ -33,10 +33,10 @@ PostgreSQL data is stored in tmpfs (RAM) — it resets on container restart. Fly
 
 ### Test Users
 
-| Email | Password | Role |
-|-------|----------|------|
-| admin@test | admin | Admin |
-| user@test | user | User |
+| Email      | Password | Role  |
+| ---------- | -------- | ----- |
+| admin@test | admin    | Admin |
+| user@test  | user     | User  |
 
 ### Admin Console
 
@@ -47,6 +47,7 @@ PostgreSQL data is stored in tmpfs (RAM) — it resets on container restart. Fly
 ### Realm Configuration
 
 The realm is pre-configured with:
+
 - Realm: `epistola`
 - Client: `epistola-suite`
 - Client Secret: `epistola-dev-secret`

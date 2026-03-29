@@ -2,11 +2,11 @@
  * BasicInfoSection — Name and description inputs for the theme.
  */
 
-import { html } from 'lit'
-import type { ThemeEditorState } from '../ThemeEditorState.js'
+import { html } from "lit";
+import type { ThemeEditorState } from "../ThemeEditorState.js";
 
 export function renderBasicInfoSection(state: ThemeEditorState): unknown {
-  const theme = state.theme
+  const theme = state.theme;
 
   return html`
     <section class="theme-section">
@@ -25,14 +25,14 @@ export function renderBasicInfoSection(state: ThemeEditorState): unknown {
         <textarea
           class="ep-input ep-textarea"
           rows="2"
-          .value=${theme.description ?? ''}
+          .value=${theme.description ?? ""}
           @change=${(e: Event) => {
-            const val = (e.target as HTMLTextAreaElement).value
-            state.updateDescription(val || undefined)
+            const val = (e.target as HTMLTextAreaElement).value;
+            state.updateDescription(val || undefined);
           }}
           placeholder="Optional description..."
         ></textarea>
       </div>
     </section>
-  `
+  `;
 }

@@ -50,6 +50,7 @@ Run `pnpm install`.
 **New file**: `modules/editor-v2/src/main/typescript/prosemirror/schema.ts`
 
 Define the document schema combining `prosemirror-schema-basic` + `prosemirror-schema-list` + custom:
+
 - Nodes: `doc`, `paragraph`, `heading` (levels 1-3), `bulletList`, `orderedList`, `listItem`, `text`, `expression` (inline atom)
 - Marks: `bold` (`strong`), `italic` (`em`), `underline`, `strikethrough`
 - `expression` node: inline, atom, attrs `{ expression: string, isNew: boolean }`
@@ -59,6 +60,7 @@ Define the document schema combining `prosemirror-schema-basic` + `prosemirror-s
 **New file**: `modules/editor-v2/src/main/typescript/prosemirror/ExpressionNodeView.ts`
 
 ProseMirror `NodeView` implementation:
+
 - `dom`: `<span class="expression-chip">` showing expression text
 - Click → open `<dialog>` with `<input>` + field path list
 - Field paths come from `schema-paths.ts` (Step 5)
@@ -73,6 +75,7 @@ ProseMirror `NodeView` implementation:
 **New file**: `modules/editor-v2/src/main/typescript/prosemirror/plugins.ts`
 
 Create plugins array:
+
 - `history()` — undo/redo
 - `keymap(baseKeymap)` — basic editing keys
 - `keymap(markKeymap)` — Ctrl+B/I/U shortcuts using `toggleMark`
@@ -96,9 +99,11 @@ extractFieldPaths(schema: object): { path: string; type: string }[]
 Walks JSON Schema `properties` recursively (depth limit ~5). Returns dot-notation paths.
 
 **File**: `modules/editor-v2/src/main/typescript/lib.ts`
+
 - Add `dataModel?: object` and `dataExamples?: object[]` to `EditorOptions`
 
 **File**: `modules/editor-v2/src/main/typescript/engine/EditorEngine.ts`
+
 - Store and expose `dataModel` / `dataExamples` as read-only
 
 ### Step 6: Bubble menu
@@ -106,6 +111,7 @@ Walks JSON Schema `properties` recursively (depth limit ~5). Returns dot-notatio
 **New file**: `modules/editor-v2/src/main/typescript/prosemirror/bubble-menu.ts`
 
 Uses `@floating-ui/dom` for positioning:
+
 - Creates `<div class="pm-bubble-menu">` with formatting buttons
 - Buttons: **B** | **I** | **U** | ~~S~~ | H1 H2 H3 | UL OL | `{{}}` insert expression
 - Shows when text is selected (non-empty selection), hides otherwise
@@ -118,6 +124,7 @@ Uses `@floating-ui/dom` for positioning:
 **New file**: `modules/editor-v2/src/main/typescript/ui/EpistolaTextEditor.ts`
 
 Lit component `<epistola-text-editor>` (Light DOM):
+
 - Properties: `nodeId`, `content` (JSON | null), `resolvedStyles`, `engine`, `isSelected`
 - `firstUpdated()`:
   - Create ProseMirror `Schema`, `EditorState`, `EditorView`
@@ -127,6 +134,7 @@ Lit component `<epistola-text-editor>` (Light DOM):
 - `updated(changed)`: sync content on external changes, blur on deselect
 
 **Content sync** (same pattern, ProseMirror API):
+
 1. `dispatchTransaction(tr)` → apply to state → if `tr.docChanged` and not `isSyncing` → dispatch `UpdateNodeProps({ content: state.doc.toJSON() })`
 2. External content change → compare JSON → if different, create new `EditorState` with `EditorState.create()` and `view.updateState()`
 
@@ -137,6 +145,7 @@ Lit component `<epistola-text-editor>` (Light DOM):
 **File**: `modules/editor-v2/src/main/typescript/ui/EpistolaCanvas.ts`
 
 Replace text placeholder in `_renderLeafNode()`:
+
 ```typescript
 case 'text':
   return html`
@@ -165,14 +174,17 @@ case 'text':
 ### Step 10: Tests
 
 **New file**: `modules/editor-v2/src/test/prosemirror/schema.test.ts`
+
 - Schema creates valid doc
 - Expression node serializes/deserializes correctly (toJSON/fromJSON roundtrip)
 - Marks apply correctly
 
 **New file**: `modules/editor-v2/src/test/prosemirror/input-rules.test.ts`
+
 - `{{` creates expression node with `isNew: true`
 
 **New file**: `modules/editor-v2/src/test/engine/schema-paths.test.ts`
+
 - Flat/nested objects → correct dot-notation paths
 - Arrays, depth limit, empty schema
 
@@ -180,31 +192,31 @@ case 'text':
 
 ## Files summary
 
-| File | Action |
-|------|--------|
-| `modules/editor-v2/package.json` | Add prosemirror-* deps + @floating-ui/dom |
-| `modules/editor-v2/src/main/typescript/lib.ts` | Add dataModel/dataExamples to EditorOptions |
-| `modules/editor-v2/src/main/typescript/engine/EditorEngine.ts` | Store/expose dataModel |
-| `modules/editor-v2/src/main/typescript/engine/schema-paths.ts` | **New** — JSON Schema → field paths |
-| `modules/editor-v2/src/main/typescript/prosemirror/schema.ts` | **New** — ProseMirror schema definition |
-| `modules/editor-v2/src/main/typescript/prosemirror/ExpressionNodeView.ts` | **New** — expression chip NodeView + dialog |
-| `modules/editor-v2/src/main/typescript/prosemirror/plugins.ts` | **New** — keymap, history, input rules, etc. |
-| `modules/editor-v2/src/main/typescript/prosemirror/input-rules.ts` | **New** — `{{` rule + heading shortcuts |
-| `modules/editor-v2/src/main/typescript/prosemirror/bubble-menu.ts` | **New** — floating toolbar plugin |
-| `modules/editor-v2/src/main/typescript/ui/EpistolaTextEditor.ts` | **New** — Lit ProseMirror wrapper |
-| `modules/editor-v2/src/main/typescript/ui/EpistolaCanvas.ts` | Render `<epistola-text-editor>` |
-| `modules/editor-v2/src/main/typescript/styles/prosemirror.css` | **New** — all PM/expression/bubble styles |
-| `modules/editor-v2/src/main/typescript/editor.css` | Import prosemirror.css |
-| Tests (3 new files) | Schema, input rules, schema-paths |
-| `CHANGELOG.md` | Update |
+| File                                                                      | Action                                       |
+| ------------------------------------------------------------------------- | -------------------------------------------- |
+| `modules/editor-v2/package.json`                                          | Add prosemirror-\* deps + @floating-ui/dom   |
+| `modules/editor-v2/src/main/typescript/lib.ts`                            | Add dataModel/dataExamples to EditorOptions  |
+| `modules/editor-v2/src/main/typescript/engine/EditorEngine.ts`            | Store/expose dataModel                       |
+| `modules/editor-v2/src/main/typescript/engine/schema-paths.ts`            | **New** — JSON Schema → field paths          |
+| `modules/editor-v2/src/main/typescript/prosemirror/schema.ts`             | **New** — ProseMirror schema definition      |
+| `modules/editor-v2/src/main/typescript/prosemirror/ExpressionNodeView.ts` | **New** — expression chip NodeView + dialog  |
+| `modules/editor-v2/src/main/typescript/prosemirror/plugins.ts`            | **New** — keymap, history, input rules, etc. |
+| `modules/editor-v2/src/main/typescript/prosemirror/input-rules.ts`        | **New** — `{{` rule + heading shortcuts      |
+| `modules/editor-v2/src/main/typescript/prosemirror/bubble-menu.ts`        | **New** — floating toolbar plugin            |
+| `modules/editor-v2/src/main/typescript/ui/EpistolaTextEditor.ts`          | **New** — Lit ProseMirror wrapper            |
+| `modules/editor-v2/src/main/typescript/ui/EpistolaCanvas.ts`              | Render `<epistola-text-editor>`              |
+| `modules/editor-v2/src/main/typescript/styles/prosemirror.css`            | **New** — all PM/expression/bubble styles    |
+| `modules/editor-v2/src/main/typescript/editor.css`                        | Import prosemirror.css                       |
+| Tests (3 new files)                                                       | Schema, input rules, schema-paths            |
+| `CHANGELOG.md`                                                            | Update                                       |
 
 ## Reference files (V1 — concepts to port)
 
-| File | What to reuse |
-|------|--------------|
+| File                                           | What to reuse                                                               |
+| ---------------------------------------------- | --------------------------------------------------------------------------- |
 | `modules/editor/...ExpressionNode.tsx:144-217` | Node definition pattern (attrs, parseHTML, renderHTML, input rule, command) |
-| `modules/editor/...ExpressionNode.tsx:24-141` | NodeView behavior (chip display, popover open/save/cancel logic) |
-| `modules/editor/...TextBlock.tsx:66-149` | BubbleMenu button set and formatting commands |
+| `modules/editor/...ExpressionNode.tsx:24-141`  | NodeView behavior (chip display, popover open/save/cancel logic)            |
+| `modules/editor/...TextBlock.tsx:66-149`       | BubbleMenu button set and formatting commands                               |
 
 ## JSON format compatibility
 

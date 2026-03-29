@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  defineShortcutRegistry,
-  type CommandDefinition,
-} from "./foundation.js";
+import { defineShortcutRegistry, type CommandDefinition } from "./foundation.js";
 import {
   ShortcutResolver,
   applyBindingEventPolicy,
@@ -20,8 +17,7 @@ interface TestContext {
 }
 
 function keyboardEvent(
-  input: Partial<ShortcutKeyboardEvent> &
-    Pick<ShortcutKeyboardEvent, "key" | "code">,
+  input: Partial<ShortcutKeyboardEvent> & Pick<ShortcutKeyboardEvent, "key" | "code">,
 ): ShortcutKeyboardEvent {
   return {
     key: input.key,
@@ -253,10 +249,7 @@ describe("shortcut resolver", () => {
     });
     expect(start.kind).toBe("chord-awaiting");
     if (start.kind === "chord-awaiting") {
-      expect(start.state.commandIds).toEqual([
-        "editor.preview.toggle",
-        "editor.help.open",
-      ]);
+      expect(start.state.commandIds).toEqual(["editor.preview.toggle", "editor.help.open"]);
       expect(start.state.remainingSteps).toBe(1);
       expect(start.eventPolicy.preventDefault).toBe(true);
     }

@@ -51,6 +51,12 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint:check
+
+      - name: Check format
+        run: pnpm format:check
+
       - name: Build frontend
         run: pnpm build
 
@@ -167,22 +173,22 @@ jobs:
       - name: Scan backend SBOM for vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'sbom'
-          scan-ref: 'apps/epistola/build/sbom/bom.json'
-          format: 'table'
-          exit-code: '1'
-          severity: 'CRITICAL'
-          output: 'backend-vulnerability-report.txt'
+          scan-type: "sbom"
+          scan-ref: "apps/epistola/build/sbom/bom.json"
+          format: "table"
+          exit-code: "1"
+          severity: "CRITICAL"
+          output: "backend-vulnerability-report.txt"
 
       - name: Scan frontend SBOM for vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'sbom'
-          scan-ref: 'modules/editor/build/sbom.json'
-          format: 'table'
-          exit-code: '1'
-          severity: 'CRITICAL'
-          output: 'frontend-vulnerability-report.txt'
+          scan-type: "sbom"
+          scan-ref: "modules/editor/build/sbom.json"
+          format: "table"
+          exit-code: "1"
+          severity: "CRITICAL"
+          output: "frontend-vulnerability-report.txt"
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v7
@@ -216,12 +222,12 @@ jobs:
       matrix:
         include:
           - variant: JVM
-            gradle-args: ''
-            image-suffix: ''
+            gradle-args: ""
+            image-suffix: ""
             enabled: true
           - variant: Native
             gradle-args: -PnativeImage=true
-            image-suffix: '-native'
+            image-suffix: "-native"
             # Disabled: JDBI/Kotlin reflection doesn't work with GraalVM native images
             # See: https://github.com/jdbi/jdbi/issues/2475
             enabled: false

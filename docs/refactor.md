@@ -5,6 +5,7 @@ This document tracks the refactoring tasks for improving code readability and ma
 ## Overview
 
 The refactoring focuses on:
+
 1. Splitting large handlers into smaller, focused units
 2. Extracting inline JavaScript to reusable modules
 3. Completing exception handling for consistent API responses
@@ -22,6 +23,7 @@ The refactoring focuses on:
 **File:** `apps/epistola/src/main/kotlin/app/epistola/suite/templates/DocumentTemplateHandler.kt`
 
 **Changes:**
+
 - Create `VariantRouteHandler.kt` - variant create/delete operations
 - Create `VersionRouteHandler.kt` - draft/publish/archive operations
 - Create `TemplatePreviewHandler.kt` - preview endpoint
@@ -35,10 +37,12 @@ The refactoring focuses on:
 **Status:** Pending
 
 **Files:**
+
 - `apps/epistola/src/main/resources/templates/themes/detail.html` (lines 128-275)
 - `apps/epistola/src/main/resources/templates/templates/detail.html` (lines 172-288)
 
 **Changes:**
+
 - Create `/static/js/modules/api-client.js` - shared fetch logic with CSRF handling
 - Create `/static/js/modules/theme-editor.js` - theme CRUD operations
 - Create `/static/js/modules/template-detail.js` - template configuration
@@ -53,6 +57,7 @@ The refactoring focuses on:
 **File:** `apps/epistola/src/main/kotlin/app/epistola/suite/api/v1/ApiExceptionHandler.kt`
 
 **Changes:**
+
 - Add handler for `ThemeNotFoundException` → 404
 - Add handler for `ThemeInUseException` → 409
 - Add handler for `LastThemeException` → 400
@@ -67,6 +72,7 @@ The refactoring focuses on:
 **Status:** Pending
 
 **4a. UUID Parsing:**
+
 - Create `apps/epistola/src/main/kotlin/app/epistola/suite/common/UuidExtensions.kt`
 - Add `String.toUuidOrNull()` extension
 - Add `ServerRequest.pathUuid(name)` extension
@@ -79,11 +85,13 @@ The refactoring focuses on:
 **Status:** Pending
 
 **Files:**
+
 - `templates/editor.html`
 - `templates/detail.html`
 - `themes/detail.html`
 
 **Changes:**
+
 - Standardize content-type to `application/json`
 - Extract shared fetch error handling to `api-client.js`
 
@@ -94,10 +102,12 @@ The refactoring focuses on:
 **Status:** Pending
 
 **New Files:**
+
 - `apps/epistola/src/main/resources/templates/fragments/search.html`
 - `apps/epistola/src/main/resources/templates/fragments/form-section.html`
 
 **Changes:**
+
 - Extract search input pattern (used in templates/list, tenants/list, themes/list)
 - Extract form section wrapper pattern
 - Update list pages to use new fragments
@@ -109,10 +119,12 @@ The refactoring focuses on:
 **Status:** Pending
 
 **Files:**
+
 - `apps/epistola/src/main/kotlin/app/epistola/suite/mediator/SpringMediator.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/api/v1/ApiExceptionHandler.kt`
 
 **Changes:**
+
 - Add logging to `SpringMediator.send()` and `query()` methods
 - Add error logging in exception handlers
 - Use structured logging patterns with relevant context
@@ -122,6 +134,7 @@ The refactoring focuses on:
 ## Verification
 
 After all tasks complete:
+
 1. `./gradlew test` - all tests pass
 2. `./gradlew ktlintCheck` - no style violations
 3. Manual test: Navigate through template creation/editing flow
@@ -131,12 +144,14 @@ After all tasks complete:
 ## Files Modified
 
 ### New Kotlin Files
+
 - `apps/epistola/src/main/kotlin/app/epistola/suite/common/UuidExtensions.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/templates/VariantRouteHandler.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/templates/VersionRouteHandler.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/templates/TemplatePreviewHandler.kt`
 
 ### Modified Kotlin Files
+
 - `apps/epistola/src/main/kotlin/app/epistola/suite/templates/DocumentTemplateHandler.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/templates/DocumentTemplateRoutes.kt`
 - `apps/epistola/src/main/kotlin/app/epistola/suite/api/v1/ApiExceptionHandler.kt`
@@ -145,9 +160,11 @@ After all tasks complete:
 - `apps/epistola/src/main/kotlin/app/epistola/suite/tenants/TenantHandler.kt`
 
 ### New Template Fragments
+
 - `apps/epistola/src/main/resources/templates/fragments/search.html`
 
 ### Modified Templates
+
 - `apps/epistola/src/main/resources/templates/templates/detail.html`
 - `apps/epistola/src/main/resources/templates/themes/detail.html`
 - `apps/epistola/src/main/resources/templates/templates/list.html`
@@ -155,6 +172,7 @@ After all tasks complete:
 - `apps/epistola/src/main/resources/templates/themes/list.html`
 
 ### New JavaScript Modules
+
 - `apps/epistola/src/main/resources/static/js/modules/api-client.js`
 - `apps/epistola/src/main/resources/static/js/modules/theme-editor.js`
 - `apps/epistola/src/main/resources/static/js/modules/template-detail.js`

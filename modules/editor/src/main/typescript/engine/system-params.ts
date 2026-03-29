@@ -6,7 +6,7 @@
  * They live under the `sys.*` namespace.
  */
 
-import type { FieldPath } from './schema-paths.js'
+import type { FieldPath } from "./schema-paths.js";
 
 /**
  * All system parameters available in the rendering engine.
@@ -14,12 +14,12 @@ import type { FieldPath } from './schema-paths.js'
  */
 export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
   {
-    path: 'sys.page.number',
-    type: 'integer',
+    path: "sys.page.number",
+    type: "integer",
     system: true,
-    description: 'Current page number. Available in page headers/footers only.',
+    description: "Current page number. Available in page headers/footers only.",
   },
-]
+];
 
 /**
  * Mock values for system parameters, used in expression preview
@@ -31,4 +31,4 @@ export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
       number: 1,
     },
   },
-}
+};

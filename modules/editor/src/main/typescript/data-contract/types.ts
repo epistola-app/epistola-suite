@@ -9,13 +9,13 @@
 // JSON types
 // =============================================================================
 
-export type JsonValue = string | number | boolean | null | JsonObject | JsonArray
+export type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
 
 export interface JsonObject {
-  [key: string]: JsonValue
+  [key: string]: JsonValue;
 }
 
-export type JsonArray = JsonValue[]
+export type JsonArray = JsonValue[];
 
 // =============================================================================
 // Data Example
@@ -23,9 +23,9 @@ export type JsonArray = JsonValue[]
 
 /** Named example data set that adheres to the template's dataModel schema */
 export interface DataExample {
-  id: string
-  name: string
-  data: JsonObject
+  id: string;
+  name: string;
+  data: JsonObject;
 }
 
 // =============================================================================
@@ -33,10 +33,17 @@ export interface DataExample {
 // =============================================================================
 
 /** Supported field types in the visual editor */
-export type SchemaFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'array' | 'object'
+export type SchemaFieldType =
+  | "string"
+  | "number"
+  | "integer"
+  | "boolean"
+  | "date"
+  | "array"
+  | "object";
 
 /** Primitive field types (non-container types) */
-export type PrimitiveFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'date'
+export type PrimitiveFieldType = "string" | "number" | "integer" | "boolean" | "date";
 
 // =============================================================================
 // Schema Fields (Discriminated Union)
@@ -44,32 +51,32 @@ export type PrimitiveFieldType = 'string' | 'number' | 'integer' | 'boolean' | '
 
 /** Base properties shared by all field types */
 interface BaseField {
-  id: string
-  name: string
-  required: boolean
-  description?: string
+  id: string;
+  name: string;
+  required: boolean;
+  description?: string;
 }
 
 /** A primitive field (string, number, integer, boolean) */
 export interface PrimitiveField extends BaseField {
-  type: PrimitiveFieldType
+  type: PrimitiveFieldType;
 }
 
 /** An array field with a required item type */
 export interface ArrayField extends BaseField {
-  type: 'array'
-  arrayItemType: SchemaFieldType
-  nestedFields?: SchemaField[]
+  type: "array";
+  arrayItemType: SchemaFieldType;
+  nestedFields?: SchemaField[];
 }
 
 /** An object field with optional nested fields */
 export interface ObjectField extends BaseField {
-  type: 'object'
-  nestedFields?: SchemaField[]
+  type: "object";
+  nestedFields?: SchemaField[];
 }
 
 /** A field in the visual schema editor (discriminated union on `type`) */
-export type SchemaField = PrimitiveField | ArrayField | ObjectField
+export type SchemaField = PrimitiveField | ArrayField | ObjectField;
 
 // =============================================================================
 // Schema Field Update
@@ -77,12 +84,12 @@ export type SchemaField = PrimitiveField | ArrayField | ObjectField
 
 /** Partial update payload for modifying a schema field */
 export interface SchemaFieldUpdate {
-  name?: string
-  type?: SchemaFieldType
-  required?: boolean
-  description?: string
-  arrayItemType?: SchemaFieldType
-  nestedFields?: SchemaField[]
+  name?: string;
+  type?: SchemaFieldType;
+  required?: boolean;
+  description?: string;
+  arrayItemType?: SchemaFieldType;
+  nestedFields?: SchemaField[];
 }
 
 // =============================================================================
@@ -91,7 +98,7 @@ export interface SchemaFieldUpdate {
 
 /** Visual schema representation for the editor */
 export interface VisualSchema {
-  fields: SchemaField[]
+  fields: SchemaField[];
 }
 
 // =============================================================================
@@ -100,21 +107,21 @@ export interface VisualSchema {
 
 /** JSON Schema property type */
 export interface JsonSchemaProperty {
-  type: SchemaFieldType | SchemaFieldType[]
-  format?: string
-  description?: string
-  items?: JsonSchemaProperty
-  properties?: Record<string, JsonSchemaProperty>
-  required?: string[]
+  type: SchemaFieldType | SchemaFieldType[];
+  format?: string;
+  description?: string;
+  items?: JsonSchemaProperty;
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
 }
 
 /** JSON Schema (subset supported by the visual editor) */
 export interface JsonSchema {
-  $schema?: string
-  type: 'object'
-  properties?: Record<string, JsonSchemaProperty>
-  required?: string[]
-  additionalProperties?: boolean
+  $schema?: string;
+  type: "object";
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+  additionalProperties?: boolean;
 }
 
 // =============================================================================
@@ -122,43 +129,43 @@ export interface JsonSchema {
 // =============================================================================
 
 export interface ValidationError {
-  path: string
-  message: string
+  path: string;
+  message: string;
 }
 
 export interface UpdateDataExampleResult {
-  success: boolean
-  example?: DataExample
-  warnings?: Record<string, ValidationError[]>
-  errors?: Record<string, ValidationError[]>
+  success: boolean;
+  example?: DataExample;
+  warnings?: Record<string, ValidationError[]>;
+  errors?: Record<string, ValidationError[]>;
 }
 
 export interface SaveSchemaResult {
-  success: boolean
-  warnings?: Record<string, ValidationError[]>
-  error?: string
+  success: boolean;
+  warnings?: Record<string, ValidationError[]>;
+  error?: string;
 }
 
 export interface SaveExamplesResult {
-  success: boolean
-  warnings?: Record<string, ValidationError[]>
-  error?: string
+  success: boolean;
+  warnings?: Record<string, ValidationError[]>;
+  error?: string;
 }
 
 export interface SaveCallbacks {
   onSaveSchema?: (
     schema: JsonSchema | null,
     forceUpdate?: boolean,
-  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>
+  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
   onSaveDataExamples?: (
     examples: DataExample[],
-  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>
+  ) => Promise<{ success: boolean; warnings?: Record<string, ValidationError[]>; error?: string }>;
   onUpdateDataExample?: (
     exampleId: string,
     updates: { name?: string; data?: JsonObject },
     forceUpdate?: boolean,
-  ) => Promise<UpdateDataExampleResult>
-  onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>
+  ) => Promise<UpdateDataExampleResult>;
+  onDeleteDataExample?: (exampleId: string) => Promise<{ success: boolean }>;
 }
 
 /**
@@ -166,5 +173,5 @@ export interface SaveCallbacks {
  * Replaces the Zod `JsonObjectSchema.safeParse()` call.
  */
 export function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

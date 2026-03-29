@@ -5,9 +5,9 @@ on:
     branches:
       - main
     paths:
-      - '.github/project.yml'
-      - '.github/scripts/sync-project.mjs'
-      - '.github/workflows/project-sync.yml'
+      - ".github/project.yml"
+      - ".github/scripts/sync-project.mjs"
+      - ".github/workflows/project-sync.yml"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: "24"
 
       - name: Install dependencies
         run: npm install yaml

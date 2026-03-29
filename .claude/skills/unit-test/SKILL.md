@@ -9,13 +9,13 @@ Create tests for Epistola Suite code.
 
 ## Decision Points
 
-| What you're testing | Test type | Base class | Run with |
-|---------------------|-----------|------------|----------|
-| Pure logic, algorithms, utilities | Unit test | None | `./gradlew unitTest` |
-| Commands, queries, DB operations | Integration test | `CoreIntegrationTestBase` | `./gradlew integrationTest` |
-| UI handlers, routes, HTTP | Integration test | `BaseIntegrationTest` | `./gradlew integrationTest` |
-| Browser interactions, HTMX | UI test | `BasePlaywrightTest` | `./gradlew uiTest` |
-| TypeScript engine logic | Vitest | N/A | `pnpm --filter @epistola/editor test` |
+| What you're testing               | Test type        | Base class                | Run with                              |
+| --------------------------------- | ---------------- | ------------------------- | ------------------------------------- |
+| Pure logic, algorithms, utilities | Unit test        | None                      | `./gradlew unitTest`                  |
+| Commands, queries, DB operations  | Integration test | `CoreIntegrationTestBase` | `./gradlew integrationTest`           |
+| UI handlers, routes, HTTP         | Integration test | `BaseIntegrationTest`     | `./gradlew integrationTest`           |
+| Browser interactions, HTMX        | UI test          | `BasePlaywrightTest`      | `./gradlew uiTest`                    |
+| TypeScript engine logic           | Vitest           | N/A                       | `pnpm --filter @epistola/editor test` |
 
 Tags (`@Tag("unit")`, `@Tag("integration")`, `@Tag("ui")`) are **inherited from the base classes** — do NOT add them manually.
 
@@ -124,6 +124,7 @@ fun `authenticated test`() = withAuthentication {
 **Reference**: `modules/epistola-core/src/test/kotlin/app/epistola/suite/common/TestIdHelpers.kt`
 
 Generates sequential unique IDs for tests:
+
 - `TestIdHelpers.nextTemplateId()` → `TemplateId("test-template-1")`
 - `TestIdHelpers.nextVariantId()` → `VariantId("test-variant-1")`
 - `TestIdHelpers.nextEnvironmentId()` → `EnvironmentId("test-env-1")`
@@ -154,6 +155,7 @@ class ThemeCommandsTest : CoreIntegrationTestBase() {
 ```
 
 Use `@ParameterizedTest` for testing multiple inputs:
+
 ```kotlin
 @ParameterizedTest
 @ValueSource(strings = ["", " ", "   "])
@@ -199,15 +201,15 @@ class EntityRoutesTest : BaseIntegrationTest() {
 Create co-located as `<name>.test.ts`:
 
 ```typescript
-import { describe, it, expect, vi } from 'vitest'
-import { SomeClass } from './<source>.js'
+import { describe, it, expect, vi } from "vitest";
+import { SomeClass } from "./<source>.js";
 
-describe('SomeClass', () => {
-    it('does something', () => {
-        const result = someFunction(input)
-        expect(result).toBe(expected)
-    })
-})
+describe("SomeClass", () => {
+  it("does something", () => {
+    const result = someFunction(input);
+    expect(result).toBe(expected);
+  });
+});
 ```
 
 Import with `.js` extension. Use `vi.fn()` for callbacks/spies. Use `test-helpers.ts` for engine fixtures.

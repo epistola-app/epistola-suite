@@ -45,6 +45,7 @@ Return result to caller
 ### Event Handler Timing
 
 #### IMMEDIATE handlers
+
 - Invoked immediately after `handler.handle()` returns
 - Run within the same call stack
 - If command uses `@Transactional`, they execute within that transaction
@@ -63,6 +64,7 @@ class CreateDefaultThemeOnTenantCreate : EventHandler<CreateTenant> {
 ```
 
 #### AFTER_COMMIT handlers
+
 - Invoked after the command transaction commits via Spring's `@TransactionalEventListener`
 - Exception-safe: failures are caught and logged, don't affect the command
 - Use case: Cache invalidation, metrics, notifications, audit logging
@@ -96,6 +98,7 @@ class AuditLogger {
 **Goal**: Every command publishes as an event; other components react to completed commands.
 
 **Key additions**:
+
 - `CommandCompleted<C>` — Spring event wrapper
 - `EventPhase` enum — IMMEDIATE vs AFTER_COMMIT
 - `EventHandler<E>` interface — Typed event subscription
@@ -104,6 +107,7 @@ class AuditLogger {
 - `EventLogSubscriber` — Persists all events after commit
 
 **New files**:
+
 - `mediator/CommandCompleted.kt`
 - `mediator/EventPhase.kt`
 - `mediator/EventHandler.kt`
@@ -113,6 +117,7 @@ class AuditLogger {
 - `db/migration/V15__event_log.sql`
 
 **Modified files**:
+
 - `mediator/SpringMediator.kt` — Add event publication and EventHandler discovery
 - ~25 command data classes — Add `TenantScoped`, `Routable` interfaces
 
@@ -123,21 +128,25 @@ class AuditLogger {
 **Goal**: Reduce repetitive SQL patterns while keeping SQL explicit for complex operations.
 
 **Key additions**:
+
 - Kotlin extensions for `Jdbi.withHandle`, `Jdbi.inTransaction` (eliminate `<T, Exception>` noise)
 - Tenant-scoped query helpers: `findByTenantAndId`, `listForTenant`, `deleteForTenant`, `existsForTenant`
 - JSONB binding helper: `bindJsonb` for automatic serialization
 
 **New files**:
+
 - `config/JdbiExtensions.kt`
 - `config/TenantQueries.kt`
 - `config/JdbiJsonbSupport.kt`
 
 **Modified files**:
+
 - ~40 handler files — Adopt new JDBI patterns (gradual, batched by domain)
 
 **Lines of code reduction**: ~200-300 removed across all handlers
 
 **Before**:
+
 ```kotlin
 override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception> { handle ->
     handle.createQuery("SELECT * FROM themes WHERE id = :id AND tenant_key = :tenantId")
@@ -147,6 +156,7 @@ override fun handle(query: GetTheme): Theme? = jdbi.withHandle<Theme?, Exception
 ```
 
 **After**:
+
 ```kotlin
 override fun handle(query: GetTheme): Theme? = jdbi.withHandle { handle ->
     handle.findByTenantAndId<Theme>("themes", query.tenantId, query.id)
@@ -158,9 +168,11 @@ override fun handle(query: GetTheme): Theme? = jdbi.withHandle { handle ->
 **Goal**: Add routing primitives so the architecture is ready for horizontal scaling.
 
 **Key additions**:
+
 - `Routable` interface — Commands declare their routing key (usually tenant ID)
 
 **No infrastructure changes yet.** When actual distribution is needed:
+
 1. Add `pending_commands` table (similar to `document_generation_requests`)
 2. Implement `CommandRouter` that routes commands to specific instances
 3. Add consumer position tracking for event subscribers
@@ -170,6 +182,7 @@ The existing `JobPoller` with `SELECT FOR UPDATE SKIP LOCKED` already proves thi
 ## Event Types
 
 ### CommandCompleted<C>
+
 Published to Spring's `ApplicationEventPublisher` after every successful command. Wraps the command and its result.
 
 ```kotlin
@@ -181,6 +194,7 @@ data class CommandCompleted<C : Command<*>>(
 ```
 
 ### Event Log Table
+
 ```sql
 CREATE TABLE event_log (
     id BIGSERIAL PRIMARY KEY,
@@ -196,6 +210,7 @@ CREATE TABLE event_log (
 ## Interfaces
 
 ### EventPhase
+
 ```kotlin
 enum class EventPhase {
     /** Runs immediately after handler returns, within same transaction. Failure propagates. */
@@ -206,6 +221,7 @@ enum class EventPhase {
 ```
 
 ### EventHandler<E>
+
 ```kotlin
 interface EventHandler<E : Command<*>> {
     val phase: EventPhase get() = EventPhase.AFTER_COMMIT
@@ -214,6 +230,7 @@ interface EventHandler<E : Command<*>> {
 ```
 
 Subscribe to a specific command type:
+
 ```kotlin
 @Component
 class OnThemeCreated : EventHandler<CreateTheme> {
@@ -224,6 +241,7 @@ class OnThemeCreated : EventHandler<CreateTheme> {
 ```
 
 ### TenantScoped
+
 ```kotlin
 interface TenantScoped {
     val tenantId: TenantId
@@ -231,6 +249,7 @@ interface TenantScoped {
 ```
 
 Enables generic tenant extraction for event logging, audit, and future routing. Add to tenant-scoped commands:
+
 ```kotlin
 data class CreateTheme(...) : Command<Theme>, TenantScoped {
     override val tenantId: TenantId
@@ -238,6 +257,7 @@ data class CreateTheme(...) : Command<Theme>, TenantScoped {
 ```
 
 ### Routable
+
 ```kotlin
 interface Routable {
     /** Commands with the same routing key are processed by the same instance. */
@@ -246,6 +266,7 @@ interface Routable {
 ```
 
 Declare affinity for sharding (tenant-based):
+
 ```kotlin
 data class CreateTheme(...) : Command<Theme>, TenantScoped, Routable {
     override val routingKey: String get() = tenantId.value
@@ -255,6 +276,7 @@ data class CreateTheme(...) : Command<Theme>, TenantScoped, Routable {
 ## JDBI Helpers
 
 ### Extensions
+
 ```kotlin
 // Wraps Jdbi.withHandle without the <T, Exception> noise
 inline fun <T> Jdbi.withHandle(crossinline block: (Handle) -> T): T
@@ -265,6 +287,7 @@ inline fun Jdbi.useHandle(crossinline block: (Handle) -> Unit)
 ```
 
 ### Tenant-Scoped Queries
+
 ```kotlin
 // Find a single tenant-scoped entity
 inline fun <reified T : Any> Handle.findByTenantAndId(
@@ -289,6 +312,7 @@ fun Handle.deleteForTenant(table: String, tenantId: TenantId, id: Any): Boolean
 ```
 
 ### JSONB Binding
+
 ```kotlin
 fun Update.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Update
 
@@ -298,6 +322,7 @@ fun Query.bindJsonb(name: String, value: Any?, objectMapper: ObjectMapper): Quer
 ## Testing
 
 ### Unit Tests (SpringMediator)
+
 ```kotlin
 @Test
 fun commandPublishesEvent() {
@@ -317,6 +342,7 @@ fun afterCommitHandlerExceptionDoesNotPropagate() {
 ```
 
 ### Integration Tests
+
 ```kotlin
 @Test
 fun eventLogReceivesAllCommands() {
@@ -336,6 +362,7 @@ fun transactionalEventListenerFiresAfterCommit() {
 ### Handler Migration Tests
 
 When migrating handlers to use JDBI helpers, verify identical behavior:
+
 ```kotlin
 // Before and after should return same results for same inputs
 val old = getThemeOld(tenantId, themeId)
@@ -377,10 +404,12 @@ class CommandMetrics {
 ### When should I use IMMEDIATE vs AFTER_COMMIT?
 
 **IMMEDIATE**: When the event handler's failure should roll back the command. Examples:
+
 - Creating dependent entities that must exist
 - Validating invariants
 
 **AFTER_COMMIT**: When the event is a side effect that can be retried independently. Examples:
+
 - Cache invalidation
 - Sending notifications
 - Audit logging
@@ -393,6 +422,7 @@ No. Only tenant-scoped commands (those with a `tenantId` property) should implem
 ### Why not use full event sourcing?
 
 Event sourcing is powerful but a significant architectural shift. Our model uses:
+
 - **Direct state storage** (PostgreSQL tables as the source of truth)
 - **Event logging** (append-only audit trail, not authoritative)
 - **Command-as-event** (loose coupling via events, but state stored directly)
@@ -402,6 +432,7 @@ This hybrid approach keeps the pragmatism of a traditional CRUD system while gai
 ### Can I use this without understanding all three phases?
 
 Yes. Phases 1 and 2 are independent:
+
 - Phase 1 (eventing) is the architecture change
 - Phase 2 (JDBI helpers) is purely mechanical cleanup
 

@@ -48,22 +48,22 @@ Epistola Suite uses **server-side rendering in Kotlin** for all document generat
 
 ## Output Formats
 
-| Format | Renderer | Use Case |
-|--------|----------|----------|
-| **HTML** | HtmlRenderer | Web display, email, preview |
-| **PDF (direct)** | DirectPdfRenderer + iText Core | Fast PDF, simple layouts |
-| **PDF (via HTML)** | HtmlRenderer + iText pdfHTML | Good CSS support, pure JVM |
-| **PDF (via HTML)** | HtmlRenderer + Playwright | Best CSS fidelity, needs Chromium |
+| Format             | Renderer                       | Use Case                          |
+| ------------------ | ------------------------------ | --------------------------------- |
+| **HTML**           | HtmlRenderer                   | Web display, email, preview       |
+| **PDF (direct)**   | DirectPdfRenderer + iText Core | Fast PDF, simple layouts          |
+| **PDF (via HTML)** | HtmlRenderer + iText pdfHTML   | Good CSS support, pure JVM        |
+| **PDF (via HTML)** | HtmlRenderer + Playwright      | Best CSS fidelity, needs Chromium |
 
 ## Key Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Rendering location | Server-side (Kotlin) | Single source of truth, security, control |
-| Primary PDF engine | iText Core (direct) | Fast, pure JVM, no external dependencies |
-| Fallback PDF engine | Playwright | Complex CSS layouts when needed |
-| Editor preview | WebSocket to server | Real-time preview with server rendering |
-| MVP approach | Synchronous | Simple first, async later |
+| Decision            | Choice               | Rationale                                 |
+| ------------------- | -------------------- | ----------------------------------------- |
+| Rendering location  | Server-side (Kotlin) | Single source of truth, security, control |
+| Primary PDF engine  | iText Core (direct)  | Fast, pure JVM, no external dependencies  |
+| Fallback PDF engine | Playwright           | Complex CSS layouts when needed           |
+| Editor preview      | WebSocket to server  | Real-time preview with server rendering   |
+| MVP approach        | Synchronous          | Simple first, async later                 |
 
 ## MVP: Synchronous PDF Preview
 
@@ -124,14 +124,14 @@ Content-Disposition: inline; filename="preview.pdf"
 
 ### Block Rendering (iText)
 
-| Block Type | iText Element |
-|------------|---------------|
-| `text` | `Paragraph` with styled `Text` elements |
-| `container` | `Div` |
-| `columns` | `Table` with column layout |
-| `table` | `Table` with cells |
-| `conditional` | Render matching branch or nothing |
-| `loop` | Repeat child elements for each item |
+| Block Type    | iText Element                           |
+| ------------- | --------------------------------------- |
+| `text`        | `Paragraph` with styled `Text` elements |
+| `container`   | `Div`                                   |
+| `columns`     | `Table` with column layout              |
+| `table`       | `Table` with cells                      |
+| `conditional` | Render matching branch or nothing       |
+| `loop`        | Repeat child elements for each item     |
 
 ### Expression Evaluation
 
@@ -170,12 +170,12 @@ Implementation: [Dashjoin JSONata](https://github.com/dashjoin/jsonata-java) (Ja
 Full JavaScript for power users:
 
 ```javascript
-customer.name                                      // Property access
-items.filter(x => x.active)                        // Filter
-items.map(x => x.price)                            // Map
-items.reduce((sum, x) => sum + x.price, 0)         // Aggregation
-first + " " + last                                 // String concatenation
-price.toFixed(2)                                   // Number formatting
+customer.name; // Property access
+items.filter((x) => x.active); // Filter
+items.map((x) => x.price); // Map
+items.reduce((sum, x) => sum + x.price, 0); // Aggregation
+first + " " + last; // String concatenation
+price.toFixed(2); // Number formatting
 ```
 
 Implementation: GraalJS with sandbox (no file/network access, execution limits)
@@ -218,31 +218,33 @@ enum class PageFormat(val width: Float, val height: Float) {
 ### HtmlRenderer (Kotlin)
 
 Server-side HTML generation for:
+
 - Web preview (via WebSocket)
 - Email output
 - HTML-to-PDF conversion
 
 ### HTML-to-PDF Backends
 
-| Backend | When to use |
-|---------|-------------|
-| iText pdfHTML | Good CSS support, pure JVM |
-| Playwright | Complex CSS (flexbox, grid), needs Chromium |
+| Backend       | When to use                                 |
+| ------------- | ------------------------------------------- |
+| iText pdfHTML | Good CSS support, pure JVM                  |
+| Playwright    | Complex CSS (flexbox, grid), needs Chromium |
 
 ### Async Job Queue
 
 For high-volume or batch rendering:
+
 - Submit job, get UUID
 - Poll for status
 - Download when complete
 
 ## Performance Expectations
 
-| Renderer | Simple Doc | Complex Doc |
-|----------|------------|-------------|
-| iText Core (direct) | 10-50ms | 50-200ms |
-| iText pdfHTML | 50-150ms | 150-400ms |
-| Playwright | 200-400ms | 400-800ms |
+| Renderer            | Simple Doc | Complex Doc |
+| ------------------- | ---------- | ----------- |
+| iText Core (direct) | 10-50ms    | 50-200ms    |
+| iText pdfHTML       | 50-150ms   | 150-400ms   |
+| Playwright          | 200-400ms  | 400-800ms   |
 
 ## Related Documentation
 

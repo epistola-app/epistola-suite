@@ -4,15 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'charts/**'
+      - "charts/**"
   pull_request:
     branches: [main]
     paths:
-      - 'charts/**'
+      - "charts/**"
   workflow_dispatch:
     inputs:
       force_release:
-        description: 'Force release even without chart changes'
+        description: "Force release even without chart changes"
         required: false
         default: false
         type: boolean
@@ -31,7 +31,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
-          version: 'v3.14.0'
+          version: "v3.14.0"
 
       - name: Lint Helm chart
         run: helm lint charts/epistola
@@ -39,11 +39,11 @@ jobs:
       - name: Scan Helm chart for misconfigurations
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'config'
-          scan-ref: 'charts/epistola'
-          format: 'table'
-          exit-code: '1'
-          severity: 'CRITICAL,HIGH'
+          scan-type: "config"
+          scan-ref: "charts/epistola"
+          format: "table"
+          exit-code: "1"
+          severity: "CRITICAL,HIGH"
 
   release:
     name: Release Helm Chart
@@ -106,7 +106,7 @@ jobs:
         if: steps.chart-changes.outputs.changed == 'true'
         uses: azure/setup-helm@v4
         with:
-          version: 'v3.14.0'
+          version: "v3.14.0"
 
       - name: Update Chart.yaml version
         if: steps.chart-changes.outputs.changed == 'true'

@@ -8,10 +8,10 @@ Variant attributes are structured key-value pairs assigned to template variants.
 
 Before attributes can be used on variants, they must be defined in a **tenant-scoped registry**. Each attribute definition specifies:
 
-| Field | Description |
-|-------|-------------|
-| **id** | Slug identifier (3-50 chars), e.g. `language`, `brand` |
-| **displayName** | Human-readable label, e.g. "Language", "Brand" |
+| Field             | Description                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| **id**            | Slug identifier (3-50 chars), e.g. `language`, `brand`              |
+| **displayName**   | Human-readable label, e.g. "Language", "Brand"                      |
 | **allowedValues** | Optional list of permitted values. If empty, any value is accepted. |
 
 Attribute definitions are managed per tenant. Variants can only use attributes that exist in their tenant's registry.
@@ -27,10 +27,10 @@ Each template has exactly one **default variant** (marked with `is_default = tru
 
 **Example:** An invoice template might have three variants:
 
-| Variant | Attributes |
-|---------|-----------|
-| `dutch` | `{ "language": "nl" }` |
-| `english` | `{ "language": "en" }` |
+| Variant             | Attributes                                   |
+| ------------------- | -------------------------------------------- |
+| `dutch`             | `{ "language": "nl" }`                       |
+| `english`           | `{ "language": "en" }`                       |
 | `english-corporate` | `{ "language": "en", "brand": "corporate" }` |
 
 ## Variant Resolution
@@ -74,14 +74,15 @@ The scoring formula favours variants that match more optional criteria (`* 10` w
 
 Given these variants on an `invoice` template:
 
-| Variant | Attributes | Default |
-|---------|-----------|---------|
-| `default` | `{}` | Yes |
-| `dutch` | `{ "language": "nl" }` | No |
-| `english` | `{ "language": "en" }` | No |
-| `english-corporate` | `{ "language": "en", "brand": "corporate" }` | No |
+| Variant             | Attributes                                   | Default |
+| ------------------- | -------------------------------------------- | ------- |
+| `default`           | `{}`                                         | Yes     |
+| `dutch`             | `{ "language": "nl" }`                       | No      |
+| `english`           | `{ "language": "en" }`                       | No      |
+| `english-corporate` | `{ "language": "en", "brand": "corporate" }` | No      |
 
 **Example 1: Required match**
+
 ```
 Criteria: language=en (required)
 → Candidates: english (score=1), english-corporate (score=2)
@@ -89,6 +90,7 @@ Criteria: language=en (required)
 ```
 
 **Example 2: Required + optional**
+
 ```
 Criteria: language=en (required), brand=corporate (optional)
 → Candidates: english (score=0+1=1), english-corporate (score=10+2=12)
@@ -96,6 +98,7 @@ Criteria: language=en (required), brand=corporate (optional)
 ```
 
 **Example 3: No match, falls back to default**
+
 ```
 Criteria: language=fr (required)
 → Candidates: none match
@@ -103,6 +106,7 @@ Criteria: language=fr (required)
 ```
 
 **Example 4: No match, no default**
+
 ```
 Criteria: language=fr (required), no default variant exists
 → NoMatchingVariantException
@@ -139,14 +143,14 @@ Attribute definitions are managed through the UI. The attribute registry is tena
 
 ### `variant_attribute_definitions`
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | `VARCHAR(50)` | Slug identifier (PK with tenant_key) |
-| `tenant_key` | `VARCHAR(63)` | FK to `tenants` |
-| `display_name` | `VARCHAR(100)` | Human-readable label |
-| `allowed_values` | `JSONB` | Array of permitted values (empty = any) |
-| `created_at` | `TIMESTAMPTZ` | Creation timestamp |
-| `last_modified` | `TIMESTAMPTZ` | Last modification timestamp |
+| Column           | Type           | Description                             |
+| ---------------- | -------------- | --------------------------------------- |
+| `id`             | `VARCHAR(50)`  | Slug identifier (PK with tenant_key)    |
+| `tenant_key`     | `VARCHAR(63)`  | FK to `tenants`                         |
+| `display_name`   | `VARCHAR(100)` | Human-readable label                    |
+| `allowed_values` | `JSONB`        | Array of permitted values (empty = any) |
+| `created_at`     | `TIMESTAMPTZ`  | Creation timestamp                      |
+| `last_modified`  | `TIMESTAMPTZ`  | Last modification timestamp             |
 
 ### `template_variants.attributes`
 
@@ -158,14 +162,14 @@ Boolean flag indicating the default variant for a template. Enforced by a partia
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `modules/epistola-core/.../attributes/model/VariantAttributeDefinition.kt` | Domain model |
-| `modules/epistola-core/.../attributes/commands/CreateAttributeDefinition.kt` | Create command |
-| `modules/epistola-core/.../attributes/commands/UpdateAttributeDefinition.kt` | Update command |
-| `modules/epistola-core/.../attributes/commands/DeleteAttributeDefinition.kt` | Delete command |
-| `modules/epistola-core/.../attributes/queries/ListAttributeDefinitions.kt` | List query |
-| `modules/epistola-core/.../attributes/queries/GetAttributeDefinition.kt` | Get query |
-| `modules/epistola-core/.../templates/services/VariantResolver.kt` | Resolution algorithm |
-| `modules/epistola-core/.../templates/commands/variants/AttributeValidation.kt` | Validation logic |
-| `modules/epistola-core/.../templates/services/VariantResolverTest.kt` | Resolution tests |
+| File                                                                           | Purpose              |
+| ------------------------------------------------------------------------------ | -------------------- |
+| `modules/epistola-core/.../attributes/model/VariantAttributeDefinition.kt`     | Domain model         |
+| `modules/epistola-core/.../attributes/commands/CreateAttributeDefinition.kt`   | Create command       |
+| `modules/epistola-core/.../attributes/commands/UpdateAttributeDefinition.kt`   | Update command       |
+| `modules/epistola-core/.../attributes/commands/DeleteAttributeDefinition.kt`   | Delete command       |
+| `modules/epistola-core/.../attributes/queries/ListAttributeDefinitions.kt`     | List query           |
+| `modules/epistola-core/.../attributes/queries/GetAttributeDefinition.kt`       | Get query            |
+| `modules/epistola-core/.../templates/services/VariantResolver.kt`              | Resolution algorithm |
+| `modules/epistola-core/.../templates/commands/variants/AttributeValidation.kt` | Validation logic     |
+| `modules/epistola-core/.../templates/services/VariantResolverTest.kt`          | Resolution tests     |

@@ -10,6 +10,7 @@ Create a Playwright-based UI test for the Epistola Suite.
 ## Decision Points
 
 Ask the user (if not already specified):
+
 - What page or feature is being tested?
 - What user interactions should be verified?
 - What HTMX behavior should be tested?
@@ -156,6 +157,7 @@ page.waitForSelector("#confirm-dialog:not([open])")
 ```
 
 For the template danger zone delete (which uses native `confirm()`):
+
 ```kotlin
 page.onDialog { dialog -> dialog.accept() }
 page.locator("button.btn-destructive:has-text('Delete Template')").click()

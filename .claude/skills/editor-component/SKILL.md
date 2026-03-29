@@ -10,6 +10,7 @@ Create a new Lit web component in the editor module.
 ## Decision Points
 
 Ask the user (if not already specified):
+
 - What is the component name?
 - What does it render/do?
 - Does it need access to `EditorEngine`?
@@ -80,27 +81,29 @@ export class EpistolaMyComponent extends LitElement {
 The component receives data through `@property()` and renders based on current prop values. It dispatches commands back to the engine.
 
 ```typescript
-@customElement('epistola-my-inspector')
+@customElement("epistola-my-inspector")
 export class EpistolaMyInspector extends LitElement {
-    override createRenderRoot() { return this }
+  override createRenderRoot() {
+    return this;
+  }
 
-    @property({ attribute: false }) engine?: EditorEngine
-    @property({ attribute: false }) doc?: TemplateDocument
-    @property({ attribute: false }) selectedNodeId?: string | null
+  @property({ attribute: false }) engine?: EditorEngine;
+  @property({ attribute: false }) doc?: TemplateDocument;
+  @property({ attribute: false }) selectedNodeId?: string | null;
 
-    override render() {
-        if (!this.engine || !this.doc) return nothing
-        // Render based on current props
-        return html`...`
-    }
+  override render() {
+    if (!this.engine || !this.doc) return nothing;
+    // Render based on current props
+    return html`...`;
+  }
 
-    private _handleChange(value: string) {
-        this.engine?.execute({
-            type: 'UpdateNodeProps',
-            nodeId: this.selectedNodeId!,
-            props: { someField: value },
-        })
-    }
+  private _handleChange(value: string) {
+    this.engine?.execute({
+      type: "UpdateNodeProps",
+      nodeId: this.selectedNodeId!,
+      props: { someField: value },
+    });
+  }
 }
 ```
 
@@ -114,7 +117,7 @@ Exports in `lib.ts` are **for TypeScript types only** — so that other modules 
 
 ```typescript
 // lib.ts — exports are for types, not registration
-export { EpistolaMyComponent } from './ui/EpistolaMyComponent.js'
+export { EpistolaMyComponent } from "./ui/EpistolaMyComponent.js";
 ```
 
 ## Engine Commands
@@ -125,13 +128,20 @@ The `Command` union type defines all operations the engine supports:
 
 ```typescript
 type Command =
-    | InsertNode | RemoveNode | MoveNode
-    | UpdateNodeProps | UpdateNodeStyles | SetStylePreset
-    | UpdateDocumentStyles | UpdatePageSettings
-    | AddColumnSlot | RemoveColumnSlot
+  | InsertNode
+  | RemoveNode
+  | MoveNode
+  | UpdateNodeProps
+  | UpdateNodeStyles
+  | SetStylePreset
+  | UpdateDocumentStyles
+  | UpdatePageSettings
+  | AddColumnSlot
+  | RemoveColumnSlot;
 ```
 
 Each command includes:
+
 - An `applyCommand()` function that transforms the document
 - Inverse command generation for undo support
 - `CommandResult` = `{ ok: true, doc, inverse, structureChanged }` | `{ ok: false, error }`
@@ -144,10 +154,10 @@ To add a new command: add the type to the union, implement `applyCommand()`, and
 
 ```typescript
 type EngineEvents = {
-    'doc:change': { doc: TemplateDocument; indexes: DocumentIndexes }
-    'selection:change': { nodeId: NodeId | null }
-    'example:change': { index: number; example: object | undefined }
-}
+  "doc:change": { doc: TemplateDocument; indexes: DocumentIndexes };
+  "selection:change": { nodeId: NodeId | null };
+  "example:change": { index: number; example: object | undefined };
+};
 ```
 
 Subscribe: `engine.events.on('doc:change', handler)` — returns an unsubscribe function.
@@ -178,16 +188,16 @@ The `init()` method pattern is unique to the theme editor — it initializes fro
 
 ## File Locations
 
-| What | Where |
-|------|-------|
-| UI components | `modules/editor/src/main/typescript/ui/` |
-| Engine logic | `modules/editor/src/main/typescript/engine/` |
-| Theme editor | `modules/editor/src/main/typescript/theme-editor/` |
-| DnD | `modules/editor/src/main/typescript/dnd/` |
-| ProseMirror | `modules/editor/src/main/typescript/prosemirror/` |
-| Types | `modules/editor/src/main/typescript/types/` |
-| Tests | Co-located as `*.test.ts` next to source |
-| CSS | `modules/editor/src/main/resources/static/css/` |
+| What          | Where                                              |
+| ------------- | -------------------------------------------------- |
+| UI components | `modules/editor/src/main/typescript/ui/`           |
+| Engine logic  | `modules/editor/src/main/typescript/engine/`       |
+| Theme editor  | `modules/editor/src/main/typescript/theme-editor/` |
+| DnD           | `modules/editor/src/main/typescript/dnd/`          |
+| ProseMirror   | `modules/editor/src/main/typescript/prosemirror/`  |
+| Types         | `modules/editor/src/main/typescript/types/`        |
+| Tests         | Co-located as `*.test.ts` next to source           |
+| CSS           | `modules/editor/src/main/resources/static/css/`    |
 
 ## Checklist
 

@@ -5,102 +5,109 @@
  * undo/redo, and change notification. Framework-agnostic.
  */
 
-import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js'
-import { type FieldPath, extractFieldPaths } from './schema-paths.js'
-import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js'
-import type { Theme } from '@epistola.app/editor-model/generated/theme'
-import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry'
-import { type DocumentIndexes, buildIndexes } from './indexes.js'
-import { type AnyCommand, type CommandResult, applyCommand } from './commands.js'
-import { UndoStack } from './undo.js'
-import type { Change, ChangeContext } from './change.js'
-import { CommandChange } from './command-change.js'
-import { TextChange } from './text-change.js'
-import type { TextChangeOps } from './undo.js'
-import type { ComponentRegistry } from './registry.js'
-import { deepFreeze } from './freeze.js'
-import { defaultStyleRegistry } from './style-registry.js'
-import { EventEmitter, type EngineEvents } from './events.js'
+import type { TemplateDocument, NodeId, SlotId, PageSettings } from "../types/index.js";
+import { type FieldPath, extractFieldPaths } from "./schema-paths.js";
+import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from "./system-params.js";
+import type { Theme } from "@epistola.app/editor-model/generated/theme";
+import type { StyleRegistry } from "@epistola.app/editor-model/generated/style-registry";
+import { type DocumentIndexes, buildIndexes } from "./indexes.js";
+import { type AnyCommand, type CommandResult, applyCommand } from "./commands.js";
+import { UndoStack } from "./undo.js";
+import type { Change, ChangeContext } from "./change.js";
+import { CommandChange } from "./command-change.js";
+import { TextChange } from "./text-change.js";
+import type { TextChangeOps } from "./undo.js";
+import type { ComponentRegistry } from "./registry.js";
+import { deepFreeze } from "./freeze.js";
+import { defaultStyleRegistry } from "./style-registry.js";
+import { EventEmitter, type EngineEvents } from "./events.js";
 import {
   getInheritableKeys,
   resolveDocumentStyles,
   resolveNodeStyles,
   resolvePageSettings,
   resolvePresetStyles,
-} from './styles.js'
+} from "./styles.js";
 
 // ---------------------------------------------------------------------------
 // Listener type (deprecated — use events.on('doc:change') instead)
 // ---------------------------------------------------------------------------
 
-export type EngineListener = (doc: TemplateDocument, indexes: DocumentIndexes) => void
+export type EngineListener = (doc: TemplateDocument, indexes: DocumentIndexes) => void;
 
 // ---------------------------------------------------------------------------
 // Engine
 // ---------------------------------------------------------------------------
 
 export class EditorEngine {
-  private _doc: TemplateDocument
-  private _indexes: DocumentIndexes
-  private _events = new EventEmitter<EngineEvents>()
-  private _undoStack: UndoStack
-  private _selectedNodeId: NodeId | null = null
-  readonly registry: ComponentRegistry
-  readonly styleRegistry: StyleRegistry
-  private _theme: Theme | undefined
-  private _resolvedDocStyles!: Record<string, unknown>
-  private _inheritableKeys: Set<string>
-  private _resolvedPageSettings!: PageSettings
+  private _doc: TemplateDocument;
+  private _indexes: DocumentIndexes;
+  private _events = new EventEmitter<EngineEvents>();
+  private _undoStack: UndoStack;
+  private _selectedNodeId: NodeId | null = null;
+  readonly registry: ComponentRegistry;
+  readonly styleRegistry: StyleRegistry;
+  private _theme: Theme | undefined;
+  private _resolvedDocStyles!: Record<string, unknown>;
+  private _inheritableKeys: Set<string>;
+  private _resolvedPageSettings!: PageSettings;
 
-  private _dataModel: object | undefined
-  private _dataExamples: object[] | undefined
-  private _currentExampleIndex: number = 0
-  private _fieldPathsCache: FieldPath[] | undefined
+  private _dataModel: object | undefined;
+  private _dataExamples: object[] | undefined;
+  private _currentExampleIndex: number = 0;
+  private _fieldPathsCache: FieldPath[] | undefined;
 
   /** Generic component state store (e.g. table cell selection). */
-  private _componentState = new Map<string, unknown>()
+  private _componentState = new Map<string, unknown>();
 
   /** PM EditorState cache for preserving history across delete/undo cycles. */
-  private _pmStateCache = new Map<NodeId, unknown>()
+  private _pmStateCache = new Map<NodeId, unknown>();
 
   /** ChangeContext instance shared with all Change implementations. */
-  private _changeCtx: ChangeContext
+  private _changeCtx: ChangeContext;
 
   constructor(
     doc: TemplateDocument,
     registry: ComponentRegistry,
-    options?: { theme?: Theme; styleRegistry?: StyleRegistry; undoDepth?: number; dataModel?: object; dataExamples?: object[] },
+    options?: {
+      theme?: Theme;
+      styleRegistry?: StyleRegistry;
+      undoDepth?: number;
+      dataModel?: object;
+      dataExamples?: object[];
+    },
   ) {
-    this.registry = registry
-    this.styleRegistry = options?.styleRegistry ?? defaultStyleRegistry
-    this._theme = options?.theme
-    this._doc = deepFreeze(structuredClone(doc))
-    this._indexes = buildIndexes(this._doc)
-    this._undoStack = new UndoStack(options?.undoDepth ?? 100)
-    this._inheritableKeys = getInheritableKeys(this.styleRegistry)
-    this._dataModel = options?.dataModel
-    this._dataExamples = options?.dataExamples
-    this._recomputeStyles()
+    this.registry = registry;
+    this.styleRegistry = options?.styleRegistry ?? defaultStyleRegistry;
+    this._theme = options?.theme;
+    this._doc = deepFreeze(structuredClone(doc));
+    this._indexes = buildIndexes(this._doc);
+    this._undoStack = new UndoStack(options?.undoDepth ?? 100);
+    this._inheritableKeys = getInheritableKeys(this.styleRegistry);
+    this._dataModel = options?.dataModel;
+    this._dataExamples = options?.dataExamples;
+    this._recomputeStyles();
 
     // Build the ChangeContext that Change implementations use
     this._changeCtx = {
       stack: this._undoStack,
       applySilent: (command: AnyCommand) => this._dispatchSilent(command),
       syncContent: (nodeId: NodeId, content: unknown) => {
-        this.dispatch(
-          { type: 'UpdateNodeProps', nodeId, props: { content } },
-          { skipUndo: true },
-        )
+        this.dispatch({ type: "UpdateNodeProps", nodeId, props: { content } }, { skipUndo: true });
       },
       applySnapshot: (nodeId: NodeId, content: unknown) => {
         this.dispatch(
-          { type: 'UpdateNodeProps', nodeId, props: { content: content != null ? structuredClone(content) : null } },
+          {
+            type: "UpdateNodeProps",
+            nodeId,
+            props: { content: content != null ? structuredClone(content) : null },
+          },
           { skipUndo: true },
-        )
+        );
       },
       undo: () => this.undo(),
       redo: () => this.redo(),
-    }
+    };
   }
 
   // -----------------------------------------------------------------------
@@ -108,7 +115,7 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
 
   get events(): EventEmitter<EngineEvents> {
-    return this._events
+    return this._events;
   }
 
   // -----------------------------------------------------------------------
@@ -116,53 +123,53 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
 
   get doc(): TemplateDocument {
-    return this._doc
+    return this._doc;
   }
 
   get indexes(): DocumentIndexes {
-    return this._indexes
+    return this._indexes;
   }
 
   get selectedNodeId(): NodeId | null {
-    return this._selectedNodeId
+    return this._selectedNodeId;
   }
 
   getNode(id: NodeId) {
-    return this._doc.nodes[id]
+    return this._doc.nodes[id];
   }
 
   getSlot(id: SlotId) {
-    return this._doc.slots[id]
+    return this._doc.slots[id];
   }
 
   get theme(): Theme | undefined {
-    return this._theme
+    return this._theme;
   }
 
   get dataModel(): object | undefined {
-    return this._dataModel
+    return this._dataModel;
   }
 
   get dataExamples(): object[] | undefined {
-    return this._dataExamples
+    return this._dataExamples;
   }
 
   get currentExampleIndex(): number {
-    return this._currentExampleIndex
+    return this._currentExampleIndex;
   }
 
   /** The currently selected data example, or undefined if none. */
   get currentExample(): object | undefined {
-    return this._dataExamples?.[this._currentExampleIndex]
+    return this._dataExamples?.[this._currentExampleIndex];
   }
 
   /** Extracted field paths from the data model + system parameters, cached lazily. */
   get fieldPaths(): FieldPath[] {
     if (!this._fieldPathsCache) {
-      const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : []
-      this._fieldPathsCache = [...dataFields, ...SYSTEM_PARAMETER_PATHS]
+      const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : [];
+      this._fieldPathsCache = [...dataFields, ...SYSTEM_PARAMETER_PATHS];
     }
-    return this._fieldPathsCache
+    return this._fieldPathsCache;
   }
 
   /**
@@ -174,22 +181,22 @@ export class EditorEngine {
    * returns just the system mock data.
    */
   getExampleData(): Record<string, unknown> {
-    const example = this.currentExample as Record<string, unknown> | undefined
+    const example = this.currentExample as Record<string, unknown> | undefined;
     const data = example
-      ? (typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null
-          ? example.data as Record<string, unknown>
-          : example)
-      : {}
-    return { ...data, ...SYSTEM_PARAM_MOCK_DATA }
+      ? typeof example.id === "string" && typeof example.data === "object" && example.data !== null
+        ? (example.data as Record<string, unknown>)
+        : example
+      : {};
+    return { ...data, ...SYSTEM_PARAM_MOCK_DATA };
   }
 
   /** Switch the active data example by index. Notifies example listeners. */
   setCurrentExample(index: number): void {
-    if (index === this._currentExampleIndex) return
-    if (!this._dataExamples || index < 0 || index >= this._dataExamples.length) return
-    this._currentExampleIndex = index
-    const example = this._dataExamples[index]
-    this._events.emit('example:change', { index, example })
+    if (index === this._currentExampleIndex) return;
+    if (!this._dataExamples || index < 0 || index >= this._dataExamples.length) return;
+    this._currentExampleIndex = index;
+    const example = this._dataExamples[index];
+    this._events.emit("example:change", { index, example });
   }
 
   /**
@@ -197,52 +204,49 @@ export class EditorEngine {
    * @deprecated Use `engine.events.on('example:change', ...)` instead.
    */
   onExampleChange(listener: (index: number, example: object | undefined) => void): () => void {
-    return this._events.on('example:change', ({ index, example }) => listener(index, example))
+    return this._events.on("example:change", ({ index, example }) => listener(index, example));
   }
 
   get resolvedDocStyles(): Record<string, unknown> {
-    return this._resolvedDocStyles
+    return this._resolvedDocStyles;
   }
 
   get resolvedPageSettings(): PageSettings {
-    return this._resolvedPageSettings
+    return this._resolvedPageSettings;
   }
 
   /** Resolve a single node's final styles through the full cascade. */
   getResolvedNodeStyles(nodeId: NodeId): Record<string, unknown> {
-    const node = this._doc.nodes[nodeId]
-    if (!node) return {}
+    const node = this._doc.nodes[nodeId];
+    if (!node) return {};
 
-    const def = this.registry.get(node.type)
-    const presetStyles = resolvePresetStyles(
-      this._theme?.blockStylePresets,
-      node.stylePreset,
-    )
+    const def = this.registry.get(node.type);
+    const presetStyles = resolvePresetStyles(this._theme?.blockStylePresets, node.stylePreset);
     return resolveNodeStyles(
       this._resolvedDocStyles,
       this._inheritableKeys,
       presetStyles,
       node.styles,
       def?.defaultStyles,
-    )
+    );
   }
 
   /** Update the theme (e.g. when loading a different theme). */
   setTheme(theme: Theme | undefined): void {
-    this._theme = theme
-    this._recomputeStyles()
-    this._notify(false)
+    this._theme = theme;
+    this._recomputeStyles();
+    this._notify(false);
   }
 
   private _recomputeStyles(): void {
     this._resolvedDocStyles = resolveDocumentStyles(
       this._theme?.documentStyles as Record<string, unknown> | undefined,
       this._doc.documentStylesOverride as Record<string, unknown> | undefined,
-    )
+    );
     this._resolvedPageSettings = resolvePageSettings(
       this._theme?.pageSettings as PageSettings | undefined,
       this._doc.pageSettingsOverride as PageSettings | undefined,
-    )
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -250,9 +254,9 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
 
   selectNode(nodeId: NodeId | null): void {
-    if (this._selectedNodeId === nodeId) return
-    this._selectedNodeId = nodeId
-    this._events.emit('selection:change', { nodeId })
+    if (this._selectedNodeId === nodeId) return;
+    this._selectedNodeId = nodeId;
+    this._events.emit("selection:change", { nodeId });
   }
 
   /**
@@ -260,23 +264,23 @@ export class EditorEngine {
    * Preference: next sibling -> previous sibling -> parent node -> null.
    */
   getNextSelectionAfterRemove(nodeId: NodeId): NodeId | null {
-    if (nodeId === this._doc.root) return null
+    if (nodeId === this._doc.root) return null;
 
-    const parentSlotId = this._indexes.parentSlotByNodeId.get(nodeId)
-    if (!parentSlotId) return null
-    const parentSlot = this._doc.slots[parentSlotId]
-    if (!parentSlot) return null
+    const parentSlotId = this._indexes.parentSlotByNodeId.get(nodeId);
+    if (!parentSlotId) return null;
+    const parentSlot = this._doc.slots[parentSlotId];
+    if (!parentSlot) return null;
 
-    const index = parentSlot.children.indexOf(nodeId)
-    if (index < 0) return null
+    const index = parentSlot.children.indexOf(nodeId);
+    if (index < 0) return null;
 
-    const nextSibling = parentSlot.children[index + 1]
-    if (nextSibling) return nextSibling
+    const nextSibling = parentSlot.children[index + 1];
+    if (nextSibling) return nextSibling;
 
-    const previousSibling = parentSlot.children[index - 1]
-    if (previousSibling) return previousSibling
+    const previousSibling = parentSlot.children[index - 1];
+    if (previousSibling) return previousSibling;
 
-    return this._indexes.parentNodeByNodeId.get(nodeId) ?? null
+    return this._indexes.parentNodeByNodeId.get(nodeId) ?? null;
   }
 
   /**
@@ -284,7 +288,7 @@ export class EditorEngine {
    * @deprecated Use `engine.events.on('selection:change', ...)` instead.
    */
   onSelectionChange(listener: (nodeId: NodeId | null) => void): () => void {
-    return this._events.on('selection:change', ({ nodeId }) => listener(nodeId))
+    return this._events.on("selection:change", ({ nodeId }) => listener(nodeId));
   }
 
   // -----------------------------------------------------------------------
@@ -293,13 +297,13 @@ export class EditorEngine {
 
   /** Set component state and emit a change event. */
   setComponentState(key: string, value: unknown): void {
-    this._componentState.set(key, value)
-    this._events.emit('component-state:change', { key, value })
+    this._componentState.set(key, value);
+    this._events.emit("component-state:change", { key, value });
   }
 
   /** Get component state by key. */
   getComponentState<T>(key: string): T | undefined {
-    return this._componentState.get(key) as T | undefined
+    return this._componentState.get(key) as T | undefined;
   }
 
   // -----------------------------------------------------------------------
@@ -314,23 +318,23 @@ export class EditorEngine {
    *   external components that manage their own undo, e.g. ProseMirror).
    */
   dispatch(command: AnyCommand, options?: { skipUndo?: boolean }): CommandResult {
-    const result = applyCommand(this._doc, this._indexes, command, this.registry)
+    const result = applyCommand(this._doc, this._indexes, command, this.registry);
 
     if (result.ok) {
-      this._doc = deepFreeze(result.doc)
+      this._doc = deepFreeze(result.doc);
       if (result.structureChanged) {
-        this._indexes = buildIndexes(this._doc)
+        this._indexes = buildIndexes(this._doc);
       }
-      this._recomputeStyles()
+      this._recomputeStyles();
 
       if (!options?.skipUndo && result.inverse) {
-        this._undoStack.push(new CommandChange(result.inverse))
+        this._undoStack.push(new CommandChange(result.inverse));
       }
 
-      this._notify(result.structureChanged, command.type)
+      this._notify(result.structureChanged, command.type);
     }
 
-    return result
+    return result;
   }
 
   /**
@@ -339,12 +343,12 @@ export class EditorEngine {
    * Clears the redo stack (new action invalidates redo history).
    */
   pushTextChange(entry: TextChange): void {
-    this._undoStack.push(entry)
+    this._undoStack.push(entry);
   }
 
   /** Peek at the top of the undo stack (used by text editor to check current session). */
   peekUndo(): Change | undefined {
-    return this._undoStack.peekUndo()
+    return this._undoStack.peekUndo();
   }
 
   /**
@@ -352,18 +356,18 @@ export class EditorEngine {
    * Used internally by undo/redo via ChangeContext.
    */
   private _dispatchSilent(command: AnyCommand): CommandResult {
-    const result = applyCommand(this._doc, this._indexes, command, this.registry)
+    const result = applyCommand(this._doc, this._indexes, command, this.registry);
 
     if (result.ok) {
-      this._doc = deepFreeze(result.doc)
+      this._doc = deepFreeze(result.doc);
       if (result.structureChanged) {
-        this._indexes = buildIndexes(this._doc)
+        this._indexes = buildIndexes(this._doc);
       }
-      this._recomputeStyles()
-      this._notify(result.structureChanged, command.type)
+      this._recomputeStyles();
+      this._notify(result.structureChanged, command.type);
     }
 
-    return result
+    return result;
   }
 
   // -----------------------------------------------------------------------
@@ -371,23 +375,23 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
 
   undo(): boolean {
-    const change = this._undoStack.peekUndo()
-    if (!change) return false
-    return change.undoStep(this._changeCtx)
+    const change = this._undoStack.peekUndo();
+    if (!change) return false;
+    return change.undoStep(this._changeCtx);
   }
 
   redo(): boolean {
-    const change = this._undoStack.peekRedo()
-    if (!change) return false
-    return change.redoStep(this._changeCtx)
+    const change = this._undoStack.peekRedo();
+    if (!change) return false;
+    return change.redoStep(this._changeCtx);
   }
 
   get canUndo(): boolean {
-    return this._undoStack.canUndo
+    return this._undoStack.canUndo;
   }
 
   get canRedo(): boolean {
-    return this._undoStack.canRedo
+    return this._undoStack.canRedo;
   }
 
   // -----------------------------------------------------------------------
@@ -396,14 +400,14 @@ export class EditorEngine {
 
   /** Cache a PM EditorState when a text block is disconnected. */
   cachePmState(nodeId: NodeId, state: unknown): void {
-    this._pmStateCache.set(nodeId, state)
+    this._pmStateCache.set(nodeId, state);
   }
 
   /** Retrieve and consume a cached PM EditorState (one-time use). */
   getCachedPmState(nodeId: NodeId): unknown | undefined {
-    const state = this._pmStateCache.get(nodeId)
-    if (state) this._pmStateCache.delete(nodeId)
-    return state
+    const state = this._pmStateCache.get(nodeId);
+    if (state) this._pmStateCache.delete(nodeId);
+    return state;
   }
 
   /**
@@ -412,13 +416,21 @@ export class EditorEngine {
    */
   reviveTextChangeOps(nodeId: NodeId, ops: TextChangeOps): void {
     for (const entry of this._undoStack.undoEntries()) {
-      if (entry instanceof TextChange && entry.nodeId === nodeId && (!entry.ops || !entry.ops.isAlive())) {
-        entry.ops = ops
+      if (
+        entry instanceof TextChange &&
+        entry.nodeId === nodeId &&
+        (!entry.ops || !entry.ops.isAlive())
+      ) {
+        entry.ops = ops;
       }
     }
     for (const entry of this._undoStack.redoEntries()) {
-      if (entry instanceof TextChange && entry.nodeId === nodeId && (!entry.ops || !entry.ops.isAlive())) {
-        entry.ops = ops
+      if (
+        entry instanceof TextChange &&
+        entry.nodeId === nodeId &&
+        (!entry.ops || !entry.ops.isAlive())
+      ) {
+        entry.ops = ops;
       }
     }
   }
@@ -428,14 +440,14 @@ export class EditorEngine {
   // -----------------------------------------------------------------------
 
   replaceDocument(doc: TemplateDocument): void {
-    this._doc = deepFreeze(structuredClone(doc))
-    this._indexes = buildIndexes(this._doc)
-    this._recomputeStyles()
-    this._undoStack.clear()
-    this._pmStateCache.clear()
-    this._componentState.clear()
-    this._selectedNodeId = null
-    this._notify(true, 'ReplaceDocument')
+    this._doc = deepFreeze(structuredClone(doc));
+    this._indexes = buildIndexes(this._doc);
+    this._recomputeStyles();
+    this._undoStack.clear();
+    this._pmStateCache.clear();
+    this._componentState.clear();
+    this._selectedNodeId = null;
+    this._notify(true, "ReplaceDocument");
   }
 
   // -----------------------------------------------------------------------
@@ -447,15 +459,15 @@ export class EditorEngine {
    * @deprecated Use `engine.events.on('doc:change', ...)` instead.
    */
   subscribe(listener: EngineListener): () => void {
-    return this._events.on('doc:change', ({ doc, indexes }) => listener(doc, indexes))
+    return this._events.on("doc:change", ({ doc, indexes }) => listener(doc, indexes));
   }
 
   private _notify(structureChanged: boolean, commandType?: string): void {
-    this._events.emit('doc:change', {
+    this._events.emit("doc:change", {
       doc: this._doc,
       indexes: this._indexes,
       structureChanged,
       commandType,
-    })
+    });
   }
 }

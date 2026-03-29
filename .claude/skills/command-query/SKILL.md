@@ -10,6 +10,7 @@ Create a new CQRS command or query in the epistola-core module.
 ## Decision Points
 
 Ask the user (if not already specified):
+
 - Is this a **command** (state change) or a **query** (read-only)?
 - Which domain? (tenants, templates, environments, documents, attributes, themes)
 - What are the input parameters and return type?
@@ -156,6 +157,7 @@ data class GetEntity(
 There are 4 validation approaches, used in different places:
 
 1. **`validate()` in `init` block** — Input validation (field format, required fields). Throws `ValidationException`.
+
    ```kotlin
    init {
        validate("name", name.isNotBlank()) { "Name is required" }
@@ -163,6 +165,7 @@ There are 4 validation approaches, used in different places:
    ```
 
 2. **`require()` in handler** — Precondition checks (domain invariants).
+
    ```kotlin
    override fun handle(command: Cmd): Result {
        require(command.versionId.value > 0) { "Invalid version" }
@@ -170,6 +173,7 @@ There are 4 validation approaches, used in different places:
    ```
 
 3. **Handler body validation** — Business rule checks that need DB lookups.
+
    ```kotlin
    val existing = handle.createQuery("SELECT ...").findOne().orElse(null)
        ?: throw SomeDomainException("Not found")
@@ -226,6 +230,7 @@ class ComplexCommandHandler(
 ## Dispatch Pattern
 
 Commands and queries are dispatched via extension functions:
+
 ```kotlin
 CreateSomething(id = ..., tenantId = ...).execute()    // Command
 ListSomething(tenantId = tenantId).query()             // Query

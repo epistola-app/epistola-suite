@@ -13,7 +13,7 @@ spring:
   web:
     resources:
       static-locations:
-        - file:modules/  # Serves design-system CSS from filesystem for live editing
+        - file:modules/ # Serves design-system CSS from filesystem for live editing
         - classpath:/static/
       chain:
         strategy:
@@ -30,9 +30,9 @@ spring:
   security:
     oauth2:
       client:
-        registration: {}  # Disable OAuth2 for local profile
+        registration: {} # Disable OAuth2 for local profile
   session:
-    timeout: 1m  # Longer session timeout for local development
+    timeout: 1m # Longer session timeout for local development
 
 management:
   otlp:
@@ -49,7 +49,7 @@ management:
 
 epistola:
   auth:
-    auto-provision: false  # Not needed for in-memory users
+    auto-provision: false # Not needed for in-memory users
   editor:
     dev-server:
       auto-start: true

@@ -6,19 +6,19 @@
  * Public API is unchanged from the original implementation.
  */
 
-import type { VisualSchema } from '../types.js'
-import { type SchemaCommand, executeSchemaCommand } from './schemaCommands.js'
-import { SnapshotHistory } from './snapshotHistory.js'
+import type { VisualSchema } from "../types.js";
+import { type SchemaCommand, executeSchemaCommand } from "./schemaCommands.js";
+import { SnapshotHistory } from "./snapshotHistory.js";
 
 export class SchemaCommandHistory {
-  private _history = new SnapshotHistory<VisualSchema>()
+  private _history = new SnapshotHistory<VisualSchema>();
 
   get canUndo(): boolean {
-    return this._history.canUndo
+    return this._history.canUndo;
   }
 
   get canRedo(): boolean {
-    return this._history.canRedo
+    return this._history.canRedo;
   }
 
   /**
@@ -26,8 +26,8 @@ export class SchemaCommandHistory {
    * Returns the new VisualSchema after applying the command.
    */
   execute(command: SchemaCommand, current: VisualSchema): VisualSchema {
-    this._history.push(current)
-    return executeSchemaCommand(current, command)
+    this._history.push(current);
+    return executeSchemaCommand(current, command);
   }
 
   /**
@@ -35,7 +35,7 @@ export class SchemaCommandHistory {
    * Returns null if there is nothing to undo.
    */
   undo(current: VisualSchema): VisualSchema | null {
-    return this._history.undo(current)
+    return this._history.undo(current);
   }
 
   /**
@@ -43,13 +43,13 @@ export class SchemaCommandHistory {
    * Returns null if there is nothing to redo.
    */
   redo(current: VisualSchema): VisualSchema | null {
-    return this._history.redo(current)
+    return this._history.redo(current);
   }
 
   /**
    * Clear all history. Call on save or discard.
    */
   clear(): void {
-    this._history.clear()
+    this._history.clear();
   }
 }

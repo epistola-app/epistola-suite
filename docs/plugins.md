@@ -80,6 +80,7 @@ class AiPluginAutoConfiguration {
 ### Conditional Enablement
 
 The `@ConditionalOnProperty` annotation ensures the plugin is a complete no-op unless explicitly enabled. When disabled (the default):
+
 - No beans are created
 - No routes are registered
 - No resources are consumed
@@ -127,6 +128,7 @@ fun aiPlugin(): EpistolaPlugin = object : EpistolaPlugin {
 ```
 
 This enables:
+
 - A `/plugins` UI handler endpoint that lists active plugins (for the frontend to know which plugins to load)
 - A Thymeleaf model attribute (`enabledPlugins`) injected into editor pages
 - Admin/diagnostic visibility into which plugins are active
@@ -165,6 +167,7 @@ data class AiPluginProperties(
 From the application's perspective, enabling a plugin is a two-step process:
 
 1. **Add the Gradle dependency** in `apps/epistola/build.gradle.kts`:
+
    ```kotlin
    dependencies {
        implementation(project(":modules:plugins:ai"))
@@ -194,61 +197,61 @@ The editor currently hardcodes sidebar tabs, toolbar items, and service wiring. 
 
 export interface EditorPlugin {
   /** Unique plugin identifier (matches backend plugin id) */
-  id: string
+  id: string;
 
   /** Sidebar tab contributed by this plugin (optional) */
-  sidebarTab?: SidebarTabContribution
+  sidebarTab?: SidebarTabContribution;
 
   /** Toolbar actions contributed by this plugin (optional) */
-  toolbarActions?: ToolbarAction[]
+  toolbarActions?: ToolbarAction[];
 
   /**
    * Called when the editor engine is ready. Returns a dispose function
    * for cleanup when the editor unmounts.
    */
-  init(context: PluginContext): PluginDisposeFn
+  init(context: PluginContext): PluginDisposeFn;
 }
 
 export interface SidebarTabContribution {
   /** Tab identifier (used as the active tab key) */
-  id: string
+  id: string;
 
   /** Display label shown on the tab button */
-  label: string
+  label: string;
 
   /** Optional icon identifier */
-  icon?: string
+  icon?: string;
 
   /** Renders the tab content. Called reactively when context changes. */
-  render: (context: PluginContext) => TemplateResult
+  render: (context: PluginContext) => TemplateResult;
 }
 
 export interface ToolbarAction {
   /** Action identifier */
-  id: string
+  id: string;
 
   /** Tooltip / aria label */
-  label: string
+  label: string;
 
   /** Icon identifier */
-  icon: string
+  icon: string;
 
   /** Called when the toolbar button is clicked */
-  onClick: () => void
+  onClick: () => void;
 }
 
 export interface PluginContext {
   /** The editor engine instance — plugins can dispatch commands via engine.dispatch() */
-  engine: EditorEngine
+  engine: EditorEngine;
 
   /** Current document state */
-  doc: TemplateDocument
+  doc: TemplateDocument;
 
   /** Currently selected node, or null */
-  selectedNodeId: NodeId | null
+  selectedNodeId: NodeId | null;
 }
 
-export type PluginDisposeFn = () => void
+export type PluginDisposeFn = () => void;
 ```
 
 ### `EditorOptions` Extension
@@ -259,15 +262,15 @@ The `plugins` array is added to `EditorOptions`:
 // modules/editor/src/main/typescript/lib.ts
 
 export interface EditorOptions {
-  container: HTMLElement
-  template?: TemplateDocument
-  onSave?: (template: TemplateDocument) => Promise<void>
-  dataModel?: object
-  dataExamples?: object[]
-  onFetchPreview?: FetchPreviewFn
+  container: HTMLElement;
+  template?: TemplateDocument;
+  onSave?: (template: TemplateDocument) => Promise<void>;
+  dataModel?: object;
+  dataExamples?: object[];
+  onFetchPreview?: FetchPreviewFn;
 
   /** Optional plugins that extend the editor with additional sidebar tabs, toolbar actions, etc. */
-  plugins?: EditorPlugin[]
+  plugins?: EditorPlugin[];
 }
 ```
 
@@ -277,14 +280,14 @@ export interface EditorOptions {
 
 ```typescript
 // Current (hardcoded):
-type SidebarTab = 'blocks' | 'structure' | 'inspector'
+type SidebarTab = "blocks" | "structure" | "inspector";
 
 // New (dynamic):
 interface TabDefinition {
-  id: string
-  label: string
-  icon?: string
-  render: (context: SidebarRenderContext) => TemplateResult
+  id: string;
+  label: string;
+  icon?: string;
+  render: (context: SidebarRenderContext) => TemplateResult;
 }
 ```
 
@@ -350,17 +353,19 @@ The Thymeleaf host page conditionally constructs plugin instances based on backe
 // Editor mount script — conditional plugin loading
 const plugins = [];
 
-if (window.ENABLED_PLUGINS.includes('ai')) {
-  const { createAiPlugin } = await import('/editor/plugins/ai.js');
-  plugins.push(createAiPlugin({
-    tenantId: window.TENANT_ID,
-    templateId: window.TEMPLATE_ID,
-    getCsrfToken: window.getCsrfToken,
-  }));
+if (window.ENABLED_PLUGINS.includes("ai")) {
+  const { createAiPlugin } = await import("/editor/plugins/ai.js");
+  plugins.push(
+    createAiPlugin({
+      tenantId: window.TENANT_ID,
+      templateId: window.TEMPLATE_ID,
+      getCsrfToken: window.getCsrfToken,
+    }),
+  );
 }
 
 mountEditor({
-  container: document.getElementById('editor-container'),
+  container: document.getElementById("editor-container"),
   template: window.TEMPLATE_MODEL,
   plugins,
   // ... other options
@@ -368,6 +373,7 @@ mountEditor({
 ```
 
 This pattern:
+
 - Only loads plugin JS when the plugin is enabled (code splitting)
 - Passes host-page concerns (tenant context, CSRF) to the plugin factory
 - Keeps the editor module unaware of specific plugin implementations
@@ -425,25 +431,25 @@ These constraints keep the plugin surface area small and predictable. They can b
 
 These are not designed in detail — they illustrate the kind of features that fit the plugin model:
 
-| Plugin | Contributes |
-|--------|-------------|
-| **AI Assistant** | Sidebar tab (chat panel), backend AI routes, provider integrations |
-| **Version History** | Sidebar tab (version list), backend version storage/diff |
-| **Collaboration** | Presence indicators, cursor sharing (would need WebSocket — extends the model) |
-| **Analytics** | Dashboard tab, template usage tracking |
-| **Export Formats** | Additional export options (HTML email, MJML), toolbar actions |
+| Plugin              | Contributes                                                                    |
+| ------------------- | ------------------------------------------------------------------------------ |
+| **AI Assistant**    | Sidebar tab (chat panel), backend AI routes, provider integrations             |
+| **Version History** | Sidebar tab (version list), backend version storage/diff                       |
+| **Collaboration**   | Presence indicators, cursor sharing (would need WebSocket — extends the model) |
+| **Analytics**       | Dashboard tab, template usage tracking                                         |
+| **Export Formats**  | Additional export options (HTML email, MJML), toolbar actions                  |
 
 ---
 
 ## Referenced Files
 
-| File | Relevance |
-|------|-----------|
-| `modules/editor/src/main/typescript/lib.ts` | `EditorOptions` — gains `plugins` array |
-| `modules/editor/src/main/typescript/ui/EpistolaSidebar.ts` | Hardcoded tabs → dynamic tab registry |
-| `modules/editor/src/main/typescript/ui/EpistolaEditor.ts` | Plugin lifecycle (init/dispose) |
-| `modules/editor/src/main/typescript/engine/registry.ts` | Existing extension point pattern (`ComponentDefinition` hooks) |
-| `apps/epistola/src/main/resources/templates/templates/editor.html` | Host page — conditional plugin loading |
-| `apps/epistola/src/main/resources/application.yaml` | Config under `epistola.plugins.*` |
-| `apps/epistola/src/main/kotlin/app/epistola/suite/EpistolaSuiteApplication.kt` | `@SpringBootApplication` — auto-discovers plugin beans |
-| `docs/ai.md` | AI assistant — first plugin built on this architecture |
+| File                                                                           | Relevance                                                      |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `modules/editor/src/main/typescript/lib.ts`                                    | `EditorOptions` — gains `plugins` array                        |
+| `modules/editor/src/main/typescript/ui/EpistolaSidebar.ts`                     | Hardcoded tabs → dynamic tab registry                          |
+| `modules/editor/src/main/typescript/ui/EpistolaEditor.ts`                      | Plugin lifecycle (init/dispose)                                |
+| `modules/editor/src/main/typescript/engine/registry.ts`                        | Existing extension point pattern (`ComponentDefinition` hooks) |
+| `apps/epistola/src/main/resources/templates/templates/editor.html`             | Host page — conditional plugin loading                         |
+| `apps/epistola/src/main/resources/application.yaml`                            | Config under `epistola.plugins.*`                              |
+| `apps/epistola/src/main/kotlin/app/epistola/suite/EpistolaSuiteApplication.kt` | `@SpringBootApplication` — auto-discovers plugin beans         |
+| `docs/ai.md`                                                                   | AI assistant — first plugin built on this architecture         |

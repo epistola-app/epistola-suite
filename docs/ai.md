@@ -181,11 +181,11 @@ The `AiProvider` interface is intentionally thin. If Spring AI matures into a be
 
 Each provider implementation uses Spring's `RestClient` (or `WebClient` for streaming) to call the respective API:
 
-| Provider | Class | API |
-|----------|-------|-----|
-| Claude | `ClaudeProvider` | `api.anthropic.com/v1/messages` (streaming) |
-| OpenAI | `OpenAiProvider` | `api.openai.com/v1/chat/completions` (streaming) |
-| Mistral | `MistralProvider` | `api.mistral.ai/v1/chat/completions` (streaming) |
+| Provider | Class             | API                                              |
+| -------- | ----------------- | ------------------------------------------------ |
+| Claude   | `ClaudeProvider`  | `api.anthropic.com/v1/messages` (streaming)      |
+| OpenAI   | `OpenAiProvider`  | `api.openai.com/v1/chat/completions` (streaming) |
+| Mistral  | `MistralProvider` | `api.mistral.ai/v1/chat/completions` (streaming) |
 
 All providers return `Flow<AiResponseChunk>`, normalising the different streaming formats (Claude's SSE events vs OpenAI's `data: [DONE]` convention) into a uniform stream.
 
@@ -215,8 +215,8 @@ epistola:
           base-url: https://api.mistral.ai
           max-tokens: 4096
       conversation:
-        ttl-minutes: 60        # Conversations expire after inactivity
-        max-messages: 100       # Max messages per conversation
+        ttl-minutes: 60 # Conversations expire after inactivity
+        max-messages: 100 # Max messages per conversation
       upload:
         max-file-size-mb: 10
         allowed-types:
@@ -280,10 +280,10 @@ A scheduled task (`@Scheduled`) evicts conversations that have been inactive for
 
 Reference documents (PDF, DOCX) are parsed server-side to extract text content that gets included in the AI's context window.
 
-| Format | Library | Notes |
-|--------|---------|-------|
-| PDF | Apache PDFBox | Already available in the project (used by generation module) |
-| DOCX | Apache POI | New dependency; lightweight text extraction only |
+| Format | Library       | Notes                                                        |
+| ------ | ------------- | ------------------------------------------------------------ |
+| PDF    | Apache PDFBox | Already available in the project (used by generation module) |
+| DOCX   | Apache POI    | New dependency; lightweight text extraction only             |
 
 Extracted text is truncated to a configurable maximum (e.g. 10,000 characters) to stay within token limits. The text is stored in the `Conversation` object, not persisted to disk or database.
 
@@ -299,6 +299,7 @@ The chat endpoint uses Server-Sent Events (SSE) to stream responses back to the 
 #### Why SSE over WebSocket?
 
 WebSocket would work but adds complexity:
+
 - Requires a separate connection lifecycle
 - Needs its own CSRF/auth handling
 - Bidirectional capability is unnecessary — the user sends discrete chat messages via POST
@@ -319,7 +320,7 @@ Accept: text/event-stream
 
 Response stream (SSE events):
 
-```
+````
 event: text
 data: {"content": "I'll add a header and introduction paragraph. "}
 
@@ -331,16 +332,16 @@ data: {"changes": [...], "description": "Add header and introduction paragraph"}
 
 event: done
 data: {"usage": {"inputTokens": 1200, "outputTokens": 450}}
-```
+````
 
 Event types:
 
-| Event | Purpose |
-|-------|---------|
-| `text` | Streaming text content (displayed as the AI "types") |
+| Event      | Purpose                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| `text`     | Streaming text content (displayed as the AI "types")                 |
 | `proposal` | Parsed structured change proposal (extracted from the AI's response) |
-| `done` | Stream complete, includes token usage |
-| `error` | An error occurred |
+| `done`     | Stream complete, includes token usage                                |
+| `error`    | An error occurred                                                    |
 
 ### Reference Upload Endpoint
 
@@ -381,35 +382,35 @@ The AI assistant implements the `EditorPlugin` interface, contributing a sidebar
 ```typescript
 // modules/editor/src/main/typescript/plugins/ai/ai-plugin.ts
 
-import type { EditorPlugin, PluginContext, PluginDisposeFn } from '../types.js'
+import type { EditorPlugin, PluginContext, PluginDisposeFn } from "../types.js";
 
 export interface AiPluginOptions {
   /** Tenant context for building endpoint URLs */
-  tenantId: string
-  templateId: string
+  tenantId: string;
+  templateId: string;
   /** CSRF token provider (host-page concern) */
-  getCsrfToken: () => string
+  getCsrfToken: () => string;
 }
 
 export function createAiPlugin(options: AiPluginOptions): EditorPlugin {
   return {
-    id: 'ai',
+    id: "ai",
 
     sidebarTab: {
-      id: 'ai',
-      label: 'AI',
-      icon: 'sparkles',
+      id: "ai",
+      label: "AI",
+      icon: "sparkles",
       render: (context: PluginContext) => {
         // Renders <epistola-ai-panel> with current context
       },
     },
 
     init(context: PluginContext): PluginDisposeFn {
-      const chatService = new AiChatService(/* ... */)
+      const chatService = new AiChatService(/* ... */);
       // Wire up SSE streaming to backend endpoints
-      return () => chatService.dispose()
+      return () => chatService.dispose();
     },
-  }
+  };
 }
 ```
 
@@ -418,6 +419,7 @@ The AI panel is no longer a hardcoded 4th tab in `EpistolaSidebar.ts`. Instead, 
 ### AI Panel Component
 
 The `<epistola-ai-panel>` Lit component renders:
+
 - A scrollable message thread (user messages + AI responses)
 - A text input area for composing messages
 - Reference file upload (drag-and-drop or file picker)
@@ -426,14 +428,14 @@ The `<epistola-ai-panel>` Lit component renders:
 ```typescript
 // modules/editor/src/main/typescript/plugins/ai/EpistolaAiPanel.ts
 
-@customElement('epistola-ai-panel')
+@customElement("epistola-ai-panel")
 export class EpistolaAiPanel extends LitElement {
-  @property({ attribute: false }) engine?: EditorEngine
-  @property({ attribute: false }) doc?: TemplateDocument
+  @property({ attribute: false }) engine?: EditorEngine;
+  @property({ attribute: false }) doc?: TemplateDocument;
 
-  @state() private _messages: ChatMessage[] = []
-  @state() private _streaming: boolean = false
-  @state() private _pendingProposal: AiProposal | null = null
+  @state() private _messages: ChatMessage[] = [];
+  @state() private _streaming: boolean = false;
+  @state() private _pendingProposal: AiProposal | null = null;
 }
 ```
 
@@ -445,21 +447,27 @@ The host page (Thymeleaf) conditionally constructs the AI plugin based on backen
 // editor.html — conditional AI plugin loading
 const plugins = [];
 
-if (window.ENABLED_PLUGINS.includes('ai')) {
-  const { createAiPlugin } = await import('/editor/plugins/ai.js');
-  plugins.push(createAiPlugin({
-    tenantId: window.TENANT_ID,
-    templateId: window.TEMPLATE_ID,
-    getCsrfToken: window.getCsrfToken,
-  }));
+if (window.ENABLED_PLUGINS.includes("ai")) {
+  const { createAiPlugin } = await import("/editor/plugins/ai.js");
+  plugins.push(
+    createAiPlugin({
+      tenantId: window.TENANT_ID,
+      templateId: window.TEMPLATE_ID,
+      getCsrfToken: window.getCsrfToken,
+    }),
+  );
 }
 
 mountEditor({
-  container: document.getElementById('editor-container'),
+  container: document.getElementById("editor-container"),
   template: window.TEMPLATE_MODEL,
   plugins,
-  onSave: async (template) => { /* ... */ },
-  onFetchPreview: async (doc, data, signal) => { /* ... */ },
+  onSave: async (template) => {
+    /* ... */
+  },
+  onFetchPreview: async (doc, data, signal) => {
+    /* ... */
+  },
 });
 ```
 
@@ -473,22 +481,22 @@ These types are internal to the AI plugin (not part of the core `EditorPlugin` i
 // modules/editor/src/main/typescript/plugins/ai/types.ts
 
 export type AiStreamEvent =
-  | { type: 'text'; content: string }
-  | { type: 'proposal'; changes: AiProposal }
-  | { type: 'done'; usage?: { inputTokens: number; outputTokens: number } }
-  | { type: 'error'; message: string }
+  | { type: "text"; content: string }
+  | { type: "proposal"; changes: AiProposal }
+  | { type: "done"; usage?: { inputTokens: number; outputTokens: number } }
+  | { type: "error"; message: string };
 
 export interface AiProposal {
-  description: string
-  mode: 'commands' | 'replace'
-  commands?: AnyCommand[]    // For command mode
-  document?: TemplateDocument // For replace mode
+  description: string;
+  mode: "commands" | "replace";
+  commands?: AnyCommand[]; // For command mode
+  document?: TemplateDocument; // For replace mode
 }
 
 export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  proposal?: AiProposal
+  role: "user" | "assistant";
+  content: string;
+  proposal?: AiProposal;
 }
 ```
 
@@ -500,8 +508,8 @@ A service class (following the `PreviewService` / `SaveService` pattern) that ma
 // modules/editor/src/main/typescript/plugins/ai/ai-chat-service.ts
 
 export class AiChatService {
-  private _abortController: AbortController | null = null
-  private _conversationId: string | null = null
+  private _abortController: AbortController | null = null;
+  private _conversationId: string | null = null;
 
   constructor(
     private _endpoint: string,
@@ -509,13 +517,14 @@ export class AiChatService {
     private _onChange: (event: AiChatStateEvent) => void,
   ) {}
 
-  async sendMessage(message: string, document: TemplateDocument): Promise<void>
-  abort(): void
-  dispose(): void
+  async sendMessage(message: string, document: TemplateDocument): Promise<void>;
+  abort(): void;
+  dispose(): void;
 }
 ```
 
 This mirrors the state machine pattern from `PreviewService`:
+
 - `idle` → `streaming` → `done` | `error`
 - New `sendMessage()` while streaming aborts the in-flight request
 
@@ -534,11 +543,12 @@ export class AiChangeApplier {
    * sequentially via engine.dispatch(). In replace mode, calls
    * engine.replaceDocument().
    */
-  apply(proposal: AiProposal): ApplyResult
+  apply(proposal: AiProposal): ApplyResult;
 }
 ```
 
 Integration points on `EditorEngine`:
+
 - **Command mode**: `engine.dispatch(command)` — for surgical changes (InsertNode, UpdateNodeProps, MoveNode, etc.)
 - **Replace mode**: `engine.replaceDocument(doc)` — for wholesale template replacement
 
@@ -564,7 +574,7 @@ This keeps the user in control and avoids surprises from malformed AI output.
 
 The system prompt provides the AI with everything it needs to produce valid template changes:
 
-```
+````
 You are a template editor assistant for Epistola.
 
 ## Template Model
@@ -601,10 +611,11 @@ When suggesting changes, include a JSON code block with a proposal object:
   "description": "What these changes do",
   "commands": [...]
 }
-```
+````
 
 For simple conversations (explanations, questions), respond normally without a proposal block.
-```
+
+````
 
 ### Provider-Agnostic Response Parsing
 
@@ -771,3 +782,4 @@ The plugin sidebar tab approach means the AI tab only appears when the plugin is
 | `modules/editor/src/main/typescript/ui/preview-service.ts` | Reference pattern for `AiChatService` (state machine, abort, dispose) |
 | `apps/epistola/src/main/resources/templates/templates/editor.html` | Host page — conditional plugin loading, `ENABLED_PLUGINS` |
 | `apps/epistola/src/main/resources/application.yaml` | Where `epistola.plugins.ai.*` configuration goes |
+````

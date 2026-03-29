@@ -44,8 +44,7 @@ export function renderExamplesSection(
     <section class="dc-section dc-examples-section">
       <h3 class="dc-section-label">Test Data Examples</h3>
       <p class="dc-section-hint">
-        Create example data sets to test your templates. Each example must
-        conform to the schema.
+        Create example data sets to test your templates. Each example must conform to the schema.
       </p>
 
       <!-- Chip list -->
@@ -55,12 +54,12 @@ export function renderExamplesSection(
           const errorCount = uiState.exampleErrorCounts[ex.id] ?? 0;
           return html`
             <button
-              class="dc-example-chip ${isActive
-                ? "dc-example-chip-active"
-                : ""}"
+              class="dc-example-chip ${isActive ? "dc-example-chip-active" : ""}"
               role="option"
               aria-selected="${isActive}"
-              aria-label="${ex.name}${errorCount > 0 ? `, ${errorCount} error${errorCount !== 1 ? 's' : ''}` : ', valid'}"
+              aria-label="${ex.name}${errorCount > 0
+                ? `, ${errorCount} error${errorCount !== 1 ? "s" : ""}`
+                : ", valid"}"
               @click=${() => callbacks.onSelectExample(ex.id)}
               title="${ex.name}"
             >
@@ -94,25 +93,22 @@ export function renderExamplesSection(
               <!-- Card Header -->
               <div class="dc-example-card-header">
                 <div class="dc-example-card-header-main">
-                    <label class="dc-example-field-label" for="example-name-input">Example Name</label>
-                    <input
-                      type="text"
-                      id="example-name-input"
-                      class="ep-input dc-example-name-input"
-                      .value=${selectedExample.name}
-                      placeholder="Enter example name"
-                      @change=${(e: Event) => {
-                        const name = (
-                          e.target as HTMLInputElement
-                        ).value.trim();
-                        if (name) {
-                          callbacks.onUpdateExampleName(
-                            selectedExample.id,
-                            name,
-                          );
-                        }
-                      }}
-                    />
+                  <label class="dc-example-field-label" for="example-name-input"
+                    >Example Name</label
+                  >
+                  <input
+                    type="text"
+                    id="example-name-input"
+                    class="ep-input dc-example-name-input"
+                    .value=${selectedExample.name}
+                    placeholder="Enter example name"
+                    @change=${(e: Event) => {
+                      const name = (e.target as HTMLInputElement).value.trim();
+                      if (name) {
+                        callbacks.onUpdateExampleName(selectedExample.id, name);
+                      }
+                    }}
+                  />
                 </div>
                 <button
                   class="dc-example-delete-btn"
@@ -190,13 +186,7 @@ export function renderExamplesSection(
                           fill="none"
                           aria-hidden="true"
                         >
-                          <circle
-                            cx="8"
-                            cy="8"
-                            r="6"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                          />
+                          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" />
                           <path
                             d="M8 5v4M8 11v.01"
                             stroke="currentColor"
@@ -217,13 +207,7 @@ export function renderExamplesSection(
                           fill="none"
                           aria-hidden="true"
                         >
-                          <circle
-                            cx="8"
-                            cy="8"
-                            r="6"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                          />
+                          <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" />
                           <path
                             d="M5 8l2 2 4-4"
                             stroke="currentColor"
@@ -242,12 +226,7 @@ export function renderExamplesSection(
                 ${renderExampleForm(
                   state.schema,
                   selectedExample.data,
-                  (path, value) =>
-                    callbacks.onUpdateExampleData(
-                      selectedExample.id,
-                      path,
-                      value,
-                    ),
+                  (path, value) => callbacks.onUpdateExampleData(selectedExample.id, path, value),
                   uiState.fieldErrorMap,
                 )}
               </div>
@@ -272,9 +251,7 @@ export function renderExamplesSection(
                   </svg>
                 </div>
                 <p>No test data examples yet</p>
-                <span class="dc-empty-state-hint"
-                  >Click "+ New" to create your first example</span
-                >
+                <span class="dc-empty-state-hint">Click "+ New" to create your first example</span>
               </div>
             `
           : html`
@@ -295,9 +272,7 @@ export function renderExamplesSection(
                   </svg>
                 </div>
                 <p>Select an example to edit</p>
-                <span class="dc-empty-state-hint"
-                  >Choose one from the chips above</span
-                >
+                <span class="dc-empty-state-hint">Choose one from the chips above</span>
               </div>
             `}
     </section>

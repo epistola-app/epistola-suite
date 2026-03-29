@@ -5,24 +5,24 @@
  */
 
 export function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split('.')
-  let current: unknown = obj
+  const keys = path.split(".");
+  let current: unknown = obj;
   for (const key of keys) {
-    if (current == null || typeof current !== 'object') return undefined
-    current = (current as Record<string, unknown>)[key]
+    if (current == null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[key];
   }
-  return current
+  return current;
 }
 
 export function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
-  const keys = path.split('.')
-  let current: Record<string, unknown> = obj
+  const keys = path.split(".");
+  let current: Record<string, unknown> = obj;
   for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i]
-    if (typeof current[key] !== 'object' || current[key] == null) {
-      current[key] = {}
+    const key = keys[i];
+    if (typeof current[key] !== "object" || current[key] == null) {
+      current[key] = {};
     }
-    current = current[key] as Record<string, unknown>
+    current = current[key] as Record<string, unknown>;
   }
-  current[keys[keys.length - 1]] = value
+  current[keys[keys.length - 1]] = value;
 }

@@ -20,7 +20,7 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/epistola}
 
   flyway:
-    clean-disabled: true                 # NEVER allow clean in production
+    clean-disabled: true # NEVER allow clean in production
 
   # Session configuration
   session:
@@ -31,7 +31,7 @@ epistola:
     auto-provision: true
 
   demo:
-    enabled: false  # Disable demo loading in production
+    enabled: false # Disable demo loading in production
 
   # Document generation configuration
   generation:

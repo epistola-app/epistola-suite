@@ -7,12 +7,12 @@
  *   mountThemeEditor(options)  → ThemeEditorInstance
  */
 
-import './theme-editor/theme-editor.css'
-import './theme-editor/EpistolaThemeEditor.js'
-import type { EpistolaThemeEditor } from './theme-editor/EpistolaThemeEditor.js'
-import type { ThemeData } from './theme-editor/ThemeEditorState.js'
+import "./theme-editor/theme-editor.css";
+import "./theme-editor/EpistolaThemeEditor.js";
+import type { EpistolaThemeEditor } from "./theme-editor/EpistolaThemeEditor.js";
+import type { ThemeData } from "./theme-editor/ThemeEditorState.js";
 
-export type { ThemeData } from './theme-editor/ThemeEditorState.js'
+export type { ThemeData } from "./theme-editor/ThemeEditorState.js";
 
 // ---------------------------------------------------------------------------
 // Public mount API
@@ -20,35 +20,35 @@ export type { ThemeData } from './theme-editor/ThemeEditorState.js'
 
 export interface ThemeEditorOptions {
   /** DOM element to mount the editor into */
-  container: HTMLElement
+  container: HTMLElement;
   /** Initial theme data from the backend */
-  theme: ThemeData
+  theme: ThemeData;
   /** Callback when saving — receives the minimal PATCH payload */
-  onSave: (payload: object) => Promise<void>
+  onSave: (payload: object) => Promise<void>;
 }
 
 export interface ThemeEditorInstance {
   /** Tear down the editor and clean up */
-  unmount(): void
+  unmount(): void;
 }
 
 /**
  * Mount the theme editor into a DOM element.
  */
 export function mountThemeEditor(options: ThemeEditorOptions): ThemeEditorInstance {
-  const { container, theme, onSave } = options
+  const { container, theme, onSave } = options;
 
-  const editorEl = document.createElement('epistola-theme-editor') as EpistolaThemeEditor
-  editorEl.style.display = 'block'
+  const editorEl = document.createElement("epistola-theme-editor") as EpistolaThemeEditor;
+  editorEl.style.display = "block";
 
-  editorEl.init(theme, onSave)
+  editorEl.init(theme, onSave);
 
-  container.innerHTML = ''
-  container.appendChild(editorEl)
+  container.innerHTML = "";
+  container.appendChild(editorEl);
 
   return {
     unmount() {
-      editorEl.remove()
+      editorEl.remove();
     },
-  }
+  };
 }

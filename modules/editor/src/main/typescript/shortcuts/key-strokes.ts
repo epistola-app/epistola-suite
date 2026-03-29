@@ -4,23 +4,23 @@
  * delete-selected-block). Returns unique stroke strings.
  */
 export function withAnyModifiers(...keys: readonly string[]): string[] {
-  const strokes = new Set<string>()
+  const strokes = new Set<string>();
 
   for (const rawKey of keys) {
-    const key = rawKey.toLowerCase()
+    const key = rawKey.toLowerCase();
     for (const mod of [false, true]) {
       for (const shift of [false, true]) {
         for (const alt of [false, true]) {
-          const parts: string[] = []
-          if (mod) parts.push('mod')
-          if (shift) parts.push('shift')
-          if (alt) parts.push('alt')
-          parts.push(key)
-          strokes.add(parts.join('+'))
+          const parts: string[] = [];
+          if (mod) parts.push("mod");
+          if (shift) parts.push("shift");
+          if (alt) parts.push("alt");
+          parts.push(key);
+          strokes.add(parts.join("+"));
         }
       }
     }
   }
 
-  return [...strokes]
+  return [...strokes];
 }

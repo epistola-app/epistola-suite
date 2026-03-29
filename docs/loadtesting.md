@@ -5,6 +5,7 @@ Epistola Suite includes an embedded load testing feature that allows you to meas
 ## Overview
 
 The load testing module (`modules/loadtest`) enables users to:
+
 - Generate N documents concurrently (1-10,000 documents)
 - Control concurrency level (1-500 concurrent requests)
 - Measure real-world document generation performance
@@ -41,6 +42,7 @@ This follows the same pattern as `modules/epistola-core` and enables future reus
 ### 1. Job Submission Phase (Fast)
 
 When a load test starts, the `LoadTestExecutor`:
+
 1. Creates N async document generation jobs concurrently
 2. Each job is queued as PENDING in `document_generation_requests`
 3. Returns immediately (job queueing takes < 1 second for 1000 jobs)
@@ -63,6 +65,7 @@ val generationRequest = mediator.send(
 ### 2. Async Processing Phase (Measured)
 
 Background workers (`DocumentGenerationExecutor`) process jobs:
+
 - Jobs transition: PENDING → IN_PROGRESS → COMPLETED/FAILED
 - Each job generates an actual PDF document
 - Database tracks `started_at` and `completed_at` timestamps
@@ -70,6 +73,7 @@ Background workers (`DocumentGenerationExecutor`) process jobs:
 ### 3. Polling Phase (Load Test Executor)
 
 The `LoadTestExecutor` polls the database every 500ms:
+
 ```kotlin
 SELECT
     dgr.id,
@@ -85,6 +89,7 @@ WHERE dgr.id IN (<jobIds>)
 ```
 
 It tracks:
+
 - How many jobs have completed
 - How many jobs have failed
 - Actual timing data from database timestamps
@@ -93,11 +98,13 @@ It tracks:
 ### 4. Metrics Calculation
 
 Once all jobs reach terminal state (COMPLETED/FAILED/CANCELLED):
+
 ```kotlin
 val duration = Duration.between(job.startedAt, job.completedAt).toMillis()
 ```
 
 Metrics calculated:
+
 - **Throughput**: Requests per second
 - **Latency**: Min, max, avg, p50, p95, p99
 - **Success rate**: Percentage of successful requests
@@ -106,6 +113,7 @@ Metrics calculated:
 ### 5. Document Cleanup
 
 After metrics are saved, all generated documents are deleted:
+
 ```kotlin
 DELETE FROM documents
 WHERE correlation_id LIKE 'loadtest-${runId}-%'
@@ -161,12 +169,14 @@ CREATE TABLE load_test_runs (
 Load test request details are **not** duplicated in a separate table. Instead, they are queried directly from `document_generation_requests` using the `batch_id` link.
 
 **Benefits:**
+
 - Single source of truth (no data duplication)
 - Always accurate timing data (never stale)
 - Automatic cleanup via partition dropping (3 months retention)
 - 6MB saved per 10K-request load test
 
 Request details queried via:
+
 ```sql
 SELECT
     id,
@@ -189,32 +199,35 @@ WHERE batch_id = :batchId
 epistola:
   loadtest:
     enabled: true
-    max-concurrency: 200                        # Recommended based on database pool size
+    max-concurrency: 200 # Recommended based on database pool size
     polling:
       enabled: true
-      interval-ms: 5000                         # Load test poller interval
-      stale-timeout-minutes: 10                 # Recover stale RUNNING tests
+      interval-ms: 5000 # Load test poller interval
+      stale-timeout-minutes: 10 # Recover stale RUNNING tests
     cleanup:
-      runs-retention-days: 90                   # Keep load test run data for 90 days
+      runs-retention-days: 90 # Keep load test run data for 90 days
 
   # Request details are stored in document_generation_requests and cleaned
   # automatically via partition dropping (3 months retention)
   partitions:
-    retention-months: 3                         # Partition retention (affects request data)
+    retention-months: 3 # Partition retention (affects request data)
 ```
 
 ### Production Recommendations
 
 **Database Connection Pool:**
+
 - Ensure connection pool size supports target concurrency
 - Example: HikariCP with `maximumPoolSize: 50` supports ~50 concurrent document generations
 - Load tests with concurrency > pool size will queue requests (realistic load testing)
 
 **Resource Limits:**
+
 - JVM heap: Increase if testing with very high concurrency (500+)
 - Virtual threads: JDK 21+ handles thousands of concurrent requests efficiently
 
 **Monitoring:**
+
 - Watch database CPU/memory during load tests
 - Monitor background job queue depth (`document_generation_requests` with PENDING status)
 - Track PDF rendering time in application logs
@@ -265,11 +278,13 @@ println("p95 latency: ${finalRun.p95ResponseTimeMs}ms")
 After a load test completes, the detail view shows:
 
 **Overall Stats:**
+
 - Requests: `150 / 100` (completed/target)
 - Success Rate: `98.0%`
 - Requests/sec: `12.5`
 
 **Latency Distribution:**
+
 - Avg Response Time: `750 ms`
 - p50 (Median): `680 ms`
 - p95: `1,200 ms`
@@ -277,6 +292,7 @@ After a load test completes, the detail view shows:
 - Min / Max: `450 / 2,100 ms`
 
 **Error Summary (if failures):**
+
 ```
 VALIDATION: 2
 TIMEOUT: 1
@@ -285,18 +301,21 @@ TIMEOUT: 1
 ### What to Look For
 
 **Good Performance:**
+
 - Success rate > 99%
 - p95 latency within acceptable range for use case
 - Consistent throughput (requests/sec)
 - Low error rates
 
 **Performance Issues:**
+
 - High p99 latency (indicates tail latency problems)
 - Many TIMEOUT errors (increase timeout or optimize rendering)
 - Many VALIDATION errors (check test data schema)
 - Low throughput (check database/CPU bottlenecks)
 
 **Capacity Planning:**
+
 - Run tests with increasing concurrency (10, 50, 100, 200)
 - Find the "knee" where latency increases sharply
 - Set production limits below that threshold
@@ -304,6 +323,7 @@ TIMEOUT: 1
 ## Detailed Request Log
 
 For debugging, view individual request details:
+
 1. Click "View Detailed Request Log" on test detail page
 2. See all N requests with:
    - Sequence number
@@ -323,6 +343,7 @@ Paginated with 100 requests per page.
 **Cause**: Jobs are queued but not processed
 
 **Solutions**:
+
 - Check that `JobPoller` is running (background worker)
 - Verify `spring.profiles.active` doesn't include `sync-mode` (which disables async processing)
 - Check application logs for job processing errors
@@ -334,6 +355,7 @@ Paginated with 100 requests per page.
 **Cause**: Jobs are not completing
 
 **Solutions**:
+
 - Check database for jobs stuck in IN_PROGRESS status
 - Verify `DocumentGenerationExecutor` is processing jobs
 - Check for errors in application logs
@@ -344,12 +366,14 @@ Paginated with 100 requests per page.
 **Symptom**: Many requests fail with errors
 
 **Common Causes**:
+
 - **VALIDATION errors**: Test data doesn't match template schema
 - **TIMEOUT errors**: PDF rendering takes too long (increase timeout or optimize template)
 - **CONFIGURATION errors**: Template/variant/version not found
 - **GENERATION errors**: PDF rendering failures (check template syntax)
 
 **Debugging**:
+
 1. View detailed request log
 2. Check error messages for specific failures
 3. Test single document generation manually to validate template
@@ -362,6 +386,7 @@ Paginated with 100 requests per page.
 **Cause**: Concurrency level exceeds available database connections
 
 **Solutions**:
+
 - Reduce load test concurrency
 - Increase `spring.datasource.hikari.maximum-pool-size`
 - Monitor connection usage during tests
@@ -377,6 +402,7 @@ Paginated with 100 requests per page.
 ### Concurrency Levels
 
 Start small and increase gradually:
+
 1. **Baseline**: 1 concurrent (validate functionality)
 2. **Low load**: 10 concurrent (typical usage)
 3. **Medium load**: 50 concurrent (peak usage)
@@ -400,11 +426,13 @@ Start small and increase gradually:
 ### Template Optimization
 
 **Reduce complexity:**
+
 - Minimize number of blocks
 - Optimize image sizes (compress before embedding)
 - Use CSS efficiently (avoid duplicate styles)
 
 **Measure impact:**
+
 - Run baseline load test
 - Make optimization change
 - Run new load test
@@ -413,20 +441,24 @@ Start small and increase gradually:
 ### Database Optimization
 
 **Indexes:**
+
 - Ensure proper indexes on foreign keys
 - Monitor slow query logs during load tests
 
 **Connection pool:**
+
 - Set `maximumPoolSize` based on CPU cores and workload
 - Monitor connection usage with metrics
 
 ### Application Tuning
 
 **Virtual threads:**
+
 - JDK 21+ virtual threads handle high concurrency efficiently
 - No semaphore limits in `LoadTestExecutor` (unlike `DocumentGenerationExecutor`)
 
 **Memory:**
+
 - Increase heap size for very high concurrency tests
 - Monitor GC overhead during tests
 

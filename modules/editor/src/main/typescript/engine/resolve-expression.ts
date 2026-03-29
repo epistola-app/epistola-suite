@@ -5,7 +5,7 @@
  * selected data example and format them for inline display.
  */
 
-import jsonata from 'jsonata'
+import jsonata from "jsonata";
 
 /**
  * Evaluate a JSONata expression against the given data.
@@ -15,14 +15,14 @@ export async function evaluateExpression(
   expression: string,
   data: Record<string, unknown>,
 ): Promise<unknown> {
-  const trimmed = expression.trim()
-  if (!trimmed) return undefined
+  const trimmed = expression.trim();
+  if (!trimmed) return undefined;
 
   try {
-    const expr = jsonata(trimmed)
-    return await expr.evaluate(data)
+    const expr = jsonata(trimmed);
+    return await expr.evaluate(data);
   } catch {
-    return undefined
+    return undefined;
   }
 }
 
@@ -33,11 +33,11 @@ export async function evaluateExpression(
  * aren't displayable inline: undefined, null, empty strings, objects, arrays.
  */
 export function formatResolvedValue(value: unknown): string | undefined {
-  if (value === undefined || value === null) return undefined
-  if (typeof value === 'string') return value.length > 0 ? value : undefined
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string") return value.length > 0 ? value : undefined;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   // Objects and arrays aren't displayable inline
-  return undefined
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -45,9 +45,7 @@ export function formatResolvedValue(value: unknown): string | undefined {
 // ---------------------------------------------------------------------------
 
 /** Discriminated result type for expression evaluation. */
-export type ExpressionResult =
-  | { ok: true; value: unknown }
-  | { ok: false; error: string }
+export type ExpressionResult = { ok: true; value: unknown } | { ok: false; error: string };
 
 /**
  * Evaluate a JSONata expression and return a discriminated result.
@@ -58,20 +56,20 @@ export async function tryEvaluateExpression(
   expression: string,
   data: Record<string, unknown>,
 ): Promise<ExpressionResult> {
-  const trimmed = expression.trim()
-  if (!trimmed) return { ok: false, error: 'Expression is empty' }
+  const trimmed = expression.trim();
+  if (!trimmed) return { ok: false, error: "Expression is empty" };
 
   try {
-    const expr = jsonata(trimmed)
-    const value = await expr.evaluate(data)
-    return { ok: true, value }
+    const expr = jsonata(trimmed);
+    const value = await expr.evaluate(data);
+    return { ok: true, value };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : String(e)
-    return { ok: false, error: message }
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
   }
 }
 
-const FORMAT_PREVIEW_MAX_LENGTH = 120
+const FORMAT_PREVIEW_MAX_LENGTH = 120;
 
 /**
  * Format a value for the dialog preview panel.
@@ -81,20 +79,20 @@ const FORMAT_PREVIEW_MAX_LENGTH = 120
  * undefined, null, and empty strings.
  */
 export function formatForPreview(value: unknown): string {
-  if (value === undefined) return 'undefined'
-  if (value === null) return 'null'
-  if (typeof value === 'string') return value.length === 0 ? '(empty string)' : value
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value === undefined) return "undefined";
+  if (value === null) return "null";
+  if (typeof value === "string") return value.length === 0 ? "(empty string)" : value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
 
   // Objects and arrays — show truncated JSON
   try {
-    const json = JSON.stringify(value)
+    const json = JSON.stringify(value);
     if (json.length > FORMAT_PREVIEW_MAX_LENGTH) {
-      return json.slice(0, FORMAT_PREVIEW_MAX_LENGTH) + '…'
+      return json.slice(0, FORMAT_PREVIEW_MAX_LENGTH) + "…";
     }
-    return json
+    return json;
   } catch {
-    return String(value)
+    return String(value);
   }
 }
 
@@ -111,10 +109,10 @@ export function formatForPreview(value: unknown): string {
  * the loop expression should consistently return an array.
  */
 export function validateArrayResult(value: unknown): string | null {
-  if (value === undefined) return null
-  if (Array.isArray(value)) return null
-  const type = value === null ? 'null' : typeof value
-  return `Loop expression must evaluate to an array, got ${type}: ${formatForPreview(value)}`
+  if (value === undefined) return null;
+  if (Array.isArray(value)) return null;
+  const type = value === null ? "null" : typeof value;
+  return `Loop expression must evaluate to an array, got ${type}: ${formatForPreview(value)}`;
 }
 
 /**
@@ -126,10 +124,10 @@ export function validateArrayResult(value: unknown): string | null {
  * may be valid with different data.
  */
 export function validateBooleanResult(value: unknown): string | null {
-  if (value === undefined) return null
-  if (typeof value === 'boolean') return null
-  const type = value === null ? 'null' : typeof value
-  return `Condition must evaluate to a boolean, got ${type}: ${formatForPreview(value)}`
+  if (value === undefined) return null;
+  if (typeof value === "boolean") return null;
+  const type = value === null ? "null" : typeof value;
+  return `Condition must evaluate to a boolean, got ${type}: ${formatForPreview(value)}`;
 }
 
 /**
@@ -141,12 +139,12 @@ export function validateBooleanResult(value: unknown): string | null {
  * data evaluation.
  */
 export function isValidExpression(expression: string): boolean {
-  const trimmed = expression.trim()
-  if (!trimmed) return false
+  const trimmed = expression.trim();
+  if (!trimmed) return false;
   try {
-    jsonata(trimmed)
-    return true
+    jsonata(trimmed);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }

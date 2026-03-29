@@ -9,15 +9,15 @@
  */
 
 export class SnapshotHistory<T> {
-  private undoStack: T[] = []
-  private redoStack: T[] = []
+  private undoStack: T[] = [];
+  private redoStack: T[] = [];
 
   get canUndo(): boolean {
-    return this.undoStack.length > 0
+    return this.undoStack.length > 0;
   }
 
   get canRedo(): boolean {
-    return this.redoStack.length > 0
+    return this.redoStack.length > 0;
   }
 
   /**
@@ -25,8 +25,8 @@ export class SnapshotHistory<T> {
    * Clears the redo stack (new edit branch).
    */
   push(current: T): void {
-    this.undoStack.push(structuredClone(current))
-    this.redoStack = []
+    this.undoStack.push(structuredClone(current));
+    this.redoStack = [];
   }
 
   /**
@@ -34,9 +34,9 @@ export class SnapshotHistory<T> {
    * Returns the restored state, or null if nothing to undo.
    */
   undo(current: T): T | null {
-    if (!this.canUndo) return null
-    this.redoStack.push(structuredClone(current))
-    return this.undoStack.pop()!
+    if (!this.canUndo) return null;
+    this.redoStack.push(structuredClone(current));
+    return this.undoStack.pop()!;
   }
 
   /**
@@ -44,16 +44,16 @@ export class SnapshotHistory<T> {
    * Returns the re-applied state, or null if nothing to redo.
    */
   redo(current: T): T | null {
-    if (!this.canRedo) return null
-    this.undoStack.push(structuredClone(current))
-    return this.redoStack.pop()!
+    if (!this.canRedo) return null;
+    this.undoStack.push(structuredClone(current));
+    return this.redoStack.pop()!;
   }
 
   /**
    * Clear all history. Call on save or context switch.
    */
   clear(): void {
-    this.undoStack = []
-    this.redoStack = []
+    this.undoStack = [];
+    this.redoStack = [];
   }
 }

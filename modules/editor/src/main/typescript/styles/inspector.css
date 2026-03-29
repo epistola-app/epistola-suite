@@ -210,7 +210,9 @@
     font-size: var(--ep-text-sm);
     font-weight: 600;
     cursor: pointer;
-    transition: background var(--ep-transition-base), border-color var(--ep-transition-base);
+    transition:
+      background var(--ep-transition-base),
+      border-color var(--ep-transition-base);
   }
 
   .inspector-column-btn:hover:not(:disabled) {
@@ -269,7 +271,9 @@
     cursor: pointer;
     text-align: left;
     font-size: var(--ep-text-xs);
-    transition: border-color var(--ep-transition-base), background var(--ep-transition-base);
+    transition:
+      border-color var(--ep-transition-base),
+      background var(--ep-transition-base);
   }
 
   .inspector-expression-trigger:hover {
@@ -329,7 +333,7 @@
   }
 
   .expression-dialog-path-item.system .expression-dialog-path-type::after {
-    content: 'sys';
+    content: "sys";
     margin-left: var(--ep-space-1);
     font-size: 0.6rem;
     font-weight: 600;

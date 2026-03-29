@@ -5,21 +5,23 @@
  * returns a Lit html template with amber warning styling.
  */
 
-import { html, nothing } from 'lit'
+import { html, nothing } from "lit";
 
 export interface ValidationWarning {
-  path: string
-  message: string
+  path: string;
+  message: string;
 }
 
 export function renderValidationMessages(warnings: ValidationWarning[]): unknown {
-  if (warnings.length === 0) return nothing
+  if (warnings.length === 0) return nothing;
 
   return html`
     <div class="dc-validation-messages" role="alert">
       <div class="dc-validation-header">
         <span class="dc-validation-icon">!</span>
-        <span class="dc-validation-title">${warnings.length} warning${warnings.length !== 1 ? 's' : ''}</span>
+        <span class="dc-validation-title"
+          >${warnings.length} warning${warnings.length !== 1 ? "s" : ""}</span
+        >
       </div>
       <ul class="dc-validation-list">
         ${warnings.map(
@@ -32,5 +34,5 @@ export function renderValidationMessages(warnings: ValidationWarning[]): unknown
         )}
       </ul>
     </div>
-  `
+  `;
 }

@@ -8,8 +8,8 @@
  * @returns {string} The CSRF token or empty string if not found
  */
 export function getCsrfToken() {
-    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
+  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
 }
 
 /**
@@ -20,50 +20,50 @@ export function getCsrfToken() {
  * @param {Object} [options.body] - Request body (will be JSON stringified)
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
-export async function apiRequest(url, { method = 'GET', body } = {}) {
-    try {
-        const headers = {
-            'Content-Type': 'application/json',
-        };
+export async function apiRequest(url, { method = "GET", body } = {}) {
+  try {
+    const headers = {
+      "Content-Type": "application/json",
+    };
 
-        const csrfToken = getCsrfToken();
-        if (csrfToken) {
-            headers['X-XSRF-TOKEN'] = csrfToken;
-        }
-
-        const fetchOptions = {
-            method,
-            headers,
-        };
-
-        if (body !== undefined) {
-            fetchOptions.body = JSON.stringify(body);
-        }
-
-        const response = await fetch(url, fetchOptions);
-
-        if (!response.ok) {
-            let errorMessage = `HTTP ${response.status}`;
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.message || errorData.error || errorMessage;
-            } catch {
-                // Response wasn't JSON, use status text
-                errorMessage = response.statusText || errorMessage;
-            }
-            return { ok: false, error: errorMessage };
-        }
-
-        // Handle empty responses (204 No Content)
-        if (response.status === 204) {
-            return { ok: true, data: null };
-        }
-
-        const data = await response.json();
-        return { ok: true, data };
-    } catch (error) {
-        return { ok: false, error: error.message };
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers["X-XSRF-TOKEN"] = csrfToken;
     }
+
+    const fetchOptions = {
+      method,
+      headers,
+    };
+
+    if (body !== undefined) {
+      fetchOptions.body = JSON.stringify(body);
+    }
+
+    const response = await fetch(url, fetchOptions);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // Response wasn't JSON, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+      return { ok: false, error: errorMessage };
+    }
+
+    // Handle empty responses (204 No Content)
+    if (response.status === 204) {
+      return { ok: true, data: null };
+    }
+
+    const data = await response.json();
+    return { ok: true, data };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
 }
 
 /**
@@ -73,7 +73,7 @@ export async function apiRequest(url, { method = 'GET', body } = {}) {
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
 export function patch(url, body) {
-    return apiRequest(url, { method: 'PATCH', body });
+  return apiRequest(url, { method: "PATCH", body });
 }
 
 /**
@@ -83,7 +83,7 @@ export function patch(url, body) {
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
 export function post(url, body) {
-    return apiRequest(url, { method: 'POST', body });
+  return apiRequest(url, { method: "POST", body });
 }
 
 /**
@@ -92,7 +92,7 @@ export function post(url, body) {
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
 export function del(url) {
-    return apiRequest(url, { method: 'DELETE' });
+  return apiRequest(url, { method: "DELETE" });
 }
 
 /**
@@ -101,7 +101,7 @@ export function del(url) {
  * @param {string} error - Error message
  */
 export function showError(action, error) {
-    alert(`Failed to ${action}: ${error}`);
+  alert(`Failed to ${action}: ${error}`);
 }
 
 /**
@@ -109,5 +109,5 @@ export function showError(action, error) {
  * @param {string} message - Success message
  */
 export function showSuccess(message) {
-    alert(message);
+  alert(message);
 }
