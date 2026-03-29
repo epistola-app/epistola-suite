@@ -7,12 +7,12 @@
  *   mountDataContractEditor(options)  → DataContractEditorInstance
  */
 
-import "./data-contract/data-contract-editor.css";
-import "./data-contract/EpistolaDataContractEditor.js";
-import type { EpistolaDataContractEditor } from "./data-contract/EpistolaDataContractEditor.js";
-import type { DataExample, JsonSchema, SaveCallbacks } from "./data-contract/types.js";
+import './data-contract/data-contract-editor.css';
+import './data-contract/EpistolaDataContractEditor.js';
+import type { EpistolaDataContractEditor } from './data-contract/EpistolaDataContractEditor.js';
+import type { DataExample, JsonSchema, SaveCallbacks } from './data-contract/types.js';
 
-export type { DataExample, JsonSchema, SaveCallbacks } from "./data-contract/types.js";
+export type { DataExample, JsonSchema, SaveCallbacks } from './data-contract/types.js';
 
 // ---------------------------------------------------------------------------
 // Public mount API
@@ -45,13 +45,13 @@ export function mountDataContractEditor(
   const { container, initialSchema, initialExamples, callbacks } = options;
 
   const editorEl = document.createElement(
-    "epistola-data-contract-editor",
+    'epistola-data-contract-editor',
   ) as EpistolaDataContractEditor;
-  editorEl.style.display = "block";
+  editorEl.style.display = 'block';
 
   editorEl.init(initialSchema, initialExamples, callbacks);
 
-  container.innerHTML = "";
+  container.innerHTML = '';
   container.appendChild(editorEl);
 
   return {

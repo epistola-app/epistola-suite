@@ -5,8 +5,8 @@
  * - `# `, `## `, `### ` triggers heading conversion
  */
 
-import { inputRules, textblockTypeInputRule, InputRule } from "prosemirror-inputrules";
-import type { Schema } from "prosemirror-model";
+import { inputRules, textblockTypeInputRule, InputRule } from 'prosemirror-inputrules';
+import type { Schema } from 'prosemirror-model';
 
 /**
  * Input rule: typing `{{` inserts an expression node with `isNew: true`.
@@ -16,7 +16,7 @@ function expressionInputRule(schema: Schema): InputRule {
     const expressionType = schema.nodes.expression;
     if (!expressionType) return null;
 
-    const node = expressionType.create({ expression: "", isNew: true });
+    const node = expressionType.create({ expression: '', isNew: true });
     return state.tr.replaceWith(start, end, node);
   });
 }

@@ -6,7 +6,7 @@
  * for ProseMirror editing sessions).
  */
 
-import type { Change, ChangeStackOps } from "./change.js";
+import type { Change, ChangeStackOps } from './change.js';
 
 // ---------------------------------------------------------------------------
 // TextChangeOps — callbacks into ProseMirror (kept here, framework-agnostic)

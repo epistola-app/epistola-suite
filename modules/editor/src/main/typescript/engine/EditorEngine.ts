@@ -5,29 +5,29 @@
  * undo/redo, and change notification. Framework-agnostic.
  */
 
-import type { TemplateDocument, NodeId, SlotId, PageSettings } from "../types/index.js";
-import { type FieldPath, extractFieldPaths } from "./schema-paths.js";
-import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from "./system-params.js";
-import type { Theme } from "@epistola.app/editor-model/generated/theme";
-import type { StyleRegistry } from "@epistola.app/editor-model/generated/style-registry";
-import { type DocumentIndexes, buildIndexes } from "./indexes.js";
-import { type AnyCommand, type CommandResult, applyCommand } from "./commands.js";
-import { UndoStack } from "./undo.js";
-import type { Change, ChangeContext } from "./change.js";
-import { CommandChange } from "./command-change.js";
-import { TextChange } from "./text-change.js";
-import type { TextChangeOps } from "./undo.js";
-import type { ComponentRegistry } from "./registry.js";
-import { deepFreeze } from "./freeze.js";
-import { defaultStyleRegistry } from "./style-registry.js";
-import { EventEmitter, type EngineEvents } from "./events.js";
+import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js';
+import { type FieldPath, extractFieldPaths } from './schema-paths.js';
+import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
+import type { Theme } from '@epistola.app/editor-model/generated/theme';
+import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
+import { type DocumentIndexes, buildIndexes } from './indexes.js';
+import { type AnyCommand, type CommandResult, applyCommand } from './commands.js';
+import { UndoStack } from './undo.js';
+import type { Change, ChangeContext } from './change.js';
+import { CommandChange } from './command-change.js';
+import { TextChange } from './text-change.js';
+import type { TextChangeOps } from './undo.js';
+import type { ComponentRegistry } from './registry.js';
+import { deepFreeze } from './freeze.js';
+import { defaultStyleRegistry } from './style-registry.js';
+import { EventEmitter, type EngineEvents } from './events.js';
 import {
   getInheritableKeys,
   resolveDocumentStyles,
   resolveNodeStyles,
   resolvePageSettings,
   resolvePresetStyles,
-} from "./styles.js";
+} from './styles.js';
 
 // ---------------------------------------------------------------------------
 // Listener type (deprecated — use events.on('doc:change') instead)
@@ -93,12 +93,12 @@ export class EditorEngine {
       stack: this._undoStack,
       applySilent: (command: AnyCommand) => this._dispatchSilent(command),
       syncContent: (nodeId: NodeId, content: unknown) => {
-        this.dispatch({ type: "UpdateNodeProps", nodeId, props: { content } }, { skipUndo: true });
+        this.dispatch({ type: 'UpdateNodeProps', nodeId, props: { content } }, { skipUndo: true });
       },
       applySnapshot: (nodeId: NodeId, content: unknown) => {
         this.dispatch(
           {
-            type: "UpdateNodeProps",
+            type: 'UpdateNodeProps',
             nodeId,
             props: { content: content != null ? structuredClone(content) : null },
           },
@@ -183,7 +183,7 @@ export class EditorEngine {
   getExampleData(): Record<string, unknown> {
     const example = this.currentExample as Record<string, unknown> | undefined;
     const data = example
-      ? typeof example.id === "string" && typeof example.data === "object" && example.data !== null
+      ? typeof example.id === 'string' && typeof example.data === 'object' && example.data !== null
         ? (example.data as Record<string, unknown>)
         : example
       : {};
@@ -196,7 +196,7 @@ export class EditorEngine {
     if (!this._dataExamples || index < 0 || index >= this._dataExamples.length) return;
     this._currentExampleIndex = index;
     const example = this._dataExamples[index];
-    this._events.emit("example:change", { index, example });
+    this._events.emit('example:change', { index, example });
   }
 
   /**
@@ -204,7 +204,7 @@ export class EditorEngine {
    * @deprecated Use `engine.events.on('example:change', ...)` instead.
    */
   onExampleChange(listener: (index: number, example: object | undefined) => void): () => void {
-    return this._events.on("example:change", ({ index, example }) => listener(index, example));
+    return this._events.on('example:change', ({ index, example }) => listener(index, example));
   }
 
   get resolvedDocStyles(): Record<string, unknown> {
@@ -256,7 +256,7 @@ export class EditorEngine {
   selectNode(nodeId: NodeId | null): void {
     if (this._selectedNodeId === nodeId) return;
     this._selectedNodeId = nodeId;
-    this._events.emit("selection:change", { nodeId });
+    this._events.emit('selection:change', { nodeId });
   }
 
   /**
@@ -288,7 +288,7 @@ export class EditorEngine {
    * @deprecated Use `engine.events.on('selection:change', ...)` instead.
    */
   onSelectionChange(listener: (nodeId: NodeId | null) => void): () => void {
-    return this._events.on("selection:change", ({ nodeId }) => listener(nodeId));
+    return this._events.on('selection:change', ({ nodeId }) => listener(nodeId));
   }
 
   // -----------------------------------------------------------------------
@@ -298,7 +298,7 @@ export class EditorEngine {
   /** Set component state and emit a change event. */
   setComponentState(key: string, value: unknown): void {
     this._componentState.set(key, value);
-    this._events.emit("component-state:change", { key, value });
+    this._events.emit('component-state:change', { key, value });
   }
 
   /** Get component state by key. */
@@ -447,7 +447,7 @@ export class EditorEngine {
     this._pmStateCache.clear();
     this._componentState.clear();
     this._selectedNodeId = null;
-    this._notify(true, "ReplaceDocument");
+    this._notify(true, 'ReplaceDocument');
   }
 
   // -----------------------------------------------------------------------
@@ -459,11 +459,11 @@ export class EditorEngine {
    * @deprecated Use `engine.events.on('doc:change', ...)` instead.
    */
   subscribe(listener: EngineListener): () => void {
-    return this._events.on("doc:change", ({ doc, indexes }) => listener(doc, indexes));
+    return this._events.on('doc:change', ({ doc, indexes }) => listener(doc, indexes));
   }
 
   private _notify(structureChanged: boolean, commandType?: string): void {
-    this._events.emit("doc:change", {
+    this._events.emit('doc:change', {
       doc: this._doc,
       indexes: this._indexes,
       structureChanged,

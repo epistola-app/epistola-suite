@@ -11,10 +11,10 @@
  * and reactively updated via the 'component-state:change' event.
  */
 
-import { LitElement, html, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import type { Node } from "../../types/index.js";
-import type { EditorEngine } from "../../engine/EditorEngine.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { Node } from '../../types/index.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
 import {
   findMergeAt,
   canMerge,
@@ -22,9 +22,9 @@ import {
   expandSelectionForMerges,
   type CellMerge,
   type CellSelection,
-} from "./table-utils.js";
+} from './table-utils.js';
 
-@customElement("table-inspector")
+@customElement('table-inspector')
 export class TableInspector extends LitElement {
   override createRenderRoot() {
     return this;
@@ -41,9 +41,9 @@ export class TableInspector extends LitElement {
     super.connectedCallback();
     // Read current cell selection and subscribe to changes
     this._cellSelection =
-      this.engine.getComponentState<CellSelection>("table:cellSelection") ?? null;
-    this._unsubState = this.engine.events.on("component-state:change", ({ key, value }) => {
-      if (key === "table:cellSelection") {
+      this.engine.getComponentState<CellSelection>('table:cellSelection') ?? null;
+    this._unsubState = this.engine.events.on('component-state:change', ({ key, value }) => {
+      if (key === 'table:cellSelection') {
         this._cellSelection = (value as CellSelection) ?? null;
       }
     });
@@ -101,7 +101,7 @@ export class TableInspector extends LitElement {
 
   private _handleAddRow() {
     this.engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: this.node.id,
       position: this._props.rows,
     });
@@ -111,7 +111,7 @@ export class TableInspector extends LitElement {
     const { rows } = this._props;
     if (rows <= 1) return;
     this.engine.dispatch({
-      type: "RemoveTableRow",
+      type: 'RemoveTableRow',
       nodeId: this.node.id,
       position: rows - 1,
     });
@@ -149,7 +149,7 @@ export class TableInspector extends LitElement {
         ? Math.round(columnWidths.reduce((a, b) => a + b, 0) / columnWidths.length)
         : 50;
     this.engine.dispatch({
-      type: "AddTableColumn",
+      type: 'AddTableColumn',
       nodeId: this.node.id,
       position: columns,
       width: avgWidth,
@@ -160,7 +160,7 @@ export class TableInspector extends LitElement {
     const { columns } = this._props;
     if (columns <= 1) return;
     this.engine.dispatch({
-      type: "RemoveTableColumn",
+      type: 'RemoveTableColumn',
       nodeId: this.node.id,
       position: columns - 1,
     });
@@ -202,7 +202,7 @@ export class TableInspector extends LitElement {
     columnWidths[index] = Math.max(1, width);
 
     this.engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: this.node.id,
       props: { ...props, columnWidths },
     });
@@ -226,7 +226,7 @@ export class TableInspector extends LitElement {
           @change=${(e: Event) => {
             const value = Math.min(Math.max(0, Number((e.target as HTMLInputElement).value)), rows);
             this.engine.dispatch({
-              type: "SetTableHeaderRows",
+              type: 'SetTableHeaderRows',
               nodeId: this.node.id,
               headerRows: value,
             });
@@ -287,7 +287,7 @@ export class TableInspector extends LitElement {
     const { merges } = this._props;
     const expanded = expandSelectionForMerges(sel, merges);
     this.engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: this.node.id,
       startRow: expanded.startRow,
       startCol: expanded.startCol,
@@ -298,7 +298,7 @@ export class TableInspector extends LitElement {
 
   private _handleUnmerge(row: number, col: number) {
     this.engine.dispatch({
-      type: "UnmergeTableCells",
+      type: 'UnmergeTableCells',
       nodeId: this.node.id,
       row,
       col,
@@ -308,6 +308,6 @@ export class TableInspector extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "table-inspector": TableInspector;
+    'table-inspector': TableInspector;
   }
 }

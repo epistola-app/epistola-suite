@@ -45,8 +45,8 @@ function showWarningDialog() {
   if (warningShown) return;
   warningShown = true;
 
-  const dialog = document.getElementById("session-warning-dialog");
-  if (dialog && typeof dialog.showModal === "function") {
+  const dialog = document.getElementById('session-warning-dialog');
+  if (dialog && typeof dialog.showModal === 'function') {
     dialog.showModal();
   }
 }
@@ -59,13 +59,13 @@ function showExpiredDialog() {
   expiredShown = true;
 
   // Hide warning dialog if shown
-  const warningDialog = document.getElementById("session-warning-dialog");
+  const warningDialog = document.getElementById('session-warning-dialog');
   if (warningDialog && warningDialog.open) {
     warningDialog.close();
   }
 
-  const expiredDialog = document.getElementById("session-expired-dialog");
-  if (expiredDialog && typeof expiredDialog.showModal === "function") {
+  const expiredDialog = document.getElementById('session-expired-dialog');
+  if (expiredDialog && typeof expiredDialog.showModal === 'function') {
     expiredDialog.showModal();
   }
 }
@@ -75,9 +75,9 @@ function showExpiredDialog() {
  */
 function openLoginPopup() {
   const popup = window.open(
-    "/login?popup=true",
-    "epistola-login",
-    "width=450,height=600,menubar=no,toolbar=no,location=no,resizable=yes",
+    '/login?popup=true',
+    'epistola-login',
+    'width=450,height=600,menubar=no,toolbar=no,location=no,resizable=yes',
   );
 
   // Focus popup if already open
@@ -90,12 +90,12 @@ function openLoginPopup() {
  * Handles successful session renewal from popup.
  */
 function handleSessionRenewed() {
-  const expiredDialog = document.getElementById("session-expired-dialog");
+  const expiredDialog = document.getElementById('session-expired-dialog');
   if (expiredDialog && expiredDialog.open) {
     expiredDialog.close();
   }
 
-  const warningDialog = document.getElementById("session-warning-dialog");
+  const warningDialog = document.getElementById('session-warning-dialog');
   if (warningDialog && warningDialog.open) {
     warningDialog.close();
   }
@@ -108,7 +108,7 @@ function handleSessionRenewed() {
  * Dismisses the warning dialog.
  */
 function dismissWarning() {
-  const dialog = document.getElementById("session-warning-dialog");
+  const dialog = document.getElementById('session-warning-dialog');
   if (dialog && dialog.open) {
     dialog.close();
   }
@@ -118,7 +118,7 @@ function dismissWarning() {
  * Dismisses the expired dialog (user claims they've logged in elsewhere).
  */
 function dismissExpired() {
-  const dialog = document.getElementById("session-expired-dialog");
+  const dialog = document.getElementById('session-expired-dialog');
   if (dialog && dialog.open) {
     dialog.close();
   }
@@ -147,11 +147,11 @@ function checkSession() {
  */
 export function initSessionMonitor() {
   // Listen for login success from popup
-  window.addEventListener("message", (event) => {
+  window.addEventListener('message', (event) => {
     // Only accept messages from same origin
     if (event.origin !== window.location.origin) return;
 
-    if (event.data?.type === "session-renewed") {
+    if (event.data?.type === 'session-renewed') {
       handleSessionRenewed();
     }
   });

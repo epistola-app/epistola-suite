@@ -15,7 +15,7 @@ import type {
   SaveExamplesResult,
   SaveSchemaResult,
   UpdateDataExampleResult,
-} from "./types.js";
+} from './types.js';
 
 export class DataContractState extends EventTarget {
   private _committedSchema: JsonSchema | null;
@@ -119,7 +119,7 @@ export class DataContractState extends EventTarget {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to save schema",
+        error: error instanceof Error ? error.message : 'Failed to save schema',
       };
     }
   }
@@ -147,7 +147,7 @@ export class DataContractState extends EventTarget {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to save examples",
+        error: error instanceof Error ? error.message : 'Failed to save examples',
       };
     }
   }
@@ -182,8 +182,8 @@ export class DataContractState extends EventTarget {
         errors: {
           _: [
             {
-              path: "",
-              message: error instanceof Error ? error.message : "Failed to save example",
+              path: '',
+              message: error instanceof Error ? error.message : 'Failed to save example',
             },
           ],
         },
@@ -235,6 +235,6 @@ export class DataContractState extends EventTarget {
   }
 
   private _fireChange(): void {
-    this.dispatchEvent(new Event("change"));
+    this.dispatchEvent(new Event('change'));
   }
 }

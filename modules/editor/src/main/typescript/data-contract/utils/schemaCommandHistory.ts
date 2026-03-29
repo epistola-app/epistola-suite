@@ -6,9 +6,9 @@
  * Public API is unchanged from the original implementation.
  */
 
-import type { VisualSchema } from "../types.js";
-import { type SchemaCommand, executeSchemaCommand } from "./schemaCommands.js";
-import { SnapshotHistory } from "./snapshotHistory.js";
+import type { VisualSchema } from '../types.js';
+import { type SchemaCommand, executeSchemaCommand } from './schemaCommands.js';
+import { SnapshotHistory } from './snapshotHistory.js';
 
 export class SchemaCommandHistory {
   private _history = new SnapshotHistory<VisualSchema>();

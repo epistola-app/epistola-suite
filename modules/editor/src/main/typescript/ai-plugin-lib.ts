@@ -10,14 +10,14 @@
  *   createMockTransport(options) → SendMessageFn
  */
 
-import "./styles/ai-panel.css";
+import './styles/ai-panel.css';
 
-export { createAiPlugin, type AiPluginOptions } from "./plugins/ai/ai-plugin.js";
-export { createMockTransport, type MockTransportOptions } from "./plugins/ai/mock-transport.js";
+export { createAiPlugin, type AiPluginOptions } from './plugins/ai/ai-plugin.js';
+export { createMockTransport, type MockTransportOptions } from './plugins/ai/mock-transport.js';
 export type {
   SendMessageFn,
   ChatRequest,
   ChatChunk,
   ChatAttachment,
   AiProposal,
-} from "./plugins/ai/types.js";
+} from './plugins/ai/types.js';

@@ -5,21 +5,21 @@
  * gap/drop cursor, and bubble menu.
  */
 
-import { history } from "prosemirror-history";
-import { keymap } from "prosemirror-keymap";
-import { baseKeymap, chainCommands, exitCode } from "prosemirror-commands";
-import { dropCursor } from "prosemirror-dropcursor";
-import { gapCursor } from "prosemirror-gapcursor";
-import { toggleMark } from "prosemirror-commands";
-import type { Schema } from "prosemirror-model";
-import type { Plugin, Command } from "prosemirror-state";
+import { history } from 'prosemirror-history';
+import { keymap } from 'prosemirror-keymap';
+import { baseKeymap, chainCommands, exitCode } from 'prosemirror-commands';
+import { dropCursor } from 'prosemirror-dropcursor';
+import { gapCursor } from 'prosemirror-gapcursor';
+import { toggleMark } from 'prosemirror-commands';
+import type { Schema } from 'prosemirror-model';
+import type { Plugin, Command } from 'prosemirror-state';
 import {
   TEXT_SHORTCUT_COMMAND_IDS,
   getTextShortcutBindingsForCommandId,
-} from "../shortcuts/text-runtime.js";
-import { epistolaInputRules } from "./input-rules.js";
-import { bubbleMenuPlugin } from "./bubble-menu.js";
-import type { ExpressionNodeViewOptions } from "./ExpressionNodeView.js";
+} from '../shortcuts/text-runtime.js';
+import { epistolaInputRules } from './input-rules.js';
+import { bubbleMenuPlugin } from './bubble-menu.js';
+import type { ExpressionNodeViewOptions } from './ExpressionNodeView.js';
 
 type TextShortcutCommandId =
   (typeof TEXT_SHORTCUT_COMMAND_IDS)[keyof typeof TEXT_SHORTCUT_COMMAND_IDS];
@@ -29,19 +29,19 @@ export interface PluginOptions {
 }
 
 const PROSEMIRROR_SPECIAL_KEYS: Record<string, string> = {
-  enter: "Enter",
-  escape: "Esc",
-  backspace: "Backspace",
-  delete: "Delete",
-  arrowup: "ArrowUp",
-  arrowdown: "ArrowDown",
-  arrowleft: "ArrowLeft",
-  arrowright: "ArrowRight",
-  space: "Space",
+  enter: 'Enter',
+  escape: 'Esc',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  arrowup: 'ArrowUp',
+  arrowdown: 'ArrowDown',
+  arrowleft: 'ArrowLeft',
+  arrowright: 'ArrowRight',
+  space: 'Space',
 };
 
 function formatProseMirrorKey(modifiers: string[], key: string): string {
-  return modifiers.length > 0 ? `${modifiers.join("-")}-${key}` : key;
+  return modifiers.length > 0 ? `${modifiers.join('-')}-${key}` : key;
 }
 
 function normalizeProseMirrorKeyToken(token: string): string {
@@ -57,33 +57,33 @@ function normalizeProseMirrorKeyToken(token: string): string {
 
 export function toProseMirrorKeysFromShortcutStroke(shortcutStroke: string): string[] {
   const compact = shortcutStroke.trim().toLowerCase();
-  if (!compact || compact.includes(" ")) {
+  if (!compact || compact.includes(' ')) {
     return [];
   }
 
-  const parts = compact.split("+").filter((part) => part.length > 0);
+  const parts = compact.split('+').filter((part) => part.length > 0);
   if (parts.length === 0) {
     return [];
   }
 
   const modifiers: string[] = [];
-  let keyToken = "";
+  let keyToken = '';
 
   for (const part of parts) {
-    if (part === "mod") {
-      modifiers.push("Mod");
+    if (part === 'mod') {
+      modifiers.push('Mod');
       continue;
     }
-    if (part === "shift") {
-      modifiers.push("Shift");
+    if (part === 'shift') {
+      modifiers.push('Shift');
       continue;
     }
-    if (part === "alt") {
-      modifiers.push("Alt");
+    if (part === 'alt') {
+      modifiers.push('Alt');
       continue;
     }
 
-    keyToken = part.startsWith("code:") ? part.slice("code:".length) : part;
+    keyToken = part.startsWith('code:') ? part.slice('code:'.length) : part;
   }
 
   if (!keyToken) {
@@ -91,7 +91,7 @@ export function toProseMirrorKeysFromShortcutStroke(shortcutStroke: string): str
   }
 
   const keys = [formatProseMirrorKey(modifiers, normalizeProseMirrorKeyToken(keyToken))];
-  const hasShiftModifier = modifiers.includes("Shift");
+  const hasShiftModifier = modifiers.includes('Shift');
   const isSingleLetter = keyToken.length === 1 && /^[a-z]$/i.test(keyToken);
   if (isSingleLetter && !hasShiftModifier) {
     keys.push(formatProseMirrorKey(modifiers, keyToken.toUpperCase()));

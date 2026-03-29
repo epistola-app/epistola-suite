@@ -34,16 +34,16 @@ export interface DataExample {
 
 /** Supported field types in the visual editor */
 export type SchemaFieldType =
-  | "string"
-  | "number"
-  | "integer"
-  | "boolean"
-  | "date"
-  | "array"
-  | "object";
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'date'
+  | 'array'
+  | 'object';
 
 /** Primitive field types (non-container types) */
-export type PrimitiveFieldType = "string" | "number" | "integer" | "boolean" | "date";
+export type PrimitiveFieldType = 'string' | 'number' | 'integer' | 'boolean' | 'date';
 
 // =============================================================================
 // Schema Fields (Discriminated Union)
@@ -64,14 +64,14 @@ export interface PrimitiveField extends BaseField {
 
 /** An array field with a required item type */
 export interface ArrayField extends BaseField {
-  type: "array";
+  type: 'array';
   arrayItemType: SchemaFieldType;
   nestedFields?: SchemaField[];
 }
 
 /** An object field with optional nested fields */
 export interface ObjectField extends BaseField {
-  type: "object";
+  type: 'object';
   nestedFields?: SchemaField[];
 }
 
@@ -118,7 +118,7 @@ export interface JsonSchemaProperty {
 /** JSON Schema (subset supported by the visual editor) */
 export interface JsonSchema {
   $schema?: string;
-  type: "object";
+  type: 'object';
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
   additionalProperties?: boolean;
@@ -173,5 +173,5 @@ export interface SaveCallbacks {
  * Replaces the Zod `JsonObjectSchema.safeParse()` call.
  */
 export function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

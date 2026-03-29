@@ -5,27 +5,27 @@
  * pattern as the inspector. The preset is an expandable card.
  */
 
-import { html, nothing } from "lit";
-import type { StyleProperty } from "@epistola.app/editor-model/generated/style-registry";
-import type { BlockStylePreset } from "@epistola.app/editor-model/generated/theme";
-import { defaultStyleRegistry } from "../../engine/style-registry.js";
+import { html, nothing } from 'lit';
+import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
+import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme';
+import { defaultStyleRegistry } from '../../engine/style-registry.js';
 import {
   renderUnitInput,
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
   readSpacingFromStyles,
-} from "../../ui/inputs/style-inputs.js";
-import type { ThemeEditorState } from "../ThemeEditorState.js";
+} from '../../ui/inputs/style-inputs.js';
+import type { ThemeEditorState } from '../ThemeEditorState.js';
 
 /** Node types available for applicableTo multi-select. */
 const NODE_TYPES = [
-  { label: "Text", value: "text" },
-  { label: "Container", value: "container" },
-  { label: "Columns", value: "columns" },
-  { label: "Table", value: "table" },
-  { label: "Conditional", value: "conditional" },
-  { label: "Loop", value: "loop" },
+  { label: 'Text', value: 'text' },
+  { label: 'Container', value: 'container' },
+  { label: 'Columns', value: 'columns' },
+  { label: 'Table', value: 'table' },
+  { label: 'Conditional', value: 'conditional' },
+  { label: 'Loop', value: 'loop' },
 ];
 
 export function renderPresetItem(
@@ -39,7 +39,7 @@ export function renderPresetItem(
   return html`
     <div class="preset-card">
       <div class="preset-card-header" @click=${onToggle}>
-        <span class="preset-card-toggle">${expanded ? "\u25BE" : "\u25B8"}</span>
+        <span class="preset-card-toggle">${expanded ? '\u25BE' : '\u25B8'}</span>
         <span class="preset-card-name">${preset.label || name}</span>
         <span class="preset-card-key">${name}</span>
         <button
@@ -131,8 +131,8 @@ function renderPresetBody(
             ${group.properties.map((prop) => {
               // For spacing properties, reconstruct compound value from individual keys
               const value =
-                prop.type === "spacing"
-                  ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? "px")
+                prop.type === 'spacing'
+                  ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
                   : styles[prop.key];
               return renderPresetStyleProperty(prop, value, (v) =>
                 state.updatePresetStyle(name, prop.key, v),
@@ -164,20 +164,20 @@ function renderPresetStyleInput(
   onChange: (value: unknown) => void,
 ): unknown {
   switch (prop.type) {
-    case "select":
+    case 'select':
       return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
-    case "unit":
-      return renderUnitInput(value, prop.units ?? ["px"], (v) => onChange(v));
-    case "color":
+    case 'unit':
+      return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v));
+    case 'color':
       return renderColorInput(value, (v) => onChange(v || undefined));
-    case "spacing":
-      return renderSpacingInput(value, prop.units ?? ["px"], (v) => onChange(v));
+    case 'spacing':
+      return renderSpacingInput(value, prop.units ?? ['px'], (v) => onChange(v));
     default:
       return html`
         <input
           type="text"
           class="ep-input"
-          .value=${String(value ?? "")}
+          .value=${String(value ?? '')}
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
         />
       `;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from 'vitest';
 import {
   evaluateExpression,
   formatResolvedValue,
@@ -8,89 +8,89 @@ import {
   validateArrayResult,
   validateBooleanResult,
   formatDateValue,
-} from "./resolve-expression.js";
+} from './resolve-expression.js';
 
 // ---------------------------------------------------------------------------
 // evaluateExpression
 // ---------------------------------------------------------------------------
 
-describe("evaluateExpression", () => {
+describe('evaluateExpression', () => {
   const data = {
     customer: {
-      name: "John Doe",
+      name: 'John Doe',
       age: 30,
       active: true,
       address: {
-        city: "Amsterdam",
-        zip: "1012AB",
+        city: 'Amsterdam',
+        zip: '1012AB',
       },
     },
     items: [
-      { name: "Widget", price: 10 },
-      { name: "Gadget", price: 25 },
-      { name: "Gizmo", price: 15 },
+      { name: 'Widget', price: 10 },
+      { name: 'Gadget', price: 25 },
+      { name: 'Gizmo', price: 15 },
     ],
-    first: "Jane",
-    last: "Smith",
-    tags: ["a", "b", "c"],
+    first: 'Jane',
+    last: 'Smith',
+    tags: ['a', 'b', 'c'],
   };
 
-  it("resolves a simple path", async () => {
-    expect(await evaluateExpression("customer.name", data)).toBe("John Doe");
+  it('resolves a simple path', async () => {
+    expect(await evaluateExpression('customer.name', data)).toBe('John Doe');
   });
 
-  it("resolves a nested path", async () => {
-    expect(await evaluateExpression("customer.address.city", data)).toBe("Amsterdam");
+  it('resolves a nested path', async () => {
+    expect(await evaluateExpression('customer.address.city', data)).toBe('Amsterdam');
   });
 
-  it("resolves array access", async () => {
-    expect(await evaluateExpression("items[0].name", data)).toBe("Widget");
+  it('resolves array access', async () => {
+    expect(await evaluateExpression('items[0].name', data)).toBe('Widget');
   });
 
-  it("resolves array mapping", async () => {
-    const result = await evaluateExpression("items.name", data);
+  it('resolves array mapping', async () => {
+    const result = await evaluateExpression('items.name', data);
     // JSONata returns an array-like object; spread to compare as plain array
-    expect([...(result as string[])]).toEqual(["Widget", "Gadget", "Gizmo"]);
+    expect([...(result as string[])]).toEqual(['Widget', 'Gadget', 'Gizmo']);
   });
 
-  it("resolves string concatenation", async () => {
-    expect(await evaluateExpression('first & " " & last', data)).toBe("Jane Smith");
+  it('resolves string concatenation', async () => {
+    expect(await evaluateExpression('first & " " & last', data)).toBe('Jane Smith');
   });
 
-  it("resolves aggregation ($sum)", async () => {
-    expect(await evaluateExpression("$sum(items.price)", data)).toBe(50);
+  it('resolves aggregation ($sum)', async () => {
+    expect(await evaluateExpression('$sum(items.price)', data)).toBe(50);
   });
 
-  it("resolves conditionals", async () => {
-    expect(await evaluateExpression('customer.active ? "Yes" : "No"', data)).toBe("Yes");
+  it('resolves conditionals', async () => {
+    expect(await evaluateExpression('customer.active ? "Yes" : "No"', data)).toBe('Yes');
   });
 
-  it("returns undefined for missing paths", async () => {
-    expect(await evaluateExpression("customer.nonexistent", data)).toBeUndefined();
+  it('returns undefined for missing paths', async () => {
+    expect(await evaluateExpression('customer.nonexistent', data)).toBeUndefined();
   });
 
-  it("returns undefined for invalid syntax", async () => {
-    expect(await evaluateExpression("{{invalid}}", data)).toBeUndefined();
+  it('returns undefined for invalid syntax', async () => {
+    expect(await evaluateExpression('{{invalid}}', data)).toBeUndefined();
   });
 
-  it("returns undefined for empty expression", async () => {
-    expect(await evaluateExpression("", data)).toBeUndefined();
+  it('returns undefined for empty expression', async () => {
+    expect(await evaluateExpression('', data)).toBeUndefined();
   });
 
-  it("returns undefined for whitespace-only expression", async () => {
-    expect(await evaluateExpression("   ", data)).toBeUndefined();
+  it('returns undefined for whitespace-only expression', async () => {
+    expect(await evaluateExpression('   ', data)).toBeUndefined();
   });
 
-  it("resolves number values", async () => {
-    expect(await evaluateExpression("customer.age", data)).toBe(30);
+  it('resolves number values', async () => {
+    expect(await evaluateExpression('customer.age', data)).toBe(30);
   });
 
-  it("resolves boolean values", async () => {
-    expect(await evaluateExpression("customer.active", data)).toBe(true);
+  it('resolves boolean values', async () => {
+    expect(await evaluateExpression('customer.active', data)).toBe(true);
   });
 
-  it("resolves array count", async () => {
-    expect(await evaluateExpression("$count(items)", data)).toBe(3);
+  it('resolves array count', async () => {
+    expect(await evaluateExpression('$count(items)', data)).toBe(3);
   });
 });
 
@@ -98,49 +98,49 @@ describe("evaluateExpression", () => {
 // formatResolvedValue
 // ---------------------------------------------------------------------------
 
-describe("formatResolvedValue", () => {
-  it("formats a string", () => {
-    expect(formatResolvedValue("Hello")).toBe("Hello");
+describe('formatResolvedValue', () => {
+  it('formats a string', () => {
+    expect(formatResolvedValue('Hello')).toBe('Hello');
   });
 
-  it("formats a number", () => {
-    expect(formatResolvedValue(42)).toBe("42");
+  it('formats a number', () => {
+    expect(formatResolvedValue(42)).toBe('42');
   });
 
-  it("formats zero", () => {
-    expect(formatResolvedValue(0)).toBe("0");
+  it('formats zero', () => {
+    expect(formatResolvedValue(0)).toBe('0');
   });
 
-  it("formats a boolean true", () => {
-    expect(formatResolvedValue(true)).toBe("true");
+  it('formats a boolean true', () => {
+    expect(formatResolvedValue(true)).toBe('true');
   });
 
-  it("formats a boolean false", () => {
-    expect(formatResolvedValue(false)).toBe("false");
+  it('formats a boolean false', () => {
+    expect(formatResolvedValue(false)).toBe('false');
   });
 
-  it("returns undefined for null", () => {
+  it('returns undefined for null', () => {
     expect(formatResolvedValue(null)).toBeUndefined();
   });
 
-  it("returns undefined for undefined", () => {
+  it('returns undefined for undefined', () => {
     expect(formatResolvedValue(undefined)).toBeUndefined();
   });
 
-  it("returns undefined for an object", () => {
+  it('returns undefined for an object', () => {
     expect(formatResolvedValue({ a: 1 })).toBeUndefined();
   });
 
-  it("returns undefined for an array", () => {
+  it('returns undefined for an array', () => {
     expect(formatResolvedValue([1, 2, 3])).toBeUndefined();
   });
 
-  it("returns undefined for an empty string", () => {
-    expect(formatResolvedValue("")).toBeUndefined();
+  it('returns undefined for an empty string', () => {
+    expect(formatResolvedValue('')).toBeUndefined();
   });
 
-  it("formats a float", () => {
-    expect(formatResolvedValue(3.14)).toBe("3.14");
+  it('formats a float', () => {
+    expect(formatResolvedValue(3.14)).toBe('3.14');
   });
 });
 
@@ -148,50 +148,50 @@ describe("formatResolvedValue", () => {
 // tryEvaluateExpression
 // ---------------------------------------------------------------------------
 
-describe("tryEvaluateExpression", () => {
+describe('tryEvaluateExpression', () => {
   const data = {
-    customer: { name: "John Doe", age: 30 },
+    customer: { name: 'John Doe', age: 30 },
     items: [
-      { name: "Widget", price: 10 },
-      { name: "Gadget", price: 25 },
+      { name: 'Widget', price: 10 },
+      { name: 'Gadget', price: 25 },
     ],
   };
 
-  it("returns ok with value for a valid path", async () => {
-    const result = await tryEvaluateExpression("customer.name", data);
-    expect(result).toEqual({ ok: true, value: "John Doe" });
+  it('returns ok with value for a valid path', async () => {
+    const result = await tryEvaluateExpression('customer.name', data);
+    expect(result).toEqual({ ok: true, value: 'John Doe' });
   });
 
-  it("returns ok with undefined for a missing path", async () => {
-    const result = await tryEvaluateExpression("customer.nonexistent", data);
+  it('returns ok with undefined for a missing path', async () => {
+    const result = await tryEvaluateExpression('customer.nonexistent', data);
     expect(result).toEqual({ ok: true, value: undefined });
   });
 
-  it("returns ok with number for aggregation", async () => {
-    const result = await tryEvaluateExpression("$sum(items.price)", data);
+  it('returns ok with number for aggregation', async () => {
+    const result = await tryEvaluateExpression('$sum(items.price)', data);
     expect(result).toEqual({ ok: true, value: 35 });
   });
 
-  it("returns error for syntax error", async () => {
-    const result = await tryEvaluateExpression("{{broken", data);
+  it('returns error for syntax error', async () => {
+    const result = await tryEvaluateExpression('{{broken', data);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toBeTruthy();
     }
   });
 
-  it("returns error for empty expression", async () => {
-    const result = await tryEvaluateExpression("", data);
-    expect(result).toEqual({ ok: false, error: "Expression is empty" });
+  it('returns error for empty expression', async () => {
+    const result = await tryEvaluateExpression('', data);
+    expect(result).toEqual({ ok: false, error: 'Expression is empty' });
   });
 
-  it("returns error for whitespace-only expression", async () => {
-    const result = await tryEvaluateExpression("   ", data);
-    expect(result).toEqual({ ok: false, error: "Expression is empty" });
+  it('returns error for whitespace-only expression', async () => {
+    const result = await tryEvaluateExpression('   ', data);
+    expect(result).toEqual({ ok: false, error: 'Expression is empty' });
   });
 
-  it("returns ok with boolean value", async () => {
-    const result = await tryEvaluateExpression("customer.age > 18", data);
+  it('returns ok with boolean value', async () => {
+    const result = await tryEvaluateExpression('customer.age > 18', data);
     expect(result).toEqual({ ok: true, value: true });
   });
 });
@@ -200,51 +200,51 @@ describe("tryEvaluateExpression", () => {
 // formatForPreview
 // ---------------------------------------------------------------------------
 
-describe("formatForPreview", () => {
-  it("formats a string", () => {
-    expect(formatForPreview("Hello")).toBe("Hello");
+describe('formatForPreview', () => {
+  it('formats a string', () => {
+    expect(formatForPreview('Hello')).toBe('Hello');
   });
 
   it('formats an empty string as "(empty string)"', () => {
-    expect(formatForPreview("")).toBe("(empty string)");
+    expect(formatForPreview('')).toBe('(empty string)');
   });
 
   it('formats undefined as "undefined"', () => {
-    expect(formatForPreview(undefined)).toBe("undefined");
+    expect(formatForPreview(undefined)).toBe('undefined');
   });
 
   it('formats null as "null"', () => {
-    expect(formatForPreview(null)).toBe("null");
+    expect(formatForPreview(null)).toBe('null');
   });
 
-  it("formats a number", () => {
-    expect(formatForPreview(42)).toBe("42");
+  it('formats a number', () => {
+    expect(formatForPreview(42)).toBe('42');
   });
 
-  it("formats a boolean", () => {
-    expect(formatForPreview(true)).toBe("true");
-    expect(formatForPreview(false)).toBe("false");
+  it('formats a boolean', () => {
+    expect(formatForPreview(true)).toBe('true');
+    expect(formatForPreview(false)).toBe('false');
   });
 
-  it("formats an object as JSON", () => {
+  it('formats an object as JSON', () => {
     expect(formatForPreview({ a: 1, b: 2 })).toBe('{"a":1,"b":2}');
   });
 
-  it("formats an array as JSON", () => {
-    expect(formatForPreview([1, 2, 3])).toBe("[1,2,3]");
+  it('formats an array as JSON', () => {
+    expect(formatForPreview([1, 2, 3])).toBe('[1,2,3]');
   });
 
-  it("truncates long JSON with ellipsis", () => {
+  it('truncates long JSON with ellipsis', () => {
     const longArray = Array.from({ length: 100 }, (_, i) => `item-${i}`);
     const result = formatForPreview(longArray);
     expect(result.length).toBeLessThanOrEqual(121); // 120 + ellipsis char
-    expect(result.endsWith("…")).toBe(true);
+    expect(result.endsWith('…')).toBe(true);
   });
 
-  it("does not truncate short JSON", () => {
+  it('does not truncate short JSON', () => {
     const result = formatForPreview({ x: 1 });
     expect(result).toBe('{"x":1}');
-    expect(result.endsWith("…")).toBe(false);
+    expect(result.endsWith('…')).toBe(false);
   });
 });
 
@@ -252,33 +252,33 @@ describe("formatForPreview", () => {
 // isValidExpression
 // ---------------------------------------------------------------------------
 
-describe("isValidExpression", () => {
-  it("returns true for a simple path", () => {
-    expect(isValidExpression("customer.name")).toBe(true);
+describe('isValidExpression', () => {
+  it('returns true for a simple path', () => {
+    expect(isValidExpression('customer.name')).toBe(true);
   });
 
-  it("returns true for a function call", () => {
-    expect(isValidExpression("$sum(items.price)")).toBe(true);
+  it('returns true for a function call', () => {
+    expect(isValidExpression('$sum(items.price)')).toBe(true);
   });
 
-  it("returns true for string concatenation", () => {
+  it('returns true for string concatenation', () => {
     expect(isValidExpression('first & " " & last')).toBe(true);
   });
 
-  it("returns true for a conditional", () => {
+  it('returns true for a conditional', () => {
     expect(isValidExpression('active ? "Yes" : "No"')).toBe(true);
   });
 
-  it("returns false for invalid syntax", () => {
-    expect(isValidExpression("{{broken")).toBe(false);
+  it('returns false for invalid syntax', () => {
+    expect(isValidExpression('{{broken')).toBe(false);
   });
 
-  it("returns false for empty expression", () => {
-    expect(isValidExpression("")).toBe(false);
+  it('returns false for empty expression', () => {
+    expect(isValidExpression('')).toBe(false);
   });
 
-  it("returns false for whitespace-only expression", () => {
-    expect(isValidExpression("   ")).toBe(false);
+  it('returns false for whitespace-only expression', () => {
+    expect(isValidExpression('   ')).toBe(false);
   });
 });
 
@@ -286,47 +286,47 @@ describe("isValidExpression", () => {
 // validateArrayResult
 // ---------------------------------------------------------------------------
 
-describe("validateArrayResult", () => {
-  it("returns null for an array", () => {
+describe('validateArrayResult', () => {
+  it('returns null for an array', () => {
     expect(validateArrayResult([1, 2, 3])).toBeNull();
   });
 
-  it("returns null for an empty array", () => {
+  it('returns null for an empty array', () => {
     expect(validateArrayResult([])).toBeNull();
   });
 
-  it("returns null for undefined (missing path)", () => {
+  it('returns null for undefined (missing path)', () => {
     expect(validateArrayResult(undefined)).toBeNull();
   });
 
-  it("returns error for a string", () => {
-    const result = validateArrayResult("hello");
-    expect(result).toContain("must evaluate to an array");
-    expect(result).toContain("string");
+  it('returns error for a string', () => {
+    const result = validateArrayResult('hello');
+    expect(result).toContain('must evaluate to an array');
+    expect(result).toContain('string');
   });
 
-  it("returns error for a number", () => {
+  it('returns error for a number', () => {
     const result = validateArrayResult(42);
-    expect(result).toContain("must evaluate to an array");
-    expect(result).toContain("number");
+    expect(result).toContain('must evaluate to an array');
+    expect(result).toContain('number');
   });
 
-  it("returns error for a boolean", () => {
+  it('returns error for a boolean', () => {
     const result = validateArrayResult(true);
-    expect(result).toContain("must evaluate to an array");
-    expect(result).toContain("boolean");
+    expect(result).toContain('must evaluate to an array');
+    expect(result).toContain('boolean');
   });
 
-  it("returns error for null", () => {
+  it('returns error for null', () => {
     const result = validateArrayResult(null);
-    expect(result).toContain("must evaluate to an array");
-    expect(result).toContain("null");
+    expect(result).toContain('must evaluate to an array');
+    expect(result).toContain('null');
   });
 
-  it("returns error for an object (single-result filter)", () => {
-    const result = validateArrayResult({ name: "item" });
-    expect(result).toContain("must evaluate to an array");
-    expect(result).toContain("object");
+  it('returns error for an object (single-result filter)', () => {
+    const result = validateArrayResult({ name: 'item' });
+    expect(result).toContain('must evaluate to an array');
+    expect(result).toContain('object');
   });
 });
 
@@ -334,47 +334,47 @@ describe("validateArrayResult", () => {
 // validateBooleanResult
 // ---------------------------------------------------------------------------
 
-describe("validateBooleanResult", () => {
-  it("returns null for true", () => {
+describe('validateBooleanResult', () => {
+  it('returns null for true', () => {
     expect(validateBooleanResult(true)).toBeNull();
   });
 
-  it("returns null for false", () => {
+  it('returns null for false', () => {
     expect(validateBooleanResult(false)).toBeNull();
   });
 
-  it("returns null for undefined (missing path)", () => {
+  it('returns null for undefined (missing path)', () => {
     expect(validateBooleanResult(undefined)).toBeNull();
   });
 
-  it("returns error for a string", () => {
-    const result = validateBooleanResult("yes");
-    expect(result).toContain("must evaluate to a boolean");
-    expect(result).toContain("string");
+  it('returns error for a string', () => {
+    const result = validateBooleanResult('yes');
+    expect(result).toContain('must evaluate to a boolean');
+    expect(result).toContain('string');
   });
 
-  it("returns error for a number", () => {
+  it('returns error for a number', () => {
     const result = validateBooleanResult(1);
-    expect(result).toContain("must evaluate to a boolean");
-    expect(result).toContain("number");
+    expect(result).toContain('must evaluate to a boolean');
+    expect(result).toContain('number');
   });
 
-  it("returns error for null", () => {
+  it('returns error for null', () => {
     const result = validateBooleanResult(null);
-    expect(result).toContain("must evaluate to a boolean");
-    expect(result).toContain("null");
+    expect(result).toContain('must evaluate to a boolean');
+    expect(result).toContain('null');
   });
 
-  it("returns error for an array", () => {
+  it('returns error for an array', () => {
     const result = validateBooleanResult([1, 2]);
-    expect(result).toContain("must evaluate to a boolean");
-    expect(result).toContain("object");
+    expect(result).toContain('must evaluate to a boolean');
+    expect(result).toContain('object');
   });
 
-  it("returns error for an object", () => {
+  it('returns error for an object', () => {
     const result = validateBooleanResult({ active: true });
-    expect(result).toContain("must evaluate to a boolean");
-    expect(result).toContain("object");
+    expect(result).toContain('must evaluate to a boolean');
+    expect(result).toContain('object');
   });
 });
 
@@ -382,63 +382,63 @@ describe("validateBooleanResult", () => {
 // formatDateValue
 // ---------------------------------------------------------------------------
 
-describe("formatDateValue", () => {
-  it("formats dd-MM-yyyy", () => {
-    expect(formatDateValue("2024-01-15", "dd-MM-yyyy")).toBe("15-01-2024");
+describe('formatDateValue', () => {
+  it('formats dd-MM-yyyy', () => {
+    expect(formatDateValue('2024-01-15', 'dd-MM-yyyy')).toBe('15-01-2024');
   });
 
-  it("formats yyyy-MM-dd (identity)", () => {
-    expect(formatDateValue("2024-01-15", "yyyy-MM-dd")).toBe("2024-01-15");
+  it('formats yyyy-MM-dd (identity)', () => {
+    expect(formatDateValue('2024-01-15', 'yyyy-MM-dd')).toBe('2024-01-15');
   });
 
-  it("formats dd/MM/yyyy", () => {
-    expect(formatDateValue("2024-01-15", "dd/MM/yyyy")).toBe("15/01/2024");
+  it('formats dd/MM/yyyy', () => {
+    expect(formatDateValue('2024-01-15', 'dd/MM/yyyy')).toBe('15/01/2024');
   });
 
-  it("formats MM/dd/yyyy", () => {
-    expect(formatDateValue("2024-01-15", "MM/dd/yyyy")).toBe("01/15/2024");
+  it('formats MM/dd/yyyy', () => {
+    expect(formatDateValue('2024-01-15', 'MM/dd/yyyy')).toBe('01/15/2024');
   });
 
-  it("formats d MMMM yyyy", () => {
-    expect(formatDateValue("2024-01-15", "d MMMM yyyy")).toBe("15 January 2024");
+  it('formats d MMMM yyyy', () => {
+    expect(formatDateValue('2024-01-15', 'd MMMM yyyy')).toBe('15 January 2024');
   });
 
-  it("formats d MMMM yyyy without leading zero", () => {
-    expect(formatDateValue("2024-07-05", "d MMMM yyyy")).toBe("5 July 2024");
+  it('formats d MMMM yyyy without leading zero', () => {
+    expect(formatDateValue('2024-07-05', 'd MMMM yyyy')).toBe('5 July 2024');
   });
 
-  it("formats d MMM yyyy (short month)", () => {
-    expect(formatDateValue("2024-01-15", "d MMM yyyy")).toBe("15 Jan 2024");
+  it('formats d MMM yyyy (short month)', () => {
+    expect(formatDateValue('2024-01-15', 'd MMM yyyy')).toBe('15 Jan 2024');
   });
 
-  it("returns raw value for non-date string", () => {
-    expect(formatDateValue("not-a-date", "dd-MM-yyyy")).toBe("not-a-date");
+  it('returns raw value for non-date string', () => {
+    expect(formatDateValue('not-a-date', 'dd-MM-yyyy')).toBe('not-a-date');
   });
 
-  it("returns raw value for empty string", () => {
-    expect(formatDateValue("", "dd-MM-yyyy")).toBe("");
+  it('returns raw value for empty string', () => {
+    expect(formatDateValue('', 'dd-MM-yyyy')).toBe('');
   });
 
   // --- datetime support ---
 
-  it("formats a local datetime with date-only pattern", () => {
-    expect(formatDateValue("2024-01-15T14:30:00", "dd-MM-yyyy")).toBe("15-01-2024");
+  it('formats a local datetime with date-only pattern', () => {
+    expect(formatDateValue('2024-01-15T14:30:00', 'dd-MM-yyyy')).toBe('15-01-2024');
   });
 
-  it("formats a local datetime with date+time pattern", () => {
-    expect(formatDateValue("2024-01-15T14:30:00", "dd-MM-yyyy HH:mm")).toBe("15-01-2024 14:30");
+  it('formats a local datetime with date+time pattern', () => {
+    expect(formatDateValue('2024-01-15T14:30:00', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 14:30');
   });
 
-  it("formats a UTC datetime (time displayed as-is in preview)", () => {
-    expect(formatDateValue("2024-01-15T14:30:00Z", "dd-MM-yyyy HH:mm")).toBe("15-01-2024 14:30");
+  it('formats a UTC datetime (time displayed as-is in preview)', () => {
+    expect(formatDateValue('2024-01-15T14:30:00Z', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 14:30');
   });
 
-  it("formats time with seconds", () => {
-    expect(formatDateValue("2024-01-15T14:30:45", "HH:mm:ss")).toBe("14:30:45");
+  it('formats time with seconds', () => {
+    expect(formatDateValue('2024-01-15T14:30:45', 'HH:mm:ss')).toBe('14:30:45');
   });
 
-  it("defaults time tokens to 00 for date-only values", () => {
-    expect(formatDateValue("2024-01-15", "dd-MM-yyyy HH:mm")).toBe("15-01-2024 00:00");
+  it('defaults time tokens to 00 for date-only values', () => {
+    expect(formatDateValue('2024-01-15', 'dd-MM-yyyy HH:mm')).toBe('15-01-2024 00:00');
   });
 });
 
@@ -446,28 +446,28 @@ describe("formatDateValue", () => {
 // $formatDate in evaluateExpression
 // ---------------------------------------------------------------------------
 
-describe("evaluateExpression with $formatDate", () => {
-  it("formats a date field", async () => {
-    const data = { invoiceDate: "2024-01-15" };
+describe('evaluateExpression with $formatDate', () => {
+  it('formats a date field', async () => {
+    const data = { invoiceDate: '2024-01-15' };
     expect(await evaluateExpression("$formatDate(invoiceDate, 'dd-MM-yyyy')", data)).toBe(
-      "15-01-2024",
+      '15-01-2024',
     );
   });
 
-  it("formats in string concatenation", async () => {
-    const data = { dueDate: "2024-02-15" };
-    expect(await evaluateExpression("\"Due: \" & $formatDate(dueDate, 'dd-MM-yyyy')", data)).toBe(
-      "Due: 15-02-2024",
+  it('formats in string concatenation', async () => {
+    const data = { dueDate: '2024-02-15' };
+    expect(await evaluateExpression('"Due: " & $formatDate(dueDate, \'dd-MM-yyyy\')', data)).toBe(
+      'Due: 15-02-2024',
     );
   });
 
-  it("returns raw value for non-date", async () => {
-    const data = { val: "hello" };
-    expect(await evaluateExpression("$formatDate(val, 'dd-MM-yyyy')", data)).toBe("hello");
+  it('returns raw value for non-date', async () => {
+    const data = { val: 'hello' };
+    expect(await evaluateExpression("$formatDate(val, 'dd-MM-yyyy')", data)).toBe('hello');
   });
 
-  it("returns undefined for missing field", async () => {
-    const data = { other: "2024-01-15" };
+  it('returns undefined for missing field', async () => {
+    const data = { other: '2024-01-15' };
     expect(await evaluateExpression("$formatDate(missing, 'dd-MM-yyyy')", data)).toBeUndefined();
   });
 });

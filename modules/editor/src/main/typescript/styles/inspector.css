@@ -333,7 +333,7 @@
   }
 
   .expression-dialog-path-item.system .expression-dialog-path-type::after {
-    content: "sys";
+    content: 'sys';
     margin-left: var(--ep-space-1);
     font-size: 0.6rem;
     font-weight: 600;

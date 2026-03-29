@@ -1,12 +1,12 @@
-import { LitElement, html, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import type { TemplateDocument, NodeId } from "../types/index.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import type { SidebarTabContribution, PluginContext } from "../plugins/types.js";
+import { LitElement, html, type TemplateResult } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { TemplateDocument, NodeId } from '../types/index.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import type { SidebarTabContribution, PluginContext } from '../plugins/types.js';
 
-import "./EpistolaPalette.js";
-import "./EpistolaTree.js";
-import "./EpistolaInspector.js";
+import './EpistolaPalette.js';
+import './EpistolaTree.js';
+import './EpistolaInspector.js';
 
 // ---------------------------------------------------------------------------
 // Tab definition — used for both built-in and plugin tabs
@@ -19,7 +19,7 @@ interface TabDefinition {
   render: () => TemplateResult;
 }
 
-@customElement("epistola-sidebar")
+@customElement('epistola-sidebar')
 export class EpistolaSidebar extends LitElement {
   override createRenderRoot() {
     return this;
@@ -31,7 +31,7 @@ export class EpistolaSidebar extends LitElement {
   @property({ attribute: false }) pluginTabs?: SidebarTabContribution[];
   @property({ attribute: false }) pluginContext?: PluginContext;
 
-  @state() private _activeTab = "blocks";
+  @state() private _activeTab = 'blocks';
 
   private _setTab(tabId: string) {
     this._activeTab = tabId;
@@ -45,46 +45,46 @@ export class EpistolaSidebar extends LitElement {
   }
 
   focusPalette(): void {
-    this._focusTab("blocks", () =>
-      this.querySelector<HTMLElement>(".epistola-palette .palette-item"),
+    this._focusTab('blocks', () =>
+      this.querySelector<HTMLElement>('.epistola-palette .palette-item'),
     );
   }
 
   focusTree(): void {
     const selectedId = this.selectedNodeId;
-    this._focusTab("structure", () => {
+    this._focusTab('structure', () => {
       if (selectedId) {
         const selected = this.querySelector<HTMLElement>(
           `.tree-node-label[data-node-id="${selectedId}"]`,
         );
         if (selected) return selected;
       }
-      return this.querySelector<HTMLElement>(".tree-node-label[data-node-id]");
+      return this.querySelector<HTMLElement>('.tree-node-label[data-node-id]');
     });
   }
 
   focusInspector(): void {
-    this._focusTab("inspector", () =>
+    this._focusTab('inspector', () =>
       this.querySelector<HTMLElement>(
-        ".epistola-inspector input, .epistola-inspector select, .epistola-inspector textarea, .epistola-inspector button, .epistola-inspector [tabindex]",
+        '.epistola-inspector input, .epistola-inspector select, .epistola-inspector textarea, .epistola-inspector button, .epistola-inspector [tabindex]',
       ),
     );
   }
 
   private get _inspectorLabel(): string {
-    return this.selectedNodeId ? "Inspector" : "Document";
+    return this.selectedNodeId ? 'Inspector' : 'Document';
   }
 
   private get _builtinTabs(): TabDefinition[] {
     return [
       {
-        id: "blocks",
-        label: "Blocks",
+        id: 'blocks',
+        label: 'Blocks',
         render: () => html` <epistola-palette .engine=${this.engine}></epistola-palette> `,
       },
       {
-        id: "structure",
-        label: "Structure",
+        id: 'structure',
+        label: 'Structure',
         render: () => html`
           <epistola-tree
             .engine=${this.engine}
@@ -94,7 +94,7 @@ export class EpistolaSidebar extends LitElement {
         `,
       },
       {
-        id: "inspector",
+        id: 'inspector',
         label: () => this._inspectorLabel,
         render: () => html`
           <epistola-inspector
@@ -129,11 +129,11 @@ export class EpistolaSidebar extends LitElement {
       <div class="epistola-sidebar">
         <div class="sidebar-tabs">
           ${tabs.map((tab) => {
-            const label = typeof tab.label === "function" ? tab.label() : tab.label;
+            const label = typeof tab.label === 'function' ? tab.label() : tab.label;
             const isActive = tab.id === activeTab?.id;
             return html`
               <button
-                class="sidebar-tab ${isActive ? "active" : ""}"
+                class="sidebar-tab ${isActive ? 'active' : ''}"
                 @click=${() => this._setTab(tab.id)}
               >
                 ${label}
@@ -149,6 +149,6 @@ export class EpistolaSidebar extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-sidebar": EpistolaSidebar;
+    'epistola-sidebar': EpistolaSidebar;
   }
 }

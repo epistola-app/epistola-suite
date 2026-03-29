@@ -5,7 +5,7 @@
  * returns a Lit html template with amber warning styling.
  */
 
-import { html, nothing } from "lit";
+import { html, nothing } from 'lit';
 
 export interface ValidationWarning {
   path: string;
@@ -20,7 +20,7 @@ export function renderValidationMessages(warnings: ValidationWarning[]): unknown
       <div class="dc-validation-header">
         <span class="dc-validation-icon">!</span>
         <span class="dc-validation-title"
-          >${warnings.length} warning${warnings.length !== 1 ? "s" : ""}</span
+          >${warnings.length} warning${warnings.length !== 1 ? 's' : ''}</span
         >
       </div>
       <ul class="dc-validation-list">

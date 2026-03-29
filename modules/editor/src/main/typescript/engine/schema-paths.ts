@@ -27,7 +27,7 @@ const MAX_DEPTH = 5;
  */
 export function extractFieldPaths(schema: object): FieldPath[] {
   const result: FieldPath[] = [];
-  walk(schema as Record<string, unknown>, "", 0, result);
+  walk(schema as Record<string, unknown>, '', 0, result);
   return result;
 }
 
@@ -40,25 +40,25 @@ function walk(
   if (depth > MAX_DEPTH) return;
 
   const properties = schema.properties as Record<string, Record<string, unknown>> | undefined;
-  if (!properties || typeof properties !== "object") return;
+  if (!properties || typeof properties !== 'object') return;
 
   for (const [key, propSchema] of Object.entries(properties)) {
-    if (!propSchema || typeof propSchema !== "object") continue;
+    if (!propSchema || typeof propSchema !== 'object') continue;
 
     const path = prefix ? `${prefix}.${key}` : key;
-    const rawType = String(propSchema.type ?? "unknown");
-    const type = rawType === "string" && propSchema.format === "date" ? "date" : rawType;
+    const rawType = String(propSchema.type ?? 'unknown');
+    const type = rawType === 'string' && propSchema.format === 'date' ? 'date' : rawType;
 
     result.push({ path, type });
 
-    if (type === "object") {
+    if (type === 'object') {
       walk(propSchema, path, depth + 1, result);
-    } else if (type === "array") {
+    } else if (type === 'array') {
       const items = propSchema.items as Record<string, unknown> | undefined;
-      if (items && typeof items === "object") {
-        const itemType = String(items.type ?? "unknown");
+      if (items && typeof items === 'object') {
+        const itemType = String(items.type ?? 'unknown');
         const arrayPath = `${path}[]`;
-        if (itemType === "object") {
+        if (itemType === 'object') {
           walk(items, arrayPath, depth + 1, result);
         }
       }

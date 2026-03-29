@@ -8,17 +8,17 @@
  * Any new scheduleRefresh() while loading aborts the in-flight request.
  */
 
-import type { TemplateDocument } from "../types/index.js";
+import type { TemplateDocument } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
 // State types
 // ---------------------------------------------------------------------------
 
 export type PreviewState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; blobUrl: string }
-  | { status: "error"; message: string };
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; blobUrl: string }
+  | { status: 'error'; message: string };
 
 export type FetchPreviewFn = (
   doc: TemplateDocument,
@@ -33,7 +33,7 @@ export type OnStateChange = (state: PreviewState) => void;
 // ---------------------------------------------------------------------------
 
 export class PreviewService {
-  private _state: PreviewState = { status: "idle" };
+  private _state: PreviewState = { status: 'idle' };
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _abortController: AbortController | null = null;
   private _currentBlobUrl: string | null = null;
@@ -122,7 +122,7 @@ export class PreviewService {
     const controller = new AbortController();
     this._abortController = controller;
 
-    this._setState({ status: "loading" });
+    this._setState({ status: 'loading' });
 
     try {
       const blob = await this._fetchFn(doc, data, controller.signal);
@@ -136,15 +136,15 @@ export class PreviewService {
       const blobUrl = URL.createObjectURL(blob);
       this._currentBlobUrl = blobUrl;
       this._abortController = null;
-      this._setState({ status: "success", blobUrl });
+      this._setState({ status: 'success', blobUrl });
     } catch (err: unknown) {
       // Silently ignore AbortError — it means we intentionally cancelled
-      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       if (this._disposed) return;
 
       this._abortController = null;
-      const message = err instanceof Error ? err.message : "Preview failed";
-      this._setState({ status: "error", message });
+      const message = err instanceof Error ? err.message : 'Preview failed';
+      this._setState({ status: 'error', message });
     }
   }
 }

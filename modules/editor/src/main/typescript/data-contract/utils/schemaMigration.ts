@@ -4,12 +4,12 @@ import type {
   JsonSchema,
   JsonSchemaProperty,
   JsonValue,
-} from "../types.js";
+} from '../types.js';
 
 /**
  * Type of validation issue that can be auto-migrated.
  */
-export type MigrationIssueType = "TYPE_MISMATCH" | "MISSING_REQUIRED" | "UNKNOWN_FIELD";
+export type MigrationIssueType = 'TYPE_MISMATCH' | 'MISSING_REQUIRED' | 'UNKNOWN_FIELD';
 
 /**
  * A migration suggestion for a single field in an example.
@@ -71,11 +71,11 @@ function detectExampleMigrations(
   exampleName: string,
   data: JsonObject,
   schema: JsonSchema,
-  basePath = "$",
+  basePath = '$',
 ): MigrationSuggestion[] {
   const migrations: MigrationSuggestion[] = [];
 
-  if (schema.type !== "object" || !schema.properties) {
+  if (schema.type !== 'object' || !schema.properties) {
     return migrations;
   }
 
@@ -91,7 +91,7 @@ function detectExampleMigrations(
           exampleId,
           exampleName,
           path,
-          issue: "MISSING_REQUIRED",
+          issue: 'MISSING_REQUIRED',
           currentValue: undefined as unknown as JsonValue,
           expectedType: propSchema.type as string,
           suggestedValue: null,
@@ -109,9 +109,9 @@ function detectExampleMigrations(
 
     // Recursively check nested objects
     if (
-      propSchema.type === "object" &&
+      propSchema.type === 'object' &&
       propSchema.properties &&
-      typeof value === "object" &&
+      typeof value === 'object' &&
       !Array.isArray(value)
     ) {
       const nested = detectExampleMigrations(
@@ -125,7 +125,7 @@ function detectExampleMigrations(
     }
 
     // Check array items
-    if (propSchema.type === "array" && propSchema.items && Array.isArray(value)) {
+    if (propSchema.type === 'array' && propSchema.items && Array.isArray(value)) {
       for (let i = 0; i < value.length; i++) {
         const itemMigration = detectTypeMismatch(
           exampleId,
@@ -167,7 +167,7 @@ function detectTypeMismatch(
     exampleId,
     exampleName,
     path,
-    issue: "TYPE_MISMATCH",
+    issue: 'TYPE_MISMATCH',
     currentValue: value,
     expectedType,
     suggestedValue,
@@ -179,15 +179,15 @@ function detectTypeMismatch(
  * Get the JSON Schema type of a value.
  */
 function getValueType(value: JsonValue): string {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
-  if (typeof value === "boolean") return "boolean";
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? "integer" : "number";
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'number';
   }
-  if (typeof value === "string") return "string";
-  if (typeof value === "object") return "object";
-  return "unknown";
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'object') return 'object';
+  return 'unknown';
 }
 
 /**
@@ -195,7 +195,7 @@ function getValueType(value: JsonValue): string {
  */
 function typeMatches(actual: string, expected: string): boolean {
   if (actual === expected) return true;
-  if (expected === "number" && actual === "integer") return true;
+  if (expected === 'number' && actual === 'integer') return true;
   return false;
 }
 
@@ -207,12 +207,12 @@ function tryConvertValue(
   expectedType: string,
 ): { suggestedValue: JsonValue | null; autoMigratable: boolean } {
   switch (expectedType) {
-    case "string":
+    case 'string':
       return tryConvertToString(value);
-    case "number":
-    case "integer":
+    case 'number':
+    case 'integer':
       return tryConvertToNumber(value, expectedType);
-    case "boolean":
+    case 'boolean':
       return tryConvertToBoolean(value);
     default:
       return { suggestedValue: null, autoMigratable: false };
@@ -223,10 +223,10 @@ function tryConvertToString(value: JsonValue): {
   suggestedValue: JsonValue | null;
   autoMigratable: boolean;
 } {
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return { suggestedValue: value, autoMigratable: true };
   }
-  if (typeof value === "number" || typeof value === "boolean") {
+  if (typeof value === 'number' || typeof value === 'boolean') {
     return { suggestedValue: String(value), autoMigratable: true };
   }
   // Objects/arrays can't be auto-converted to string
@@ -237,11 +237,11 @@ function tryConvertToNumber(
   value: JsonValue,
   expectedType: string,
 ): { suggestedValue: JsonValue | null; autoMigratable: boolean } {
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return { suggestedValue: value, autoMigratable: true };
   }
-  if (typeof value === "string") {
-    const parsed = expectedType === "integer" ? parseInt(value, 10) : parseFloat(value);
+  if (typeof value === 'string') {
+    const parsed = expectedType === 'integer' ? parseInt(value, 10) : parseFloat(value);
     if (!isNaN(parsed)) {
       return { suggestedValue: parsed, autoMigratable: true };
     }
@@ -253,19 +253,19 @@ function tryConvertToBoolean(value: JsonValue): {
   suggestedValue: JsonValue | null;
   autoMigratable: boolean;
 } {
-  if (typeof value === "boolean") {
+  if (typeof value === 'boolean') {
     return { suggestedValue: value, autoMigratable: true };
   }
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     const lower = value.toLowerCase();
-    if (lower === "true" || lower === "1" || lower === "yes") {
+    if (lower === 'true' || lower === '1' || lower === 'yes') {
       return { suggestedValue: true, autoMigratable: true };
     }
-    if (lower === "false" || lower === "0" || lower === "no") {
+    if (lower === 'false' || lower === '0' || lower === 'no') {
       return { suggestedValue: false, autoMigratable: true };
     }
   }
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     return { suggestedValue: value !== 0, autoMigratable: true };
   }
   return { suggestedValue: null, autoMigratable: false };
@@ -283,9 +283,9 @@ export function applyMigration(data: JsonObject, migration: MigrationSuggestion)
   // Parse path and set value
   const path = migration.path;
   const segments = path
-    .replace(/^\$\./, "")
-    .replace(/\[(\d+)\]/g, ".$1")
-    .split(".");
+    .replace(/^\$\./, '')
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.');
 
   // Deep clone the data
   const newData = JSON.parse(JSON.stringify(data));

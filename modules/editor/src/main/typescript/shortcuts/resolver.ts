@@ -9,25 +9,25 @@ import {
   type KeybindingDefinition,
   type ShortcutContextId,
   type ShortcutRegistryDefinition,
-} from "./foundation.js";
+} from './foundation.js';
 
-const MODIFIER_TOKEN_ORDER = ["mod", "shift", "alt"] as const;
+const MODIFIER_TOKEN_ORDER = ['mod', 'shift', 'alt'] as const;
 
-const DEFAULT_FALLBACK_CONTEXTS: readonly ShortcutContextId[] = ["global"];
+const DEFAULT_FALLBACK_CONTEXTS: readonly ShortcutContextId[] = ['global'];
 const DEFAULT_CHORD_TIMEOUT_MS = 1600;
-const DEFAULT_CHORD_CANCEL_KEYS = ["escape"] as const;
+const DEFAULT_CHORD_CANCEL_KEYS = ['escape'] as const;
 
 const KEY_ALIAS_MAP: Record<string, string> = {
-  esc: "escape",
-  spacebar: "space",
-  " ": "space",
-  up: "arrowup",
-  down: "arrowdown",
-  left: "arrowleft",
-  right: "arrowright",
+  esc: 'escape',
+  spacebar: 'space',
+  ' ': 'space',
+  up: 'arrowup',
+  down: 'arrowdown',
+  left: 'arrowleft',
+  right: 'arrowright',
 };
 
-type ShortcutMatchBy = "key" | "code";
+type ShortcutMatchBy = 'key' | 'code';
 
 interface NormalizedBindingStroke {
   matchBy: ShortcutMatchBy;
@@ -126,13 +126,13 @@ export interface ShortcutChordStateSnapshot {
 }
 
 export type ShortcutChordCancelReason =
-  | "timeout"
-  | "cancel-key"
-  | "mismatch"
-  | "context-changed"
-  | "manual";
+  | 'timeout'
+  | 'cancel-key'
+  | 'mismatch'
+  | 'context-changed'
+  | 'manual';
 
-export type ShortcutCommandExecutionStatus = "pending" | "ok" | "rejected" | "error" | "cancelled";
+export type ShortcutCommandExecutionStatus = 'pending' | 'ok' | 'rejected' | 'error' | 'cancelled';
 
 export interface ShortcutCommandExecutionResult {
   status: ShortcutCommandExecutionStatus;
@@ -148,7 +148,7 @@ export interface ShortcutCommandExecutionHandle {
 }
 
 export interface ShortcutResolutionCommand<TContext> {
-  kind: "command";
+  kind: 'command';
   match: ShortcutResolutionMatch<TContext>;
   fromChord: boolean;
   eventPolicy: ShortcutEventPolicyResult;
@@ -156,18 +156,18 @@ export interface ShortcutResolutionCommand<TContext> {
 }
 
 export interface ShortcutResolutionChordAwaiting {
-  kind: "chord-awaiting";
+  kind: 'chord-awaiting';
   state: ShortcutChordStateSnapshot;
   eventPolicy: ShortcutEventPolicyResult;
 }
 
 export interface ShortcutResolutionChordCancelled {
-  kind: "chord-cancelled";
+  kind: 'chord-cancelled';
   reason: ShortcutChordCancelReason;
 }
 
 export interface ShortcutResolutionNone {
-  kind: "none";
+  kind: 'none';
 }
 
 export type ShortcutResolution<TContext> =
@@ -177,13 +177,13 @@ export type ShortcutResolution<TContext> =
   | ShortcutResolutionNone;
 
 function normalizeToken(rawValue: string): string {
-  if (rawValue === " ") {
-    return "space";
+  if (rawValue === ' ') {
+    return 'space';
   }
 
   const trimmed = rawValue.trim();
   if (trimmed.length === 0) {
-    return "";
+    return '';
   }
 
   const lower = trimmed.toLowerCase();
@@ -197,7 +197,7 @@ function serializeStroke(input: {
   key: string;
 }): string {
   if (!input.key) {
-    return "";
+    return '';
   }
 
   const parts: string[] = [];
@@ -207,7 +207,7 @@ function serializeStroke(input: {
     }
   }
   parts.push(input.key);
-  return parts.join("+");
+  return parts.join('+');
 }
 
 function normalizeEventKey(value: string): string {
@@ -227,27 +227,27 @@ function parseStrokeToken(
     return null;
   }
 
-  const parts = compact.split("+").filter((part) => part.length > 0);
+  const parts = compact.split('+').filter((part) => part.length > 0);
   if (parts.length === 0) {
     return null;
   }
 
-  let keyToken = "";
+  let keyToken = '';
   let mod = false;
   let shift = false;
   let alt = false;
   let matchBy: ShortcutMatchBy = defaultMatchBy;
 
   for (const part of parts) {
-    if (part === "mod") {
+    if (part === 'mod') {
       mod = true;
       continue;
     }
-    if (part === "shift") {
+    if (part === 'shift') {
       shift = true;
       continue;
     }
-    if (part === "alt") {
+    if (part === 'alt') {
       alt = true;
       continue;
     }
@@ -256,9 +256,9 @@ function parseStrokeToken(
       return null;
     }
 
-    if (part.startsWith("code:")) {
-      matchBy = "code";
-      keyToken = part.slice("code:".length);
+    if (part.startsWith('code:')) {
+      matchBy = 'code';
+      keyToken = part.slice('code:'.length);
       continue;
     }
 
@@ -270,7 +270,7 @@ function parseStrokeToken(
   }
 
   const normalizedKey =
-    matchBy === "code" ? normalizeEventCode(keyToken) : normalizeEventKey(keyToken);
+    matchBy === 'code' ? normalizeEventCode(keyToken) : normalizeEventKey(keyToken);
   const stroke = serializeStroke({ mod, shift, alt, key: normalizedKey });
   if (!stroke) {
     return null;
@@ -290,18 +290,18 @@ function parseBindingSequence<TContext>(
   const normalizedSequence = rawSequence
     .trim()
     .toLowerCase()
-    .replace(/\s*\+\s*/g, "+")
-    .replace(/\s+/g, " ");
+    .replace(/\s*\+\s*/g, '+')
+    .replace(/\s+/g, ' ');
   if (!normalizedSequence) {
     return null;
   }
 
-  const strokeTokens = normalizedSequence.split(" ").filter((token) => token.length > 0);
+  const strokeTokens = normalizedSequence.split(' ').filter((token) => token.length > 0);
   if (strokeTokens.length === 0) {
     return null;
   }
 
-  const defaultMatchBy = binding.matchBy ?? "key";
+  const defaultMatchBy = binding.matchBy ?? 'key';
   const strokes: NormalizedBindingStroke[] = [];
   for (const token of strokeTokens) {
     const stroke = parseStrokeToken(token, defaultMatchBy);
@@ -364,7 +364,7 @@ function buildContextPriority(
 }
 
 function matchesStroke(stroke: NormalizedBindingStroke, event: NormalizedShortcutEvent): boolean {
-  const eventStroke = stroke.matchBy === "code" ? event.codeStroke : event.keyStroke;
+  const eventStroke = stroke.matchBy === 'code' ? event.codeStroke : event.keyStroke;
   return eventStroke === stroke.stroke;
 }
 
@@ -390,14 +390,14 @@ function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
   if (!value) {
     return false;
   }
-  if (typeof value !== "object" && typeof value !== "function") {
+  if (typeof value !== 'object' && typeof value !== 'function') {
     return false;
   }
-  return typeof (value as PromiseLike<T>).then === "function";
+  return typeof (value as PromiseLike<T>).then === 'function';
 }
 
 function isAbortError(error: unknown): boolean {
-  if (error instanceof Error && error.name === "AbortError") {
+  if (error instanceof Error && error.name === 'AbortError') {
     return true;
   }
   return false;
@@ -406,14 +406,14 @@ function isAbortError(error: unknown): boolean {
 function toCommandExecutionResult(result: CommandResult): ShortcutCommandExecutionResult {
   if (result.ok) {
     return {
-      status: "ok",
+      status: 'ok',
       message: result.message,
       errorCode: result.errorCode,
     };
   }
 
   return {
-    status: "rejected",
+    status: 'rejected',
     message: result.message,
     errorCode: result.errorCode,
   };
@@ -421,24 +421,24 @@ function toCommandExecutionResult(result: CommandResult): ShortcutCommandExecuti
 
 function toCommandExecutionError(error: unknown): ShortcutCommandExecutionResult {
   return {
-    status: "error",
-    message: error instanceof Error ? error.message : "Shortcut command threw",
-    errorCode: "shortcut-command-threw",
+    status: 'error',
+    message: error instanceof Error ? error.message : 'Shortcut command threw',
+    errorCode: 'shortcut-command-threw',
   };
 }
 
 function toCancelledResult(reason?: string): ShortcutCommandExecutionResult {
   return {
-    status: "cancelled",
-    message: reason ?? "Shortcut command cancelled",
-    errorCode: "shortcut-command-cancelled",
+    status: 'cancelled',
+    message: reason ?? 'Shortcut command cancelled',
+    errorCode: 'shortcut-command-cancelled',
   };
 }
 
 function normalizeChordCancelStrokes(cancelKeys: readonly string[]): Set<string> {
   const normalized = new Set<string>();
   for (const rawKey of cancelKeys) {
-    const stroke = parseStrokeToken(rawKey, "key");
+    const stroke = parseStrokeToken(rawKey, 'key');
     if (!stroke) {
       continue;
     }
@@ -545,7 +545,7 @@ export class ShortcutResolver<TContext> {
     const contextPriority = buildContextPriority(input.activeContexts, this.fallbackContexts);
 
     const fromActiveChord = this.resolveFromActiveChord(normalizedEvent, contextPriority, nowMs);
-    if (fromActiveChord && fromActiveChord.kind !== "chord-cancelled") {
+    if (fromActiveChord && fromActiveChord.kind !== 'chord-cancelled') {
       return fromActiveChord;
     }
 
@@ -555,11 +555,11 @@ export class ShortcutResolver<TContext> {
       input.runtimeContext,
       nowMs,
     );
-    if (freshResolution.kind !== "none") {
+    if (freshResolution.kind !== 'none') {
       return freshResolution;
     }
 
-    return fromActiveChord ?? { kind: "none" };
+    return fromActiveChord ?? { kind: 'none' };
   }
 
   getActiveChordState(): ShortcutChordStateSnapshot | null {
@@ -571,12 +571,12 @@ export class ShortcutResolver<TContext> {
 
   cancelActiveChord(): ShortcutResolutionChordCancelled | ShortcutResolutionNone {
     if (!this.activeChord) {
-      return { kind: "none" };
+      return { kind: 'none' };
     }
     this.activeChord = null;
     return {
-      kind: "chord-cancelled",
-      reason: "manual",
+      kind: 'chord-cancelled',
+      reason: 'manual',
     };
   }
 
@@ -593,27 +593,27 @@ export class ShortcutResolver<TContext> {
     if (nowMs > chord.expiresAtMs) {
       this.activeChord = null;
       return {
-        kind: "chord-cancelled",
-        reason: "timeout",
+        kind: 'chord-cancelled',
+        reason: 'timeout',
       };
     }
 
     if (!contextPriority.includes(chord.context)) {
       this.activeChord = null;
       return {
-        kind: "chord-cancelled",
-        reason: "context-changed",
+        kind: 'chord-cancelled',
+        reason: 'context-changed',
       };
     }
 
     const cancellationProbe: NormalizedBindingStroke[] = [
       {
-        matchBy: "key",
+        matchBy: 'key',
         stroke: normalizedEvent.keyStroke,
         sourceStroke: normalizedEvent.keyStroke,
       },
       {
-        matchBy: "code",
+        matchBy: 'code',
         stroke: normalizedEvent.codeStroke,
         sourceStroke: normalizedEvent.codeStroke,
       },
@@ -622,8 +622,8 @@ export class ShortcutResolver<TContext> {
       if (this.chordCancelStrokes.has(chordCancelKey(stroke))) {
         this.activeChord = null;
         return {
-          kind: "chord-cancelled",
-          reason: "cancel-key",
+          kind: 'chord-cancelled',
+          reason: 'cancel-key',
         };
       }
     }
@@ -642,8 +642,8 @@ export class ShortcutResolver<TContext> {
     if (matchingCandidates.length === 0) {
       this.activeChord = null;
       return {
-        kind: "chord-cancelled",
-        reason: "mismatch",
+        kind: 'chord-cancelled',
+        reason: 'mismatch',
       };
     }
 
@@ -651,12 +651,12 @@ export class ShortcutResolver<TContext> {
       return candidate.sequence.strokes.length === stepIndex + 1;
     });
 
-    const matchedStroke = matchingCandidates[0]?.sequence.strokes[stepIndex]?.sourceStroke ?? "";
+    const matchedStroke = matchingCandidates[0]?.sequence.strokes[stepIndex]?.sourceStroke ?? '';
     const nextMatchedStrokes = [...chord.matchedStrokes, matchedStroke];
 
     if (completed) {
       const result: ShortcutResolutionCommand<TContext> = {
-        kind: "command",
+        kind: 'command',
         fromChord: true,
         eventPolicy: eventPolicyFromBinding(completed.entry.binding),
         chord: {
@@ -674,7 +674,7 @@ export class ShortcutResolver<TContext> {
           binding: completed.entry.binding,
           normalizedEvent,
           matchedStroke: completed.sequence.sourceSequence,
-          matchBy: completed.sequence.strokes[stepIndex]?.matchBy ?? "key",
+          matchBy: completed.sequence.strokes[stepIndex]?.matchBy ?? 'key',
         },
       };
       this.activeChord = null;
@@ -691,7 +691,7 @@ export class ShortcutResolver<TContext> {
     };
 
     return {
-      kind: "chord-awaiting",
+      kind: 'chord-awaiting',
       state: this.toChordSnapshot(this.activeChord),
       eventPolicy: mergeEventPolicy(matchingCandidates.map((candidate) => candidate.entry.binding)),
     };
@@ -723,7 +723,7 @@ export class ShortcutResolver<TContext> {
 
           if (sequence.strokes.length === 1) {
             return {
-              kind: "command",
+              kind: 'command',
               fromChord: false,
               eventPolicy: eventPolicyFromBinding(entry.binding),
               match: {
@@ -746,7 +746,7 @@ export class ShortcutResolver<TContext> {
       }
 
       if (chordCandidates.length > 0) {
-        const firstStroke = chordCandidates[0]?.sequence.strokes[0]?.sourceStroke ?? "";
+        const firstStroke = chordCandidates[0]?.sequence.strokes[0]?.sourceStroke ?? '';
         this.activeChord = {
           context,
           candidates: chordCandidates,
@@ -757,7 +757,7 @@ export class ShortcutResolver<TContext> {
         };
 
         return {
-          kind: "chord-awaiting",
+          kind: 'chord-awaiting',
           state: this.toChordSnapshot(this.activeChord),
           eventPolicy: mergeEventPolicy(
             chordCandidates.map((candidate) => candidate.entry.binding),
@@ -767,7 +767,7 @@ export class ShortcutResolver<TContext> {
     }
 
     return {
-      kind: "none",
+      kind: 'none',
     };
   }
 
@@ -816,11 +816,11 @@ export function applyResolutionEventPolicy<TContext>(
   event: ShortcutKeyboardEvent,
   resolution: ShortcutResolution<TContext>,
 ): ShortcutEventPolicyResult {
-  if (resolution.kind === "command") {
+  if (resolution.kind === 'command') {
     return applyBindingEventPolicy(event, resolution.match.binding);
   }
 
-  if (resolution.kind === "chord-awaiting") {
+  if (resolution.kind === 'chord-awaiting') {
     if (resolution.eventPolicy.preventDefault) {
       event.preventDefault?.();
     }
@@ -847,7 +847,7 @@ export function startShortcutCommandExecution<TContext>(
 
   let pending = true;
   let cancelled = false;
-  let cancelledMessage = "Shortcut command cancelled";
+  let cancelledMessage = 'Shortcut command cancelled';
 
   const cancel = (reason?: string): void => {
     if (!pending || cancelled) {
@@ -905,7 +905,7 @@ export function startShortcutCommandExecution<TContext>(
 
   return {
     initial: {
-      status: "pending",
+      status: 'pending',
     },
     completion,
     cancel,

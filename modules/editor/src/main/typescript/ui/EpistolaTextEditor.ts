@@ -23,24 +23,24 @@
  * - Revives ops on TextChange entries so they delegate to PM again.
  */
 
-import { LitElement, html } from "lit";
-import { customElement, property } from "lit/decorators.js";
-import { styleMap } from "lit/directives/style-map.js";
-import { EditorState } from "prosemirror-state";
-import { EditorView } from "prosemirror-view";
-import { undo, redo, undoDepth } from "prosemirror-history";
-import { Node as ProsemirrorNode } from "prosemirror-model";
-import { epistolaSchema } from "../prosemirror/schema.js";
-import { createPlugins } from "../prosemirror/plugins.js";
-import { ExpressionNodeView } from "../prosemirror/ExpressionNodeView.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import { TextChange } from "../engine/text-change.js";
-import type { TextChangeOps } from "../engine/undo.js";
-import type { NodeId } from "../types/index.js";
+import { LitElement, html } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { styleMap } from 'lit/directives/style-map.js';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { undo, redo, undoDepth } from 'prosemirror-history';
+import { Node as ProsemirrorNode } from 'prosemirror-model';
+import { epistolaSchema } from '../prosemirror/schema.js';
+import { createPlugins } from '../prosemirror/plugins.js';
+import { ExpressionNodeView } from '../prosemirror/ExpressionNodeView.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import { TextChange } from '../engine/text-change.js';
+import type { TextChangeOps } from '../engine/undo.js';
+import type { NodeId } from '../types/index.js';
 
 const DEBOUNCE_MS = 300;
 
-@customElement("epistola-text-editor")
+@customElement('epistola-text-editor')
 export class EpistolaTextEditor extends LitElement {
   override createRenderRoot() {
     return this;
@@ -54,7 +54,7 @@ export class EpistolaTextEditor extends LitElement {
 
   private _pmView: EditorView | null = null;
   private _pmContainer: HTMLDivElement | null = null;
-  private _lastContentJson: string = "";
+  private _lastContentJson: string = '';
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _unsubExample: (() => void) | null = null;
 
@@ -70,13 +70,13 @@ export class EpistolaTextEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   override firstUpdated(): void {
-    this._pmContainer = this.querySelector(".prosemirror-container");
+    this._pmContainer = this.querySelector('.prosemirror-container');
     if (!this._pmContainer) return;
     this._createProseMirror();
 
     // Refresh expression chips when the data example changes
     if (this.engine) {
-      this._unsubExample = this.engine.events.on("example:change", () => {
+      this._unsubExample = this.engine.events.on('example:change', () => {
         ExpressionNodeView.refreshAll();
       });
     }
@@ -85,12 +85,12 @@ export class EpistolaTextEditor extends LitElement {
   override updated(changed: Map<string, unknown>): void {
     // Sync external content changes (e.g., engine undo snapshot, inspector edit).
     // Skip while PM has unsent edits — user's typing takes precedence.
-    if (changed.has("content") && this._pmView && !this._hasPendingEdits) {
+    if (changed.has('content') && this._pmView && !this._hasPendingEdits) {
       this._syncFromExternal();
     }
 
     // Blur ProseMirror when deselected
-    if (changed.has("isSelected") && !this.isSelected && this._pmView) {
+    if (changed.has('isSelected') && !this.isSelected && this._pmView) {
       const pmDom = this._pmView.dom;
       if (pmDom.contains(document.activeElement)) {
         (document.activeElement as HTMLElement)?.blur();
@@ -191,7 +191,7 @@ export class EpistolaTextEditor extends LitElement {
         // routes through engine.undo(), causing a double undo per keystroke.
         beforeinput: (_view: EditorView, e: Event) => {
           const inputType = (e as InputEvent).inputType;
-          if (inputType === "historyUndo" || inputType === "historyRedo") {
+          if (inputType === 'historyUndo' || inputType === 'historyRedo') {
             e.preventDefault();
             return true;
           }
@@ -309,7 +309,7 @@ export class EpistolaTextEditor extends LitElement {
     this._hasPendingEdits = false;
     this.engine.dispatch(
       {
-        type: "UpdateNodeProps",
+        type: 'UpdateNodeProps',
         nodeId: this.nodeId,
         props: { content: json },
       },
@@ -353,7 +353,7 @@ export class EpistolaTextEditor extends LitElement {
   }
 
   private _parseContent(content: unknown): ProsemirrorNode {
-    if (content && typeof content === "object" && "type" in content) {
+    if (content && typeof content === 'object' && 'type' in content) {
       try {
         return ProsemirrorNode.fromJSON(epistolaSchema, content as Record<string, unknown>);
       } catch {
@@ -361,7 +361,7 @@ export class EpistolaTextEditor extends LitElement {
       }
     }
     // Default empty doc
-    return epistolaSchema.node("doc", null, [epistolaSchema.node("paragraph")]);
+    return epistolaSchema.node('doc', null, [epistolaSchema.node('paragraph')]);
   }
 
   // ---------------------------------------------------------------------------
@@ -375,6 +375,6 @@ export class EpistolaTextEditor extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-text-editor": EpistolaTextEditor;
+    'epistola-text-editor': EpistolaTextEditor;
   }
 }

@@ -9,12 +9,12 @@
 @layer base, layout, components, states;
 
 /* Design system (shared with main app) */
-@import "@design/tokens.css";
-@import "@design/base.css";
-@import "@design/components.css";
+@import '@design/tokens.css';
+@import '@design/base.css';
+@import '@design/components.css';
 
 /* Reuse inspector input styles */
-@import "../styles/inspector.css";
+@import '../styles/inspector.css';
 
 /* ============================================================================
  * Layout
@@ -582,12 +582,12 @@
     font-family: var(--ep-font-mono);
     text-transform: lowercase;
 
-    &[data-type="list"] {
+    &[data-type='list'] {
       color: var(--ep-blue-600);
       background: var(--ep-blue-50);
     }
 
-    &[data-type="object"] {
+    &[data-type='object'] {
       color: var(--ep-purple-600);
       background: var(--ep-purple-50);
     }

@@ -6,16 +6,16 @@
  * with the appropriate input function from style-inputs.ts.
  */
 
-import { html, nothing } from "lit";
-import type { StyleProperty } from "@epistola.app/editor-model/generated/style-registry";
-import { defaultStyleRegistry } from "../../engine/style-registry.js";
+import { html, nothing } from 'lit';
+import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
+import { defaultStyleRegistry } from '../../engine/style-registry.js';
 import {
   renderUnitInput,
   renderColorInput,
   renderSpacingInput,
   renderSelectInput,
-} from "../../ui/inputs/style-inputs.js";
-import type { ThemeEditorState } from "../ThemeEditorState.js";
+} from '../../ui/inputs/style-inputs.js';
+import type { ThemeEditorState } from '../ThemeEditorState.js';
 
 export function renderDocumentStylesSection(state: ThemeEditorState): unknown {
   const docStyles = state.theme.documentStyles;
@@ -62,20 +62,20 @@ function renderStyleInput(
   onChange: (value: unknown) => void,
 ): unknown {
   switch (prop.type) {
-    case "select":
+    case 'select':
       return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
-    case "unit":
-      return renderUnitInput(value, prop.units ?? ["px"], (v) => onChange(v));
-    case "color":
+    case 'unit':
+      return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v));
+    case 'color':
       return renderColorInput(value, (v) => onChange(v || undefined));
-    case "spacing":
-      return renderSpacingInput(value, prop.units ?? ["px"], (v) => onChange(v));
+    case 'spacing':
+      return renderSpacingInput(value, prop.units ?? ['px'], (v) => onChange(v));
     default:
       return html`
         <input
           type="text"
           class="ep-input"
-          .value=${String(value ?? "")}
+          .value=${String(value ?? '')}
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
         />
       `;

@@ -24,8 +24,8 @@ export function openTableDialog(): Promise<TableDialogResult> {
     let hoverRow = 0;
     let hoverCol = 0;
 
-    const dialog = document.createElement("dialog");
-    dialog.className = "table-dialog";
+    const dialog = document.createElement('dialog');
+    dialog.className = 'table-dialog';
 
     dialog.innerHTML = `
       <div class="table-dialog-content">
@@ -49,22 +49,22 @@ export function openTableDialog(): Promise<TableDialogResult> {
       </div>
     `;
 
-    const gridContainer = dialog.querySelector<HTMLElement>(".table-dialog-grid")!;
-    const sizeLabel = dialog.querySelector<HTMLElement>(".table-dialog-size-label")!;
-    const rowsInput = dialog.querySelector<HTMLInputElement>(".table-dialog-rows")!;
-    const colsInput = dialog.querySelector<HTMLInputElement>(".table-dialog-cols")!;
-    const cancelBtn = dialog.querySelector(".cancel")!;
-    const insertBtn = dialog.querySelector(".insert")!;
+    const gridContainer = dialog.querySelector<HTMLElement>('.table-dialog-grid')!;
+    const sizeLabel = dialog.querySelector<HTMLElement>('.table-dialog-size-label')!;
+    const rowsInput = dialog.querySelector<HTMLInputElement>('.table-dialog-rows')!;
+    const colsInput = dialog.querySelector<HTMLInputElement>('.table-dialog-cols')!;
+    const cancelBtn = dialog.querySelector('.cancel')!;
+    const insertBtn = dialog.querySelector('.insert')!;
 
     // Build grid cells
     for (let r = 0; r < MAX_GRID; r++) {
       for (let c = 0; c < MAX_GRID; c++) {
-        const cell = document.createElement("div");
-        cell.className = "table-dialog-cell";
+        const cell = document.createElement('div');
+        cell.className = 'table-dialog-cell';
         cell.dataset.row = String(r);
         cell.dataset.col = String(c);
 
-        cell.addEventListener("mouseenter", () => {
+        cell.addEventListener('mouseenter', () => {
           hoverRow = r;
           hoverCol = c;
           updateGrid();
@@ -73,7 +73,7 @@ export function openTableDialog(): Promise<TableDialogResult> {
           sizeLabel.textContent = `${r + 1} x ${c + 1}`;
         });
 
-        cell.addEventListener("click", () => {
+        cell.addEventListener('click', () => {
           close({ rows: r + 1, columns: c + 1, cancelled: false });
         });
 
@@ -82,16 +82,16 @@ export function openTableDialog(): Promise<TableDialogResult> {
     }
 
     // Style grid as CSS grid
-    gridContainer.style.display = "grid";
+    gridContainer.style.display = 'grid';
     gridContainer.style.gridTemplateColumns = `repeat(${MAX_GRID}, 1fr)`;
-    gridContainer.style.gap = "2px";
+    gridContainer.style.gap = '2px';
 
     function updateGrid() {
-      const cells = gridContainer.querySelectorAll<HTMLElement>(".table-dialog-cell");
+      const cells = gridContainer.querySelectorAll<HTMLElement>('.table-dialog-cell');
       for (const cell of cells) {
         const r = Number(cell.dataset.row);
         const c = Number(cell.dataset.col);
-        cell.classList.toggle("active", r <= hoverRow && c <= hoverCol);
+        cell.classList.toggle('active', r <= hoverRow && c <= hoverCol);
       }
     }
 
@@ -109,8 +109,8 @@ export function openTableDialog(): Promise<TableDialogResult> {
       sizeLabel.textContent = `${r} x ${c}`;
       updateGrid();
     };
-    rowsInput.addEventListener("input", syncFromInputs);
-    colsInput.addEventListener("input", syncFromInputs);
+    rowsInput.addEventListener('input', syncFromInputs);
+    colsInput.addEventListener('input', syncFromInputs);
 
     // Close helpers
     const close = (result: TableDialogResult) => {
@@ -119,22 +119,22 @@ export function openTableDialog(): Promise<TableDialogResult> {
       resolve(result);
     };
 
-    cancelBtn.addEventListener("click", () => close({ rows: 0, columns: 0, cancelled: true }));
+    cancelBtn.addEventListener('click', () => close({ rows: 0, columns: 0, cancelled: true }));
 
-    insertBtn.addEventListener("click", () => {
+    insertBtn.addEventListener('click', () => {
       const rows = Math.max(1, Number(rowsInput.value) || 1);
       const columns = Math.max(1, Number(colsInput.value) || 1);
       close({ rows, columns, cancelled: false });
     });
 
-    dialog.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
         e.preventDefault();
         close({ rows: 0, columns: 0, cancelled: true });
       }
     });
 
-    dialog.addEventListener("click", (e) => {
+    dialog.addEventListener('click', (e) => {
       if (e.target === dialog) close({ rows: 0, columns: 0, cancelled: true });
     });
 

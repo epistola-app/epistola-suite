@@ -1,4 +1,4 @@
-import { nanoid } from "nanoid";
+import { nanoid } from 'nanoid';
 import type {
   JsonObject,
   JsonSchema,
@@ -9,7 +9,7 @@ import type {
   SchemaFieldType,
   SchemaFieldUpdate,
   VisualSchema,
-} from "../types.js";
+} from '../types.js';
 
 /**
  * Convert a visual schema to JSON Schema format.
@@ -26,8 +26,8 @@ export function visualSchemaToJsonSchema(visual: VisualSchema): JsonSchema {
   }
 
   return {
-    $schema: "http://json-schema.org/draft-07/schema#",
-    type: "object",
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    type: 'object',
     properties,
     required: required.length > 0 ? required : undefined,
     additionalProperties: true,
@@ -40,23 +40,23 @@ export function visualSchemaToJsonSchema(visual: VisualSchema): JsonSchema {
 function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
   // Date is stored as { type: "string", format: "date" } in JSON Schema
   const prop: JsonSchemaProperty = {
-    type: field.type === "date" ? "string" : field.type,
+    type: field.type === 'date' ? 'string' : field.type,
   };
 
-  if (field.type === "date") {
-    prop.format = "date";
+  if (field.type === 'date') {
+    prop.format = 'date';
   }
 
   if (field.description) {
     prop.description = field.description;
   }
 
-  if (field.type === "array" && field.arrayItemType) {
-    if (field.arrayItemType === "object" && field.nestedFields) {
+  if (field.type === 'array' && field.arrayItemType) {
+    if (field.arrayItemType === 'object' && field.nestedFields) {
       // Array of objects
       const nestedRequired = field.nestedFields.filter((f) => f.required).map((f) => f.name);
       prop.items = {
-        type: "object",
+        type: 'object',
         properties: nestedFieldsToProperties(field.nestedFields),
       };
       if (nestedRequired.length > 0) {
@@ -67,7 +67,7 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
     }
   }
 
-  if (field.type === "object" && field.nestedFields) {
+  if (field.type === 'object' && field.nestedFields) {
     prop.properties = nestedFieldsToProperties(field.nestedFields);
     const nestedRequired = field.nestedFields.filter((f) => f.required).map((f) => f.name);
     if (nestedRequired.length > 0) {
@@ -97,12 +97,12 @@ function nestedFieldsToProperties(fields: SchemaField[]): Record<string, JsonSch
  * re-renders without stale random IDs.
  */
 export function jsonSchemaToVisualSchema(schema: JsonSchema | JsonObject | null): VisualSchema {
-  if (!schema || typeof schema !== "object") {
+  if (!schema || typeof schema !== 'object') {
     return { fields: [] };
   }
 
   const jsonSchema = schema as JsonSchema;
-  if (jsonSchema.type !== "object" || !jsonSchema.properties) {
+  if (jsonSchema.type !== 'object' || !jsonSchema.properties) {
     return { fields: [] };
   }
 
@@ -128,7 +128,7 @@ function jsonSchemaPropertyToField(
 ): SchemaField {
   const rawType = Array.isArray(prop.type) ? prop.type[0] : prop.type;
   // Detect date: JSON Schema uses { type: "string", format: "date" }
-  const type = rawType === "string" && prop.format === "date" ? "date" : rawType;
+  const type = rawType === 'string' && prop.format === 'date' ? 'date' : rawType;
   const baseField = {
     id: `field:${path}`,
     name,
@@ -136,14 +136,14 @@ function jsonSchemaPropertyToField(
     description: prop.description,
   };
 
-  if (type === "array") {
+  if (type === 'array') {
     const itemType = prop.items
       ? Array.isArray(prop.items.type)
         ? prop.items.type[0]
         : prop.items.type
-      : "string";
+      : 'string';
     const nestedFields =
-      itemType === "object" && prop.items?.properties
+      itemType === 'object' && prop.items?.properties
         ? Object.entries(prop.items.properties).map(([n, p]) =>
             jsonSchemaPropertyToField(
               n,
@@ -155,13 +155,13 @@ function jsonSchemaPropertyToField(
         : undefined;
     return {
       ...baseField,
-      type: "array" as const,
+      type: 'array' as const,
       arrayItemType: itemType as SchemaFieldType,
       nestedFields,
     };
   }
 
-  if (type === "object") {
+  if (type === 'object') {
     const nestedRequired = new Set(prop.required || []);
     const nestedFields = prop.properties
       ? Object.entries(prop.properties).map(([n, p]) =>
@@ -170,7 +170,7 @@ function jsonSchemaPropertyToField(
       : undefined;
     return {
       ...baseField,
-      type: "object" as const,
+      type: 'object' as const,
       nestedFields,
     };
   }
@@ -208,25 +208,25 @@ function inferFieldFromValue(name: string, value: JsonValue, path: string): Sche
   };
   const type = inferType(value);
 
-  if (type === "array" && Array.isArray(value)) {
+  if (type === 'array' && Array.isArray(value)) {
     const firstItem = value.length > 0 ? value[0] : null;
     const arrayItemType = inferType(firstItem);
     const nestedFields =
-      typeof firstItem === "object" && firstItem !== null && !Array.isArray(firstItem)
+      typeof firstItem === 'object' && firstItem !== null && !Array.isArray(firstItem)
         ? Object.entries(firstItem).map(([n, v]) => inferFieldFromValue(n, v, `${path}.${n}`))
         : undefined;
     return {
       ...baseField,
-      type: "array" as const,
+      type: 'array' as const,
       arrayItemType,
       nestedFields,
     };
   }
 
-  if (type === "object" && typeof value === "object" && value !== null && !Array.isArray(value)) {
+  if (type === 'object' && typeof value === 'object' && value !== null && !Array.isArray(value)) {
     return {
       ...baseField,
-      type: "object" as const,
+      type: 'object' as const,
       nestedFields: Object.entries(value).map(([n, v]) =>
         inferFieldFromValue(n, v, `${path}.${n}`),
       ),
@@ -248,34 +248,34 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function inferType(value: JsonValue): SchemaFieldType {
   if (value === null) {
-    return "string"; // Default null to string
+    return 'string'; // Default null to string
   }
   if (Array.isArray(value)) {
-    return "array";
+    return 'array';
   }
-  if (typeof value === "object") {
-    return "object";
+  if (typeof value === 'object') {
+    return 'object';
   }
-  if (typeof value === "boolean") {
-    return "boolean";
+  if (typeof value === 'boolean') {
+    return 'boolean';
   }
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? "integer" : "number";
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'number';
   }
-  if (typeof value === "string" && ISO_DATE_RE.test(value)) {
-    return "date";
+  if (typeof value === 'string' && ISO_DATE_RE.test(value)) {
+    return 'date';
   }
-  return "string";
+  return 'string';
 }
 
 /**
  * Create an empty field with default values.
  */
-export function createEmptyField(name = "newField"): SchemaField {
+export function createEmptyField(name = 'newField'): SchemaField {
   return {
     id: nanoid(),
     name,
-    type: "string",
+    type: 'string',
     required: false,
   };
 }
@@ -293,33 +293,33 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
     description: updates.description ?? field.description,
   };
 
-  if (type === "array") {
+  if (type === 'array') {
     const arrayItemType =
-      updates.arrayItemType ?? (field.type === "array" ? field.arrayItemType : "string");
+      updates.arrayItemType ?? (field.type === 'array' ? field.arrayItemType : 'string');
     const nestedFields =
       updates.nestedFields !== undefined
         ? updates.nestedFields
-        : field.type === "array"
+        : field.type === 'array'
           ? field.nestedFields
           : undefined;
     return {
       ...baseField,
-      type: "array" as const,
+      type: 'array' as const,
       arrayItemType,
       nestedFields,
     };
   }
 
-  if (type === "object") {
+  if (type === 'object') {
     const nestedFields =
       updates.nestedFields !== undefined
         ? updates.nestedFields
-        : field.type === "object"
+        : field.type === 'object'
           ? field.nestedFields
           : undefined;
     return {
       ...baseField,
-      type: "object" as const,
+      type: 'object' as const,
       nestedFields,
     };
   }
@@ -337,20 +337,20 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
 export function getSchemaFieldPaths(schema: VisualSchema): Set<string> {
   const paths = new Set<string>();
 
-  function traverse(fields: SchemaField[], prefix = "") {
+  function traverse(fields: SchemaField[], prefix = '') {
     for (const field of fields) {
       const path = prefix ? `${prefix}.${field.name}` : field.name;
       paths.add(path);
 
-      if (field.type === "object" && field.nestedFields) {
+      if (field.type === 'object' && field.nestedFields) {
         traverse(field.nestedFields, path);
       }
 
-      if (field.type === "array") {
+      if (field.type === 'array') {
         const arrayPath = `${path}[]`;
         paths.add(arrayPath);
 
-        if (field.arrayItemType === "object" && field.nestedFields) {
+        if (field.arrayItemType === 'object' && field.nestedFields) {
           traverse(field.nestedFields, arrayPath);
         }
       }
@@ -365,11 +365,11 @@ export function getSchemaFieldPaths(schema: VisualSchema): Set<string> {
  * Type display names for the UI.
  */
 export const FIELD_TYPE_LABELS: Record<SchemaFieldType, string> = {
-  string: "Text",
-  number: "Number",
-  integer: "Integer",
-  boolean: "Yes/No",
-  date: "Date",
-  array: "List",
-  object: "Object",
+  string: 'Text',
+  number: 'Number',
+  integer: 'Integer',
+  boolean: 'Yes/No',
+  date: 'Date',
+  array: 'List',
+  object: 'Object',
 };

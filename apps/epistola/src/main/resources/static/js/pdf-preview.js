@@ -7,7 +7,7 @@ async function previewPdf(button) {
   const tenantId = button.dataset.tenantId;
   const templateId = button.dataset.templateId;
   const variantId = button.dataset.variantId;
-  const testDataJson = button.dataset.testData || "{}";
+  const testDataJson = button.dataset.testData || '{}';
 
   const url = `/tenants/${tenantId}/templates/${templateId}/variants/${variantId}/preview`;
 
@@ -21,13 +21,13 @@ async function previewPdf(button) {
     const requestBody = JSON.stringify({ data: testData });
 
     // Get CSRF token from cookie (set by Spring Security CookieCsrfTokenRepository)
-    const csrfToken = typeof window.getCsrfToken === "function" ? window.getCsrfToken() : "";
+    const csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
 
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "X-XSRF-TOKEN": csrfToken,
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': csrfToken,
       },
       body: requestBody,
     });
@@ -39,12 +39,12 @@ async function previewPdf(button) {
 
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
-    window.open(blobUrl, "_blank");
+    window.open(blobUrl, '_blank');
     // Revoke blob URL after the new tab has had time to load
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   } catch (error) {
-    console.error("PDF preview failed:", error);
-    alert("Failed to generate PDF preview: " + error.message);
+    console.error('PDF preview failed:', error);
+    alert('Failed to generate PDF preview: ' + error.message);
   } finally {
     button.innerHTML = originalContent;
     button.disabled = false;

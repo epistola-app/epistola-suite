@@ -1,7 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { EditorState } from "prosemirror-state";
-import { epistolaSchema } from "./schema.js";
-import { expressionInputRule } from "./input-rules.js";
+import { describe, it, expect } from 'vitest';
+import { EditorState } from 'prosemirror-state';
+import { epistolaSchema } from './schema.js';
+import { expressionInputRule } from './input-rules.js';
 
 /**
  * Input rules are triggered by EditorView's handleTextInput, which is
@@ -10,30 +10,30 @@ import { expressionInputRule } from "./input-rules.js";
  * check if the regex matches the text before cursor, then call the handler.
  */
 
-describe("expressionInputRule", () => {
+describe('expressionInputRule', () => {
   const rule = expressionInputRule(epistolaSchema);
 
-  it("rule regex matches {{ at end of text", () => {
+  it('rule regex matches {{ at end of text', () => {
     // The regex /\{\{$/ should match `{{` at the end of a string
-    const match = "{{".match(rule.match);
+    const match = '{{'.match(rule.match);
     expect(match).not.toBeNull();
   });
 
-  it("rule regex does not match single {", () => {
-    const match = "{".match(rule.match);
+  it('rule regex does not match single {', () => {
+    const match = '{'.match(rule.match);
     expect(match).toBeNull();
   });
 
-  it("rule regex matches {{ after text", () => {
-    const match = "Hello {{".match(rule.match);
+  it('rule regex matches {{ after text', () => {
+    const match = 'Hello {{'.match(rule.match);
     expect(match).not.toBeNull();
   });
 
-  it("handler creates expression node in transaction", () => {
+  it('handler creates expression node in transaction', () => {
     // Create a state with a paragraph containing "X{{" text
-    const text = "X{{";
-    const doc = epistolaSchema.node("doc", null, [
-      epistolaSchema.node("paragraph", null, [epistolaSchema.text(text)]),
+    const text = 'X{{';
+    const doc = epistolaSchema.node('doc', null, [
+      epistolaSchema.node('paragraph', null, [epistolaSchema.text(text)]),
     ]);
     const state = EditorState.create({ doc });
 
@@ -61,8 +61,8 @@ describe("expressionInputRule", () => {
 
       let found = false;
       para.forEach((node) => {
-        if (node.type.name === "expression") {
-          expect(node.attrs.expression).toBe("");
+        if (node.type.name === 'expression') {
+          expect(node.attrs.expression).toBe('');
           expect(node.attrs.isNew).toBe(true);
           found = true;
         }

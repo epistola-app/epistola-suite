@@ -12,11 +12,11 @@
  * - Auto-opens dialog when `isNew` is true
  */
 
-import type { Node as ProsemirrorNode } from "prosemirror-model";
-import type { EditorView, NodeView } from "prosemirror-view";
-import type { FieldPath } from "../engine/schema-paths.js";
-import { evaluateExpression, formatResolvedValue } from "../engine/resolve-expression.js";
-import { openExpressionDialog } from "../ui/expression-dialog.js";
+import type { Node as ProsemirrorNode } from 'prosemirror-model';
+import type { EditorView, NodeView } from 'prosemirror-view';
+import type { FieldPath } from '../engine/schema-paths.js';
+import { evaluateExpression, formatResolvedValue } from '../engine/resolve-expression.js';
+import { openExpressionDialog } from '../ui/expression-dialog.js';
 
 export interface ExpressionNodeViewOptions {
   fieldPaths: FieldPath[];
@@ -61,26 +61,26 @@ export class ExpressionNodeView implements NodeView {
     this._getExampleData = options.getExampleData;
 
     // Create the chip element
-    this.dom = document.createElement("span");
-    this.dom.className = "expression-chip";
-    this.dom.contentEditable = "false";
+    this.dom = document.createElement('span');
+    this.dom.className = 'expression-chip';
+    this.dom.contentEditable = 'false';
 
-    this._leftBrace = document.createElement("span");
-    this._leftBrace.className = "expression-chip-brace expression-chip-brace-left";
-    this._leftBrace.textContent = "{{";
+    this._leftBrace = document.createElement('span');
+    this._leftBrace.className = 'expression-chip-brace expression-chip-brace-left';
+    this._leftBrace.textContent = '{{';
 
-    this._content = document.createElement("span");
-    this._content.className = "expression-chip-content";
+    this._content = document.createElement('span');
+    this._content.className = 'expression-chip-content';
 
-    this._rightBrace = document.createElement("span");
-    this._rightBrace.className = "expression-chip-brace expression-chip-brace-right";
-    this._rightBrace.textContent = "}}";
+    this._rightBrace = document.createElement('span');
+    this._rightBrace.className = 'expression-chip-brace expression-chip-brace-right';
+    this._rightBrace.textContent = '}}';
 
     this.dom.append(this._leftBrace, this._content, this._rightBrace);
     this._updateDisplay();
 
     // Click → open dialog
-    this.dom.addEventListener("click", (e) => {
+    this.dom.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       this._openDialog();
@@ -123,8 +123,8 @@ export class ExpressionNodeView implements NodeView {
   private _updateDisplay(): void {
     const expr = this._node.attrs.expression as string;
     if (!expr) {
-      this._setRawExpressionDisplay("...");
-      this.dom.title = "Click to edit expression";
+      this._setRawExpressionDisplay('...');
+      this.dom.title = 'Click to edit expression';
       return;
     }
 
@@ -160,14 +160,14 @@ export class ExpressionNodeView implements NodeView {
   }
 
   private _setRawExpressionDisplay(expr: string): void {
-    this.dom.classList.add("is-raw");
+    this.dom.classList.add('is-raw');
     this._leftBrace.hidden = false;
     this._rightBrace.hidden = false;
     this._content.textContent = expr;
   }
 
   private _setResolvedDisplay(value: string): void {
-    this.dom.classList.remove("is-raw");
+    this.dom.classList.remove('is-raw');
     this._leftBrace.hidden = true;
     this._rightBrace.hidden = true;
     this._content.textContent = value;
@@ -188,8 +188,8 @@ export class ExpressionNodeView implements NodeView {
       fieldPaths: this._fieldPaths,
       getExampleData: this._getExampleData,
       enableBuilderMode: true,
-      label: "Expression",
-      placeholder: "e.g. customer.name",
+      label: 'Expression',
+      placeholder: 'e.g. customer.name',
     }).then(({ value }) => {
       this._dialogOpen = false;
       if (value !== null) {

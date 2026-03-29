@@ -13,18 +13,18 @@
  *   error → dirty (on markDirty)
  */
 
-import type { TemplateDocument } from "../types/index.js";
+import type { TemplateDocument } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
 // State types
 // ---------------------------------------------------------------------------
 
 export type SaveState =
-  | { status: "idle" }
-  | { status: "dirty" }
-  | { status: "saving" }
-  | { status: "saved" }
-  | { status: "error"; message: string };
+  | { status: 'idle' }
+  | { status: 'dirty' }
+  | { status: 'saving' }
+  | { status: 'saved' }
+  | { status: 'error'; message: string };
 
 export type SaveFn = (doc: TemplateDocument) => Promise<void>;
 
@@ -35,7 +35,7 @@ export type OnSaveStateChange = (state: SaveState) => void;
 // ---------------------------------------------------------------------------
 
 export class SaveService {
-  private _state: SaveState = { status: "idle" };
+  private _state: SaveState = { status: 'idle' };
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _savedTimer: ReturnType<typeof setTimeout> | null = null;
   private _disposed = false;
@@ -70,10 +70,10 @@ export class SaveService {
   markDirty(): void {
     if (this._disposed) return;
     // Always transition to dirty (even from saving — we track pending)
-    if (this._state.status !== "dirty" && this._state.status !== "saving") {
+    if (this._state.status !== 'dirty' && this._state.status !== 'saving') {
       this._clearSavedTimer();
-      this._setState({ status: "dirty" });
-    } else if (this._state.status === "saving") {
+      this._setState({ status: 'dirty' });
+    } else if (this._state.status === 'saving') {
       // During save, we stay in 'saving' state but note we're dirty again
       // The post-save handler will check _pendingDoc
     }
@@ -100,7 +100,7 @@ export class SaveService {
   forceSave(doc: TemplateDocument): void {
     if (this._disposed) return;
     // No-op when there's nothing to save
-    if ((this._state.status === "idle" || this._state.status === "saved") && !this._pendingDoc) {
+    if ((this._state.status === 'idle' || this._state.status === 'saved') && !this._pendingDoc) {
       return;
     }
     this._clearDebounce();
@@ -113,7 +113,7 @@ export class SaveService {
    */
   get isDirtyOrSaving(): boolean {
     return (
-      this._state.status === "dirty" || this._state.status === "saving" || this._pendingDoc !== null
+      this._state.status === 'dirty' || this._state.status === 'saving' || this._pendingDoc !== null
     );
   }
 
@@ -158,7 +158,7 @@ export class SaveService {
 
     this._saving = true;
     this._pendingDoc = null;
-    this._setState({ status: "saving" });
+    this._setState({ status: 'saving' });
 
     try {
       await this._saveFn(doc);
@@ -169,28 +169,28 @@ export class SaveService {
       if (this._pendingDoc) {
         const pendingDoc = this._pendingDoc;
         this._saving = false;
-        this._setState({ status: "dirty" });
+        this._setState({ status: 'dirty' });
         this.scheduleAutoSave(pendingDoc);
         return;
       }
 
       this._saving = false;
-      this._setState({ status: "saved" });
+      this._setState({ status: 'saved' });
 
       // Auto-transition saved → idle after display period
       this._savedTimer = setTimeout(() => {
         this._savedTimer = null;
         if (this._disposed) return;
-        if (this._state.status === "saved") {
-          this._setState({ status: "idle" });
+        if (this._state.status === 'saved') {
+          this._setState({ status: 'idle' });
         }
       }, this._savedDisplayMs);
     } catch (err: unknown) {
       if (this._disposed) return;
       this._saving = false;
       this._pendingDoc = null;
-      const message = err instanceof Error ? err.message : "Save failed";
-      this._setState({ status: "error", message });
+      const message = err instanceof Error ? err.message : 'Save failed';
+      this._setState({ status: 'error', message });
     }
   }
 }

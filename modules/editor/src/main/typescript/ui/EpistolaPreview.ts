@@ -1,8 +1,8 @@
-import { LitElement, html, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import { PreviewService, type PreviewState, type FetchPreviewFn } from "./preview-service.js";
-import { icon } from "./icons.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import { PreviewService, type PreviewState, type FetchPreviewFn } from './preview-service.js';
+import { icon } from './icons.js';
 
 /**
  * <epistola-preview> — PDF preview panel.
@@ -13,7 +13,7 @@ import { icon } from "./icons.js";
  *
  * Light DOM — styled by preview.css.
  */
-@customElement("epistola-preview")
+@customElement('epistola-preview')
 export class EpistolaPreview extends LitElement {
   override createRenderRoot() {
     return this;
@@ -22,7 +22,7 @@ export class EpistolaPreview extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine;
   @property({ attribute: false }) fetchPreview?: FetchPreviewFn;
 
-  @state() private _previewState: PreviewState = { status: "idle" };
+  @state() private _previewState: PreviewState = { status: 'idle' };
 
   private _service?: PreviewService;
   private _unsubDoc?: () => void;
@@ -34,7 +34,7 @@ export class EpistolaPreview extends LitElement {
   }
 
   override updated(changed: Map<string, unknown>): void {
-    if (changed.has("engine") || changed.has("fetchPreview")) {
+    if (changed.has('engine') || changed.has('fetchPreview')) {
       this._teardown();
       this._setupService();
     }
@@ -52,11 +52,11 @@ export class EpistolaPreview extends LitElement {
       this._previewState = state;
     });
 
-    this._unsubDoc = this.engine.events.on("doc:change", ({ doc }) => {
+    this._unsubDoc = this.engine.events.on('doc:change', ({ doc }) => {
       this._service?.scheduleRefresh(doc, this.engine?.currentExample);
     });
 
-    this._unsubExample = this.engine.events.on("example:change", ({ example }) => {
+    this._unsubExample = this.engine.events.on('example:change', ({ example }) => {
       if (this.engine) {
         this._service?.scheduleRefresh(this.engine.doc, example);
       }
@@ -85,8 +85,8 @@ export class EpistolaPreview extends LitElement {
     return html`
       <div class="preview-header">
         <span class="preview-header-title">Preview</span>
-        ${this._previewState.status === "loading"
-          ? html`<span class="preview-header-status">${icon("loader-2", 14)} Loading...</span>`
+        ${this._previewState.status === 'loading'
+          ? html`<span class="preview-header-status">${icon('loader-2', 14)} Loading...</span>`
           : nothing}
       </div>
       <div class="preview-content">${this._renderContent()}</div>
@@ -95,31 +95,31 @@ export class EpistolaPreview extends LitElement {
 
   private _renderContent() {
     switch (this._previewState.status) {
-      case "idle":
+      case 'idle':
         return html`<div class="preview-placeholder">
-          <span class="preview-placeholder-icon">${icon("eye", 32)}</span>
+          <span class="preview-placeholder-icon">${icon('eye', 32)}</span>
           <span>Preview will appear here</span>
         </div>`;
 
-      case "loading":
+      case 'loading':
         return html`<div class="preview-placeholder">
-          <span class="preview-spinner">${icon("loader-2", 32)}</span>
+          <span class="preview-spinner">${icon('loader-2', 32)}</span>
           <span>Generating preview...</span>
         </div>`;
 
-      case "success":
+      case 'success':
         return html`<iframe
           class="preview-iframe"
           .src=${this._previewState.blobUrl}
           title="PDF Preview"
         ></iframe>`;
 
-      case "error":
+      case 'error':
         return html`<div class="preview-error">
-          <span class="preview-error-icon">${icon("alert-circle", 32)}</span>
+          <span class="preview-error-icon">${icon('alert-circle', 32)}</span>
           <span class="preview-error-message">${this._previewState.message}</span>
           <button class="preview-retry-btn" @click=${this._handleRetry}>
-            ${icon("refresh-cw", 14)} Retry
+            ${icon('refresh-cw', 14)} Retry
           </button>
         </div>`;
     }
@@ -128,6 +128,6 @@ export class EpistolaPreview extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-preview": EpistolaPreview;
+    'epistola-preview': EpistolaPreview;
   }
 }

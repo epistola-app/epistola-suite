@@ -5,7 +5,7 @@ import {
   type CommandDefinition,
   type KeybindingDefinition,
   type ShortcutRegistryDefinition,
-} from "./foundation.js";
+} from './foundation.js';
 
 const PLUGIN_ID_PATTERN = /^[a-z][a-z0-9-]*$/;
 
@@ -16,16 +16,16 @@ export interface PluginShortcutContribution<TContext = unknown> {
 }
 
 export type PluginShortcutValidationIssueCode =
-  | "invalid-plugin-id"
-  | "invalid-plugin-command-id"
-  | "invalid-plugin-binding-command-id"
-  | "invalid-command-id"
-  | "duplicate-command-id"
-  | "missing-command-reference"
-  | "empty-binding-keys"
-  | "invalid-binding-context"
-  | "invalid-binding-match-by"
-  | "binding-conflict";
+  | 'invalid-plugin-id'
+  | 'invalid-plugin-command-id'
+  | 'invalid-plugin-binding-command-id'
+  | 'invalid-command-id'
+  | 'duplicate-command-id'
+  | 'missing-command-reference'
+  | 'empty-binding-keys'
+  | 'invalid-binding-context'
+  | 'invalid-binding-match-by'
+  | 'binding-conflict';
 
 export interface PluginShortcutValidationIssue {
   code: PluginShortcutValidationIssueCode;
@@ -63,7 +63,7 @@ export function validatePluginShortcutContribution<TContext>(
 
   if (!PLUGIN_ID_PATTERN.test(contribution.pluginId)) {
     issues.push({
-      code: "invalid-plugin-id",
+      code: 'invalid-plugin-id',
       message: `Invalid plugin id "${contribution.pluginId}". Use lowercase slug segments only.`,
     });
   }
@@ -73,7 +73,7 @@ export function validatePluginShortcutContribution<TContext>(
   for (const [index, command] of contribution.commands.entries()) {
     if (!command.id.startsWith(expectedPrefix)) {
       issues.push({
-        code: "invalid-plugin-command-id",
+        code: 'invalid-plugin-command-id',
         message: `Plugin command at index ${index} must use prefix "${expectedPrefix}" but received "${command.id}"`,
       });
     }
@@ -82,7 +82,7 @@ export function validatePluginShortcutContribution<TContext>(
   for (const [index, binding] of contribution.keybindings.entries()) {
     if (!binding.commandId.startsWith(expectedPrefix)) {
       issues.push({
-        code: "invalid-plugin-binding-command-id",
+        code: 'invalid-plugin-binding-command-id',
         message: `Plugin binding at index ${index} must reference command ids under "${expectedPrefix}" but received "${binding.commandId}"`,
       });
     }
@@ -103,10 +103,10 @@ export function formatPluginShortcutIssues(
   issues: readonly PluginShortcutValidationIssue[],
 ): string {
   if (issues.length === 0) {
-    return "No plugin shortcut validation issues";
+    return 'No plugin shortcut validation issues';
   }
 
-  return issues.map((issue, index) => `${index + 1}. [${issue.code}] ${issue.message}`).join("\n");
+  return issues.map((issue, index) => `${index + 1}. [${issue.code}] ${issue.message}`).join('\n');
 }
 
 export function assertValidPluginShortcutContribution<TContext>(

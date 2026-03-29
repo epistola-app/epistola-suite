@@ -1,24 +1,24 @@
-import { LitElement, html, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
-import { styleMap } from "lit/directives/style-map.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import {
   draggable,
   dropTargetForElements,
-} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+} from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import {
   attachClosestEdge,
   extractClosestEdge,
-} from "@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge";
-import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import { isAnchoredPageBlock } from "../engine/registry.js";
-import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
-import { resolveDropOnBlockEdge, canDropHere, type Edge } from "../dnd/drop-logic.js";
-import { handleDrop } from "../dnd/drop-handler.js";
-import { icon } from "./icons.js";
-import "../ui/EpistolaTextEditor.js";
+} from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge';
+import type { TemplateDocument, NodeId, SlotId } from '../types/index.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import { isAnchoredPageBlock } from '../engine/registry.js';
+import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js';
+import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js';
+import { handleDrop } from '../dnd/drop-handler.js';
+import { icon } from './icons.js';
+import '../ui/EpistolaTextEditor.js';
 
-@customElement("epistola-canvas")
+@customElement('epistola-canvas')
 export class EpistolaCanvas extends LitElement {
   override createRenderRoot() {
     return this;
@@ -44,7 +44,7 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleDeleteBlock(nodeId: NodeId) {
     if (!this.engine) return;
-    this.engine.dispatch({ type: "RemoveNode", nodeId });
+    this.engine.dispatch({ type: 'RemoveNode', nodeId });
     this.engine.selectNode(null);
   }
 
@@ -57,11 +57,11 @@ export class EpistolaCanvas extends LitElement {
     const doc = this.doc;
     if (!doc) return;
     const node = doc.nodes[nodeId];
-    if (!node || node.type !== "text") return;
+    if (!node || node.type !== 'text') return;
 
     requestAnimationFrame(() => {
       const blockEl = this.querySelector<HTMLElement>(`.canvas-block[data-node-id="${nodeId}"]`);
-      const textEditor = blockEl?.querySelector<HTMLElement>("epistola-text-editor");
+      const textEditor = blockEl?.querySelector<HTMLElement>('epistola-text-editor');
       if (!textEditor) return;
       const focusEditor = (textEditor as { focusEditor?: () => void }).focusEditor;
       focusEditor?.call(textEditor);
@@ -77,7 +77,7 @@ export class EpistolaCanvas extends LitElement {
     if (this.engine && this.engine !== this._subscribedEngine) {
       this._unsubComponentState?.();
       this._subscribedEngine = this.engine;
-      this._unsubComponentState = this.engine.events.on("component-state:change", () => {
+      this._unsubComponentState = this.engine.events.on('component-state:change', () => {
         this.requestUpdate();
       });
     }
@@ -100,7 +100,7 @@ export class EpistolaCanvas extends LitElement {
     const cleanups: (() => void)[] = [];
 
     // Setup drag sources on canvas blocks (skip root)
-    const blocks = this.querySelectorAll<HTMLElement>(".canvas-block[data-node-id]");
+    const blocks = this.querySelectorAll<HTMLElement>('.canvas-block[data-node-id]');
     for (const blockEl of blocks) {
       const nodeId = blockEl.dataset.nodeId as NodeId | undefined;
       if (!nodeId || nodeId === this.doc.root) continue;
@@ -114,14 +114,14 @@ export class EpistolaCanvas extends LitElement {
         cleanups.push(
           draggable({
             element: blockEl,
-            dragHandle: blockEl.querySelector<HTMLElement>(".canvas-block-header") ?? blockEl,
+            dragHandle: blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl,
             getInitialData: (): DragData => ({
-              source: "block",
+              source: 'block',
               nodeId,
               blockType: node.type,
             }),
-            onDragStart: () => blockEl.classList.add("dragging"),
-            onDrop: () => blockEl.classList.remove("dragging"),
+            onDragStart: () => blockEl.classList.add('dragging'),
+            onDrop: () => blockEl.classList.remove('dragging'),
           }),
         );
       }
@@ -131,7 +131,7 @@ export class EpistolaCanvas extends LitElement {
         dropTargetForElements({
           element: blockEl,
           getData: ({ input, element }) =>
-            attachClosestEdge({ nodeId }, { element, input, allowedEdges: ["top", "bottom"] }),
+            attachClosestEdge({ nodeId }, { element, input, allowedEdges: ['top', 'bottom'] }),
           canDrop: ({ source }) => {
             const dragData = source.data as Record<string, unknown>;
             if (!isDragData(dragData)) return false;
@@ -140,7 +140,7 @@ export class EpistolaCanvas extends LitElement {
             if (isBlockDrag(dragData) && dragData.nodeId === nodeId) return false;
 
             // Resolve parent slot of this block via DOM
-            const slotEl = blockEl.closest<HTMLElement>("[data-slot-id]");
+            const slotEl = blockEl.closest<HTMLElement>('[data-slot-id]');
             const parentSlotId = slotEl?.dataset.slotId as SlotId | undefined;
             if (!parentSlotId) return false;
 
@@ -157,25 +157,25 @@ export class EpistolaCanvas extends LitElement {
             // A nested slot (inside this block) takes priority.
             if (location.current.dropTargets[0]?.element !== blockEl) return;
             const edge = extractClosestEdge(self.data);
-            if (edge === "top" || edge === "bottom") {
-              blockEl.setAttribute("data-drop-edge", edge);
+            if (edge === 'top' || edge === 'bottom') {
+              blockEl.setAttribute('data-drop-edge', edge);
             }
           },
           onDrag: ({ self, location }) => {
             if (location.current.dropTargets[0]?.element !== blockEl) {
-              blockEl.removeAttribute("data-drop-edge");
+              blockEl.removeAttribute('data-drop-edge');
               return;
             }
             const edge = extractClosestEdge(self.data);
-            if (edge === "top" || edge === "bottom") {
-              blockEl.setAttribute("data-drop-edge", edge);
+            if (edge === 'top' || edge === 'bottom') {
+              blockEl.setAttribute('data-drop-edge', edge);
             }
           },
           onDragLeave: () => {
-            blockEl.removeAttribute("data-drop-edge");
+            blockEl.removeAttribute('data-drop-edge');
           },
           onDrop: ({ self, source, location }) => {
-            blockEl.removeAttribute("data-drop-edge");
+            blockEl.removeAttribute('data-drop-edge');
 
             // If a deeper target (nested slot) is innermost, skip — it handles the drop
             if (location.current.dropTargets[0]?.element !== blockEl) return;
@@ -203,7 +203,7 @@ export class EpistolaCanvas extends LitElement {
     // Setup drop targets on ALL slots (empty and non-empty).
     // Empty slots accept drops at index 0.
     // Non-empty slots accept drops in the empty space below children (append).
-    const slots = this.querySelectorAll<HTMLElement>(".canvas-slot[data-slot-id]");
+    const slots = this.querySelectorAll<HTMLElement>('.canvas-slot[data-slot-id]');
     for (const slotEl of slots) {
       const slotId = slotEl.dataset.slotId as SlotId | undefined;
       if (!slotId) continue;
@@ -227,21 +227,21 @@ export class EpistolaCanvas extends LitElement {
           },
           onDragEnter: ({ location }) => {
             if (location.current.dropTargets[0]?.element === slotEl) {
-              slotEl.classList.add("drag-over");
+              slotEl.classList.add('drag-over');
             }
           },
           onDrag: ({ location }) => {
             if (location.current.dropTargets[0]?.element === slotEl) {
-              slotEl.classList.add("drag-over");
+              slotEl.classList.add('drag-over');
             } else {
-              slotEl.classList.remove("drag-over");
+              slotEl.classList.remove('drag-over');
             }
           },
           onDragLeave: () => {
-            slotEl.classList.remove("drag-over");
+            slotEl.classList.remove('drag-over');
           },
           onDrop: ({ source, location }) => {
-            slotEl.classList.remove("drag-over");
+            slotEl.classList.remove('drag-over');
 
             // Only handle if this slot is the innermost target.
             // If a child block is innermost, its edge handler takes care of it.
@@ -318,13 +318,13 @@ export class EpistolaCanvas extends LitElement {
 
     return html`
       <div
-        class="canvas-slot ${slot.children.length === 0 ? "empty" : ""}"
+        class="canvas-slot ${slot.children.length === 0 ? 'empty' : ''}"
         data-slot-id=${slotId}
         data-slot-name=${slot.name}
       >
         ${slot.children.length === 0
           ? html`<span class="canvas-slot-hint"
-              >${isMultiSlot ? slot.name : "Drop blocks here"}</span
+              >${isMultiSlot ? slot.name : 'Drop blocks here'}</span
             >`
           : slot.children.map((childId) => this._renderBlock(childId))}
       </div>
@@ -348,7 +348,7 @@ export class EpistolaCanvas extends LitElement {
 
     return html`
       <div
-        class="canvas-block ${isSelected ? "selected" : ""}"
+        class="canvas-block ${isSelected ? 'selected' : ''}"
         data-testid="canvas-block"
         data-node-id=${nodeId}
         tabindex="0"
@@ -369,7 +369,7 @@ export class EpistolaCanvas extends LitElement {
                     this._handleDeleteBlock(nodeId);
                   }}
                 >
-                  ${icon("trash-2", 14)}
+                  ${icon('trash-2', 14)}
                 </button>
               `
             : nothing}
@@ -377,7 +377,7 @@ export class EpistolaCanvas extends LitElement {
 
         <!-- Block content area -->
         <div
-          class="canvas-block-content ${node.type === "text" ? "text-type" : ""}"
+          class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
           style=${styleMap(contentStyle)}
         >
           ${this._renderBlockContent(nodeId)}
@@ -419,7 +419,7 @@ export class EpistolaCanvas extends LitElement {
     if (!node) return nothing;
 
     switch (node.type) {
-      case "text": {
+      case 'text': {
         const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
         const def = this.engine!.registry.get(node.type);
         const applicableStyles = def?.applicableStyles;
@@ -435,7 +435,7 @@ export class EpistolaCanvas extends LitElement {
           ></epistola-text-editor>
         `;
       }
-      case "pagebreak":
+      case 'pagebreak':
         return html`<div class="canvas-pagebreak">
           <div class="canvas-pagebreak-line"></div>
           <span class="canvas-pagebreak-label">Page Break</span>
@@ -457,9 +457,9 @@ export class EpistolaCanvas extends LitElement {
  */
 function filterByApplicableStyles(
   styles: Record<string, unknown>,
-  applicableStyles: "all" | string[] | undefined,
+  applicableStyles: 'all' | string[] | undefined,
 ): Record<string, unknown> {
-  if (!applicableStyles || applicableStyles === "all") return styles;
+  if (!applicableStyles || applicableStyles === 'all') return styles;
   if (applicableStyles.length === 0) return {};
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(styles)) {
@@ -492,6 +492,6 @@ function toStyleMap(styles: Record<string, unknown>): Record<string, string> {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-canvas": EpistolaCanvas;
+    'epistola-canvas': EpistolaCanvas;
   }
 }

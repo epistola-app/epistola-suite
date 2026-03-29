@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { EditorEngine } from "./EditorEngine.js";
-import type { TextChangeOps } from "./undo.js";
-import { TextChange } from "./text-change.js";
-import { CommandChange } from "./command-change.js";
-import { buildIndexes, getNodeDepth, findAncestorAtLevel } from "./indexes.js";
-import { getNestedValue, setNestedValue } from "./props.js";
-import type { Command, InsertNode, MoveNode } from "./commands.js";
-import { ComponentRegistry, createDefaultRegistry } from "./registry.js";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { EditorEngine } from './EditorEngine.js';
+import type { TextChangeOps } from './undo.js';
+import { TextChange } from './text-change.js';
+import { CommandChange } from './command-change.js';
+import { buildIndexes, getNodeDepth, findAncestorAtLevel } from './indexes.js';
+import { getNestedValue, setNestedValue } from './props.js';
+import type { Command, InsertNode, MoveNode } from './commands.js';
+import { ComponentRegistry, createDefaultRegistry } from './registry.js';
 import {
   createTestDocument,
   createTestDocumentWithChildren,
@@ -14,8 +14,8 @@ import {
   nodeId,
   slotId,
   resetCounter,
-} from "./test-helpers.js";
-import type { NodeId, SlotId, TemplateDocument, Node, Slot } from "../types/index.js";
+} from './test-helpers.js';
+import type { NodeId, SlotId, TemplateDocument, Node, Slot } from '../types/index.js';
 
 beforeEach(() => {
   resetCounter();
@@ -25,8 +25,8 @@ beforeEach(() => {
 // Indexes
 // ---------------------------------------------------------------------------
 
-describe("buildIndexes", () => {
-  it("builds parent maps from a document", () => {
+describe('buildIndexes', () => {
+  it('builds parent maps from a document', () => {
     const { doc, rootId, rootSlotId, textNodeId, containerNodeId } =
       createTestDocumentWithChildren();
     const indexes = buildIndexes(doc);
@@ -37,13 +37,13 @@ describe("buildIndexes", () => {
     expect(indexes.parentSlotByNodeId.has(rootId)).toBe(false);
   });
 
-  it("computes depth for all nodes", () => {
+  it('computes depth for all nodes', () => {
     const { doc, rootId, textNodeId, containerNodeId, containerSlotId } =
       createTestDocumentWithChildren();
 
     // Add a child inside the container to get depth 2
-    const deepChild = nodeId("deep");
-    doc.nodes[deepChild] = { id: deepChild, type: "text", slots: [], props: { content: null } };
+    const deepChild = nodeId('deep');
+    doc.nodes[deepChild] = { id: deepChild, type: 'text', slots: [], props: { content: null } };
     doc.slots[containerSlotId].children.push(deepChild);
 
     const indexes = buildIndexes(doc);
@@ -59,17 +59,17 @@ describe("buildIndexes", () => {
 // getNodeDepth / findAncestorAtLevel
 // ---------------------------------------------------------------------------
 
-describe("getNodeDepth", () => {
-  it("returns 0 for root", () => {
+describe('getNodeDepth', () => {
+  it('returns 0 for root', () => {
     const { doc, rootId } = createTestDocumentWithChildren();
     const indexes = buildIndexes(doc);
     expect(getNodeDepth(rootId, indexes)).toBe(0);
   });
 
-  it("returns correct depth for nested nodes", () => {
+  it('returns correct depth for nested nodes', () => {
     const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren();
-    const deepChild = nodeId("deep");
-    doc.nodes[deepChild] = { id: deepChild, type: "text", slots: [] };
+    const deepChild = nodeId('deep');
+    doc.nodes[deepChild] = { id: deepChild, type: 'text', slots: [] };
     doc.slots[containerSlotId].children.push(deepChild);
 
     const indexes = buildIndexes(doc);
@@ -77,24 +77,24 @@ describe("getNodeDepth", () => {
     expect(getNodeDepth(deepChild, indexes)).toBe(2);
   });
 
-  it("returns 0 for unknown nodes", () => {
+  it('returns 0 for unknown nodes', () => {
     const { doc } = createTestDocumentWithChildren();
     const indexes = buildIndexes(doc);
-    expect(getNodeDepth("nonexistent" as NodeId, indexes)).toBe(0);
+    expect(getNodeDepth('nonexistent' as NodeId, indexes)).toBe(0);
   });
 });
 
-describe("findAncestorAtLevel", () => {
-  it("returns self when already at target level", () => {
+describe('findAncestorAtLevel', () => {
+  it('returns self when already at target level', () => {
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const indexes = buildIndexes(doc);
     expect(findAncestorAtLevel(textNodeId, 1, indexes)).toBe(textNodeId);
   });
 
-  it("returns ancestor at specified level", () => {
+  it('returns ancestor at specified level', () => {
     const { doc, rootId, containerNodeId, containerSlotId } = createTestDocumentWithChildren();
-    const deepChild = nodeId("deep");
-    doc.nodes[deepChild] = { id: deepChild, type: "text", slots: [] };
+    const deepChild = nodeId('deep');
+    doc.nodes[deepChild] = { id: deepChild, type: 'text', slots: [] };
     doc.slots[containerSlotId].children.push(deepChild);
 
     const indexes = buildIndexes(doc);
@@ -104,11 +104,11 @@ describe("findAncestorAtLevel", () => {
     expect(findAncestorAtLevel(deepChild, 0, indexes)).toBe(rootId);
   });
 
-  it("returns null if no ancestor exists at level", () => {
+  it('returns null if no ancestor exists at level', () => {
     const { doc } = createTestDocumentWithChildren();
     const indexes = buildIndexes(doc);
     // orphan node not in the tree
-    expect(findAncestorAtLevel("nonexistent" as NodeId, 0, indexes)).toBe("nonexistent");
+    expect(findAncestorAtLevel('nonexistent' as NodeId, 0, indexes)).toBe('nonexistent');
   });
 });
 
@@ -116,27 +116,27 @@ describe("findAncestorAtLevel", () => {
 // getNextSelectionAfterRemove
 // ---------------------------------------------------------------------------
 
-describe("getNextSelectionAfterRemove", () => {
-  it("returns next sibling when available", () => {
+describe('getNextSelectionAfterRemove', () => {
+  it('returns next sibling when available', () => {
     const { doc, textNodeId, containerNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, testRegistry());
 
     expect(engine.getNextSelectionAfterRemove(textNodeId)).toBe(containerNodeId);
   });
 
-  it("returns previous sibling when next sibling is unavailable", () => {
+  it('returns previous sibling when next sibling is unavailable', () => {
     const { doc, textNodeId, containerNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, testRegistry());
 
     expect(engine.getNextSelectionAfterRemove(containerNodeId)).toBe(textNodeId);
   });
 
-  it("returns parent node when removed node has no siblings", () => {
+  it('returns parent node when removed node has no siblings', () => {
     const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren();
-    const childNodeId = nodeId("child");
+    const childNodeId = nodeId('child');
     doc.nodes[childNodeId] = {
       id: childNodeId,
-      type: "text",
+      type: 'text',
       slots: [],
       props: { content: null },
     };
@@ -147,18 +147,18 @@ describe("getNextSelectionAfterRemove", () => {
     expect(engine.getNextSelectionAfterRemove(childNodeId)).toBe(containerNodeId);
   });
 
-  it("returns null for root node", () => {
+  it('returns null for root node', () => {
     const { doc, rootId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, testRegistry());
 
     expect(engine.getNextSelectionAfterRemove(rootId)).toBeNull();
   });
 
-  it("returns null for unknown node ids", () => {
+  it('returns null for unknown node ids', () => {
     const { doc } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, testRegistry());
 
-    expect(engine.getNextSelectionAfterRemove("missing-node" as NodeId)).toBeNull();
+    expect(engine.getNextSelectionAfterRemove('missing-node' as NodeId)).toBeNull();
   });
 });
 
@@ -166,41 +166,41 @@ describe("getNextSelectionAfterRemove", () => {
 // getNestedValue / setNestedValue
 // ---------------------------------------------------------------------------
 
-describe("getNestedValue", () => {
-  it("gets a top-level value", () => {
-    expect(getNestedValue({ foo: 42 }, "foo")).toBe(42);
+describe('getNestedValue', () => {
+  it('gets a top-level value', () => {
+    expect(getNestedValue({ foo: 42 }, 'foo')).toBe(42);
   });
 
-  it("gets a nested value", () => {
-    expect(getNestedValue({ a: { b: { c: "deep" } } }, "a.b.c")).toBe("deep");
+  it('gets a nested value', () => {
+    expect(getNestedValue({ a: { b: { c: 'deep' } } }, 'a.b.c')).toBe('deep');
   });
 
-  it("returns undefined for missing path", () => {
-    expect(getNestedValue({ a: 1 }, "b.c")).toBeUndefined();
+  it('returns undefined for missing path', () => {
+    expect(getNestedValue({ a: 1 }, 'b.c')).toBeUndefined();
   });
 
-  it("returns undefined when traversing through null", () => {
-    expect(getNestedValue({ a: null }, "a.b")).toBeUndefined();
+  it('returns undefined when traversing through null', () => {
+    expect(getNestedValue({ a: null }, 'a.b')).toBeUndefined();
   });
 });
 
-describe("setNestedValue", () => {
-  it("sets a top-level value", () => {
+describe('setNestedValue', () => {
+  it('sets a top-level value', () => {
     const obj: Record<string, unknown> = {};
-    setNestedValue(obj, "foo", 42);
+    setNestedValue(obj, 'foo', 42);
     expect(obj.foo).toBe(42);
   });
 
-  it("sets a nested value, creating intermediate objects", () => {
+  it('sets a nested value, creating intermediate objects', () => {
     const obj: Record<string, unknown> = {};
-    setNestedValue(obj, "a.b.c", "deep");
-    expect((obj.a as Record<string, unknown>)?.b).toEqual({ c: "deep" });
+    setNestedValue(obj, 'a.b.c', 'deep');
+    expect((obj.a as Record<string, unknown>)?.b).toEqual({ c: 'deep' });
   });
 
-  it("overwrites existing nested values", () => {
-    const obj: Record<string, unknown> = { a: { b: "old" } };
-    setNestedValue(obj, "a.b", "new");
-    expect((obj.a as Record<string, unknown>).b).toBe("new");
+  it('overwrites existing nested values', () => {
+    const obj: Record<string, unknown> = { a: { b: 'old' } };
+    setNestedValue(obj, 'a.b', 'new');
+    expect((obj.a as Record<string, unknown>).b).toBe('new');
   });
 });
 
@@ -208,7 +208,7 @@ describe("setNestedValue", () => {
 // InsertNode
 // ---------------------------------------------------------------------------
 
-describe("InsertNode", () => {
+describe('InsertNode', () => {
   let engine: EditorEngine;
   let registry: ComponentRegistry;
   let doc: TemplateDocument;
@@ -222,10 +222,10 @@ describe("InsertNode", () => {
     engine = new EditorEngine(doc, registry);
   });
 
-  it("inserts a node at the end of a slot", () => {
-    const { node, slots } = registry.createNode("text");
+  it('inserts a node at the end of a slot', () => {
+    const { node, slots } = registry.createNode('text');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -237,10 +237,10 @@ describe("InsertNode", () => {
     expect(engine.doc.nodes[node.id]).toBeDefined();
   });
 
-  it("inserts a node at a specific index", () => {
-    const { node, slots } = registry.createNode("text");
+  it('inserts a node at a specific index', () => {
+    const { node, slots } = registry.createNode('text');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -251,29 +251,29 @@ describe("InsertNode", () => {
     expect(engine.doc.slots[rootSlotId].children[0]).toBe(node.id);
   });
 
-  it("rejects inserting into non-existent slot", () => {
-    const { node, slots } = registry.createNode("text");
+  it('rejects inserting into non-existent slot', () => {
+    const { node, slots } = registry.createNode('text');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
-      targetSlotId: slotId("nonexistent"),
+      targetSlotId: slotId('nonexistent'),
       index: -1,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("not found");
+      expect(result.error).toContain('not found');
     }
   });
 
-  it("rejects inserting a duplicate node ID", () => {
+  it('rejects inserting a duplicate node ID', () => {
     const { doc: docWithChildren, textNodeId } = createTestDocumentWithChildren();
     const eng = new EditorEngine(docWithChildren, registry);
     const existingNode = eng.doc.nodes[textNodeId];
 
     const result = eng.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: existingNode,
       slots: [],
       targetSlotId: eng.doc.nodes[eng.doc.root].slots[0],
@@ -282,18 +282,18 @@ describe("InsertNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("already exists");
+      expect(result.error).toContain('already exists');
     }
   });
 
-  it("inserts a container with its own slots", () => {
-    const { node, slots } = registry.createNode("container");
+  it('inserts a container with its own slots', () => {
+    const { node, slots } = registry.createNode('container');
 
     expect(slots.length).toBe(1);
-    expect(slots[0].name).toBe("children");
+    expect(slots[0].name).toBe('children');
 
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -305,10 +305,10 @@ describe("InsertNode", () => {
     expect(engine.doc.slots[slots[0].id].nodeId).toBe(node.id);
   });
 
-  it("rejects inserting a second page header", () => {
-    const first = registry.createNode("pageheader");
+  it('rejects inserting a second page header', () => {
+    const first = registry.createNode('pageheader');
     const firstInsert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: first.node,
       slots: first.slots,
       targetSlotId: rootSlotId,
@@ -316,9 +316,9 @@ describe("InsertNode", () => {
     });
     expect(firstInsert.ok).toBe(true);
 
-    const second = registry.createNode("pageheader");
+    const second = registry.createNode('pageheader');
     const secondInsert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: second.node,
       slots: second.slots,
       targetSlotId: rootSlotId,
@@ -331,10 +331,10 @@ describe("InsertNode", () => {
     }
   });
 
-  it("rejects inserting a second page footer", () => {
-    const first = registry.createNode("pagefooter");
+  it('rejects inserting a second page footer', () => {
+    const first = registry.createNode('pagefooter');
     const firstInsert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: first.node,
       slots: first.slots,
       targetSlotId: rootSlotId,
@@ -342,9 +342,9 @@ describe("InsertNode", () => {
     });
     expect(firstInsert.ok).toBe(true);
 
-    const second = registry.createNode("pagefooter");
+    const second = registry.createNode('pagefooter');
     const secondInsert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: second.node,
       slots: second.slots,
       targetSlotId: rootSlotId,
@@ -357,10 +357,10 @@ describe("InsertNode", () => {
     }
   });
 
-  it("anchors page header at the top of root slot", () => {
-    const { node, slots } = registry.createNode("pageheader");
+  it('anchors page header at the top of root slot', () => {
+    const { node, slots } = registry.createNode('pageheader');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -371,10 +371,10 @@ describe("InsertNode", () => {
     expect(engine.doc.slots[rootSlotId].children[0]).toBe(node.id);
   });
 
-  it("anchors page footer at the bottom of root slot", () => {
-    const { node, slots } = registry.createNode("pagefooter");
+  it('anchors page footer at the bottom of root slot', () => {
+    const { node, slots } = registry.createNode('pagefooter');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -386,12 +386,12 @@ describe("InsertNode", () => {
     expect(children[children.length - 1]).toBe(node.id);
   });
 
-  it("rejects inserting page header outside root slot", () => {
+  it('rejects inserting page header outside root slot', () => {
     const { containerSlotId } = createTestDocumentWithChildren();
-    const { node, slots } = registry.createNode("pageheader");
+    const { node, slots } = registry.createNode('pageheader');
 
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: containerSlotId,
@@ -400,14 +400,14 @@ describe("InsertNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("top of the document");
+      expect(result.error).toContain('top of the document');
     }
   });
 
-  it("rejects inserting content before anchored page header", () => {
-    const header = registry.createNode("pageheader");
+  it('rejects inserting content before anchored page header', () => {
+    const header = registry.createNode('pageheader');
     const headerResult = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: header.node,
       slots: header.slots,
       targetSlotId: rootSlotId,
@@ -415,9 +415,9 @@ describe("InsertNode", () => {
     });
     expect(headerResult.ok).toBe(true);
 
-    const text = registry.createNode("text");
+    const text = registry.createNode('text');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: text.node,
       slots: text.slots,
       targetSlotId: rootSlotId,
@@ -426,14 +426,14 @@ describe("InsertNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("before the page header");
+      expect(result.error).toContain('before the page header');
     }
   });
 
-  it("rejects inserting content after anchored page footer", () => {
-    const footer = registry.createNode("pagefooter");
+  it('rejects inserting content after anchored page footer', () => {
+    const footer = registry.createNode('pagefooter');
     const footerResult = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: footer.node,
       slots: footer.slots,
       targetSlotId: rootSlotId,
@@ -441,9 +441,9 @@ describe("InsertNode", () => {
     });
     expect(footerResult.ok).toBe(true);
 
-    const text = registry.createNode("text");
+    const text = registry.createNode('text');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: text.node,
       slots: text.slots,
       targetSlotId: rootSlotId,
@@ -452,7 +452,7 @@ describe("InsertNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("after the page footer");
+      expect(result.error).toContain('after the page footer');
     }
   });
 });
@@ -461,14 +461,14 @@ describe("InsertNode", () => {
 // RemoveNode
 // ---------------------------------------------------------------------------
 
-describe("RemoveNode", () => {
-  it("removes a leaf node", () => {
+describe('RemoveNode', () => {
+  it('removes a leaf node', () => {
     const registry = testRegistry();
     const { doc, textNodeId, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "RemoveNode",
+      type: 'RemoveNode',
       nodeId: textNodeId,
     });
 
@@ -477,17 +477,17 @@ describe("RemoveNode", () => {
     expect(engine.doc.slots[rootSlotId].children).not.toContain(textNodeId);
   });
 
-  it("removes a subtree (container + nested children)", () => {
+  it('removes a subtree (container + nested children)', () => {
     const registry = testRegistry();
     const { doc, containerNodeId, containerSlotId, rootSlotId } = createTestDocumentWithChildren();
 
     // Add a text node inside the container
-    const innerTextId = nodeId("inner-text");
+    const innerTextId = nodeId('inner-text');
     const modifiedDoc: TemplateDocument = {
       ...doc,
       nodes: {
         ...doc.nodes,
-        [innerTextId]: { id: innerTextId, type: "text", slots: [], props: { content: null } },
+        [innerTextId]: { id: innerTextId, type: 'text', slots: [], props: { content: null } },
       },
       slots: {
         ...doc.slots,
@@ -500,7 +500,7 @@ describe("RemoveNode", () => {
 
     const engine = new EditorEngine(modifiedDoc, registry);
     const result = engine.dispatch({
-      type: "RemoveNode",
+      type: 'RemoveNode',
       nodeId: containerNodeId,
     });
 
@@ -511,30 +511,30 @@ describe("RemoveNode", () => {
     expect(engine.doc.slots[rootSlotId].children).not.toContain(containerNodeId);
   });
 
-  it("rejects removing the root node", () => {
+  it('rejects removing the root node', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "RemoveNode",
+      type: 'RemoveNode',
       nodeId: doc.root,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("root");
+      expect(result.error).toContain('root');
     }
   });
 
-  it("rejects removing a non-existent node", () => {
+  it('rejects removing a non-existent node', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "RemoveNode",
-      nodeId: nodeId("nonexistent"),
+      type: 'RemoveNode',
+      nodeId: nodeId('nonexistent'),
     });
 
     expect(result.ok).toBe(false);
@@ -545,14 +545,14 @@ describe("RemoveNode", () => {
 // MoveNode
 // ---------------------------------------------------------------------------
 
-describe("MoveNode", () => {
-  it("moves a node to a different slot", () => {
+describe('MoveNode', () => {
+  it('moves a node to a different slot', () => {
     const registry = testRegistry();
     const { doc, textNodeId, containerSlotId, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: textNodeId,
       targetSlotId: containerSlotId,
       index: 0,
@@ -563,14 +563,14 @@ describe("MoveNode", () => {
     expect(engine.doc.slots[containerSlotId].children).toContain(textNodeId);
   });
 
-  it("reorders within the same slot", () => {
+  it('reorders within the same slot', () => {
     const registry = testRegistry();
     const { doc, textNodeId, containerNodeId, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     // Text is at index 0, container at index 1. Move text to end.
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: textNodeId,
       targetSlotId: rootSlotId,
       index: 1,
@@ -582,20 +582,20 @@ describe("MoveNode", () => {
     expect(children[1]).toBe(textNodeId);
   });
 
-  it("detects cycles (cannot move parent into child)", () => {
+  it('detects cycles (cannot move parent into child)', () => {
     const registry = testRegistry();
     const { doc, containerNodeId, containerSlotId, rootSlotId } = createTestDocumentWithChildren();
 
     // Add a nested container inside the first container
-    const innerContainerId = nodeId("inner-container");
-    const innerSlotId = slotId("inner-slot");
+    const innerContainerId = nodeId('inner-container');
+    const innerSlotId = slotId('inner-slot');
     const modifiedDoc: TemplateDocument = {
       ...doc,
       nodes: {
         ...doc.nodes,
         [innerContainerId]: {
           id: innerContainerId,
-          type: "container",
+          type: 'container',
           slots: [innerSlotId],
         },
       },
@@ -608,7 +608,7 @@ describe("MoveNode", () => {
         [innerSlotId]: {
           id: innerSlotId,
           nodeId: innerContainerId,
-          name: "children",
+          name: 'children',
           children: [],
         },
       },
@@ -618,7 +618,7 @@ describe("MoveNode", () => {
 
     // Try to move the outer container into the inner container's slot
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: containerNodeId,
       targetSlotId: innerSlotId,
       index: 0,
@@ -626,17 +626,17 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("cycle");
+      expect(result.error).toContain('cycle');
     }
   });
 
-  it("rejects moving into itself", () => {
+  it('rejects moving into itself', () => {
     const registry = testRegistry();
     const { doc, containerNodeId, containerSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: containerNodeId,
       targetSlotId: containerSlotId,
       index: 0,
@@ -644,17 +644,17 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("itself");
+      expect(result.error).toContain('itself');
     }
   });
 
-  it("rejects moving the root node", () => {
+  it('rejects moving the root node', () => {
     const registry = testRegistry();
     const { doc, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: doc.root,
       targetSlotId: rootSlotId,
       index: 0,
@@ -662,18 +662,18 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("root");
+      expect(result.error).toContain('root');
     }
   });
 
-  it("rejects moving page header", () => {
+  it('rejects moving page header', () => {
     const registry = testRegistry();
     const { doc, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    const header = registry.createNode("pageheader");
+    const header = registry.createNode('pageheader');
     const insert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: header.node,
       slots: header.slots,
       targetSlotId: rootSlotId,
@@ -682,7 +682,7 @@ describe("MoveNode", () => {
     expect(insert.ok).toBe(true);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: header.node.id,
       targetSlotId: rootSlotId,
       index: 1,
@@ -690,18 +690,18 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("cannot be moved");
+      expect(result.error).toContain('cannot be moved');
     }
   });
 
-  it("rejects moving page footer", () => {
+  it('rejects moving page footer', () => {
     const registry = testRegistry();
     const { doc, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    const footer = registry.createNode("pagefooter");
+    const footer = registry.createNode('pagefooter');
     const insert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: footer.node,
       slots: footer.slots,
       targetSlotId: rootSlotId,
@@ -710,7 +710,7 @@ describe("MoveNode", () => {
     expect(insert.ok).toBe(true);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: footer.node.id,
       targetSlotId: rootSlotId,
       index: 0,
@@ -718,18 +718,18 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("cannot be moved");
+      expect(result.error).toContain('cannot be moved');
     }
   });
 
-  it("rejects moving content before anchored page header", () => {
+  it('rejects moving content before anchored page header', () => {
     const registry = testRegistry();
     const { doc, rootSlotId, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    const header = registry.createNode("pageheader");
+    const header = registry.createNode('pageheader');
     const insert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: header.node,
       slots: header.slots,
       targetSlotId: rootSlotId,
@@ -738,7 +738,7 @@ describe("MoveNode", () => {
     expect(insert.ok).toBe(true);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: textNodeId,
       targetSlotId: rootSlotId,
       index: 0,
@@ -746,18 +746,18 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("before the page header");
+      expect(result.error).toContain('before the page header');
     }
   });
 
-  it("rejects moving content after anchored page footer", () => {
+  it('rejects moving content after anchored page footer', () => {
     const registry = testRegistry();
     const { doc, rootSlotId, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    const footer = registry.createNode("pagefooter");
+    const footer = registry.createNode('pagefooter');
     const insert = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: footer.node,
       slots: footer.slots,
       targetSlotId: rootSlotId,
@@ -766,7 +766,7 @@ describe("MoveNode", () => {
     expect(insert.ok).toBe(true);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: textNodeId,
       targetSlotId: rootSlotId,
       index: Number.MAX_SAFE_INTEGER,
@@ -774,21 +774,21 @@ describe("MoveNode", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("after the page footer");
+      expect(result.error).toContain('after the page footer');
     }
   });
 
-  it("allows moving content between anchored page header and footer", () => {
+  it('allows moving content between anchored page header and footer', () => {
     const registry = testRegistry();
     const { doc, rootSlotId, textNodeId, containerNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    const header = registry.createNode("pageheader");
-    const footer = registry.createNode("pagefooter");
+    const header = registry.createNode('pageheader');
+    const footer = registry.createNode('pagefooter');
 
     expect(
       engine.dispatch({
-        type: "InsertNode",
+        type: 'InsertNode',
         node: header.node,
         slots: header.slots,
         targetSlotId: rootSlotId,
@@ -798,7 +798,7 @@ describe("MoveNode", () => {
 
     expect(
       engine.dispatch({
-        type: "InsertNode",
+        type: 'InsertNode',
         node: footer.node,
         slots: footer.slots,
         targetSlotId: rootSlotId,
@@ -807,7 +807,7 @@ describe("MoveNode", () => {
     ).toBe(true);
 
     const result = engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: containerNodeId,
       targetSlotId: rootSlotId,
       index: 1,
@@ -826,32 +826,32 @@ describe("MoveNode", () => {
 // UpdateNodeProps
 // ---------------------------------------------------------------------------
 
-describe("UpdateNodeProps", () => {
-  it("updates props on a node", () => {
+describe('UpdateNodeProps', () => {
+  it('updates props on a node', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: textNodeId,
-      props: { content: { type: "doc", content: [] } },
+      props: { content: { type: 'doc', content: [] } },
     });
 
     expect(result.ok).toBe(true);
     expect(engine.doc.nodes[textNodeId].props).toEqual({
-      content: { type: "doc", content: [] },
+      content: { type: 'doc', content: [] },
     });
   });
 
-  it("rejects updating non-existent node", () => {
+  it('rejects updating non-existent node', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "UpdateNodeProps",
-      nodeId: nodeId("nonexistent"),
+      type: 'UpdateNodeProps',
+      nodeId: nodeId('nonexistent'),
       props: { content: null },
     });
 
@@ -863,22 +863,22 @@ describe("UpdateNodeProps", () => {
 // UpdateNodeStyles
 // ---------------------------------------------------------------------------
 
-describe("UpdateNodeStyles", () => {
-  it("sets styles on a node", () => {
+describe('UpdateNodeStyles', () => {
+  it('sets styles on a node', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "UpdateNodeStyles",
+      type: 'UpdateNodeStyles',
       nodeId: textNodeId,
-      styles: { color: "#ff0000", fontSize: "16px" },
+      styles: { color: '#ff0000', fontSize: '16px' },
     });
 
     expect(result.ok).toBe(true);
     expect(engine.doc.nodes[textNodeId].styles).toEqual({
-      color: "#ff0000",
-      fontSize: "16px",
+      color: '#ff0000',
+      fontSize: '16px',
     });
   });
 });
@@ -887,17 +887,17 @@ describe("UpdateNodeStyles", () => {
 // AddColumnSlot / RemoveColumnSlot
 // ---------------------------------------------------------------------------
 
-describe("AddColumnSlot", () => {
-  it("adds a column slot to a columns node", () => {
+describe('AddColumnSlot', () => {
+  it('adds a column slot to a columns node', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert a columns node
-    const { node: columnsNode, slots: columnsSlots } = registry.createNode("columns");
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: columnsNode,
       slots: columnsSlots,
       targetSlotId: rootSlotId,
@@ -909,7 +909,7 @@ describe("AddColumnSlot", () => {
 
     // Add a third column
     const result = engine.dispatch({
-      type: "AddColumnSlot",
+      type: 'AddColumnSlot',
       nodeId: columnsNode.id,
       size: 2,
     });
@@ -923,38 +923,38 @@ describe("AddColumnSlot", () => {
     const newSlotId = updatedNode.slots[2];
     const newSlot = engine.doc.slots[newSlotId];
     expect(newSlot).toBeDefined();
-    expect(newSlot.name).toBe("column-2");
+    expect(newSlot.name).toBe('column-2');
     expect(newSlot.nodeId).toBe(columnsNode.id);
     expect(newSlot.children).toEqual([]);
   });
 
-  it("rejects adding to non-columns node", () => {
+  it('rejects adding to non-columns node', () => {
     const registry = createDefaultRegistry();
     const { doc, containerNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "AddColumnSlot",
+      type: 'AddColumnSlot',
       nodeId: containerNodeId,
       size: 1,
     });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("columns");
+    if (!result.ok) expect(result.error).toContain('columns');
   });
 });
 
-describe("RemoveColumnSlot", () => {
-  it("removes the last column slot", () => {
+describe('RemoveColumnSlot', () => {
+  it('removes the last column slot', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert a columns node (starts with 2 columns)
-    const { node: columnsNode, slots: columnsSlots } = registry.createNode("columns");
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: columnsNode,
       slots: columnsSlots,
       targetSlotId: rootSlotId,
@@ -963,7 +963,7 @@ describe("RemoveColumnSlot", () => {
 
     // Add a third column
     engine.dispatch({
-      type: "AddColumnSlot",
+      type: 'AddColumnSlot',
       nodeId: columnsNode.id,
       size: 2,
     });
@@ -971,7 +971,7 @@ describe("RemoveColumnSlot", () => {
 
     // Remove the last column
     const result = engine.dispatch({
-      type: "RemoveColumnSlot",
+      type: 'RemoveColumnSlot',
       nodeId: columnsNode.id,
     });
 
@@ -981,16 +981,16 @@ describe("RemoveColumnSlot", () => {
     expect(updatedNode.props?.columnSizes).toEqual([1, 1]);
   });
 
-  it("rejects removing the last remaining column", () => {
+  it('rejects removing the last remaining column', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert a columns node (2 columns)
-    const { node: columnsNode, slots: columnsSlots } = registry.createNode("columns");
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: columnsNode,
       slots: columnsSlots,
       targetSlotId: rootSlotId,
@@ -998,25 +998,25 @@ describe("RemoveColumnSlot", () => {
     });
 
     // Remove one column (leaving 1)
-    engine.dispatch({ type: "RemoveColumnSlot", nodeId: columnsNode.id });
+    engine.dispatch({ type: 'RemoveColumnSlot', nodeId: columnsNode.id });
 
     // Try to remove the last one
-    const result = engine.dispatch({ type: "RemoveColumnSlot", nodeId: columnsNode.id });
+    const result = engine.dispatch({ type: 'RemoveColumnSlot', nodeId: columnsNode.id });
 
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("last column");
+    if (!result.ok) expect(result.error).toContain('last column');
   });
 
-  it("removes children in the removed column slot", () => {
+  it('removes children in the removed column slot', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert columns
-    const { node: columnsNode, slots: columnsSlots } = registry.createNode("columns");
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: columnsNode,
       slots: columnsSlots,
       targetSlotId: rootSlotId,
@@ -1025,9 +1025,9 @@ describe("RemoveColumnSlot", () => {
 
     // Insert a text node into the second column
     const secondSlotId = engine.doc.nodes[columnsNode.id].slots[1];
-    const { node: textNode, slots: textSlots } = registry.createNode("text");
+    const { node: textNode, slots: textSlots } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: textNode,
       slots: textSlots,
       targetSlotId: secondSlotId,
@@ -1037,7 +1037,7 @@ describe("RemoveColumnSlot", () => {
 
     // Remove the second column
     const result = engine.dispatch({
-      type: "RemoveColumnSlot",
+      type: 'RemoveColumnSlot',
       nodeId: columnsNode.id,
     });
 
@@ -1046,16 +1046,16 @@ describe("RemoveColumnSlot", () => {
     expect(engine.doc.slots[secondSlotId]).toBeUndefined();
   });
 
-  it("undo restores the removed column with its children", () => {
+  it('undo restores the removed column with its children', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert columns
-    const { node: columnsNode, slots: columnsSlots } = registry.createNode("columns");
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: columnsNode,
       slots: columnsSlots,
       targetSlotId: rootSlotId,
@@ -1064,9 +1064,9 @@ describe("RemoveColumnSlot", () => {
 
     // Insert a text node into the second column
     const secondSlotId = engine.doc.nodes[columnsNode.id].slots[1];
-    const { node: textNode, slots: textSlots } = registry.createNode("text");
+    const { node: textNode, slots: textSlots } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: textNode,
       slots: textSlots,
       targetSlotId: secondSlotId,
@@ -1074,7 +1074,7 @@ describe("RemoveColumnSlot", () => {
     });
 
     // Remove the second column
-    engine.dispatch({ type: "RemoveColumnSlot", nodeId: columnsNode.id });
+    engine.dispatch({ type: 'RemoveColumnSlot', nodeId: columnsNode.id });
     expect(engine.doc.nodes[textNode.id]).toBeUndefined();
 
     // Undo
@@ -1089,16 +1089,16 @@ describe("RemoveColumnSlot", () => {
     expect(engine.doc.slots[secondSlotId].children).toContain(textNode.id);
   });
 
-  it("undo/redo cycle for AddColumnSlot", () => {
+  it('undo/redo cycle for AddColumnSlot', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert columns
-    const { node: columnsNode, slots: columnsSlots } = registry.createNode("columns");
+    const { node: columnsNode, slots: columnsSlots } = registry.createNode('columns');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: columnsNode,
       slots: columnsSlots,
       targetSlotId: rootSlotId,
@@ -1107,7 +1107,7 @@ describe("RemoveColumnSlot", () => {
 
     // Add a third column
     engine.dispatch({
-      type: "AddColumnSlot",
+      type: 'AddColumnSlot',
       nodeId: columnsNode.id,
       size: 3,
     });
@@ -1129,23 +1129,23 @@ describe("RemoveColumnSlot", () => {
 // SetStylePreset
 // ---------------------------------------------------------------------------
 
-describe("SetStylePreset", () => {
-  it("sets a style preset on a node", () => {
+describe('SetStylePreset', () => {
+  it('sets a style preset on a node', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "SetStylePreset",
+      type: 'SetStylePreset',
       nodeId: textNodeId,
-      stylePreset: "heading-1",
+      stylePreset: 'heading-1',
     });
 
     expect(result.ok).toBe(true);
-    expect(engine.doc.nodes[textNodeId].stylePreset).toBe("heading-1");
+    expect(engine.doc.nodes[textNodeId].stylePreset).toBe('heading-1');
   });
 
-  it("clears a style preset", () => {
+  it('clears a style preset', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
 
@@ -1156,14 +1156,14 @@ describe("SetStylePreset", () => {
         ...doc.nodes,
         [textNodeId]: {
           ...doc.nodes[textNodeId],
-          stylePreset: "heading-1",
+          stylePreset: 'heading-1',
         },
       },
     };
 
     const engine = new EditorEngine(docWithPreset, registry);
     const result = engine.dispatch({
-      type: "SetStylePreset",
+      type: 'SetStylePreset',
       nodeId: textNodeId,
       stylePreset: undefined,
     });
@@ -1177,43 +1177,43 @@ describe("SetStylePreset", () => {
 // UpdateDocumentStyles / UpdatePageSettings
 // ---------------------------------------------------------------------------
 
-describe("UpdateDocumentStyles", () => {
-  it("sets document styles", () => {
+describe('UpdateDocumentStyles', () => {
+  it('sets document styles', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "UpdateDocumentStyles",
-      styles: { fontFamily: "Inter", fontSize: "14px" },
+      type: 'UpdateDocumentStyles',
+      styles: { fontFamily: 'Inter', fontSize: '14px' },
     });
 
     expect(result.ok).toBe(true);
     expect(engine.doc.documentStylesOverride).toEqual({
-      fontFamily: "Inter",
-      fontSize: "14px",
+      fontFamily: 'Inter',
+      fontSize: '14px',
     });
   });
 });
 
-describe("UpdatePageSettings", () => {
-  it("sets page settings", () => {
+describe('UpdatePageSettings', () => {
+  it('sets page settings', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     const result = engine.dispatch({
-      type: "UpdatePageSettings",
+      type: 'UpdatePageSettings',
       settings: {
-        format: "Letter",
-        orientation: "landscape",
+        format: 'Letter',
+        orientation: 'landscape',
         margins: { top: 10, right: 10, bottom: 10, left: 10 },
       },
     });
 
     expect(result.ok).toBe(true);
-    expect(engine.doc.pageSettingsOverride?.format).toBe("Letter");
-    expect(engine.doc.pageSettingsOverride?.orientation).toBe("landscape");
+    expect(engine.doc.pageSettingsOverride?.format).toBe('Letter');
+    expect(engine.doc.pageSettingsOverride?.orientation).toBe('landscape');
   });
 });
 
@@ -1221,16 +1221,16 @@ describe("UpdatePageSettings", () => {
 // Undo / Redo
 // ---------------------------------------------------------------------------
 
-describe("Undo / Redo", () => {
-  it("undoes an InsertNode", () => {
+describe('Undo / Redo', () => {
+  it('undoes an InsertNode', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
-    const { node, slots } = registry.createNode("text");
+    const { node, slots } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -1246,15 +1246,15 @@ describe("Undo / Redo", () => {
     expect(engine.doc.slots[rootSlotId].children).not.toContain(node.id);
   });
 
-  it("redoes after undo", () => {
+  it('redoes after undo', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
-    const { node, slots } = registry.createNode("text");
+    const { node, slots } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -1271,12 +1271,12 @@ describe("Undo / Redo", () => {
     expect(engine.doc.slots[rootSlotId].children).toContain(node.id);
   });
 
-  it("undoes a RemoveNode (restores subtree)", () => {
+  it('undoes a RemoveNode (restores subtree)', () => {
     const registry = testRegistry();
     const { doc, textNodeId, rootSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    engine.dispatch({ type: "RemoveNode", nodeId: textNodeId });
+    engine.dispatch({ type: 'RemoveNode', nodeId: textNodeId });
     expect(engine.doc.nodes[textNodeId]).toBeUndefined();
 
     engine.undo();
@@ -1284,13 +1284,13 @@ describe("Undo / Redo", () => {
     expect(engine.doc.slots[rootSlotId].children).toContain(textNodeId);
   });
 
-  it("undoes a MoveNode", () => {
+  it('undoes a MoveNode', () => {
     const registry = testRegistry();
     const { doc, textNodeId, rootSlotId, containerSlotId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId: textNodeId,
       targetSlotId: containerSlotId,
       index: 0,
@@ -1304,7 +1304,7 @@ describe("Undo / Redo", () => {
     expect(engine.doc.slots[containerSlotId].children).not.toContain(textNodeId);
   });
 
-  it("undoes UpdateNodeProps", () => {
+  it('undoes UpdateNodeProps', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1312,9 +1312,9 @@ describe("Undo / Redo", () => {
     const originalProps = engine.doc.nodes[textNodeId].props;
 
     engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: textNodeId,
-      props: { content: { type: "doc", content: [] } },
+      props: { content: { type: 'doc', content: [] } },
     });
 
     engine.undo();
@@ -1322,15 +1322,15 @@ describe("Undo / Redo", () => {
     expect(engine.doc.nodes[textNodeId].props).toEqual(originalProps);
   });
 
-  it("clears redo stack on new dispatch", () => {
+  it('clears redo stack on new dispatch', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
-    const { node: n1, slots: s1 } = registry.createNode("text");
+    const { node: n1, slots: s1 } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: n1,
       slots: s1,
       targetSlotId: rootSlotId,
@@ -1340,9 +1340,9 @@ describe("Undo / Redo", () => {
     expect(engine.canRedo).toBe(true);
 
     // New action clears redo
-    const { node: n2, slots: s2 } = registry.createNode("text");
+    const { node: n2, slots: s2 } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: n2,
       slots: s2,
       targetSlotId: rootSlotId,
@@ -1351,7 +1351,7 @@ describe("Undo / Redo", () => {
     expect(engine.canRedo).toBe(false);
   });
 
-  it("reports canUndo/canRedo correctly", () => {
+  it('reports canUndo/canRedo correctly', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -1360,8 +1360,8 @@ describe("Undo / Redo", () => {
     expect(engine.canRedo).toBe(false);
 
     const rootSlotId = doc.nodes[doc.root].slots[0];
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
 
     expect(engine.canUndo).toBe(true);
     expect(engine.canRedo).toBe(false);
@@ -1377,8 +1377,8 @@ describe("Undo / Redo", () => {
 // Subscription
 // ---------------------------------------------------------------------------
 
-describe("Subscription", () => {
-  it("notifies listeners on dispatch", () => {
+describe('Subscription', () => {
+  it('notifies listeners on dispatch', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -1389,13 +1389,13 @@ describe("Subscription", () => {
       notified = true;
     });
 
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
 
     expect(notified).toBe(true);
   });
 
-  it("does not notify on failed dispatch", () => {
+  it('does not notify on failed dispatch', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -1405,12 +1405,12 @@ describe("Subscription", () => {
       notified = true;
     });
 
-    engine.dispatch({ type: "RemoveNode", nodeId: nodeId("nonexistent") });
+    engine.dispatch({ type: 'RemoveNode', nodeId: nodeId('nonexistent') });
 
     expect(notified).toBe(false);
   });
 
-  it("unsubscribe stops notifications", () => {
+  it('unsubscribe stops notifications', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -1421,9 +1421,9 @@ describe("Subscription", () => {
       count++;
     });
 
-    const { node: n1, slots: s1 } = registry.createNode("text");
+    const { node: n1, slots: s1 } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: n1,
       slots: s1,
       targetSlotId: rootSlotId,
@@ -1433,9 +1433,9 @@ describe("Subscription", () => {
 
     unsub();
 
-    const { node: n2, slots: s2 } = registry.createNode("text");
+    const { node: n2, slots: s2 } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: n2,
       slots: s2,
       targetSlotId: rootSlotId,
@@ -1444,23 +1444,23 @@ describe("Subscription", () => {
     expect(count).toBe(1);
   });
 
-  it("emits doc:change metadata for structural commands", () => {
+  it('emits doc:change metadata for structural commands', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     let lastEvent: { structureChanged: boolean; commandType?: string } | null = null;
-    engine.events.on("doc:change", (event) => {
+    engine.events.on('doc:change', (event) => {
       lastEvent = {
         structureChanged: event.structureChanged,
         commandType: event.commandType,
       };
     });
 
-    const { node, slots } = registry.createNode("text");
+    const { node, slots } = registry.createNode('text');
     const result = engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: rootSlotId,
@@ -1468,16 +1468,16 @@ describe("Subscription", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(lastEvent).toEqual({ structureChanged: true, commandType: "InsertNode" });
+    expect(lastEvent).toEqual({ structureChanged: true, commandType: 'InsertNode' });
   });
 
-  it("emits doc:change metadata for non-structural commands", () => {
+  it('emits doc:change metadata for non-structural commands', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     let lastEvent: { structureChanged: boolean; commandType?: string } | null = null;
-    engine.events.on("doc:change", (event) => {
+    engine.events.on('doc:change', (event) => {
       lastEvent = {
         structureChanged: event.structureChanged,
         commandType: event.commandType,
@@ -1485,23 +1485,23 @@ describe("Subscription", () => {
     });
 
     const result = engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: textNodeId,
-      props: { content: { type: "doc", content: [] } },
+      props: { content: { type: 'doc', content: [] } },
     });
 
     expect(result.ok).toBe(true);
-    expect(lastEvent).toEqual({ structureChanged: false, commandType: "UpdateNodeProps" });
+    expect(lastEvent).toEqual({ structureChanged: false, commandType: 'UpdateNodeProps' });
   });
 
-  it("emits doc:change metadata for replaceDocument", () => {
+  it('emits doc:change metadata for replaceDocument', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const replacement = createTestDocumentWithChildren().doc;
 
     let lastEvent: { structureChanged: boolean; commandType?: string } | null = null;
-    engine.events.on("doc:change", (event) => {
+    engine.events.on('doc:change', (event) => {
       lastEvent = {
         structureChanged: event.structureChanged,
         commandType: event.commandType,
@@ -1510,7 +1510,7 @@ describe("Subscription", () => {
 
     engine.replaceDocument(replacement);
 
-    expect(lastEvent).toEqual({ structureChanged: true, commandType: "ReplaceDocument" });
+    expect(lastEvent).toEqual({ structureChanged: true, commandType: 'ReplaceDocument' });
   });
 });
 
@@ -1518,8 +1518,8 @@ describe("Subscription", () => {
 // Selection
 // ---------------------------------------------------------------------------
 
-describe("Selection", () => {
-  it("selects and deselects nodes", () => {
+describe('Selection', () => {
+  it('selects and deselects nodes', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1533,7 +1533,7 @@ describe("Selection", () => {
     expect(engine.selectedNodeId).toBeNull();
   });
 
-  it("notifies selection listeners", () => {
+  it('notifies selection listeners', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1547,7 +1547,7 @@ describe("Selection", () => {
     expect(selections).toEqual([textNodeId, null]);
   });
 
-  it("does not fire on same selection", () => {
+  it('does not fire on same selection', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1568,15 +1568,15 @@ describe("Selection", () => {
 // replaceDocument
 // ---------------------------------------------------------------------------
 
-describe("replaceDocument", () => {
-  it("replaces the document and clears undo stack", () => {
+describe('replaceDocument', () => {
+  it('replaces the document and clears undo stack', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
     expect(engine.canUndo).toBe(true);
 
     const newDoc = createTestDocument();
@@ -1592,96 +1592,96 @@ describe("replaceDocument", () => {
 // Registry
 // ---------------------------------------------------------------------------
 
-describe("ComponentRegistry", () => {
-  it("registers and retrieves component definitions", () => {
+describe('ComponentRegistry', () => {
+  it('registers and retrieves component definitions', () => {
     const registry = createDefaultRegistry();
 
-    expect(registry.has("text")).toBe(true);
-    expect(registry.has("container")).toBe(true);
-    expect(registry.has("columns")).toBe(true);
-    expect(registry.has("table")).toBe(true);
-    expect(registry.has("conditional")).toBe(true);
-    expect(registry.has("loop")).toBe(true);
-    expect(registry.has("pagebreak")).toBe(true);
-    expect(registry.has("pageheader")).toBe(true);
-    expect(registry.has("pagefooter")).toBe(true);
-    expect(registry.has("root")).toBe(true);
+    expect(registry.has('text')).toBe(true);
+    expect(registry.has('container')).toBe(true);
+    expect(registry.has('columns')).toBe(true);
+    expect(registry.has('table')).toBe(true);
+    expect(registry.has('conditional')).toBe(true);
+    expect(registry.has('loop')).toBe(true);
+    expect(registry.has('pagebreak')).toBe(true);
+    expect(registry.has('pageheader')).toBe(true);
+    expect(registry.has('pagefooter')).toBe(true);
+    expect(registry.has('root')).toBe(true);
   });
 
-  it("canContain respects allowlist", () => {
+  it('canContain respects allowlist', () => {
     const registry = new ComponentRegistry();
     registry.register({
-      type: "parent",
-      label: "Parent",
-      category: "layout",
-      slots: [{ name: "children" }],
-      allowedChildren: { mode: "allowlist", types: ["text"] },
-      applicableStyles: "all",
+      type: 'parent',
+      label: 'Parent',
+      category: 'layout',
+      slots: [{ name: 'children' }],
+      allowedChildren: { mode: 'allowlist', types: ['text'] },
+      applicableStyles: 'all',
       inspector: [],
     });
 
-    expect(registry.canContain("parent", "text")).toBe(true);
-    expect(registry.canContain("parent", "container")).toBe(false);
+    expect(registry.canContain('parent', 'text')).toBe(true);
+    expect(registry.canContain('parent', 'container')).toBe(false);
   });
 
-  it("canContain respects denylist", () => {
+  it('canContain respects denylist', () => {
     const registry = new ComponentRegistry();
     registry.register({
-      type: "parent",
-      label: "Parent",
-      category: "layout",
-      slots: [{ name: "children" }],
-      allowedChildren: { mode: "denylist", types: ["pagebreak"] },
-      applicableStyles: "all",
+      type: 'parent',
+      label: 'Parent',
+      category: 'layout',
+      slots: [{ name: 'children' }],
+      allowedChildren: { mode: 'denylist', types: ['pagebreak'] },
+      applicableStyles: 'all',
       inspector: [],
     });
 
-    expect(registry.canContain("parent", "text")).toBe(true);
-    expect(registry.canContain("parent", "pagebreak")).toBe(false);
+    expect(registry.canContain('parent', 'text')).toBe(true);
+    expect(registry.canContain('parent', 'pagebreak')).toBe(false);
   });
 
-  it("canContain returns false for none mode", () => {
+  it('canContain returns false for none mode', () => {
     const registry = createDefaultRegistry();
-    expect(registry.canContain("text", "text")).toBe(false); // text has mode: none
+    expect(registry.canContain('text', 'text')).toBe(false); // text has mode: none
   });
 
-  it("createNode produces node + slots", () => {
+  it('createNode produces node + slots', () => {
     const registry = createDefaultRegistry();
-    const { node, slots } = registry.createNode("container");
+    const { node, slots } = registry.createNode('container');
 
-    expect(node.type).toBe("container");
+    expect(node.type).toBe('container');
     expect(node.id).toBeTruthy();
     expect(node.slots).toHaveLength(1);
     expect(slots).toHaveLength(1);
     expect(slots[0].nodeId).toBe(node.id);
-    expect(slots[0].name).toBe("children");
+    expect(slots[0].name).toBe('children');
   });
 
-  it("createNode uses createInitialSlots for columns", () => {
+  it('createNode uses createInitialSlots for columns', () => {
     const registry = createDefaultRegistry();
-    const { node, slots } = registry.createNode("columns");
+    const { node, slots } = registry.createNode('columns');
 
     // columns now uses createInitialSlots to create 2 slots matching defaultProps.columnSizes
     expect(slots).toHaveLength(2);
     expect(node.slots).toHaveLength(2);
-    expect(slots[0].name).toBe("column-0");
-    expect(slots[1].name).toBe("column-1");
+    expect(slots[0].name).toBe('column-0');
+    expect(slots[1].name).toBe('column-1');
     expect(slots[0].nodeId).toBe(node.id);
     expect(node.props?.columnSizes).toEqual([1, 1]);
   });
 
-  it("throws for unknown type", () => {
+  it('throws for unknown type', () => {
     const registry = createDefaultRegistry();
-    expect(() => registry.createNode("nonexistent")).toThrow("Unknown component type");
+    expect(() => registry.createNode('nonexistent')).toThrow('Unknown component type');
   });
 
-  it("insertable(document) respects singleton page block limits", () => {
+  it('insertable(document) respects singleton page block limits', () => {
     const registry = createDefaultRegistry();
     const doc = createTestDocument();
     const rootSlotId = doc.nodes[doc.root].slots[0];
-    if (!rootSlotId) throw new Error("Root slot missing");
+    if (!rootSlotId) throw new Error('Root slot missing');
 
-    const header = registry.createNode("pageheader");
+    const header = registry.createNode('pageheader');
     doc.nodes[header.node.id] = header.node;
     for (const slot of header.slots) {
       doc.slots[slot.id] = slot;
@@ -1689,8 +1689,8 @@ describe("ComponentRegistry", () => {
     doc.slots[rootSlotId].children.push(header.node.id);
 
     const insertableTypes = new Set(registry.insertable(doc).map((def) => def.type));
-    expect(insertableTypes.has("pageheader")).toBe(false);
-    expect(insertableTypes.has("pagefooter")).toBe(true);
+    expect(insertableTypes.has('pageheader')).toBe(false);
+    expect(insertableTypes.has('pagefooter')).toBe(true);
   });
 });
 
@@ -1698,27 +1698,27 @@ describe("ComponentRegistry", () => {
 // Deep freeze (immutability)
 // ---------------------------------------------------------------------------
 
-describe("Immutability", () => {
-  it("document state is frozen", () => {
+describe('Immutability', () => {
+  it('document state is frozen', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     expect(() => {
-      (engine.doc as Record<string, unknown>).root = "hacked" as NodeId;
+      (engine.doc as Record<string, unknown>).root = 'hacked' as NodeId;
     }).toThrow();
   });
 
-  it("modifying input doc does not affect engine state", () => {
+  it('modifying input doc does not affect engine state', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
     // Mutate the original doc
-    doc.root = "hacked" as NodeId;
+    doc.root = 'hacked' as NodeId;
 
     // Engine should be unaffected (structuredClone in constructor)
-    expect(engine.doc.root).not.toBe("hacked");
+    expect(engine.doc.root).not.toBe('hacked');
   });
 });
 
@@ -1726,8 +1726,8 @@ describe("Immutability", () => {
 // structureChanged — conditional index rebuild
 // ---------------------------------------------------------------------------
 
-describe("structureChanged flag", () => {
-  it("rebuilds indexes after InsertNode (new reference)", () => {
+describe('structureChanged flag', () => {
+  it('rebuilds indexes after InsertNode (new reference)', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -1735,13 +1735,13 @@ describe("structureChanged flag", () => {
 
     const indexesBefore = engine.indexes;
 
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
 
     expect(engine.indexes).not.toBe(indexesBefore);
   });
 
-  it("skips index rebuild after UpdateNodeProps (same reference)", () => {
+  it('skips index rebuild after UpdateNodeProps (same reference)', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1749,15 +1749,15 @@ describe("structureChanged flag", () => {
     const indexesBefore = engine.indexes;
 
     engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: textNodeId,
-      props: { content: { type: "doc", content: [] } },
+      props: { content: { type: 'doc', content: [] } },
     });
 
     expect(engine.indexes).toBe(indexesBefore);
   });
 
-  it("skips index rebuild after UpdateNodeStyles (same reference)", () => {
+  it('skips index rebuild after UpdateNodeStyles (same reference)', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1765,15 +1765,15 @@ describe("structureChanged flag", () => {
     const indexesBefore = engine.indexes;
 
     engine.dispatch({
-      type: "UpdateNodeStyles",
+      type: 'UpdateNodeStyles',
       nodeId: textNodeId,
-      styles: { color: "#ff0000" },
+      styles: { color: '#ff0000' },
     });
 
     expect(engine.indexes).toBe(indexesBefore);
   });
 
-  it("skips index rebuild after UpdateDocumentStyles (same reference)", () => {
+  it('skips index rebuild after UpdateDocumentStyles (same reference)', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -1781,21 +1781,21 @@ describe("structureChanged flag", () => {
     const indexesBefore = engine.indexes;
 
     engine.dispatch({
-      type: "UpdateDocumentStyles",
-      styles: { fontFamily: "Inter" },
+      type: 'UpdateDocumentStyles',
+      styles: { fontFamily: 'Inter' },
     });
 
     expect(engine.indexes).toBe(indexesBefore);
   });
 
-  it("rebuilds indexes after RemoveNode (new reference)", () => {
+  it('rebuilds indexes after RemoveNode (new reference)', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     const indexesBefore = engine.indexes;
 
-    engine.dispatch({ type: "RemoveNode", nodeId: textNodeId });
+    engine.dispatch({ type: 'RemoveNode', nodeId: textNodeId });
 
     expect(engine.indexes).not.toBe(indexesBefore);
   });
@@ -1805,17 +1805,17 @@ describe("structureChanged flag", () => {
 // skipUndo + pushTextChange
 // ---------------------------------------------------------------------------
 
-describe("skipUndo option", () => {
-  it("does not push to undo stack when skipUndo is true", () => {
+describe('skipUndo option', () => {
+  it('does not push to undo stack when skipUndo is true', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     engine.dispatch(
       {
-        type: "UpdateNodeProps",
+        type: 'UpdateNodeProps',
         nodeId: textNodeId,
-        props: { content: { type: "doc", content: [] } },
+        props: { content: { type: 'doc', content: [] } },
       },
       { skipUndo: true },
     );
@@ -1823,7 +1823,7 @@ describe("skipUndo option", () => {
     expect(engine.canUndo).toBe(false);
   });
 
-  it("still updates doc and notifies listeners when skipUndo is true", () => {
+  it('still updates doc and notifies listeners when skipUndo is true', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1835,23 +1835,23 @@ describe("skipUndo option", () => {
 
     const result = engine.dispatch(
       {
-        type: "UpdateNodeProps",
+        type: 'UpdateNodeProps',
         nodeId: textNodeId,
-        props: { content: { type: "doc", content: [] } },
+        props: { content: { type: 'doc', content: [] } },
       },
       { skipUndo: true },
     );
 
     expect(result.ok).toBe(true);
     expect(engine.doc.nodes[textNodeId].props).toEqual({
-      content: { type: "doc", content: [] },
+      content: { type: 'doc', content: [] },
     });
     expect(notified).toBe(true);
   });
 });
 
-describe("pushTextChange", () => {
-  it("makes canUndo true", () => {
+describe('pushTextChange', () => {
+  it('makes canUndo true', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1863,15 +1863,15 @@ describe("pushTextChange", () => {
     expect(engine.canUndo).toBe(true);
   });
 
-  it("clears the redo stack", () => {
+  it('clears the redo stack', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Create redo history
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
     engine.undo();
     expect(engine.canRedo).toBe(true);
 
@@ -1881,7 +1881,7 @@ describe("pushTextChange", () => {
     expect(engine.canRedo).toBe(false);
   });
 
-  it("peekUndo returns the pushed TextChange entry", () => {
+  it('peekUndo returns the pushed TextChange entry', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -1899,24 +1899,24 @@ describe("pushTextChange", () => {
 // Data examples
 // ---------------------------------------------------------------------------
 
-describe("Data examples", () => {
+describe('Data examples', () => {
   const examples = [
-    { name: "Example 1", value: 100 },
-    { name: "Example 2", value: 200 },
-    { name: "Example 3", value: 300 },
+    { name: 'Example 1', value: 100 },
+    { name: 'Example 2', value: 200 },
+    { name: 'Example 3', value: 300 },
   ];
 
-  it("stores dataModel and dataExamples from options", () => {
+  it('stores dataModel and dataExamples from options', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
-    const dataModel = { type: "object", properties: { name: { type: "string" } } };
+    const dataModel = { type: 'object', properties: { name: { type: 'string' } } };
     const engine = new EditorEngine(doc, registry, { dataModel, dataExamples: examples });
 
     expect(engine.dataModel).toBe(dataModel);
     expect(engine.dataExamples).toBe(examples);
   });
 
-  it("defaults currentExampleIndex to 0", () => {
+  it('defaults currentExampleIndex to 0', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
@@ -1925,7 +1925,7 @@ describe("Data examples", () => {
     expect(engine.currentExample).toBe(examples[0]);
   });
 
-  it("setCurrentExample switches the active example", () => {
+  it('setCurrentExample switches the active example', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
@@ -1935,7 +1935,7 @@ describe("Data examples", () => {
     expect(engine.currentExample).toBe(examples[2]);
   });
 
-  it("setCurrentExample ignores out-of-bounds index", () => {
+  it('setCurrentExample ignores out-of-bounds index', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
@@ -1947,7 +1947,7 @@ describe("Data examples", () => {
     expect(engine.currentExampleIndex).toBe(0);
   });
 
-  it("setCurrentExample ignores same index", () => {
+  it('setCurrentExample ignores same index', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
@@ -1961,7 +1961,7 @@ describe("Data examples", () => {
     expect(notified).toBe(false);
   });
 
-  it("notifies example listeners on change", () => {
+  it('notifies example listeners on change', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
@@ -1980,7 +1980,7 @@ describe("Data examples", () => {
     ]);
   });
 
-  it("unsubscribe stops notifications", () => {
+  it('unsubscribe stops notifications', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
@@ -1998,7 +1998,7 @@ describe("Data examples", () => {
     expect(count).toBe(1);
   });
 
-  it("currentExample returns undefined when no examples", () => {
+  it('currentExample returns undefined when no examples', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -2012,19 +2012,19 @@ describe("Data examples", () => {
 // fieldPaths getter
 // ---------------------------------------------------------------------------
 
-describe("fieldPaths", () => {
-  it("extracts field paths from data model", () => {
+describe('fieldPaths', () => {
+  it('extracts field paths from data model', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const dataModel = {
-      type: "object",
+      type: 'object',
       properties: {
-        name: { type: "string" },
-        age: { type: "number" },
+        name: { type: 'string' },
+        age: { type: 'number' },
         address: {
-          type: "object",
+          type: 'object',
           properties: {
-            city: { type: "string" },
+            city: { type: 'string' },
           },
         },
       },
@@ -2033,11 +2033,11 @@ describe("fieldPaths", () => {
 
     const paths = engine.fieldPaths;
     expect(paths.length).toBeGreaterThan(0);
-    expect(paths.find((p) => p.path === "name")).toBeDefined();
-    expect(paths.find((p) => p.path === "address.city")).toBeDefined();
+    expect(paths.find((p) => p.path === 'name')).toBeDefined();
+    expect(paths.find((p) => p.path === 'address.city')).toBeDefined();
   });
 
-  it("returns only system params when no data model", () => {
+  it('returns only system params when no data model', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -2046,29 +2046,29 @@ describe("fieldPaths", () => {
     // Should contain system params even without data model
     expect(paths.length).toBeGreaterThan(0);
     expect(paths.every((p) => p.system === true)).toBe(true);
-    expect(paths.find((p) => p.path === "sys.page.number")).toBeDefined();
+    expect(paths.find((p) => p.path === 'sys.page.number')).toBeDefined();
   });
 
-  it("includes system params after data model fields", () => {
+  it('includes system params after data model fields', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const dataModel = {
-      type: "object",
-      properties: { name: { type: "string" } },
+      type: 'object',
+      properties: { name: { type: 'string' } },
     };
     const engine = new EditorEngine(doc, registry, { dataModel });
 
     const paths = engine.fieldPaths;
-    const nameIndex = paths.findIndex((p) => p.path === "name");
-    const sysIndex = paths.findIndex((p) => p.path === "sys.page.number");
+    const nameIndex = paths.findIndex((p) => p.path === 'name');
+    const sysIndex = paths.findIndex((p) => p.path === 'sys.page.number');
     expect(nameIndex).toBeLessThan(sysIndex);
     expect(paths[sysIndex].system).toBe(true);
   });
 
-  it("caches the result", () => {
+  it('caches the result', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
-    const dataModel = { type: "object", properties: { x: { type: "string" } } };
+    const dataModel = { type: 'object', properties: { x: { type: 'string' } } };
     const engine = new EditorEngine(doc, registry, { dataModel });
 
     const first = engine.fieldPaths;
@@ -2081,10 +2081,10 @@ describe("fieldPaths", () => {
 // getExampleData
 // ---------------------------------------------------------------------------
 
-describe("getExampleData", () => {
+describe('getExampleData', () => {
   const systemMockData = { sys: { page: { number: 1 } } };
 
-  it("returns system mock data when no examples are set", () => {
+  it('returns system mock data when no examples are set', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
@@ -2092,32 +2092,32 @@ describe("getExampleData", () => {
     expect(engine.getExampleData()).toEqual(systemMockData);
   });
 
-  it("unwraps backend DataExample format and merges system mock data", () => {
+  it('unwraps backend DataExample format and merges system mock data', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
-    const examples = [{ id: "ex1", name: "Test", data: { customer: "John" } }];
+    const examples = [{ id: 'ex1', name: 'Test', data: { customer: 'John' } }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
-    expect(engine.getExampleData()).toEqual({ customer: "John", ...systemMockData });
+    expect(engine.getExampleData()).toEqual({ customer: 'John', ...systemMockData });
   });
 
-  it("returns flat format with system mock data merged", () => {
+  it('returns flat format with system mock data merged', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
-    const examples = [{ customer: "John", age: 30 }];
+    const examples = [{ customer: 'John', age: 30 }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
-    expect(engine.getExampleData()).toEqual({ customer: "John", age: 30, ...systemMockData });
+    expect(engine.getExampleData()).toEqual({ customer: 'John', age: 30, ...systemMockData });
   });
 
-  it("system params do not overwrite user example data", () => {
+  it('system params do not overwrite user example data', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
-    const examples = [{ name: "Test", amount: 42 }];
+    const examples = [{ name: 'Test', amount: 42 }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
     const result = engine.getExampleData();
-    expect(result.name).toBe("Test");
+    expect(result.name).toBe('Test');
     expect(result.amount).toBe(42);
     expect(result.sys).toEqual({ page: { number: 1 } });
   });
@@ -2127,16 +2127,16 @@ describe("getExampleData", () => {
 // CommandChange undo/redo
 // ---------------------------------------------------------------------------
 
-describe("CommandChange", () => {
-  it("undo dispatches the stored inverse and pushes result inverse to redo", () => {
+describe('CommandChange', () => {
+  it('undo dispatches the stored inverse and pushes result inverse to redo', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert a node — this pushes a CommandChange onto the undo stack
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
     expect(engine.doc.nodes[node.id]).toBeDefined();
 
     // Undo — CommandChange.undoStep applies RemoveNode inverse
@@ -2148,16 +2148,16 @@ describe("CommandChange", () => {
     expect(engine.doc.nodes[node.id]).toBeDefined();
   });
 
-  it("wraps command inverse in dispatch", () => {
+  it('wraps command inverse in dispatch', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
     // The peekUndo entry should be a CommandChange after dispatch
     engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: textNodeId,
-      props: { content: { type: "doc", content: [] } },
+      props: { content: { type: 'doc', content: [] } },
     });
 
     const top = engine.peekUndo();
@@ -2178,8 +2178,8 @@ function createMockOps(
     depth: initialDepth + steps,
     maxDepth: initialDepth + steps,
     content: {
-      type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "hello" }] }],
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello' }] }],
     },
     _alive: true,
     isAlive() {
@@ -2192,11 +2192,11 @@ function createMockOps(
       if (mock.depth <= initialDepth) return false;
       mock.depth--;
       mock.content = {
-        type: "doc",
+        type: 'doc',
         content: [
           {
-            type: "paragraph",
-            content: [{ type: "text", text: "hello".slice(0, mock.depth - initialDepth) }],
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'hello'.slice(0, mock.depth - initialDepth) }],
           },
         ],
       };
@@ -2206,11 +2206,11 @@ function createMockOps(
       if (mock.depth >= mock.maxDepth) return false;
       mock.depth++;
       mock.content = {
-        type: "doc",
+        type: 'doc',
         content: [
           {
-            type: "paragraph",
-            content: [{ type: "text", text: "hello".slice(0, mock.depth - initialDepth) }],
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'hello'.slice(0, mock.depth - initialDepth) }],
           },
         ],
       };
@@ -2237,8 +2237,8 @@ function createTextChange(
   });
 }
 
-describe("TextChange undo/redo", () => {
-  it("undoes PM steps one at a time via ops", () => {
+describe('TextChange undo/redo', () => {
+  it('undoes PM steps one at a time via ops', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2262,7 +2262,7 @@ describe("TextChange undo/redo", () => {
     expect(engine.canUndo).toBe(false);
   });
 
-  it("redoes PM steps one at a time after undo", () => {
+  it('redoes PM steps one at a time after undo', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2292,15 +2292,15 @@ describe("TextChange undo/redo", () => {
     expect(engine.canUndo).toBe(true);
   });
 
-  it("falls through to next entry when TextChange session is exhausted", () => {
+  it('falls through to next entry when TextChange session is exhausted', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Structural change (InsertNode) first
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
 
     // Then a TextChange session with 1 step
     const ops = createMockOps(0, 1);
@@ -2315,7 +2315,7 @@ describe("TextChange undo/redo", () => {
     expect(engine.doc.nodes[node.id]).toBeUndefined();
   });
 
-  it("uses snapshot fallback when PM is destroyed (undo)", () => {
+  it('uses snapshot fallback when PM is destroyed (undo)', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2327,9 +2327,9 @@ describe("TextChange undo/redo", () => {
     // Make a change so we have something to undo to
     engine.dispatch(
       {
-        type: "UpdateNodeProps",
+        type: 'UpdateNodeProps',
         nodeId: textNodeId,
-        props: { content: { type: "doc", content: [] } },
+        props: { content: { type: 'doc', content: [] } },
       },
       { skipUndo: true },
     );
@@ -2339,12 +2339,12 @@ describe("TextChange undo/redo", () => {
     expect(engine.doc.nodes[textNodeId].props.content).toEqual(originalContent);
   });
 
-  it("uses snapshot fallback when PM is destroyed (redo)", () => {
+  it('uses snapshot fallback when PM is destroyed (redo)', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    const contentAfter = { type: "doc", content: [{ type: "paragraph" }] };
+    const contentAfter = { type: 'doc', content: [{ type: 'paragraph' }] };
     const entry = createTextChange(textNodeId, null, 0, null);
     entry.contentAfter = contentAfter;
 
@@ -2358,7 +2358,7 @@ describe("TextChange undo/redo", () => {
     expect(engine.doc.nodes[textNodeId].props.content).toEqual(contentAfter);
   });
 
-  it("uses snapshot fallback when ops becomes dead mid-session", () => {
+  it('uses snapshot fallback when ops becomes dead mid-session', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2380,15 +2380,15 @@ describe("TextChange undo/redo", () => {
     expect(engine.canRedo).toBe(true);
   });
 
-  it("handles two TextChange sessions for the same node", () => {
+  it('handles two TextChange sessions for the same node', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
     const rootSlotId = doc.nodes[doc.root].slots[0];
 
     // Insert a text node
-    const { node, slots } = registry.createNode("text");
-    engine.dispatch({ type: "InsertNode", node, slots, targetSlotId: rootSlotId, index: -1 });
+    const { node, slots } = registry.createNode('text');
+    engine.dispatch({ type: 'InsertNode', node, slots, targetSlotId: rootSlotId, index: -1 });
 
     // Session 1: 2 PM steps (depth 0→2)
     const ops1 = createMockOps(0, 2);
@@ -2396,9 +2396,9 @@ describe("TextChange undo/redo", () => {
 
     // Structural change between sessions
     engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: node.id,
-      props: { label: "renamed" },
+      props: { label: 'renamed' },
     });
 
     // Session 2: 3 PM steps (depth 2→5 — different ops, same node)
@@ -2425,7 +2425,7 @@ describe("TextChange undo/redo", () => {
     expect(engine.doc.nodes[node.id]).toBeUndefined();
   });
 
-  it("lazily captures undoDepthAtEnd on first undo", () => {
+  it('lazily captures undoDepthAtEnd on first undo', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2441,7 +2441,7 @@ describe("TextChange undo/redo", () => {
     expect(entry.undoDepthAtEnd).toBe(3);
   });
 
-  it("syncs PM content to engine after each undo step", () => {
+  it('syncs PM content to engine after each undo step', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2455,7 +2455,7 @@ describe("TextChange undo/redo", () => {
     expect(engine.doc.nodes[textNodeId].props.content).toEqual(ops.getContent());
   });
 
-  it("syncs PM content to engine after each redo step", () => {
+  it('syncs PM content to engine after each redo step', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2475,7 +2475,7 @@ describe("TextChange undo/redo", () => {
     expect(engine.doc.nodes[textNodeId].props.content).toEqual(ops.getContent());
   });
 
-  it("resets undoDepthAtEnd after full redo so continued typing is not lost", () => {
+  it('resets undoDepthAtEnd after full redo so continued typing is not lost', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2529,8 +2529,8 @@ describe("TextChange undo/redo", () => {
 // PM state cache (Phase 2)
 // ---------------------------------------------------------------------------
 
-describe("PM state cache", () => {
-  it("cachePmState stores and getCachedPmState retrieves (one-time)", () => {
+describe('PM state cache', () => {
+  it('cachePmState stores and getCachedPmState retrieves (one-time)', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2545,23 +2545,23 @@ describe("PM state cache", () => {
     expect(engine.getCachedPmState(textNodeId)).toBeUndefined();
   });
 
-  it("replaceDocument clears the cache", () => {
+  it('replaceDocument clears the cache', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
 
-    engine.cachePmState(textNodeId, { some: "state" });
+    engine.cachePmState(textNodeId, { some: 'state' });
     engine.replaceDocument(createTestDocument());
 
     expect(engine.getCachedPmState(textNodeId)).toBeUndefined();
   });
 
-  it("getCachedPmState returns undefined for uncached nodeId", () => {
+  it('getCachedPmState returns undefined for uncached nodeId', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
-    expect(engine.getCachedPmState("uncached" as NodeId)).toBeUndefined();
+    expect(engine.getCachedPmState('uncached' as NodeId)).toBeUndefined();
   });
 });
 
@@ -2569,8 +2569,8 @@ describe("PM state cache", () => {
 // Ops revival (Phase 2)
 // ---------------------------------------------------------------------------
 
-describe("reviveTextChangeOps", () => {
-  it("reconnects ops for TextChange entries with null ops on undo stack", () => {
+describe('reviveTextChangeOps', () => {
+  it('reconnects ops for TextChange entries with null ops on undo stack', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2588,7 +2588,7 @@ describe("reviveTextChangeOps", () => {
     expect(entry.ops).toBe(newOps);
   });
 
-  it("reconnects ops for TextChange entries on redo stack", () => {
+  it('reconnects ops for TextChange entries on redo stack', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2609,7 +2609,7 @@ describe("reviveTextChangeOps", () => {
     expect(entry.ops).toBe(newOps);
   });
 
-  it("does not affect entries for different nodeIds", () => {
+  it('does not affect entries for different nodeIds', () => {
     const registry = testRegistry();
     const { doc, textNodeId, containerNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2626,7 +2626,7 @@ describe("reviveTextChangeOps", () => {
     expect(entry2.ops).toBeNull(); // untouched — different nodeId
   });
 
-  it("does not overwrite live ops", () => {
+  it('does not overwrite live ops', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2642,7 +2642,7 @@ describe("reviveTextChangeOps", () => {
     expect(entry.ops).toBe(existingOps);
   });
 
-  it("revives dead ops (isAlive false) with new ops", () => {
+  it('revives dead ops (isAlive false) with new ops', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);
@@ -2662,7 +2662,7 @@ describe("reviveTextChangeOps", () => {
     expect(entry.ops).toBe(newOps);
   });
 
-  it("revives dead ops on redo stack after move + undo", () => {
+  it('revives dead ops on redo stack after move + undo', () => {
     const registry = testRegistry();
     const { doc, textNodeId } = createTestDocumentWithChildren();
     const engine = new EditorEngine(doc, registry);

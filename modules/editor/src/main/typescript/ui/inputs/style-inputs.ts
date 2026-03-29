@@ -5,7 +5,7 @@
  * to keep things simple and avoid component overhead.
  */
 
-import { html, nothing } from "lit";
+import { html, nothing } from 'lit';
 
 // ---------------------------------------------------------------------------
 // Value + unit parsing
@@ -18,7 +18,7 @@ export interface ParsedUnit {
 
 /** Parse a CSS value like "16px" into { value: 16, unit: 'px' }. */
 export function parseValueWithUnit(raw: unknown, defaultUnit: string): ParsedUnit {
-  if (raw == null || raw === "") return { value: 0, unit: defaultUnit };
+  if (raw == null || raw === '') return { value: 0, unit: defaultUnit };
   const str = String(raw);
   const match = str.match(/^(-?[\d.]+)\s*([a-z%]+)?$/i);
   if (!match) return { value: 0, unit: defaultUnit };
@@ -40,7 +40,7 @@ export function renderUnitInput(
   onChange: (value: string) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
 ): unknown {
-  const defaultUnit = units[0] ?? "pt";
+  const defaultUnit = units[0] ?? 'pt';
   const parsed = parseValueWithUnit(value, defaultUnit);
 
   const handleNumberChange = (e: Event) => {
@@ -53,9 +53,9 @@ export function renderUnitInput(
     const oldUnit = parsed.unit;
     let newValue = parsed.value;
     // Convert between sp and pt
-    if (oldUnit === "pt" && newUnit === "sp") {
+    if (oldUnit === 'pt' && newUnit === 'sp') {
       newValue = parseFloat(nearestSpacingStep(parsed.value, baseUnit));
-    } else if (oldUnit === "sp" && newUnit === "pt") {
+    } else if (oldUnit === 'sp' && newUnit === 'pt') {
       newValue = parsed.value * baseUnit;
     }
     onChange(formatValueWithUnit(newValue, newUnit));
@@ -66,7 +66,7 @@ export function renderUnitInput(
       <input
         type="number"
         class="ep-input style-unit-number"
-        step=${parsed.unit === "sp" ? "0.5" : "1"}
+        step=${parsed.unit === 'sp' ? '0.5' : '1'}
         .value=${String(parsed.value)}
         @change=${handleNumberChange}
       />
@@ -88,9 +88,9 @@ export function renderUnitInput(
 // ---------------------------------------------------------------------------
 
 export function renderColorInput(value: unknown, onChange: (value: string) => void): unknown {
-  const colorValue = value != null ? String(value) : "";
+  const colorValue = value != null ? String(value) : '';
   // Ensure the color picker gets a valid hex value
-  const pickerValue = colorValue.startsWith("#") ? colorValue : "#000000";
+  const pickerValue = colorValue.startsWith('#') ? colorValue : '#000000';
 
   return html`
     <div class="style-color-input">
@@ -117,19 +117,19 @@ export function renderColorInput(value: unknown, onChange: (value: string) => vo
 // ---------------------------------------------------------------------------
 
 export const SPACING_SCALE = [
-  { token: "0", multiplier: 0 },
-  { token: "0.5", multiplier: 0.5 },
-  { token: "1", multiplier: 1 },
-  { token: "1.5", multiplier: 1.5 },
-  { token: "2", multiplier: 2 },
-  { token: "3", multiplier: 3 },
-  { token: "4", multiplier: 4 },
-  { token: "5", multiplier: 5 },
-  { token: "6", multiplier: 6 },
-  { token: "8", multiplier: 8 },
-  { token: "10", multiplier: 10 },
-  { token: "12", multiplier: 12 },
-  { token: "16", multiplier: 16 },
+  { token: '0', multiplier: 0 },
+  { token: '0.5', multiplier: 0.5 },
+  { token: '1', multiplier: 1 },
+  { token: '1.5', multiplier: 1.5 },
+  { token: '2', multiplier: 2 },
+  { token: '3', multiplier: 3 },
+  { token: '4', multiplier: 4 },
+  { token: '5', multiplier: 5 },
+  { token: '6', multiplier: 6 },
+  { token: '8', multiplier: 8 },
+  { token: '10', multiplier: 10 },
+  { token: '12', multiplier: 12 },
+  { token: '16', multiplier: 16 },
 ] as const;
 
 export const DEFAULT_SPACING_UNIT = 4; // pt
@@ -154,10 +154,10 @@ export function nearestSpacingStep(ptValue: number, baseUnit: number): string {
  * Returns 'sp' if any side uses an sp() token, otherwise parses the unit suffix.
  */
 function detectSpacingUnit(parsed: SpacingValue, defaultUnit: string): string {
-  for (const side of ["top", "right", "bottom", "left"] as const) {
+  for (const side of ['top', 'right', 'bottom', 'left'] as const) {
     const v = parsed[side];
-    if (v && isSpacingToken(v)) return "sp";
-    if (v && v !== "0" && v !== "") {
+    if (v && isSpacingToken(v)) return 'sp';
+    if (v && v !== '0' && v !== '') {
       const p = parseValueWithUnit(v, defaultUnit);
       if (p.unit && p.unit !== defaultUnit) return p.unit;
     }
@@ -176,14 +176,14 @@ function convertSideValue(
 ): string {
   if (fromUnit === toUnit) return value;
 
-  if (fromUnit === "sp" && toUnit === "pt") {
+  if (fromUnit === 'sp' && toUnit === 'pt') {
     const step = parseSpacingToken(value);
     const multiplier = step != null ? parseFloat(step) || 0 : 0;
-    return formatValueWithUnit(multiplier * baseUnit, "pt");
+    return formatValueWithUnit(multiplier * baseUnit, 'pt');
   }
 
-  if (fromUnit === "pt" && toUnit === "sp") {
-    const p = parseValueWithUnit(value, "pt");
+  if (fromUnit === 'pt' && toUnit === 'sp') {
+    const p = parseValueWithUnit(value, 'pt');
     return formatSpacingToken(nearestSpacingStep(p.value, baseUnit));
   }
 
@@ -228,7 +228,7 @@ export function parseSpacingValue(raw: unknown, defaultUnit: string): SpacingVal
     };
   }
 
-  if (typeof raw === "object" && raw !== null) {
+  if (typeof raw === 'object' && raw !== null) {
     const obj = raw as Record<string, unknown>;
     return {
       top: obj.top != null ? String(obj.top) : `0${defaultUnit}`,
@@ -262,10 +262,10 @@ export function renderSpacingInput(
   onChange: (value: SpacingValue) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
 ): unknown {
-  const firstAbsUnit = units.find((u) => u !== "sp") ?? "pt";
+  const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
   const parsed = parseSpacingValue(value, firstAbsUnit);
   const currentUnit = detectSpacingUnit(parsed, firstAbsUnit);
-  const sides = ["top", "right", "bottom", "left"] as const;
+  const sides = ['top', 'right', 'bottom', 'left'] as const;
 
   const handleSideChange = (side: string, newValue: string) => {
     onChange({ ...parsed, [side]: newValue });
@@ -273,15 +273,15 @@ export function renderSpacingInput(
 
   /** Extract numeric value from a side, whether sp or pt. */
   const sideNumber = (sideValue: string): number => {
-    if (currentUnit === "sp") {
-      return parseFloat(parseSpacingToken(sideValue) ?? "0") || 0;
+    if (currentUnit === 'sp') {
+      return parseFloat(parseSpacingToken(sideValue) ?? '0') || 0;
     }
     return parseValueWithUnit(sideValue, currentUnit).value;
   };
 
   /** Format a number back with the current unit. */
   const formatSide = (num: number): string => {
-    if (currentUnit === "sp") return formatSpacingToken(String(num));
+    if (currentUnit === 'sp') return formatSpacingToken(String(num));
     return formatValueWithUnit(num, currentUnit);
   };
 
@@ -294,7 +294,7 @@ export function renderSpacingInput(
             <input
               type="number"
               class="ep-input style-spacing-number"
-              step=${currentUnit === "sp" ? "0.5" : "1"}
+              step=${currentUnit === 'sp' ? '0.5' : '1'}
               min="0"
               .value=${String(sideNumber(parsed[side]))}
               @change=${(e: Event) => {
@@ -313,7 +313,7 @@ export function renderSpacingInput(
                 class="ep-select style-spacing-unit"
                 @change=${(e: Event) => {
                   const newUnit = (e.target as HTMLSelectElement).value;
-                  const result: SpacingValue = { top: "", right: "", bottom: "", left: "" };
+                  const result: SpacingValue = { top: '', right: '', bottom: '', left: '' };
                   for (const side of sides) {
                     result[side] = convertSideValue(parsed[side], currentUnit, newUnit, baseUnit);
                   }
@@ -355,7 +355,7 @@ export function expandSpacingToStyles(
   };
   for (const [suffix, sideValue] of Object.entries(sides)) {
     const key = `${prefix}${suffix}`;
-    if (sideValue && sideValue !== "0pt" && sideValue !== "0sp") {
+    if (sideValue && sideValue !== '0pt' && sideValue !== '0sp') {
       styles[key] = sideValue;
     } else {
       delete styles[key];
@@ -376,7 +376,7 @@ export function expandSpacingToStyles(
 export function readSpacingFromStyles(
   prefix: string,
   styles: Record<string, unknown>,
-  defaultUnit = "px",
+  defaultUnit = 'px',
 ): SpacingValue | undefined {
   const top = styles[`${prefix}Top`];
   const right = styles[`${prefix}Right`];
@@ -391,7 +391,7 @@ export function readSpacingFromStyles(
   }
 
   // If a legacy compound object is present, read from it
-  if (compound != null && typeof compound === "object") {
+  if (compound != null && typeof compound === 'object') {
     return parseSpacingValue(compound, defaultUnit);
   }
 
@@ -413,7 +413,7 @@ export function renderSelectInput(
   options: { label: string; value: string }[],
   onChange: (value: string) => void,
 ): unknown {
-  const currentValue = value != null ? String(value) : "";
+  const currentValue = value != null ? String(value) : '';
 
   return html`
     <select

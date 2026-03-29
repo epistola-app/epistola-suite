@@ -2,11 +2,19 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 100,
   "trailingComma": "all",
-  "singleQuote": false,
+  "singleQuote": true,
   "semi": true,
   "tabWidth": 2,
   "useTabs": false,
   "sortPackageJson": true,
+  "overrides": [
+    {
+      "files": ["**/*.md", "**/*.yaml", "**/*.yml"],
+      "options": {
+        "singleQuote": false
+      }
+    }
+  ],
   "ignorePatterns": [
     "**/node_modules/**",
     "**/dist/**",

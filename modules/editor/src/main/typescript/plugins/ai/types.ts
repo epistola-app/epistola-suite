@@ -5,8 +5,8 @@
  * types for the AI assistant sidebar panel.
  */
 
-import type { TemplateDocument, NodeId } from "../../types/index.js";
-import type { AnyCommand } from "../../engine/commands.js";
+import type { TemplateDocument, NodeId } from '../../types/index.js';
+import type { AnyCommand } from '../../engine/commands.js';
 
 // ---------------------------------------------------------------------------
 // File attachments — raw files passed through to the transport
@@ -33,10 +33,10 @@ export interface ChatRequest {
 }
 
 export type ChatChunk =
-  | { type: "text"; content: string }
-  | { type: "proposal"; proposal: AiProposal }
-  | { type: "done"; usage?: { inputTokens: number; outputTokens: number } }
-  | { type: "error"; message: string };
+  | { type: 'text'; content: string }
+  | { type: 'proposal'; proposal: AiProposal }
+  | { type: 'done'; usage?: { inputTokens: number; outputTokens: number } }
+  | { type: 'error'; message: string };
 
 /**
  * Transport function provided by the host page. Streams response chunks
@@ -54,12 +54,12 @@ export type SendMessageFn = (
 
 export interface AiProposal {
   description: string;
-  mode: "commands" | "replace";
+  mode: 'commands' | 'replace';
   commands?: AnyCommand[];
   document?: TemplateDocument;
 }
 
-export type ProposalStatus = "pending" | "applied" | "rejected";
+export type ProposalStatus = 'pending' | 'applied' | 'rejected';
 
 // ---------------------------------------------------------------------------
 // Chat message — internal state
@@ -67,7 +67,7 @@ export type ProposalStatus = "pending" | "applied" | "rejected";
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   attachments?: ChatAttachment[];
   proposal?: AiProposal;

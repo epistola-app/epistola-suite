@@ -15,10 +15,10 @@
  * chip-level badges.
  */
 
-import { LitElement, html, nothing } from "lit";
-import { customElement, state } from "lit/decorators.js";
-import { nanoid } from "nanoid";
-import { DataContractState } from "./DataContractState.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import { nanoid } from 'nanoid';
+import { DataContractState } from './DataContractState.js';
 import type {
   DataExample,
   JsonObject,
@@ -26,33 +26,33 @@ import type {
   JsonValue,
   SaveCallbacks,
   VisualSchema,
-} from "./types.js";
-import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from "./utils/schemaUtils.js";
-import type { SchemaCommand } from "./utils/schemaCommands.js";
-import { SchemaCommandHistory } from "./utils/schemaCommandHistory.js";
-import { SnapshotHistory } from "./utils/snapshotHistory.js";
+} from './types.js';
+import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
+import type { SchemaCommand } from './utils/schemaCommands.js';
+import { SchemaCommandHistory } from './utils/schemaCommandHistory.js';
+import { SnapshotHistory } from './utils/snapshotHistory.js';
 import {
   detectMigrations,
   applyAllMigrations,
   type MigrationSuggestion,
-} from "./utils/schemaMigration.js";
-import { validateDataAgainstSchema, type SchemaValidationError } from "./utils/schemaValidation.js";
+} from './utils/schemaMigration.js';
+import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
 import {
   renderSchemaSection,
   type SchemaUiState,
   type SchemaSectionCallbacks,
-} from "./sections/SchemaSection.js";
+} from './sections/SchemaSection.js';
 import {
   renderExamplesSection,
   type ExamplesUiState,
   type ExamplesSectionCallbacks,
-} from "./sections/ExamplesSection.js";
-import { renderMigrationDialog, migrationKey } from "./sections/MigrationAssistant.js";
-import { setNestedValue, buildFieldErrorMap } from "./sections/ExampleForm.js";
+} from './sections/ExamplesSection.js';
+import { renderMigrationDialog, migrationKey } from './sections/MigrationAssistant.js';
+import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
 
-type TabId = "schema" | "examples";
+type TabId = 'schema' | 'examples';
 
-@customElement("epistola-data-contract-editor")
+@customElement('epistola-data-contract-editor')
 export class EpistolaDataContractEditor extends LitElement {
   override createRenderRoot() {
     return this;
@@ -75,7 +75,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // UI state (reactive via @state())
   // ---------------------------------------------------------------------------
 
-  @state() private _activeTab: TabId = "schema";
+  @state() private _activeTab: TabId = 'schema';
 
   // Schema tab UI state
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
@@ -120,7 +120,7 @@ export class EpistolaDataContractEditor extends LitElement {
   ): void {
     this.contractState = new DataContractState(initialSchema, initialExamples, callbacks);
 
-    this.contractState.addEventListener("change", () => {
+    this.contractState.addEventListener('change', () => {
       this.requestUpdate();
     });
 
@@ -143,14 +143,14 @@ export class EpistolaDataContractEditor extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    window.addEventListener("beforeunload", this._boundBeforeUnload);
-    window.addEventListener("keydown", this._boundKeyDown);
+    window.addEventListener('beforeunload', this._boundBeforeUnload);
+    window.addEventListener('keydown', this._boundKeyDown);
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener("beforeunload", this._boundBeforeUnload);
-    window.removeEventListener("keydown", this._boundKeyDown);
+    window.removeEventListener('beforeunload', this._boundBeforeUnload);
+    window.removeEventListener('keydown', this._boundKeyDown);
     if (this._successTimer) clearTimeout(this._successTimer);
   }
 
@@ -169,7 +169,7 @@ export class EpistolaDataContractEditor extends LitElement {
       <div class="dc-editor-layout">
         <!-- Tab bar -->
         <div class="dc-tabs" role="tablist">
-          ${this._renderTab("schema", "Schema")} ${this._renderTab("examples", "Test Data")}
+          ${this._renderTab('schema', 'Schema')} ${this._renderTab('examples', 'Test Data')}
 
           <div class="dc-tabs-spacer"></div>
 
@@ -185,13 +185,13 @@ export class EpistolaDataContractEditor extends LitElement {
             ?disabled=${this._saving || !state.isDirty}
             @click=${() => this._saveAll()}
           >
-            ${this._saving ? "Saving..." : "Save"}
+            ${this._saving ? 'Saving...' : 'Save'}
           </button>
         </div>
 
         <!-- Tab content -->
         <div class="dc-tab-content">
-          ${this._activeTab === "schema" ? this._renderSchemaTab() : this._renderExamplesTab()}
+          ${this._activeTab === 'schema' ? this._renderSchemaTab() : this._renderExamplesTab()}
         </div>
       </div>
 
@@ -217,7 +217,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const isActive = this._activeTab === tabId;
     return html`
       <button
-        class="dc-tab ${isActive ? "dc-tab-active" : ""}"
+        class="dc-tab ${isActive ? 'dc-tab-active' : ''}"
         role="tab"
         aria-selected="${isActive}"
         @click=${() => {
@@ -377,7 +377,7 @@ export class EpistolaDataContractEditor extends LitElement {
       if (state.isSchemaDirty) {
         const schemaResult = await state.saveSchema(forceUpdate);
         if (!schemaResult.success) {
-          this._saveError = schemaResult.error ?? "Failed to save schema";
+          this._saveError = schemaResult.error ?? 'Failed to save schema';
           if (schemaResult.warnings) {
             this._schemaWarnings = Object.values(schemaResult.warnings).flat();
           }
@@ -396,7 +396,7 @@ export class EpistolaDataContractEditor extends LitElement {
       if (state.isExamplesDirty) {
         const examplesResult = await state.saveExamples();
         if (!examplesResult.success) {
-          this._saveError = examplesResult.error ?? "Failed to save examples";
+          this._saveError = examplesResult.error ?? 'Failed to save examples';
           return;
         }
         // Clear all example undo/redo histories on successful save
@@ -409,7 +409,7 @@ export class EpistolaDataContractEditor extends LitElement {
         this._saveSuccess = false;
       });
     } catch (err) {
-      this._saveError = err instanceof Error ? err.message : "Failed to save";
+      this._saveError = err instanceof Error ? err.message : 'Failed to save';
     } finally {
       this._saving = false;
       this.requestUpdate();
@@ -637,19 +637,19 @@ export class EpistolaDataContractEditor extends LitElement {
     const isMod = e.metaKey || e.ctrlKey;
     if (!isMod) return;
 
-    if (this._activeTab === "schema") {
-      if (e.key === "z" && !e.shiftKey) {
+    if (this._activeTab === 'schema') {
+      if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         this._undo();
-      } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
         e.preventDefault();
         this._redo();
       }
-    } else if (this._activeTab === "examples") {
-      if (e.key === "z" && !e.shiftKey) {
+    } else if (this._activeTab === 'examples') {
+      if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         this._undoExampleData();
-      } else if ((e.key === "z" && e.shiftKey) || e.key === "y") {
+      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
         e.preventDefault();
         this._redoExampleData();
       }
@@ -671,6 +671,6 @@ export class EpistolaDataContractEditor extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-data-contract-editor": EpistolaDataContractEditor;
+    'epistola-data-contract-editor': EpistolaDataContractEditor;
   }
 }

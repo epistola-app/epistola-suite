@@ -1,4 +1,4 @@
-import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from "../types.js";
+import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../types.js';
 
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -35,7 +35,7 @@ export function validateDataAgainstSchema(
   }
 
   const jsonSchema = schema as JsonSchema;
-  if (jsonSchema.type !== "object") {
+  if (jsonSchema.type !== 'object') {
     return { valid: true, errors: [] };
   }
 
@@ -72,7 +72,7 @@ export function validateDataAgainstSchema(
  * Used by the required field check — these values mean "not provided" in the form.
  */
 function isEmptyValue(value: JsonValue | undefined): boolean {
-  return value === undefined || value === null || value === "";
+  return value === undefined || value === null || value === '';
 }
 
 /**
@@ -100,7 +100,7 @@ function validateProperty(
   if (!matchesAnyType) {
     errors.push({
       path,
-      message: `must be ${expectedTypes.join(" or ")}, got ${actualType}`,
+      message: `must be ${expectedTypes.join(' or ')}, got ${actualType}`,
     });
     return errors; // Don't continue validating if type is wrong
   }
@@ -109,17 +109,17 @@ function validateProperty(
   const expectedType = expectedTypes.find((t) => typeMatches(actualType, t)) || expectedTypes[0];
 
   // Validate date format (JSON Schema: type="string", format="date")
-  if (expectedType === "string" && schema.format === "date" && typeof value === "string") {
+  if (expectedType === 'string' && schema.format === 'date' && typeof value === 'string') {
     if (!ISO_DATE_RE.test(value)) {
       errors.push({
         path,
-        message: "must be a valid date (YYYY-MM-DD)",
+        message: 'must be a valid date (YYYY-MM-DD)',
       });
     }
   }
 
   // Validate array items
-  if (expectedType === "array" && Array.isArray(value) && schema.items) {
+  if (expectedType === 'array' && Array.isArray(value) && schema.items) {
     for (let i = 0; i < value.length; i++) {
       const itemErrors = validateProperty(value[i], schema.items, `${path}[${i}]`);
       errors.push(...itemErrors);
@@ -127,7 +127,7 @@ function validateProperty(
   }
 
   // Validate object properties
-  if (expectedType === "object" && typeof value === "object" && !Array.isArray(value)) {
+  if (expectedType === 'object' && typeof value === 'object' && !Array.isArray(value)) {
     const objValue = value as JsonObject;
 
     // Check required nested fields
@@ -160,15 +160,15 @@ function validateProperty(
  * Get the JSON Schema type of a value.
  */
 function getValueType(value: JsonValue): string {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
-  if (typeof value === "boolean") return "boolean";
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? "integer" : "number";
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'boolean') return 'boolean';
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'number';
   }
-  if (typeof value === "string") return "string";
-  if (typeof value === "object") return "object";
-  return "unknown";
+  if (typeof value === 'string') return 'string';
+  if (typeof value === 'object') return 'object';
+  return 'unknown';
 }
 
 /**
@@ -178,7 +178,7 @@ function getValueType(value: JsonValue): string {
 function typeMatches(actual: string, expected: string): boolean {
   if (actual === expected) return true;
   // Integer is also a valid number
-  if (expected === "number" && actual === "integer") return true;
+  if (expected === 'number' && actual === 'integer') return true;
   return false;
 }
 

@@ -1,7 +1,7 @@
-import type { ShortcutChordCancelReason, ShortcutCommandExecutionResult } from "./resolver.js";
-import type { CommandId } from "./foundation.js";
+import type { ShortcutChordCancelReason, ShortcutCommandExecutionResult } from './resolver.js';
+import type { CommandId } from './foundation.js';
 
-export type LeaderStatus = "idle" | "success" | "error";
+export type LeaderStatus = 'idle' | 'success' | 'error';
 
 export interface LeaderModeState {
   visible: boolean;
@@ -26,8 +26,8 @@ export interface LeaderModeControllerOptions {
 
 const INITIAL_STATE: LeaderModeState = {
   visible: false,
-  status: "idle",
-  message: "",
+  status: 'idle',
+  message: '',
 };
 
 export class LeaderModeController {
@@ -54,8 +54,8 @@ export class LeaderModeController {
 
     this._setState({
       visible: true,
-      status: "idle",
-      message: `Waiting: ${tokens.join(" ")}`,
+      status: 'idle',
+      message: `Waiting: ${tokens.join(' ')}`,
     });
 
     this._idleTimeout = setTimeout(() => {
@@ -65,8 +65,8 @@ export class LeaderModeController {
   }
 
   handleChordCancelled(reason: ShortcutChordCancelReason): void {
-    if (reason === "mismatch") {
-      this._showResult(false, "Unknown leader command");
+    if (reason === 'mismatch') {
+      this._showResult(false, 'Unknown leader command');
       return;
     }
     this._hide();
@@ -76,7 +76,7 @@ export class LeaderModeController {
     initial: ShortcutCommandExecutionResult,
     completion: Promise<ShortcutCommandExecutionResult>,
   ): void {
-    if (initial.status !== "pending") {
+    if (initial.status !== 'pending') {
       this._showCommandResult(initial);
       return;
     }
@@ -84,8 +84,8 @@ export class LeaderModeController {
     this._clearTimers();
     this._setState({
       visible: true,
-      status: "idle",
-      message: "Running command...",
+      status: 'idle',
+      message: 'Running command...',
     });
 
     void completion.then((result) => {
@@ -98,18 +98,18 @@ export class LeaderModeController {
   }
 
   private _showCommandResult(result: ShortcutCommandExecutionResult): void {
-    if (result.status === "cancelled") {
+    if (result.status === 'cancelled') {
       this._hide();
       return;
     }
 
-    if (result.status === "ok") {
-      this._showResult(true, result.message ?? "Done");
+    if (result.status === 'ok') {
+      this._showResult(true, result.message ?? 'Done');
       return;
     }
 
     const message =
-      result.message ?? (result.status === "rejected" ? "Command rejected" : "Command failed");
+      result.message ?? (result.status === 'rejected' ? 'Command rejected' : 'Command failed');
     this._showResult(false, message);
   }
 
@@ -117,7 +117,7 @@ export class LeaderModeController {
     this._clearTimers();
     this._setState({
       visible: true,
-      status: ok ? "success" : "error",
+      status: ok ? 'success' : 'error',
       message,
     });
     this._resultTimeout = setTimeout(() => this._hide(), this._options.timing.resultHideMs);
@@ -133,8 +133,8 @@ export class LeaderModeController {
     this._clearTimeout = setTimeout(() => {
       this._setState({
         visible: false,
-        status: "idle",
-        message: "",
+        status: 'idle',
+        message: '',
       });
     }, this._options.timing.messageClearMs);
   }

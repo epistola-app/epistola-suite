@@ -6,34 +6,34 @@
  * logic out of the generic engine and UI files.
  */
 
-import type { NodeId, SlotId } from "../../types/index.js";
-import type { ComponentDefinition } from "../../engine/registry.js";
-import type { EditorEngine } from "../../engine/EditorEngine.js";
-import { html } from "lit";
-import { nanoid } from "nanoid";
+import type { NodeId, SlotId } from '../../types/index.js';
+import type { ComponentDefinition } from '../../engine/registry.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
+import { html } from 'lit';
+import { nanoid } from 'nanoid';
 
 /** Layout style properties available on columns nodes. */
 const LAYOUT_STYLES = [
-  "padding",
-  "margin",
-  "backgroundColor",
-  "borderWidth",
-  "borderStyle",
-  "borderColor",
-  "borderRadius",
+  'padding',
+  'margin',
+  'backgroundColor',
+  'borderWidth',
+  'borderStyle',
+  'borderColor',
+  'borderRadius',
 ];
 
 export function createColumnsDefinition(): ComponentDefinition {
   return {
-    type: "columns",
-    label: "Columns",
-    icon: "columns-2",
-    category: "layout",
-    slots: [{ name: "column-{i}", dynamic: true }],
-    allowedChildren: { mode: "all" },
+    type: 'columns',
+    label: 'Columns',
+    icon: 'columns-2',
+    category: 'layout',
+    slots: [{ name: 'column-{i}', dynamic: true }],
+    allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
-    inspector: [{ key: "gap", label: "Gap", type: "number", defaultValue: 0 }],
-    defaultStyles: { marginBottom: "1.5sp" },
+    inspector: [{ key: 'gap', label: 'Gap', type: 'number', defaultValue: 0 }],
+    defaultStyles: { marginBottom: '1.5sp' },
     defaultProps: { columnSizes: [1, 1], gap: 0 },
     createInitialSlots: (nodeId: NodeId) => {
       const sizes = [1, 1]; // matches defaultProps.columnSizes
@@ -50,7 +50,7 @@ export function createColumnsDefinition(): ComponentDefinition {
       const props = node.props ?? {};
       const columnSizes = (props.columnSizes as number[] | undefined) ?? [];
       const gap = (props.gap as number | undefined) ?? 0;
-      const gapStyle = gap > 0 ? `${gap}pt` : "0";
+      const gapStyle = gap > 0 ? `${gap}pt` : '0';
 
       return html`
         <div class="canvas-columns" style="gap: ${gapStyle}">
@@ -73,18 +73,18 @@ export function createColumnsDefinition(): ComponentDefinition {
       const count = columnSizes.length;
 
       const handleAddColumn = () => {
-        engine.dispatch({ type: "AddColumnSlot", nodeId: node.id, size: 1 });
+        engine.dispatch({ type: 'AddColumnSlot', nodeId: node.id, size: 1 });
       };
 
       const handleRemoveColumn = () => {
-        engine.dispatch({ type: "RemoveColumnSlot", nodeId: node.id });
+        engine.dispatch({ type: 'RemoveColumnSlot', nodeId: node.id });
       };
 
       const handleColumnSizeChange = (index: number, size: number) => {
         const newSizes = [...columnSizes];
         newSizes[index] = Math.max(1, size);
         engine.dispatch({
-          type: "UpdateNodeProps",
+          type: 'UpdateNodeProps',
           nodeId: node.id,
           props: { ...props, columnSizes: newSizes },
         });
@@ -92,7 +92,7 @@ export function createColumnsDefinition(): ComponentDefinition {
 
       const handleGapChange = (value: number) => {
         engine.dispatch({
-          type: "UpdateNodeProps",
+          type: 'UpdateNodeProps',
           nodeId: node.id,
           props: { ...props, gap: value },
         });

@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   INSERT_DIALOG_SHORTCUT_COMMAND_IDS,
   getInsertDialogShortcutRegistry,
   type InsertDialogShortcutRuntimeContext,
-} from "./insert-dialog-runtime.js";
+} from './insert-dialog-runtime.js';
 
 function createExecutionContext() {
   return { signal: new AbortController().signal };
@@ -36,12 +36,12 @@ function baseContext(
   };
 }
 
-describe("insert dialog shortcut runtime", () => {
-  it("defines insertDialog-context keybindings including quick-select", () => {
+describe('insert dialog shortcut runtime', () => {
+  it('defines insertDialog-context keybindings including quick-select', () => {
     const registry = getInsertDialogShortcutRegistry();
 
     expect(registry.keybindings.length).toBeGreaterThan(0);
-    expect(registry.keybindings.every((binding) => binding.context === "insertDialog")).toBe(true);
+    expect(registry.keybindings.every((binding) => binding.context === 'insertDialog')).toBe(true);
     expect(
       registry.keybindings.some(
         (binding) => binding.commandId === INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack,
@@ -49,12 +49,12 @@ describe("insert dialog shortcut runtime", () => {
     ).toBe(true);
     expect(
       registry.keybindings.some(
-        (binding) => binding.commandId === "insertDialog.quick-select.key-1",
+        (binding) => binding.commandId === 'insertDialog.quick-select.key-1',
       ),
     ).toBe(true);
   });
 
-  it("runs placement and close commands through context callbacks", async () => {
+  it('runs placement and close commands through context callbacks', async () => {
     let selectedMode: string | null = null;
     let closeCount = 0;
 
@@ -68,13 +68,13 @@ describe("insert dialog shortcut runtime", () => {
     });
 
     await runCommand(INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeStart, context);
-    expect(selectedMode).toBe("start");
+    expect(selectedMode).toBe('start');
 
     await runCommand(INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack, context);
     expect(closeCount).toBe(1);
   });
 
-  it("navigates options with wrap-around behavior", async () => {
+  it('navigates options with wrap-around behavior', async () => {
     const context = baseContext({
       hasPlacementMode: false,
       hasSelectionMode: true,
@@ -92,7 +92,7 @@ describe("insert dialog shortcut runtime", () => {
     expect(context.highlight).toBe(3);
   });
 
-  it("reports out-of-range quick-select options", async () => {
+  it('reports out-of-range quick-select options', async () => {
     let outOfRangeCount = 0;
     const context = baseContext({
       hasPlacementMode: false,
@@ -103,9 +103,9 @@ describe("insert dialog shortcut runtime", () => {
       },
     });
 
-    const result = await runCommand("insertDialog.quick-select.key-9", context);
+    const result = await runCommand('insertDialog.quick-select.key-9', context);
     expect(result.ok).toBe(false);
-    expect(result.message).toBe("Option out of range");
+    expect(result.message).toBe('Option out of range');
     expect(outOfRangeCount).toBe(1);
   });
 });

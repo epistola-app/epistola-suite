@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PreviewService, type PreviewState, type FetchPreviewFn } from "./preview-service.js";
-import type { TemplateDocument } from "../types/index.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { PreviewService, type PreviewState, type FetchPreviewFn } from './preview-service.js';
+import type { TemplateDocument } from '../types/index.js';
 
 // Minimal doc fixture — PreviewService doesn't inspect its contents
-const DOC = { modelVersion: 1, root: "r", nodes: {}, slots: {} } as unknown as TemplateDocument;
-const DATA = { name: "test" };
+const DOC = { modelVersion: 1, root: 'r', nodes: {}, slots: {} } as unknown as TemplateDocument;
+const DATA = { name: 'test' };
 
 /**
  * Helper that creates a fetch function returning a resolved Blob after a microtask.
@@ -16,12 +16,12 @@ function createMockFetch(blob?: Blob) {
     calls.push({ doc, data, signal });
     // Yield to simulate async
     await Promise.resolve();
-    return blob ?? new Blob(["%PDF-1.4"], { type: "application/pdf" });
+    return blob ?? new Blob(['%PDF-1.4'], { type: 'application/pdf' });
   };
   return { fn, calls };
 }
 
-describe("PreviewService", () => {
+describe('PreviewService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -30,17 +30,17 @@ describe("PreviewService", () => {
     vi.useRealTimers();
   });
 
-  it("starts in idle state", () => {
+  it('starts in idle state', () => {
     const onChange = vi.fn();
     const { fn } = createMockFetch();
     const service = new PreviewService(fn, onChange);
 
-    expect(service.state).toEqual({ status: "idle" });
+    expect(service.state).toEqual({ status: 'idle' });
     expect(onChange).not.toHaveBeenCalled();
     service.dispose();
   });
 
-  it("transitions to loading then success on scheduleRefresh", async () => {
+  it('transitions to loading then success on scheduleRefresh', async () => {
     const states: PreviewState[] = [];
     const { fn } = createMockFetch();
     const service = new PreviewService(fn, (s) => states.push({ ...s }), 100);
@@ -54,19 +54,19 @@ describe("PreviewService", () => {
     vi.advanceTimersByTime(100);
 
     // Loading should have been emitted synchronously in _doFetch
-    expect(states).toEqual([{ status: "loading" }]);
+    expect(states).toEqual([{ status: 'loading' }]);
 
     // Let the async fetch resolve
     await vi.runAllTimersAsync();
 
     expect(states.length).toBe(2);
-    expect(states[1].status).toBe("success");
-    expect((states[1] as { status: "success"; blobUrl: string }).blobUrl).toMatch(/^blob:/);
+    expect(states[1].status).toBe('success');
+    expect((states[1] as { status: 'success'; blobUrl: string }).blobUrl).toMatch(/^blob:/);
 
     service.dispose();
   });
 
-  it("coalesces multiple scheduleRefresh calls within debounce window", async () => {
+  it('coalesces multiple scheduleRefresh calls within debounce window', async () => {
     const { fn, calls } = createMockFetch();
     const service = new PreviewService(fn, vi.fn(), 200);
 
@@ -83,7 +83,7 @@ describe("PreviewService", () => {
     service.dispose();
   });
 
-  it("forceRefresh bypasses debounce", async () => {
+  it('forceRefresh bypasses debounce', async () => {
     const { fn, calls } = createMockFetch();
     const service = new PreviewService(fn, vi.fn(), 5000);
 
@@ -94,7 +94,7 @@ describe("PreviewService", () => {
     service.dispose();
   });
 
-  it("aborts in-flight request when new fetch starts", async () => {
+  it('aborts in-flight request when new fetch starts', async () => {
     const { fn, calls } = createMockFetch();
     const service = new PreviewService(fn, vi.fn(), 0);
 
@@ -113,11 +113,11 @@ describe("PreviewService", () => {
     service.dispose();
   });
 
-  it("transitions to error state when fetch throws", async () => {
+  it('transitions to error state when fetch throws', async () => {
     const states: PreviewState[] = [];
     const failingFn: FetchPreviewFn = async () => {
       await Promise.resolve();
-      throw new Error("Server returned 500");
+      throw new Error('Server returned 500');
     };
     const service = new PreviewService(failingFn, (s) => states.push({ ...s }), 0);
 
@@ -125,20 +125,20 @@ describe("PreviewService", () => {
     await vi.runAllTimersAsync();
 
     expect(states).toEqual([
-      { status: "loading" },
-      { status: "error", message: "Server returned 500" },
+      { status: 'loading' },
+      { status: 'error', message: 'Server returned 500' },
     ]);
 
     service.dispose();
   });
 
-  it("silently ignores AbortError", async () => {
+  it('silently ignores AbortError', async () => {
     const states: PreviewState[] = [];
     const abortFn: FetchPreviewFn = async (_doc, _data, signal) => {
       // Simulate: abort happens, then we check signal
       await Promise.resolve();
       if (signal.aborted) {
-        const err = new DOMException("The operation was aborted.", "AbortError");
+        const err = new DOMException('The operation was aborted.', 'AbortError');
         throw err;
       }
       return new Blob();
@@ -153,14 +153,14 @@ describe("PreviewService", () => {
 
     // Should see loading twice (one for each forceRefresh), then success for the second
     // The first AbortError should NOT produce an error state
-    const errorStates = states.filter((s) => s.status === "error");
+    const errorStates = states.filter((s) => s.status === 'error');
     expect(errorStates).toEqual([]);
 
     service.dispose();
   });
 
-  it("revokes previous blob URL when new success arrives", async () => {
-    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
+  it('revokes previous blob URL when new success arrives', async () => {
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
     const { fn } = createMockFetch();
     const states: PreviewState[] = [];
     const service = new PreviewService(fn, (s) => states.push({ ...s }), 0);
@@ -169,7 +169,7 @@ describe("PreviewService", () => {
     service.forceRefresh(DOC, DATA);
     await vi.runAllTimersAsync();
 
-    const firstBlobUrl = (states.find((s) => s.status === "success") as { blobUrl: string })
+    const firstBlobUrl = (states.find((s) => s.status === 'success') as { blobUrl: string })
       ?.blobUrl;
     expect(firstBlobUrl).toBeTruthy();
 
@@ -183,8 +183,8 @@ describe("PreviewService", () => {
     service.dispose();
   });
 
-  it("dispose cleans up blob URL and prevents further fetches", async () => {
-    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL");
+  it('dispose cleans up blob URL and prevents further fetches', async () => {
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
     const { fn, calls } = createMockFetch();
     const service = new PreviewService(fn, vi.fn(), 0);
 
@@ -207,7 +207,7 @@ describe("PreviewService", () => {
     revokeObjectURL.mockRestore();
   });
 
-  it("dispose aborts in-flight request", () => {
+  it('dispose aborts in-flight request', () => {
     const { fn, calls } = createMockFetch();
     const service = new PreviewService(fn, vi.fn(), 0);
 
@@ -219,23 +219,23 @@ describe("PreviewService", () => {
     expect(signal.aborted).toBe(true);
   });
 
-  it("handles non-Error thrown values gracefully", async () => {
+  it('handles non-Error thrown values gracefully', async () => {
     const states: PreviewState[] = [];
     const throwStringFn: FetchPreviewFn = async () => {
       await Promise.resolve();
-      throw "unexpected string error";
+      throw 'unexpected string error';
     };
     const service = new PreviewService(throwStringFn, (s) => states.push({ ...s }), 0);
 
     service.forceRefresh(DOC, DATA);
     await vi.runAllTimersAsync();
 
-    expect(states[1]).toEqual({ status: "error", message: "Preview failed" });
+    expect(states[1]).toEqual({ status: 'error', message: 'Preview failed' });
 
     service.dispose();
   });
 
-  it("passes doc, data, and signal to fetch function", async () => {
+  it('passes doc, data, and signal to fetch function', async () => {
     const { fn, calls } = createMockFetch();
     const service = new PreviewService(fn, vi.fn(), 0);
 

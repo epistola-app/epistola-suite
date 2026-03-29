@@ -4,9 +4,9 @@
  * Each preset is an expandable card rendered by PresetItem.
  */
 
-import { html } from "lit";
-import type { ThemeEditorState } from "../ThemeEditorState.js";
-import { renderPresetItem } from "./PresetItem.js";
+import { html } from 'lit';
+import type { ThemeEditorState } from '../ThemeEditorState.js';
+import { renderPresetItem } from './PresetItem.js';
 
 export function renderPresetsSection(
   state: ThemeEditorState,
