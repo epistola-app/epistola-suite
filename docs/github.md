@@ -60,13 +60,16 @@ All workflows are defined in `.github/workflows/`.
 **What it does:**
 
 #### On Push to Main
+
 1. Builds and tests the project
 2. Pushes Docker image with SHA and `latest` tags:
    - `ghcr.io/epistola-app/epistola-suite:<sha>`
    - `ghcr.io/epistola-app/epistola-suite:latest`
 
 #### On Release Published
+
 When a GitHub release is created with a `vX.Y.Z` tag:
+
 1. Extracts the version from the release tag (e.g., `v0.7.0` → `0.7.0`)
 2. Builds Docker image using `gradle :apps:epistola:bootBuildImage`
 3. Pushes to GitHub Container Registry with tags:

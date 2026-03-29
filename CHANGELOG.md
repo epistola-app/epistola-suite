@@ -5,11 +5,13 @@
 ## [0.7.0] - 2026-03-28
 
 ### Added
+
 - **Synchronous document preview API endpoint**: New `POST /api/tenants/{tenantId}/documents/preview` endpoint that generates a preview PDF and returns it directly. Supports variant selection (explicit, attribute-based, or default), version resolution (explicit version ID or environment-based), and data validation against template schema. Not PDF/A compliant, not stored — intended for preview purposes only.
 - **Focused preview queries**: `PreviewDocument` (API — published versions) and `PreviewDraft` (editor — drafts/live template model) with shared `DocumentPreviewRenderer` service, replacing the previous `GetPreviewContext` query.
 - **IllegalArgumentException API handler**: `require()` failures in commands/queries now return 400 Bad Request instead of 500.
 
 ### Changed
+
 - **Upgraded epistola-contract to 0.1.19**: Picks up the new `previewDocument` operation in the `GenerationApi` interface.
 - **Refactored TemplatePreviewHandler**: Now delegates to the `PreviewDraft` query instead of containing its own rendering logic.
 
