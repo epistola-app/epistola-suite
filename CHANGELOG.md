@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Oxfmt**: Exclude generated `.github/badges/` from formatting checks.
+
 ### Changed
 
 - **Renovate**: Disabled auto-updates for `epistola-contract` — this dependency is managed manually as part of cross-repo workflows.

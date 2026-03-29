@@ -12,6 +12,7 @@
     "**/dist/**",
     "**/build/**",
     "**/templates/**",
-    "**/charts/**"
+    "**/charts/**",
+    ".github/badges/**"
   ]
 }
