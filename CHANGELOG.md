@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Renovate**: Disabled auto-updates for `epistola-contract` — this dependency is managed manually as part of cross-repo workflows.
+
 ## [0.7.0] - 2026-03-28
 
 ### Added

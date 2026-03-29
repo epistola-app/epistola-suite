@@ -21,6 +21,11 @@
       "matchUpdateTypes": ["major"],
       "groupName": "major updates",
       "groupSlug": "major"
+    },
+    {
+      "description": "epistola-contract is updated manually as part of cross-repo workflows",
+      "matchPackagePrefixes": ["app.epistola.contract"],
+      "enabled": false
     }
   ],
   "gradle": {
