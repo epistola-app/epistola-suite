@@ -29,7 +29,6 @@ export class EpistolaThemeEditor extends LitElement {
 
   @state() private _saveState: SaveState = 'idle';
   @state() private _errorMessage = '';
-  @state() private _expandedPresets = new Set<string>();
 
   private _autosaveTimer?: ReturnType<typeof setTimeout>;
   private _savedTimer?: ReturnType<typeof setTimeout>;
@@ -67,19 +66,16 @@ export class EpistolaThemeEditor extends LitElement {
     }
 
     return html`
+      ${this._renderStatusBar()}
       <div class="theme-editor-layout">
         <div class="theme-editor-panel">
           ${renderBasicInfoSection(this.themeState)} ${renderDocumentStylesSection(this.themeState)}
-          ${renderPageSettingsSection(this.themeState)}
-          ${renderPresetsSection(this.themeState, this._expandedPresets, (name) =>
-            this._togglePreset(name),
-          )}
+          ${renderPageSettingsSection(this.themeState)} ${renderPresetsSection(this.themeState)}
         </div>
         <div class="theme-editor-preview">
           <div class="theme-editor-preview-placeholder">Preview panel coming soon</div>
         </div>
       </div>
-      ${this._renderStatusBar()}
     `;
   }
 
@@ -98,7 +94,7 @@ export class EpistolaThemeEditor extends LitElement {
           ${stateLabels[this._saveState]}
         </span>
         <button
-          class="ep-btn-primary theme-save-btn"
+          class="btn btn-primary btn-sm theme-save-btn"
           ?disabled=${this._saveState === 'saving' ||
           this._saveState === 'idle' ||
           this._saveState === 'saved'}
@@ -163,15 +159,6 @@ export class EpistolaThemeEditor extends LitElement {
     if (this.themeState?.isDirty) {
       e.preventDefault();
     }
-  }
-
-  private _togglePreset(name: string): void {
-    if (this._expandedPresets.has(name)) {
-      this._expandedPresets.delete(name);
-    } else {
-      this._expandedPresets.add(name);
-    }
-    this.requestUpdate();
   }
 }
 

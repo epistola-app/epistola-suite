@@ -2,10 +2,11 @@
  * PresetItem — Single preset editing: name, label, applicableTo, style properties.
  *
  * Renders all style groups from the registry using the same input dispatch
- * pattern as the inspector. The preset is an expandable card.
+ * pattern as the inspector. The preset uses native <details>/<summary>
+ * for expand/collapse, providing built-in accessibility.
  */
 
-import { html, nothing } from 'lit';
+import { html } from 'lit';
 import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
 import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme';
 import { defaultStyleRegistry } from '../../engine/style-registry.js';
@@ -32,19 +33,33 @@ export function renderPresetItem(
   state: ThemeEditorState,
   name: string,
   preset: BlockStylePreset,
-  expanded: boolean,
-  onToggle: () => void,
   onRemove: () => void,
 ): unknown {
   return html`
-    <div class="preset-card">
-      <div class="preset-card-header" @click=${onToggle}>
-        <span class="preset-card-toggle">${expanded ? '\u25BE' : '\u25B8'}</span>
-        <span class="preset-card-name">${preset.label || name}</span>
-        <span class="preset-card-key">${name}</span>
+    <details class="theme-preset-card">
+      <summary class="theme-preset-header" aria-label="${preset.label || name}">
+        <span class="theme-preset-toggle" aria-hidden="true">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="lucide lucide-chevron-down-icon lucide-chevron-down"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+        <span class="theme-preset-name">${preset.label || name}</span>
+        <span class="theme-preset-key">${name}</span>
         <button
-          class="preset-card-remove"
+          class="theme-preset-remove"
           title="Remove preset"
+          aria-label="Remove preset ${preset.label || name}"
           @click=${(e: Event) => {
             e.stopPropagation();
             onRemove();
@@ -52,9 +67,9 @@ export function renderPresetItem(
         >
           &times;
         </button>
-      </div>
-      ${expanded ? renderPresetBody(state, name, preset) : nothing}
-    </div>
+      </summary>
+      ${renderPresetBody(state, name, preset)}
+    </details>
   `;
 }
 
@@ -67,12 +82,13 @@ function renderPresetBody(
   const applicableTo = preset.applicableTo ?? [];
 
   return html`
-    <div class="preset-card-body">
+    <div class="theme-preset-body">
       <!-- Name (key) -->
       <div class="inspector-field">
-        <label class="inspector-field-label">Key (ID)</label>
+        <label class="inspector-field-label" for="preset-key-${name}">Key (ID)</label>
         <input
           type="text"
+          id="preset-key-${name}"
           class="ep-input mono"
           .value=${name}
           @change=${(e: Event) => {
@@ -86,9 +102,10 @@ function renderPresetBody(
 
       <!-- Label -->
       <div class="inspector-field">
-        <label class="inspector-field-label">Label</label>
+        <label class="inspector-field-label" for="preset-label-${name}">Label</label>
         <input
           type="text"
+          id="preset-label-${name}"
           class="ep-input"
           .value=${preset.label}
           @change=${(e: Event) =>
@@ -98,13 +115,14 @@ function renderPresetBody(
 
       <!-- Applicable To -->
       <div class="inspector-field">
-        <label class="inspector-field-label">Applicable To</label>
-        <div class="preset-applicable-to">
+        <span class="inspector-field-label">Applicable To</span>
+        <div class="theme-preset-applicable-to">
           ${NODE_TYPES.map(
             (nt) => html`
-              <label class="preset-checkbox-label">
+              <label class="theme-preset-checkbox-label">
                 <input
                   type="checkbox"
+                  id="preset-${name}-${nt.value}"
                   .checked=${applicableTo.includes(nt.value)}
                   @change=${(e: Event) => {
                     const checked = (e.target as HTMLInputElement).checked;
@@ -120,7 +138,7 @@ function renderPresetBody(
             `,
           )}
         </div>
-        <span class="preset-hint">Leave all unchecked to apply to all node types.</span>
+        <span class="theme-preset-hint">Leave all unchecked to apply to all node types.</span>
       </div>
 
       <!-- Style properties -->
@@ -129,7 +147,6 @@ function renderPresetBody(
           <div class="inspector-style-group">
             <div class="inspector-style-group-label">${group.label}</div>
             ${group.properties.map((prop) => {
-              // For spacing properties, reconstruct compound value from individual keys
               const value =
                 prop.type === 'spacing'
                   ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')

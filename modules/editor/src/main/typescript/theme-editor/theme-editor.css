@@ -3,7 +3,7 @@
  *
  * Two-column layout, collapsible sections, preset cards, status bar.
  * Uses design-system tokens from @design/tokens.css.
- * Reuses inspector-* classes from the template editor where possible.
+ * Reuses @design/components.css for buttons, inputs, badges, etc.
  */
 
 @layer base, layout, components, states;
@@ -16,22 +16,37 @@
 /* Reuse inspector input styles */
 @import '../styles/inspector.css';
 
+/* Override shell.css main-content max-width 
+   Reason is to give theme editor more space */
+
+.main-content {
+  max-width: var(--ep-max-width-xl);
+}
+
+.detail-section-body {
+  padding: var(--ep-space-1);
+}
+
+/* ============================================================================
+ * Layout
+ * ========================================================================== */
+
 @layer layout {
   .theme-editor-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--ep-space-6);
+    grid-template-columns: 33.3% 1fr;
+    gap: var(--ep-space-2);
     min-height: 400px;
   }
 
   .theme-editor-panel {
     overflow-y: auto;
     max-height: calc(100vh - 280px);
-    padding-right: var(--ep-space-4);
+    padding: var(--ep-space-1);
   }
 
   .theme-editor-preview {
-    border: 1px solid var(--ep-gray-200);
+    border: 1px solid var(--ep-border-color);
     border-radius: var(--ep-radius-md);
     display: flex;
     align-items: center;
@@ -40,19 +55,22 @@
   }
 
   .theme-editor-preview-placeholder {
-    color: var(--ep-gray-400);
+    color: var(--ep-muted-foreground);
     font-size: var(--ep-text-sm);
   }
 
   .theme-editor-empty {
-    color: var(--ep-gray-400);
+    color: var(--ep-muted-foreground);
     padding: var(--ep-space-8);
     text-align: center;
   }
 }
 
+/* ============================================================================
+ * Sections
+ * ========================================================================== */
+
 @layer components {
-  /* Sections */
   .theme-section {
     margin-bottom: var(--ep-space-6);
     padding-bottom: var(--ep-space-4);
@@ -66,200 +84,258 @@
   .theme-section-label {
     font-size: var(--ep-text-sm);
     font-weight: 600;
-    color: var(--ep-gray-700);
-    margin: 0 0 var(--ep-space-3) 0;
+    color: var(--ep-foreground);
+    margin: 0 0 var(--ep-space-2) 0;
   }
 
   .theme-section-hint {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-muted-foreground);
     margin: 0 0 var(--ep-space-3) 0;
   }
 
-  /* Textarea (theme-specific overrides) */
-  .theme-editor-layout .ep-textarea {
-    height: auto;
-    min-height: 60px;
-    resize: vertical;
-    font-size: var(--ep-text-sm);
-    padding: var(--ep-space-2);
-  }
-
   /* Mono inputs */
-  .theme-editor-layout .mono {
+  .theme-editor-panel .mono {
     font-family: var(--ep-font-mono);
   }
 
-  /* Preset cards */
-  .presets-list {
+  /* --------------------------------------------------------------------------
+   * Preset cards (native details/summary)
+   * ---------------------------------------------------------------------- */
+
+  .theme-preset-list {
     display: flex;
     flex-direction: column;
     gap: var(--ep-space-2);
     margin-bottom: var(--ep-space-3);
   }
 
-  .presets-empty {
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
-    padding: var(--ep-space-4);
-    text-align: center;
-    border: 1px dashed var(--ep-gray-200);
-    border-radius: var(--ep-radius-sm);
-  }
-
-  .preset-card {
-    border: 1px solid var(--ep-gray-200);
-    border-radius: var(--ep-radius-sm);
+  .theme-preset-card {
+    border: 1px solid var(--ep-border-color);
+    border-radius: var(--ep-radius-md);
+    background-color: var(--ep-card);
     overflow: hidden;
+    transition: all var(--ep-transition-base);
+
+    &[open] {
+      border-color: var(--ep-gray-300);
+
+      & > .theme-preset-header {
+        border-bottom: 1px solid var(--ep-border-color);
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        background-color: var(--ep-muted);
+        list-style: none;
+
+        &::-webkit-details-marker {
+          display: none;
+        }
+      }
+
+      & .theme-preset-toggle {
+        rotate: 180deg;
+      }
+    }
   }
 
-  .preset-card-header {
+  .theme-preset-header {
     display: flex;
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
-    background: var(--ep-gray-50);
+    background-color: var(--ep-muted);
     cursor: pointer;
     user-select: none;
+    list-style: none;
+    transition: all var(--ep-transition-base);
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &:hover {
+      background-color: var(--ep-gray-200);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ep-ring);
+    }
   }
 
-  .preset-card-header:hover {
-    background: var(--ep-gray-100);
+  .theme-preset-toggle {
+    color: var(--ep-muted-foreground);
+    width: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: rotate 150ms ease;
   }
 
-  .preset-card-toggle {
-    font-size: 12px;
-    color: var(--ep-gray-400);
-    width: 12px;
+  .theme-preset-name {
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-foreground);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .theme-preset-key {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-muted-foreground);
+    font-family: var(--ep-font-mono);
     flex-shrink: 0;
   }
 
-  .preset-card-name {
-    font-size: var(--ep-text-sm);
-    font-weight: 500;
-    color: var(--ep-gray-700);
-    flex: 1;
-  }
-
-  .preset-card-key {
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
-    font-family: var(--ep-font-mono);
-  }
-
-  .preset-card-remove {
-    background: none;
-    border: none;
-    color: var(--ep-gray-400);
-    font-size: 18px;
+  .theme-preset-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--ep-h-8);
+    height: var(--ep-h-8);
+    padding: 0;
+    color: var(--ep-muted-foreground);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--ep-radius-sm);
     cursor: pointer;
-    padding: 0 var(--ep-space-1);
+    font-size: 18px;
     line-height: 1;
+    flex-shrink: 0;
+    transition: var(--ep-transition-colors);
+
+    &:hover {
+      color: var(--ep-destructive);
+      background-color: var(--ep-red-50);
+      border-color: var(--ep-red-200);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ep-ring);
+    }
   }
 
-  .preset-card-remove:hover {
-    color: var(--ep-red-500, #ef4444);
-  }
-
-  .preset-card-body {
+  .theme-preset-body {
     padding: var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
+    border-top: 1px solid var(--ep-border-color);
   }
 
-  .preset-applicable-to {
+  /* ApplicableTo checkboxes */
+  .theme-preset-applicable-to {
     display: flex;
     flex-wrap: wrap;
     gap: var(--ep-space-2);
     margin-bottom: var(--ep-space-1);
   }
 
-  .preset-checkbox-label {
+  .theme-preset-checkbox-label {
     display: flex;
     align-items: center;
     gap: var(--ep-space-1);
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-600);
+    color: var(--ep-foreground);
     cursor: pointer;
+    transition: color var(--ep-transition-base);
+
+    &:hover {
+      color: var(--ep-accent-foreground);
+    }
   }
 
-  .preset-hint {
+  .theme-preset-hint {
     font-size: 10px;
-    color: var(--ep-gray-400);
+    color: var(--ep-muted-foreground);
   }
 
-  .preset-add-btn {
-    width: auto;
-  }
-
-  .ep-btn-outline {
-    background: transparent;
-    border: 1px solid var(--ep-gray-300);
-    border-radius: var(--ep-radius-sm);
-    padding: var(--ep-space-1) var(--ep-space-3);
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-600);
+  /* Add preset button */
+  .theme-preset-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ep-space-1-5);
+    height: var(--ep-h-9);
+    padding: 0 var(--ep-space-4);
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-blue-700);
+    background-color: var(--ep-blue-50);
+    border: 1px dashed var(--ep-blue-300);
+    border-radius: var(--ep-radius-md);
     cursor: pointer;
+    transition: var(--ep-transition-colors);
+    align-self: flex-start;
+
+    &:hover {
+      background-color: var(--ep-blue-100);
+      border-color: var(--ep-blue-400);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ep-ring);
+    }
   }
 
-  .ep-btn-outline:hover {
-    background: var(--ep-gray-50);
-    border-color: var(--ep-gray-400);
-  }
+  /* --------------------------------------------------------------------------
+   * Status bar
+   * ---------------------------------------------------------------------- */
 
-  /* Status bar */
   .theme-status-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
+    gap: var(--ep-space-3);
     padding: var(--ep-space-2) var(--ep-space-3);
-    border-top: 1px solid var(--ep-gray-200);
-    background: var(--ep-gray-50);
-    margin-top: var(--ep-space-4);
-    border-radius: var(--ep-radius-sm);
+    border: 1px solid var(--ep-border-color);
+    background-color: var(--ep-muted);
+    margin-bottom: var(--ep-space-1);
+    border-radius: var(--ep-radius-md);
   }
 
   .theme-status-indicator {
     font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
+    color: var(--ep-muted-foreground);
   }
 
   .theme-status-dirty {
-    color: var(--ep-amber-600, #d97706);
+    color: var(--ep-amber-600);
   }
 
   .theme-status-saving {
-    color: var(--ep-blue-500, #3b82f6);
+    color: var(--ep-blue-500);
   }
 
   .theme-status-saved {
-    color: var(--ep-green-600, #16a34a);
+    color: var(--ep-green-700);
   }
 
   .theme-status-error {
-    color: var(--ep-red-500, #ef4444);
+    color: var(--ep-destructive);
   }
 
   .theme-save-btn {
+    flex-shrink: 0;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Inspector style groups (shared with document styles)
+   * ---------------------------------------------------------------------- */
+
+  .inspector-style-group {
+    margin-bottom: var(--ep-space-3);
+  }
+
+  .inspector-style-group-label {
     font-size: var(--ep-text-xs);
-    padding: var(--ep-space-1) var(--ep-space-3);
-  }
-
-  .ep-btn-primary {
-    background: var(--ep-blue-600, #2563eb);
-    color: white;
-    border: none;
-    border-radius: var(--ep-radius-sm);
-    cursor: pointer;
-    font-size: var(--ep-text-xs);
-    padding: var(--ep-space-1) var(--ep-space-3);
-  }
-
-  .ep-btn-primary:hover {
-    background: var(--ep-blue-700, #1d4ed8);
-  }
-
-  .ep-btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    font-weight: 600;
+    color: var(--ep-muted-foreground);
+    margin-bottom: var(--ep-space-2);
+    text-transform: uppercase;
+    letter-spacing: var(--ep-tracking-wider);
   }
 }
