@@ -9,59 +9,59 @@
  * its "columns" slot, and the initial column child nodes with their body slots.
  */
 
-import type { NodeId, SlotId, Slot, Node } from "../../types/index.js";
-import type { ComponentDefinition } from "../../engine/registry.js";
-import type { EditorEngine } from "../../engine/EditorEngine.js";
-import { openDatatableDialog } from "./datatable-dialog.js";
-import { nanoid } from "nanoid";
-import { html, nothing } from "lit";
-import { styleMap } from "lit/directives/style-map.js";
-import { icon } from "../../ui/icons.js";
+import type { NodeId, SlotId, Slot, Node } from '../../types/index.js';
+import type { ComponentDefinition } from '../../engine/registry.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
+import { openDatatableDialog } from './datatable-dialog.js';
+import { nanoid } from 'nanoid';
+import { html, nothing } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
+import { icon } from '../../ui/icons.js';
 
 /** Layout style properties available on datatable nodes. */
 const LAYOUT_STYLES = [
-  "padding",
-  "margin",
-  "backgroundColor",
-  "borderWidth",
-  "borderStyle",
-  "borderColor",
-  "borderRadius",
+  'padding',
+  'margin',
+  'backgroundColor',
+  'borderWidth',
+  'borderStyle',
+  'borderColor',
+  'borderRadius',
 ];
 
 export function createDatatableDefinition(): ComponentDefinition {
   return {
-    type: "datatable",
-    label: "Data Table",
-    icon: "sheet",
-    category: "logic",
-    slots: [{ name: "columns" }],
-    allowedChildren: { mode: "allowlist", types: ["datatable-column"] },
+    type: 'datatable',
+    label: 'Data Table',
+    icon: 'sheet',
+    category: 'logic',
+    slots: [{ name: 'columns' }],
+    allowedChildren: { mode: 'allowlist', types: ['datatable-column'] },
     applicableStyles: LAYOUT_STYLES,
-    defaultStyles: { marginBottom: "1.5sp" },
+    defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
-      { key: "expression.raw", label: "Data Expression", type: "expression" },
-      { key: "itemAlias", label: "Item Alias", type: "text", defaultValue: "item" },
-      { key: "indexAlias", label: "Index Alias", type: "text" },
+      { key: 'expression.raw', label: 'Data Expression', type: 'expression' },
+      { key: 'itemAlias', label: 'Item Alias', type: 'text', defaultValue: 'item' },
+      { key: 'indexAlias', label: 'Index Alias', type: 'text' },
       {
-        key: "borderStyle",
-        label: "Border Style",
-        type: "select",
+        key: 'borderStyle',
+        label: 'Border Style',
+        type: 'select',
         options: [
-          { label: "None", value: "none" },
-          { label: "All", value: "all" },
-          { label: "Horizontal", value: "horizontal" },
-          { label: "Vertical", value: "vertical" },
+          { label: 'None', value: 'none' },
+          { label: 'All', value: 'all' },
+          { label: 'Horizontal', value: 'horizontal' },
+          { label: 'Vertical', value: 'vertical' },
         ],
-        defaultValue: "all",
+        defaultValue: 'all',
       },
-      { key: "headerEnabled", label: "Show Header", type: "boolean", defaultValue: true },
+      { key: 'headerEnabled', label: 'Show Header', type: 'boolean', defaultValue: true },
     ],
     defaultProps: {
-      expression: { raw: "", language: "jsonata" },
-      itemAlias: "item",
+      expression: { raw: '', language: 'jsonata' },
+      itemAlias: 'item',
       indexAlias: undefined,
-      borderStyle: "all",
+      borderStyle: 'all',
       headerEnabled: true,
     },
 
@@ -84,14 +84,14 @@ export function createDatatableDefinition(): ComponentDefinition {
         extraSlots.push({
           id: bodySlotId,
           nodeId: colNodeId,
-          name: "body",
+          name: 'body',
           children: [],
         });
 
         // Column node
         extraNodes.push({
           id: colNodeId,
-          type: "datatable-column",
+          type: 'datatable-column',
           slots: [bodySlotId],
           props: {
             header: `Column ${i + 1}`,
@@ -104,7 +104,7 @@ export function createDatatableDefinition(): ComponentDefinition {
       const columnsSlot: Slot = {
         id: columnsSlotId,
         nodeId,
-        name: "columns",
+        name: 'columns',
         children: columnNodeIds,
       };
 
@@ -126,10 +126,10 @@ export function createDatatableDefinition(): ComponentDefinition {
     renderCanvas: ({ node, doc, engine: eng, renderSlot, selectedNodeId }) => {
       const engine = eng as EditorEngine;
       const props = node.props ?? {};
-      const borderStyle = (props.borderStyle as string) ?? "all";
+      const borderStyle = (props.borderStyle as string) ?? 'all';
       const headerEnabled = (props.headerEnabled as boolean) ?? true;
       const expression = props.expression as { raw?: string } | undefined;
-      const itemAlias = (props.itemAlias as string) ?? "item";
+      const itemAlias = (props.itemAlias as string) ?? 'item';
 
       // Find the "columns" slot
       const columnsSlotId = node.slots[0];
@@ -144,7 +144,7 @@ export function createDatatableDefinition(): ComponentDefinition {
       if (columnNodes.length === 0) {
         return html`<div class="datatable-canvas">
           <div class="datatable-label">
-            <span class="datatable-label-icon">${icon("sheet", 12)}</span>
+            <span class="datatable-label-icon">${icon('sheet', 12)}</span>
             Data Table — no columns
           </div>
         </div>`;
@@ -153,7 +153,7 @@ export function createDatatableDefinition(): ComponentDefinition {
       // Compute grid template columns from column widths
       const widths = columnNodes.map((cn) => (cn.props?.width as number) ?? 33);
       const total = widths.reduce((a, b) => a + b, 0) || columnNodes.length;
-      const gridTemplateColumns = widths.map((w) => `${((w / total) * 100).toFixed(2)}%`).join(" ");
+      const gridTemplateColumns = widths.map((w) => `${((w / total) * 100).toFixed(2)}%`).join(' ');
 
       const expressionLabel = expression?.raw
         ? `${expression.raw} as ${itemAlias}`
@@ -167,8 +167,8 @@ export function createDatatableDefinition(): ComponentDefinition {
       // Header row
       const headerCells = headerEnabled
         ? columnNodes.map((cn) => {
-            const header = (cn.props?.header as string) ?? "";
-            return html`<div class="datatable-header-cell">${header || "\u00A0"}</div>`;
+            const header = (cn.props?.header as string) ?? '';
+            return html`<div class="datatable-header-cell">${header || '\u00A0'}</div>`;
           })
         : nothing;
 
@@ -178,7 +178,7 @@ export function createDatatableDefinition(): ComponentDefinition {
         const isSelected = selectedNodeId === cn.id;
         return html`
           <div
-            class="datatable-body-cell ${isSelected ? "column-selected" : ""}"
+            class="datatable-body-cell ${isSelected ? 'column-selected' : ''}"
             @click=${(e: MouseEvent) => handleColumnClick(e, cn.id as NodeId)}
           >
             ${bodySlotId ? renderSlot(bodySlotId as SlotId) : nothing}
@@ -189,12 +189,12 @@ export function createDatatableDefinition(): ComponentDefinition {
       return html`
         <div class="datatable-canvas">
           <div class="datatable-label">
-            <span class="datatable-label-icon">${icon("sheet", 12)}</span>
+            <span class="datatable-label-icon">${icon('sheet', 12)}</span>
             Data Table — ${expressionLabel}
           </div>
           <div
             class="datatable-grid border-${borderStyle}"
-            style=${styleMap({ "grid-template-columns": gridTemplateColumns })}
+            style=${styleMap({ 'grid-template-columns': gridTemplateColumns })}
           >
             ${headerCells} ${bodyCells}
           </div>
@@ -219,7 +219,7 @@ export function createDatatableDefinition(): ComponentDefinition {
 
         const colNode: Node = {
           id: colNodeId,
-          type: "datatable-column",
+          type: 'datatable-column',
           slots: [bodySlotId],
           props: {
             header: `Column ${columnCount + 1}`,
@@ -230,12 +230,12 @@ export function createDatatableDefinition(): ComponentDefinition {
         const bodySlot: Slot = {
           id: bodySlotId,
           nodeId: colNodeId,
-          name: "body",
+          name: 'body',
           children: [],
         };
 
         engine.dispatch({
-          type: "InsertNode",
+          type: 'InsertNode',
           node: colNode,
           slots: [bodySlot],
           targetSlotId: columnsSlotId as SlotId,
@@ -247,7 +247,7 @@ export function createDatatableDefinition(): ComponentDefinition {
         if (!columnsSlot || columnCount <= 1) return;
         const lastColId = columnsSlot.children[columnsSlot.children.length - 1];
         engine.dispatch({
-          type: "RemoveNode",
+          type: 'RemoveNode',
           nodeId: lastColId as NodeId,
         });
       };

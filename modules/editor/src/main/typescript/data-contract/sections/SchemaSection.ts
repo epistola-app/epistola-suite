@@ -6,11 +6,11 @@
  * Accepts VisualSchema directly — no conversion in the render path.
  */
 
-import { html } from "lit";
-import type { VisualSchema } from "../types.js";
-import type { SchemaCommand } from "../utils/schemaCommands.js";
-import { renderSchemaFieldRow } from "./SchemaFieldRow.js";
-import { renderValidationMessages } from "./ValidationMessages.js";
+import { html } from 'lit';
+import type { VisualSchema } from '../types.js';
+import type { SchemaCommand } from '../utils/schemaCommands.js';
+import { renderSchemaFieldRow } from './SchemaFieldRow.js';
+import { renderValidationMessages } from './ValidationMessages.js';
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>;
@@ -99,7 +99,7 @@ export function renderSchemaSection(
       <!-- Add field button -->
       <button
         class="ep-btn-outline btn-sm dc-add-field-btn"
-        @click=${() => callbacks.onCommand({ type: "addField", parentFieldId: null })}
+        @click=${() => callbacks.onCommand({ type: 'addField', parentFieldId: null })}
       >
         + Add Field
       </button>

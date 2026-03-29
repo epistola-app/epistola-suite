@@ -6,8 +6,8 @@
  * simply delegate to the top-of-stack Change, eliminating type branching.
  */
 
-import type { AnyCommand, CommandResult } from "./commands.js";
-import type { NodeId } from "../types/index.js";
+import type { AnyCommand, CommandResult } from './commands.js';
+import type { NodeId } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Change — the uniform undo/redo contract

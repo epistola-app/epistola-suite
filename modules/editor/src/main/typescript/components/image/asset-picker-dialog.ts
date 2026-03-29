@@ -22,8 +22,8 @@ export interface AssetPickerCallbacks {
 
 export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<AssetInfo | null> {
   return new Promise((resolve) => {
-    const dialog = document.createElement("dialog");
-    dialog.className = "asset-picker-dialog";
+    const dialog = document.createElement('dialog');
+    dialog.className = 'asset-picker-dialog';
 
     dialog.innerHTML = `
       <div class="asset-picker-content">
@@ -51,12 +51,12 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
       </div>
     `;
 
-    const grid = dialog.querySelector<HTMLElement>("#asset-picker-grid")!;
-    const uploadZone = dialog.querySelector<HTMLElement>("#asset-picker-upload")!;
-    const fileInput = dialog.querySelector<HTMLInputElement>("#asset-picker-file")!;
-    const closeBtn = dialog.querySelector<HTMLElement>(".asset-picker-close")!;
-    const cancelBtn = dialog.querySelector<HTMLElement>(".cancel")!;
-    const insertBtn = dialog.querySelector<HTMLButtonElement>(".insert")!;
+    const grid = dialog.querySelector<HTMLElement>('#asset-picker-grid')!;
+    const uploadZone = dialog.querySelector<HTMLElement>('#asset-picker-upload')!;
+    const fileInput = dialog.querySelector<HTMLInputElement>('#asset-picker-file')!;
+    const closeBtn = dialog.querySelector<HTMLElement>('.asset-picker-close')!;
+    const cancelBtn = dialog.querySelector<HTMLElement>('.cancel')!;
+    const insertBtn = dialog.querySelector<HTMLButtonElement>('.insert')!;
 
     let selectedAsset: AssetInfo | null = null;
 
@@ -73,10 +73,10 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         return;
       }
 
-      grid.innerHTML = "";
+      grid.innerHTML = '';
       for (const asset of assets) {
-        const card = document.createElement("div");
-        card.className = "asset-picker-card";
+        const card = document.createElement('div');
+        card.className = 'asset-picker-card';
         card.dataset.assetId = asset.id;
         card.innerHTML = `
           <div class="asset-picker-card-img">
@@ -84,16 +84,16 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
           </div>
           <div class="asset-picker-card-name" title="${asset.name}">${asset.name}</div>
         `;
-        card.addEventListener("click", () => {
+        card.addEventListener('click', () => {
           // Deselect previous
           grid
-            .querySelectorAll(".asset-picker-card")
-            .forEach((c) => c.classList.remove("selected"));
-          card.classList.add("selected");
+            .querySelectorAll('.asset-picker-card')
+            .forEach((c) => c.classList.remove('selected'));
+          card.classList.add('selected');
           selectedAsset = asset;
           insertBtn.disabled = false;
         });
-        card.addEventListener("dblclick", () => {
+        card.addEventListener('dblclick', () => {
           selectedAsset = asset;
           close(selectedAsset);
         });
@@ -113,7 +113,7 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
 
     // Upload handling
     const handleUpload = async (file: File) => {
-      uploadZone.classList.add("uploading");
+      uploadZone.classList.add('uploading');
       try {
         const asset = await callbacks.uploadAsset(file);
         // Refresh the grid and auto-select the new asset
@@ -122,49 +122,49 @@ export function openAssetPickerDialog(callbacks: AssetPickerCallbacks): Promise<
         // Select the newly uploaded asset
         const newCard = grid.querySelector(`[data-asset-id="${asset.id}"]`);
         if (newCard) {
-          newCard.classList.add("selected");
+          newCard.classList.add('selected');
           selectedAsset = asset;
           insertBtn.disabled = false;
         }
       } catch (err) {
-        console.error("Asset upload failed:", err);
+        console.error('Asset upload failed:', err);
       } finally {
-        uploadZone.classList.remove("uploading");
+        uploadZone.classList.remove('uploading');
       }
     };
 
-    fileInput.addEventListener("change", () => {
+    fileInput.addEventListener('change', () => {
       const file = fileInput.files?.[0];
       if (file) handleUpload(file);
-      fileInput.value = "";
+      fileInput.value = '';
     });
 
-    uploadZone.addEventListener("dragover", (e) => {
+    uploadZone.addEventListener('dragover', (e) => {
       e.preventDefault();
-      uploadZone.classList.add("dragover");
+      uploadZone.classList.add('dragover');
     });
-    uploadZone.addEventListener("dragleave", () => {
-      uploadZone.classList.remove("dragover");
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
     });
-    uploadZone.addEventListener("drop", (e) => {
+    uploadZone.addEventListener('drop', (e) => {
       e.preventDefault();
-      uploadZone.classList.remove("dragover");
+      uploadZone.classList.remove('dragover');
       const file = e.dataTransfer?.files[0];
       if (file) handleUpload(file);
     });
 
     // Button actions
-    closeBtn.addEventListener("click", () => close(null));
-    cancelBtn.addEventListener("click", () => close(null));
-    insertBtn.addEventListener("click", () => close(selectedAsset));
+    closeBtn.addEventListener('click', () => close(null));
+    cancelBtn.addEventListener('click', () => close(null));
+    insertBtn.addEventListener('click', () => close(selectedAsset));
 
-    dialog.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
         e.preventDefault();
         close(null);
       }
     });
-    dialog.addEventListener("click", (e) => {
+    dialog.addEventListener('click', (e) => {
       if (e.target === dialog) close(null);
     });
 

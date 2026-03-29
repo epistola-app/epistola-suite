@@ -9,12 +9,12 @@
 @layer base, layout, components, states;
 
 /* Design system (shared with main app) */
-@import "@design/tokens.css";
-@import "@design/base.css";
-@import "@design/components.css";
+@import '@design/tokens.css';
+@import '@design/base.css';
+@import '@design/components.css';
 
 /* Reuse inspector input styles */
-@import "../styles/inspector.css";
+@import '../styles/inspector.css';
 
 @layer layout {
   .theme-editor-layout {

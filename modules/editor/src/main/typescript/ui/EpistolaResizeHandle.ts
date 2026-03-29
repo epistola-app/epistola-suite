@@ -1,17 +1,17 @@
-import { LitElement, html } from "lit";
-import { customElement } from "lit/decorators.js";
-import { EDITOR_SHORTCUTS_CONFIG } from "../shortcuts-config.js";
+import { LitElement, html } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';
 import {
   getResizeShortcutRegistry,
   type ResizeShortcutRuntimeContext,
-} from "../shortcuts/resize-runtime.js";
+} from '../shortcuts/resize-runtime.js';
 import {
   ShortcutResolver,
   applyResolutionEventPolicy,
   startShortcutCommandExecution,
-} from "../shortcuts/resolver.js";
+} from '../shortcuts/resolver.js';
 
-const STORAGE_KEY = "ep:preview-width";
+const STORAGE_KEY = 'ep:preview-width';
 
 const {
   minWidth: MIN_WIDTH,
@@ -32,7 +32,7 @@ function clampWidth(width: number): number {
  *
  * Light DOM — styled by preview.css.
  */
-@customElement("epistola-resize-handle")
+@customElement('epistola-resize-handle')
 export class EpistolaResizeHandle extends LitElement {
   override createRenderRoot() {
     return this;
@@ -41,7 +41,7 @@ export class EpistolaResizeHandle extends LitElement {
   private readonly _shortcutResolver = new ShortcutResolver<ResizeShortcutRuntimeContext>(
     getResizeShortcutRegistry(),
     {
-      fallbackContexts: ["resizeHandle"],
+      fallbackContexts: ['resizeHandle'],
     },
   );
 
@@ -50,12 +50,12 @@ export class EpistolaResizeHandle extends LitElement {
   private _startWidth = 0;
 
   private _editorMain(): HTMLElement | null {
-    return this.closest(".editor-main") as HTMLElement | null;
+    return this.closest('.editor-main') as HTMLElement | null;
   }
 
   private _readPreviewWidth(main: HTMLElement): number {
     const currentWidth = parseInt(
-      getComputedStyle(main).getPropertyValue("--ep-preview-width"),
+      getComputedStyle(main).getPropertyValue('--ep-preview-width'),
       10,
     );
     if (isNaN(currentWidth)) return DEFAULT_WIDTH;
@@ -71,12 +71,12 @@ export class EpistolaResizeHandle extends LitElement {
   }
 
   private _syncAriaValue(width: number): void {
-    this.setAttribute("aria-valuenow", String(width));
+    this.setAttribute('aria-valuenow', String(width));
   }
 
   private _setPreviewWidth(main: HTMLElement, width: number, persist = false): number {
     const clampedWidth = clampWidth(width);
-    main.style.setProperty("--ep-preview-width", `${clampedWidth}px`);
+    main.style.setProperty('--ep-preview-width', `${clampedWidth}px`);
     this._syncAriaValue(clampedWidth);
     if (persist) {
       this._persistWidth(clampedWidth);
@@ -110,8 +110,8 @@ export class EpistolaResizeHandle extends LitElement {
     // Capture pointer for reliable tracking even outside the element
     this.setPointerCapture(e.pointerId);
 
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
   };
 
   private _onPointerMove = (e: PointerEvent) => {
@@ -135,8 +135,8 @@ export class EpistolaResizeHandle extends LitElement {
       this.releasePointerCapture(e.pointerId);
     }
 
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
 
     // Persist final width
     const main = this._editorMain();
@@ -158,62 +158,62 @@ export class EpistolaResizeHandle extends LitElement {
         this._setPreviewWidth(main, nextWidth, true);
       },
       closePreview: () => {
-        this.dispatchEvent(new CustomEvent("toggle-preview", { bubbles: true, composed: true }));
+        this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }));
       },
     };
 
     const resolution = this._shortcutResolver.resolve({
       event: e,
-      activeContexts: ["resizeHandle"],
+      activeContexts: ['resizeHandle'],
       runtimeContext,
     });
 
-    if (resolution.kind === "none") {
+    if (resolution.kind === 'none') {
       return;
     }
 
     applyResolutionEventPolicy(e, resolution);
 
-    if (resolution.kind !== "command") {
+    if (resolution.kind !== 'command') {
       return;
     }
 
     const execution = startShortcutCommandExecution(resolution.match.command, runtimeContext);
-    if (execution.initial.status === "pending") {
+    if (execution.initial.status === 'pending') {
       void execution.completion;
     }
   };
 
   override connectedCallback(): void {
     super.connectedCallback();
-    if (!this.hasAttribute("tabindex")) {
+    if (!this.hasAttribute('tabindex')) {
       this.tabIndex = 0;
     }
-    if (!this.hasAttribute("role")) {
-      this.setAttribute("role", "separator");
+    if (!this.hasAttribute('role')) {
+      this.setAttribute('role', 'separator');
     }
-    this.setAttribute("aria-orientation", "vertical");
-    this.setAttribute("aria-valuemin", String(MIN_WIDTH));
-    this.setAttribute("aria-valuemax", String(MAX_WIDTH));
-    if (!this.hasAttribute("aria-label")) {
-      this.setAttribute("aria-label", "Resize preview panel");
+    this.setAttribute('aria-orientation', 'vertical');
+    this.setAttribute('aria-valuemin', String(MIN_WIDTH));
+    this.setAttribute('aria-valuemax', String(MAX_WIDTH));
+    if (!this.hasAttribute('aria-label')) {
+      this.setAttribute('aria-label', 'Resize preview panel');
     }
     this._syncAriaValue(EpistolaResizeHandle.getPersistedWidth());
 
-    this.addEventListener("pointerdown", this._onPointerDown);
-    this.addEventListener("pointermove", this._onPointerMove);
-    this.addEventListener("pointerup", this._onPointerUp);
-    this.addEventListener("pointercancel", this._onPointerUp);
-    this.addEventListener("keydown", this._onKeydown);
+    this.addEventListener('pointerdown', this._onPointerDown);
+    this.addEventListener('pointermove', this._onPointerMove);
+    this.addEventListener('pointerup', this._onPointerUp);
+    this.addEventListener('pointercancel', this._onPointerUp);
+    this.addEventListener('keydown', this._onKeydown);
   }
 
   override disconnectedCallback(): void {
     this._shortcutResolver.cancelActiveChord();
-    this.removeEventListener("pointerdown", this._onPointerDown);
-    this.removeEventListener("pointermove", this._onPointerMove);
-    this.removeEventListener("pointerup", this._onPointerUp);
-    this.removeEventListener("pointercancel", this._onPointerUp);
-    this.removeEventListener("keydown", this._onKeydown);
+    this.removeEventListener('pointerdown', this._onPointerDown);
+    this.removeEventListener('pointermove', this._onPointerMove);
+    this.removeEventListener('pointerup', this._onPointerUp);
+    this.removeEventListener('pointercancel', this._onPointerUp);
+    this.removeEventListener('keydown', this._onKeydown);
     super.disconnectedCallback();
   }
 
@@ -226,6 +226,6 @@ export { STORAGE_KEY, MIN_WIDTH, MAX_WIDTH, DEFAULT_WIDTH, KEYBOARD_RESIZE_STEP 
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-resize-handle": EpistolaResizeHandle;
+    'epistola-resize-handle': EpistolaResizeHandle;
   }
 }

@@ -7,37 +7,37 @@
  *   mountEditor(options)  → EditorInstance
  */
 
-import "./editor.css";
-import "./ui/EpistolaEditor.js";
-import type { EpistolaEditor } from "./ui/EpistolaEditor.js";
-import type { TemplateDocument, NodeId, SlotId } from "./types/index.js";
-import type { FetchPreviewFn } from "./ui/preview-service.js";
-import type { EditorPlugin } from "./plugins/types.js";
-import { createDefaultRegistry } from "./engine/registry.js";
-import { createImageDefinition } from "./components/image/image-registration.js";
-import type { AssetInfo } from "./components/image/asset-picker-dialog.js";
-import { validateCoreShortcutRegistriesOnStartup } from "./shortcuts/startup-validation.js";
-import { nanoid } from "nanoid";
+import './editor.css';
+import './ui/EpistolaEditor.js';
+import type { EpistolaEditor } from './ui/EpistolaEditor.js';
+import type { TemplateDocument, NodeId, SlotId } from './types/index.js';
+import type { FetchPreviewFn } from './ui/preview-service.js';
+import type { EditorPlugin } from './plugins/types.js';
+import { createDefaultRegistry } from './engine/registry.js';
+import { createImageDefinition } from './components/image/image-registration.js';
+import type { AssetInfo } from './components/image/asset-picker-dialog.js';
+import { validateCoreShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
+import { nanoid } from 'nanoid';
 
 validateCoreShortcutRegistriesOnStartup();
 
-export type { TemplateDocument, Node, Slot, NodeId, SlotId } from "./types/index.js";
-export type { AssetInfo } from "./components/image/asset-picker-dialog.js";
-export { EditorEngine } from "./engine/EditorEngine.js";
-export { createDefaultRegistry, ComponentRegistry } from "./engine/registry.js";
+export type { TemplateDocument, Node, Slot, NodeId, SlotId } from './types/index.js';
+export type { AssetInfo } from './components/image/asset-picker-dialog.js';
+export { EditorEngine } from './engine/EditorEngine.js';
+export { createDefaultRegistry, ComponentRegistry } from './engine/registry.js';
 export type {
   EditorPlugin,
   SidebarTabContribution,
   ToolbarAction,
   PluginContext,
   PluginDisposeFn,
-} from "./plugins/types.js";
-export type { PluginShortcutContribution } from "./shortcuts/plugin-registry.js";
+} from './plugins/types.js';
+export type { PluginShortcutContribution } from './shortcuts/plugin-registry.js';
 export {
   definePluginShortcutContribution,
   validatePluginShortcutContribution,
-} from "./shortcuts/plugin-registry.js";
-export { validateShortcutRegistriesOnStartup } from "./shortcuts/startup-validation.js";
+} from './shortcuts/plugin-registry.js';
+export { validateShortcutRegistriesOnStartup } from './shortcuts/startup-validation.js';
 
 // ---------------------------------------------------------------------------
 // Public mount API
@@ -88,7 +88,7 @@ export function createEmptyDocument(): TemplateDocument {
     nodes: {
       [rootId]: {
         id: rootId,
-        type: "root",
+        type: 'root',
         slots: [rootSlotId],
       },
     },
@@ -96,11 +96,11 @@ export function createEmptyDocument(): TemplateDocument {
       [rootSlotId]: {
         id: rootSlotId,
         nodeId: rootId,
-        name: "children",
+        name: 'children',
         children: [],
       },
     },
-    themeRef: { type: "inherit" },
+    themeRef: { type: 'inherit' },
   };
 }
 
@@ -112,10 +112,10 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   const doc = template ?? createEmptyDocument();
 
   // Create the custom element
-  const editorEl = document.createElement("epistola-editor") as EpistolaEditor;
-  editorEl.style.height = "100%";
-  editorEl.style.width = "100%";
-  editorEl.style.display = "block";
+  const editorEl = document.createElement('epistola-editor') as EpistolaEditor;
+  editorEl.style.height = '100%';
+  editorEl.style.width = '100%';
+  editorEl.style.display = 'block';
 
   // Wire up callbacks before initEngine — initEngine reads these to create
   // the SaveService and other services during initialization.
@@ -147,7 +147,7 @@ export function mountEditor(options: EditorOptions): EditorInstance {
   editorEl.initEngine(doc, registry, { dataModel, dataExamples });
 
   // Mount into the container
-  container.innerHTML = "";
+  container.innerHTML = '';
   container.appendChild(editorEl);
 
   return {

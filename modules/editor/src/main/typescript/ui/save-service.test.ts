@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SaveService, type SaveState, type SaveFn } from "./save-service.js";
-import type { TemplateDocument } from "../types/index.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { SaveService, type SaveState, type SaveFn } from './save-service.js';
+import type { TemplateDocument } from '../types/index.js';
 
 // Minimal doc fixture — SaveService doesn't inspect its contents
-const DOC = { modelVersion: 1, root: "r", nodes: {}, slots: {} } as unknown as TemplateDocument;
-const DOC2 = { modelVersion: 1, root: "r2", nodes: {}, slots: {} } as unknown as TemplateDocument;
+const DOC = { modelVersion: 1, root: 'r', nodes: {}, slots: {} } as unknown as TemplateDocument;
+const DOC2 = { modelVersion: 1, root: 'r2', nodes: {}, slots: {} } as unknown as TemplateDocument;
 
 /**
  * Helper that creates a save function resolving after a microtask.
@@ -19,7 +19,7 @@ function createMockSave() {
   return { fn, calls };
 }
 
-describe("SaveService", () => {
+describe('SaveService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -28,29 +28,29 @@ describe("SaveService", () => {
     vi.useRealTimers();
   });
 
-  it("starts in idle state", () => {
+  it('starts in idle state', () => {
     const onChange = vi.fn();
     const { fn } = createMockSave();
     const service = new SaveService(fn, onChange);
 
-    expect(service.state).toEqual({ status: "idle" });
+    expect(service.state).toEqual({ status: 'idle' });
     expect(onChange).not.toHaveBeenCalled();
     service.dispose();
   });
 
-  it("markDirty transitions from idle to dirty", () => {
+  it('markDirty transitions from idle to dirty', () => {
     const states: SaveState[] = [];
     const { fn } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }));
 
     service.markDirty();
 
-    expect(states).toEqual([{ status: "dirty" }]);
-    expect(service.state).toEqual({ status: "dirty" });
+    expect(states).toEqual([{ status: 'dirty' }]);
+    expect(service.state).toEqual({ status: 'dirty' });
     service.dispose();
   });
 
-  it("markDirty is idempotent when already dirty", () => {
+  it('markDirty is idempotent when already dirty', () => {
     const states: SaveState[] = [];
     const { fn } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }));
@@ -59,11 +59,11 @@ describe("SaveService", () => {
     service.markDirty();
     service.markDirty();
 
-    expect(states).toEqual([{ status: "dirty" }]);
+    expect(states).toEqual([{ status: 'dirty' }]);
     service.dispose();
   });
 
-  it("scheduleAutoSave fires after debounce period", async () => {
+  it('scheduleAutoSave fires after debounce period', async () => {
     const states: SaveState[] = [];
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }), 3000);
@@ -78,19 +78,19 @@ describe("SaveService", () => {
     vi.advanceTimersByTime(3000);
 
     // saving state emitted synchronously
-    expect(states).toContainEqual({ status: "saving" });
+    expect(states).toContainEqual({ status: 'saving' });
 
     // Let the async save resolve
     await vi.runAllTimersAsync();
 
     expect(calls.length).toBe(1);
     expect(calls[0]).toBe(DOC);
-    expect(states).toContainEqual({ status: "saved" });
+    expect(states).toContainEqual({ status: 'saved' });
 
     service.dispose();
   });
 
-  it("coalesces multiple scheduleAutoSave calls within debounce window", async () => {
+  it('coalesces multiple scheduleAutoSave calls within debounce window', async () => {
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, vi.fn(), 3000);
 
@@ -110,7 +110,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("forceSave bypasses debounce", async () => {
+  it('forceSave bypasses debounce', async () => {
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, vi.fn(), 5000);
 
@@ -123,7 +123,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("forceSave is a no-op when idle (nothing to save)", async () => {
+  it('forceSave is a no-op when idle (nothing to save)', async () => {
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, vi.fn(), 3000);
 
@@ -133,7 +133,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("forceSave is a no-op when saved with no pending changes", async () => {
+  it('forceSave is a no-op when saved with no pending changes', async () => {
     const states: SaveState[] = [];
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }), 3000);
@@ -142,7 +142,7 @@ describe("SaveService", () => {
     service.markDirty();
     service.forceSave(DOC);
     await vi.runAllTimersAsync();
-    expect(states).toContainEqual({ status: "saved" });
+    expect(states).toContainEqual({ status: 'saved' });
 
     // Now forceSave should be no-op (nothing dirty)
     const callsBefore = calls.length;
@@ -152,7 +152,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("transitions saving → saved → idle on success", async () => {
+  it('transitions saving → saved → idle on success', async () => {
     const states: SaveState[] = [];
     const { fn } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }), 0, 2000);
@@ -161,22 +161,22 @@ describe("SaveService", () => {
     service.forceSave(DOC);
     await vi.runAllTimersAsync();
 
-    expect(states).toContainEqual({ status: "dirty" });
-    expect(states).toContainEqual({ status: "saving" });
-    expect(states).toContainEqual({ status: "saved" });
+    expect(states).toContainEqual({ status: 'dirty' });
+    expect(states).toContainEqual({ status: 'saving' });
+    expect(states).toContainEqual({ status: 'saved' });
 
     // saved → idle after 2s
     vi.advanceTimersByTime(2000);
-    expect(states[states.length - 1]).toEqual({ status: "idle" });
+    expect(states[states.length - 1]).toEqual({ status: 'idle' });
 
     service.dispose();
   });
 
-  it("transitions to error state when save throws", async () => {
+  it('transitions to error state when save throws', async () => {
     const states: SaveState[] = [];
     const failingFn: SaveFn = async () => {
       await Promise.resolve();
-      throw new Error("Network error");
+      throw new Error('Network error');
     };
     const service = new SaveService(failingFn, (s) => states.push({ ...s }), 0);
 
@@ -184,17 +184,17 @@ describe("SaveService", () => {
     service.forceSave(DOC);
     await vi.runAllTimersAsync();
 
-    expect(states).toContainEqual({ status: "saving" });
-    expect(states).toContainEqual({ status: "error", message: "Network error" });
+    expect(states).toContainEqual({ status: 'saving' });
+    expect(states).toContainEqual({ status: 'error', message: 'Network error' });
 
     service.dispose();
   });
 
-  it("handles non-Error thrown values gracefully", async () => {
+  it('handles non-Error thrown values gracefully', async () => {
     const states: SaveState[] = [];
     const throwStringFn: SaveFn = async () => {
       await Promise.resolve();
-      throw "unexpected string error";
+      throw 'unexpected string error';
     };
     const service = new SaveService(throwStringFn, (s) => states.push({ ...s }), 0);
 
@@ -202,12 +202,12 @@ describe("SaveService", () => {
     service.forceSave(DOC);
     await vi.runAllTimersAsync();
 
-    expect(states).toContainEqual({ status: "error", message: "Save failed" });
+    expect(states).toContainEqual({ status: 'error', message: 'Save failed' });
 
     service.dispose();
   });
 
-  it("prevents concurrent saves — queues pending doc", async () => {
+  it('prevents concurrent saves — queues pending doc', async () => {
     const calls: TemplateDocument[] = [];
     let resolveFirst!: () => void;
     const slowFn: SaveFn = async (doc) => {
@@ -248,7 +248,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("markDirty during saving causes re-save after completion", async () => {
+  it('markDirty during saving causes re-save after completion', async () => {
     const calls: TemplateDocument[] = [];
     let resolveSave!: () => void;
     const controlledFn: SaveFn = async (doc) => {
@@ -275,7 +275,7 @@ describe("SaveService", () => {
     await vi.runAllTimersAsync();
 
     // Should transition to dirty (not saved) because pendingDoc was set
-    expect(states).toContainEqual({ status: "dirty" });
+    expect(states).toContainEqual({ status: 'dirty' });
 
     // After debounce, the pending doc should be saved
     vi.advanceTimersByTime(3000);
@@ -288,7 +288,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("isDirtyOrSaving reflects current state", async () => {
+  it('isDirtyOrSaving reflects current state', async () => {
     const { fn } = createMockSave();
     const service = new SaveService(fn, vi.fn(), 3000);
 
@@ -310,7 +310,7 @@ describe("SaveService", () => {
     service.dispose();
   });
 
-  it("dispose prevents further saves", async () => {
+  it('dispose prevents further saves', async () => {
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, vi.fn(), 3000);
 
@@ -329,7 +329,7 @@ describe("SaveService", () => {
     expect(calls.length).toBe(0);
   });
 
-  it("dispose clears saved→idle timer", async () => {
+  it('dispose clears saved→idle timer', async () => {
     const states: SaveState[] = [];
     const { fn } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }), 0, 2000);
@@ -340,7 +340,7 @@ describe("SaveService", () => {
     await vi.advanceTimersByTimeAsync(0);
 
     // Should be in 'saved' state
-    expect(service.state).toEqual({ status: "saved" });
+    expect(service.state).toEqual({ status: 'saved' });
 
     service.dispose();
 
@@ -350,7 +350,7 @@ describe("SaveService", () => {
     expect(states.length).toBe(statesBefore);
   });
 
-  it("markDirty from saved state cancels saved→idle timer", async () => {
+  it('markDirty from saved state cancels saved→idle timer', async () => {
     const states: SaveState[] = [];
     const { fn } = createMockSave();
     const service = new SaveService(fn, (s) => states.push({ ...s }), 0, 2000);
@@ -359,26 +359,26 @@ describe("SaveService", () => {
     service.forceSave(DOC);
     // Flush only microtasks, not the 2s saved→idle timer
     await vi.advanceTimersByTimeAsync(0);
-    expect(service.state).toEqual({ status: "saved" });
+    expect(service.state).toEqual({ status: 'saved' });
 
     // Mark dirty again before the saved→idle timer fires
     service.markDirty();
-    expect(service.state).toEqual({ status: "dirty" });
+    expect(service.state).toEqual({ status: 'dirty' });
 
     // The saved→idle timer should NOT transition to idle
     vi.advanceTimersByTime(3000);
-    expect(service.state).toEqual({ status: "dirty" });
+    expect(service.state).toEqual({ status: 'dirty' });
 
     service.dispose();
   });
 
-  it("can recover from error state via markDirty + save", async () => {
+  it('can recover from error state via markDirty + save', async () => {
     let shouldFail = true;
     const calls: TemplateDocument[] = [];
     const fn: SaveFn = async (doc) => {
       calls.push(doc);
       await Promise.resolve();
-      if (shouldFail) throw new Error("fail");
+      if (shouldFail) throw new Error('fail');
     };
 
     const states: SaveState[] = [];
@@ -388,19 +388,19 @@ describe("SaveService", () => {
     service.markDirty();
     service.forceSave(DOC);
     await vi.advanceTimersByTimeAsync(0);
-    expect(service.state.status).toBe("error");
+    expect(service.state.status).toBe('error');
 
     // Recover: markDirty then retry
     shouldFail = false;
     service.markDirty();
     service.forceSave(DOC);
     await vi.advanceTimersByTimeAsync(0);
-    expect(service.state.status).toBe("saved");
+    expect(service.state.status).toBe('saved');
 
     service.dispose();
   });
 
-  it("passes correct doc to save function", async () => {
+  it('passes correct doc to save function', async () => {
     const { fn, calls } = createMockSave();
     const service = new SaveService(fn, vi.fn(), 0);
 

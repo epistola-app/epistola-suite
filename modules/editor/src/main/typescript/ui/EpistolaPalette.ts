@@ -1,25 +1,25 @@
-import { LitElement, html } from "lit";
-import { customElement, property } from "lit/decorators.js";
-import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
-import type { EditorEngine } from "../engine/EditorEngine.js";
+import { LitElement, html } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
+import type { EditorEngine } from '../engine/EditorEngine.js';
 import {
   type ComponentDefinition,
   type ComponentCategory,
   PAGE_HEADER_TYPE,
   PAGE_FOOTER_TYPE,
-} from "../engine/registry.js";
-import type { DragData } from "../dnd/types.js";
-import { icon, type IconName, ICONS } from "./icons.js";
+} from '../engine/registry.js';
+import type { DragData } from '../dnd/types.js';
+import { icon, type IconName, ICONS } from './icons.js';
 
-const CATEGORY_ORDER: ComponentCategory[] = ["content", "layout", "logic", "page"];
+const CATEGORY_ORDER: ComponentCategory[] = ['content', 'layout', 'logic', 'page'];
 const CATEGORY_LABELS: Record<ComponentCategory, string> = {
-  content: "Content",
-  layout: "Layout",
-  logic: "Logic",
-  page: "Page",
+  content: 'Content',
+  layout: 'Layout',
+  logic: 'Logic',
+  page: 'Page',
 };
 
-@customElement("epistola-palette")
+@customElement('epistola-palette')
 export class EpistolaPalette extends LitElement {
   override createRenderRoot() {
     return this;
@@ -71,7 +71,7 @@ export class EpistolaPalette extends LitElement {
     const { node, slots, extraNodes } = this.engine.registry.createNode(type, overrideProps);
 
     const result = this.engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId,
@@ -86,7 +86,7 @@ export class EpistolaPalette extends LitElement {
   }
 
   override updated(changed: Map<string, unknown>) {
-    if (changed.has("engine")) {
+    if (changed.has('engine')) {
       this._subscribeToEngine();
     }
 
@@ -108,7 +108,7 @@ export class EpistolaPalette extends LitElement {
 
     if (!this.engine) return;
 
-    this._unsubDocChange = this.engine.events.on("doc:change", ({ structureChanged }) => {
+    this._unsubDocChange = this.engine.events.on('doc:change', ({ structureChanged }) => {
       if (structureChanged) {
         this.requestUpdate();
       }
@@ -116,7 +116,7 @@ export class EpistolaPalette extends LitElement {
   }
 
   private _setupDnD(): (() => void) | null {
-    const items = this.querySelectorAll<HTMLElement>(".palette-item[data-block-type]");
+    const items = this.querySelectorAll<HTMLElement>('.palette-item[data-block-type]');
     if (items.length === 0) return null;
 
     const cleanups: (() => void)[] = [];
@@ -127,9 +127,9 @@ export class EpistolaPalette extends LitElement {
 
       const cleanup = draggable({
         element: item,
-        getInitialData: (): DragData => ({ source: "palette", blockType }),
-        onDragStart: () => item.classList.add("dragging"),
-        onDrop: () => item.classList.remove("dragging"),
+        getInitialData: (): DragData => ({ source: 'palette', blockType }),
+        onDragStart: () => item.classList.add('dragging'),
+        onDrop: () => item.classList.remove('dragging'),
       });
       cleanups.push(cleanup);
     }
@@ -151,7 +151,7 @@ export class EpistolaPalette extends LitElement {
 
     const definitions = this.engine.registry
       .insertable(this.engine.doc)
-      .filter((d) => d.type !== "root"); // Don't show root in palette
+      .filter((d) => d.type !== 'root'); // Don't show root in palette
 
     const grouped = new Map<ComponentCategory, ComponentDefinition[]>();
     for (const cat of CATEGORY_ORDER) {
@@ -166,7 +166,7 @@ export class EpistolaPalette extends LitElement {
       <div class="epistola-palette">
         ${CATEGORY_ORDER.map((cat) => {
           const items = grouped.get(cat);
-          if (!items || items.length === 0) return "";
+          if (!items || items.length === 0) return '';
 
           return html`
             <div class="palette-category">
@@ -195,6 +195,6 @@ export class EpistolaPalette extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-palette": EpistolaPalette;
+    'epistola-palette': EpistolaPalette;
   }
 }

@@ -12,11 +12,11 @@ export function withAnyModifiers(...keys: readonly string[]): string[] {
       for (const shift of [false, true]) {
         for (const alt of [false, true]) {
           const parts: string[] = [];
-          if (mod) parts.push("mod");
-          if (shift) parts.push("shift");
-          if (alt) parts.push("alt");
+          if (mod) parts.push('mod');
+          if (shift) parts.push('shift');
+          if (alt) parts.push('alt');
           parts.push(key);
-          strokes.add(parts.join("+"));
+          strokes.add(parts.join('+'));
         }
       }
     }

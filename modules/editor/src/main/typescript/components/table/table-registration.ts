@@ -5,71 +5,71 @@
  * extension hooks — keeping table-specific logic out of generic files.
  */
 
-import type { NodeId, SlotId, Slot } from "../../types/index.js";
-import type { ComponentDefinition } from "../../engine/registry.js";
-import type { EditorEngine } from "../../engine/EditorEngine.js";
-import { cellSlotName } from "./table-utils.js";
-import { applyTableCommand, type TableCommand } from "./table-commands.js";
-import { openTableDialog } from "./table-dialog.js";
-import "./TableInspector.js";
-import { nanoid } from "nanoid";
-import { html, nothing } from "lit";
-import { styleMap } from "lit/directives/style-map.js";
-import { findMergeAt, isCellCovered, type CellMerge, type CellSelection } from "./table-utils.js";
+import type { NodeId, SlotId, Slot } from '../../types/index.js';
+import type { ComponentDefinition } from '../../engine/registry.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
+import { cellSlotName } from './table-utils.js';
+import { applyTableCommand, type TableCommand } from './table-commands.js';
+import { openTableDialog } from './table-dialog.js';
+import './TableInspector.js';
+import { nanoid } from 'nanoid';
+import { html, nothing } from 'lit';
+import { styleMap } from 'lit/directives/style-map.js';
+import { findMergeAt, isCellCovered, type CellMerge, type CellSelection } from './table-utils.js';
 
 /** Layout style properties available on table nodes. */
 const LAYOUT_STYLES = [
-  "padding",
-  "margin",
-  "backgroundColor",
-  "borderWidth",
-  "borderStyle",
-  "borderColor",
-  "borderRadius",
+  'padding',
+  'margin',
+  'backgroundColor',
+  'borderWidth',
+  'borderStyle',
+  'borderColor',
+  'borderRadius',
 ];
 
 export const TABLE_DEFAULT_PROPS = {
   rows: 2,
   columns: 2,
   columnWidths: [50, 50],
-  borderStyle: "all",
+  borderStyle: 'all',
   headerRows: 0,
   merges: [],
 };
 
 /** All table command type strings for registry routing. */
 const TABLE_COMMAND_TYPES = [
-  "AddTableRow",
-  "RemoveTableRow",
-  "AddTableColumn",
-  "RemoveTableColumn",
-  "MergeTableCells",
-  "UnmergeTableCells",
-  "SetTableHeaderRows",
+  'AddTableRow',
+  'RemoveTableRow',
+  'AddTableColumn',
+  'RemoveTableColumn',
+  'MergeTableCells',
+  'UnmergeTableCells',
+  'SetTableHeaderRows',
 ];
 
 export function createTableDefinition(): ComponentDefinition {
   return {
-    type: "table",
-    label: "Table",
-    icon: "table",
-    category: "layout",
-    slots: [{ name: "cell-{r}-{c}", dynamic: true }],
-    allowedChildren: { mode: "all" },
+    type: 'table',
+    label: 'Table',
+    icon: 'table',
+    category: 'layout',
+    slots: [{ name: 'cell-{r}-{c}', dynamic: true }],
+    allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
-    defaultStyles: { marginBottom: "1.5sp" },
+    defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
       {
-        key: "borderStyle",
-        label: "Border Style",
-        type: "select",
+        key: 'borderStyle',
+        label: 'Border Style',
+        type: 'select',
         options: [
-          { label: "None", value: "none" },
-          { label: "All", value: "all" },
-          { label: "Horizontal", value: "horizontal" },
-          { label: "Vertical", value: "vertical" },
+          { label: 'None', value: 'none' },
+          { label: 'All', value: 'all' },
+          { label: 'Horizontal', value: 'horizontal' },
+          { label: 'Vertical', value: 'vertical' },
         ],
-        defaultValue: "all",
+        defaultValue: 'all',
       },
     ],
     defaultProps: { ...TABLE_DEFAULT_PROPS },
@@ -105,7 +105,7 @@ export function createTableDefinition(): ComponentDefinition {
       const columnWidths = (props.columnWidths as number[]) ?? [];
       const merges = (props.merges as CellMerge[]) ?? [];
       const headerRows = (props.headerRows as number) ?? 0;
-      const borderStyle = (props.borderStyle as string) ?? "all";
+      const borderStyle = (props.borderStyle as string) ?? 'all';
 
       if (rows <= 0 || columns <= 0) return html`<div class="table-canvas-empty">Empty table</div>`;
 
@@ -120,12 +120,12 @@ export function createTableDefinition(): ComponentDefinition {
       const total = columnWidths.reduce((a, b) => a + b, 0) || columns;
       const gridTemplateColumns = columnWidths
         .map((w) => `${((w / total) * 100).toFixed(2)}%`)
-        .join(" ");
+        .join(' ');
 
       // Only show cell selection for the currently selected table
       const cellSelection =
         selectedNodeId === node.id
-          ? engine.getComponentState<CellSelection>("table:cellSelection")
+          ? engine.getComponentState<CellSelection>('table:cellSelection')
           : null;
       const normSel = cellSelection
         ? {
@@ -146,14 +146,14 @@ export function createTableDefinition(): ComponentDefinition {
 
         // Read current selection from engine (not the render-time closure) to
         // handle shift-click correctly even when the canvas hasn't re-rendered.
-        const currentSel = engine.getComponentState<CellSelection>("table:cellSelection");
+        const currentSel = engine.getComponentState<CellSelection>('table:cellSelection');
         let newSel: CellSelection;
         if (e.shiftKey && currentSel) {
           newSel = { ...currentSel, endRow: row, endCol: col };
         } else {
           newSel = { startRow: row, startCol: col, endRow: row, endCol: col };
         }
-        engine.setComponentState("table:cellSelection", newSel);
+        engine.setComponentState('table:cellSelection', newSel);
       };
 
       // Build cells
@@ -173,8 +173,8 @@ export function createTableDefinition(): ComponentDefinition {
 
           const cellStyle: Record<string, string> = {};
           if (merge) {
-            if (merge.colSpan > 1) cellStyle["grid-column"] = `span ${merge.colSpan}`;
-            if (merge.rowSpan > 1) cellStyle["grid-row"] = `span ${merge.rowSpan}`;
+            if (merge.colSpan > 1) cellStyle['grid-column'] = `span ${merge.colSpan}`;
+            if (merge.rowSpan > 1) cellStyle['grid-row'] = `span ${merge.rowSpan}`;
           }
 
           const slotName = cellSlotName(r, c);
@@ -182,9 +182,9 @@ export function createTableDefinition(): ComponentDefinition {
 
           cells.push(html`
             <div
-              class="table-canvas-cell ${isHeader ? "header" : ""} ${isSelected
-                ? "cell-selected"
-                : ""}"
+              class="table-canvas-cell ${isHeader ? 'header' : ''} ${isSelected
+                ? 'cell-selected'
+                : ''}"
               style=${styleMap(cellStyle)}
               data-cell-row=${r}
               data-cell-col=${c}
@@ -199,7 +199,7 @@ export function createTableDefinition(): ComponentDefinition {
       return html`
         <div
           class="table-canvas-grid border-${borderStyle}"
-          style=${styleMap({ "grid-template-columns": gridTemplateColumns })}
+          style=${styleMap({ 'grid-template-columns': gridTemplateColumns })}
         >
           ${cells}
         </div>

@@ -12,40 +12,40 @@
  * - JSONata quick reference panel
  */
 
-import type { FieldPath } from "../engine/schema-paths.js";
+import type { FieldPath } from '../engine/schema-paths.js';
 import {
   tryEvaluateExpression,
   formatForPreview,
   isValidExpression,
-} from "../engine/resolve-expression.js";
+} from '../engine/resolve-expression.js';
 
 /** Common JSONata patterns for the quick reference panel. */
 const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
-  { code: "customer.name", desc: "Access a field" },
-  { code: 'address.line1 & ", " & address.city', desc: "Concatenate strings" },
-  { code: 'age >= 18 ? "Adult" : "Minor"', desc: "Conditional" },
-  { code: "$sum(items.price)", desc: "Sum numbers" },
-  { code: "$count(items)", desc: "Count array items" },
-  { code: '$join(tags, ", ")', desc: "Join array to string" },
-  { code: "$uppercase(name)", desc: "Uppercase text" },
-  { code: "$lowercase(name)", desc: "Lowercase text" },
-  { code: "$now()", desc: "Current timestamp" },
-  { code: "$substring(name, 0, 10)", desc: "Substring" },
-  { code: "items[price > 100]", desc: "Filter array" },
-  { code: "$number(value)", desc: "Convert to number" },
-  { code: "$formatDate(date, 'dd-MM-yyyy')", desc: "Format a date" },
+  { code: 'customer.name', desc: 'Access a field' },
+  { code: 'address.line1 & ", " & address.city', desc: 'Concatenate strings' },
+  { code: 'age >= 18 ? "Adult" : "Minor"', desc: 'Conditional' },
+  { code: '$sum(items.price)', desc: 'Sum numbers' },
+  { code: '$count(items)', desc: 'Count array items' },
+  { code: '$join(tags, ", ")', desc: 'Join array to string' },
+  { code: '$uppercase(name)', desc: 'Uppercase text' },
+  { code: '$lowercase(name)', desc: 'Lowercase text' },
+  { code: '$now()', desc: 'Current timestamp' },
+  { code: '$substring(name, 0, 10)', desc: 'Substring' },
+  { code: 'items[price > 100]', desc: 'Filter array' },
+  { code: '$number(value)', desc: 'Convert to number' },
+  { code: "$formatDate(date, 'dd-MM-yyyy')", desc: 'Format a date' },
 ];
 
 /** Date format presets for the format dropdown. */
 const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
-  { value: "", label: "No formatting" },
-  { value: "dd-MM-yyyy", label: "dd-MM-yyyy (15-01-2024)" },
-  { value: "yyyy-MM-dd", label: "yyyy-MM-dd (2024-01-15)" },
-  { value: "dd/MM/yyyy", label: "dd/MM/yyyy (15/01/2024)" },
-  { value: "MM/dd/yyyy", label: "MM/dd/yyyy (01/15/2024)" },
-  { value: "d MMMM yyyy", label: "d MMMM yyyy (15 January 2024)" },
-  { value: "dd-MM-yyyy HH:mm", label: "dd-MM-yyyy HH:mm (15-01-2024 14:30)" },
-  { value: "yyyy-MM-dd HH:mm", label: "yyyy-MM-dd HH:mm (2024-01-15 14:30)" },
+  { value: '', label: 'No formatting' },
+  { value: 'dd-MM-yyyy', label: 'dd-MM-yyyy (15-01-2024)' },
+  { value: 'yyyy-MM-dd', label: 'yyyy-MM-dd (2024-01-15)' },
+  { value: 'dd/MM/yyyy', label: 'dd/MM/yyyy (15/01/2024)' },
+  { value: 'MM/dd/yyyy', label: 'MM/dd/yyyy (01/15/2024)' },
+  { value: 'd MMMM yyyy', label: 'd MMMM yyyy (15 January 2024)' },
+  { value: 'dd-MM-yyyy HH:mm', label: 'dd-MM-yyyy HH:mm (15-01-2024 14:30)' },
+  { value: 'yyyy-MM-dd HH:mm', label: 'yyyy-MM-dd HH:mm (2024-01-15 14:30)' },
 ];
 
 /** Regex to parse `$formatDate(fieldPath, 'pattern')` expressions. */
@@ -73,7 +73,7 @@ export function wrapFormatDate(fieldPath: string, pattern: string): string {
 export interface BuilderState {
   fieldPath: string;
   fieldType: string;
-  formatType: "none" | "date";
+  formatType: 'none' | 'date';
   formatPattern: string;
 }
 
@@ -96,7 +96,7 @@ export function tryParseAsBuilderExpression(
       return {
         fieldPath: parsed.fieldPath,
         fieldType: fp.type,
-        formatType: "date",
+        formatType: 'date',
         formatPattern: parsed.pattern,
       };
     }
@@ -105,7 +105,7 @@ export function tryParseAsBuilderExpression(
   // Try bare field path
   const fp = fieldPaths.find((f) => f.path === trimmed);
   if (fp) {
-    return { fieldPath: trimmed, fieldType: fp.type, formatType: "none", formatPattern: "" };
+    return { fieldPath: trimmed, fieldType: fp.type, formatType: 'none', formatPattern: '' };
   }
 
   return null;
@@ -113,7 +113,7 @@ export function tryParseAsBuilderExpression(
 
 /** Construct an expression string from builder state. */
 export function buildExpression(state: BuilderState): string {
-  if (state.formatType === "date" && state.formatPattern) {
+  if (state.formatType === 'date' && state.formatPattern) {
     return wrapFormatDate(state.fieldPath, state.formatPattern);
   }
   return state.fieldPath;
@@ -162,8 +162,8 @@ export function openExpressionDialog(
       initialValue,
       fieldPaths,
       getExampleData,
-      label = "Expression",
-      placeholder = "e.g. customer.name",
+      label = 'Expression',
+      placeholder = 'e.g. customer.name',
       enableBuilderMode = false,
       fieldPathFilter,
       resultValidator,
@@ -179,20 +179,20 @@ export function openExpressionDialog(
         : null
       : null;
     // Default to builder for new/empty expressions or parseable ones; code for complex
-    let currentMode: "builder" | "code" = enableBuilderMode
+    let currentMode: 'builder' | 'code' = enableBuilderMode
       ? initialValue && !initialBuilderState
-        ? "code"
-        : "builder"
-      : "code";
+        ? 'code'
+        : 'builder'
+      : 'code';
 
     const dataFields = fieldPaths.filter((fp) => !fp.system);
     const systemFields = fieldPaths.filter((fp) => fp.system);
     // Builder excludes arrays, objects, and any nested array properties (paths containing [])
     const builderFields = dataFields.filter(
-      (fp) => fp.type !== "array" && fp.type !== "object" && !fp.path.includes("[]"),
+      (fp) => fp.type !== 'array' && fp.type !== 'object' && !fp.path.includes('[]'),
     );
     const dateFieldPaths = new Set(
-      fieldPaths.filter((fp) => fp.type === "date").map((fp) => fp.path),
+      fieldPaths.filter((fp) => fp.type === 'date').map((fp) => fp.path),
     );
 
     // --- Build field options HTML ---
@@ -205,7 +205,7 @@ export function openExpressionDialog(
               (fp) =>
                 `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`,
             ),
-            "</optgroup>",
+            '</optgroup>',
           ]
         : []),
       ...(systemFields.length > 0
@@ -215,18 +215,18 @@ export function openExpressionDialog(
               (fp) =>
                 `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`,
             ),
-            "</optgroup>",
+            '</optgroup>',
           ]
         : []),
-    ].join("");
+    ].join('');
 
     const formatOptionsHtml = DATE_FORMAT_PRESETS.map(
       (p) => `<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`,
-    ).join("");
+    ).join('');
 
     // --- Create dialog ---
-    const dialog = document.createElement("dialog");
-    dialog.className = "expression-dialog";
+    const dialog = document.createElement('dialog');
+    dialog.className = 'expression-dialog';
 
     dialog.innerHTML = `
       <form method="dialog" class="expression-dialog-form">
@@ -236,11 +236,11 @@ export function openExpressionDialog(
         <div class="expression-dialog-header">
           <label class="expression-dialog-label">${escapeHtml(label)}</label>
           <div class="expression-dialog-mode-toggle">
-            <button type="button" class="mode-btn${currentMode === "builder" ? " active" : ""}" data-mode="builder">Builder</button>
-            <button type="button" class="mode-btn${currentMode === "code" ? " active" : ""}" data-mode="code">Code</button>
+            <button type="button" class="mode-btn${currentMode === 'builder' ? ' active' : ''}" data-mode="builder">Builder</button>
+            <button type="button" class="mode-btn${currentMode === 'code' ? ' active' : ''}" data-mode="code">Code</button>
           </div>
         </div>
-        <div class="expression-dialog-builder" data-mode-panel="builder"${currentMode !== "builder" ? ' style="display:none"' : ""}>
+        <div class="expression-dialog-builder" data-mode-panel="builder"${currentMode !== 'builder' ? ' style="display:none"' : ''}>
           <div class="expression-dialog-builder-row">
             <div class="expression-dialog-builder-field">
               <label>Field</label>
@@ -259,7 +259,7 @@ export function openExpressionDialog(
         `
             : `<label class="expression-dialog-label">${escapeHtml(label)}</label>`
         }
-        <div class="expression-dialog-code" data-mode-panel="code"${enableBuilderMode && currentMode !== "code" ? ' style="display:none"' : ""}>
+        <div class="expression-dialog-code" data-mode-panel="code"${enableBuilderMode && currentMode !== 'code' ? ' style="display:none"' : ''}>
           <input
             type="text"
             class="expression-dialog-input"
@@ -273,7 +273,7 @@ export function openExpressionDialog(
             <label class="expression-dialog-format-label">Date format</label>
             <select class="expression-dialog-format-select">${formatOptionsHtml}</select>
           </div>`
-              : ""
+              : ''
           }
           <div class="expression-dialog-preview code-preview" style="display:none"></div>
           <div class="expression-dialog-paths"></div>
@@ -290,28 +290,28 @@ export function openExpressionDialog(
     `;
 
     // --- Query elements ---
-    const input = dialog.querySelector<HTMLInputElement>(".expression-dialog-input")!;
-    const cancelBtn = dialog.querySelector(".cancel")!;
-    const pathsContainer = dialog.querySelector<HTMLElement>(".expression-dialog-paths")!;
-    const codePreviewEl = dialog.querySelector<HTMLElement>(".code-preview")!;
-    const refList = dialog.querySelector<HTMLElement>(".expression-dialog-ref-list")!;
-    const formatRow = dialog.querySelector<HTMLElement>(".expression-dialog-format-row");
+    const input = dialog.querySelector<HTMLInputElement>('.expression-dialog-input')!;
+    const cancelBtn = dialog.querySelector('.cancel')!;
+    const pathsContainer = dialog.querySelector<HTMLElement>('.expression-dialog-paths')!;
+    const codePreviewEl = dialog.querySelector<HTMLElement>('.code-preview')!;
+    const refList = dialog.querySelector<HTMLElement>('.expression-dialog-ref-list')!;
+    const formatRow = dialog.querySelector<HTMLElement>('.expression-dialog-format-row');
     const formatSelect = dialog.querySelector<HTMLSelectElement>(
-      ".expression-dialog-format-select",
+      '.expression-dialog-format-select',
     );
 
     // Builder-mode elements (may be null if enableBuilderMode is false)
     const builderPanel = dialog.querySelector<HTMLElement>('[data-mode-panel="builder"]');
     const codePanel = dialog.querySelector<HTMLElement>('[data-mode-panel="code"]')!;
-    const fieldSelect = dialog.querySelector<HTMLSelectElement>(".expression-dialog-field-select");
+    const fieldSelect = dialog.querySelector<HTMLSelectElement>('.expression-dialog-field-select');
     const builderFormatContainer = dialog.querySelector<HTMLElement>(
-      ".expression-dialog-builder-format",
+      '.expression-dialog-builder-format',
     );
     const builderFormatSelect = dialog.querySelector<HTMLSelectElement>(
-      ".expression-dialog-builder-format-select",
+      '.expression-dialog-builder-format-select',
     );
-    const builderPreviewEl = dialog.querySelector<HTMLElement>(".builder-preview");
-    const modeWarning = dialog.querySelector<HTMLElement>(".expression-dialog-mode-warning");
+    const builderPreviewEl = dialog.querySelector<HTMLElement>('.builder-preview');
+    const modeWarning = dialog.querySelector<HTMLElement>('.expression-dialog-mode-warning');
     const builderBtn = dialog.querySelector<HTMLButtonElement>('.mode-btn[data-mode="builder"]');
     const codeBtn = dialog.querySelector<HTMLButtonElement>('.mode-btn[data-mode="code"]');
 
@@ -324,13 +324,13 @@ export function openExpressionDialog(
     };
 
     const getActivePreviewEl = () =>
-      currentMode === "builder" && builderPreviewEl ? builderPreviewEl : codePreviewEl;
+      currentMode === 'builder' && builderPreviewEl ? builderPreviewEl : codePreviewEl;
 
     const schedulePreview = (expr: string) => {
       cancelPreviewTimer();
       const previewEl = getActivePreviewEl();
       if (!expr) {
-        previewEl.style.display = "none";
+        previewEl.style.display = 'none';
         return;
       }
       previewTimer = setTimeout(() => {
@@ -355,8 +355,8 @@ export function openExpressionDialog(
       if (!formatRow || !formatSelect) return;
       const barePath = getBarePath(input.value.trim());
       const isDateField = dateFieldPaths.has(barePath);
-      formatRow.style.display = isDateField ? "" : "none";
-      if (!isDateField) formatSelect.value = "";
+      formatRow.style.display = isDateField ? '' : 'none';
+      if (!isDateField) formatSelect.value = '';
     };
 
     if (formatSelect) {
@@ -365,24 +365,24 @@ export function openExpressionDialog(
         formatSelect.value = initialParsed.pattern;
       }
 
-      formatSelect.addEventListener("change", () => {
+      formatSelect.addEventListener('change', () => {
         const barePath = getBarePath(input.value.trim());
         const pattern = formatSelect.value;
         input.value = pattern ? wrapFormatDate(barePath, pattern) : barePath;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
       });
     }
 
     // --- Code mode: validation + preview ---
     const applyValidation = () => {
       const val = input.value.trim();
-      input.classList.remove("valid", "invalid");
+      input.classList.remove('valid', 'invalid');
       if (val) {
-        input.classList.add(isValidExpression(val) ? "valid" : "invalid");
+        input.classList.add(isValidExpression(val) ? 'valid' : 'invalid');
       }
     };
 
-    input.addEventListener("input", () => {
+    input.addEventListener('input', () => {
       applyValidation();
       updateCodeFormatVisibility();
       schedulePreview(input.value.trim());
@@ -391,7 +391,7 @@ export function openExpressionDialog(
         const canSwitch =
           !input.value.trim() ||
           tryParseAsBuilderExpression(input.value.trim(), fieldPaths) !== null;
-        builderBtn.classList.toggle("disabled", !canSwitch);
+        builderBtn.classList.toggle('disabled', !canSwitch);
       }
     });
 
@@ -410,30 +410,30 @@ export function openExpressionDialog(
       // Populate builder from initial state
       if (initialBuilderState) {
         fieldSelect.value = initialBuilderState.fieldPath;
-        if (initialBuilderState.formatType === "date" && initialBuilderState.formatPattern) {
-          builderFormatContainer.style.display = "";
+        if (initialBuilderState.formatType === 'date' && initialBuilderState.formatPattern) {
+          builderFormatContainer.style.display = '';
           builderFormatSelect.value = initialBuilderState.formatPattern;
         }
       }
 
       const updateBuilderFormatVisibility = () => {
         const selectedOption = fieldSelect.selectedOptions[0];
-        const fieldType = selectedOption?.dataset.type ?? "";
-        const isDate = fieldType === "date";
-        builderFormatContainer.style.display = isDate ? "" : "none";
-        if (!isDate) builderFormatSelect.value = "";
+        const fieldType = selectedOption?.dataset.type ?? '';
+        const isDate = fieldType === 'date';
+        builderFormatContainer.style.display = isDate ? '' : 'none';
+        if (!isDate) builderFormatSelect.value = '';
       };
 
       const getBuilderExpression = (): string => {
         const fieldPath = fieldSelect.value;
-        if (!fieldPath) return "";
+        if (!fieldPath) return '';
         const selectedOption = fieldSelect.selectedOptions[0];
-        const fieldType = selectedOption?.dataset.type ?? "string";
+        const fieldType = selectedOption?.dataset.type ?? 'string';
         const formatPattern = builderFormatSelect.value;
         return buildExpression({
           fieldPath,
           fieldType,
-          formatType: fieldType === "date" && formatPattern ? "date" : "none",
+          formatType: fieldType === 'date' && formatPattern ? 'date' : 'none',
           formatPattern,
         });
       };
@@ -446,14 +446,14 @@ export function openExpressionDialog(
         schedulePreview(expr);
       };
 
-      fieldSelect.addEventListener("change", onBuilderChange);
-      builderFormatSelect.addEventListener("change", onBuilderChange);
+      fieldSelect.addEventListener('change', onBuilderChange);
+      builderFormatSelect.addEventListener('change', onBuilderChange);
 
       // --- Mode switching ---
-      const switchMode = (mode: "builder" | "code") => {
+      const switchMode = (mode: 'builder' | 'code') => {
         if (mode === currentMode) return;
 
-        if (mode === "builder") {
+        if (mode === 'builder') {
           // Try to parse current code input into builder
           const parsed = input.value.trim()
             ? tryParseAsBuilderExpression(input.value.trim(), fieldPaths)
@@ -462,9 +462,9 @@ export function openExpressionDialog(
           if (input.value.trim() && !parsed) {
             // Can't represent — show warning
             if (modeWarning) {
-              modeWarning.style.display = "";
+              modeWarning.style.display = '';
               setTimeout(() => {
-                modeWarning.style.display = "none";
+                modeWarning.style.display = 'none';
               }, 3000);
             }
             return;
@@ -475,8 +475,8 @@ export function openExpressionDialog(
             fieldSelect.value = parsed.fieldPath;
             builderFormatSelect.value = parsed.formatPattern;
           } else {
-            fieldSelect.value = "";
-            builderFormatSelect.value = "";
+            fieldSelect.value = '';
+            builderFormatSelect.value = '';
           }
           updateBuilderFormatVisibility();
         } else {
@@ -487,23 +487,23 @@ export function openExpressionDialog(
         }
 
         currentMode = mode;
-        builderPanel.style.display = mode === "builder" ? "" : "none";
-        codePanel.style.display = mode === "code" ? "" : "none";
-        builderBtn?.classList.toggle("active", mode === "builder");
-        codeBtn?.classList.toggle("active", mode === "code");
+        builderPanel.style.display = mode === 'builder' ? '' : 'none';
+        codePanel.style.display = mode === 'code' ? '' : 'none';
+        builderBtn?.classList.toggle('active', mode === 'builder');
+        codeBtn?.classList.toggle('active', mode === 'code');
 
         // Refresh preview in the new panel
-        const expr = mode === "builder" ? getBuilderExpression() : input.value.trim();
+        const expr = mode === 'builder' ? getBuilderExpression() : input.value.trim();
         schedulePreview(expr);
       };
 
-      builderBtn?.addEventListener("click", () => {
-        if (!builderBtn.classList.contains("disabled")) switchMode("builder");
+      builderBtn?.addEventListener('click', () => {
+        if (!builderBtn.classList.contains('disabled')) switchMode('builder');
       });
-      codeBtn?.addEventListener("click", () => switchMode("code"));
+      codeBtn?.addEventListener('click', () => switchMode('code'));
 
       // Initial builder preview
-      if (currentMode === "builder") {
+      if (currentMode === 'builder') {
         const expr = getBuilderExpression();
         if (expr) schedulePreview(expr);
       }
@@ -518,19 +518,19 @@ export function openExpressionDialog(
       resolve({ value });
     };
 
-    cancelBtn.addEventListener("click", () => close(null));
+    cancelBtn.addEventListener('click', () => close(null));
 
-    dialog.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
         e.preventDefault();
         close(null);
       }
     });
 
-    dialog.querySelector("form")!.addEventListener("submit", (e) => {
+    dialog.querySelector('form')!.addEventListener('submit', (e) => {
       e.preventDefault();
       let value: string;
-      if (currentMode === "builder" && fieldSelect) {
+      if (currentMode === 'builder' && fieldSelect) {
         // Build expression from builder state
         value = input.value.trim(); // already synced by onBuilderChange
       } else {
@@ -539,7 +539,7 @@ export function openExpressionDialog(
       close(value || null);
     });
 
-    dialog.addEventListener("click", (e) => {
+    dialog.addEventListener('click', (e) => {
       if (e.target === dialog) close(null);
     });
 
@@ -547,13 +547,13 @@ export function openExpressionDialog(
     document.body.appendChild(dialog);
     dialog.showModal();
 
-    if (currentMode === "code") {
+    if (currentMode === 'code') {
       input.focus();
       input.select();
     }
 
     // Initial code mode state
-    if (initialValue && currentMode === "code") {
+    if (initialValue && currentMode === 'code') {
       applyValidation();
       updateCodeFormatVisibility();
       updatePreview(
@@ -583,23 +583,23 @@ function renderFieldPaths(
   const dataFields = fieldPaths.filter((fp) => !fp.system);
   const systemFields = fieldPaths.filter((fp) => fp.system);
 
-  const header = document.createElement("div");
-  header.className = "expression-dialog-paths-header";
+  const header = document.createElement('div');
+  header.className = 'expression-dialog-paths-header';
 
-  const headerLabel = document.createElement("span");
-  headerLabel.textContent = "Available fields";
+  const headerLabel = document.createElement('span');
+  headerLabel.textContent = 'Available fields';
 
-  const filterInput = document.createElement("input");
-  filterInput.type = "text";
-  filterInput.className = "expression-dialog-filter";
-  filterInput.placeholder = "Filter...";
+  const filterInput = document.createElement('input');
+  filterInput.type = 'text';
+  filterInput.className = 'expression-dialog-filter';
+  filterInput.placeholder = 'Filter...';
 
   header.appendChild(headerLabel);
   header.appendChild(filterInput);
   container.appendChild(header);
 
-  const list = document.createElement("ul");
-  list.className = "expression-dialog-paths-list";
+  const list = document.createElement('ul');
+  list.className = 'expression-dialog-paths-list';
 
   const items: { li: HTMLLIElement; path: string }[] = [];
 
@@ -612,14 +612,14 @@ function renderFieldPaths(
 
   // Render system parameters in a separate section
   if (systemFields.length > 0) {
-    const sysHeader = document.createElement("li");
-    sysHeader.className = "expression-dialog-section-header";
-    sysHeader.textContent = "System parameters";
+    const sysHeader = document.createElement('li');
+    sysHeader.className = 'expression-dialog-section-header';
+    sysHeader.textContent = 'System parameters';
     list.appendChild(sysHeader);
 
     for (const fp of systemFields) {
       const li = createFieldPathItem(fp, input, fieldPathFilter);
-      li.classList.add("system");
+      li.classList.add('system');
       if (fp.description) {
         li.title = fp.description;
       }
@@ -629,18 +629,18 @@ function renderFieldPaths(
   }
 
   // Filter field paths on typing
-  filterInput.addEventListener("input", () => {
+  filterInput.addEventListener('input', () => {
     const query = filterInput.value.toLowerCase();
     for (const item of items) {
-      item.li.style.display = item.path.toLowerCase().includes(query) ? "" : "none";
+      item.li.style.display = item.path.toLowerCase().includes(query) ? '' : 'none';
     }
     // Show/hide the system section header based on whether any system items match
-    const sysHeaderEl = list.querySelector<HTMLElement>(".expression-dialog-section-header");
+    const sysHeaderEl = list.querySelector<HTMLElement>('.expression-dialog-section-header');
     if (sysHeaderEl) {
       const hasVisibleSystemItem = items.some(
-        (item) => item.li.classList.contains("system") && item.li.style.display !== "none",
+        (item) => item.li.classList.contains('system') && item.li.style.display !== 'none',
       );
-      sysHeaderEl.style.display = hasVisibleSystemItem || !query ? "" : "none";
+      sysHeaderEl.style.display = hasVisibleSystemItem || !query ? '' : 'none';
     }
   });
 
@@ -652,27 +652,27 @@ function createFieldPathItem(
   input: HTMLInputElement,
   fieldPathFilter?: (fp: FieldPath) => boolean,
 ): HTMLLIElement {
-  const li = document.createElement("li");
-  li.className = "expression-dialog-path-item";
+  const li = document.createElement('li');
+  li.className = 'expression-dialog-path-item';
 
   if (fieldPathFilter?.(fp)) {
-    li.classList.add("highlighted");
+    li.classList.add('highlighted');
   }
 
-  const pathSpan = document.createElement("span");
-  pathSpan.className = "expression-dialog-path-name";
+  const pathSpan = document.createElement('span');
+  pathSpan.className = 'expression-dialog-path-name';
   pathSpan.textContent = fp.path;
 
-  const typeSpan = document.createElement("span");
-  typeSpan.className = "expression-dialog-path-type";
+  const typeSpan = document.createElement('span');
+  typeSpan.className = 'expression-dialog-path-type';
   typeSpan.textContent = fp.type;
 
   li.appendChild(pathSpan);
   li.appendChild(typeSpan);
 
-  li.addEventListener("click", () => {
+  li.addEventListener('click', () => {
     input.value = fp.path;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
     input.focus();
   });
 
@@ -681,23 +681,23 @@ function createFieldPathItem(
 
 function renderQuickReference(container: HTMLElement, input: HTMLInputElement): void {
   for (const entry of JSONATA_QUICK_REFERENCE) {
-    const row = document.createElement("div");
-    row.className = "expression-dialog-ref-row";
+    const row = document.createElement('div');
+    row.className = 'expression-dialog-ref-row';
 
-    const code = document.createElement("code");
-    code.className = "expression-dialog-ref-code";
+    const code = document.createElement('code');
+    code.className = 'expression-dialog-ref-code';
     code.textContent = entry.code;
 
-    const desc = document.createElement("span");
-    desc.className = "expression-dialog-ref-desc";
+    const desc = document.createElement('span');
+    desc.className = 'expression-dialog-ref-desc';
     desc.textContent = entry.desc;
 
     row.appendChild(code);
     row.appendChild(desc);
 
-    row.addEventListener("click", () => {
+    row.addEventListener('click', () => {
       input.value = entry.code;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
       input.focus();
     });
 
@@ -715,9 +715,9 @@ function updatePreview(
 ): void {
   const data = getExampleData?.();
   if (!data) {
-    previewEl.style.display = "";
-    previewEl.className = "expression-dialog-preview no-data";
-    previewEl.textContent = "No data example selected";
+    previewEl.style.display = '';
+    previewEl.className = 'expression-dialog-preview no-data';
+    previewEl.textContent = 'No data example selected';
     return;
   }
 
@@ -725,19 +725,19 @@ function updatePreview(
   tryEvaluateExpression(expression, data).then((result) => {
     if (generation !== getGeneration()) return; // stale
 
-    previewEl.style.display = "";
+    previewEl.style.display = '';
     if (result.ok) {
       // Run result validator if provided (e.g., loop expressions must be arrays)
       const validationError = resultValidator?.(result.value);
       if (validationError) {
-        previewEl.className = "expression-dialog-preview error";
+        previewEl.className = 'expression-dialog-preview error';
         previewEl.textContent = validationError;
       } else {
-        previewEl.className = "expression-dialog-preview success";
+        previewEl.className = 'expression-dialog-preview success';
         previewEl.textContent = `Preview: ${formatForPreview(result.value)}`;
       }
     } else {
-      previewEl.className = "expression-dialog-preview error";
+      previewEl.className = 'expression-dialog-preview error';
       previewEl.textContent = result.error;
     }
   });
@@ -745,12 +745,12 @@ function updatePreview(
 
 function escapeAttr(str: string): string {
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

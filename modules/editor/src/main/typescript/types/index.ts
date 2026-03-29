@@ -18,4 +18,4 @@ export type {
   DocumentStyles,
   ExpressionLanguage,
   Expression,
-} from "@epistola.app/editor-model";
+} from '@epistola.app/editor-model';

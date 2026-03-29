@@ -131,7 +131,7 @@ main.regular section {
 }
 
 /* Submit button (uses .btn .btn-primary when available, this is for plain submit) */
-button[type="submit"] {
+button[type='submit'] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -147,11 +147,11 @@ button[type="submit"] {
   transition: background-color var(--ep-transition-base);
 }
 
-button[type="submit"]:hover {
+button[type='submit']:hover {
   background-color: var(--ep-blue-700);
 }
 
-button[type="submit"]:focus-visible {
+button[type='submit']:focus-visible {
   outline: none;
   box-shadow: var(--ep-ring);
 }
@@ -745,7 +745,7 @@ main.regular .empty-message {
 
 .login-divider::before,
 .login-divider::after {
-  content: "";
+  content: '';
   flex: 1;
   border-top: 1px solid var(--ep-border-color);
 }
@@ -1273,7 +1273,7 @@ a.stat-card:hover {
 }
 
 .asset-card-meta span:not(:last-child)::after {
-  content: "\00b7";
+  content: '\00b7';
   margin-left: var(--ep-space-2);
 }
 

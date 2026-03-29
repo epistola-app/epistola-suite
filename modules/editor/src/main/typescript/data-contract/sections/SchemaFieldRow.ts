@@ -6,36 +6,36 @@
  * Recursive rendering passes `depth + 1` for infinite nesting support.
  */
 
-import { html, nothing } from "lit";
-import type { SchemaField, SchemaFieldType, SchemaFieldUpdate } from "../types.js";
-import type { SchemaCommand } from "../utils/schemaCommands.js";
-import { FIELD_TYPE_LABELS } from "../utils/schemaUtils.js";
+import { html, nothing } from 'lit';
+import type { SchemaField, SchemaFieldType, SchemaFieldUpdate } from '../types.js';
+import type { SchemaCommand } from '../utils/schemaCommands.js';
+import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
 
 /** All field types available in the type dropdown */
 const FIELD_TYPES: SchemaFieldType[] = [
-  "string",
-  "number",
-  "integer",
-  "boolean",
-  "date",
-  "array",
-  "object",
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'date',
+  'array',
+  'object',
 ];
 
 /** Item types available for arrays */
 const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
-  "string",
-  "number",
-  "integer",
-  "boolean",
-  "date",
-  "object",
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'date',
+  'object',
 ];
 
 /** Check if a field supports nested fields */
 function supportsNestedFields(field: SchemaField): boolean {
-  if (field.type === "object") return true;
-  if (field.type === "array" && field.arrayItemType === "object") return true;
+  if (field.type === 'object') return true;
+  if (field.type === 'array' && field.arrayItemType === 'object') return true;
   return false;
 }
 
@@ -48,23 +48,23 @@ export function renderSchemaFieldRow(
 ): unknown {
   const canExpand = supportsNestedFields(field);
   const nestedFields =
-    field.type === "object" || field.type === "array" ? (field.nestedFields ?? []) : [];
+    field.type === 'object' || field.type === 'array' ? (field.nestedFields ?? []) : [];
   const isExpanded = expandedFields.has(field.id);
 
   const nestStyle = depth > 0 ? `--nest-depth: ${depth}` : undefined;
 
   return html`
-    <div class="dc-field-row ${depth > 0 ? "dc-field-nested" : ""}" style=${nestStyle ?? nothing}>
+    <div class="dc-field-row ${depth > 0 ? 'dc-field-nested' : ''}" style=${nestStyle ?? nothing}>
       <div class="dc-field-controls">
         ${canExpand
           ? html`
               <button
                 class="dc-field-expand-btn"
                 @click=${() => onToggleExpand(field.id)}
-                title="${isExpanded ? "Collapse" : "Expand"} nested fields"
+                title="${isExpanded ? 'Collapse' : 'Expand'} nested fields"
                 aria-expanded="${isExpanded}"
               >
-                ${isExpanded ? "\u25BC" : "\u25B6"}
+                ${isExpanded ? '\u25BC' : '\u25B6'}
               </button>
             `
           : html`<span class="dc-field-expand-spacer"></span>`}
@@ -78,7 +78,7 @@ export function renderSchemaFieldRow(
           @change=${(e: Event) => {
             const value = (e.target as HTMLInputElement).value.trim();
             if (value && value !== field.name) {
-              onCommand({ type: "updateField", fieldId: field.id, updates: { name: value } });
+              onCommand({ type: 'updateField', fieldId: field.id, updates: { name: value } });
             }
           }}
         />
@@ -90,10 +90,10 @@ export function renderSchemaFieldRow(
           @change=${(e: Event) => {
             const newType = (e.target as HTMLSelectElement).value as SchemaFieldType;
             const updates: SchemaFieldUpdate = { type: newType };
-            if (newType === "array") {
-              updates.arrayItemType = "string";
+            if (newType === 'array') {
+              updates.arrayItemType = 'string';
             }
-            onCommand({ type: "updateField", fieldId: field.id, updates });
+            onCommand({ type: 'updateField', fieldId: field.id, updates });
           }}
         >
           ${FIELD_TYPES.map(
@@ -103,7 +103,7 @@ export function renderSchemaFieldRow(
           )}
         </select>
 
-        ${field.type === "array"
+        ${field.type === 'array'
           ? html`
               <select
                 class="ep-select dc-field-array-type-select"
@@ -112,7 +112,7 @@ export function renderSchemaFieldRow(
                 @change=${(e: Event) => {
                   const newItemType = (e.target as HTMLSelectElement).value as SchemaFieldType;
                   onCommand({
-                    type: "updateField",
+                    type: 'updateField',
                     fieldId: field.id,
                     updates: { arrayItemType: newItemType },
                   });
@@ -137,7 +137,7 @@ export function renderSchemaFieldRow(
             aria-label="Required"
             @change=${(e: Event) => {
               onCommand({
-                type: "updateField",
+                type: 'updateField',
                 fieldId: field.id,
                 updates: { required: (e.target as HTMLInputElement).checked },
               });
@@ -151,7 +151,7 @@ export function renderSchemaFieldRow(
                 class="dc-field-add-nested-btn ep-btn-outline btn-sm"
                 title="Add nested field"
                 @click=${() => {
-                  onCommand({ type: "addField", parentFieldId: field.id });
+                  onCommand({ type: 'addField', parentFieldId: field.id });
                   if (!isExpanded) {
                     onToggleExpand(field.id);
                   }
@@ -166,7 +166,7 @@ export function renderSchemaFieldRow(
           class="dc-field-delete-btn"
           title="Delete field"
           aria-label="Delete field"
-          @click=${() => onCommand({ type: "deleteField", fieldId: field.id })}
+          @click=${() => onCommand({ type: 'deleteField', fieldId: field.id })}
         >
           ×
         </button>

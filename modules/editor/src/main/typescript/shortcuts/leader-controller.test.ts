@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   LeaderModeController,
   type LeaderModeState,
   type LeaderModeControllerOptions,
-} from "./leader-controller.js";
-import type { CommandId } from "./foundation.js";
+} from './leader-controller.js';
+import type { CommandId } from './foundation.js';
 
 function createTestController(overrides: Partial<LeaderModeControllerOptions> = {}) {
   const stateChanges: LeaderModeState[] = [];
@@ -13,8 +13,8 @@ function createTestController(overrides: Partial<LeaderModeControllerOptions> = 
 
   const options: LeaderModeControllerOptions = {
     timing: { idleHideMs: 1600, resultHideMs: 700, messageClearMs: 180 },
-    getIdleTokens: (commandIds) => commandIds.map((id) => id.split(".").pop() ?? ""),
-    fallbackTokens: ["P", "D", "A", "?"],
+    getIdleTokens: (commandIds) => commandIds.map((id) => id.split('.').pop() ?? ''),
+    fallbackTokens: ['P', 'D', 'A', '?'],
     onStateChange: (state) => stateChanges.push({ ...state }),
     cancelActiveChord,
     blurEditingTarget,
@@ -25,7 +25,7 @@ function createTestController(overrides: Partial<LeaderModeControllerOptions> = 
   return { controller, stateChanges, cancelActiveChord, blurEditingTarget };
 }
 
-describe("LeaderModeController", () => {
+describe('LeaderModeController', () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -34,35 +34,35 @@ describe("LeaderModeController", () => {
     vi.useRealTimers();
   });
 
-  describe("showAwaiting", () => {
-    it("sets visible state with idle tokens from command ids", () => {
+  describe('showAwaiting', () => {
+    it('sets visible state with idle tokens from command ids', () => {
       const { controller, stateChanges, blurEditingTarget } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle", "editor.block.duplicate"] as CommandId[]);
+      controller.showAwaiting(['editor.preview.toggle', 'editor.block.duplicate'] as CommandId[]);
 
       expect(stateChanges).toHaveLength(1);
       expect(stateChanges[0]).toEqual({
         visible: true,
-        status: "idle",
-        message: "Waiting: toggle duplicate",
+        status: 'idle',
+        message: 'Waiting: toggle duplicate',
       });
       expect(blurEditingTarget).toHaveBeenCalled();
     });
 
-    it("uses fallback tokens when getIdleTokens returns empty", () => {
+    it('uses fallback tokens when getIdleTokens returns empty', () => {
       const { controller, stateChanges } = createTestController({
         getIdleTokens: () => [],
       });
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
 
-      expect(stateChanges[0]?.message).toBe("Waiting: P D A ?");
+      expect(stateChanges[0]?.message).toBe('Waiting: P D A ?');
     });
 
-    it("cancels active chord and hides after idle timeout", () => {
+    it('cancels active chord and hides after idle timeout', () => {
       const { controller, cancelActiveChord, stateChanges } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
       expect(stateChanges).toHaveLength(1);
 
       vi.advanceTimersByTime(1600);
@@ -73,67 +73,67 @@ describe("LeaderModeController", () => {
     });
   });
 
-  describe("handleChordCancelled", () => {
-    it("shows error result for mismatch cancellation", () => {
+  describe('handleChordCancelled', () => {
+    it('shows error result for mismatch cancellation', () => {
       const { controller, stateChanges } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
-      controller.handleChordCancelled("mismatch");
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
+      controller.handleChordCancelled('mismatch');
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(true);
-      expect(last?.status).toBe("error");
-      expect(last?.message).toBe("Unknown leader command");
+      expect(last?.status).toBe('error');
+      expect(last?.message).toBe('Unknown leader command');
     });
 
-    it("hides for cancel-key cancellation", () => {
+    it('hides for cancel-key cancellation', () => {
       const { controller, stateChanges } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
-      controller.handleChordCancelled("cancel-key");
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
+      controller.handleChordCancelled('cancel-key');
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(false);
     });
 
-    it("hides for timeout cancellation", () => {
+    it('hides for timeout cancellation', () => {
       const { controller, stateChanges } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
-      controller.handleChordCancelled("timeout");
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
+      controller.handleChordCancelled('timeout');
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(false);
     });
   });
 
-  describe("handleCommandExecution", () => {
-    it("shows success result for synchronous ok execution", () => {
+  describe('handleCommandExecution', () => {
+    it('shows success result for synchronous ok execution', () => {
       const { controller, stateChanges } = createTestController();
 
       controller.handleCommandExecution(
-        { status: "ok", message: "Preview toggled" },
-        Promise.resolve({ status: "ok", message: "Preview toggled" }),
+        { status: 'ok', message: 'Preview toggled' },
+        Promise.resolve({ status: 'ok', message: 'Preview toggled' }),
       );
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(true);
-      expect(last?.status).toBe("success");
-      expect(last?.message).toBe("Preview toggled");
+      expect(last?.status).toBe('success');
+      expect(last?.message).toBe('Preview toggled');
     });
 
-    it("shows error result for synchronous rejected execution", () => {
+    it('shows error result for synchronous rejected execution', () => {
       const { controller, stateChanges } = createTestController();
 
       controller.handleCommandExecution(
-        { status: "rejected", message: "Cannot toggle" },
-        Promise.resolve({ status: "rejected", message: "Cannot toggle" }),
+        { status: 'rejected', message: 'Cannot toggle' },
+        Promise.resolve({ status: 'rejected', message: 'Cannot toggle' }),
       );
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(true);
-      expect(last?.status).toBe("error");
-      expect(last?.message).toBe("Cannot toggle");
+      expect(last?.status).toBe('error');
+      expect(last?.message).toBe('Cannot toggle');
     });
 
     it('shows "Running command..." for pending then resolves on completion', async () => {
@@ -143,74 +143,74 @@ describe("LeaderModeController", () => {
         resolveCompletion = resolve;
       });
 
-      controller.handleCommandExecution({ status: "pending" }, completion);
+      controller.handleCommandExecution({ status: 'pending' }, completion);
 
       expect(stateChanges[stateChanges.length - 1]).toEqual({
         visible: true,
-        status: "idle",
-        message: "Running command...",
+        status: 'idle',
+        message: 'Running command...',
       });
 
-      resolveCompletion({ status: "ok", message: "Done" });
+      resolveCompletion({ status: 'ok', message: 'Done' });
       // Flush microtask queue for the .then() handler
       await Promise.resolve();
       await Promise.resolve();
 
       const last = stateChanges[stateChanges.length - 1];
-      expect(last?.status).toBe("success");
-      expect(last?.message).toBe("Done");
+      expect(last?.status).toBe('success');
+      expect(last?.message).toBe('Done');
     });
 
-    it("hides for cancelled execution", () => {
+    it('hides for cancelled execution', () => {
       const { controller, stateChanges } = createTestController();
 
       controller.handleCommandExecution(
-        { status: "cancelled" },
-        Promise.resolve({ status: "cancelled" }),
+        { status: 'cancelled' },
+        Promise.resolve({ status: 'cancelled' }),
       );
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(false);
     });
 
-    it("uses default message when ok result has no message", () => {
+    it('uses default message when ok result has no message', () => {
       const { controller, stateChanges } = createTestController();
 
-      controller.handleCommandExecution({ status: "ok" }, Promise.resolve({ status: "ok" }));
+      controller.handleCommandExecution({ status: 'ok' }, Promise.resolve({ status: 'ok' }));
 
       const last = stateChanges[stateChanges.length - 1];
-      expect(last?.message).toBe("Done");
+      expect(last?.message).toBe('Done');
     });
 
     it('uses "Command rejected" when rejected result has no message', () => {
       const { controller, stateChanges } = createTestController();
 
       controller.handleCommandExecution(
-        { status: "rejected" },
-        Promise.resolve({ status: "rejected" }),
+        { status: 'rejected' },
+        Promise.resolve({ status: 'rejected' }),
       );
 
       const last = stateChanges[stateChanges.length - 1];
-      expect(last?.message).toBe("Command rejected");
+      expect(last?.message).toBe('Command rejected');
     });
 
     it('uses "Command failed" when error result has no message', () => {
       const { controller, stateChanges } = createTestController();
 
-      controller.handleCommandExecution({ status: "error" }, Promise.resolve({ status: "error" }));
+      controller.handleCommandExecution({ status: 'error' }, Promise.resolve({ status: 'error' }));
 
       const last = stateChanges[stateChanges.length - 1];
-      expect(last?.message).toBe("Command failed");
+      expect(last?.message).toBe('Command failed');
     });
   });
 
-  describe("result display timing", () => {
-    it("hides after resultHideMs for success", () => {
+  describe('result display timing', () => {
+    it('hides after resultHideMs for success', () => {
       const { controller, stateChanges } = createTestController();
 
       controller.handleCommandExecution(
-        { status: "ok", message: "Done" },
-        Promise.resolve({ status: "ok", message: "Done" }),
+        { status: 'ok', message: 'Done' },
+        Promise.resolve({ status: 'ok', message: 'Done' }),
       );
 
       const afterResult = stateChanges.length;
@@ -221,12 +221,12 @@ describe("LeaderModeController", () => {
       expect(last?.visible).toBe(false);
     });
 
-    it("clears message after messageClearMs following hide", () => {
+    it('clears message after messageClearMs following hide', () => {
       const { controller, stateChanges } = createTestController();
 
       controller.handleCommandExecution(
-        { status: "ok", message: "Done" },
-        Promise.resolve({ status: "ok", message: "Done" }),
+        { status: 'ok', message: 'Done' },
+        Promise.resolve({ status: 'ok', message: 'Done' }),
       );
 
       // Trigger the result hide
@@ -236,16 +236,16 @@ describe("LeaderModeController", () => {
 
       const last = stateChanges[stateChanges.length - 1];
       expect(last?.visible).toBe(false);
-      expect(last?.status).toBe("idle");
-      expect(last?.message).toBe("");
+      expect(last?.status).toBe('idle');
+      expect(last?.message).toBe('');
     });
   });
 
-  describe("dispose", () => {
-    it("clears all timers without emitting state changes", () => {
+  describe('dispose', () => {
+    it('clears all timers without emitting state changes', () => {
       const { controller, stateChanges } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
       const countBefore = stateChanges.length;
 
       controller.dispose();
@@ -256,15 +256,15 @@ describe("LeaderModeController", () => {
     });
   });
 
-  describe("state transitions", () => {
-    it("new showAwaiting resets previous timers", () => {
+  describe('state transitions', () => {
+    it('new showAwaiting resets previous timers', () => {
       const { controller, stateChanges, cancelActiveChord } = createTestController();
 
-      controller.showAwaiting(["editor.preview.toggle"] as CommandId[]);
+      controller.showAwaiting(['editor.preview.toggle'] as CommandId[]);
       vi.advanceTimersByTime(800); // halfway through idle timeout
 
       // New chord starts — should reset the timer
-      controller.showAwaiting(["editor.block.duplicate"] as CommandId[]);
+      controller.showAwaiting(['editor.block.duplicate'] as CommandId[]);
       vi.advanceTimersByTime(800); // another 800ms (total 1600 from first, 800 from second)
 
       // Should NOT have timed out yet since second call reset the timer

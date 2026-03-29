@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { EditorEngine } from "../../engine/EditorEngine.js";
-import { createDefaultRegistry } from "../../engine/registry.js";
-import { createTestDocument, resetCounter } from "../../engine/test-helpers.js";
-import type { NodeId, SlotId } from "../../types/index.js";
-import { cellSlotName } from "./table-utils.js";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { EditorEngine } from '../../engine/EditorEngine.js';
+import { createDefaultRegistry } from '../../engine/registry.js';
+import { createTestDocument, resetCounter } from '../../engine/test-helpers.js';
+import type { NodeId, SlotId } from '../../types/index.js';
+import { cellSlotName } from './table-utils.js';
 
 beforeEach(() => {
   resetCounter();
@@ -19,9 +19,9 @@ function setupTableEngine(overrideProps?: Record<string, unknown>) {
   const engine = new EditorEngine(doc, registry);
   const rootSlotId = doc.nodes[doc.root].slots[0];
 
-  const { node: tableNode, slots: tableSlots } = registry.createNode("table", overrideProps);
+  const { node: tableNode, slots: tableSlots } = registry.createNode('table', overrideProps);
   engine.dispatch({
-    type: "InsertNode",
+    type: 'InsertNode',
     node: tableNode,
     slots: tableSlots,
     targetSlotId: rootSlotId,
@@ -56,8 +56,8 @@ function getTableProps(engine: EditorEngine, nodeId: NodeId) {
 // Table creation
 // ---------------------------------------------------------------------------
 
-describe("Table creation", () => {
-  it("creates a 2x2 table with default props", () => {
+describe('Table creation', () => {
+  it('creates a 2x2 table with default props', () => {
     const { engine, tableNodeId } = setupTableEngine();
     const tp = getTableProps(engine, tableNodeId);
 
@@ -75,7 +75,7 @@ describe("Table creation", () => {
     }
   });
 
-  it("creates a table with custom dimensions", () => {
+  it('creates a table with custom dimensions', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 4,
@@ -96,12 +96,12 @@ describe("Table creation", () => {
 // AddTableRow
 // ---------------------------------------------------------------------------
 
-describe("AddTableRow", () => {
-  it("adds a row at the end", () => {
+describe('AddTableRow', () => {
+  it('adds a row at the end', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     const result = engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: tableNodeId,
       position: 2,
     });
@@ -111,15 +111,15 @@ describe("AddTableRow", () => {
     expect(tp.rows).toBe(3);
 
     // New cells exist
-    expect(getSlotByName(engine, tableNodeId, "cell-2-0")).toBeDefined();
-    expect(getSlotByName(engine, tableNodeId, "cell-2-1")).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-2-0')).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-2-1')).toBeDefined();
   });
 
-  it("adds a row at position 0 (top)", () => {
+  it('adds a row at position 0 (top)', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     const result = engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: tableNodeId,
       position: 0,
     });
@@ -129,17 +129,17 @@ describe("AddTableRow", () => {
     expect(tp.rows).toBe(3);
 
     // Row 0 is the new row, old row 0 is now row 1
-    expect(getSlotByName(engine, tableNodeId, "cell-0-0")).toBeDefined();
-    expect(getSlotByName(engine, tableNodeId, "cell-0-1")).toBeDefined();
-    expect(getSlotByName(engine, tableNodeId, "cell-1-0")).toBeDefined();
-    expect(getSlotByName(engine, tableNodeId, "cell-2-0")).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-0-0')).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-0-1')).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-1-0')).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-2-0')).toBeDefined();
   });
 
-  it("adds a row in the middle", () => {
+  it('adds a row in the middle', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     const result = engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: tableNodeId,
       position: 1,
     });
@@ -153,11 +153,11 @@ describe("AddTableRow", () => {
     expect(node.slots).toHaveLength(6);
   });
 
-  it("undo removes the added row", () => {
+  it('undo removes the added row', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: tableNodeId,
       position: 2,
     });
@@ -167,11 +167,11 @@ describe("AddTableRow", () => {
     expect(getTableProps(engine, tableNodeId).rows).toBe(2);
   });
 
-  it("undo/redo round-trip preserves state", () => {
+  it('undo/redo round-trip preserves state', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: tableNodeId,
       position: 1,
     });
@@ -187,8 +187,8 @@ describe("AddTableRow", () => {
 // RemoveTableRow
 // ---------------------------------------------------------------------------
 
-describe("RemoveTableRow", () => {
-  it("removes the last row", () => {
+describe('RemoveTableRow', () => {
+  it('removes the last row', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 2,
@@ -196,17 +196,17 @@ describe("RemoveTableRow", () => {
     });
 
     const result = engine.dispatch({
-      type: "RemoveTableRow",
+      type: 'RemoveTableRow',
       nodeId: tableNodeId,
       position: 2,
     });
 
     expect(result.ok).toBe(true);
     expect(getTableProps(engine, tableNodeId).rows).toBe(2);
-    expect(getSlotByName(engine, tableNodeId, "cell-2-0")).toBeUndefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-2-0')).toBeUndefined();
   });
 
-  it("removes the first row and shifts others up", () => {
+  it('removes the first row and shifts others up', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 2,
@@ -214,18 +214,18 @@ describe("RemoveTableRow", () => {
     });
 
     engine.dispatch({
-      type: "RemoveTableRow",
+      type: 'RemoveTableRow',
       nodeId: tableNodeId,
       position: 0,
     });
 
     expect(getTableProps(engine, tableNodeId).rows).toBe(2);
     // Old row 1 is now row 0
-    expect(getSlotByName(engine, tableNodeId, "cell-0-0")).toBeDefined();
-    expect(getSlotByName(engine, tableNodeId, "cell-1-0")).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-0-0')).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-1-0')).toBeDefined();
   });
 
-  it("rejects removing the last remaining row", () => {
+  it('rejects removing the last remaining row', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 1,
       columns: 2,
@@ -233,7 +233,7 @@ describe("RemoveTableRow", () => {
     });
 
     const result = engine.dispatch({
-      type: "RemoveTableRow",
+      type: 'RemoveTableRow',
       nodeId: tableNodeId,
       position: 0,
     });
@@ -241,14 +241,14 @@ describe("RemoveTableRow", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("undo restores removed row with children", () => {
+  it('undo restores removed row with children', () => {
     const { engine, registry, tableNodeId } = setupTableEngine();
 
     // Insert a text node into cell-1-0
-    const cellSlot = getSlotByName(engine, tableNodeId, "cell-1-0")!;
-    const { node: textNode, slots: textSlots } = registry.createNode("text");
+    const cellSlot = getSlotByName(engine, tableNodeId, 'cell-1-0')!;
+    const { node: textNode, slots: textSlots } = registry.createNode('text');
     engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: textNode,
       slots: textSlots,
       targetSlotId: cellSlot.id,
@@ -258,7 +258,7 @@ describe("RemoveTableRow", () => {
 
     // Remove row 1
     engine.dispatch({
-      type: "RemoveTableRow",
+      type: 'RemoveTableRow',
       nodeId: tableNodeId,
       position: 1,
     });
@@ -275,12 +275,12 @@ describe("RemoveTableRow", () => {
 // AddTableColumn
 // ---------------------------------------------------------------------------
 
-describe("AddTableColumn", () => {
-  it("adds a column at the end", () => {
+describe('AddTableColumn', () => {
+  it('adds a column at the end', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     const result = engine.dispatch({
-      type: "AddTableColumn",
+      type: 'AddTableColumn',
       nodeId: tableNodeId,
       position: 2,
       width: 30,
@@ -292,15 +292,15 @@ describe("AddTableColumn", () => {
     expect(tp.columnWidths).toEqual([50, 50, 30]);
 
     // New cells exist
-    expect(getSlotByName(engine, tableNodeId, "cell-0-2")).toBeDefined();
-    expect(getSlotByName(engine, tableNodeId, "cell-1-2")).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-0-2')).toBeDefined();
+    expect(getSlotByName(engine, tableNodeId, 'cell-1-2')).toBeDefined();
   });
 
-  it("adds a column at the start", () => {
+  it('adds a column at the start', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "AddTableColumn",
+      type: 'AddTableColumn',
       nodeId: tableNodeId,
       position: 0,
       width: 25,
@@ -311,11 +311,11 @@ describe("AddTableColumn", () => {
     expect(tp.columnWidths).toEqual([25, 50, 50]);
   });
 
-  it("undo removes the added column", () => {
+  it('undo removes the added column', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "AddTableColumn",
+      type: 'AddTableColumn',
       nodeId: tableNodeId,
       position: 2,
       width: 30,
@@ -333,8 +333,8 @@ describe("AddTableColumn", () => {
 // RemoveTableColumn
 // ---------------------------------------------------------------------------
 
-describe("RemoveTableColumn", () => {
-  it("removes the last column", () => {
+describe('RemoveTableColumn', () => {
+  it('removes the last column', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 2,
       columns: 3,
@@ -342,7 +342,7 @@ describe("RemoveTableColumn", () => {
     });
 
     engine.dispatch({
-      type: "RemoveTableColumn",
+      type: 'RemoveTableColumn',
       nodeId: tableNodeId,
       position: 2,
     });
@@ -352,7 +352,7 @@ describe("RemoveTableColumn", () => {
     expect(tp.columnWidths).toEqual([30, 40]);
   });
 
-  it("rejects removing the last remaining column", () => {
+  it('rejects removing the last remaining column', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 2,
       columns: 1,
@@ -360,7 +360,7 @@ describe("RemoveTableColumn", () => {
     });
 
     const result = engine.dispatch({
-      type: "RemoveTableColumn",
+      type: 'RemoveTableColumn',
       nodeId: tableNodeId,
       position: 0,
     });
@@ -368,11 +368,11 @@ describe("RemoveTableColumn", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("undo restores removed column", () => {
+  it('undo restores removed column', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "RemoveTableColumn",
+      type: 'RemoveTableColumn',
       nodeId: tableNodeId,
       position: 1,
     });
@@ -388,8 +388,8 @@ describe("RemoveTableColumn", () => {
 // MergeTableCells / UnmergeTableCells
 // ---------------------------------------------------------------------------
 
-describe("MergeTableCells", () => {
-  it("merges a 2x2 region", () => {
+describe('MergeTableCells', () => {
+  it('merges a 2x2 region', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 3,
@@ -397,7 +397,7 @@ describe("MergeTableCells", () => {
     });
 
     const result = engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: tableNodeId,
       startRow: 0,
       startCol: 0,
@@ -410,11 +410,11 @@ describe("MergeTableCells", () => {
     expect(tp.merges).toEqual([{ row: 0, col: 0, rowSpan: 2, colSpan: 2 }]);
   });
 
-  it("rejects merging a single cell", () => {
+  it('rejects merging a single cell', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     const result = engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: tableNodeId,
       startRow: 0,
       startCol: 0,
@@ -425,7 +425,7 @@ describe("MergeTableCells", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("undo (unmerge) removes the merge", () => {
+  it('undo (unmerge) removes the merge', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 3,
@@ -433,7 +433,7 @@ describe("MergeTableCells", () => {
     });
 
     engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: tableNodeId,
       startRow: 0,
       startCol: 0,
@@ -447,8 +447,8 @@ describe("MergeTableCells", () => {
   });
 });
 
-describe("UnmergeTableCells", () => {
-  it("removes a merge", () => {
+describe('UnmergeTableCells', () => {
+  it('removes a merge', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 3,
@@ -456,7 +456,7 @@ describe("UnmergeTableCells", () => {
     });
 
     engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: tableNodeId,
       startRow: 0,
       startCol: 0,
@@ -465,7 +465,7 @@ describe("UnmergeTableCells", () => {
     });
 
     engine.dispatch({
-      type: "UnmergeTableCells",
+      type: 'UnmergeTableCells',
       nodeId: tableNodeId,
       row: 0,
       col: 0,
@@ -475,11 +475,11 @@ describe("UnmergeTableCells", () => {
     expect(tp.merges).toEqual([]);
   });
 
-  it("rejects unmerging non-existent merge", () => {
+  it('rejects unmerging non-existent merge', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     const result = engine.dispatch({
-      type: "UnmergeTableCells",
+      type: 'UnmergeTableCells',
       nodeId: tableNodeId,
       row: 0,
       col: 0,
@@ -488,7 +488,7 @@ describe("UnmergeTableCells", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("undo restores the merge", () => {
+  it('undo restores the merge', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 3,
@@ -496,7 +496,7 @@ describe("UnmergeTableCells", () => {
     });
 
     engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: tableNodeId,
       startRow: 0,
       startCol: 0,
@@ -505,7 +505,7 @@ describe("UnmergeTableCells", () => {
     });
 
     engine.dispatch({
-      type: "UnmergeTableCells",
+      type: 'UnmergeTableCells',
       nodeId: tableNodeId,
       row: 0,
       col: 0,
@@ -522,12 +522,12 @@ describe("UnmergeTableCells", () => {
 // SetTableHeaderRows
 // ---------------------------------------------------------------------------
 
-describe("SetTableHeaderRows", () => {
-  it("sets header rows", () => {
+describe('SetTableHeaderRows', () => {
+  it('sets header rows', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "SetTableHeaderRows",
+      type: 'SetTableHeaderRows',
       nodeId: tableNodeId,
       headerRows: 1,
     });
@@ -535,11 +535,11 @@ describe("SetTableHeaderRows", () => {
     expect(getTableProps(engine, tableNodeId).headerRows).toBe(1);
   });
 
-  it("undo restores previous header rows", () => {
+  it('undo restores previous header rows', () => {
     const { engine, tableNodeId } = setupTableEngine();
 
     engine.dispatch({
-      type: "SetTableHeaderRows",
+      type: 'SetTableHeaderRows',
       nodeId: tableNodeId,
       headerRows: 2,
     });
@@ -553,8 +553,8 @@ describe("SetTableHeaderRows", () => {
 // Row/column operations with merges
 // ---------------------------------------------------------------------------
 
-describe("Row/column operations shift merges correctly", () => {
-  it("adding a row shifts merges below the insertion point", () => {
+describe('Row/column operations shift merges correctly', () => {
+  it('adding a row shifts merges below the insertion point', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 3,
@@ -563,7 +563,7 @@ describe("Row/column operations shift merges correctly", () => {
 
     // Create a merge at row 2
     engine.dispatch({
-      type: "MergeTableCells",
+      type: 'MergeTableCells',
       nodeId: tableNodeId,
       startRow: 2,
       startCol: 0,
@@ -573,7 +573,7 @@ describe("Row/column operations shift merges correctly", () => {
 
     // Insert row at position 1
     engine.dispatch({
-      type: "AddTableRow",
+      type: 'AddTableRow',
       nodeId: tableNodeId,
       position: 1,
     });
@@ -583,7 +583,7 @@ describe("Row/column operations shift merges correctly", () => {
     expect(tp.merges).toEqual([{ row: 3, col: 0, rowSpan: 1, colSpan: 2 }]);
   });
 
-  it("removing a header row adjusts headerRows count", () => {
+  it('removing a header row adjusts headerRows count', () => {
     const { engine, tableNodeId } = setupTableEngine({
       rows: 3,
       columns: 2,
@@ -591,13 +591,13 @@ describe("Row/column operations shift merges correctly", () => {
     });
 
     engine.dispatch({
-      type: "SetTableHeaderRows",
+      type: 'SetTableHeaderRows',
       nodeId: tableNodeId,
       headerRows: 2,
     });
 
     engine.dispatch({
-      type: "RemoveTableRow",
+      type: 'RemoveTableRow',
       nodeId: tableNodeId,
       position: 0,
     });

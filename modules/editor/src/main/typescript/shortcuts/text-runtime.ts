@@ -4,18 +4,18 @@ import {
   type CommandDefinition,
   type KeybindingDefinition,
   type ShortcutRegistryDefinition,
-} from "./foundation.js";
+} from './foundation.js';
 
 // ---------------------------------------------------------------------------
 // Command IDs
 // ---------------------------------------------------------------------------
 
 export const TEXT_SHORTCUT_COMMAND_IDS = {
-  bold: "text.mark.bold",
-  italic: "text.mark.italic",
-  underline: "text.mark.underline",
-  lineBreakShiftEnter: "text.line-break.shift-enter",
-  lineBreakModEnter: "text.line-break.mod-enter",
+  bold: 'text.mark.bold',
+  italic: 'text.mark.italic',
+  underline: 'text.mark.underline',
+  lineBreakShiftEnter: 'text.line-break.shift-enter',
+  lineBreakModEnter: 'text.line-break.mod-enter',
 } as const;
 
 export type TextShortcutCommandId =
@@ -28,32 +28,32 @@ export type TextShortcutCommandId =
 const TEXT_SHORTCUT_COMMANDS: readonly CommandDefinition<unknown>[] = [
   {
     id: TEXT_SHORTCUT_COMMAND_IDS.bold,
-    label: "Bold",
-    category: "Text",
+    label: 'Bold',
+    category: 'Text',
     run: () => ({ ok: true }),
   },
   {
     id: TEXT_SHORTCUT_COMMAND_IDS.italic,
-    label: "Italic",
-    category: "Text",
+    label: 'Italic',
+    category: 'Text',
     run: () => ({ ok: true }),
   },
   {
     id: TEXT_SHORTCUT_COMMAND_IDS.underline,
-    label: "Underline",
-    category: "Text",
+    label: 'Underline',
+    category: 'Text',
     run: () => ({ ok: true }),
   },
   {
     id: TEXT_SHORTCUT_COMMAND_IDS.lineBreakShiftEnter,
-    label: "Line break",
-    category: "Text",
+    label: 'Line break',
+    category: 'Text',
     run: () => ({ ok: true }),
   },
   {
     id: TEXT_SHORTCUT_COMMAND_IDS.lineBreakModEnter,
-    label: "Line break",
-    category: "Text",
+    label: 'Line break',
+    category: 'Text',
     run: () => ({ ok: true }),
   },
 ];
@@ -65,33 +65,33 @@ const TEXT_SHORTCUT_COMMANDS: readonly CommandDefinition<unknown>[] = [
 const TEXT_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition[] = [
   {
     commandId: TEXT_SHORTCUT_COMMAND_IDS.bold,
-    context: "text",
-    keys: ["mod+b"],
-    display: "{cmd} + B",
+    context: 'text',
+    keys: ['mod+b'],
+    display: '{cmd} + B',
   },
   {
     commandId: TEXT_SHORTCUT_COMMAND_IDS.italic,
-    context: "text",
-    keys: ["mod+i"],
-    display: "{cmd} + I",
+    context: 'text',
+    keys: ['mod+i'],
+    display: '{cmd} + I',
   },
   {
     commandId: TEXT_SHORTCUT_COMMAND_IDS.underline,
-    context: "text",
-    keys: ["mod+u"],
-    display: "{cmd} + U",
+    context: 'text',
+    keys: ['mod+u'],
+    display: '{cmd} + U',
   },
   {
     commandId: TEXT_SHORTCUT_COMMAND_IDS.lineBreakShiftEnter,
-    context: "text",
-    keys: ["shift+enter"],
-    display: "Shift + Enter",
+    context: 'text',
+    keys: ['shift+enter'],
+    display: 'Shift + Enter',
   },
   {
     commandId: TEXT_SHORTCUT_COMMAND_IDS.lineBreakModEnter,
-    context: "text",
-    keys: ["mod+enter"],
-    display: "{cmd} + Enter",
+    context: 'text',
+    keys: ['mod+enter'],
+    display: '{cmd} + Enter',
   },
 ];
 
@@ -148,6 +148,6 @@ export function getTextBubbleTitle(
   fallbackTitle: string,
 ): string {
   const display = getTextShortcutDisplayForCommandId(commandId);
-  const normalizedDisplay = display.replaceAll("{cmd}", "Ctrl/Cmd");
+  const normalizedDisplay = display.replaceAll('{cmd}', 'Ctrl/Cmd');
   return `${fallbackTitle} (${normalizedDisplay})`;
 }

@@ -6,8 +6,8 @@
  * Redo is symmetric.
  */
 
-import type { AnyCommand } from "./commands.js";
-import type { Change, ChangeContext } from "./change.js";
+import type { AnyCommand } from './commands.js';
+import type { Change, ChangeContext } from './change.js';
 
 export class CommandChange implements Change {
   readonly command: AnyCommand;

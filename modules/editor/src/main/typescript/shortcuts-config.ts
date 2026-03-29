@@ -44,10 +44,10 @@ export interface EditorShortcutsConfig {
 export const EDITOR_SHORTCUTS_CONFIG = {
   leader: {
     activation: {
-      code: "Space",
+      code: 'Space',
       requiresModifier: true,
-      helpKeys: "{cmd} + Space",
-      action: "Enter leader mode",
+      helpKeys: '{cmd} + Space',
+      action: 'Enter leader mode',
     },
     timeout: {
       idleHideMs: 1600,

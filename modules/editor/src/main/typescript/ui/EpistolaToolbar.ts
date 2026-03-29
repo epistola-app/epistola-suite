@@ -1,18 +1,18 @@
-import { LitElement, html, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import type { SaveState } from "./save-service.js";
-import type { ToolbarAction } from "../plugins/types.js";
-import { icon } from "./icons.js";
-import { buildShortcutGroupsProjection, type ShortcutGroup } from "./shortcuts.js";
-import { normalizeShortcutEvent } from "../shortcuts/resolver.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import type { SaveState } from './save-service.js';
+import type { ToolbarAction } from '../plugins/types.js';
+import { icon } from './icons.js';
+import { buildShortcutGroupsProjection, type ShortcutGroup } from './shortcuts.js';
+import { normalizeShortcutEvent } from '../shortcuts/resolver.js';
 import {
   EDITOR_SHORTCUT_COMMAND_IDS,
   getShortcutDisplayForCommandId,
-} from "../shortcuts/editor-runtime.js";
+} from '../shortcuts/editor-runtime.js';
 
 function toTooltipShortcutLabel(helpKeys: string): string {
-  return helpKeys.replaceAll("{cmd}", "Ctrl/Cmd");
+  return helpKeys.replaceAll('{cmd}', 'Ctrl/Cmd');
 }
 
 const UNDO_SHORTCUT_HELP = getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.undo);
@@ -20,14 +20,14 @@ const REDO_SHORTCUT_HELP = getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAN
 const SAVE_SHORTCUT_HELP = getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.save);
 
 const SHORTCUT_ACTIVE_FEEDBACK_MS = 650;
-const SHORTCUTS_TRIGGER_SELECTOR = ".toolbar-shortcuts-trigger";
-const SHORTCUTS_SEARCH_SELECTOR = ".toolbar-shortcuts-search-input";
-const SHORTCUTS_POPOVER_ID = "epistola-toolbar-shortcuts-popover";
-const DATA_PREVIEW_TRIGGER_SELECTOR = ".toolbar-data-preview-trigger";
-const DATA_PREVIEW_POPOVER_SELECTOR = ".toolbar-data-preview-popover";
-const DATA_PREVIEW_POPOVER_ID = "epistola-toolbar-data-preview-popover";
-const DATA_PREVIEW_PINNED_STORAGE_KEY = "ep:data-preview:pinned";
-const DATA_PREVIEW_POSITION_STORAGE_KEY = "ep:data-preview:position";
+const SHORTCUTS_TRIGGER_SELECTOR = '.toolbar-shortcuts-trigger';
+const SHORTCUTS_SEARCH_SELECTOR = '.toolbar-shortcuts-search-input';
+const SHORTCUTS_POPOVER_ID = 'epistola-toolbar-shortcuts-popover';
+const DATA_PREVIEW_TRIGGER_SELECTOR = '.toolbar-data-preview-trigger';
+const DATA_PREVIEW_POPOVER_SELECTOR = '.toolbar-data-preview-popover';
+const DATA_PREVIEW_POPOVER_ID = 'epistola-toolbar-data-preview-popover';
+const DATA_PREVIEW_PINNED_STORAGE_KEY = 'ep:data-preview:pinned';
+const DATA_PREVIEW_POSITION_STORAGE_KEY = 'ep:data-preview:position';
 const DATA_PREVIEW_VIEWPORT_MARGIN = 12;
 const DATA_PREVIEW_DEFAULT_WIDTH = 640;
 const DATA_PREVIEW_DEFAULT_HEIGHT = 400;
@@ -37,10 +37,10 @@ type JsonObject = Record<string, unknown>;
 type DataPreviewPosition = { x: number; y: number };
 
 function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null;
+  return typeof value === 'object' && value !== null;
 }
 
-@customElement("epistola-toolbar")
+@customElement('epistola-toolbar')
 export class EpistolaToolbar extends LitElement {
   override createRenderRoot() {
     return this;
@@ -58,8 +58,8 @@ export class EpistolaToolbar extends LitElement {
   @state() private _dataPreviewOpen = false;
   @state() private _dataPreviewPinned = false;
   @state() private _dataPreviewPosition: DataPreviewPosition | null = null;
-  @state() private _dataPreviewCopyState: "idle" | "copied" | "error" = "idle";
-  @state() private _shortcutsQuery = "";
+  @state() private _dataPreviewCopyState: 'idle' | 'copied' | 'error' = 'idle';
+  @state() private _shortcutsQuery = '';
   @state() private _activeShortcutStrokes: string[] = [];
 
   private _unsubExample?: () => void;
@@ -72,7 +72,7 @@ export class EpistolaToolbar extends LitElement {
   private _onWindowKeydown = (e: KeyboardEvent) => {
     if (!this._shortcutsOpen && !this._dataPreviewOpen) return;
 
-    if (e.key === "Escape") {
+    if (e.key === 'Escape') {
       if (this._shortcutsOpen) {
         e.preventDefault();
         this._closeShortcuts({ restoreFocus: true });
@@ -88,7 +88,7 @@ export class EpistolaToolbar extends LitElement {
 
     if (!this._shortcutsOpen) return;
 
-    if (e.key === "Shift" || e.key === "Control" || e.key === "Alt" || e.key === "Meta") {
+    if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') {
       return;
     }
 
@@ -102,7 +102,7 @@ export class EpistolaToolbar extends LitElement {
   private _onWindowPointerDown = (e: PointerEvent) => {
     if (!this._shortcutsOpen && !this._dataPreviewOpen) return;
     const target = e.target;
-    if (target instanceof Element && target.closest(".toolbar-shortcuts, .toolbar-data-preview"))
+    if (target instanceof Element && target.closest('.toolbar-shortcuts, .toolbar-data-preview'))
       return;
     this._closeShortcuts();
     if (!this._dataPreviewPinned) {
@@ -139,13 +139,13 @@ export class EpistolaToolbar extends LitElement {
     super.connectedCallback();
     this._subscribeToEngine();
     this._restoreDataPreviewState();
-    window.addEventListener("keydown", this._onWindowKeydown);
-    window.addEventListener("pointerdown", this._onWindowPointerDown, true);
-    window.addEventListener("resize", this._onWindowResize);
+    window.addEventListener('keydown', this._onWindowKeydown);
+    window.addEventListener('pointerdown', this._onWindowPointerDown, true);
+    window.addEventListener('resize', this._onWindowResize);
   }
 
   override updated(changed: Map<string, unknown>): void {
-    if (changed.has("engine")) {
+    if (changed.has('engine')) {
       this._unsubscribeAll();
       this._subscribeToEngine();
     }
@@ -153,9 +153,9 @@ export class EpistolaToolbar extends LitElement {
 
   override disconnectedCallback(): void {
     this._unsubscribeAll();
-    window.removeEventListener("keydown", this._onWindowKeydown);
-    window.removeEventListener("pointerdown", this._onWindowPointerDown, true);
-    window.removeEventListener("resize", this._onWindowResize);
+    window.removeEventListener('keydown', this._onWindowKeydown);
+    window.removeEventListener('pointerdown', this._onWindowPointerDown, true);
+    window.removeEventListener('resize', this._onWindowResize);
     this._stopDataPreviewDrag();
     this._clearDataPreviewCopyFeedback();
     this._clearActiveShortcutFeedback();
@@ -170,12 +170,12 @@ export class EpistolaToolbar extends LitElement {
   private _subscribeToEngine(): void {
     if (!this.engine) return;
     this._currentExampleIndex = this.engine.currentExampleIndex;
-    this._unsubExample = this.engine.events.on("example:change", ({ index }) => {
+    this._unsubExample = this.engine.events.on('example:change', ({ index }) => {
       this._currentExampleIndex = index;
       this._clearDataPreviewCopyFeedback();
     });
     // Re-render on doc changes so undo/redo button state stays in sync
-    this._unsubDoc = this.engine.events.on("doc:change", () => {
+    this._unsubDoc = this.engine.events.on('doc:change', () => {
       this.requestUpdate();
     });
   }
@@ -191,11 +191,11 @@ export class EpistolaToolbar extends LitElement {
   }
 
   private _handleForceSave() {
-    this.dispatchEvent(new CustomEvent("force-save", { bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('force-save', { bubbles: true, composed: true }));
   }
 
   private _handleTogglePreview() {
-    this.dispatchEvent(new CustomEvent("toggle-preview", { bubbles: true, composed: true }));
+    this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }));
   }
 
   private _handleExampleChange(e: Event) {
@@ -227,7 +227,7 @@ export class EpistolaToolbar extends LitElement {
       clearTimeout(this._dataPreviewCopyTimeout);
       this._dataPreviewCopyTimeout = null;
     }
-    this._dataPreviewCopyState = "idle";
+    this._dataPreviewCopyState = 'idle';
   }
 
   private _scheduleDataPreviewCopyFeedbackReset(): void {
@@ -235,7 +235,7 @@ export class EpistolaToolbar extends LitElement {
       clearTimeout(this._dataPreviewCopyTimeout);
     }
     this._dataPreviewCopyTimeout = setTimeout(() => {
-      this._dataPreviewCopyState = "idle";
+      this._dataPreviewCopyState = 'idle';
       this._dataPreviewCopyTimeout = null;
     }, DATA_PREVIEW_COPY_FEEDBACK_MS);
   }
@@ -278,7 +278,7 @@ export class EpistolaToolbar extends LitElement {
 
   private _restoreDataPreviewState(): void {
     try {
-      const pinned = localStorage.getItem(DATA_PREVIEW_PINNED_STORAGE_KEY) === "true";
+      const pinned = localStorage.getItem(DATA_PREVIEW_PINNED_STORAGE_KEY) === 'true';
       const position = this._readStoredDataPreviewPosition();
       this._dataPreviewPinned = pinned;
       this._dataPreviewPosition = position;
@@ -301,7 +301,7 @@ export class EpistolaToolbar extends LitElement {
 
     try {
       const parsed = JSON.parse(raw) as { x?: unknown; y?: unknown };
-      if (typeof parsed.x !== "number" || typeof parsed.y !== "number") {
+      if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') {
         return null;
       }
 
@@ -419,10 +419,10 @@ export class EpistolaToolbar extends LitElement {
     this._dataPreviewDragOffsetX = e.clientX - rect.left;
     this._dataPreviewDragOffsetY = e.clientY - rect.top;
 
-    document.body.style.userSelect = "none";
-    window.addEventListener("pointermove", this._onDataPreviewDragMove);
-    window.addEventListener("pointerup", this._onDataPreviewDragEnd);
-    window.addEventListener("pointercancel", this._onDataPreviewDragEnd);
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', this._onDataPreviewDragMove);
+    window.addEventListener('pointerup', this._onDataPreviewDragEnd);
+    window.addEventListener('pointercancel', this._onDataPreviewDragEnd);
     e.preventDefault();
     e.stopPropagation();
   }
@@ -432,10 +432,10 @@ export class EpistolaToolbar extends LitElement {
     this._dataPreviewDragging = false;
     this._dataPreviewDragOffsetX = 0;
     this._dataPreviewDragOffsetY = 0;
-    document.body.style.userSelect = "";
-    window.removeEventListener("pointermove", this._onDataPreviewDragMove);
-    window.removeEventListener("pointerup", this._onDataPreviewDragEnd);
-    window.removeEventListener("pointercancel", this._onDataPreviewDragEnd);
+    document.body.style.userSelect = '';
+    window.removeEventListener('pointermove', this._onDataPreviewDragMove);
+    window.removeEventListener('pointerup', this._onDataPreviewDragEnd);
+    window.removeEventListener('pointercancel', this._onDataPreviewDragEnd);
   }
 
   private _openShortcuts(): void {
@@ -448,7 +448,7 @@ export class EpistolaToolbar extends LitElement {
   private _closeShortcuts(options: { restoreFocus?: boolean } = {}): void {
     if (!this._shortcutsOpen) return;
     this._shortcutsOpen = false;
-    this._shortcutsQuery = "";
+    this._shortcutsQuery = '';
     this._clearActiveShortcutFeedback();
     if (options.restoreFocus) {
       this._focusShortcutTriggerAfterRender();
@@ -538,26 +538,26 @@ export class EpistolaToolbar extends LitElement {
 
     try {
       if (!navigator.clipboard?.writeText) {
-        throw new Error("Clipboard API unavailable");
+        throw new Error('Clipboard API unavailable');
       }
 
       await navigator.clipboard.writeText(preview.json);
-      this._dataPreviewCopyState = "copied";
+      this._dataPreviewCopyState = 'copied';
     } catch {
-      this._dataPreviewCopyState = "error";
+      this._dataPreviewCopyState = 'error';
     }
 
     this._scheduleDataPreviewCopyFeedbackReset();
   }
 
   private _dataPreviewCopyButtonLabel(): string {
-    if (this._dataPreviewCopyState === "copied") {
-      return "Copied";
+    if (this._dataPreviewCopyState === 'copied') {
+      return 'Copied';
     }
-    if (this._dataPreviewCopyState === "error") {
-      return "Copy failed";
+    if (this._dataPreviewCopyState === 'error') {
+      return 'Copy failed';
     }
-    return "Copy JSON";
+    return 'Copy JSON';
   }
 
   openShortcuts(): void {
@@ -583,11 +583,11 @@ export class EpistolaToolbar extends LitElement {
       return `Example ${this._currentExampleIndex + 1}`;
     }
 
-    if (typeof example.name === "string" && example.name.trim().length > 0) {
+    if (typeof example.name === 'string' && example.name.trim().length > 0) {
       return example.name;
     }
 
-    if (typeof example.label === "string" && example.label.trim().length > 0) {
+    if (typeof example.label === 'string' && example.label.trim().length > 0) {
       return example.label;
     }
 
@@ -601,7 +601,7 @@ export class EpistolaToolbar extends LitElement {
     const examples = this.engine?.dataExamples;
     if (!examples || examples.length === 0) {
       return {
-        header: "No examples available",
+        header: 'No examples available',
         json: null,
       };
     }
@@ -637,11 +637,11 @@ export class EpistolaToolbar extends LitElement {
   }
 
   private _renderShortcutKeys(keys: string) {
-    const parts = keys.split("{cmd}");
+    const parts = keys.split('{cmd}');
     return html`${parts.map(
       (part, i) => html`
         ${i > 0
-          ? html`<span class="shortcut-cmd-icon">${icon("command", 12)}</span>`
+          ? html`<span class="shortcut-cmd-icon">${icon('command', 12)}</span>`
           : nothing}${part}
       `,
     )}`;
@@ -666,7 +666,7 @@ export class EpistolaToolbar extends LitElement {
             @click=${this._handleUndo}
             title=${`Undo (${toTooltipShortcutLabel(UNDO_SHORTCUT_HELP)})`}
           >
-            ${icon("undo-2")} Undo
+            ${icon('undo-2')} Undo
           </button>
           <button
             class="toolbar-btn"
@@ -674,7 +674,7 @@ export class EpistolaToolbar extends LitElement {
             @click=${this._handleRedo}
             title=${`Redo (${toTooltipShortcutLabel(REDO_SHORTCUT_HELP)})`}
           >
-            ${icon("redo-2")} Redo
+            ${icon('redo-2')} Redo
           </button>
         </div>
 
@@ -683,11 +683,11 @@ export class EpistolaToolbar extends LitElement {
           ? html`
               <div class="toolbar-separator"></div>
               <button
-                class="toolbar-btn ${this.previewOpen ? "active" : ""}"
+                class="toolbar-btn ${this.previewOpen ? 'active' : ''}"
                 @click=${this._handleTogglePreview}
-                title="${this.previewOpen ? "Hide preview" : "Show preview"}"
+                title="${this.previewOpen ? 'Hide preview' : 'Show preview'}"
               >
-                ${this.previewOpen ? icon("eye-off") : icon("eye")} Preview
+                ${this.previewOpen ? icon('eye-off') : icon('eye')} Preview
               </button>
             `
           : nothing}
@@ -713,44 +713,44 @@ export class EpistolaToolbar extends LitElement {
   }
 
   private _renderSaveButton() {
-    const status = this.saveState?.status ?? "idle";
-    const isError = status === "error";
+    const status = this.saveState?.status ?? 'idle';
+    const isError = status === 'error';
     const errorMsg = isError
-      ? (this.saveState as { status: "error"; message: string }).message
-      : "";
+      ? (this.saveState as { status: 'error'; message: string }).message
+      : '';
 
     // Determine button attributes based on state
-    const disabled = status === "idle" || status === "saving" || status === "saved";
-    const cssClass = `toolbar-btn ${status === "saving" ? "saving" : ""} ${status === "saved" ? "saved" : ""} ${isError ? "save-error" : ""}`;
+    const disabled = status === 'idle' || status === 'saving' || status === 'saved';
+    const cssClass = `toolbar-btn ${status === 'saving' ? 'saving' : ''} ${status === 'saved' ? 'saved' : ''} ${isError ? 'save-error' : ''}`;
 
-    let iconName: "save" | "check" | "loader-2" | "triangle-alert";
+    let iconName: 'save' | 'check' | 'loader-2' | 'triangle-alert';
     let label: string;
     let title: string;
 
     switch (status) {
-      case "idle":
-        iconName = "check";
-        label = "Saved";
-        title = "All changes saved";
+      case 'idle':
+        iconName = 'check';
+        label = 'Saved';
+        title = 'All changes saved';
         break;
-      case "dirty":
-        iconName = "save";
-        label = "Save";
+      case 'dirty':
+        iconName = 'save';
+        label = 'Save';
         title = `Save (${toTooltipShortcutLabel(SAVE_SHORTCUT_HELP)})`;
         break;
-      case "saving":
-        iconName = "loader-2";
-        label = "Saving...";
-        title = "Saving changes...";
+      case 'saving':
+        iconName = 'loader-2';
+        label = 'Saving...';
+        title = 'Saving changes...';
         break;
-      case "saved":
-        iconName = "check";
-        label = "Saved";
-        title = "All changes saved";
+      case 'saved':
+        iconName = 'check';
+        label = 'Saved';
+        title = 'All changes saved';
         break;
-      case "error":
-        iconName = "triangle-alert";
-        label = "Save";
+      case 'error':
+        iconName = 'triangle-alert';
+        label = 'Save';
         title = `Save failed: ${errorMsg}. Click to retry.`;
         break;
     }
@@ -776,34 +776,34 @@ export class EpistolaToolbar extends LitElement {
     const shortcutGroups = shortcutProjection.groups;
     const currentExamplePreview = this._resolveCurrentExamplePreview();
     const dataPreviewPopoverClass = [
-      "toolbar-data-preview-popover",
-      this._dataPreviewPinned ? "is-pinned" : "",
+      'toolbar-data-preview-popover',
+      this._dataPreviewPinned ? 'is-pinned' : '',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
     const dataPreviewPopoverStyle = this._dataPreviewPinned
       ? (() => {
           const position = this._dataPreviewPosition;
 
           if (!position) {
-            return "";
+            return '';
           }
 
           return `left: ${position.x}px; top: ${position.y}px;`;
         })()
-      : "";
+      : '';
     const dataPreviewPinLabel = this._dataPreviewPinned
-      ? "Unpin data example viewer"
-      : "Pin data example viewer";
+      ? 'Unpin data example viewer'
+      : 'Pin data example viewer';
     const canCopyDataPreview = currentExamplePreview.json !== null;
     const dataPreviewCopyLabel = this._dataPreviewCopyButtonLabel();
     const dataPreviewCopyClass = [
-      "toolbar-data-preview-copy",
-      this._dataPreviewCopyState === "copied" ? "is-success" : "",
-      this._dataPreviewCopyState === "error" ? "is-error" : "",
+      'toolbar-data-preview-copy',
+      this._dataPreviewCopyState === 'copied' ? 'is-success' : '',
+      this._dataPreviewCopyState === 'error' ? 'is-error' : '',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
 
     return html`
       <div class="toolbar-example-selector">
@@ -834,7 +834,7 @@ export class EpistolaToolbar extends LitElement {
             aria-expanded=${String(this._dataPreviewOpen)}
             @click=${this._toggleDataPreview}
           >
-            ${icon("file-text")}
+            ${icon('file-text')}
           </button>
 
           ${this._dataPreviewOpen
@@ -862,7 +862,7 @@ export class EpistolaToolbar extends LitElement {
                               aria-label="Drag to move"
                               @pointerdown=${(e: PointerEvent) => this._startDataPreviewDrag(e)}
                             >
-                              ${icon("grip-vertical", 14)} Drag
+                              ${icon('grip-vertical', 14)} Drag
                             </button>
                           `
                         : nothing}
@@ -880,8 +880,8 @@ export class EpistolaToolbar extends LitElement {
                       <button
                         class="btn btn-outline btn-sm btn-icon toolbar-data-preview-pin ${this
                           ._dataPreviewPinned
-                          ? "is-active"
-                          : ""}"
+                          ? 'is-active'
+                          : ''}"
                         data-testid="data-example-pin"
                         type="button"
                         title=${dataPreviewPinLabel}
@@ -889,7 +889,7 @@ export class EpistolaToolbar extends LitElement {
                         aria-pressed=${String(this._dataPreviewPinned)}
                         @click=${this._toggleDataPreviewPinned}
                       >
-                        ${icon("paperclip", 14)}
+                        ${icon('paperclip', 14)}
                       </button>
                     </div>
                   </div>
@@ -897,7 +897,7 @@ export class EpistolaToolbar extends LitElement {
                   ${!this._dataPreviewPinned
                     ? html`
                         <div class="toolbar-data-preview-drag-hint">
-                          ${icon("paperclip", 12)} Pin to keep this viewer open and movable
+                          ${icon('paperclip', 12)} Pin to keep this viewer open and movable
                         </div>
                       `
                     : nothing}
@@ -937,7 +937,7 @@ export class EpistolaToolbar extends LitElement {
             aria-expanded=${String(this._shortcutsOpen)}
             @click=${this._toggleShortcutHelp}
           >
-            ${icon("command")}
+            ${icon('command')}
           </button>
 
           ${this._shortcutsOpen
@@ -969,21 +969,21 @@ export class EpistolaToolbar extends LitElement {
                           (group: ShortcutGroup) => html`
                             <div
                               class="toolbar-shortcuts-group ${group.fullWidth
-                                ? "is-full-width"
-                                : ""}"
+                                ? 'is-full-width'
+                                : ''}"
                             >
                               <div class="toolbar-shortcuts-group-title">${group.title}</div>
                               <div
-                                class="toolbar-shortcuts-items ${group.layout === "two-column"
-                                  ? "layout-two-column"
-                                  : "layout-one-column"}"
+                                class="toolbar-shortcuts-items ${group.layout === 'two-column'
+                                  ? 'layout-two-column'
+                                  : 'layout-one-column'}"
                               >
                                 ${group.items.map(
                                   (item) => html`
                                     <div
                                       class="toolbar-shortcuts-row ${item.active
-                                        ? "is-active"
-                                        : ""}"
+                                        ? 'is-active'
+                                        : ''}"
                                     >
                                       <span class="toolbar-shortcuts-keys"
                                         >${this._renderShortcutKeys(item.keys)}</span
@@ -1014,14 +1014,14 @@ export class EpistolaToolbar extends LitElement {
    */
   private _getExampleLabel(example: object, index: number): string {
     const obj = example as Record<string, unknown>;
-    if (typeof obj.name === "string" && obj.name) return obj.name;
-    if (typeof obj.label === "string" && obj.label) return obj.label;
+    if (typeof obj.name === 'string' && obj.name) return obj.name;
+    if (typeof obj.label === 'string' && obj.label) return obj.label;
     return `Example ${index + 1}`;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-toolbar": EpistolaToolbar;
+    'epistola-toolbar': EpistolaToolbar;
   }
 }

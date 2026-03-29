@@ -4,21 +4,21 @@
  * Used by: command validation, block palette, inspector, DnD.
  */
 
-import type { TemplateDocument, NodeId, SlotId, Node, Slot } from "../types/index.js";
-import type { DocumentIndexes } from "./indexes.js";
-import type { CommandResult } from "./commands.js";
-import { nanoid } from "nanoid";
-import { createTableDefinition } from "../components/table/table-registration.js";
-import { createColumnsDefinition } from "../components/columns/columns-registration.js";
-import { createDatatableDefinition } from "../components/datatable/datatable-registration.js";
-import { createDatatableColumnDefinition } from "../components/datatable/datatable-column-registration.js";
+import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
+import type { DocumentIndexes } from './indexes.js';
+import type { CommandResult } from './commands.js';
+import { nanoid } from 'nanoid';
+import { createTableDefinition } from '../components/table/table-registration.js';
+import { createColumnsDefinition } from '../components/columns/columns-registration.js';
+import { createDatatableDefinition } from '../components/datatable/datatable-registration.js';
+import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
 
 // ---------------------------------------------------------------------------
 // Component type constants
 // ---------------------------------------------------------------------------
 
-export const PAGE_HEADER_TYPE = "pageheader";
-export const PAGE_FOOTER_TYPE = "pagefooter";
+export const PAGE_HEADER_TYPE = 'pageheader';
+export const PAGE_FOOTER_TYPE = 'pagefooter';
 
 /** Check whether a component type is an anchored page block (header or footer). */
 export function isAnchoredPageBlock(type: string): boolean {
@@ -29,13 +29,13 @@ export function isAnchoredPageBlock(type: string): boolean {
 // Component definition
 // ---------------------------------------------------------------------------
 
-export type ComponentCategory = "content" | "layout" | "logic" | "page";
+export type ComponentCategory = 'content' | 'layout' | 'logic' | 'page';
 
 export type AllowedChildren =
-  | { mode: "all" }
-  | { mode: "allowlist"; types: string[] }
-  | { mode: "denylist"; types: string[] }
-  | { mode: "none" };
+  | { mode: 'all' }
+  | { mode: 'allowlist'; types: string[] }
+  | { mode: 'denylist'; types: string[] }
+  | { mode: 'none' };
 
 export interface SlotTemplate {
   name: string;
@@ -45,7 +45,7 @@ export interface SlotTemplate {
 export interface InspectorField {
   key: string;
   label: string;
-  type: "text" | "number" | "boolean" | "select" | "expression" | "json" | "color" | "unit";
+  type: 'text' | 'number' | 'boolean' | 'select' | 'expression' | 'json' | 'color' | 'unit';
   options?: { label: string; value: unknown }[];
   defaultValue?: unknown;
   /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
@@ -66,7 +66,7 @@ export interface ComponentDefinition {
    * - `'all'` = every property in the style registry
    * - `string[]` = explicit allowlist of property keys (empty = no styles)
    */
-  applicableStyles: "all" | string[];
+  applicableStyles: 'all' | string[];
   inspector: InspectorField[];
   /** Default styles for this component type (lowest priority in the cascade). */
   defaultStyles?: Record<string, unknown>;
@@ -191,7 +191,7 @@ export class ComponentRegistry {
     if (!def) return false;
 
     const limit = def.maxInstancesPerDocument;
-    if (typeof limit !== "number") {
+    if (typeof limit !== 'number') {
       return true;
     }
 
@@ -221,13 +221,13 @@ export class ComponentRegistry {
     if (!def) return false;
 
     switch (def.allowedChildren.mode) {
-      case "all":
+      case 'all':
         return true;
-      case "none":
+      case 'none':
         return false;
-      case "allowlist":
+      case 'allowlist':
         return def.allowedChildren.types.includes(childType);
-      case "denylist":
+      case 'denylist':
         return !def.allowedChildren.types.includes(childType);
     }
   }
@@ -321,52 +321,52 @@ export class ComponentRegistry {
 
 /** Layout-oriented style properties (spacing + background + borders, no typography). */
 const LAYOUT_STYLES = [
-  "padding",
-  "margin",
-  "backgroundColor",
-  "borderWidth",
-  "borderStyle",
-  "borderColor",
-  "borderRadius",
+  'padding',
+  'margin',
+  'backgroundColor',
+  'borderWidth',
+  'borderStyle',
+  'borderColor',
+  'borderRadius',
 ];
 
 export function createDefaultRegistry(): ComponentRegistry {
   const registry = new ComponentRegistry();
 
   registry.register({
-    type: "root",
-    label: "Document Root",
-    icon: "file-text",
-    category: "layout",
-    slots: [{ name: "children" }],
-    allowedChildren: { mode: "denylist", types: ["root"] },
+    type: 'root',
+    label: 'Document Root',
+    icon: 'file-text',
+    category: 'layout',
+    slots: [{ name: 'children' }],
+    allowedChildren: { mode: 'denylist', types: ['root'] },
     applicableStyles: [],
     inspector: [],
   });
 
   registry.register({
-    type: "text",
-    label: "Text",
-    icon: "type",
-    category: "content",
+    type: 'text',
+    label: 'Text',
+    icon: 'type',
+    category: 'content',
     slots: [],
-    allowedChildren: { mode: "none" },
-    applicableStyles: "all",
+    allowedChildren: { mode: 'none' },
+    applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: "1.5sp" },
+    defaultStyles: { marginBottom: '1.5sp' },
     defaultProps: { content: null },
   });
 
   registry.register({
-    type: "container",
-    label: "Container",
-    icon: "box",
-    category: "layout",
-    slots: [{ name: "children" }],
-    allowedChildren: { mode: "all" },
-    applicableStyles: "all",
+    type: 'container',
+    label: 'Container',
+    icon: 'box',
+    category: 'layout',
+    slots: [{ name: 'children' }],
+    allowedChildren: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [],
-    defaultStyles: { marginBottom: "1.5sp" },
+    defaultStyles: { marginBottom: '1.5sp' },
   });
 
   registry.register(createColumnsDefinition());
@@ -375,78 +375,78 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register(createDatatableColumnDefinition());
 
   registry.register({
-    type: "conditional",
-    label: "Conditional",
-    icon: "git-branch",
-    category: "logic",
-    slots: [{ name: "body" }],
-    allowedChildren: { mode: "all" },
+    type: 'conditional',
+    label: 'Conditional',
+    icon: 'git-branch',
+    category: 'logic',
+    slots: [{ name: 'body' }],
+    allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
     inspector: [
-      { key: "condition.raw", label: "Condition", type: "expression" },
-      { key: "inverse", label: "Inverse (else)", type: "boolean", defaultValue: false },
+      { key: 'condition.raw', label: 'Condition', type: 'expression' },
+      { key: 'inverse', label: 'Inverse (else)', type: 'boolean', defaultValue: false },
     ],
     defaultProps: {
-      condition: { raw: "", language: "jsonata" },
+      condition: { raw: '', language: 'jsonata' },
       inverse: false,
     },
   });
 
   registry.register({
-    type: "loop",
-    label: "Loop",
-    icon: "repeat",
-    category: "logic",
-    slots: [{ name: "body" }],
-    allowedChildren: { mode: "all" },
+    type: 'loop',
+    label: 'Loop',
+    icon: 'repeat',
+    category: 'logic',
+    slots: [{ name: 'body' }],
+    allowedChildren: { mode: 'all' },
     applicableStyles: LAYOUT_STYLES,
     inspector: [
-      { key: "expression.raw", label: "Expression", type: "expression" },
-      { key: "itemAlias", label: "Item Alias", type: "text", defaultValue: "item" },
-      { key: "indexAlias", label: "Index Alias", type: "text" },
+      { key: 'expression.raw', label: 'Expression', type: 'expression' },
+      { key: 'itemAlias', label: 'Item Alias', type: 'text', defaultValue: 'item' },
+      { key: 'indexAlias', label: 'Index Alias', type: 'text' },
     ],
     defaultProps: {
-      expression: { raw: "", language: "jsonata" },
-      itemAlias: "item",
+      expression: { raw: '', language: 'jsonata' },
+      itemAlias: 'item',
       indexAlias: undefined,
     },
   });
 
   registry.register({
-    type: "pagebreak",
-    label: "Page Break",
-    icon: "minus",
-    category: "page",
+    type: 'pagebreak',
+    label: 'Page Break',
+    icon: 'minus',
+    category: 'page',
     slots: [],
-    allowedChildren: { mode: "none" },
+    allowedChildren: { mode: 'none' },
     applicableStyles: [],
     inspector: [],
   });
 
   registry.register({
     type: PAGE_HEADER_TYPE,
-    label: "Page Header",
-    icon: "panel-top",
-    category: "page",
-    slots: [{ name: "children" }],
-    allowedChildren: { mode: "all" },
-    applicableStyles: "all",
+    label: 'Page Header',
+    icon: 'panel-top',
+    category: 'page',
+    slots: [{ name: 'children' }],
+    allowedChildren: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [
-      { key: "height", label: "Height", type: "unit", units: ["pt", "sp"], defaultValue: "60pt" },
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
     ],
     maxInstancesPerDocument: 1,
   });
 
   registry.register({
     type: PAGE_FOOTER_TYPE,
-    label: "Page Footer",
-    icon: "panel-bottom",
-    category: "page",
-    slots: [{ name: "children" }],
-    allowedChildren: { mode: "all" },
-    applicableStyles: "all",
+    label: 'Page Footer',
+    icon: 'panel-bottom',
+    category: 'page',
+    slots: [{ name: 'children' }],
+    allowedChildren: { mode: 'all' },
+    applicableStyles: 'all',
     inspector: [
-      { key: "height", label: "Height", type: "unit", units: ["pt", "sp"], defaultValue: "60pt" },
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp'], defaultValue: '60pt' },
     ],
     maxInstancesPerDocument: 1,
   });

@@ -4,7 +4,7 @@ import {
   type ShortcutHelperProjectionGroup,
   type ShortcutHelperProjectionItem,
   type ShortcutHelperProjectionOptions,
-} from "../shortcuts/helper-projection.js";
+} from '../shortcuts/helper-projection.js';
 
 export interface ShortcutHelpItem {
   keys: string;
@@ -16,7 +16,7 @@ export interface ShortcutGroup {
   id: string;
   title: string;
   fullWidth: boolean;
-  layout: "one-column" | "two-column";
+  layout: 'one-column' | 'two-column';
   items: readonly ShortcutHelpItem[];
 }
 

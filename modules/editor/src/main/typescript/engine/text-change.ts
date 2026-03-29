@@ -10,9 +10,9 @@
  * now lives here as undoStep() and redoStep().
  */
 
-import type { Change, ChangeContext } from "./change.js";
-import type { TextChangeOps } from "./undo.js";
-import type { NodeId } from "../types/index.js";
+import type { Change, ChangeContext } from './change.js';
+import type { TextChangeOps } from './undo.js';
+import type { NodeId } from '../types/index.js';
 
 export class TextChange implements Change {
   readonly nodeId: NodeId;

@@ -6,9 +6,9 @@
  * design document.
  */
 
-import type { TemplateResult } from "lit";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import type { TemplateDocument, NodeId } from "../types/index.js";
+import type { TemplateResult } from 'lit';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import type { TemplateDocument, NodeId } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Plugin context — passed to plugins during init and sidebar rendering

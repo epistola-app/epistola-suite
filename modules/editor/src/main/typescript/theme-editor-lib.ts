@@ -7,12 +7,12 @@
  *   mountThemeEditor(options)  → ThemeEditorInstance
  */
 
-import "./theme-editor/theme-editor.css";
-import "./theme-editor/EpistolaThemeEditor.js";
-import type { EpistolaThemeEditor } from "./theme-editor/EpistolaThemeEditor.js";
-import type { ThemeData } from "./theme-editor/ThemeEditorState.js";
+import './theme-editor/theme-editor.css';
+import './theme-editor/EpistolaThemeEditor.js';
+import type { EpistolaThemeEditor } from './theme-editor/EpistolaThemeEditor.js';
+import type { ThemeData } from './theme-editor/ThemeEditorState.js';
 
-export type { ThemeData } from "./theme-editor/ThemeEditorState.js";
+export type { ThemeData } from './theme-editor/ThemeEditorState.js';
 
 // ---------------------------------------------------------------------------
 // Public mount API
@@ -38,12 +38,12 @@ export interface ThemeEditorInstance {
 export function mountThemeEditor(options: ThemeEditorOptions): ThemeEditorInstance {
   const { container, theme, onSave } = options;
 
-  const editorEl = document.createElement("epistola-theme-editor") as EpistolaThemeEditor;
-  editorEl.style.display = "block";
+  const editorEl = document.createElement('epistola-theme-editor') as EpistolaThemeEditor;
+  editorEl.style.display = 'block';
 
   editorEl.init(theme, onSave);
 
-  container.innerHTML = "";
+  container.innerHTML = '';
   container.appendChild(editorEl);
 
   return {

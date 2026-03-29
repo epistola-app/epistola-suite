@@ -10,25 +10,25 @@
  * service state changes in `updated()` lifecycle when service changes.
  */
 
-import { LitElement, html, nothing, type TemplateResult } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import type { AiChatService, ChatState } from "./ai-chat-service.js";
-import type { ChatMessage, ChatAttachment, ProposalStatus } from "./types.js";
-import type { EditorEngine } from "../../engine/EditorEngine.js";
-import type { TemplateDocument, NodeId } from "../../types/index.js";
-import { nanoid } from "nanoid";
-import { applyProposal } from "./apply-proposal.js";
-import { icon } from "../../ui/icons.js";
+import { LitElement, html, nothing, type TemplateResult } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import type { AiChatService, ChatState } from './ai-chat-service.js';
+import type { ChatMessage, ChatAttachment, ProposalStatus } from './types.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
+import type { TemplateDocument, NodeId } from '../../types/index.js';
+import { nanoid } from 'nanoid';
+import { applyProposal } from './apply-proposal.js';
+import { icon } from '../../ui/icons.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ACCEPTED_TYPES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ];
 const ACCEPT_STRING =
-  ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-@customElement("epistola-ai-panel")
+@customElement('epistola-ai-panel')
 export class EpistolaAiPanel extends LitElement {
   override createRenderRoot() {
     return this;
@@ -40,9 +40,9 @@ export class EpistolaAiPanel extends LitElement {
   @property({ attribute: false }) selectedNodeId: NodeId | null = null;
 
   @state() private _messages: readonly ChatMessage[] = [];
-  @state() private _status: "idle" | "streaming" | "error" = "idle";
+  @state() private _status: 'idle' | 'streaming' | 'error' = 'idle';
   @state() private _error?: string;
-  @state() private _inputValue = "";
+  @state() private _inputValue = '';
   @state() private _pendingFiles: ChatAttachment[] = [];
   @state() private _attachError?: string;
 
@@ -92,7 +92,7 @@ export class EpistolaAiPanel extends LitElement {
       this.selectedNodeId ?? undefined,
       attachments,
     );
-    this._inputValue = "";
+    this._inputValue = '';
     this._pendingFiles = [];
     this._userScrolledUp = false;
   }
@@ -102,7 +102,7 @@ export class EpistolaAiPanel extends LitElement {
   }
 
   private _handleKeydown(e: KeyboardEvent): void {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (this._inputValue.trim() || this._pendingFiles.length > 0) {
         this._handleSend();
@@ -123,16 +123,16 @@ export class EpistolaAiPanel extends LitElement {
   private _handleApply(msg: ChatMessage): void {
     if (!msg.proposal || !this.engine || !this.chatService) return;
     const result = applyProposal(this.engine, msg.proposal);
-    this.chatService.setProposalStatus(msg.id, result.ok ? "applied" : "rejected");
+    this.chatService.setProposalStatus(msg.id, result.ok ? 'applied' : 'rejected');
   }
 
   private _handleReject(msg: ChatMessage): void {
     if (!this.chatService) return;
-    this.chatService.setProposalStatus(msg.id, "rejected");
+    this.chatService.setProposalStatus(msg.id, 'rejected');
   }
 
   private _handleAttachClick(): void {
-    const input = this.querySelector<HTMLInputElement>(".ai-file-input");
+    const input = this.querySelector<HTMLInputElement>('.ai-file-input');
     input?.click();
   }
 
@@ -164,7 +164,7 @@ export class EpistolaAiPanel extends LitElement {
     }
 
     // Reset input so the same file can be re-selected
-    input.value = "";
+    input.value = '';
   }
 
   private _handleRemoveFile(id: string): void {
@@ -186,7 +186,7 @@ export class EpistolaAiPanel extends LitElement {
   private _autoScroll(): void {
     if (this._userScrolledUp) return;
     requestAnimationFrame(() => {
-      const el = this.querySelector(".ai-messages");
+      const el = this.querySelector('.ai-messages');
       if (el) {
         el.scrollTop = el.scrollHeight;
       }
@@ -204,7 +204,7 @@ export class EpistolaAiPanel extends LitElement {
           ${this._messages.length === 0
             ? this._renderEmptyState()
             : this._messages.map((msg) => this._renderMessage(msg))}
-          ${this._status === "error" && this._error
+          ${this._status === 'error' && this._error
             ? html`<div class="ai-error">${this._error}</div>`
             : nothing}
         </div>
@@ -225,14 +225,14 @@ export class EpistolaAiPanel extends LitElement {
                 ${this._pendingFiles.map(
                   (f) => html`
                     <span class="ai-file-chip">
-                      ${icon("file-text", 12)}
+                      ${icon('file-text', 12)}
                       <span class="ai-file-chip-name">${f.name}</span>
                       <button
                         class="ai-file-chip-remove"
                         @click=${() => this._handleRemoveFile(f.id)}
                         title="Remove file"
                       >
-                        ${icon("x", 10)}
+                        ${icon('x', 10)}
                       </button>
                     </span>
                   `,
@@ -241,7 +241,7 @@ export class EpistolaAiPanel extends LitElement {
             : nothing}
           <div class="ai-input-row">
             <button class="ai-attach-btn" @click=${this._handleAttachClick} title="Attach file">
-              ${icon("paperclip", 16)}
+              ${icon('paperclip', 16)}
             </button>
             <textarea
               class="ai-input"
@@ -251,13 +251,13 @@ export class EpistolaAiPanel extends LitElement {
               @keydown=${this._handleKeydown}
               rows="2"
             ></textarea>
-            ${this._status === "streaming"
+            ${this._status === 'streaming'
               ? html` <button
                   class="ai-stop-btn"
                   @click=${this._handleStop}
                   title="Stop generating"
                 >
-                  ${icon("square", 14)}
+                  ${icon('square', 14)}
                 </button>`
               : html` <button
                   class="ai-send-btn"
@@ -265,7 +265,7 @@ export class EpistolaAiPanel extends LitElement {
                   ?disabled=${!this._inputValue.trim() && this._pendingFiles.length === 0}
                   title="Send message"
                 >
-                  ${icon("arrow-up", 16)}
+                  ${icon('arrow-up', 16)}
                 </button>`}
           </div>
         </div>
@@ -276,7 +276,7 @@ export class EpistolaAiPanel extends LitElement {
   private _renderEmptyState(): TemplateResult {
     return html`
       <div class="ai-empty">
-        <div class="ai-empty-icon">${icon("sparkles", 32)}</div>
+        <div class="ai-empty-icon">${icon('sparkles', 32)}</div>
         <p class="ai-empty-title">AI Assistant</p>
         <p class="ai-empty-text">Ask questions about your template or request changes.</p>
       </div>
@@ -284,21 +284,21 @@ export class EpistolaAiPanel extends LitElement {
   }
 
   private _renderMessage(msg: ChatMessage): TemplateResult {
-    const isUser = msg.role === "user";
+    const isUser = msg.role === 'user';
     const isStreaming =
-      this._status === "streaming" && msg === this._messages[this._messages.length - 1] && !isUser;
+      this._status === 'streaming' && msg === this._messages[this._messages.length - 1] && !isUser;
 
     return html`
       <div
-        class="ai-message ${isUser ? "ai-message-user" : "ai-message-assistant"} ${isStreaming
-          ? "ai-message-streaming"
-          : ""}"
+        class="ai-message ${isUser ? 'ai-message-user' : 'ai-message-assistant'} ${isStreaming
+          ? 'ai-message-streaming'
+          : ''}"
       >
         ${msg.attachments && msg.attachments.length > 0
           ? html` <div class="ai-message-attachments">
               ${msg.attachments.map(
                 (a) => html`
-                  <span class="ai-attachment-badge">${icon("file-text", 10)} ${a.name}</span>
+                  <span class="ai-attachment-badge">${icon('file-text', 10)} ${a.name}</span>
                 `,
               )}
             </div>`
@@ -312,14 +312,14 @@ export class EpistolaAiPanel extends LitElement {
   }
 
   private _renderProposal(msg: ChatMessage): TemplateResult {
-    const status = msg.proposalStatus ?? "pending";
+    const status = msg.proposalStatus ?? 'pending';
     return html`
       <div class="ai-proposal">
         <div class="ai-proposal-header">
           <span class="ai-proposal-description">${msg.proposal!.description}</span>
           ${this._renderProposalBadge(status)}
         </div>
-        ${status === "pending"
+        ${status === 'pending'
           ? html` <div class="ai-proposal-actions">
               <button class="ai-proposal-apply" @click=${() => this._handleApply(msg)}>
                 Apply
@@ -334,14 +334,14 @@ export class EpistolaAiPanel extends LitElement {
   }
 
   private _renderProposalBadge(status: ProposalStatus): TemplateResult {
-    if (status === "pending") return html``;
-    const label = status === "applied" ? "Applied" : "Rejected";
+    if (status === 'pending') return html``;
+    const label = status === 'applied' ? 'Applied' : 'Rejected';
     return html`<span class="ai-proposal-badge ai-proposal-badge-${status}">${label}</span>`;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-ai-panel": EpistolaAiPanel;
+    'epistola-ai-panel': EpistolaAiPanel;
   }
 }

@@ -5,23 +5,23 @@
  * is defined via a generic parameter, so listeners are fully typed.
  */
 
-import type { TemplateDocument, NodeId } from "../types/index.js";
-import type { DocumentIndexes } from "./indexes.js";
+import type { TemplateDocument, NodeId } from '../types/index.js';
+import type { DocumentIndexes } from './indexes.js';
 
 // ---------------------------------------------------------------------------
 // Event map for the editor engine
 // ---------------------------------------------------------------------------
 
 export type EngineEvents = {
-  "doc:change": {
+  'doc:change': {
     doc: TemplateDocument;
     indexes: DocumentIndexes;
     structureChanged: boolean;
     commandType?: string;
   };
-  "selection:change": { nodeId: NodeId | null };
-  "example:change": { index: number; example: object | undefined };
-  "component-state:change": { key: string; value: unknown };
+  'selection:change': { nodeId: NodeId | null };
+  'example:change': { index: number; example: object | undefined };
+  'component-state:change': { key: string; value: unknown };
 };
 
 // ---------------------------------------------------------------------------

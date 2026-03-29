@@ -7,17 +7,17 @@
  * beforeunload warning when dirty.
  */
 
-import { LitElement, html } from "lit";
-import { customElement, state } from "lit/decorators.js";
-import { ThemeEditorState, type ThemeData } from "./ThemeEditorState.js";
-import { renderBasicInfoSection } from "./sections/BasicInfoSection.js";
-import { renderDocumentStylesSection } from "./sections/DocumentStylesSection.js";
-import { renderPageSettingsSection } from "./sections/PageSettingsSection.js";
-import { renderPresetsSection } from "./sections/PresetsSection.js";
+import { LitElement, html } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import { ThemeEditorState, type ThemeData } from './ThemeEditorState.js';
+import { renderBasicInfoSection } from './sections/BasicInfoSection.js';
+import { renderDocumentStylesSection } from './sections/DocumentStylesSection.js';
+import { renderPageSettingsSection } from './sections/PageSettingsSection.js';
+import { renderPresetsSection } from './sections/PresetsSection.js';
 
-type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 
-@customElement("epistola-theme-editor")
+@customElement('epistola-theme-editor')
 export class EpistolaThemeEditor extends LitElement {
   override createRenderRoot() {
     return this;
@@ -27,8 +27,8 @@ export class EpistolaThemeEditor extends LitElement {
   themeState?: ThemeEditorState;
   onSave?: (payload: object) => Promise<void>;
 
-  @state() private _saveState: SaveState = "idle";
-  @state() private _errorMessage = "";
+  @state() private _saveState: SaveState = 'idle';
+  @state() private _errorMessage = '';
   @state() private _expandedPresets = new Set<string>();
 
   private _autosaveTimer?: ReturnType<typeof setTimeout>;
@@ -40,8 +40,8 @@ export class EpistolaThemeEditor extends LitElement {
     this.themeState = new ThemeEditorState(themeData);
     this.onSave = onSave;
 
-    this.themeState.addEventListener("change", () => {
-      this._saveState = "dirty";
+    this.themeState.addEventListener('change', () => {
+      this._saveState = 'dirty';
       this._scheduleAutosave();
       this.requestUpdate();
     });
@@ -49,14 +49,14 @@ export class EpistolaThemeEditor extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    document.addEventListener("keydown", this._boundKeydown);
-    window.addEventListener("beforeunload", this._boundBeforeUnload);
+    document.addEventListener('keydown', this._boundKeydown);
+    window.addEventListener('beforeunload', this._boundBeforeUnload);
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    document.removeEventListener("keydown", this._boundKeydown);
-    window.removeEventListener("beforeunload", this._boundBeforeUnload);
+    document.removeEventListener('keydown', this._boundKeydown);
+    window.removeEventListener('beforeunload', this._boundBeforeUnload);
     if (this._autosaveTimer) clearTimeout(this._autosaveTimer);
     if (this._savedTimer) clearTimeout(this._savedTimer);
   }
@@ -85,11 +85,11 @@ export class EpistolaThemeEditor extends LitElement {
 
   private _renderStatusBar(): unknown {
     const stateLabels: Record<SaveState, string> = {
-      idle: "No changes",
-      dirty: "Unsaved changes",
-      saving: "Saving...",
-      saved: "Saved",
-      error: this._errorMessage || "Save failed",
+      idle: 'No changes',
+      dirty: 'Unsaved changes',
+      saving: 'Saving...',
+      saved: 'Saved',
+      error: this._errorMessage || 'Save failed',
     };
 
     return html`
@@ -99,12 +99,12 @@ export class EpistolaThemeEditor extends LitElement {
         </span>
         <button
           class="ep-btn-primary theme-save-btn"
-          ?disabled=${this._saveState === "saving" ||
-          this._saveState === "idle" ||
-          this._saveState === "saved"}
+          ?disabled=${this._saveState === 'saving' ||
+          this._saveState === 'idle' ||
+          this._saveState === 'saved'}
           @click=${() => this._save()}
         >
-          ${this._saveState === "saving" ? "Saving..." : "Save"}
+          ${this._saveState === 'saving' ? 'Saving...' : 'Save'}
         </button>
       </div>
     `;
@@ -121,7 +121,7 @@ export class EpistolaThemeEditor extends LitElement {
 
   private async _save(): Promise<void> {
     if (!this.themeState || !this.onSave) return;
-    if (this._saveState === "saving") return;
+    if (this._saveState === 'saving') return;
     if (!this.themeState.isDirty) return;
 
     if (this._autosaveTimer) clearTimeout(this._autosaveTimer);
@@ -130,20 +130,20 @@ export class EpistolaThemeEditor extends LitElement {
     const payload = this.themeState.computePatchPayload();
     if (Object.keys(payload).length === 0) return;
 
-    this._saveState = "saving";
+    this._saveState = 'saving';
     this.requestUpdate();
 
     try {
       await this.onSave(payload);
       this.themeState.markSaved();
-      this._saveState = "saved";
+      this._saveState = 'saved';
       this._savedTimer = setTimeout(() => {
-        this._saveState = "idle";
+        this._saveState = 'idle';
         this.requestUpdate();
       }, 2000);
     } catch (err) {
-      this._saveState = "error";
-      this._errorMessage = err instanceof Error ? err.message : "Save failed";
+      this._saveState = 'error';
+      this._errorMessage = err instanceof Error ? err.message : 'Save failed';
     }
     this.requestUpdate();
   }
@@ -153,7 +153,7 @@ export class EpistolaThemeEditor extends LitElement {
   // -----------------------------------------------------------------------
 
   private _handleKeydown(e: KeyboardEvent): void {
-    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       this._save();
     }
@@ -177,6 +177,6 @@ export class EpistolaThemeEditor extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-theme-editor": EpistolaThemeEditor;
+    'epistola-theme-editor': EpistolaThemeEditor;
   }
 }

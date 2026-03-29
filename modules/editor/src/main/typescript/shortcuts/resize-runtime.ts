@@ -4,16 +4,16 @@ import {
   type CommandDefinition,
   type KeybindingDefinition,
   type ShortcutRegistryDefinition,
-} from "./foundation.js";
+} from './foundation.js';
 
 // ---------------------------------------------------------------------------
 // Command IDs
 // ---------------------------------------------------------------------------
 
 export const RESIZE_SHORTCUT_COMMAND_IDS = {
-  growPreviewWidth: "resize.preview.grow",
-  shrinkPreviewWidth: "resize.preview.shrink",
-  closePreviewWhenMinWidth: "resize.preview.close-when-min-width",
+  growPreviewWidth: 'resize.preview.grow',
+  shrinkPreviewWidth: 'resize.preview.shrink',
+  closePreviewWhenMinWidth: 'resize.preview.close-when-min-width',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -35,8 +35,8 @@ export interface ResizeShortcutRuntimeContext {
 const RESIZE_SHORTCUT_COMMANDS: readonly CommandDefinition<ResizeShortcutRuntimeContext>[] = [
   {
     id: RESIZE_SHORTCUT_COMMAND_IDS.growPreviewWidth,
-    label: "Grow preview width",
-    category: "Resize",
+    label: 'Grow preview width',
+    category: 'Resize',
     run: (ctx) => {
       ctx.setWidth(ctx.currentWidth + ctx.step);
       return { ok: true };
@@ -44,8 +44,8 @@ const RESIZE_SHORTCUT_COMMANDS: readonly CommandDefinition<ResizeShortcutRuntime
   },
   {
     id: RESIZE_SHORTCUT_COMMAND_IDS.shrinkPreviewWidth,
-    label: "Shrink preview width",
-    category: "Resize",
+    label: 'Shrink preview width',
+    category: 'Resize',
     run: (ctx) => {
       ctx.setWidth(ctx.currentWidth - ctx.step);
       return { ok: true };
@@ -53,8 +53,8 @@ const RESIZE_SHORTCUT_COMMANDS: readonly CommandDefinition<ResizeShortcutRuntime
   },
   {
     id: RESIZE_SHORTCUT_COMMAND_IDS.closePreviewWhenMinWidth,
-    label: "Close preview",
-    category: "Resize",
+    label: 'Close preview',
+    category: 'Resize',
     run: (ctx) => {
       ctx.closePreview();
       return { ok: true };
@@ -69,26 +69,26 @@ const RESIZE_SHORTCUT_COMMANDS: readonly CommandDefinition<ResizeShortcutRuntime
 const RESIZE_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition<ResizeShortcutRuntimeContext>[] = [
   {
     commandId: RESIZE_SHORTCUT_COMMAND_IDS.growPreviewWidth,
-    context: "resizeHandle",
-    keys: ["ArrowLeft"],
+    context: 'resizeHandle',
+    keys: ['ArrowLeft'],
     preventDefault: true,
-    display: "\u2190 (focused handle)",
+    display: '\u2190 (focused handle)',
   },
   {
     commandId: RESIZE_SHORTCUT_COMMAND_IDS.shrinkPreviewWidth,
-    context: "resizeHandle",
-    keys: ["ArrowRight"],
+    context: 'resizeHandle',
+    keys: ['ArrowRight'],
     preventDefault: true,
     when: (ctx) => ctx.currentWidth > ctx.minWidth,
-    display: "\u2192 (focused handle)",
+    display: '\u2192 (focused handle)',
   },
   {
     commandId: RESIZE_SHORTCUT_COMMAND_IDS.closePreviewWhenMinWidth,
-    context: "resizeHandle",
-    keys: ["ArrowRight"],
+    context: 'resizeHandle',
+    keys: ['ArrowRight'],
     preventDefault: true,
     when: (ctx) => ctx.currentWidth <= ctx.minWidth,
-    display: "\u2192 at min width",
+    display: '\u2192 at min width',
   },
 ];
 

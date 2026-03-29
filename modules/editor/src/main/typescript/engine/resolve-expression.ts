@@ -5,40 +5,40 @@
  * selected data example and format them for inline display.
  */
 
-import jsonata from "jsonata";
+import jsonata from 'jsonata';
 
 // ---------------------------------------------------------------------------
 // Custom JSONata functions
 // ---------------------------------------------------------------------------
 
 const MONTH_NAMES_FULL = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 const MONTH_NAMES_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 /**
@@ -62,19 +62,19 @@ const MONTH_NAMES_SHORT = [
 export function formatDateValue(value: string, pattern: string): string {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
   if (!match) return value;
-  const [, yyyy, mm, dd, HH = "00", min = "00", ss = "00"] = match;
+  const [, yyyy, mm, dd, HH = '00', min = '00', ss = '00'] = match;
   const month = parseInt(mm, 10);
   const day = parseInt(dd, 10);
 
   return pattern
-    .replace("yyyy", yyyy)
-    .replace("MMMM", MONTH_NAMES_FULL[month - 1] ?? "")
-    .replace("MMM", MONTH_NAMES_SHORT[month - 1] ?? "")
-    .replace("MM", mm)
-    .replace("dd", dd)
-    .replace("HH", HH)
+    .replace('yyyy', yyyy)
+    .replace('MMMM', MONTH_NAMES_FULL[month - 1] ?? '')
+    .replace('MMM', MONTH_NAMES_SHORT[month - 1] ?? '')
+    .replace('MM', mm)
+    .replace('dd', dd)
+    .replace('HH', HH)
     .replace(/(?<![a-zA-Z])mm(?![a-zA-Z])/, min)
-    .replace("ss", ss)
+    .replace('ss', ss)
     .replace(/(?<![a-zA-Z])d(?![a-zA-Z])/, String(day));
 }
 
@@ -83,8 +83,8 @@ export function formatDateValue(value: string, pattern: string): string {
  * Must be called before `expr.evaluate()`.
  */
 function registerCustomFunctions(expr: jsonata.Expression): void {
-  expr.registerFunction("formatDate", (value: unknown, pattern: unknown) => {
-    if (typeof value !== "string" || typeof pattern !== "string") return value;
+  expr.registerFunction('formatDate', (value: unknown, pattern: unknown) => {
+    if (typeof value !== 'string' || typeof pattern !== 'string') return value;
     return formatDateValue(value, pattern);
   });
 }
@@ -117,8 +117,8 @@ export async function evaluateExpression(
  */
 export function formatResolvedValue(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
-  if (typeof value === "string") return value.length > 0 ? value : undefined;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === 'string') return value.length > 0 ? value : undefined;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   // Objects and arrays aren't displayable inline
   return undefined;
 }
@@ -140,7 +140,7 @@ export async function tryEvaluateExpression(
   data: Record<string, unknown>,
 ): Promise<ExpressionResult> {
   const trimmed = expression.trim();
-  if (!trimmed) return { ok: false, error: "Expression is empty" };
+  if (!trimmed) return { ok: false, error: 'Expression is empty' };
 
   try {
     const expr = jsonata(trimmed);
@@ -163,16 +163,16 @@ const FORMAT_PREVIEW_MAX_LENGTH = 120;
  * undefined, null, and empty strings.
  */
 export function formatForPreview(value: unknown): string {
-  if (value === undefined) return "undefined";
-  if (value === null) return "null";
-  if (typeof value === "string") return value.length === 0 ? "(empty string)" : value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value === undefined) return 'undefined';
+  if (value === null) return 'null';
+  if (typeof value === 'string') return value.length === 0 ? '(empty string)' : value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
 
   // Objects and arrays — show truncated JSON
   try {
     const json = JSON.stringify(value);
     if (json.length > FORMAT_PREVIEW_MAX_LENGTH) {
-      return json.slice(0, FORMAT_PREVIEW_MAX_LENGTH) + "…";
+      return json.slice(0, FORMAT_PREVIEW_MAX_LENGTH) + '…';
     }
     return json;
   } catch {
@@ -195,7 +195,7 @@ export function formatForPreview(value: unknown): string {
 export function validateArrayResult(value: unknown): string | null {
   if (value === undefined) return null;
   if (Array.isArray(value)) return null;
-  const type = value === null ? "null" : typeof value;
+  const type = value === null ? 'null' : typeof value;
   return `Loop expression must evaluate to an array, got ${type}: ${formatForPreview(value)}`;
 }
 
@@ -209,8 +209,8 @@ export function validateArrayResult(value: unknown): string | null {
  */
 export function validateBooleanResult(value: unknown): string | null {
   if (value === undefined) return null;
-  if (typeof value === "boolean") return null;
-  const type = value === null ? "null" : typeof value;
+  if (typeof value === 'boolean') return null;
+  const type = value === null ? 'null' : typeof value;
   return `Condition must evaluate to a boolean, got ${type}: ${formatForPreview(value)}`;
 }
 

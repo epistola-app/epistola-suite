@@ -4,12 +4,12 @@
  * These are framework-agnostic and testable without DOM or DnD library dependencies.
  */
 
-import type { NodeId, SlotId, TemplateDocument } from "../types/index.js";
-import type { DocumentIndexes } from "../engine/indexes.js";
-import { type ComponentRegistry, isAnchoredPageBlock } from "../engine/registry.js";
-import type { DragData } from "./types.js";
+import type { NodeId, SlotId, TemplateDocument } from '../types/index.js';
+import type { DocumentIndexes } from '../engine/indexes.js';
+import { type ComponentRegistry, isAnchoredPageBlock } from '../engine/registry.js';
+import type { DragData } from './types.js';
 
-export type Edge = "top" | "bottom";
+export type Edge = 'top' | 'bottom';
 
 export interface DropLocation {
   targetSlotId: SlotId;
@@ -42,7 +42,7 @@ export function resolveDropOnBlockEdge(
 
   return {
     targetSlotId: parentSlotId,
-    index: edge === "top" ? blockIndex : blockIndex + 1,
+    index: edge === 'top' ? blockIndex : blockIndex + 1,
   };
 }
 
@@ -104,11 +104,11 @@ export function canDropHere(
     }
   }
 
-  if (dragData.source === "palette" && !registry.canInsertInDocument(dragData.blockType, doc)) {
+  if (dragData.source === 'palette' && !registry.canInsertInDocument(dragData.blockType, doc)) {
     return false;
   }
 
-  if (dragData.source === "block" && isAnchoredPageBlock(dragData.blockType)) {
+  if (dragData.source === 'block' && isAnchoredPageBlock(dragData.blockType)) {
     return false;
   }
 
@@ -118,7 +118,7 @@ export function canDropHere(
   }
 
   // For block drags: prevent cycle (can't move into own descendant)
-  if (dragData.source === "block") {
+  if (dragData.source === 'block') {
     // Can't drop into itself
     if (targetSlot.nodeId === dragData.nodeId) return false;
 

@@ -8,9 +8,9 @@
  * Respects AbortSignal at each step.
  */
 
-import type { SendMessageFn, AiProposal } from "./types.js";
-import type { NodeId, SlotId } from "../../types/index.js";
-import { nanoid } from "nanoid";
+import type { SendMessageFn, AiProposal } from './types.js';
+import type { NodeId, SlotId } from '../../types/index.js';
+import { nanoid } from 'nanoid';
 
 export interface MockTransportOptions {
   /** Delay in ms between each word (default: 30) */
@@ -28,15 +28,15 @@ const CANNED_RESPONSES = [
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
-      reject(new DOMException("Aborted", "AbortError"));
+      reject(new DOMException('Aborted', 'AbortError'));
       return;
     }
     const timer = setTimeout(resolve, ms);
     signal.addEventListener(
-      "abort",
+      'abort',
       () => {
         clearTimeout(timer);
-        reject(new DOMException("Aborted", "AbortError"));
+        reject(new DOMException('Aborted', 'AbortError'));
       },
       { once: true },
     );
@@ -46,14 +46,14 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 function createProposal(rootSlotId: SlotId): AiProposal {
   const newNodeId = nanoid() as NodeId;
   return {
-    description: "Add a text block to the document",
-    mode: "commands",
+    description: 'Add a text block to the document',
+    mode: 'commands',
     commands: [
       {
-        type: "InsertNode",
+        type: 'InsertNode',
         node: {
           id: newNodeId,
-          type: "text",
+          type: 'text',
           slots: [],
           props: { content: null },
         },
@@ -71,23 +71,23 @@ export function createMockTransport(options: MockTransportOptions = {}): SendMes
   return async (request, signal, onChunk) => {
     // Acknowledge uploaded files if any
     if (request.attachments && request.attachments.length > 0) {
-      const names = request.attachments.map((a) => a.name).join(", ");
+      const names = request.attachments.map((a) => a.name).join(', ');
       const ack = `I've reviewed your uploaded file(s): ${names}. `;
-      onChunk({ type: "text", content: ack });
+      onChunk({ type: 'text', content: ack });
     }
 
     // Pick a canned response based on message hash
     const responseIndex =
-      Math.abs(hashCode(request.message || "attachment")) % CANNED_RESPONSES.length;
+      Math.abs(hashCode(request.message || 'attachment')) % CANNED_RESPONSES.length;
     const text = CANNED_RESPONSES[responseIndex];
-    const words = text.split(" ");
+    const words = text.split(' ');
 
     // Stream word by word
     for (let i = 0; i < words.length; i++) {
-      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
-      const prefix = i === 0 ? "" : " ";
-      onChunk({ type: "text", content: prefix + words[i] });
+      const prefix = i === 0 ? '' : ' ';
+      onChunk({ type: 'text', content: prefix + words[i] });
 
       if (delayMs > 0) {
         await delay(delayMs, signal);
@@ -96,17 +96,17 @@ export function createMockTransport(options: MockTransportOptions = {}): SendMes
 
     // Optionally send a proposal
     if (includeProposal) {
-      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+      if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
       // Find the root slot in the document
       const rootNode = request.document.nodes[request.document.root];
       const rootSlotId = rootNode?.slots?.[0];
       if (rootSlotId) {
-        onChunk({ type: "proposal", proposal: createProposal(rootSlotId) });
+        onChunk({ type: 'proposal', proposal: createProposal(rootSlotId) });
       }
     }
 
-    onChunk({ type: "done", usage: { inputTokens: 150, outputTokens: words.length * 2 } });
+    onChunk({ type: 'done', usage: { inputTokens: 150, outputTokens: words.length * 2 } });
   };
 }
 

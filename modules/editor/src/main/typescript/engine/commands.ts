@@ -7,16 +7,16 @@
  *  3. Returns an inverse Command for undo
  */
 
-import type { TemplateDocument, Node, Slot, NodeId, SlotId } from "../types/index.js";
-import type { DocumentIndexes } from "./indexes.js";
-import { isAncestor } from "./indexes.js";
+import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../types/index.js';
+import type { DocumentIndexes } from './indexes.js';
+import { isAncestor } from './indexes.js';
 import {
   type ComponentRegistry,
   PAGE_HEADER_TYPE,
   PAGE_FOOTER_TYPE,
   isAnchoredPageBlock,
-} from "./registry.js";
-import { nanoid } from "nanoid";
+} from './registry.js';
+import { nanoid } from 'nanoid';
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -45,7 +45,7 @@ export type Command =
 export type AnyCommand = Command | { type: string; [key: string]: unknown };
 
 export interface InsertNode {
-  type: "InsertNode";
+  type: 'InsertNode';
   /** The new node to insert (with pre-generated ID). */
   node: Node;
   /** Slots that belong to this node. */
@@ -59,47 +59,47 @@ export interface InsertNode {
 }
 
 export interface RemoveNode {
-  type: "RemoveNode";
+  type: 'RemoveNode';
   nodeId: NodeId;
 }
 
 export interface MoveNode {
-  type: "MoveNode";
+  type: 'MoveNode';
   nodeId: NodeId;
   targetSlotId: SlotId;
   index: number;
 }
 
 export interface UpdateNodeProps {
-  type: "UpdateNodeProps";
+  type: 'UpdateNodeProps';
   nodeId: NodeId;
   props: Record<string, unknown>;
 }
 
 export interface UpdateNodeStyles {
-  type: "UpdateNodeStyles";
+  type: 'UpdateNodeStyles';
   nodeId: NodeId;
   styles: Record<string, unknown>;
 }
 
 export interface SetStylePreset {
-  type: "SetStylePreset";
+  type: 'SetStylePreset';
   nodeId: NodeId;
   stylePreset: string | undefined;
 }
 
 export interface UpdateDocumentStyles {
-  type: "UpdateDocumentStyles";
-  styles: TemplateDocument["documentStylesOverride"];
+  type: 'UpdateDocumentStyles';
+  styles: TemplateDocument['documentStylesOverride'];
 }
 
 export interface UpdatePageSettings {
-  type: "UpdatePageSettings";
-  settings: TemplateDocument["pageSettingsOverride"];
+  type: 'UpdatePageSettings';
+  settings: TemplateDocument['pageSettingsOverride'];
 }
 
 export interface AddColumnSlot {
-  type: "AddColumnSlot";
+  type: 'AddColumnSlot';
   nodeId: NodeId;
   size: number;
   /** For undo restoration — the slot to re-add. */
@@ -111,7 +111,7 @@ export interface AddColumnSlot {
 }
 
 export interface RemoveColumnSlot {
-  type: "RemoveColumnSlot";
+  type: 'RemoveColumnSlot';
   nodeId: NodeId;
 }
 
@@ -139,16 +139,16 @@ export interface CommandError {
 // ---------------------------------------------------------------------------
 
 const BUILTIN_COMMAND_TYPES: ReadonlySet<string> = new Set([
-  "InsertNode",
-  "RemoveNode",
-  "MoveNode",
-  "UpdateNodeProps",
-  "UpdateNodeStyles",
-  "SetStylePreset",
-  "UpdateDocumentStyles",
-  "UpdatePageSettings",
-  "AddColumnSlot",
-  "RemoveColumnSlot",
+  'InsertNode',
+  'RemoveNode',
+  'MoveNode',
+  'UpdateNodeProps',
+  'UpdateNodeStyles',
+  'SetStylePreset',
+  'UpdateDocumentStyles',
+  'UpdatePageSettings',
+  'AddColumnSlot',
+  'RemoveColumnSlot',
 ]);
 
 function isBuiltinCommand(command: AnyCommand): command is Command {
@@ -174,25 +174,25 @@ function applyBuiltinCommand(
   registry: ComponentRegistry,
 ): CommandResult {
   switch (command.type) {
-    case "InsertNode":
+    case 'InsertNode':
       return applyInsertNode(doc, indexes, command, registry);
-    case "RemoveNode":
+    case 'RemoveNode':
       return applyRemoveNode(doc, indexes, command);
-    case "MoveNode":
+    case 'MoveNode':
       return applyMoveNode(doc, indexes, command, registry);
-    case "UpdateNodeProps":
+    case 'UpdateNodeProps':
       return applyUpdateNodeProps(doc, command);
-    case "UpdateNodeStyles":
+    case 'UpdateNodeStyles':
       return applyUpdateNodeStyles(doc, command);
-    case "SetStylePreset":
+    case 'SetStylePreset':
       return applySetStylePreset(doc, command);
-    case "UpdateDocumentStyles":
+    case 'UpdateDocumentStyles':
       return applyUpdateDocumentStyles(doc, command);
-    case "UpdatePageSettings":
+    case 'UpdatePageSettings':
       return applyUpdatePageSettings(doc, command);
-    case "AddColumnSlot":
+    case 'AddColumnSlot':
       return applyAddColumnSlot(doc, command);
-    case "RemoveColumnSlot":
+    case 'RemoveColumnSlot':
       return applyRemoveColumnSlot(doc, indexes, command);
   }
 }
@@ -241,11 +241,11 @@ function validateRootContentBoundaries(
   const footerIndex = findNodeIndexByType(children, nodes, PAGE_FOOTER_TYPE);
 
   if (headerIndex >= 0 && insertIndex <= headerIndex) {
-    return "Cannot place blocks before the page header";
+    return 'Cannot place blocks before the page header';
   }
 
   if (footerIndex >= 0 && insertIndex > footerIndex) {
-    return "Cannot place blocks after the page footer";
+    return 'Cannot place blocks after the page footer';
   }
 
   return null;
@@ -280,7 +280,7 @@ function applyInsertNode(
   if (!registry.canInsertInDocument(cmd.node.type, doc)) {
     const nodeDef = registry.get(cmd.node.type);
     const maxInstances = nodeDef?.maxInstancesPerDocument ?? 0;
-    const noun = maxInstances === 1 ? "block" : "blocks";
+    const noun = maxInstances === 1 ? 'block' : 'blocks';
     return err(`Only ${maxInstances} '${cmd.node.type}' ${noun} allowed per document`);
   }
 
@@ -289,12 +289,12 @@ function applyInsertNode(
 
   if (cmd.node.type === PAGE_HEADER_TYPE) {
     if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
-      return err("Page header can only be inserted at the top of the document");
+      return err('Page header can only be inserted at the top of the document');
     }
     insertIndex = 0;
   } else if (cmd.node.type === PAGE_FOOTER_TYPE) {
     if (!rootSlotId || cmd.targetSlotId !== rootSlotId) {
-      return err("Page footer can only be inserted at the bottom of the document");
+      return err('Page footer can only be inserted at the bottom of the document');
     }
     insertIndex = targetSlot.children.length;
   } else if (rootSlotId && cmd.targetSlotId === rootSlotId) {
@@ -328,7 +328,7 @@ function applyInsertNode(
   newSlots[cmd.targetSlotId] = { ...targetSlot, children };
 
   const inverse: RemoveNode = {
-    type: "RemoveNode",
+    type: 'RemoveNode',
     nodeId: cmd.node.id,
   };
 
@@ -347,7 +347,7 @@ function applyRemoveNode(
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
 
-  if (cmd.nodeId === doc.root) return err("Cannot remove root node");
+  if (cmd.nodeId === doc.root) return err('Cannot remove root node');
 
   const parentSlotId = indexes.parentSlotByNodeId.get(cmd.nodeId);
   if (!parentSlotId) return err(`Node ${cmd.nodeId} has no parent slot`);
@@ -394,7 +394,7 @@ function applyRemoveNode(
   // Descendant nodes (excluding the root node itself) must be restored via _restoreNodes
   const descendantNodes = removedNodes.filter((n) => n.id !== cmd.nodeId);
   const inverse: InsertNode = {
-    type: "InsertNode",
+    type: 'InsertNode',
     node: node,
     slots: removedSlots,
     targetSlotId: parentSlotId,
@@ -438,11 +438,11 @@ function applyMoveNode(
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
 
-  if (cmd.nodeId === doc.root) return err("Cannot move root node");
+  if (cmd.nodeId === doc.root) return err('Cannot move root node');
 
   if (isAnchoredPageBlock(node.type)) {
-    const label = node.type === PAGE_HEADER_TYPE ? "Page header" : "Page footer";
-    const position = node.type === PAGE_HEADER_TYPE ? "top" : "bottom";
+    const label = node.type === PAGE_HEADER_TYPE ? 'Page header' : 'Page footer';
+    const position = node.type === PAGE_HEADER_TYPE ? 'top' : 'bottom';
     return err(`${label} is fixed at the ${position} and cannot be moved`);
   }
 
@@ -454,10 +454,10 @@ function applyMoveNode(
 
   // Cycle detection: target cannot be a descendant of the node being moved
   if (isAncestor(targetSlot.nodeId, cmd.nodeId, indexes)) {
-    return err("Cannot move a node into its own descendant (cycle)");
+    return err('Cannot move a node into its own descendant (cycle)');
   }
   if (targetSlot.nodeId === cmd.nodeId) {
-    return err("Cannot move a node into itself");
+    return err('Cannot move a node into itself');
   }
 
   // Validate child type allowed
@@ -490,7 +490,7 @@ function applyMoveNode(
 
   // Build inverse
   const inverse: MoveNode = {
-    type: "MoveNode",
+    type: 'MoveNode',
     nodeId: cmd.nodeId,
     targetSlotId: currentSlotId,
     index: currentIndex,
@@ -529,7 +529,7 @@ function applyUpdateNodeProps(doc: TemplateDocument, cmd: UpdateNodeProps): Comm
 
   const oldProps = node.props ?? {};
   const inverse: UpdateNodeProps = {
-    type: "UpdateNodeProps",
+    type: 'UpdateNodeProps',
     nodeId: cmd.nodeId,
     props: structuredClone(oldProps),
   };
@@ -550,7 +550,7 @@ function applyUpdateNodeStyles(doc: TemplateDocument, cmd: UpdateNodeStyles): Co
 
   const oldStyles = node.styles ?? {};
   const inverse: UpdateNodeStyles = {
-    type: "UpdateNodeStyles",
+    type: 'UpdateNodeStyles',
     nodeId: cmd.nodeId,
     styles: structuredClone(oldStyles),
   };
@@ -570,7 +570,7 @@ function applySetStylePreset(doc: TemplateDocument, cmd: SetStylePreset): Comman
   if (!node) return err(`Node ${cmd.nodeId} not found`);
 
   const inverse: SetStylePreset = {
-    type: "SetStylePreset",
+    type: 'SetStylePreset',
     nodeId: cmd.nodeId,
     stylePreset: node.stylePreset,
   };
@@ -590,7 +590,7 @@ function applyUpdateDocumentStyles(
   cmd: UpdateDocumentStyles,
 ): CommandResult {
   const inverse: UpdateDocumentStyles = {
-    type: "UpdateDocumentStyles",
+    type: 'UpdateDocumentStyles',
     styles: doc.documentStylesOverride ? structuredClone(doc.documentStylesOverride) : undefined,
   };
 
@@ -607,7 +607,7 @@ function applyUpdateDocumentStyles(
 
 function applyUpdatePageSettings(doc: TemplateDocument, cmd: UpdatePageSettings): CommandResult {
   const inverse: UpdatePageSettings = {
-    type: "UpdatePageSettings",
+    type: 'UpdatePageSettings',
     settings: doc.pageSettingsOverride ? structuredClone(doc.pageSettingsOverride) : undefined,
   };
 
@@ -625,7 +625,7 @@ function applyUpdatePageSettings(doc: TemplateDocument, cmd: UpdatePageSettings)
 function applyAddColumnSlot(doc: TemplateDocument, cmd: AddColumnSlot): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "columns") return err("AddColumnSlot only applies to columns nodes");
+  if (node.type !== 'columns') return err('AddColumnSlot only applies to columns nodes');
 
   const props = node.props ?? {};
   const columnSizes = (props.columnSizes as number[] | undefined) ?? [];
@@ -665,7 +665,7 @@ function applyAddColumnSlot(doc: TemplateDocument, cmd: AddColumnSlot): CommandR
   }
 
   const inverse: RemoveColumnSlot = {
-    type: "RemoveColumnSlot",
+    type: 'RemoveColumnSlot',
     nodeId: cmd.nodeId,
   };
 
@@ -683,11 +683,11 @@ function applyRemoveColumnSlot(
 ): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "columns") return err("RemoveColumnSlot only applies to columns nodes");
+  if (node.type !== 'columns') return err('RemoveColumnSlot only applies to columns nodes');
 
   const props = node.props ?? {};
   const columnSizes = (props.columnSizes as number[] | undefined) ?? [];
-  if (columnSizes.length <= 1) return err("Cannot remove the last column");
+  if (columnSizes.length <= 1) return err('Cannot remove the last column');
 
   // Remove the last slot
   const lastSlotId = node.slots[node.slots.length - 1];
@@ -731,7 +731,7 @@ function applyRemoveColumnSlot(
   };
 
   const inverse: AddColumnSlot = {
-    type: "AddColumnSlot",
+    type: 'AddColumnSlot',
     nodeId: cmd.nodeId,
     size: removedSize,
     _restoreSlot: lastSlot,

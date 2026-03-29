@@ -4,13 +4,13 @@ import {
   type CommandDefinition,
   type KeybindingDefinition,
   type ShortcutRegistryDefinition,
-} from "./foundation.js";
+} from './foundation.js';
 
 // ---------------------------------------------------------------------------
 // Placement mode type
 // ---------------------------------------------------------------------------
 
-type InsertDialogPlacementMode = "after" | "before" | "inside" | "start" | "end";
+type InsertDialogPlacementMode = 'after' | 'before' | 'inside' | 'start' | 'end';
 
 // ---------------------------------------------------------------------------
 // Runtime context
@@ -34,15 +34,15 @@ export interface InsertDialogShortcutRuntimeContext {
 // ---------------------------------------------------------------------------
 
 export const INSERT_DIALOG_SHORTCUT_COMMAND_IDS = {
-  closeOrBack: "insertDialog.close-or-back",
-  modeStart: "insertDialog.mode.start",
-  modeEnd: "insertDialog.mode.end",
-  modeAfter: "insertDialog.mode.after",
-  modeBefore: "insertDialog.mode.before",
-  modeInside: "insertDialog.mode.inside",
-  navigatePrevious: "insertDialog.navigate.previous",
-  navigateNext: "insertDialog.navigate.next",
-  confirm: "insertDialog.confirm",
+  closeOrBack: 'insertDialog.close-or-back',
+  modeStart: 'insertDialog.mode.start',
+  modeEnd: 'insertDialog.mode.end',
+  modeAfter: 'insertDialog.mode.after',
+  modeBefore: 'insertDialog.mode.before',
+  modeInside: 'insertDialog.mode.inside',
+  navigatePrevious: 'insertDialog.navigate.previous',
+  navigateNext: 'insertDialog.navigate.next',
+  confirm: 'insertDialog.confirm',
 } as const;
 
 function toQuickSelectCommandId(index: number): `insertDialog.quick-select.key-${number}` {
@@ -56,15 +56,15 @@ function toQuickSelectCommandId(index: number): `insertDialog.quick-select.key-$
 /** Insert dialog key assignments, exported for UI display in EpistolaEditor. */
 export const INSERT_DIALOG_KEYS = {
   placement: {
-    document: { start: "s", end: "e" },
-    selected: { after: "a", before: "b", inside: "i" },
+    document: { start: 's', end: 'e' },
+    selected: { after: 'a', before: 'b', inside: 'i' },
   },
   navigation: {
-    quickSelect: ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as readonly string[],
-    previous: "arrowup",
-    next: "arrowdown",
-    confirm: "enter",
-    close: "escape",
+    quickSelect: ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as readonly string[],
+    previous: 'arrowup',
+    next: 'arrowdown',
+    confirm: 'enter',
+    close: 'escape',
   },
 } as const;
 
@@ -75,8 +75,8 @@ export const INSERT_DIALOG_KEYS = {
 const INSERT_DIALOG_COMMANDS: CommandDefinition<InsertDialogShortcutRuntimeContext>[] = [
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack,
-    label: "Back / close insert dialog",
-    category: "Insert",
+    label: 'Back / close insert dialog',
+    category: 'Insert',
     run: (context) => {
       context.closeOrBack();
       return { ok: true };
@@ -84,53 +84,53 @@ const INSERT_DIALOG_COMMANDS: CommandDefinition<InsertDialogShortcutRuntimeConte
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeStart,
-    label: "Select document start placement",
-    category: "Insert",
+    label: 'Select document start placement',
+    category: 'Insert',
     run: (context) => {
-      context.selectMode("start");
+      context.selectMode('start');
       return { ok: true };
     },
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeEnd,
-    label: "Select document end placement",
-    category: "Insert",
+    label: 'Select document end placement',
+    category: 'Insert',
     run: (context) => {
-      context.selectMode("end");
+      context.selectMode('end');
       return { ok: true };
     },
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeAfter,
-    label: "Select insert after placement",
-    category: "Insert",
+    label: 'Select insert after placement',
+    category: 'Insert',
     run: (context) => {
-      context.selectMode("after");
+      context.selectMode('after');
       return { ok: true };
     },
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeBefore,
-    label: "Select insert before placement",
-    category: "Insert",
+    label: 'Select insert before placement',
+    category: 'Insert',
     run: (context) => {
-      context.selectMode("before");
+      context.selectMode('before');
       return { ok: true };
     },
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeInside,
-    label: "Select insert inside placement",
-    category: "Insert",
+    label: 'Select insert inside placement',
+    category: 'Insert',
     run: (context) => {
-      context.selectMode("inside");
+      context.selectMode('inside');
       return { ok: true };
     },
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigatePrevious,
-    label: "Navigate previous insert option",
-    category: "Insert",
+    label: 'Navigate previous insert option',
+    category: 'Insert',
     run: (context) => {
       if (context.optionCount <= 0) {
         return { ok: true };
@@ -147,8 +147,8 @@ const INSERT_DIALOG_COMMANDS: CommandDefinition<InsertDialogShortcutRuntimeConte
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigateNext,
-    label: "Navigate next insert option",
-    category: "Insert",
+    label: 'Navigate next insert option',
+    category: 'Insert',
     run: (context) => {
       if (context.optionCount <= 0) {
         return { ok: true };
@@ -165,8 +165,8 @@ const INSERT_DIALOG_COMMANDS: CommandDefinition<InsertDialogShortcutRuntimeConte
   },
   {
     id: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.confirm,
-    label: "Confirm insert dialog selection",
-    category: "Insert",
+    label: 'Confirm insert dialog selection',
+    category: 'Insert',
     run: (context) => {
       if (context.highlight <= 0) {
         return { ok: true };
@@ -183,11 +183,11 @@ for (const [index, key] of INSERT_DIALOG_KEYS.navigation.quickSelect.entries()) 
   INSERT_DIALOG_COMMANDS.push({
     id: toQuickSelectCommandId(optionIndex),
     label: `Quick select insert option ${optionIndex}`,
-    category: "Insert",
+    category: 'Insert',
     run: (context) => {
       if (optionIndex > context.optionCount) {
         context.setOptionOutOfRange();
-        return { ok: false, message: "Option out of range" };
+        return { ok: false, message: 'Option out of range' };
       }
       context.selectOption(optionIndex);
       return { ok: true };
@@ -208,14 +208,14 @@ const { placement, navigation } = INSERT_DIALOG_KEYS;
 const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntimeContext>[] = [
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.closeOrBack,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [navigation.close],
     preventDefault: true,
-    display: "Esc",
+    display: 'Esc',
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeStart,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [placement.document.start],
     preventDefault: true,
     when: (ctx) => ctx.hasPlacementMode && ctx.isDocumentContext,
@@ -223,7 +223,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntim
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeEnd,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [placement.document.end],
     preventDefault: true,
     when: (ctx) => ctx.hasPlacementMode && ctx.isDocumentContext,
@@ -231,7 +231,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntim
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeAfter,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [placement.selected.after],
     preventDefault: true,
     when: (ctx) => ctx.hasPlacementMode && !ctx.isDocumentContext,
@@ -239,7 +239,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntim
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeBefore,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [placement.selected.before],
     preventDefault: true,
     when: (ctx) => ctx.hasPlacementMode && !ctx.isDocumentContext,
@@ -247,7 +247,7 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntim
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.modeInside,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [placement.selected.inside],
     preventDefault: true,
     when: (ctx) => ctx.hasPlacementMode && !ctx.isDocumentContext,
@@ -255,27 +255,27 @@ const INSERT_DIALOG_KEYBINDINGS: KeybindingDefinition<InsertDialogShortcutRuntim
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigatePrevious,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [navigation.previous],
     preventDefault: true,
     when: (ctx) => ctx.hasSelectionMode,
-    display: "Arrow Up",
+    display: 'Arrow Up',
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.navigateNext,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [navigation.next],
     preventDefault: true,
     when: (ctx) => ctx.hasSelectionMode,
-    display: "Arrow Down",
+    display: 'Arrow Down',
   },
   {
     commandId: INSERT_DIALOG_SHORTCUT_COMMAND_IDS.confirm,
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [navigation.confirm],
     preventDefault: true,
     when: (ctx) => ctx.hasSelectionMode,
-    display: "Enter",
+    display: 'Enter',
   },
 ];
 
@@ -283,7 +283,7 @@ for (const [index, key] of navigation.quickSelect.entries()) {
   const optionIndex = index + 1;
   INSERT_DIALOG_KEYBINDINGS.push({
     commandId: toQuickSelectCommandId(optionIndex),
-    context: "insertDialog",
+    context: 'insertDialog',
     keys: [key],
     preventDefault: true,
     when: (ctx) => ctx.hasSelectionMode,

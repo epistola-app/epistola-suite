@@ -5,13 +5,13 @@
  * Uses an asset picker dialog for selection at insert time.
  */
 
-import type { ComponentDefinition } from "../../engine/registry.js";
-import type { EditorEngine } from "../../engine/EditorEngine.js";
-import { openAssetPickerDialog, type AssetPickerCallbacks } from "./asset-picker-dialog.js";
-import { html } from "lit";
+import type { ComponentDefinition } from '../../engine/registry.js';
+import type { EditorEngine } from '../../engine/EditorEngine.js';
+import { openAssetPickerDialog, type AssetPickerCallbacks } from './asset-picker-dialog.js';
+import { html } from 'lit';
 
 /** Layout-only style properties available on image nodes. */
-const IMAGE_STYLES = ["padding", "margin"];
+const IMAGE_STYLES = ['padding', 'margin'];
 
 export interface ImageOptions {
   assetPicker: AssetPickerCallbacks;
@@ -19,14 +19,14 @@ export interface ImageOptions {
 }
 
 function resolveContentUrl(pattern: string, assetId: string): string {
-  return pattern.replace("{assetId}", assetId);
+  return pattern.replace('{assetId}', assetId);
 }
 
 /** Parse a pt value, returning the numeric part or null for non-pt / empty values. */
 function parsePt(value: unknown): number | null {
-  if (typeof value !== "string") return null;
+  if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (!trimmed.endsWith("pt")) return null;
+  if (!trimmed.endsWith('pt')) return null;
   const num = parseFloat(trimmed);
   return Number.isFinite(num) && num > 0 ? num : null;
 }
@@ -38,25 +38,25 @@ function pxToPt(px: number): number {
 
 export function createImageDefinition(options: ImageOptions): ComponentDefinition {
   return {
-    type: "image",
-    label: "Image",
-    icon: "image",
-    category: "content",
+    type: 'image',
+    label: 'Image',
+    icon: 'image',
+    category: 'content',
     slots: [],
-    allowedChildren: { mode: "none" },
+    allowedChildren: { mode: 'none' },
     applicableStyles: IMAGE_STYLES,
-    defaultStyles: { marginBottom: "1.5sp" },
+    defaultStyles: { marginBottom: '1.5sp' },
     inspector: [
-      { key: "alt", label: "Alt Text", type: "text" },
-      { key: "width", label: "Width", type: "unit", units: ["pt", "sp", "%"] },
-      { key: "height", label: "Height", type: "unit", units: ["pt", "sp", "%"] },
-      { key: "aspectRatioLocked", label: "Lock Aspect Ratio", type: "boolean", defaultValue: true },
+      { key: 'alt', label: 'Alt Text', type: 'text' },
+      { key: 'width', label: 'Width', type: 'unit', units: ['pt', 'sp', '%'] },
+      { key: 'height', label: 'Height', type: 'unit', units: ['pt', 'sp', '%'] },
+      { key: 'aspectRatioLocked', label: 'Lock Aspect Ratio', type: 'boolean', defaultValue: true },
     ],
     defaultProps: {
       assetId: null,
-      alt: "",
-      width: "",
-      height: "",
+      alt: '',
+      width: '',
+      height: '',
       aspectRatioLocked: true,
     },
 
@@ -66,12 +66,12 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       const oldWidth = parsePt(props.width);
       const oldHeight = parsePt(props.height);
 
-      if (key === "width" && oldHeight && oldWidth) {
+      if (key === 'width' && oldHeight && oldWidth) {
         const newWidth = parsePt(value);
         if (newWidth) {
           props.height = `${Math.round(oldHeight * (newWidth / oldWidth))}pt`;
         }
-      } else if (key === "height" && oldWidth && oldHeight) {
+      } else if (key === 'height' && oldWidth && oldHeight) {
         const newHeight = parsePt(value);
         if (newHeight) {
           props.width = `${Math.round(oldWidth * (newHeight / oldHeight))}pt`;
@@ -89,14 +89,14 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
         const asset = await openAssetPickerDialog(options.assetPicker);
         if (!asset) return;
         engine.dispatch({
-          type: "UpdateNodeProps",
+          type: 'UpdateNodeProps',
           nodeId: node.id,
           props: {
             ...node.props,
             assetId: asset.id,
             alt: asset.name,
-            width: asset.width ? `${pxToPt(asset.width)}pt` : "",
-            height: asset.height ? `${pxToPt(asset.height)}pt` : "",
+            width: asset.width ? `${pxToPt(asset.width)}pt` : '',
+            height: asset.height ? `${pxToPt(asset.height)}pt` : '',
           },
         });
       };
@@ -114,14 +114,14 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
         </div>`;
       }
       const src = resolveContentUrl(options.contentUrlPattern, assetId);
-      const alt = (node.props?.alt as string) || "";
+      const alt = (node.props?.alt as string) || '';
       const width = node.props?.width as string | undefined;
       const height = node.props?.height as string | undefined;
 
       const imgStyle =
-        [width ? `width: ${width}` : "", height ? `height: ${height}` : ""]
+        [width ? `width: ${width}` : '', height ? `height: ${height}` : '']
           .filter(Boolean)
-          .join("; ") + ";";
+          .join('; ') + ';';
 
       return html`<div
         class="canvas-image-wrapper"
@@ -140,8 +140,8 @@ export function createImageDefinition(options: ImageOptions): ComponentDefinitio
       return {
         assetId: asset.id,
         alt: asset.name,
-        width: asset.width ? `${pxToPt(asset.width)}pt` : "",
-        height: asset.height ? `${pxToPt(asset.height)}pt` : "",
+        width: asset.width ? `${pxToPt(asset.width)}pt` : '',
+        height: asset.height ? `${pxToPt(asset.height)}pt` : '',
       };
     },
   };

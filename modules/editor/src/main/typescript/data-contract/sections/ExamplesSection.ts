@@ -6,10 +6,10 @@
  * undo/redo per example, inline field validation, and save/delete controls.
  */
 
-import { html } from "lit";
-import type { DataContractState } from "../DataContractState.js";
-import type { JsonValue } from "../types.js";
-import { renderExampleForm } from "./ExampleForm.js";
+import { html } from 'lit';
+import type { DataContractState } from '../DataContractState.js';
+import type { JsonValue } from '../types.js';
+import { renderExampleForm } from './ExampleForm.js';
 
 export interface ExamplesUiState {
   editingId: string | null;
@@ -54,12 +54,12 @@ export function renderExamplesSection(
           const errorCount = uiState.exampleErrorCounts[ex.id] ?? 0;
           return html`
             <button
-              class="dc-example-chip ${isActive ? "dc-example-chip-active" : ""}"
+              class="dc-example-chip ${isActive ? 'dc-example-chip-active' : ''}"
               role="option"
               aria-selected="${isActive}"
               aria-label="${ex.name}${errorCount > 0
-                ? `, ${errorCount} error${errorCount !== 1 ? "s" : ""}`
-                : ", valid"}"
+                ? `, ${errorCount} error${errorCount !== 1 ? 's' : ''}`
+                : ', valid'}"
               @click=${() => callbacks.onSelectExample(ex.id)}
               title="${ex.name}"
             >
@@ -195,7 +195,7 @@ export function renderExamplesSection(
                           />
                         </svg>
                         ${uiState.validationErrorCount}
-                        error${uiState.validationErrorCount !== 1 ? "s" : ""}
+                        error${uiState.validationErrorCount !== 1 ? 's' : ''}
                       </span>
                     `
                   : html`

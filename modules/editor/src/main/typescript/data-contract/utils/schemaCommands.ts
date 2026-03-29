@@ -6,17 +6,17 @@
  * Tree operations (update, delete, add) work at arbitrary depth via recursion.
  */
 
-import type { SchemaField, SchemaFieldUpdate, VisualSchema } from "../types.js";
-import { applyFieldUpdate, createEmptyField } from "./schemaUtils.js";
+import type { SchemaField, SchemaFieldUpdate, VisualSchema } from '../types.js';
+import { applyFieldUpdate, createEmptyField } from './schemaUtils.js';
 
 // =============================================================================
 // Command types
 // =============================================================================
 
 export type SchemaCommand =
-  | { type: "addField"; parentFieldId: string | null; name?: string }
-  | { type: "deleteField"; fieldId: string }
-  | { type: "updateField"; fieldId: string; updates: SchemaFieldUpdate };
+  | { type: 'addField'; parentFieldId: string | null; name?: string }
+  | { type: 'deleteField'; fieldId: string }
+  | { type: 'updateField'; fieldId: string; updates: SchemaFieldUpdate };
 
 // =============================================================================
 // Command executor (pure function)
@@ -28,15 +28,15 @@ export type SchemaCommand =
  */
 export function executeSchemaCommand(schema: VisualSchema, command: SchemaCommand): VisualSchema {
   switch (command.type) {
-    case "addField": {
+    case 'addField': {
       const newField = createEmptyField(
         command.name ?? `field${countAllFields(schema.fields) + 1}`,
       );
       return { fields: addFieldToTree(schema.fields, command.parentFieldId, newField) };
     }
-    case "deleteField":
+    case 'deleteField':
       return { fields: deleteFieldFromTree(schema.fields, command.fieldId) };
-    case "updateField":
+    case 'updateField':
       return { fields: updateFieldInTree(schema.fields, command.fieldId, command.updates) };
   }
 }
@@ -131,8 +131,8 @@ export function addFieldToTree(
 // =============================================================================
 
 function getNestedFields(field: SchemaField): SchemaField[] | undefined {
-  if (field.type === "object") return field.nestedFields;
-  if (field.type === "array") return field.nestedFields;
+  if (field.type === 'object') return field.nestedFields;
+  if (field.type === 'array') return field.nestedFields;
   return undefined;
 }
 

@@ -11,17 +11,17 @@
  * from resolved document styles into nodes.
  */
 
-import type { StyleRegistry } from "@epistola.app/editor-model/generated/style-registry";
-import type { BlockStylePreset } from "@epistola.app/editor-model/generated/theme";
-import type { PageSettings } from "../types/index.js";
+import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
+import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme';
+import type { PageSettings } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Default page settings
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_PAGE_SETTINGS: PageSettings = {
-  format: "A4",
-  orientation: "portrait",
+  format: 'A4',
+  orientation: 'portrait',
   margins: { top: 20, right: 20, bottom: 20, left: 20 },
 };
 

@@ -1,17 +1,17 @@
-import { LitElement, html, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
-import type { TemplateDocument, NodeId, Node, PageSettings } from "../types/index.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import type { ComponentDefinition, InspectorField } from "../engine/registry.js";
-import type { StyleProperty } from "@epistola.app/editor-model/generated/style-registry";
-import type { BlockStylePreset } from "@epistola.app/editor-model/generated/theme";
-import { getNestedValue, setNestedValue } from "../engine/props.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import type { ComponentDefinition, InspectorField } from '../engine/registry.js';
+import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
+import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme';
+import { getNestedValue, setNestedValue } from '../engine/props.js';
 import {
   isValidExpression,
   validateArrayResult,
   validateBooleanResult,
-} from "../engine/resolve-expression.js";
-import { openExpressionDialog } from "./expression-dialog.js";
+} from '../engine/resolve-expression.js';
+import { openExpressionDialog } from './expression-dialog.js';
 import {
   renderUnitInput,
   renderColorInput,
@@ -20,9 +20,9 @@ import {
   expandSpacingToStyles,
   readSpacingFromStyles,
   type SpacingValue,
-} from "./inputs/style-inputs.js";
+} from './inputs/style-inputs.js';
 
-@customElement("epistola-inspector")
+@customElement('epistola-inspector')
 export class EpistolaInspector extends LitElement {
   override createRenderRoot() {
     return this;
@@ -139,9 +139,9 @@ export class EpistolaInspector extends LitElement {
           <select
             class="ep-select"
             @change=${(e: Event) =>
-              this._handlePageSettingChange("format", (e.target as HTMLSelectElement).value)}
+              this._handlePageSettingChange('format', (e.target as HTMLSelectElement).value)}
           >
-            ${["A4", "Letter", "Custom"].map(
+            ${['A4', 'Letter', 'Custom'].map(
               (f) => html` <option .value=${f} ?selected=${settings.format === f}>${f}</option> `,
             )}
           </select>
@@ -152,9 +152,9 @@ export class EpistolaInspector extends LitElement {
           <select
             class="ep-select"
             @change=${(e: Event) =>
-              this._handlePageSettingChange("orientation", (e.target as HTMLSelectElement).value)}
+              this._handlePageSettingChange('orientation', (e.target as HTMLSelectElement).value)}
           >
-            ${["portrait", "landscape"].map(
+            ${['portrait', 'landscape'].map(
               (o) => html`
                 <option .value=${o} ?selected=${settings.orientation === o}>
                   ${o[0].toUpperCase() + o.slice(1)}
@@ -167,7 +167,7 @@ export class EpistolaInspector extends LitElement {
         <div class="inspector-field">
           <label class="inspector-field-label">Margins (mm)</label>
           <div class="inspector-margins-grid">
-            ${(["top", "right", "bottom", "left"] as const).map(
+            ${(['top', 'right', 'bottom', 'left'] as const).map(
               (side) => html`
                 <div class="inspector-margin-field">
                   <span class="style-spacing-label">${side[0].toUpperCase()}</span>
@@ -186,8 +186,8 @@ export class EpistolaInspector extends LitElement {
 
         <div class="inspector-field">
           <label class="inspector-field-label">Background Color</label>
-          ${renderColorInput(settings.backgroundColor ?? "", (value) =>
-            this._handlePageSettingChange("backgroundColor", value),
+          ${renderColorInput(settings.backgroundColor ?? '', (value) =>
+            this._handlePageSettingChange('backgroundColor', value),
           )}
         </div>
       </div>
@@ -198,9 +198,9 @@ export class EpistolaInspector extends LitElement {
   // Node style editing
   // -----------------------------------------------------------------------
 
-  private _hasStyles(applicableStyles: "all" | string[] | undefined): boolean {
+  private _hasStyles(applicableStyles: 'all' | string[] | undefined): boolean {
     if (!applicableStyles) return false;
-    if (applicableStyles === "all") return true;
+    if (applicableStyles === 'all') return true;
     return applicableStyles.length > 0;
   }
 
@@ -246,7 +246,7 @@ export class EpistolaInspector extends LitElement {
         <input
           type="text"
           class="ep-input"
-          .value=${node.stylePreset ?? ""}
+          .value=${node.stylePreset ?? ''}
           @change=${(e: Event) => {
             const value = (e.target as HTMLInputElement).value;
             this._handleStylePreset(value || undefined);
@@ -269,7 +269,7 @@ export class EpistolaInspector extends LitElement {
 
   private _renderNodeStyleGroups(
     node: Node,
-    applicableStyles: "all" | string[] | undefined,
+    applicableStyles: 'all' | string[] | undefined,
   ): unknown {
     if (!this.engine) return nothing;
 
@@ -289,8 +289,8 @@ export class EpistolaInspector extends LitElement {
               ${filteredProps.map((prop) => {
                 // For spacing properties, reconstruct compound value from individual keys
                 const value =
-                  prop.type === "spacing"
-                    ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? "px")
+                  prop.type === 'spacing'
+                    ? readSpacingFromStyles(prop.key, inlineStyles, prop.units?.[0] ?? 'px')
                     : inlineStyles[prop.key];
                 return this._renderStyleProperty(prop, value, (v) =>
                   this._handleNodeStyleChange(prop.key, v),
@@ -305,9 +305,9 @@ export class EpistolaInspector extends LitElement {
 
   private _filterProperties(
     properties: StyleProperty[],
-    applicableStyles: "all" | string[] | undefined,
+    applicableStyles: 'all' | string[] | undefined,
   ): StyleProperty[] {
-    if (!applicableStyles || applicableStyles === "all") return properties;
+    if (!applicableStyles || applicableStyles === 'all') return properties;
     if (applicableStyles.length === 0) return [];
     return properties.filter((p) => applicableStyles.includes(p.key));
   }
@@ -331,30 +331,30 @@ export class EpistolaInspector extends LitElement {
     onChange: (value: unknown) => void,
   ): unknown {
     switch (prop.type) {
-      case "select":
+      case 'select':
         return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
-      case "unit":
-        return renderUnitInput(value, prop.units ?? ["px"], (v) => onChange(v));
-      case "color":
+      case 'unit':
+        return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v));
+      case 'color':
         return renderColorInput(value, (v) => onChange(v || undefined));
-      case "spacing":
-        return renderSpacingInput(value, prop.units ?? ["px"], (v) => onChange(v));
-      case "number":
+      case 'spacing':
+        return renderSpacingInput(value, prop.units ?? ['px'], (v) => onChange(v));
+      case 'number':
         return html`
           <input
             type="number"
             class="ep-input"
-            .value=${String(value ?? "")}
+            .value=${String(value ?? '')}
             @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
           />
         `;
-      case "text":
+      case 'text':
       default:
         return html`
           <input
             type="text"
             class="ep-input"
-            .value=${String(value ?? "")}
+            .value=${String(value ?? '')}
             @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
           />
         `;
@@ -379,20 +379,20 @@ export class EpistolaInspector extends LitElement {
     const value = getNestedValue(props, field.key);
 
     switch (field.type) {
-      case "text":
+      case 'text':
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
             <input
               type="text"
               class="ep-input"
-              .value=${String(value ?? "")}
+              .value=${String(value ?? '')}
               @change=${(e: Event) =>
                 this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
             />
           </div>
         `;
-      case "number":
+      case 'number':
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
@@ -405,7 +405,7 @@ export class EpistolaInspector extends LitElement {
             />
           </div>
         `;
-      case "boolean":
+      case 'boolean':
         return html`
           <div class="inspector-checkbox-field">
             <input
@@ -418,16 +418,16 @@ export class EpistolaInspector extends LitElement {
             <label class="inspector-field-label">${field.label}</label>
           </div>
         `;
-      case "unit":
+      case 'unit':
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
-            ${renderUnitInput(value, field.units ?? ["pt"], (v) =>
+            ${renderUnitInput(value, field.units ?? ['pt'], (v) =>
               this._handlePropChange(field.key, v),
             )}
           </div>
         `;
-      case "select":
+      case 'select':
         return html`
           <div class="inspector-field">
             <label class="inspector-field-label">${field.label}</label>
@@ -446,13 +446,13 @@ export class EpistolaInspector extends LitElement {
             </select>
           </div>
         `;
-      case "expression": {
-        const exprValue = String(value ?? "");
+      case 'expression': {
+        const exprValue = String(value ?? '');
         const validClass = exprValue
           ? isValidExpression(exprValue)
-            ? "valid"
-            : "invalid"
-          : "empty";
+            ? 'valid'
+            : 'invalid'
+          : 'empty';
 
         return html`
           <div class="inspector-field">
@@ -463,7 +463,7 @@ export class EpistolaInspector extends LitElement {
             >
               ${exprValue
                 ? html`<code class="inspector-expression-value"
-                    >${exprValue.length > 40 ? exprValue.slice(0, 40) + "..." : exprValue}</code
+                    >${exprValue.length > 40 ? exprValue.slice(0, 40) + '...' : exprValue}</code
                   >`
                 : html`<span class="inspector-expression-placeholder"
                     >Click to set expression...</span
@@ -501,7 +501,7 @@ export class EpistolaInspector extends LitElement {
     }
 
     this.engine.dispatch({
-      type: "UpdateNodeProps",
+      type: 'UpdateNodeProps',
       nodeId: this.selectedNodeId,
       props: newProps,
     });
@@ -510,7 +510,7 @@ export class EpistolaInspector extends LitElement {
   private _handleStylePreset(value: string | undefined) {
     if (!this.engine || !this.selectedNodeId) return;
     this.engine.dispatch({
-      type: "SetStylePreset",
+      type: 'SetStylePreset',
       nodeId: this.selectedNodeId,
       stylePreset: value,
     });
@@ -525,16 +525,16 @@ export class EpistolaInspector extends LitElement {
     const newStyles = structuredClone(node.styles ?? {}) as Record<string, unknown>;
 
     // Spacing properties: expand compound value to individual keys
-    if ((key === "margin" || key === "padding") && value != null && typeof value === "object") {
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, newStyles);
-    } else if (value === undefined || value === "") {
+    } else if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
       newStyles[key] = value;
     }
 
     this.engine.dispatch({
-      type: "UpdateNodeStyles",
+      type: 'UpdateNodeStyles',
       nodeId: this.selectedNodeId,
       styles: newStyles,
     });
@@ -549,16 +549,16 @@ export class EpistolaInspector extends LitElement {
     >;
 
     // Spacing properties: expand compound value to individual keys
-    if ((key === "margin" || key === "padding") && value != null && typeof value === "object") {
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, newStyles);
-    } else if (value === undefined || value === "") {
+    } else if (value === undefined || value === '') {
       delete newStyles[key];
     } else {
       newStyles[key] = value;
     }
 
     this.engine.dispatch({
-      type: "UpdateDocumentStyles",
+      type: 'UpdateDocumentStyles',
       styles: Object.keys(newStyles).length > 0 ? newStyles : undefined,
     });
   }
@@ -570,12 +570,12 @@ export class EpistolaInspector extends LitElement {
     const newSettings = { ...current, [key]: value } as PageSettings;
 
     this.engine.dispatch({
-      type: "UpdatePageSettings",
+      type: 'UpdatePageSettings',
       settings: newSettings,
     });
   }
 
-  private _handleMarginChange(side: "top" | "right" | "bottom" | "left", value: number) {
+  private _handleMarginChange(side: 'top' | 'right' | 'bottom' | 'left', value: number) {
     if (!this.engine || !this.doc) return;
 
     const currentSettings = this.engine.resolvedPageSettings;
@@ -586,7 +586,7 @@ export class EpistolaInspector extends LitElement {
     } as PageSettings;
 
     this.engine.dispatch({
-      type: "UpdatePageSettings",
+      type: 'UpdatePageSettings',
       settings: newSettings,
     });
   }
@@ -596,13 +596,13 @@ export class EpistolaInspector extends LitElement {
 
     // For loop/datatable expressions, highlight array-type fields
     const isLoopExpr =
-      (node.type === "loop" || node.type === "datatable") && key === "expression.raw";
-    const isConditionalExpr = node.type === "conditional" && key === "condition.raw";
+      (node.type === 'loop' || node.type === 'datatable') && key === 'expression.raw';
+    const isConditionalExpr = node.type === 'conditional' && key === 'condition.raw';
     const placeholder = isLoopExpr
-      ? "e.g. items"
+      ? 'e.g. items'
       : isConditionalExpr
-        ? "e.g. customer.active"
-        : "e.g. customer.name";
+        ? 'e.g. customer.active'
+        : 'e.g. customer.name';
 
     const resultValidator = isLoopExpr
       ? validateArrayResult
@@ -614,9 +614,9 @@ export class EpistolaInspector extends LitElement {
       initialValue: currentValue,
       fieldPaths: this.engine.fieldPaths,
       getExampleData: () => this.engine?.getExampleData(),
-      label: isLoopExpr ? "Loop Expression" : isConditionalExpr ? "Condition" : "Expression",
+      label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',
       placeholder,
-      fieldPathFilter: isLoopExpr ? (fp) => fp.type === "array" : undefined,
+      fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,
       resultValidator,
     }).then(({ value }) => {
       if (value !== null) {
@@ -629,7 +629,7 @@ export class EpistolaInspector extends LitElement {
     if (!this.engine || !this.selectedNodeId) return;
     const nextSelection = this.engine.getNextSelectionAfterRemove(this.selectedNodeId);
     const result = this.engine.dispatch({
-      type: "RemoveNode",
+      type: 'RemoveNode',
       nodeId: this.selectedNodeId,
     });
     if (result.ok) {
@@ -640,6 +640,6 @@ export class EpistolaInspector extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-inspector": EpistolaInspector;
+    'epistola-inspector': EpistolaInspector;
   }
 }

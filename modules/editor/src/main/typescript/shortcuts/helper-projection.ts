@@ -1,31 +1,31 @@
-import { EDITOR_SHORTCUTS_CONFIG } from "../shortcuts-config.js";
+import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';
 import {
   EDITOR_SHORTCUT_COMMAND_IDS,
   getEditorShortcutRegistry,
   getShortcutDisplayForCommandId,
-} from "./editor-runtime.js";
-import { getInsertDialogShortcutRegistry } from "./insert-dialog-runtime.js";
-import { getResizeShortcutRegistry } from "./resize-runtime.js";
-import { getTextShortcutRegistry } from "./text-runtime.js";
+} from './editor-runtime.js';
+import { getInsertDialogShortcutRegistry } from './insert-dialog-runtime.js';
+import { getResizeShortcutRegistry } from './resize-runtime.js';
+import { getTextShortcutRegistry } from './text-runtime.js';
 import type {
   CommandCategory,
   CommandDefinition,
   CommandId,
   ShortcutRegistryDefinition,
-} from "./foundation.js";
+} from './foundation.js';
 
 export const SHORTCUT_HELPER_ONE_COLUMN_MAX_ITEMS = 7;
 export const SHORTCUT_HELPER_TWO_COLUMN_MIN_ITEMS = 8;
 
 type ShortcutHelperGroupId =
-  | "leader-key"
-  | "leader-commands"
-  | "core"
-  | "text"
-  | "insert"
-  | "resize";
+  | 'leader-key'
+  | 'leader-commands'
+  | 'core'
+  | 'text'
+  | 'insert'
+  | 'resize';
 
-type ShortcutHelperGroupLayout = "one-column" | "two-column";
+type ShortcutHelperGroupLayout = 'one-column' | 'two-column';
 
 export interface ShortcutHelperProjectionItem {
   id: string;
@@ -87,19 +87,19 @@ function normalizeShortcutSequence(sequence: string): string {
   return sequence
     .trim()
     .toLowerCase()
-    .replace(/\s*\+\s*/g, "+")
-    .replace(/\s+/g, " ");
+    .replace(/\s*\+\s*/g, '+')
+    .replace(/\s+/g, ' ');
 }
 
 function normalizeStrokeToken(token: string): string {
   const parts = token
     .trim()
     .toLowerCase()
-    .split("+")
+    .split('+')
     .filter((part) => part.length > 0)
-    .map((part) => (part.startsWith("code:") ? part.slice("code:".length) : part));
+    .map((part) => (part.startsWith('code:') ? part.slice('code:'.length) : part));
 
-  return parts.join("+");
+  return parts.join('+');
 }
 
 function extractMatchStrokesFromKeySequences(keys: readonly string[]): string[] {
@@ -111,7 +111,7 @@ function extractMatchStrokesFromKeySequences(keys: readonly string[]): string[] 
       continue;
     }
 
-    for (const token of normalized.split(" ")) {
+    for (const token of normalized.split(' ')) {
       const stroke = normalizeStrokeToken(token);
       if (!stroke) {
         continue;
@@ -167,7 +167,7 @@ function buildCommandRowsFromRegistry<TContext>(
   return [...commandRowsById.values()]
     .sort((left, right) => left.order - right.order)
     .map((row) => {
-      const keys = [...row.displays].join(" / ");
+      const keys = [...row.displays].join(' / ');
       return {
         id: row.id,
         order: row.order,
@@ -181,10 +181,10 @@ function buildCommandRowsFromRegistry<TContext>(
 
 function buildLeaderKeyRow(): ShortcutRowSeed {
   const activation = EDITOR_SHORTCUTS_CONFIG.leader.activation;
-  const leaderStroke = `${activation.requiresModifier ? "mod+" : ""}${activation.code.toLowerCase()}`;
+  const leaderStroke = `${activation.requiresModifier ? 'mod+' : ''}${activation.code.toLowerCase()}`;
 
   return {
-    id: "leader-key-activation",
+    id: 'leader-key-activation',
     order: 0,
     keys: activation.helpKeys,
     action: activation.action,
@@ -194,68 +194,68 @@ function buildLeaderKeyRow(): ShortcutRowSeed {
 
 const GROUP_DEFINITIONS: readonly GroupDefinition[] = [
   {
-    id: "leader-key",
-    title: "Leader Key",
+    id: 'leader-key',
+    title: 'Leader Key',
     fullWidth: true,
     projectItems: () => [buildLeaderKeyRow()],
   },
   {
-    id: "leader-commands",
-    title: "Leader Commands",
+    id: 'leader-commands',
+    title: 'Leader Commands',
     fullWidth: false,
     projectItems: () =>
       buildCommandRowsFromRegistry(getEditorShortcutRegistry(), {
-        category: "Leader",
-        idPrefix: "leader",
+        category: 'Leader',
+        idPrefix: 'leader',
       }),
   },
   {
-    id: "core",
-    title: "Core",
+    id: 'core',
+    title: 'Core',
     fullWidth: false,
     projectItems: () =>
       buildCommandRowsFromRegistry(getEditorShortcutRegistry(), {
-        category: "Core",
-        idPrefix: "core",
+        category: 'Core',
+        idPrefix: 'core',
       }),
   },
   {
-    id: "text",
-    title: "Text",
+    id: 'text',
+    title: 'Text',
     fullWidth: false,
     projectItems: () =>
       buildCommandRowsFromRegistry(getTextShortcutRegistry(), {
-        category: "Text",
-        idPrefix: "text",
+        category: 'Text',
+        idPrefix: 'text',
       }),
   },
   {
-    id: "insert",
-    title: "Insert",
+    id: 'insert',
+    title: 'Insert',
     fullWidth: false,
     projectItems: () =>
       buildCommandRowsFromRegistry(getInsertDialogShortcutRegistry(), {
-        category: "Insert",
-        idPrefix: "insert",
+        category: 'Insert',
+        idPrefix: 'insert',
       }),
   },
   {
-    id: "resize",
-    title: "Resize",
+    id: 'resize',
+    title: 'Resize',
     fullWidth: false,
     projectItems: () =>
       buildCommandRowsFromRegistry(getResizeShortcutRegistry(), {
-        category: "Resize",
-        idPrefix: "resize",
+        category: 'Resize',
+        idPrefix: 'resize',
       }),
   },
 ];
 
 function buildGroupLayout(itemCount: number): ShortcutHelperGroupLayout {
   if (itemCount >= SHORTCUT_HELPER_TWO_COLUMN_MIN_ITEMS) {
-    return "two-column";
+    return 'two-column';
   }
-  return "one-column";
+  return 'one-column';
 }
 
 function shouldIncludeItem(seed: ShortcutRowSeed, query: string): boolean {
@@ -263,7 +263,7 @@ function shouldIncludeItem(seed: ShortcutRowSeed, query: string): boolean {
     return true;
   }
 
-  const searchable = `${seed.keys} ${seed.keys.replaceAll("{cmd}", "ctrl/cmd")} ${seed.action}`;
+  const searchable = `${seed.keys} ${seed.keys.replaceAll('{cmd}', 'ctrl/cmd')} ${seed.action}`;
   return normalizeSearchText(searchable).includes(query);
 }
 
@@ -287,7 +287,7 @@ function toProjectionItem(
 export function buildShortcutHelperProjection(
   options: ShortcutHelperProjectionOptions = {},
 ): ShortcutHelperProjection {
-  const query = normalizeSearchText(options.query ?? "");
+  const query = normalizeSearchText(options.query ?? '');
   const activeStrokes = new Set(
     (options.activeStrokes ?? []).map((stroke) => normalizeStrokeToken(stroke)),
   );

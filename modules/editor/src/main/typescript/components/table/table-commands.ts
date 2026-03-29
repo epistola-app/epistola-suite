@@ -5,9 +5,9 @@
  * command for undo, following the same pattern as AddColumnSlot/RemoveColumnSlot.
  */
 
-import type { TemplateDocument, Node, Slot, NodeId, SlotId } from "../../types/index.js";
-import type { CommandResult, CommandOk, CommandError, AnyCommand } from "../../engine/commands.js";
-import type { DocumentIndexes } from "../../engine/indexes.js";
+import type { TemplateDocument, Node, Slot, NodeId, SlotId } from '../../types/index.js';
+import type { CommandResult, CommandOk, CommandError, AnyCommand } from '../../engine/commands.js';
+import type { DocumentIndexes } from '../../engine/indexes.js';
 import {
   cellSlotName,
   shiftMergesForRowInsert,
@@ -15,15 +15,15 @@ import {
   shiftMergesForColInsert,
   shiftMergesForColRemove,
   type CellMerge,
-} from "./table-utils.js";
-import { nanoid } from "nanoid";
+} from './table-utils.js';
+import { nanoid } from 'nanoid';
 
 // ---------------------------------------------------------------------------
 // Command types
 // ---------------------------------------------------------------------------
 
 export interface AddTableRow {
-  type: "AddTableRow";
+  type: 'AddTableRow';
   nodeId: NodeId;
   /** Row index to insert at. Existing rows at this index shift down. */
   position: number;
@@ -36,13 +36,13 @@ export interface AddTableRow {
 }
 
 export interface RemoveTableRow {
-  type: "RemoveTableRow";
+  type: 'RemoveTableRow';
   nodeId: NodeId;
   position: number;
 }
 
 export interface AddTableColumn {
-  type: "AddTableColumn";
+  type: 'AddTableColumn';
   nodeId: NodeId;
   /** Column index to insert at. */
   position: number;
@@ -55,13 +55,13 @@ export interface AddTableColumn {
 }
 
 export interface RemoveTableColumn {
-  type: "RemoveTableColumn";
+  type: 'RemoveTableColumn';
   nodeId: NodeId;
   position: number;
 }
 
 export interface MergeTableCells {
-  type: "MergeTableCells";
+  type: 'MergeTableCells';
   nodeId: NodeId;
   startRow: number;
   startCol: number;
@@ -70,14 +70,14 @@ export interface MergeTableCells {
 }
 
 export interface UnmergeTableCells {
-  type: "UnmergeTableCells";
+  type: 'UnmergeTableCells';
   nodeId: NodeId;
   row: number;
   col: number;
 }
 
 export interface SetTableHeaderRows {
-  type: "SetTableHeaderRows";
+  type: 'SetTableHeaderRows';
   nodeId: NodeId;
   headerRows: number;
 }
@@ -116,7 +116,7 @@ function getTableProps(node: Node) {
     columnWidths: (props.columnWidths as number[]) ?? [],
     merges: (props.merges as CellMerge[]) ?? [],
     headerRows: (props.headerRows as number) ?? 0,
-    borderStyle: (props.borderStyle as string) ?? "all",
+    borderStyle: (props.borderStyle as string) ?? 'all',
   };
 }
 
@@ -160,19 +160,19 @@ export function applyTableCommand(
   command: TableCommand,
 ): CommandResult {
   switch (command.type) {
-    case "AddTableRow":
+    case 'AddTableRow':
       return applyAddTableRow(doc, command);
-    case "RemoveTableRow":
+    case 'RemoveTableRow':
       return applyRemoveTableRow(doc, command);
-    case "AddTableColumn":
+    case 'AddTableColumn':
       return applyAddTableColumn(doc, command);
-    case "RemoveTableColumn":
+    case 'RemoveTableColumn':
       return applyRemoveTableColumn(doc, command);
-    case "MergeTableCells":
+    case 'MergeTableCells':
       return applyMergeTableCells(doc, command);
-    case "UnmergeTableCells":
+    case 'UnmergeTableCells':
       return applyUnmergeTableCells(doc, command);
-    case "SetTableHeaderRows":
+    case 'SetTableHeaderRows':
       return applySetTableHeaderRows(doc, command);
   }
 }
@@ -184,7 +184,7 @@ export function applyTableCommand(
 function applyAddTableRow(doc: TemplateDocument, cmd: AddTableRow): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("AddTableRow only applies to table nodes");
+  if (node.type !== 'table') return err('AddTableRow only applies to table nodes');
 
   const tp = getTableProps(node);
   if (cmd.position < 0 || cmd.position > tp.rows) {
@@ -250,7 +250,7 @@ function applyAddTableRow(doc: TemplateDocument, cmd: AddTableRow): CommandResul
   };
 
   const inverse: RemoveTableRow = {
-    type: "RemoveTableRow",
+    type: 'RemoveTableRow',
     nodeId: cmd.nodeId,
     position: cmd.position,
   };
@@ -265,10 +265,10 @@ function applyAddTableRow(doc: TemplateDocument, cmd: AddTableRow): CommandResul
 function applyRemoveTableRow(doc: TemplateDocument, cmd: RemoveTableRow): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("RemoveTableRow only applies to table nodes");
+  if (node.type !== 'table') return err('RemoveTableRow only applies to table nodes');
 
   const tp = getTableProps(node);
-  if (tp.rows <= 1) return err("Cannot remove the last row");
+  if (tp.rows <= 1) return err('Cannot remove the last row');
   if (cmd.position < 0 || cmd.position >= tp.rows) {
     return err(`Invalid row position ${cmd.position}`);
   }
@@ -345,7 +345,7 @@ function applyRemoveTableRow(doc: TemplateDocument, cmd: RemoveTableRow): Comman
   };
 
   const inverse: AddTableRow = {
-    type: "AddTableRow",
+    type: 'AddTableRow',
     nodeId: cmd.nodeId,
     position: cmd.position,
     _restoreSlots: removedSlots,
@@ -363,7 +363,7 @@ function applyRemoveTableRow(doc: TemplateDocument, cmd: RemoveTableRow): Comman
 function applyAddTableColumn(doc: TemplateDocument, cmd: AddTableColumn): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("AddTableColumn only applies to table nodes");
+  if (node.type !== 'table') return err('AddTableColumn only applies to table nodes');
 
   const tp = getTableProps(node);
   if (cmd.position < 0 || cmd.position > tp.columns) {
@@ -433,7 +433,7 @@ function applyAddTableColumn(doc: TemplateDocument, cmd: AddTableColumn): Comman
   };
 
   const inverse: RemoveTableColumn = {
-    type: "RemoveTableColumn",
+    type: 'RemoveTableColumn',
     nodeId: cmd.nodeId,
     position: cmd.position,
   };
@@ -448,10 +448,10 @@ function applyAddTableColumn(doc: TemplateDocument, cmd: AddTableColumn): Comman
 function applyRemoveTableColumn(doc: TemplateDocument, cmd: RemoveTableColumn): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("RemoveTableColumn only applies to table nodes");
+  if (node.type !== 'table') return err('RemoveTableColumn only applies to table nodes');
 
   const tp = getTableProps(node);
-  if (tp.columns <= 1) return err("Cannot remove the last column");
+  if (tp.columns <= 1) return err('Cannot remove the last column');
   if (cmd.position < 0 || cmd.position >= tp.columns) {
     return err(`Invalid column position ${cmd.position}`);
   }
@@ -520,7 +520,7 @@ function applyRemoveTableColumn(doc: TemplateDocument, cmd: RemoveTableColumn): 
   };
 
   const inverse: AddTableColumn = {
-    type: "AddTableColumn",
+    type: 'AddTableColumn',
     nodeId: cmd.nodeId,
     position: cmd.position,
     width: removedWidth,
@@ -539,12 +539,12 @@ function applyRemoveTableColumn(doc: TemplateDocument, cmd: RemoveTableColumn): 
 function applyMergeTableCells(doc: TemplateDocument, cmd: MergeTableCells): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("MergeTableCells only applies to table nodes");
+  if (node.type !== 'table') return err('MergeTableCells only applies to table nodes');
 
   const tp = getTableProps(node);
   const rowSpan = cmd.endRow - cmd.startRow + 1;
   const colSpan = cmd.endCol - cmd.startCol + 1;
-  if (rowSpan <= 1 && colSpan <= 1) return err("Cannot merge a single cell");
+  if (rowSpan <= 1 && colSpan <= 1) return err('Cannot merge a single cell');
 
   const newMerge: CellMerge = {
     row: cmd.startRow,
@@ -604,7 +604,7 @@ function applyMergeTableCells(doc: TemplateDocument, cmd: MergeTableCells): Comm
   };
 
   const inverse: UnmergeTableCells = {
-    type: "UnmergeTableCells",
+    type: 'UnmergeTableCells',
     nodeId: cmd.nodeId,
     row: cmd.startRow,
     col: cmd.startCol,
@@ -620,7 +620,7 @@ function applyMergeTableCells(doc: TemplateDocument, cmd: MergeTableCells): Comm
 function applyUnmergeTableCells(doc: TemplateDocument, cmd: UnmergeTableCells): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("UnmergeTableCells only applies to table nodes");
+  if (node.type !== 'table') return err('UnmergeTableCells only applies to table nodes');
 
   const tp = getTableProps(node);
   const mergeIndex = tp.merges.findIndex((m) => m.row === cmd.row && m.col === cmd.col);
@@ -639,7 +639,7 @@ function applyUnmergeTableCells(doc: TemplateDocument, cmd: UnmergeTableCells): 
   };
 
   const inverse: MergeTableCells = {
-    type: "MergeTableCells",
+    type: 'MergeTableCells',
     nodeId: cmd.nodeId,
     startRow: removedMerge.row,
     startCol: removedMerge.col,
@@ -657,11 +657,11 @@ function applyUnmergeTableCells(doc: TemplateDocument, cmd: UnmergeTableCells): 
 function applySetTableHeaderRows(doc: TemplateDocument, cmd: SetTableHeaderRows): CommandResult {
   const node = doc.nodes[cmd.nodeId];
   if (!node) return err(`Node ${cmd.nodeId} not found`);
-  if (node.type !== "table") return err("SetTableHeaderRows only applies to table nodes");
+  if (node.type !== 'table') return err('SetTableHeaderRows only applies to table nodes');
 
   const tp = getTableProps(node);
   const inverse: SetTableHeaderRows = {
-    type: "SetTableHeaderRows",
+    type: 'SetTableHeaderRows',
     nodeId: cmd.nodeId,
     headerRows: tp.headerRows,
   };

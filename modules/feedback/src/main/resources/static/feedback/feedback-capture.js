@@ -10,7 +10,7 @@
 
   window.__epistola_console_buffer = buffer;
 
-  const methods = ["log", "warn", "error", "info"];
+  const methods = ['log', 'warn', 'error', 'info'];
   const originals = {};
 
   methods.forEach((method) => {
@@ -22,12 +22,12 @@
         message: args
           .map((arg) => {
             try {
-              return typeof arg === "object" ? JSON.stringify(arg) : String(arg);
+              return typeof arg === 'object' ? JSON.stringify(arg) : String(arg);
             } catch {
               return String(arg);
             }
           })
-          .join(" "),
+          .join(' '),
       });
 
       // Keep only the last MAX_ENTRIES

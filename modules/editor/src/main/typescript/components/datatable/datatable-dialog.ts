@@ -18,8 +18,8 @@ const DEFAULT_COLUMNS = 3;
  */
 export function openDatatableDialog(): Promise<DatatableDialogResult> {
   return new Promise((resolve) => {
-    const dialog = document.createElement("dialog");
-    dialog.className = "datatable-dialog";
+    const dialog = document.createElement('dialog');
+    dialog.className = 'datatable-dialog';
 
     dialog.innerHTML = `
       <div class="datatable-dialog-content">
@@ -37,9 +37,9 @@ export function openDatatableDialog(): Promise<DatatableDialogResult> {
       </div>
     `;
 
-    const colsInput = dialog.querySelector<HTMLInputElement>(".datatable-dialog-cols")!;
-    const cancelBtn = dialog.querySelector(".cancel")!;
-    const insertBtn = dialog.querySelector(".insert")!;
+    const colsInput = dialog.querySelector<HTMLInputElement>('.datatable-dialog-cols')!;
+    const cancelBtn = dialog.querySelector('.cancel')!;
+    const insertBtn = dialog.querySelector('.insert')!;
 
     const close = (result: DatatableDialogResult) => {
       dialog.close();
@@ -47,26 +47,26 @@ export function openDatatableDialog(): Promise<DatatableDialogResult> {
       resolve(result);
     };
 
-    cancelBtn.addEventListener("click", () => close({ columns: 0, cancelled: true }));
+    cancelBtn.addEventListener('click', () => close({ columns: 0, cancelled: true }));
 
-    insertBtn.addEventListener("click", () => {
+    insertBtn.addEventListener('click', () => {
       const columns = Math.max(1, Math.min(20, Number(colsInput.value) || DEFAULT_COLUMNS));
       close({ columns, cancelled: false });
     });
 
-    dialog.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
         e.preventDefault();
         close({ columns: 0, cancelled: true });
       }
-      if (e.key === "Enter") {
+      if (e.key === 'Enter') {
         e.preventDefault();
         const columns = Math.max(1, Math.min(20, Number(colsInput.value) || DEFAULT_COLUMNS));
         close({ columns, cancelled: false });
       }
     });
 
-    dialog.addEventListener("click", (e) => {
+    dialog.addEventListener('click', (e) => {
       if (e.target === dialog) close({ columns: 0, cancelled: true });
     });
 

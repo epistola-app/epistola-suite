@@ -9,7 +9,7 @@
  */
 export function getCsrfToken() {
   const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
+  return match ? decodeURIComponent(match[1]) : '';
 }
 
 /**
@@ -20,15 +20,15 @@ export function getCsrfToken() {
  * @param {Object} [options.body] - Request body (will be JSON stringified)
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
-export async function apiRequest(url, { method = "GET", body } = {}) {
+export async function apiRequest(url, { method = 'GET', body } = {}) {
   try {
     const headers = {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     };
 
     const csrfToken = getCsrfToken();
     if (csrfToken) {
-      headers["X-XSRF-TOKEN"] = csrfToken;
+      headers['X-XSRF-TOKEN'] = csrfToken;
     }
 
     const fetchOptions = {
@@ -73,7 +73,7 @@ export async function apiRequest(url, { method = "GET", body } = {}) {
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
 export function patch(url, body) {
-  return apiRequest(url, { method: "PATCH", body });
+  return apiRequest(url, { method: 'PATCH', body });
 }
 
 /**
@@ -83,7 +83,7 @@ export function patch(url, body) {
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
 export function post(url, body) {
-  return apiRequest(url, { method: "POST", body });
+  return apiRequest(url, { method: 'POST', body });
 }
 
 /**
@@ -92,7 +92,7 @@ export function post(url, body) {
  * @returns {Promise<{ok: boolean, data?: any, error?: string}>}
  */
 export function del(url) {
-  return apiRequest(url, { method: "DELETE" });
+  return apiRequest(url, { method: 'DELETE' });
 }
 
 /**

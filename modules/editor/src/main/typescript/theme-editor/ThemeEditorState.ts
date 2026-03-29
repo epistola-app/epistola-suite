@@ -5,8 +5,8 @@
  * No Lit dependency — testable with plain unit tests.
  */
 
-import type { BlockStylePreset, PageSettings } from "@epistola.app/editor-model/generated/theme";
-import { expandSpacingToStyles, type SpacingValue } from "../ui/inputs/style-inputs.js";
+import type { BlockStylePreset, PageSettings } from '@epistola.app/editor-model/generated/theme';
+import { expandSpacingToStyles, type SpacingValue } from '../ui/inputs/style-inputs.js';
 
 export interface ThemeData {
   id: string;
@@ -56,9 +56,9 @@ export class ThemeEditorState extends EventTarget {
 
   updateDocumentStyle(key: string, value: unknown): void {
     // Spacing properties: expand compound value to individual keys
-    if ((key === "margin" || key === "padding") && value != null && typeof value === "object") {
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, this._current.documentStyles);
-    } else if (value === undefined || value === "" || value === null) {
+    } else if (value === undefined || value === '' || value === null) {
       delete this._current.documentStyles[key];
     } else {
       this._current.documentStyles[key] = value;
@@ -73,8 +73,8 @@ export class ThemeEditorState extends EventTarget {
   updatePageSetting(key: string, value: unknown): void {
     if (!this._current.pageSettings) {
       this._current.pageSettings = {
-        format: "A4",
-        orientation: "portrait",
+        format: 'A4',
+        orientation: 'portrait',
         margins: { top: 20, right: 20, bottom: 20, left: 20 },
       };
     }
@@ -82,11 +82,11 @@ export class ThemeEditorState extends EventTarget {
     this._fireChange();
   }
 
-  updateMargin(side: "top" | "right" | "bottom" | "left", value: number): void {
+  updateMargin(side: 'top' | 'right' | 'bottom' | 'left', value: number): void {
     if (!this._current.pageSettings) {
       this._current.pageSettings = {
-        format: "A4",
-        orientation: "portrait",
+        format: 'A4',
+        orientation: 'portrait',
         margins: { top: 20, right: 20, bottom: 20, left: 20 },
       };
     }
@@ -147,9 +147,9 @@ export class ThemeEditorState extends EventTarget {
     const styles = preset.styles as Record<string, unknown>;
 
     // Spacing properties: expand compound value to individual keys
-    if ((key === "margin" || key === "padding") && value != null && typeof value === "object") {
+    if ((key === 'margin' || key === 'padding') && value != null && typeof value === 'object') {
       expandSpacingToStyles(key, value as SpacingValue, styles);
-    } else if (value === undefined || value === "" || value === null) {
+    } else if (value === undefined || value === '' || value === null) {
       delete styles[key];
     } else {
       styles[key] = value;
@@ -179,7 +179,7 @@ export class ThemeEditorState extends EventTarget {
     }
 
     if (this._current.description !== this._original.description) {
-      if (this._current.description === undefined || this._current.description === "") {
+      if (this._current.description === undefined || this._current.description === '') {
         patch.clearDescription = true;
       } else {
         patch.description = this._current.description;
@@ -236,6 +236,6 @@ export class ThemeEditorState extends EventTarget {
   // -----------------------------------------------------------------------
 
   private _fireChange(): void {
-    this.dispatchEvent(new Event("change"));
+    this.dispatchEvent(new Event('change'));
   }
 }

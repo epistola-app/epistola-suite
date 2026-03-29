@@ -6,8 +6,8 @@
  * items, and provides Apply / Save Anyway / Cancel actions.
  */
 
-import { html, nothing } from "lit";
-import type { MigrationSuggestion, MigrationIssueType } from "../utils/schemaMigration.js";
+import { html, nothing } from 'lit';
+import type { MigrationSuggestion, MigrationIssueType } from '../utils/schemaMigration.js';
 
 export interface MigrationDialogCallbacks {
   onApply: (selectedMigrations: MigrationSuggestion[]) => void;
@@ -20,9 +20,9 @@ export interface MigrationDialogCallbacks {
 
 /** Issue type labels for display */
 const ISSUE_LABELS: Record<MigrationIssueType, string> = {
-  TYPE_MISMATCH: "Type mismatch",
-  MISSING_REQUIRED: "Missing required",
-  UNKNOWN_FIELD: "Unknown field",
+  TYPE_MISMATCH: 'Type mismatch',
+  MISSING_REQUIRED: 'Missing required',
+  UNKNOWN_FIELD: 'Unknown field',
 };
 
 /**
@@ -48,8 +48,8 @@ export function renderMigrationDialog(
       <div class="dc-migration-header">
         <h3 class="dc-migration-title">Schema Changes Detected</h3>
         <p class="dc-migration-subtitle">
-          ${migrations.length} issue${migrations.length !== 1 ? "s" : ""} found across
-          ${grouped.length} example${grouped.length !== 1 ? "s" : ""}.
+          ${migrations.length} issue${migrations.length !== 1 ? 's' : ''} found across
+          ${grouped.length} example${grouped.length !== 1 ? 's' : ''}.
           ${autoMigratableCount > 0
             ? html`${autoMigratableCount} can be auto-fixed.`
             : html`None can be auto-fixed.`}
@@ -110,7 +110,7 @@ export function renderMigrationDialog(
                   callbacks.onApply(selected);
                 }}
               >
-                Apply ${selectedCount} Fix${selectedCount !== 1 ? "es" : ""}
+                Apply ${selectedCount} Fix${selectedCount !== 1 ? 'es' : ''}
               </button>
             `
           : nothing}
@@ -131,7 +131,7 @@ function renderMigrationItem(
   const isSelected = selectedMigrations.has(key);
 
   return html`
-    <div class="dc-migration-item ${migration.autoMigratable ? "" : "dc-migration-item-manual"}">
+    <div class="dc-migration-item ${migration.autoMigratable ? '' : 'dc-migration-item-manual'}">
       <div class="dc-migration-item-check">
         ${migration.autoMigratable
           ? html`
@@ -152,7 +152,7 @@ function renderMigrationItem(
             ${ISSUE_LABELS[migration.issue]}
           </span>
         </div>
-        ${migration.issue === "TYPE_MISMATCH"
+        ${migration.issue === 'TYPE_MISMATCH'
           ? html`
               <div class="dc-migration-item-conversion">
                 <span class="dc-migration-current">${formatValue(migration.currentValue)}</span>
@@ -169,7 +169,7 @@ function renderMigrationItem(
               </div>
             `
           : nothing}
-        ${migration.issue === "MISSING_REQUIRED"
+        ${migration.issue === 'MISSING_REQUIRED'
           ? html`
               <div class="dc-migration-item-info">
                 Expected type: <code>${migration.expectedType}</code>
@@ -210,8 +210,8 @@ export function migrationKey(m: MigrationSuggestion): string {
 
 /** Format a JSON value for display. */
 function formatValue(value: unknown): string {
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (typeof value === "string") return `"${value}"`;
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') return `"${value}"`;
   return String(value);
 }

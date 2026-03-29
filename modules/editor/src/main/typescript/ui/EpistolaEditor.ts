@@ -1,56 +1,56 @@
-import { LitElement, html, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import { keyed } from "lit/directives/keyed.js";
-import type { TemplateDocument, NodeId, SlotId, Node, Slot } from "../types/index.js";
-import { EditorEngine } from "../engine/EditorEngine.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
+import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
+import { EditorEngine } from '../engine/EditorEngine.js';
 import {
   createDefaultRegistry,
   PAGE_HEADER_TYPE,
   PAGE_FOOTER_TYPE,
   isAnchoredPageBlock,
-} from "../engine/registry.js";
-import type { ComponentRegistry, ComponentDefinition } from "../engine/registry.js";
-import type { FetchPreviewFn } from "./preview-service.js";
-import { SaveService, type SaveState, type SaveFn } from "./save-service.js";
-import { EpistolaResizeHandle } from "./EpistolaResizeHandle.js";
+} from '../engine/registry.js';
+import type { ComponentRegistry, ComponentDefinition } from '../engine/registry.js';
+import type { FetchPreviewFn } from './preview-service.js';
+import { SaveService, type SaveState, type SaveFn } from './save-service.js';
+import { EpistolaResizeHandle } from './EpistolaResizeHandle.js';
 import type {
   EditorPlugin,
   PluginContext,
   PluginDisposeFn,
   SidebarTabContribution,
   ToolbarAction,
-} from "../plugins/types.js";
-import type { EpistolaSidebar } from "./EpistolaSidebar.js";
-import type { EpistolaToolbar } from "./EpistolaToolbar.js";
-import { nanoid } from "nanoid";
-import { EDITOR_SHORTCUTS_CONFIG } from "../shortcuts-config.js";
+} from '../plugins/types.js';
+import type { EpistolaSidebar } from './EpistolaSidebar.js';
+import type { EpistolaToolbar } from './EpistolaToolbar.js';
+import { nanoid } from 'nanoid';
+import { EDITOR_SHORTCUTS_CONFIG } from '../shortcuts-config.js';
 import {
   getAllLeaderIdleTokens,
   getEditorShortcutRegistry,
   getLeaderIdleTokensForCommandIds,
   type EditorShortcutRuntimeContext,
-} from "../shortcuts/editor-runtime.js";
+} from '../shortcuts/editor-runtime.js';
 import {
   getInsertDialogShortcutRegistry,
   INSERT_DIALOG_KEYS,
   type InsertDialogShortcutRuntimeContext,
-} from "../shortcuts/insert-dialog-runtime.js";
-import { mergeRegistries } from "../shortcuts/foundation.js";
+} from '../shortcuts/insert-dialog-runtime.js';
+import { mergeRegistries } from '../shortcuts/foundation.js';
 import {
   ShortcutResolver,
   applyResolutionEventPolicy,
   startShortcutCommandExecution,
-} from "../shortcuts/resolver.js";
-import { LeaderModeController, type LeaderModeState } from "../shortcuts/leader-controller.js";
-import { validateCoreShortcutRegistriesOnStartup } from "../shortcuts/startup-validation.js";
+} from '../shortcuts/resolver.js';
+import { LeaderModeController, type LeaderModeState } from '../shortcuts/leader-controller.js';
+import { validateCoreShortcutRegistriesOnStartup } from '../shortcuts/startup-validation.js';
 
-import "./EpistolaSidebar.js";
-import "./EpistolaCanvas.js";
-import "./EpistolaToolbar.js";
-import "./EpistolaPreview.js";
-import "./EpistolaResizeHandle.js";
+import './EpistolaSidebar.js';
+import './EpistolaCanvas.js';
+import './EpistolaToolbar.js';
+import './EpistolaPreview.js';
+import './EpistolaResizeHandle.js';
 
-type InsertMode = "after" | "before" | "inside" | "start" | "end";
+type InsertMode = 'after' | 'before' | 'inside' | 'start' | 'end';
 
 interface InsertSlotOption {
   slotId: SlotId;
@@ -75,7 +75,7 @@ const EDITABLE_TARGET_SELECTOR = 'input, textarea, select, [contenteditable="tru
  * intentional — the editor is not a reusable web component library,
  * it's an application component embedded in a specific Thymeleaf page.
  */
-@customElement("epistola-editor")
+@customElement('epistola-editor')
 export class EpistolaEditor extends LitElement {
   /** Disable Shadow DOM — use light DOM for global CSS compatibility. */
   override createRenderRoot() {
@@ -95,7 +95,7 @@ export class EpistolaEditor extends LitElement {
       fallbackContexts: [],
       chord: {
         timeoutMs: EDITOR_SHORTCUTS_CONFIG.leader.timeout.idleHideMs,
-        cancelKeys: ["escape"],
+        cancelKeys: ['escape'],
       },
     },
   );
@@ -119,21 +119,21 @@ export class EpistolaEditor extends LitElement {
   @state() private _doc?: TemplateDocument;
   @state() private _selectedNodeId: NodeId | null = null;
   @state() private _previewOpen = false;
-  @state() private _saveState: SaveState = { status: "idle" };
+  @state() private _saveState: SaveState = { status: 'idle' };
   @state() private _leaderVisible = false;
-  @state() private _leaderStatus: "idle" | "success" | "error" = "idle";
-  @state() private _leaderMessage = "";
+  @state() private _leaderStatus: 'idle' | 'success' | 'error' = 'idle';
+  @state() private _leaderMessage = '';
   @state() private _insertDialogOpen = false;
   @state() private _insertDialogMode: InsertMode | null = null;
   @state() private _insertDialogSlotOptions: InsertSlotOption[] = [];
   @state() private _insertDialogBlockOptions: ComponentDefinition[] = [];
-  @state() private _insertDialogQuery = "";
+  @state() private _insertDialogQuery = '';
   @state() private _insertDialogHighlight = 0;
-  @state() private _insertDialogError = "";
+  @state() private _insertDialogError = '';
 
   private _insertTarget: InsertTarget | null = null;
 
-  private static readonly PREVIEW_OPEN_KEY = "ep:preview-open";
+  private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open';
 
   get engine(): EditorEngine | undefined {
     return this._engine;
@@ -160,7 +160,7 @@ export class EpistolaEditor extends LitElement {
     });
     this._doc = this._engine.doc;
 
-    this._unsubEngine = this._engine.events.on("doc:change", ({ doc }) => {
+    this._unsubEngine = this._engine.events.on('doc:change', ({ doc }) => {
       this._doc = doc;
       // Notify save service of changes
       if (this._saveService) {
@@ -169,10 +169,10 @@ export class EpistolaEditor extends LitElement {
       }
     });
 
-    this._unsubSelection = this._engine.events.on("selection:change", ({ nodeId }) => {
+    this._unsubSelection = this._engine.events.on('selection:change', ({ nodeId }) => {
       this._selectedNodeId = nodeId;
       // Clear component state when selecting a different node
-      this._engine?.setComponentState("table:cellSelection", null);
+      this._engine?.setComponentState('table:cellSelection', null);
     });
 
     // Create save service if onSave callback is provided
@@ -228,24 +228,24 @@ export class EpistolaEditor extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     validateCoreShortcutRegistriesOnStartup();
-    window.addEventListener("keydown", this._onKeydown);
-    this.addEventListener("toggle-preview", this._handleTogglePreview);
-    this.addEventListener("force-save", this._handleForceSave);
-    window.addEventListener("beforeunload", this._onBeforeUnload);
+    window.addEventListener('keydown', this._onKeydown);
+    this.addEventListener('toggle-preview', this._handleTogglePreview);
+    this.addEventListener('force-save', this._handleForceSave);
+    window.addEventListener('beforeunload', this._onBeforeUnload);
 
     // Restore preview open state from localStorage
     try {
-      this._previewOpen = localStorage.getItem(EpistolaEditor.PREVIEW_OPEN_KEY) === "true";
+      this._previewOpen = localStorage.getItem(EpistolaEditor.PREVIEW_OPEN_KEY) === 'true';
     } catch {
       // localStorage may be unavailable
     }
   }
 
   override disconnectedCallback(): void {
-    window.removeEventListener("keydown", this._onKeydown);
-    this.removeEventListener("toggle-preview", this._handleTogglePreview);
-    this.removeEventListener("force-save", this._handleForceSave);
-    window.removeEventListener("beforeunload", this._onBeforeUnload);
+    window.removeEventListener('keydown', this._onKeydown);
+    this.removeEventListener('toggle-preview', this._handleTogglePreview);
+    this.removeEventListener('force-save', this._handleForceSave);
+    window.removeEventListener('beforeunload', this._onBeforeUnload);
     super.disconnectedCallback();
     this._disposePlugins();
     this._unsubEngine?.();
@@ -275,7 +275,7 @@ export class EpistolaEditor extends LitElement {
     if (!selectedNodeId || selectedNodeId === this._doc.root) return false;
 
     const nextSelection = this._engine.getNextSelectionAfterRemove(selectedNodeId);
-    const result = this._engine.dispatch({ type: "RemoveNode", nodeId: selectedNodeId });
+    const result = this._engine.dispatch({ type: 'RemoveNode', nodeId: selectedNodeId });
     if (!result.ok) return false;
 
     this._engine.selectNode(nextSelection);
@@ -331,10 +331,10 @@ export class EpistolaEditor extends LitElement {
 
     const inInsertDialog = this._insertDialogOpen;
     const activeContexts = inInsertDialog
-      ? (["insertDialog"] as const)
+      ? (['insertDialog'] as const)
       : this._isShortcutEditingTarget(e.target as HTMLElement | null)
-        ? (["global"] as const)
-        : (["global", "editor"] as const);
+        ? (['global'] as const)
+        : (['global', 'editor'] as const);
     const runtimeContext: unknown = inInsertDialog
       ? this._buildInsertDialogShortcutRuntimeContext()
       : this._buildShortcutRuntimeContext();
@@ -345,32 +345,32 @@ export class EpistolaEditor extends LitElement {
       runtimeContext,
     });
 
-    if (resolution.kind === "none") {
+    if (resolution.kind === 'none') {
       return;
     }
 
     // Leader mode chord handling (editor mode only — insert dialog has no chords)
     if (
       !inInsertDialog &&
-      resolution.kind === "chord-cancelled" &&
-      (resolution.reason === "cancel-key" || resolution.reason === "mismatch")
+      resolution.kind === 'chord-cancelled' &&
+      (resolution.reason === 'cancel-key' || resolution.reason === 'mismatch')
     ) {
       e.preventDefault();
     } else {
       applyResolutionEventPolicy(e, resolution);
     }
 
-    if (!inInsertDialog && resolution.kind === "chord-awaiting") {
+    if (!inInsertDialog && resolution.kind === 'chord-awaiting') {
       this._leaderController.showAwaiting(resolution.state.commandIds);
       return;
     }
 
-    if (!inInsertDialog && resolution.kind === "chord-cancelled") {
+    if (!inInsertDialog && resolution.kind === 'chord-cancelled') {
       this._leaderController.handleChordCancelled(resolution.reason);
       return;
     }
 
-    if (resolution.kind !== "command") {
+    if (resolution.kind !== 'command') {
       return;
     }
 
@@ -378,7 +378,7 @@ export class EpistolaEditor extends LitElement {
 
     if (!inInsertDialog && resolution.fromChord) {
       this._leaderController.handleCommandExecution(execution.initial, execution.completion);
-    } else if (inInsertDialog && execution.initial.status === "pending") {
+    } else if (inInsertDialog && execution.initial.status === 'pending') {
       void execution.completion;
     }
   }
@@ -398,35 +398,35 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _focusPalette(): boolean {
-    const sidebar = this.querySelector<EpistolaSidebar>("epistola-sidebar");
+    const sidebar = this.querySelector<EpistolaSidebar>('epistola-sidebar');
     if (!sidebar) return false;
     sidebar.focusPalette();
     return true;
   }
 
   private _openShortcutsHelp(): boolean {
-    const toolbar = this.querySelector<EpistolaToolbar>("epistola-toolbar");
+    const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
     if (!toolbar) return false;
     toolbar.openShortcuts();
     return true;
   }
 
   private _openDataPreview(): boolean {
-    const toolbar = this.querySelector<EpistolaToolbar>("epistola-toolbar");
+    const toolbar = this.querySelector<EpistolaToolbar>('epistola-toolbar');
     if (!toolbar) return false;
     toolbar.openDataPreview();
     return true;
   }
 
   private _focusTree(): boolean {
-    const sidebar = this.querySelector<EpistolaSidebar>("epistola-sidebar");
+    const sidebar = this.querySelector<EpistolaSidebar>('epistola-sidebar');
     if (!sidebar) return false;
     sidebar.focusTree();
     return true;
   }
 
   private _focusInspector(): boolean {
-    const sidebar = this.querySelector<EpistolaSidebar>("epistola-sidebar");
+    const sidebar = this.querySelector<EpistolaSidebar>('epistola-sidebar');
     if (!sidebar) return false;
     sidebar.focusInspector();
     return true;
@@ -435,7 +435,7 @@ export class EpistolaEditor extends LitElement {
   // _focusResizeHandle() for cases where the handle is already mounted (Leader + R)
   // _focusResizeHandleAfterRender() for preview-open flows where the handle is added next render
   private _focusResizeHandle(): boolean {
-    const resizeHandle = this.querySelector<HTMLElement>("epistola-resize-handle");
+    const resizeHandle = this.querySelector<HTMLElement>('epistola-resize-handle');
     if (!resizeHandle) return false;
     resizeHandle.focus({ preventScroll: true });
     return true;
@@ -465,7 +465,7 @@ export class EpistolaEditor extends LitElement {
     if (nextIndex < 0 || nextIndex >= parentSlot.children.length) return false;
 
     const result = this._engine.dispatch({
-      type: "MoveNode",
+      type: 'MoveNode',
       nodeId,
       targetSlotId: parentSlotId,
       index: nextIndex,
@@ -498,9 +498,9 @@ export class EpistolaEditor extends LitElement {
     this._insertDialogMode = null;
     this._insertDialogSlotOptions = [];
     this._insertDialogBlockOptions = [];
-    this._insertDialogQuery = "";
+    this._insertDialogQuery = '';
     this._insertDialogHighlight = 0;
-    this._insertDialogError = "";
+    this._insertDialogError = '';
     this._insertTarget = null;
   }
 
@@ -528,7 +528,7 @@ export class EpistolaEditor extends LitElement {
         this._selectInsertDialogOption(index);
       },
       setOptionOutOfRange: () => {
-        this._insertDialogError = "Option out of range";
+        this._insertDialogError = 'Option out of range';
       },
     };
   }
@@ -539,25 +539,25 @@ export class EpistolaEditor extends LitElement {
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
       const selectedSlot = this._insertDialogSlotOptions[selectedIndex - 1];
       if (!selectedSlot) {
-        this._insertDialogError = "Invalid slot number";
+        this._insertDialogError = 'Invalid slot number';
         return;
       }
 
       const insideTarget = this._buildInsideTargetFromSlot(selectedSlot.slotId);
       if (!insideTarget) {
-        this._insertDialogError = "Cannot insert into selected slot";
+        this._insertDialogError = 'Cannot insert into selected slot';
         return;
       }
 
       this._insertDialogSlotOptions = [];
-      this._insertDialogQuery = "";
+      this._insertDialogQuery = '';
       this._setInsertDialogTarget(insideTarget);
       return;
     }
 
     const definition = this._getInsertDialogVisibleBlockOptions()[selectedIndex - 1];
     if (!definition || !this._insertTarget) {
-      this._insertDialogError = "Invalid block number";
+      this._insertDialogError = 'Invalid block number';
       return;
     }
 
@@ -569,14 +569,14 @@ export class EpistolaEditor extends LitElement {
     if (ok) {
       this._closeInsertDialog();
     } else {
-      this._insertDialogError = "Failed to insert block";
+      this._insertDialogError = 'Failed to insert block';
     }
   }
 
   private _focusInsertDialogSearchAfterRender(): void {
     void this.updateComplete.then(() => {
       requestAnimationFrame(() => {
-        const searchInput = this.querySelector<HTMLInputElement>(".insert-dialog-search");
+        const searchInput = this.querySelector<HTMLInputElement>('.insert-dialog-search');
         if (!searchInput) return;
         if (document.activeElement !== searchInput) {
           searchInput.focus({ preventScroll: true });
@@ -590,7 +590,7 @@ export class EpistolaEditor extends LitElement {
     this._insertDialogBlockOptions = this._buildInsertableOptions(target.parentType);
     this._insertDialogHighlight = this._insertDialogBlockOptions.length > 0 ? 1 : 0;
     this._insertDialogError =
-      this._insertDialogBlockOptions.length > 0 ? "" : "No blocks can be inserted at this location";
+      this._insertDialogBlockOptions.length > 0 ? '' : 'No blocks can be inserted at this location';
     this._focusInsertDialogSearchAfterRender();
   }
 
@@ -599,31 +599,31 @@ export class EpistolaEditor extends LitElement {
     this._insertTarget = null;
     this._insertDialogSlotOptions = [];
     this._insertDialogBlockOptions = [];
-    this._insertDialogQuery = "";
+    this._insertDialogQuery = '';
     this._insertDialogHighlight = 0;
-    this._insertDialogError = "";
+    this._insertDialogError = '';
 
-    if (mode === "start") {
+    if (mode === 'start') {
       const target = this._getInsertTargetDocumentStart();
       if (!target) {
-        this._insertDialogError = "No valid document start target";
+        this._insertDialogError = 'No valid document start target';
         return;
       }
       this._setInsertDialogTarget(target);
       return;
     }
 
-    if (mode === "end") {
+    if (mode === 'end') {
       const target = this._getInsertTargetDocumentEnd();
       if (!target) {
-        this._insertDialogError = "No valid document end target";
+        this._insertDialogError = 'No valid document end target';
         return;
       }
       this._setInsertDialogTarget(target);
       return;
     }
 
-    if (mode === "after") {
+    if (mode === 'after') {
       const target = this._getInsertTargetAfterSelected();
       if (!target) {
         this._insertDialogError = 'No valid "after" target';
@@ -633,7 +633,7 @@ export class EpistolaEditor extends LitElement {
       return;
     }
 
-    if (mode === "before") {
+    if (mode === 'before') {
       const target = this._getInsertTargetBeforeSelected();
       if (!target) {
         this._insertDialogError = 'No valid "before" target';
@@ -646,13 +646,13 @@ export class EpistolaEditor extends LitElement {
     this._insertDialogSlotOptions = this._getInsertSlotOptionsForInside();
     this._insertDialogHighlight = this._insertDialogSlotOptions.length > 0 ? 1 : 0;
     if (this._insertDialogSlotOptions.length === 0) {
-      this._insertDialogError = "No valid inside slot for selected block";
+      this._insertDialogError = 'No valid inside slot for selected block';
       return;
     }
     if (this._insertDialogSlotOptions.length === 1) {
       const target = this._buildInsideTargetFromSlot(this._insertDialogSlotOptions[0].slotId);
       if (!target) {
-        this._insertDialogError = "No valid inside slot for selected block";
+        this._insertDialogError = 'No valid inside slot for selected block';
         return;
       }
       this._insertDialogSlotOptions = [];
@@ -700,7 +700,7 @@ export class EpistolaEditor extends LitElement {
 
     const { node, slots, extraNodes } = this._engine.registry.createNode(type);
     const result = this._engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node,
       slots,
       targetSlotId: slotId,
@@ -722,8 +722,8 @@ export class EpistolaEditor extends LitElement {
       this._engine.registry
         .insertable(this._doc)
         // Root is the single document container and must never be insertable as a block.
-        .filter((def) => def.type !== "root")
-        .filter((def) => parentType === "root" || !isAnchoredPageBlock(def.type))
+        .filter((def) => def.type !== 'root')
+        .filter((def) => parentType === 'root' || !isAnchoredPageBlock(def.type))
         .filter((def) => this._engine!.registry.canContain(parentType, def.type))
     );
   }
@@ -852,27 +852,27 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _insertDialogKeyLabel(key: string): string {
-    if (key === "escape") return "Esc";
-    if (key === "arrowup") return "\u2191";
-    if (key === "arrowdown") return "\u2193";
-    if (key === "enter") return "Enter";
+    if (key === 'escape') return 'Esc';
+    if (key === 'arrowup') return '\u2191';
+    if (key === 'arrowdown') return '\u2193';
+    if (key === 'enter') return 'Enter';
     if (key.length === 1) return key.toUpperCase();
     return key;
   }
 
   private _insertDialogQuickSelectLabel(): string {
     const quickSelectKeys = INSERT_DIALOG_SHORTCUTS.navigation.quickSelect as readonly string[];
-    if (quickSelectKeys.length === 0) return "";
+    if (quickSelectKeys.length === 0) return '';
 
     const singleDigitSequence = quickSelectKeys.every((value) => /^[0-9]$/.test(value));
     if (!singleDigitSequence) {
-      return quickSelectKeys.join("/");
+      return quickSelectKeys.join('/');
     }
 
     const first = Number(quickSelectKeys[0]);
     const contiguous = quickSelectKeys.every((value, index) => Number(value) === first + index);
     if (!contiguous) {
-      return quickSelectKeys.join("/");
+      return quickSelectKeys.join('/');
     }
 
     const last = quickSelectKeys[quickSelectKeys.length - 1];
@@ -904,7 +904,7 @@ export class EpistolaEditor extends LitElement {
         : `No valid target. Press ${placement.selected.after.toUpperCase()}/${placement.selected.before.toUpperCase()}/${placement.selected.inside.toUpperCase()} or ${closeLabel}`;
     }
 
-    const quickSelectPrompt = quickSelectLabel ? quickSelectLabel : "Quick-select";
+    const quickSelectPrompt = quickSelectLabel ? quickSelectLabel : 'Quick-select';
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
       return `${quickSelectPrompt}=Choose slot  ${previousLabel}/${nextLabel}=Navigate  ${confirmLabel}=Confirm  ${closeLabel}=Close`;
     }
@@ -914,17 +914,17 @@ export class EpistolaEditor extends LitElement {
   private _getInsertDialogContext(): string {
     if (!this._insertDialogMode) {
       return this._isDocumentInsertContext()
-        ? "Target: document"
+        ? 'Target: document'
         : `Target: choose placement around ${this._selectedNodeLabel()}`;
     }
 
-    if (this._insertDialogMode === "start") return "Target: document start";
-    if (this._insertDialogMode === "end") return "Target: document end";
+    if (this._insertDialogMode === 'start') return 'Target: document start';
+    if (this._insertDialogMode === 'end') return 'Target: document end';
 
-    if (this._insertDialogMode === "after") {
+    if (this._insertDialogMode === 'after') {
       return `Target: after ${this._selectedNodeLabel()}`;
     }
-    if (this._insertDialogMode === "before") {
+    if (this._insertDialogMode === 'before') {
       return `Target: before ${this._selectedNodeLabel()}`;
     }
     if (!this._insertTarget && this._insertDialogSlotOptions.length > 0) {
@@ -932,16 +932,16 @@ export class EpistolaEditor extends LitElement {
     }
     if (this._insertTarget) {
       const slot = this._doc?.slots[this._insertTarget.slotId];
-      const slotName = slot?.name?.trim() ? slot.name : "selected slot";
+      const slotName = slot?.name?.trim() ? slot.name : 'selected slot';
       return `Target: inside ${slotName}`;
     }
-    return "Target: inside selected block";
+    return 'Target: inside selected block';
   }
 
   private _selectedNodeLabel(): string {
-    if (!this._doc || !this._engine || !this._selectedNodeId) return "document";
+    if (!this._doc || !this._engine || !this._selectedNodeId) return 'document';
     const node = this._doc.nodes[this._selectedNodeId];
-    if (!node) return "document";
+    if (!node) return 'document';
     return this._engine.registry.get(node.type)?.label ?? node.type;
   }
 
@@ -959,7 +959,7 @@ export class EpistolaEditor extends LitElement {
   }
 
   private _getInsertDialogRangeText(visibleCount: number, totalCount: number): string {
-    if (totalCount === 0 || visibleCount === 0) return "";
+    if (totalCount === 0 || visibleCount === 0) return '';
     return `Showing 1-${visibleCount} of ${totalCount}`;
   }
 
@@ -969,7 +969,7 @@ export class EpistolaEditor extends LitElement {
       return this._insertDialogSlotOptions.slice(0, quickSelectCount).map((slot, i) => ({
         index: i + 1,
         label: slot.label,
-        detail: "slot",
+        detail: 'slot',
       }));
     }
 
@@ -1001,7 +1001,7 @@ export class EpistolaEditor extends LitElement {
     if (!clone) return false;
 
     const result = this._engine.dispatch({
-      type: "InsertNode",
+      type: 'InsertNode',
       node: clone.node,
       slots: clone.slots,
       targetSlotId: parentSlotId,
@@ -1117,23 +1117,23 @@ export class EpistolaEditor extends LitElement {
     const showPreview = hasPreview && this._previewOpen;
     const previewWidth = showPreview ? EpistolaResizeHandle.getPersistedWidth() : undefined;
     const leaderClasses = [
-      "leader-hint",
-      this._leaderVisible ? "is-visible" : "",
-      this._leaderStatus !== "idle" ? `is-${this._leaderStatus}` : "",
+      'leader-hint',
+      this._leaderVisible ? 'is-visible' : '',
+      this._leaderStatus !== 'idle' ? `is-${this._leaderStatus}` : '',
     ]
       .filter(Boolean)
-      .join(" ");
+      .join(' ');
     const insertRows = this._getInsertDialogRows();
     const insertPrompt = this._getInsertDialogPrompt();
     const insertContext = this._getInsertDialogContext();
     const insertTotalCount = this._getInsertDialogTotalCount();
     const insertRangeText = this._getInsertDialogRangeText(insertRows.length, insertTotalCount);
     const insertStageKey = [
-      this._insertDialogMode ?? "placement",
-      this._insertTarget ? "target" : "slot",
+      this._insertDialogMode ?? 'placement',
+      this._insertTarget ? 'target' : 'slot',
       String(this._insertDialogSlotOptions.length),
       String(this._insertDialogBlockOptions.length),
-    ].join(":");
+    ].join(':');
 
     return html`
       <div class="epistola-editor">
@@ -1150,7 +1150,7 @@ export class EpistolaEditor extends LitElement {
         <!-- Main layout: sidebar | canvas | [resize-handle | preview] -->
         <div
           class="editor-main"
-          style=${showPreview ? `--ep-preview-width: ${previewWidth}px` : ""}
+          style=${showPreview ? `--ep-preview-width: ${previewWidth}px` : ''}
         >
           <epistola-sidebar
             .engine=${this._engine}
@@ -1228,8 +1228,8 @@ export class EpistolaEditor extends LitElement {
                                 <div
                                   class="insert-dialog-row ${row.index ===
                                   this._insertDialogHighlight
-                                    ? "is-active"
-                                    : ""}"
+                                    ? 'is-active'
+                                    : ''}"
                                 >
                                   <span class="insert-dialog-index">${row.index}</span>
                                   <span class="insert-dialog-label">${row.label}</span>
@@ -1255,6 +1255,6 @@ export class EpistolaEditor extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-editor": EpistolaEditor;
+    'epistola-editor': EpistolaEditor;
   }
 }

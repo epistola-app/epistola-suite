@@ -7,11 +7,11 @@
  * - Wires up state change notifications between service and panel
  */
 
-import { html } from "lit";
-import type { EditorPlugin, PluginContext } from "../types.js";
-import type { SendMessageFn } from "./types.js";
-import { AiChatService } from "./ai-chat-service.js";
-import "./ai-panel.js";
+import { html } from 'lit';
+import type { EditorPlugin, PluginContext } from '../types.js';
+import type { SendMessageFn } from './types.js';
+import { AiChatService } from './ai-chat-service.js';
+import './ai-panel.js';
 
 export interface AiPluginOptions {
   /** Transport function for sending messages. Host page provides this. */
@@ -24,12 +24,12 @@ export function createAiPlugin(options: AiPluginOptions): EditorPlugin {
   let chatService: AiChatService | undefined;
 
   return {
-    id: "ai",
+    id: 'ai',
 
     sidebarTab: {
-      id: "ai",
-      label: "AI",
-      icon: "sparkles",
+      id: 'ai',
+      label: 'AI',
+      icon: 'sparkles',
       render: (ctx: PluginContext) => {
         return html`
           <epistola-ai-panel
@@ -47,7 +47,7 @@ export function createAiPlugin(options: AiPluginOptions): EditorPlugin {
         options.sendMessage,
         (state) => {
           // Find the panel and push state to it
-          const panel = document.querySelector("epistola-ai-panel");
+          const panel = document.querySelector('epistola-ai-panel');
           if (panel) {
             panel.handleStateChange(state);
           }

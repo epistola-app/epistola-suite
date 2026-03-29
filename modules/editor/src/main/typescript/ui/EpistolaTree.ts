@@ -1,32 +1,32 @@
-import { LitElement, html, nothing } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { LitElement, html, nothing } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 import {
   draggable,
   dropTargetForElements,
-} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+} from '@atlaskit/pragmatic-drag-and-drop/element/adapter';
 import {
   attachInstruction,
   extractInstruction,
   type Instruction,
   type ItemMode,
-} from "@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item";
-import type { TemplateDocument, NodeId, SlotId } from "../types/index.js";
-import type { EditorEngine } from "../engine/EditorEngine.js";
-import { isAnchoredPageBlock } from "../engine/registry.js";
-import { getNodeDepth, findAncestorAtLevel } from "../engine/indexes.js";
-import { isDragData, isBlockDrag, type DragData } from "../dnd/types.js";
+} from '@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item';
+import type { TemplateDocument, NodeId, SlotId } from '../types/index.js';
+import type { EditorEngine } from '../engine/EditorEngine.js';
+import { isAnchoredPageBlock } from '../engine/registry.js';
+import { getNodeDepth, findAncestorAtLevel } from '../engine/indexes.js';
+import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js';
 import {
   resolveDropOnBlockEdge,
   resolveDropInsideNode,
   canDropHere,
   type Edge,
-} from "../dnd/drop-logic.js";
-import { handleDrop } from "../dnd/drop-handler.js";
-import { icon, type IconName, ICONS } from "./icons.js";
+} from '../dnd/drop-logic.js';
+import { handleDrop } from '../dnd/drop-handler.js';
+import { icon, type IconName, ICONS } from './icons.js';
 
 const INDENT_PER_LEVEL = 16;
 
-@customElement("epistola-tree")
+@customElement('epistola-tree')
 export class EpistolaTree extends LitElement {
   override createRenderRoot() {
     return this;
@@ -61,7 +61,7 @@ export class EpistolaTree extends LitElement {
     if (!this.engine || !this.doc) return null;
 
     const cleanups: (() => void)[] = [];
-    const labelEls = this.querySelectorAll<HTMLElement>(".tree-node-label[data-node-id]");
+    const labelEls = this.querySelectorAll<HTMLElement>('.tree-node-label[data-node-id]');
 
     for (const labelEl of labelEls) {
       const nodeId = labelEl.dataset.nodeId as NodeId | undefined;
@@ -78,9 +78,9 @@ export class EpistolaTree extends LitElement {
         cleanups.push(
           draggable({
             element: labelEl,
-            getInitialData: (): DragData => ({ source: "block", nodeId, blockType: node.type }),
-            onDragStart: () => labelEl.classList.add("dragging"),
-            onDrop: () => labelEl.classList.remove("dragging"),
+            getInitialData: (): DragData => ({ source: 'block', nodeId, blockType: node.type }),
+            onDragStart: () => labelEl.classList.add('dragging'),
+            onDrop: () => labelEl.classList.remove('dragging'),
           }),
         );
       }
@@ -97,22 +97,22 @@ export class EpistolaTree extends LitElement {
               node.slots.some((sId) => (this.doc!.slots[sId]?.children.length ?? 0) > 0);
 
             let mode: ItemMode;
-            let block: Instruction["type"][] | undefined;
+            let block: Instruction['type'][] | undefined;
 
             if (isRoot) {
               // Root: only allow dropping inside (make-child), block reorder/reparent
-              mode = hasChildren ? "expanded" : "standard";
-              block = ["reorder-above", "reorder-below", "reparent"];
+              mode = hasChildren ? 'expanded' : 'standard';
+              block = ['reorder-above', 'reorder-below', 'reparent'];
             } else if (!hasSlots) {
               // Leaf node: no make-child zone
-              mode = "standard";
-              block = ["make-child"];
+              mode = 'standard';
+              block = ['make-child'];
             } else if (hasChildren) {
               // Container with children: expanded mode shows make-child naturally
-              mode = "expanded";
+              mode = 'expanded';
             } else {
               // Empty container: standard mode allows all zones
-              mode = "standard";
+              mode = 'standard';
             }
 
             return attachInstruction(
@@ -170,16 +170,16 @@ export class EpistolaTree extends LitElement {
             this._setDropIndicator(labelEl, instruction);
           },
           onDragLeave: () => {
-            labelEl.removeAttribute("data-drop-indicator");
+            labelEl.removeAttribute('data-drop-indicator');
           },
           onDrop: ({ self, source }) => {
-            labelEl.removeAttribute("data-drop-indicator");
+            labelEl.removeAttribute('data-drop-indicator');
 
             const dragData = source.data as Record<string, unknown>;
             if (!isDragData(dragData)) return;
 
             const instruction = extractInstruction(self.data);
-            if (!instruction || instruction.type === "instruction-blocked") return;
+            if (!instruction || instruction.type === 'instruction-blocked') return;
 
             this._resolveAndDrop(instruction, nodeId, dragData);
           },
@@ -191,39 +191,39 @@ export class EpistolaTree extends LitElement {
   }
 
   private _setDropIndicator(el: HTMLElement, instruction: Instruction | null) {
-    if (!instruction || instruction.type === "instruction-blocked") {
-      el.removeAttribute("data-drop-indicator");
+    if (!instruction || instruction.type === 'instruction-blocked') {
+      el.removeAttribute('data-drop-indicator');
       return;
     }
     // reparent maps to reorder-below visually
-    const indicator = instruction.type === "reparent" ? "reorder-below" : instruction.type;
-    el.setAttribute("data-drop-indicator", indicator);
+    const indicator = instruction.type === 'reparent' ? 'reorder-below' : instruction.type;
+    el.setAttribute('data-drop-indicator', indicator);
   }
 
   private _resolveAndDrop(instruction: Instruction, targetNodeId: NodeId, dragData: DragData) {
     if (!this.engine || !this.doc) return;
 
     switch (instruction.type) {
-      case "reorder-above":
-      case "reorder-below": {
-        const edge: Edge = instruction.type === "reorder-above" ? "top" : "bottom";
+      case 'reorder-above':
+      case 'reorder-below': {
+        const edge: Edge = instruction.type === 'reorder-above' ? 'top' : 'bottom';
         const loc = resolveDropOnBlockEdge(targetNodeId, edge, this.doc, this.engine.indexes);
         if (loc) this._applyDrop(dragData, loc.targetSlotId, loc.index);
         break;
       }
-      case "make-child": {
+      case 'make-child': {
         const loc = resolveDropInsideNode(targetNodeId, this.doc);
         if (loc) this._applyDrop(dragData, loc.targetSlotId, loc.index);
         break;
       }
-      case "reparent": {
+      case 'reparent': {
         const ancestor = findAncestorAtLevel(
           targetNodeId,
           instruction.desiredLevel,
           this.engine.indexes,
         );
         if (ancestor) {
-          const loc = resolveDropOnBlockEdge(ancestor, "bottom", this.doc, this.engine.indexes);
+          const loc = resolveDropOnBlockEdge(ancestor, 'bottom', this.doc, this.engine.indexes);
           if (loc) this._applyDrop(dragData, loc.targetSlotId, loc.index);
         }
         break;
@@ -268,13 +268,13 @@ export class EpistolaTree extends LitElement {
     return html`
       <div class="tree-node" style="padding-left: ${depth * INDENT_PER_LEVEL}px">
         <div
-          class="tree-node-label ${isSelected ? "selected" : ""}"
+          class="tree-node-label ${isSelected ? 'selected' : ''}"
           data-node-id=${nodeId}
           tabindex="0"
           @click=${() => this._handleSelect(nodeId)}
           @focus=${() => this._handleSelect(nodeId)}
         >
-          <span class="tree-node-icon ${isRoot ? "root" : ""}">${this._nodeIcon(def?.icon)}</span>
+          <span class="tree-node-icon ${isRoot ? 'root' : ''}">${this._nodeIcon(def?.icon)}</span>
           <span>${label}</span>
         </div>
 
@@ -294,6 +294,6 @@ export class EpistolaTree extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "epistola-tree": EpistolaTree;
+    'epistola-tree': EpistolaTree;
   }
 }
