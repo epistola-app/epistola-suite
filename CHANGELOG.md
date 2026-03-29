@@ -43,6 +43,10 @@
 
 - **Data contract example editor accessibility**: Added role="list"/"listitem" semantics for array containers. Added aria-describedby to inputs with validation errors for screen reader announcements. Added aria-hidden to decorative elements (badges, icons, error dots). Added aria-label to collapsible details elements for context. Added aria-label to checkbox inputs in boolean fields. Added for/id association between example name label and input. Enhanced chip buttons with aria-label describing example name and validation status.
 
+- **Theme editor UX polish**: Added focus-visible ring styles to all interactive elements (buttons, inputs, selects). Refactored hover states to nested CSS selectors for consistency. Redesigned empty state with icon and centered layout. Improved preset card styling with smooth transitions. Added inspector style group labels with uppercase text styling. Updated status bar with right-aligned layout. Applied uniform border-radius and spacing throughout.
+
+- **Theme editor accessibility**: Replaced custom div-based preset expand/collapse with native `<details>`/`<summary>` elements for built-in accessibility (aria-expanded, keyboard support). Added for/id associations on preset key and label inputs. Added aria-label to remove preset buttons. Added aria-hidden to decorative toggle icons.
+
 ### Added
 
 - **Authorization enforcement in mediator**: All commands and queries now declare authorization requirements via marker interfaces (`RequiresPermission`, `RequiresPlatformRole`, `RequiresAuthentication`, `SystemInternal`). The `SpringMediator` enforces these before dispatching — unauthenticated or unauthorized requests are rejected with `PermissionDeniedException`, `TenantAccessDeniedException`, or `PlatformAccessDeniedException`.

@@ -2,17 +2,14 @@
  * PresetsSection — List of block style presets with Add/Remove.
  *
  * Each preset is an expandable card rendered by PresetItem.
+ * Uses native <details>/<summary> for expand/collapse.
  */
 
 import { html } from 'lit';
 import type { ThemeEditorState } from '../ThemeEditorState.js';
 import { renderPresetItem } from './PresetItem.js';
 
-export function renderPresetsSection(
-  state: ThemeEditorState,
-  expandedPresets: Set<string>,
-  onTogglePreset: (name: string) => void,
-): unknown {
+export function renderPresetsSection(state: ThemeEditorState): unknown {
   const presets = state.theme.blockStylePresets;
   const entries = Object.entries(presets);
 
@@ -23,29 +20,24 @@ export function renderPresetsSection(
         Named style collections that blocks can reference. Similar to CSS classes.
       </p>
 
-      <div class="presets-list">
+      <div class="theme-preset-list">
         ${entries.length === 0
-          ? html`<div class="presets-empty">
-              No presets defined. Click "Add Preset" to create one.
-            </div>`
+          ? html`
+              <div class="empty-state">
+                <div class="empty-state-title">No presets defined</div>
+                <div class="empty-state-description">Click "Add Preset" to create one.</div>
+              </div>
+            `
           : entries.map(([name, preset]) =>
-              renderPresetItem(
-                state,
-                name,
-                preset,
-                expandedPresets.has(name),
-                () => onTogglePreset(name),
-                () => state.removePreset(name),
-              ),
+              renderPresetItem(state, name, preset, () => state.removePreset(name)),
             )}
       </div>
 
       <button
-        class="ep-btn-outline preset-add-btn"
+        class="theme-preset-add-btn"
         @click=${() => {
           const name = generatePresetName(presets);
           state.addPreset(name);
-          expandedPresets.add(name);
         }}
       >
         + Add Preset
