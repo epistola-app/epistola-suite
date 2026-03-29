@@ -187,6 +187,7 @@ export class ExpressionNodeView implements NodeView {
       initialValue: expr,
       fieldPaths: this._fieldPaths,
       getExampleData: this._getExampleData,
+      enableBuilderMode: true,
       label: "Expression",
       placeholder: "e.g. customer.name",
     }).then(({ value }) => {

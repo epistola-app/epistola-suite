@@ -266,6 +266,36 @@
     }
   }
 
+  /* Date format dropdown */
+
+  .expression-dialog-format-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .expression-dialog-format-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-gray-700);
+    white-space: nowrap;
+  }
+
+  .expression-dialog-format-select {
+    flex: 1;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    background: var(--ep-white);
+    outline: none;
+
+    &:focus {
+      border-color: var(--ep-blue-500);
+      box-shadow: var(--ep-ring);
+    }
+  }
+
   /* Preview panel */
 
   .expression-dialog-preview {
@@ -454,5 +484,98 @@
         border-color: var(--ep-blue-700);
       }
     }
+  }
+
+  /* Builder/Code mode toggle */
+
+  .expression-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .expression-dialog-mode-toggle {
+    display: flex;
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    overflow: hidden;
+  }
+
+  .expression-dialog-mode-toggle .mode-btn {
+    padding: var(--ep-space-1) var(--ep-space-3);
+    font-size: 11px;
+    font-weight: 500;
+    border: none;
+    background: var(--ep-white);
+    color: var(--ep-gray-600);
+    cursor: pointer;
+    transition:
+      background-color var(--ep-transition-fast),
+      color var(--ep-transition-fast);
+
+    &:not(:last-child) {
+      border-right: 1px solid var(--ep-gray-300);
+    }
+
+    &:hover:not(.active):not(.disabled) {
+      background: var(--ep-gray-50);
+    }
+
+    &.active {
+      background: var(--ep-blue-600);
+      color: white;
+    }
+
+    &.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  /* Builder mode panel */
+
+  .expression-dialog-builder-row {
+    display: flex;
+    gap: var(--ep-space-3);
+    align-items: flex-end;
+  }
+
+  .expression-dialog-builder-field,
+  .expression-dialog-builder-format {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+    flex: 1;
+
+    & label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ep-gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    & select {
+      padding: var(--ep-space-1-5) var(--ep-space-2);
+      border: 1px solid var(--ep-gray-300);
+      border-radius: var(--ep-radius-sm);
+      font-size: var(--ep-text-sm);
+      background: var(--ep-white);
+      outline: none;
+
+      &:focus {
+        border-color: var(--ep-blue-500);
+        box-shadow: var(--ep-ring);
+      }
+    }
+  }
+
+  .expression-dialog-mode-warning {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-amber-700);
+    background: color-mix(in srgb, var(--ep-amber-500) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ep-amber-500) 25%, transparent);
+    border-radius: var(--ep-radius-sm);
+    padding: var(--ep-space-1-5) var(--ep-space-2);
   }
 }

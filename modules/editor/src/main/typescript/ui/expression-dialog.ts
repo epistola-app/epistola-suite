@@ -33,7 +33,95 @@ const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
   { code: "$substring(name, 0, 10)", desc: "Substring" },
   { code: "items[price > 100]", desc: "Filter array" },
   { code: "$number(value)", desc: "Convert to number" },
+  { code: "$formatDate(date, 'dd-MM-yyyy')", desc: "Format a date" },
 ];
+
+/** Date format presets for the format dropdown. */
+const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
+  { value: "", label: "No formatting" },
+  { value: "dd-MM-yyyy", label: "dd-MM-yyyy (15-01-2024)" },
+  { value: "yyyy-MM-dd", label: "yyyy-MM-dd (2024-01-15)" },
+  { value: "dd/MM/yyyy", label: "dd/MM/yyyy (15/01/2024)" },
+  { value: "MM/dd/yyyy", label: "MM/dd/yyyy (01/15/2024)" },
+  { value: "d MMMM yyyy", label: "d MMMM yyyy (15 January 2024)" },
+  { value: "dd-MM-yyyy HH:mm", label: "dd-MM-yyyy HH:mm (15-01-2024 14:30)" },
+  { value: "yyyy-MM-dd HH:mm", label: "yyyy-MM-dd HH:mm (2024-01-15 14:30)" },
+];
+
+/** Regex to parse `$formatDate(fieldPath, 'pattern')` expressions. */
+const FORMAT_DATE_REGEX = /^\$formatDate\(\s*([^,]+?)\s*,\s*'([^']+)'\s*\)$/;
+
+/** Extract field path and format pattern from a `$formatDate(...)` expression. */
+export function parseFormatDateExpression(
+  expr: string,
+): { fieldPath: string; pattern: string } | null {
+  const match = expr.match(FORMAT_DATE_REGEX);
+  if (!match) return null;
+  return { fieldPath: match[1], pattern: match[2] };
+}
+
+/** Wrap a field path with `$formatDate(...)`. */
+export function wrapFormatDate(fieldPath: string, pattern: string): string {
+  return `$formatDate(${fieldPath}, '${pattern}')`;
+}
+
+// ---------------------------------------------------------------------------
+// Builder mode support
+// ---------------------------------------------------------------------------
+
+/** State representing a builder-representable expression. */
+export interface BuilderState {
+  fieldPath: string;
+  fieldType: string;
+  formatType: "none" | "date";
+  formatPattern: string;
+}
+
+/**
+ * Try to parse an expression into a BuilderState.
+ * Returns null if the expression cannot be represented in builder mode.
+ */
+export function tryParseAsBuilderExpression(
+  expr: string,
+  fieldPaths: FieldPath[],
+): BuilderState | null {
+  const trimmed = expr.trim();
+  if (!trimmed) return null;
+
+  // Try $formatDate(field, 'pattern')
+  const parsed = parseFormatDateExpression(trimmed);
+  if (parsed) {
+    const fp = fieldPaths.find((f) => f.path === parsed.fieldPath);
+    if (fp) {
+      return {
+        fieldPath: parsed.fieldPath,
+        fieldType: fp.type,
+        formatType: "date",
+        formatPattern: parsed.pattern,
+      };
+    }
+  }
+
+  // Try bare field path
+  const fp = fieldPaths.find((f) => f.path === trimmed);
+  if (fp) {
+    return { fieldPath: trimmed, fieldType: fp.type, formatType: "none", formatPattern: "" };
+  }
+
+  return null;
+}
+
+/** Construct an expression string from builder state. */
+export function buildExpression(state: BuilderState): string {
+  if (state.formatType === "date" && state.formatPattern) {
+    return wrapFormatDate(state.fieldPath, state.formatPattern);
+  }
+  return state.fieldPath;
+}
+
+// ---------------------------------------------------------------------------
+// Dialog options and result
+// ---------------------------------------------------------------------------
 
 export interface ExpressionDialogOptions {
   initialValue: string;
@@ -41,6 +129,8 @@ export interface ExpressionDialogOptions {
   getExampleData?: () => Record<string, unknown> | undefined;
   label?: string;
   placeholder?: string;
+  /** Enable builder/code toggle (default: false — code only). */
+  enableBuilderMode?: boolean;
   /** Optional filter to highlight certain field paths (e.g., array fields for loops). */
   fieldPathFilter?: (fp: FieldPath) => boolean;
   /**
@@ -59,6 +149,10 @@ export interface ExpressionDialogResult {
 /**
  * Open a modal dialog for editing a JSONata expression.
  * Returns a promise that resolves when the dialog closes.
+ *
+ * When `enableBuilderMode` is true, shows a Builder/Code toggle with a visual
+ * builder for simple field references and date formatting. When false (default),
+ * renders the code-only dialog (unchanged behavior for inspector consumers).
  */
 export function openExpressionDialog(
   options: ExpressionDialogOptions,
@@ -70,6 +164,7 @@ export function openExpressionDialog(
       getExampleData,
       label = "Expression",
       placeholder = "e.g. customer.name",
+      enableBuilderMode = false,
       fieldPathFilter,
       resultValidator,
     } = options;
@@ -77,25 +172,116 @@ export function openExpressionDialog(
     let previewTimer: ReturnType<typeof setTimeout> | null = null;
     let previewGeneration = 0;
 
+    // Determine initial mode
+    const initialBuilderState = enableBuilderMode
+      ? initialValue
+        ? tryParseAsBuilderExpression(initialValue, fieldPaths)
+        : null
+      : null;
+    // Default to builder for new/empty expressions or parseable ones; code for complex
+    let currentMode: "builder" | "code" = enableBuilderMode
+      ? initialValue && !initialBuilderState
+        ? "code"
+        : "builder"
+      : "code";
+
+    const dataFields = fieldPaths.filter((fp) => !fp.system);
+    const systemFields = fieldPaths.filter((fp) => fp.system);
+    // Builder excludes arrays, objects, and any nested array properties (paths containing [])
+    const builderFields = dataFields.filter(
+      (fp) => fp.type !== "array" && fp.type !== "object" && !fp.path.includes("[]"),
+    );
+    const dateFieldPaths = new Set(
+      fieldPaths.filter((fp) => fp.type === "date").map((fp) => fp.path),
+    );
+
+    // --- Build field options HTML ---
+    const fieldOptionsHtml = [
+      '<option value="">Select a field...</option>',
+      ...(builderFields.length > 0
+        ? [
+            '<optgroup label="Template variables">',
+            ...builderFields.map(
+              (fp) =>
+                `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`,
+            ),
+            "</optgroup>",
+          ]
+        : []),
+      ...(systemFields.length > 0
+        ? [
+            '<optgroup label="System parameters">',
+            ...systemFields.map(
+              (fp) =>
+                `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`,
+            ),
+            "</optgroup>",
+          ]
+        : []),
+    ].join("");
+
+    const formatOptionsHtml = DATE_FORMAT_PRESETS.map(
+      (p) => `<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`,
+    ).join("");
+
+    // --- Create dialog ---
     const dialog = document.createElement("dialog");
     dialog.className = "expression-dialog";
 
     dialog.innerHTML = `
       <form method="dialog" class="expression-dialog-form">
-        <label class="expression-dialog-label">${escapeHtml(label)}</label>
-        <input
-          type="text"
-          class="expression-dialog-input"
-          value="${escapeAttr(initialValue)}"
-          placeholder="${escapeAttr(placeholder)}"
-          autocomplete="off"
-        />
-        <div class="expression-dialog-preview" style="display:none"></div>
-        <div class="expression-dialog-paths"></div>
-        <details class="expression-dialog-reference">
-          <summary class="expression-dialog-ref-summary">JSONata Quick Reference</summary>
-          <div class="expression-dialog-ref-list"></div>
-        </details>
+        ${
+          enableBuilderMode
+            ? `
+        <div class="expression-dialog-header">
+          <label class="expression-dialog-label">${escapeHtml(label)}</label>
+          <div class="expression-dialog-mode-toggle">
+            <button type="button" class="mode-btn${currentMode === "builder" ? " active" : ""}" data-mode="builder">Builder</button>
+            <button type="button" class="mode-btn${currentMode === "code" ? " active" : ""}" data-mode="code">Code</button>
+          </div>
+        </div>
+        <div class="expression-dialog-builder" data-mode-panel="builder"${currentMode !== "builder" ? ' style="display:none"' : ""}>
+          <div class="expression-dialog-builder-row">
+            <div class="expression-dialog-builder-field">
+              <label>Field</label>
+              <select class="expression-dialog-field-select">${fieldOptionsHtml}</select>
+            </div>
+            <div class="expression-dialog-builder-format" style="display:none">
+              <label>Format</label>
+              <select class="expression-dialog-builder-format-select">${formatOptionsHtml}</select>
+            </div>
+          </div>
+          <div class="expression-dialog-preview builder-preview" style="display:none"></div>
+        </div>
+        <div class="expression-dialog-mode-warning" style="display:none">
+          This expression is too complex for Builder mode.
+        </div>
+        `
+            : `<label class="expression-dialog-label">${escapeHtml(label)}</label>`
+        }
+        <div class="expression-dialog-code" data-mode-panel="code"${enableBuilderMode && currentMode !== "code" ? ' style="display:none"' : ""}>
+          <input
+            type="text"
+            class="expression-dialog-input"
+            value="${escapeAttr(initialValue)}"
+            placeholder="${escapeAttr(placeholder)}"
+            autocomplete="off"
+          />
+          ${
+            !enableBuilderMode
+              ? `<div class="expression-dialog-format-row" style="display:none">
+            <label class="expression-dialog-format-label">Date format</label>
+            <select class="expression-dialog-format-select">${formatOptionsHtml}</select>
+          </div>`
+              : ""
+          }
+          <div class="expression-dialog-preview code-preview" style="display:none"></div>
+          <div class="expression-dialog-paths"></div>
+          <details class="expression-dialog-reference">
+            <summary class="expression-dialog-ref-summary">JSONata Quick Reference</summary>
+            <div class="expression-dialog-ref-list"></div>
+          </details>
+        </div>
         <div class="expression-dialog-actions">
           <button type="button" class="expression-dialog-btn cancel">Cancel</button>
           <button type="submit" class="expression-dialog-btn save">Save</button>
@@ -103,27 +289,33 @@ export function openExpressionDialog(
       </form>
     `;
 
+    // --- Query elements ---
     const input = dialog.querySelector<HTMLInputElement>(".expression-dialog-input")!;
     const cancelBtn = dialog.querySelector(".cancel")!;
     const pathsContainer = dialog.querySelector<HTMLElement>(".expression-dialog-paths")!;
-    const previewEl = dialog.querySelector<HTMLElement>(".expression-dialog-preview")!;
+    const codePreviewEl = dialog.querySelector<HTMLElement>(".code-preview")!;
     const refList = dialog.querySelector<HTMLElement>(".expression-dialog-ref-list")!;
+    const formatRow = dialog.querySelector<HTMLElement>(".expression-dialog-format-row");
+    const formatSelect = dialog.querySelector<HTMLSelectElement>(
+      ".expression-dialog-format-select",
+    );
 
-    // --- Field paths ---
-    renderFieldPaths(pathsContainer, input, fieldPaths, fieldPathFilter);
+    // Builder-mode elements (may be null if enableBuilderMode is false)
+    const builderPanel = dialog.querySelector<HTMLElement>('[data-mode-panel="builder"]');
+    const codePanel = dialog.querySelector<HTMLElement>('[data-mode-panel="code"]')!;
+    const fieldSelect = dialog.querySelector<HTMLSelectElement>(".expression-dialog-field-select");
+    const builderFormatContainer = dialog.querySelector<HTMLElement>(
+      ".expression-dialog-builder-format",
+    );
+    const builderFormatSelect = dialog.querySelector<HTMLSelectElement>(
+      ".expression-dialog-builder-format-select",
+    );
+    const builderPreviewEl = dialog.querySelector<HTMLElement>(".builder-preview");
+    const modeWarning = dialog.querySelector<HTMLElement>(".expression-dialog-mode-warning");
+    const builderBtn = dialog.querySelector<HTMLButtonElement>('.mode-btn[data-mode="builder"]');
+    const codeBtn = dialog.querySelector<HTMLButtonElement>('.mode-btn[data-mode="code"]');
 
-    // --- Quick reference ---
-    renderQuickReference(refList, input);
-
-    // --- Validation + preview ---
-    const applyValidation = () => {
-      const val = input.value.trim();
-      input.classList.remove("valid", "invalid");
-      if (val) {
-        input.classList.add(isValidExpression(val) ? "valid" : "invalid");
-      }
-    };
-
+    // --- Shared helpers ---
     const cancelPreviewTimer = () => {
       if (previewTimer !== null) {
         clearTimeout(previewTimer);
@@ -131,16 +323,19 @@ export function openExpressionDialog(
       }
     };
 
-    const schedulePreview = () => {
+    const getActivePreviewEl = () =>
+      currentMode === "builder" && builderPreviewEl ? builderPreviewEl : codePreviewEl;
+
+    const schedulePreview = (expr: string) => {
       cancelPreviewTimer();
-      const val = input.value.trim();
-      if (!val) {
+      const previewEl = getActivePreviewEl();
+      if (!expr) {
         previewEl.style.display = "none";
         return;
       }
       previewTimer = setTimeout(() => {
         updatePreview(
-          val,
+          expr,
           previewEl,
           getExampleData,
           () => ++previewGeneration,
@@ -150,10 +345,169 @@ export function openExpressionDialog(
       }, 250);
     };
 
+    // --- Code mode: date format dropdown (only when builder mode is off) ---
+    const getBarePath = (val: string): string => {
+      const parsed = parseFormatDateExpression(val);
+      return parsed ? parsed.fieldPath : val;
+    };
+
+    const updateCodeFormatVisibility = () => {
+      if (!formatRow || !formatSelect) return;
+      const barePath = getBarePath(input.value.trim());
+      const isDateField = dateFieldPaths.has(barePath);
+      formatRow.style.display = isDateField ? "" : "none";
+      if (!isDateField) formatSelect.value = "";
+    };
+
+    if (formatSelect) {
+      const initialParsed = parseFormatDateExpression(initialValue);
+      if (initialParsed && dateFieldPaths.has(initialParsed.fieldPath)) {
+        formatSelect.value = initialParsed.pattern;
+      }
+
+      formatSelect.addEventListener("change", () => {
+        const barePath = getBarePath(input.value.trim());
+        const pattern = formatSelect.value;
+        input.value = pattern ? wrapFormatDate(barePath, pattern) : barePath;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+
+    // --- Code mode: validation + preview ---
+    const applyValidation = () => {
+      const val = input.value.trim();
+      input.classList.remove("valid", "invalid");
+      if (val) {
+        input.classList.add(isValidExpression(val) ? "valid" : "invalid");
+      }
+    };
+
     input.addEventListener("input", () => {
       applyValidation();
-      schedulePreview();
+      updateCodeFormatVisibility();
+      schedulePreview(input.value.trim());
+      // Update builder toggle availability
+      if (enableBuilderMode && builderBtn) {
+        const canSwitch =
+          !input.value.trim() ||
+          tryParseAsBuilderExpression(input.value.trim(), fieldPaths) !== null;
+        builderBtn.classList.toggle("disabled", !canSwitch);
+      }
     });
+
+    // --- Code mode: field paths + quick reference ---
+    renderFieldPaths(pathsContainer, input, fieldPaths, fieldPathFilter);
+    renderQuickReference(refList, input);
+
+    // --- Builder mode logic ---
+    if (
+      enableBuilderMode &&
+      fieldSelect &&
+      builderFormatContainer &&
+      builderFormatSelect &&
+      builderPanel
+    ) {
+      // Populate builder from initial state
+      if (initialBuilderState) {
+        fieldSelect.value = initialBuilderState.fieldPath;
+        if (initialBuilderState.formatType === "date" && initialBuilderState.formatPattern) {
+          builderFormatContainer.style.display = "";
+          builderFormatSelect.value = initialBuilderState.formatPattern;
+        }
+      }
+
+      const updateBuilderFormatVisibility = () => {
+        const selectedOption = fieldSelect.selectedOptions[0];
+        const fieldType = selectedOption?.dataset.type ?? "";
+        const isDate = fieldType === "date";
+        builderFormatContainer.style.display = isDate ? "" : "none";
+        if (!isDate) builderFormatSelect.value = "";
+      };
+
+      const getBuilderExpression = (): string => {
+        const fieldPath = fieldSelect.value;
+        if (!fieldPath) return "";
+        const selectedOption = fieldSelect.selectedOptions[0];
+        const fieldType = selectedOption?.dataset.type ?? "string";
+        const formatPattern = builderFormatSelect.value;
+        return buildExpression({
+          fieldPath,
+          fieldType,
+          formatType: fieldType === "date" && formatPattern ? "date" : "none",
+          formatPattern,
+        });
+      };
+
+      const onBuilderChange = () => {
+        updateBuilderFormatVisibility();
+        const expr = getBuilderExpression();
+        // Sync to code input
+        input.value = expr;
+        schedulePreview(expr);
+      };
+
+      fieldSelect.addEventListener("change", onBuilderChange);
+      builderFormatSelect.addEventListener("change", onBuilderChange);
+
+      // --- Mode switching ---
+      const switchMode = (mode: "builder" | "code") => {
+        if (mode === currentMode) return;
+
+        if (mode === "builder") {
+          // Try to parse current code input into builder
+          const parsed = input.value.trim()
+            ? tryParseAsBuilderExpression(input.value.trim(), fieldPaths)
+            : null; // empty is OK for builder
+
+          if (input.value.trim() && !parsed) {
+            // Can't represent — show warning
+            if (modeWarning) {
+              modeWarning.style.display = "";
+              setTimeout(() => {
+                modeWarning.style.display = "none";
+              }, 3000);
+            }
+            return;
+          }
+
+          // Populate builder
+          if (parsed) {
+            fieldSelect.value = parsed.fieldPath;
+            builderFormatSelect.value = parsed.formatPattern;
+          } else {
+            fieldSelect.value = "";
+            builderFormatSelect.value = "";
+          }
+          updateBuilderFormatVisibility();
+        } else {
+          // Builder → Code: sync expression to code input
+          input.value = getBuilderExpression();
+          applyValidation();
+          updateCodeFormatVisibility();
+        }
+
+        currentMode = mode;
+        builderPanel.style.display = mode === "builder" ? "" : "none";
+        codePanel.style.display = mode === "code" ? "" : "none";
+        builderBtn?.classList.toggle("active", mode === "builder");
+        codeBtn?.classList.toggle("active", mode === "code");
+
+        // Refresh preview in the new panel
+        const expr = mode === "builder" ? getBuilderExpression() : input.value.trim();
+        schedulePreview(expr);
+      };
+
+      builderBtn?.addEventListener("click", () => {
+        if (!builderBtn.classList.contains("disabled")) switchMode("builder");
+      });
+      codeBtn?.addEventListener("click", () => switchMode("code"));
+
+      // Initial builder preview
+      if (currentMode === "builder") {
+        const expr = getBuilderExpression();
+        if (expr) schedulePreview(expr);
+      }
+    }
 
     // --- Close helpers ---
     const close = (value: string | null) => {
@@ -164,10 +518,8 @@ export function openExpressionDialog(
       resolve({ value });
     };
 
-    // Cancel
     cancelBtn.addEventListener("click", () => close(null));
 
-    // Escape
     dialog.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -175,30 +527,38 @@ export function openExpressionDialog(
       }
     });
 
-    // Submit
     dialog.querySelector("form")!.addEventListener("submit", (e) => {
       e.preventDefault();
-      const trimmed = input.value.trim();
-      close(trimmed || null);
+      let value: string;
+      if (currentMode === "builder" && fieldSelect) {
+        // Build expression from builder state
+        value = input.value.trim(); // already synced by onBuilderChange
+      } else {
+        value = input.value.trim();
+      }
+      close(value || null);
     });
 
-    // Backdrop click
     dialog.addEventListener("click", (e) => {
       if (e.target === dialog) close(null);
     });
 
-    // Show
+    // --- Show ---
     document.body.appendChild(dialog);
     dialog.showModal();
-    input.focus();
-    input.select();
 
-    // Initial validation + preview
-    if (initialValue) {
+    if (currentMode === "code") {
+      input.focus();
+      input.select();
+    }
+
+    // Initial code mode state
+    if (initialValue && currentMode === "code") {
       applyValidation();
+      updateCodeFormatVisibility();
       updatePreview(
         initialValue,
-        previewEl,
+        codePreviewEl,
         getExampleData,
         () => ++previewGeneration,
         () => previewGeneration,

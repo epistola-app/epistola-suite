@@ -179,4 +179,100 @@ class JsonataEvaluatorTest {
         val loopContext = mapOf("item" to mapOf("name" to "LoopValue"))
         assertEquals("LoopValue", evaluator.evaluate("item.name", data, loopContext))
     }
+
+    // --- $formatDate custom function ---
+
+    @Test
+    fun `formatDate with dd-MM-yyyy`() {
+        val data = mapOf("d" to "2024-01-15")
+        assertEquals("15-01-2024", evaluator.evaluate("\$formatDate(d, 'dd-MM-yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate with dd slash MM slash yyyy`() {
+        val data = mapOf("d" to "2024-01-15")
+        assertEquals("15/01/2024", evaluator.evaluate("\$formatDate(d, 'dd/MM/yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate with d MMMM yyyy`() {
+        val data = mapOf("d" to "2024-01-15")
+        assertEquals("15 January 2024", evaluator.evaluate("\$formatDate(d, 'd MMMM yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate with d MMMM yyyy no leading zero`() {
+        val data = mapOf("d" to "2024-07-05")
+        assertEquals("5 July 2024", evaluator.evaluate("\$formatDate(d, 'd MMMM yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate with invalid date returns raw value`() {
+        val data = mapOf("d" to "not-a-date")
+        assertEquals("not-a-date", evaluator.evaluate("\$formatDate(d, 'dd-MM-yyyy')", data))
+    }
+
+    @Test
+    fun `formatDate in string concatenation`() {
+        val data = mapOf("dueDate" to "2024-02-15")
+        assertEquals(
+            "Due: 15-02-2024",
+            evaluator.evaluate("\"Due: \" & \$formatDate(dueDate, 'dd-MM-yyyy')", data),
+        )
+    }
+
+    @Test
+    fun `formatDate with missing field returns null`() {
+        val data = mapOf("other" to "2024-01-15")
+        assertNull(evaluator.evaluate("\$formatDate(missing, 'dd-MM-yyyy')", data))
+    }
+
+    // --- $formatDate with datetimes ---
+
+    @Test
+    fun `formatDate with local datetime`() {
+        val data = mapOf("ts" to "2024-01-15T14:30:00")
+        assertEquals(
+            "15-01-2024 14:30",
+            evaluator.evaluate("\$formatDate(ts, 'dd-MM-yyyy HH:mm')", data),
+        )
+    }
+
+    @Test
+    fun `formatDate with UTC datetime converts to Amsterdam timezone`() {
+        // UTC 12:00 → Amsterdam CET is UTC+1 → 13:00
+        val data = mapOf("ts" to "2024-01-15T12:00:00Z")
+        assertEquals(
+            "15-01-2024 13:00",
+            evaluator.evaluate("\$formatDate(ts, 'dd-MM-yyyy HH:mm')", data),
+        )
+    }
+
+    @Test
+    fun `formatDate with offset datetime converts to Amsterdam timezone`() {
+        // +05:00 at 17:00 → UTC 12:00 → Amsterdam CET (UTC+1) → 13:00
+        val data = mapOf("ts" to "2024-01-15T17:00:00+05:00")
+        assertEquals(
+            "15-01-2024 13:00",
+            evaluator.evaluate("\$formatDate(ts, 'dd-MM-yyyy HH:mm')", data),
+        )
+    }
+
+    @Test
+    fun `formatDate with UTC datetime and date-only pattern`() {
+        val data = mapOf("ts" to "2024-01-15T14:30:00Z")
+        assertEquals(
+            "15-01-2024",
+            evaluator.evaluate("\$formatDate(ts, 'dd-MM-yyyy')", data),
+        )
+    }
+
+    @Test
+    fun `formatDate with datetime including seconds`() {
+        val data = mapOf("ts" to "2024-01-15T14:30:45")
+        assertEquals(
+            "14:30:45",
+            evaluator.evaluate("\$formatDate(ts, 'HH:mm:ss')", data),
+        )
+    }
 }

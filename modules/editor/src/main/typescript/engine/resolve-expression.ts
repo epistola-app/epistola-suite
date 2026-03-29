@@ -7,6 +7,88 @@
 
 import jsonata from "jsonata";
 
+// ---------------------------------------------------------------------------
+// Custom JSONata functions
+// ---------------------------------------------------------------------------
+
+const MONTH_NAMES_FULL = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const MONTH_NAMES_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+/**
+ * Format an ISO date or datetime string using a pattern.
+ *
+ * Supported date tokens: `yyyy`, `MMMM`, `MMM`, `MM`, `dd`, `d`.
+ * Supported time tokens: `HH`, `mm`, `ss`.
+ *
+ * Accepts plain dates (`2024-01-15`), local datetimes (`2024-01-15T14:30:00`),
+ * UTC datetimes (`2024-01-15T14:30:00Z`), and offset datetimes
+ * (`2024-01-15T14:30:00+02:00`).
+ *
+ * For the editor preview, datetimes are displayed in UTC. The Kotlin renderer
+ * (PDF generation) uses the configured timezone (default: Europe/Amsterdam)
+ * and supports the full Java `DateTimeFormatter` pattern spec. Custom patterns
+ * using unsupported tokens will render correctly in the PDF but may show
+ * unresolved tokens in the editor preview.
+ *
+ * Returns the original value if it cannot be parsed.
+ */
+export function formatDateValue(value: string, pattern: string): string {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!match) return value;
+  const [, yyyy, mm, dd, HH = "00", min = "00", ss = "00"] = match;
+  const month = parseInt(mm, 10);
+  const day = parseInt(dd, 10);
+
+  return pattern
+    .replace("yyyy", yyyy)
+    .replace("MMMM", MONTH_NAMES_FULL[month - 1] ?? "")
+    .replace("MMM", MONTH_NAMES_SHORT[month - 1] ?? "")
+    .replace("MM", mm)
+    .replace("dd", dd)
+    .replace("HH", HH)
+    .replace(/(?<![a-zA-Z])mm(?![a-zA-Z])/, min)
+    .replace("ss", ss)
+    .replace(/(?<![a-zA-Z])d(?![a-zA-Z])/, String(day));
+}
+
+/**
+ * Register custom functions on a JSONata expression instance.
+ * Must be called before `expr.evaluate()`.
+ */
+function registerCustomFunctions(expr: jsonata.Expression): void {
+  expr.registerFunction("formatDate", (value: unknown, pattern: unknown) => {
+    if (typeof value !== "string" || typeof pattern !== "string") return value;
+    return formatDateValue(value, pattern);
+  });
+}
+
 /**
  * Evaluate a JSONata expression against the given data.
  * Returns `undefined` on empty expression, evaluation error, or missing path.
@@ -20,6 +102,7 @@ export async function evaluateExpression(
 
   try {
     const expr = jsonata(trimmed);
+    registerCustomFunctions(expr);
     return await expr.evaluate(data);
   } catch {
     return undefined;
@@ -61,6 +144,7 @@ export async function tryEvaluateExpression(
 
   try {
     const expr = jsonata(trimmed);
+    registerCustomFunctions(expr);
     const value = await expr.evaluate(data);
     return { ok: true, value };
   } catch (e: unknown) {

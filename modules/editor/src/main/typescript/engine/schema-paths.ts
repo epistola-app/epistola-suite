@@ -46,7 +46,8 @@ function walk(
     if (!propSchema || typeof propSchema !== "object") continue;
 
     const path = prefix ? `${prefix}.${key}` : key;
-    const type = String(propSchema.type ?? "unknown");
+    const rawType = String(propSchema.type ?? "unknown");
+    const type = rawType === "string" && propSchema.format === "date" ? "date" : rawType;
 
     result.push({ path, type });
 
