@@ -176,4 +176,22 @@ describe("extractFieldPaths", () => {
     const paths = extractFieldPaths(schema);
     expect(paths).toEqual([{ path: "valid", type: "string" }]);
   });
+
+  it("detects date fields from string type with date format", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        birthDate: { type: "string", format: "date" },
+        email: { type: "string", format: "email" },
+      },
+    };
+
+    const paths = extractFieldPaths(schema);
+    expect(paths).toEqual([
+      { path: "name", type: "string" },
+      { path: "birthDate", type: "date" },
+      { path: "email", type: "string" },
+    ]);
+  });
 });

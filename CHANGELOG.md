@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+- **Custom `$formatDate` JSONata function**: Register a `$formatDate(value, pattern)` function in both the Kotlin PDF renderer and TypeScript editor preview. Formats ISO date and datetime strings (e.g., `"2024-01-15"`, `"2024-01-15T14:30:00Z"`) using standard date/time patterns (`dd-MM-yyyy`, `dd-MM-yyyy HH:mm`, `d MMMM yyyy`, etc.). Datetimes are converted to the configured timezone (default: Europe/Amsterdam). Works in any expression context including string concatenation and conditionals.
+- **Date format dropdown in expression dialog**: When editing an expression that references a date field, a format dropdown appears with common date format presets. Selecting a format auto-wraps the expression with `$formatDate(...)`. The dropdown parses existing `$formatDate` expressions to pre-select the current format.
+- **Date field type detection**: Fixed `extractFieldPaths()` to detect JSON Schema date fields (`{ type: "string", format: "date" }`) as `type: "date"` instead of `"string"`, enabling the expression dialog to show the format dropdown for date fields.
+
 ### Fixed
 
 - **Oxfmt**: Exclude generated `.github/badges/` from formatting checks.

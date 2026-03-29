@@ -521,7 +521,7 @@
                   {
                     "type": "expression",
                     "attrs": {
-                      "expression": "invoiceDate",
+                      "expression": "$formatDate(invoiceDate, 'dd-MM-yyyy')",
                       "isNew": false
                     }
                   },
@@ -533,7 +533,7 @@
                   {
                     "type": "expression",
                     "attrs": {
-                      "expression": "dueDate",
+                      "expression": "$formatDate(dueDate, 'dd-MM-yyyy')",
                       "isNew": false
                     }
                   }

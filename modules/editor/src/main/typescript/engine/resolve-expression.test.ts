@@ -7,6 +7,7 @@ import {
   isValidExpression,
   validateArrayResult,
   validateBooleanResult,
+  formatDateValue,
 } from "./resolve-expression.js";
 
 // ---------------------------------------------------------------------------
@@ -374,5 +375,95 @@ describe("validateBooleanResult", () => {
     const result = validateBooleanResult({ active: true });
     expect(result).toContain("must evaluate to a boolean");
     expect(result).toContain("object");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatDateValue
+// ---------------------------------------------------------------------------
+
+describe("formatDateValue", () => {
+  it("formats dd-MM-yyyy", () => {
+    expect(formatDateValue("2024-01-15", "dd-MM-yyyy")).toBe("15-01-2024");
+  });
+
+  it("formats yyyy-MM-dd (identity)", () => {
+    expect(formatDateValue("2024-01-15", "yyyy-MM-dd")).toBe("2024-01-15");
+  });
+
+  it("formats dd/MM/yyyy", () => {
+    expect(formatDateValue("2024-01-15", "dd/MM/yyyy")).toBe("15/01/2024");
+  });
+
+  it("formats MM/dd/yyyy", () => {
+    expect(formatDateValue("2024-01-15", "MM/dd/yyyy")).toBe("01/15/2024");
+  });
+
+  it("formats d MMMM yyyy", () => {
+    expect(formatDateValue("2024-01-15", "d MMMM yyyy")).toBe("15 January 2024");
+  });
+
+  it("formats d MMMM yyyy without leading zero", () => {
+    expect(formatDateValue("2024-07-05", "d MMMM yyyy")).toBe("5 July 2024");
+  });
+
+  it("formats d MMM yyyy (short month)", () => {
+    expect(formatDateValue("2024-01-15", "d MMM yyyy")).toBe("15 Jan 2024");
+  });
+
+  it("returns raw value for non-date string", () => {
+    expect(formatDateValue("not-a-date", "dd-MM-yyyy")).toBe("not-a-date");
+  });
+
+  it("returns raw value for empty string", () => {
+    expect(formatDateValue("", "dd-MM-yyyy")).toBe("");
+  });
+
+  // --- datetime support ---
+
+  it("formats a local datetime with date-only pattern", () => {
+    expect(formatDateValue("2024-01-15T14:30:00", "dd-MM-yyyy")).toBe("15-01-2024");
+  });
+
+  it("formats a local datetime with date+time pattern", () => {
+    expect(formatDateValue("2024-01-15T14:30:00", "dd-MM-yyyy HH:mm")).toBe("15-01-2024 14:30");
+  });
+
+  it("formats a UTC datetime (time displayed as-is in preview)", () => {
+    expect(formatDateValue("2024-01-15T14:30:00Z", "dd-MM-yyyy HH:mm")).toBe("15-01-2024 14:30");
+  });
+
+  it("formats time with seconds", () => {
+    expect(formatDateValue("2024-01-15T14:30:45", "HH:mm:ss")).toBe("14:30:45");
+  });
+
+  it("defaults time tokens to 00 for date-only values", () => {
+    expect(formatDateValue("2024-01-15", "dd-MM-yyyy HH:mm")).toBe("15-01-2024 00:00");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// $formatDate in evaluateExpression
+// ---------------------------------------------------------------------------
+
+describe("evaluateExpression with $formatDate", () => {
+  it("formats a date field", async () => {
+    const data = { invoiceDate: "2024-01-15" };
+    expect(await evaluateExpression("$formatDate(invoiceDate, 'dd-MM-yyyy')", data)).toBe("15-01-2024");
+  });
+
+  it("formats in string concatenation", async () => {
+    const data = { dueDate: "2024-02-15" };
+    expect(await evaluateExpression("\"Due: \" & $formatDate(dueDate, 'dd-MM-yyyy')", data)).toBe("Due: 15-02-2024");
+  });
+
+  it("returns raw value for non-date", async () => {
+    const data = { val: "hello" };
+    expect(await evaluateExpression("$formatDate(val, 'dd-MM-yyyy')", data)).toBe("hello");
+  });
+
+  it("returns undefined for missing field", async () => {
+    const data = { other: "2024-01-15" };
+    expect(await evaluateExpression("$formatDate(missing, 'dd-MM-yyyy')", data)).toBeUndefined();
   });
 });

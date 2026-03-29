@@ -266,6 +266,36 @@
     }
   }
 
+  /* Date format dropdown */
+
+  .expression-dialog-format-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .expression-dialog-format-label {
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-gray-700);
+    white-space: nowrap;
+  }
+
+  .expression-dialog-format-select {
+    flex: 1;
+    padding: var(--ep-space-1) var(--ep-space-2);
+    border: 1px solid var(--ep-gray-300);
+    border-radius: var(--ep-radius-sm);
+    font-size: var(--ep-text-sm);
+    background: var(--ep-white);
+    outline: none;
+
+    &:focus {
+      border-color: var(--ep-blue-500);
+      box-shadow: var(--ep-ring);
+    }
+  }
+
   /* Preview panel */
 
   .expression-dialog-preview {

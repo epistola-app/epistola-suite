@@ -33,7 +33,35 @@ const JSONATA_QUICK_REFERENCE: { code: string; desc: string }[] = [
   { code: "$substring(name, 0, 10)", desc: "Substring" },
   { code: "items[price > 100]", desc: "Filter array" },
   { code: "$number(value)", desc: "Convert to number" },
+  { code: "$formatDate(date, 'dd-MM-yyyy')", desc: "Format a date" },
 ];
+
+/** Date format presets for the format dropdown. */
+const DATE_FORMAT_PRESETS: { value: string; label: string }[] = [
+  { value: '', label: 'No formatting' },
+  { value: 'dd-MM-yyyy', label: 'dd-MM-yyyy (15-01-2024)' },
+  { value: 'yyyy-MM-dd', label: 'yyyy-MM-dd (2024-01-15)' },
+  { value: 'dd/MM/yyyy', label: 'dd/MM/yyyy (15/01/2024)' },
+  { value: 'MM/dd/yyyy', label: 'MM/dd/yyyy (01/15/2024)' },
+  { value: 'd MMMM yyyy', label: 'd MMMM yyyy (15 January 2024)' },
+  { value: 'dd-MM-yyyy HH:mm', label: 'dd-MM-yyyy HH:mm (15-01-2024 14:30)' },
+  { value: 'yyyy-MM-dd HH:mm', label: 'yyyy-MM-dd HH:mm (2024-01-15 14:30)' },
+]
+
+/** Regex to parse `$formatDate(fieldPath, 'pattern')` expressions. */
+const FORMAT_DATE_REGEX = /^\$formatDate\(\s*([^,]+?)\s*,\s*'([^']+)'\s*\)$/
+
+/** Extract field path and format pattern from a `$formatDate(...)` expression. */
+export function parseFormatDateExpression(expr: string): { fieldPath: string; pattern: string } | null {
+  const match = expr.match(FORMAT_DATE_REGEX)
+  if (!match) return null
+  return { fieldPath: match[1], pattern: match[2] }
+}
+
+/** Wrap a field path with `$formatDate(...)`. */
+export function wrapFormatDate(fieldPath: string, pattern: string): string {
+  return `$formatDate(${fieldPath}, '${pattern}')`
+}
 
 export interface ExpressionDialogOptions {
   initialValue: string;
@@ -90,6 +118,12 @@ export function openExpressionDialog(
           placeholder="${escapeAttr(placeholder)}"
           autocomplete="off"
         />
+        <div class="expression-dialog-format-row" style="display:none">
+          <label class="expression-dialog-format-label">Date format</label>
+          <select class="expression-dialog-format-select">
+            ${DATE_FORMAT_PRESETS.map(p => `<option value="${escapeAttr(p.value)}">${escapeHtml(p.label)}</option>`).join('')}
+          </select>
+        </div>
         <div class="expression-dialog-preview" style="display:none"></div>
         <div class="expression-dialog-paths"></div>
         <details class="expression-dialog-reference">
@@ -108,6 +142,45 @@ export function openExpressionDialog(
     const pathsContainer = dialog.querySelector<HTMLElement>(".expression-dialog-paths")!;
     const previewEl = dialog.querySelector<HTMLElement>(".expression-dialog-preview")!;
     const refList = dialog.querySelector<HTMLElement>(".expression-dialog-ref-list")!;
+    const formatRow = dialog.querySelector<HTMLElement>(".expression-dialog-format-row")!;
+    const formatSelect = dialog.querySelector<HTMLSelectElement>(".expression-dialog-format-select")!;
+
+    // --- Date format dropdown ---
+    const dateFieldPaths = new Set(fieldPaths.filter((fp) => fp.type === "date").map((fp) => fp.path));
+
+    /** Get the bare field path from the current input (unwrapping $formatDate if present). */
+    const getBarePath = (val: string): string => {
+      const parsed = parseFormatDateExpression(val);
+      return parsed ? parsed.fieldPath : val;
+    };
+
+    /** Show/hide the format dropdown based on whether the expression is a date field. */
+    const updateFormatVisibility = () => {
+      const barePath = getBarePath(input.value.trim());
+      const isDateField = dateFieldPaths.has(barePath);
+      formatRow.style.display = isDateField ? "" : "none";
+      if (!isDateField) {
+        formatSelect.value = "";
+      }
+    };
+
+    // If opening with an existing $formatDate(...) expression, pre-select the format
+    const initialParsed = parseFormatDateExpression(initialValue);
+    if (initialParsed && dateFieldPaths.has(initialParsed.fieldPath)) {
+      formatSelect.value = initialParsed.pattern;
+    }
+
+    // When format selection changes, rewrite the input expression
+    formatSelect.addEventListener("change", () => {
+      const barePath = getBarePath(input.value.trim());
+      const pattern = formatSelect.value;
+      if (pattern) {
+        input.value = wrapFormatDate(barePath, pattern);
+      } else {
+        input.value = barePath;
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
 
     // --- Field paths ---
     renderFieldPaths(pathsContainer, input, fieldPaths, fieldPathFilter);
@@ -152,6 +225,7 @@ export function openExpressionDialog(
 
     input.addEventListener("input", () => {
       applyValidation();
+      updateFormatVisibility();
       schedulePreview();
     });
 
@@ -193,9 +267,10 @@ export function openExpressionDialog(
     input.focus();
     input.select();
 
-    // Initial validation + preview
+    // Initial validation + preview + format visibility
     if (initialValue) {
       applyValidation();
+      updateFormatVisibility();
       updatePreview(
         initialValue,
         previewEl,
