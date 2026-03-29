@@ -74,6 +74,8 @@ export interface UpdateNodeProps {
   type: 'UpdateNodeProps';
   nodeId: NodeId;
   props: Record<string, unknown>;
+  /** Opaque metadata carried through to events and inverse commands. */
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateNodeStyles {
@@ -528,10 +530,22 @@ function applyUpdateNodeProps(doc: TemplateDocument, cmd: UpdateNodeProps): Comm
   if (!node) return err(`Node ${cmd.nodeId} not found`);
 
   const oldProps = node.props ?? {};
+
+  // Reverse alias rename metadata for undo (so undo triggers the same rewrite in reverse)
+  const aliasRename = cmd.metadata?.aliasRename as
+    | { oldAlias: string; newAlias: string }
+    | undefined;
+  const inverseMetadata = aliasRename
+    ? { aliasRename: { oldAlias: aliasRename.newAlias, newAlias: aliasRename.oldAlias } }
+    : cmd.metadata
+      ? structuredClone(cmd.metadata)
+      : undefined;
+
   const inverse: UpdateNodeProps = {
     type: 'UpdateNodeProps',
     nodeId: cmd.nodeId,
     props: structuredClone(oldProps),
+    metadata: inverseMetadata,
   };
 
   const newNode = { ...node, props: structuredClone(cmd.props) };

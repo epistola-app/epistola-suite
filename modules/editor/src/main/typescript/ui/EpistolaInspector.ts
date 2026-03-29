@@ -500,10 +500,21 @@ export class EpistolaInspector extends LitElement {
       newProps = def.onPropChange(key, value, newProps);
     }
 
+    // Detect alias rename for expression auto-rewrite
+    const oldAlias = (node.props ?? {})[key];
+    const metadata =
+      key === 'itemAlias' &&
+      typeof oldAlias === 'string' &&
+      typeof value === 'string' &&
+      oldAlias !== value
+        ? { aliasRename: { oldAlias, newAlias: value } }
+        : undefined;
+
     this.engine.dispatch({
       type: 'UpdateNodeProps',
       nodeId: this.selectedNodeId,
       props: newProps,
+      metadata,
     });
   }
 

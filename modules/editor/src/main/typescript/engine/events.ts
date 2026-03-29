@@ -18,6 +18,7 @@ export type EngineEvents = {
     indexes: DocumentIndexes;
     structureChanged: boolean;
     commandType?: string;
+    command?: unknown;
   };
   'selection:change': { nodeId: NodeId | null };
   'example:change': { index: number; example: object | undefined };

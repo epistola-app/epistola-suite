@@ -8,6 +8,7 @@
 import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js';
 import { type FieldPath, extractFieldPaths } from './schema-paths.js';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
+import { resolveScopedFieldPaths, augmentWithLoopContext } from './scoped-fields.js';
 import type { Theme } from '@epistola.app/editor-model/generated/theme';
 import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
 import { type DocumentIndexes, buildIndexes } from './indexes.js';
@@ -190,6 +191,44 @@ export class EditorEngine {
     return { ...data, ...SYSTEM_PARAM_MOCK_DATA };
   }
 
+  /**
+   * Get all available field paths at a specific position in the document tree.
+   *
+   * Returns template variables, scoped iteration variables (from ancestor loops/datatables),
+   * and system parameters in one array. The `scope` and `system` flags on each FieldPath
+   * distinguish categories for UI grouping.
+   *
+   * Computed fresh on each call so alias changes take effect immediately.
+   */
+  getFieldPathsAt(nodeId: NodeId): FieldPath[] {
+    const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : [];
+    const scopedContexts = resolveScopedFieldPaths(
+      nodeId,
+      this._doc,
+      this._indexes,
+      this.fieldPaths,
+    );
+    const scopedFields = scopedContexts.flatMap((ctx) => ctx.fieldPaths);
+    return [...dataFields, ...scopedFields, ...SYSTEM_PARAMETER_PATHS];
+  }
+
+  /**
+   * Get example data augmented with synthetic loop context at a specific position.
+   *
+   * Resolves ancestor loop/datatable expressions against the example data and injects
+   * the first array item as the loop variable for live preview.
+   */
+  getExampleDataAt(nodeId: NodeId): Record<string, unknown> {
+    const data = this.getExampleData();
+    const scopedContexts = resolveScopedFieldPaths(
+      nodeId,
+      this._doc,
+      this._indexes,
+      this.fieldPaths,
+    );
+    return scopedContexts.length > 0 ? augmentWithLoopContext(data, scopedContexts) : data;
+  }
+
   /** Switch the active data example by index. Notifies example listeners. */
   setCurrentExample(index: number): void {
     if (index === this._currentExampleIndex) return;
@@ -331,7 +370,7 @@ export class EditorEngine {
         this._undoStack.push(new CommandChange(result.inverse));
       }
 
-      this._notify(result.structureChanged, command.type);
+      this._notify(result.structureChanged, command.type, command);
     }
 
     return result;
@@ -364,7 +403,7 @@ export class EditorEngine {
         this._indexes = buildIndexes(this._doc);
       }
       this._recomputeStyles();
-      this._notify(result.structureChanged, command.type);
+      this._notify(result.structureChanged, command.type, command);
     }
 
     return result;
@@ -462,12 +501,13 @@ export class EditorEngine {
     return this._events.on('doc:change', ({ doc, indexes }) => listener(doc, indexes));
   }
 
-  private _notify(structureChanged: boolean, commandType?: string): void {
+  private _notify(structureChanged: boolean, commandType?: string, command?: unknown): void {
     this._events.emit('doc:change', {
       doc: this._doc,
       indexes: this._indexes,
       structureChanged,
       commandType,
+      command,
     });
   }
 }

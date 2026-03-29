@@ -111,6 +111,30 @@ export function tryParseAsBuilderExpression(
   return null;
 }
 
+/**
+ * Check if an expression looks like a simple builder pattern (bare path or $formatDate)
+ * but the field isn't in the available paths. This distinguishes "stale field reference"
+ * from "complex JSONata expression".
+ */
+export function isStaleFieldReference(expr: string, fieldPaths: FieldPath[]): boolean {
+  const trimmed = expr.trim();
+  if (!trimmed) return false;
+
+  // Check if it's a $formatDate with a field path that's not found
+  const parsed = parseFormatDateExpression(trimmed);
+  if (parsed) {
+    return !fieldPaths.some((f) => f.path === parsed.fieldPath);
+  }
+
+  // Check if it looks like a simple dot-path (no operators, no function calls except $formatDate)
+  const looksLikeSimplePath = /^[a-zA-Z_][a-zA-Z0-9_.]*$/.test(trimmed);
+  if (looksLikeSimplePath) {
+    return !fieldPaths.some((f) => f.path === trimmed);
+  }
+
+  return false;
+}
+
 /** Construct an expression string from builder state. */
 export function buildExpression(state: BuilderState): string {
   if (state.formatType === 'date' && state.formatPattern) {
@@ -185,36 +209,44 @@ export function openExpressionDialog(
         : 'builder'
       : 'code';
 
-    const dataFields = fieldPaths.filter((fp) => !fp.system);
+    const dataFields = fieldPaths.filter((fp) => !fp.system && !fp.scope);
+    const scopedFields = fieldPaths.filter((fp) => fp.scope);
     const systemFields = fieldPaths.filter((fp) => fp.system);
     // Builder excludes arrays, objects, and any nested array properties (paths containing [])
     const builderFields = dataFields.filter(
       (fp) => fp.type !== 'array' && fp.type !== 'object' && !fp.path.includes('[]'),
+    );
+    const builderScopedFields = scopedFields.filter(
+      (fp) => fp.type !== 'array' && fp.type !== 'object',
     );
     const dateFieldPaths = new Set(
       fieldPaths.filter((fp) => fp.type === 'date').map((fp) => fp.path),
     );
 
     // --- Build field options HTML ---
+    const fieldOptionHtml = (fp: FieldPath) =>
+      `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`;
+
     const fieldOptionsHtml = [
       '<option value="">Select a field...</option>',
       ...(builderFields.length > 0
         ? [
             '<optgroup label="Template variables">',
-            ...builderFields.map(
-              (fp) =>
-                `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`,
-            ),
+            ...builderFields.map(fieldOptionHtml),
+            '</optgroup>',
+          ]
+        : []),
+      ...(builderScopedFields.length > 0
+        ? [
+            '<optgroup label="Iteration variables">',
+            ...builderScopedFields.map(fieldOptionHtml),
             '</optgroup>',
           ]
         : []),
       ...(systemFields.length > 0
         ? [
             '<optgroup label="System parameters">',
-            ...systemFields.map(
-              (fp) =>
-                `<option value="${escapeAttr(fp.path)}" data-type="${escapeAttr(fp.type)}">${escapeHtml(fp.path)}</option>`,
-            ),
+            ...systemFields.map(fieldOptionHtml),
             '</optgroup>',
           ]
         : []),
@@ -460,12 +492,16 @@ export function openExpressionDialog(
             : null; // empty is OK for builder
 
           if (input.value.trim() && !parsed) {
-            // Can't represent — show warning
+            // Show context-aware warning
             if (modeWarning) {
+              const stale = isStaleFieldReference(input.value.trim(), fieldPaths);
+              modeWarning.textContent = stale
+                ? `Field '${input.value.trim()}' not found. The loop alias may have changed.`
+                : 'This expression is too complex for Builder mode.';
               modeWarning.style.display = '';
               setTimeout(() => {
                 modeWarning.style.display = 'none';
-              }, 3000);
+              }, 5000);
             }
             return;
           }
@@ -580,7 +616,8 @@ function renderFieldPaths(
 ): void {
   if (fieldPaths.length === 0) return;
 
-  const dataFields = fieldPaths.filter((fp) => !fp.system);
+  const dataFields = fieldPaths.filter((fp) => !fp.system && !fp.scope);
+  const scopedFields = fieldPaths.filter((fp) => fp.scope);
   const systemFields = fieldPaths.filter((fp) => fp.system);
 
   const header = document.createElement('div');
@@ -610,10 +647,28 @@ function renderFieldPaths(
     items.push({ li, path: fp.path });
   }
 
+  // Render iteration variables in a separate section
+  if (scopedFields.length > 0) {
+    const scopeHeader = document.createElement('li');
+    scopeHeader.className = 'expression-dialog-section-header scoped-header';
+    scopeHeader.textContent = 'Iteration variables';
+    list.appendChild(scopeHeader);
+
+    for (const fp of scopedFields) {
+      const li = createFieldPathItem(fp, input, fieldPathFilter);
+      li.classList.add('scoped');
+      if (fp.description) {
+        li.title = fp.description;
+      }
+      list.appendChild(li);
+      items.push({ li, path: fp.path });
+    }
+  }
+
   // Render system parameters in a separate section
   if (systemFields.length > 0) {
     const sysHeader = document.createElement('li');
-    sysHeader.className = 'expression-dialog-section-header';
+    sysHeader.className = 'expression-dialog-section-header system-header';
     sysHeader.textContent = 'System parameters';
     list.appendChild(sysHeader);
 
@@ -634,13 +689,18 @@ function renderFieldPaths(
     for (const item of items) {
       item.li.style.display = item.path.toLowerCase().includes(query) ? '' : 'none';
     }
-    // Show/hide the system section header based on whether any system items match
-    const sysHeaderEl = list.querySelector<HTMLElement>('.expression-dialog-section-header');
-    if (sysHeaderEl) {
-      const hasVisibleSystemItem = items.some(
-        (item) => item.li.classList.contains('system') && item.li.style.display !== 'none',
-      );
-      sysHeaderEl.style.display = hasVisibleSystemItem || !query ? '' : 'none';
+    // Show/hide section headers based on visible items
+    for (const [cssClass, headerClass] of [
+      ['scoped', 'scoped-header'],
+      ['system', 'system-header'],
+    ] as const) {
+      const headerEl = list.querySelector<HTMLElement>(`.${headerClass}`);
+      if (headerEl) {
+        const hasVisible = items.some(
+          (item) => item.li.classList.contains(cssClass) && item.li.style.display !== 'none',
+        );
+        headerEl.style.display = hasVisible || !query ? '' : 'none';
+      }
     }
   });
 

@@ -37,6 +37,8 @@ import type { EditorEngine } from '../engine/EditorEngine.js';
 import { TextChange } from '../engine/text-change.js';
 import type { TextChangeOps } from '../engine/undo.js';
 import type { NodeId } from '../types/index.js';
+import { isAncestor } from '../engine/indexes.js';
+import { rewriteExpressionsInContent } from '../engine/alias-rewrite.js';
 
 const DEBOUNCE_MS = 300;
 
@@ -57,6 +59,7 @@ export class EpistolaTextEditor extends LitElement {
   private _lastContentJson: string = '';
   private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private _unsubExample: (() => void) | null = null;
+  private _unsubDocChange: (() => void) | null = null;
 
   /** The TextChangeOps for this PM view. Used to identify our session on the undo stack. */
   private _ops: TextChangeOps | null = null;
@@ -74,10 +77,14 @@ export class EpistolaTextEditor extends LitElement {
     if (!this._pmContainer) return;
     this._createProseMirror();
 
-    // Refresh expression chips when the data example changes
+    // Refresh expression chips when data example or document changes
     if (this.engine) {
       this._unsubExample = this.engine.events.on('example:change', () => {
         ExpressionNodeView.refreshAll();
+      });
+      this._unsubDocChange = this.engine.events.on('doc:change', ({ command, indexes }) => {
+        ExpressionNodeView.refreshAll();
+        this._handleAliasRename(command, indexes);
       });
     }
   }
@@ -108,6 +115,8 @@ export class EpistolaTextEditor extends LitElement {
     // Unsubscribe from example changes
     this._unsubExample?.();
     this._unsubExample = null;
+    this._unsubDocChange?.();
+    this._unsubDocChange = null;
 
     // Cache PM EditorState for history preservation across delete/undo cycles
     if (this._pmView && this.engine && this.nodeId) {
@@ -123,19 +132,69 @@ export class EpistolaTextEditor extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
+  // Alias rename handling
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Rewrite expression chips when a parent loop/datatable's itemAlias changes.
+   * Triggered by doc:change events carrying aliasRename metadata.
+   */
+  private _handleAliasRename(
+    command: unknown,
+    indexes: import('../engine/indexes.js').DocumentIndexes,
+  ): void {
+    if (!this.engine || !this.nodeId || !command) return;
+    const cmd = command as { type?: string; nodeId?: string; metadata?: Record<string, unknown> };
+    if (cmd.type !== 'UpdateNodeProps' || !cmd.metadata?.aliasRename) return;
+
+    const rename = cmd.metadata.aliasRename as { oldAlias: string; newAlias: string };
+    if (!rename.oldAlias || !rename.newAlias) return;
+
+    // Only rewrite if this text block is a descendant of the renamed loop
+    const sourceNodeId = cmd.nodeId as import('../types/index.js').NodeId;
+    if (!isAncestor(this.nodeId, sourceNodeId, indexes)) return;
+
+    // Rewrite ProseMirror content
+    const node = this.engine.doc.nodes[this.nodeId];
+    if (!node?.props?.content) return;
+
+    const newContent = rewriteExpressionsInContent(
+      node.props.content,
+      rename.oldAlias,
+      rename.newAlias,
+    );
+    if (newContent === node.props.content) return;
+
+    // Dispatch with skipUndo — the alias change's undo will trigger reverse rewrite
+    this.engine.dispatch(
+      {
+        type: 'UpdateNodeProps',
+        nodeId: this.nodeId,
+        props: { ...node.props, content: newContent },
+      },
+      { skipUndo: true },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // ProseMirror setup
   // ---------------------------------------------------------------------------
 
   private _createProseMirror(): void {
     if (!this._pmContainer) return;
 
-    const fieldPaths = this.engine?.fieldPaths ?? [];
-
     const engine = this.engine;
-    const getExampleData = engine ? () => engine.getExampleData() : undefined;
+    const nodeId = this.nodeId;
+
+    // Getters that resolve fresh on each call — so alias changes take effect immediately
+    const getFieldPaths = () =>
+      engine && nodeId ? engine.getFieldPathsAt(nodeId) : (engine?.fieldPaths ?? []);
+    const getExampleData = engine
+      ? () => (nodeId ? engine.getExampleDataAt(nodeId) : engine.getExampleData())
+      : undefined;
 
     const plugins = createPlugins(epistolaSchema, {
-      expressionNodeViewOptions: { fieldPaths, getExampleData },
+      expressionNodeViewOptions: { getFieldPaths, getExampleData },
     });
 
     // Check for cached PM state (preserved across delete/undo cycles)
@@ -164,7 +223,7 @@ export class EpistolaTextEditor extends LitElement {
       state: editorState,
       nodeViews: {
         expression: (node, view, getPos) =>
-          new ExpressionNodeView(node, view, getPos, { fieldPaths, getExampleData }),
+          new ExpressionNodeView(node, view, getPos, { getFieldPaths, getExampleData }),
       },
       dispatchTransaction: (tr) => {
         if (!this._pmView) return;
