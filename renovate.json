@@ -23,10 +23,7 @@
     },
     {
       "description": "Group epistola-contract packages (server SDK + editor model) together",
-      "matchPackageNames": [
-        "app.epistola.contract{/,}**",
-        "@epistola.app/**"
-      ],
+      "matchPackageNames": ["app.epistola.contract{/,}**", "@epistola.app/**"],
       "groupName": "epistola-contract",
       "groupSlug": "epistola-contract",
       "automerge": false
