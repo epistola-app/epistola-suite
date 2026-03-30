@@ -151,8 +151,11 @@ function renderPresetBody(
                 prop.type === 'spacing'
                   ? readSpacingFromStyles(prop.key, styles, prop.units?.[0] ?? 'px')
                   : styles[prop.key];
-              return renderPresetStyleProperty(prop, value, (v) =>
-                state.updatePresetStyle(name, prop.key, v),
+              return renderPresetStyleProperty(
+                prop,
+                value,
+                (v) => state.updatePresetStyle(name, prop.key, v),
+                `preset-${name}-style-${prop.key}`,
               );
             })}
           </div>
@@ -166,11 +169,12 @@ function renderPresetStyleProperty(
   prop: StyleProperty,
   value: unknown,
   onChange: (value: unknown) => void,
+  inputId: string,
 ): unknown {
   return html`
     <div class="inspector-field">
-      <label class="inspector-field-label">${prop.label}</label>
-      ${renderPresetStyleInput(prop, value, onChange)}
+      <label class="inspector-field-label" for=${inputId}>${prop.label}</label>
+      ${renderPresetStyleInput(prop, value, onChange, inputId)}
     </div>
   `;
 }
@@ -179,21 +183,29 @@ function renderPresetStyleInput(
   prop: StyleProperty,
   value: unknown,
   onChange: (value: unknown) => void,
+  inputId: string,
 ): unknown {
   switch (prop.type) {
     case 'select':
-      return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
+      return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined), inputId);
     case 'unit':
-      return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v));
+      return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v), undefined, inputId);
     case 'color':
-      return renderColorInput(value, (v) => onChange(v || undefined));
+      return renderColorInput(value, (v) => onChange(v || undefined), inputId);
     case 'spacing':
-      return renderSpacingInput(value, prop.units ?? ['px'], (v) => onChange(v));
+      return renderSpacingInput(
+        value,
+        prop.units ?? ['px'],
+        (v) => onChange(v),
+        undefined,
+        inputId,
+      );
     default:
       return html`
         <input
           type="text"
           class="ep-input"
+          id=${inputId}
           .value=${String(value ?? '')}
           @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
         />

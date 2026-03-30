@@ -139,6 +139,10 @@ function pathToErrorId(path: string): string {
   return `error-${path.replace(/\./g, '-')}`;
 }
 
+function fieldIdFromPath(path: string): string {
+  return `dc-field-${path.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
+
 /**
  * Render the example form from a JSON Schema.
  * When no schema exists, shows a placeholder message.
@@ -184,11 +188,12 @@ function renderFormField(
   const type = rawType === 'string' && propSchema.format === 'date' ? 'date' : rawType;
   const value = getNestedValue(rootData, path);
   const fieldError = errors.get(path);
+  const fieldId = fieldIdFromPath(path);
 
   const errorId = fieldError ? pathToErrorId(path) : undefined;
 
   const label = html`
-    <label class="dc-tree-label">
+    <label class="dc-tree-label" for=${fieldId}>
       ${name}${isRequired
         ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
         : nothing}
@@ -204,6 +209,7 @@ function renderFormField(
             <input
               type="text"
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              id=${fieldId}
               .value=${String(value ?? '')}
               placeholder="${name}"
               aria-describedby=${fieldError ? errorId : nothing}
@@ -225,6 +231,7 @@ function renderFormField(
               type="number"
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
               step="any"
+              id=${fieldId}
               .value=${value != null ? String(value) : ''}
               placeholder="${name}"
               aria-describedby=${fieldError ? errorId : nothing}
@@ -249,6 +256,7 @@ function renderFormField(
               type="number"
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
               step="1"
+              id=${fieldId}
               .value=${value != null ? String(value) : ''}
               placeholder="${name}"
               aria-describedby=${fieldError ? errorId : nothing}
@@ -273,6 +281,7 @@ function renderFormField(
               <input
                 type="checkbox"
                 class="ep-checkbox"
+                id=${fieldId}
                 .checked=${value === true}
                 aria-label="${name}"
                 aria-describedby=${fieldError ? errorId : nothing}
@@ -294,6 +303,7 @@ function renderFormField(
             <input
               type="date"
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              id=${fieldId}
               .value=${String(value ?? '')}
               aria-describedby=${fieldError ? errorId : nothing}
               @change=${(e: Event) => onChange(path, (e.target as HTMLInputElement).value)}
@@ -337,6 +347,7 @@ function renderFormField(
             <input
               type="text"
               class="ep-input dc-tree-input ${fieldError ? 'dc-input-error' : ''}"
+              id=${fieldId}
               .value=${String(value ?? '')}
               placeholder="${name}"
               aria-describedby=${fieldError ? errorId : nothing}
@@ -368,11 +379,11 @@ function renderObjectField(
   if (!propSchema.properties || Object.keys(propSchema.properties).length === 0) {
     return html`
       <div class="dc-tree-row">
-        <label class="dc-tree-label">
+        <span class="dc-tree-label">
           ${name}${isRequired
             ? html`<span class="dc-required-mark" aria-hidden="true">*</span>`
             : nothing}
-        </label>
+        </span>
         <span class="dc-tree-hint">No properties defined</span>
       </div>
     `;

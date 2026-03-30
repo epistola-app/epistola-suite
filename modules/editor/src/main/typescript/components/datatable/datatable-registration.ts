@@ -256,7 +256,7 @@ export function createDatatableDefinition(): ComponentDefinition {
         <div class="inspector-section">
           <div class="inspector-section-label">Columns</div>
           <div class="inspector-field">
-            <label class="inspector-field-label">Column Count</label>
+            <span class="inspector-field-label">Column Count</span>
             <div class="inspector-column-count">
               <button
                 class="inspector-column-btn"

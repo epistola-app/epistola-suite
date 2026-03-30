@@ -24,8 +24,9 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
       <h3 class="theme-section-label">Page Settings</h3>
 
       <div class="inspector-field">
-        <label class="inspector-field-label">Format</label>
+        <label class="inspector-field-label" for="theme-page-format">Format</label>
         <select
+          id="theme-page-format"
           class="ep-select"
           @change=${(e: Event) =>
             state.updatePageSetting('format', (e.target as HTMLSelectElement).value)}
@@ -37,8 +38,9 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
       </div>
 
       <div class="inspector-field">
-        <label class="inspector-field-label">Orientation</label>
+        <label class="inspector-field-label" for="theme-page-orientation">Orientation</label>
         <select
+          id="theme-page-orientation"
           class="ep-select"
           @change=${(e: Event) =>
             state.updatePageSetting('orientation', (e.target as HTMLSelectElement).value)}
@@ -54,7 +56,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
       </div>
 
       <div class="inspector-field">
-        <label class="inspector-field-label">Margins (mm)</label>
+        <label class="inspector-field-label" for="theme-page-margin-top">Margins (mm)</label>
         <div class="inspector-margins-grid">
           ${(['top', 'right', 'bottom', 'left'] as const).map(
             (side) => html`
@@ -62,6 +64,7 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
                 <span class="style-spacing-label">${side[0].toUpperCase()}</span>
                 <input
                   type="number"
+                  id=${`theme-page-margin-${side}`}
                   class="ep-input style-spacing-number"
                   .value=${String(margins[side])}
                   @change=${(e: Event) =>
@@ -74,20 +77,25 @@ export function renderPageSettingsSection(state: ThemeEditorState): unknown {
       </div>
 
       <div class="inspector-field">
-        <label class="inspector-field-label">Background Color</label>
-        ${renderColorInput(backgroundColor, (value) =>
-          state.updatePageSetting('backgroundColor', value || undefined),
+        <label class="inspector-field-label" for="theme-page-background-color">
+          Background Color
+        </label>
+        ${renderColorInput(
+          backgroundColor,
+          (value) => state.updatePageSetting('backgroundColor', value || undefined),
+          'theme-page-background-color',
         )}
       </div>
 
       <div class="inspector-field">
-        <label class="inspector-field-label">Spacing Unit (pt)</label>
+        <label class="inspector-field-label" for="theme-spacing-unit">Spacing Unit (pt)</label>
         <p class="theme-section-hint">
           Base unit for the spacing scale. All sp values are multiples of this.
         </p>
         <input
           type="number"
           class="ep-input"
+          id="theme-spacing-unit"
           min="1"
           max="16"
           step="0.5"

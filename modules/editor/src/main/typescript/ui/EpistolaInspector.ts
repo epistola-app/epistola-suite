@@ -135,8 +135,9 @@ export class EpistolaInspector extends LitElement {
         <div class="inspector-section-label">Page Settings</div>
 
         <div class="inspector-field">
-          <label class="inspector-field-label">Format</label>
+          <label class="inspector-field-label" for="page-settings-format">Format</label>
           <select
+            id="page-settings-format"
             class="ep-select"
             @change=${(e: Event) =>
               this._handlePageSettingChange('format', (e.target as HTMLSelectElement).value)}
@@ -148,8 +149,9 @@ export class EpistolaInspector extends LitElement {
         </div>
 
         <div class="inspector-field">
-          <label class="inspector-field-label">Orientation</label>
+          <label class="inspector-field-label" for="page-settings-orientation">Orientation</label>
           <select
+            id="page-settings-orientation"
             class="ep-select"
             @change=${(e: Event) =>
               this._handlePageSettingChange('orientation', (e.target as HTMLSelectElement).value)}
@@ -165,7 +167,7 @@ export class EpistolaInspector extends LitElement {
         </div>
 
         <div class="inspector-field">
-          <label class="inspector-field-label">Margins (mm)</label>
+          <label class="inspector-field-label" for="page-settings-margin-top">Margins (mm)</label>
           <div class="inspector-margins-grid">
             ${(['top', 'right', 'bottom', 'left'] as const).map(
               (side) => html`
@@ -173,6 +175,7 @@ export class EpistolaInspector extends LitElement {
                   <span class="style-spacing-label">${side[0].toUpperCase()}</span>
                   <input
                     type="number"
+                    id=${`page-settings-margin-${side}`}
                     class="ep-input style-spacing-number"
                     .value=${String(settings.margins[side])}
                     @change=${(e: Event) =>
@@ -185,9 +188,13 @@ export class EpistolaInspector extends LitElement {
         </div>
 
         <div class="inspector-field">
-          <label class="inspector-field-label">Background Color</label>
-          ${renderColorInput(settings.backgroundColor ?? '', (value) =>
-            this._handlePageSettingChange('backgroundColor', value),
+          <label class="inspector-field-label" for="page-settings-background-color">
+            Background Color
+          </label>
+          ${renderColorInput(
+            settings.backgroundColor ?? '',
+            (value) => this._handlePageSettingChange('backgroundColor', value),
+            'page-settings-background-color',
           )}
         </div>
       </div>
@@ -217,8 +224,9 @@ export class EpistolaInspector extends LitElement {
       if (applicablePresets.length > 0) {
         return html`
           <div class="inspector-section">
-            <label class="inspector-field-label">Style Preset</label>
+            <label class="inspector-field-label" for="style-preset-select">Style Preset</label>
             <select
+              id="style-preset-select"
               class="ep-select"
               @change=${(e: Event) => {
                 const value = (e.target as HTMLSelectElement).value;
@@ -242,9 +250,10 @@ export class EpistolaInspector extends LitElement {
     // Fallback: text input for preset name (no theme or no applicable presets)
     return html`
       <div class="inspector-section">
-        <label class="inspector-field-label">Style Preset</label>
+        <label class="inspector-field-label" for="style-preset-input">Style Preset</label>
         <input
           type="text"
+          id="style-preset-input"
           class="ep-input"
           .value=${node.stylePreset ?? ''}
           @change=${(e: Event) => {
@@ -317,10 +326,11 @@ export class EpistolaInspector extends LitElement {
     value: unknown,
     onChange: (value: unknown) => void,
   ): unknown {
+    const inputId = `inspector-style-${prop.key}`;
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">${prop.label}</label>
-        ${this._renderStyleInput(prop, value, onChange)}
+        <label class="inspector-field-label" for=${inputId}>${prop.label}</label>
+        ${this._renderStyleInput(prop, value, onChange, inputId)}
       </div>
     `;
   }
@@ -329,21 +339,34 @@ export class EpistolaInspector extends LitElement {
     prop: StyleProperty,
     value: unknown,
     onChange: (value: unknown) => void,
+    inputId: string,
   ): unknown {
     switch (prop.type) {
       case 'select':
-        return renderSelectInput(value, prop.options ?? [], (v) => onChange(v || undefined));
+        return renderSelectInput(
+          value,
+          prop.options ?? [],
+          (v) => onChange(v || undefined),
+          inputId,
+        );
       case 'unit':
-        return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v));
+        return renderUnitInput(value, prop.units ?? ['px'], (v) => onChange(v), undefined, inputId);
       case 'color':
-        return renderColorInput(value, (v) => onChange(v || undefined));
+        return renderColorInput(value, (v) => onChange(v || undefined), inputId);
       case 'spacing':
-        return renderSpacingInput(value, prop.units ?? ['px'], (v) => onChange(v));
+        return renderSpacingInput(
+          value,
+          prop.units ?? ['px'],
+          (v) => onChange(v),
+          undefined,
+          inputId,
+        );
       case 'number':
         return html`
           <input
             type="number"
             class="ep-input"
+            id=${inputId}
             .value=${String(value ?? '')}
             @change=${(e: Event) => onChange(Number((e.target as HTMLInputElement).value))}
           />
@@ -354,6 +377,7 @@ export class EpistolaInspector extends LitElement {
           <input
             type="text"
             class="ep-input"
+            id=${inputId}
             .value=${String(value ?? '')}
             @change=${(e: Event) => onChange((e.target as HTMLInputElement).value || undefined)}
           />
@@ -377,15 +401,17 @@ export class EpistolaInspector extends LitElement {
   private _renderField(node: Node, field: InspectorField): unknown {
     const props = node.props ?? {};
     const value = getNestedValue(props, field.key);
+    const fieldId = `inspector-prop-${field.key}`;
 
     switch (field.type) {
       case 'text':
         return html`
           <div class="inspector-field">
-            <label class="inspector-field-label">${field.label}</label>
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
             <input
               type="text"
               class="ep-input"
+              id=${fieldId}
               .value=${String(value ?? '')}
               @change=${(e: Event) =>
                 this._handlePropChange(field.key, (e.target as HTMLInputElement).value)}
@@ -395,10 +421,11 @@ export class EpistolaInspector extends LitElement {
       case 'number':
         return html`
           <div class="inspector-field">
-            <label class="inspector-field-label">${field.label}</label>
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
             <input
               type="number"
               class="ep-input"
+              id=${fieldId}
               .value=${String(value ?? 0)}
               @change=${(e: Event) =>
                 this._handlePropChange(field.key, Number((e.target as HTMLInputElement).value))}
@@ -411,27 +438,33 @@ export class EpistolaInspector extends LitElement {
             <input
               type="checkbox"
               class="ep-checkbox"
+              id=${fieldId}
               .checked=${Boolean(value)}
               @change=${(e: Event) =>
                 this._handlePropChange(field.key, (e.target as HTMLInputElement).checked)}
             />
-            <label class="inspector-field-label">${field.label}</label>
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
           </div>
         `;
       case 'unit':
         return html`
           <div class="inspector-field">
-            <label class="inspector-field-label">${field.label}</label>
-            ${renderUnitInput(value, field.units ?? ['pt'], (v) =>
-              this._handlePropChange(field.key, v),
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
+            ${renderUnitInput(
+              value,
+              field.units ?? ['pt'],
+              (v) => this._handlePropChange(field.key, v),
+              undefined,
+              fieldId,
             )}
           </div>
         `;
       case 'select':
         return html`
           <div class="inspector-field">
-            <label class="inspector-field-label">${field.label}</label>
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
             <select
+              id=${fieldId}
               class="ep-select"
               @change=${(e: Event) =>
                 this._handlePropChange(field.key, (e.target as HTMLSelectElement).value)}
@@ -456,8 +489,9 @@ export class EpistolaInspector extends LitElement {
 
         return html`
           <div class="inspector-field">
-            <label class="inspector-field-label">${field.label}</label>
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
             <button
+              id=${fieldId}
               class="inspector-expression-trigger ${validClass}"
               @click=${() => this._openExpressionDialog(field.key, exprValue, node)}
             >
@@ -475,7 +509,7 @@ export class EpistolaInspector extends LitElement {
       default:
         return html`
           <div class="inspector-field">
-            <label class="inspector-field-label">${field.label}</label>
+            <label class="inspector-field-label" for=${fieldId}>${field.label}</label>
             <div class="inspector-unsupported">Unsupported field type: ${field.type}</div>
           </div>
         `;

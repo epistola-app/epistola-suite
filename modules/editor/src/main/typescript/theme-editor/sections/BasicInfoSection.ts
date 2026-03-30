@@ -12,18 +12,20 @@ export function renderBasicInfoSection(state: ThemeEditorState): unknown {
     <section class="theme-section">
       <h3 class="theme-section-label">Basic Information</h3>
       <div class="inspector-field">
-        <label class="inspector-field-label">Name</label>
+        <label class="inspector-field-label" for="theme-name">Name</label>
         <input
           type="text"
+          id="theme-name"
           class="ep-input"
           .value=${theme.name}
           @change=${(e: Event) => state.updateName((e.target as HTMLInputElement).value)}
         />
       </div>
       <div class="inspector-field">
-        <label class="inspector-field-label">Description</label>
+        <label class="inspector-field-label" for="theme-description">Description</label>
         <textarea
           class="ep-input ep-textarea"
+          id="theme-description"
           rows="2"
           .value=${theme.description ?? ''}
           @change=${(e: Event) => {

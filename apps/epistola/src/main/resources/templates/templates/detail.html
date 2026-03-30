@@ -76,8 +76,8 @@
             <div id="variant-filter-bar" class="variant-filter-bar"
                  th:if="${attributeDefinitions != null and !#lists.isEmpty(attributeDefinitions)}">
                 <div class="form-group" th:each="attrDef : ${attributeDefinitions}">
-                    <label th:text="${attrDef.displayName}"></label>
-                    <select class="ep-select" th:data-filter-key="${attrDef.id}" onchange="filterVariants()">
+                    <label th:for="'attr-filter-' + ${attrDef.id}" th:text="${attrDef.displayName}"></label>
+                    <select class="ep-select" th:id="'attr-filter-' + ${attrDef.id}" th:data-filter-key="${attrDef.id}" onchange="filterVariants()">
                         <option value="">All</option>
                         <option th:each="val : ${attrDef.allowedValues}" th:value="${val}" th:text="${val}"></option>
                     </select>
