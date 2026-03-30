@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **Table rendering broken in demo**: Fixed table nodes in the invoice demo template using an old `rows` array format instead of the current numeric `rows`/`columns`/`headerRows` props.
+- **Invoice demo template rewritten**: Replaced the hacky loop+table combination with a proper **datatable** for line items (iterates over `items` array) and a **static table** for the totals summary (Subtotal, Tax, Total). Both table component types are now properly showcased.
+- **Scoped variables missing in inspector expression dialog**: The inspector's expression dialog now includes iteration variables (`item.*`, `item_index`, etc.) from ancestor loops and datatables, matching the behavior already present in inline text expression chips.
+- **Zero-value spacing deletion**: `expandSpacingToStyles` now treats all zero values (`0px`, `0em`, `0rem`, etc.) as removable, not just `0pt` and `0sp`.
+
+### Changed
+
+- **CI**: Added frontend tests (`pnpm test`) to the GitHub build pipeline.
+
 ## [0.8.0] - 2026-03-30
 
 ### Added

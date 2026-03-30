@@ -696,8 +696,8 @@ export class EpistolaInspector extends LitElement {
 
     openExpressionDialog({
       initialValue: currentValue,
-      fieldPaths: this.engine.fieldPaths,
-      getExampleData: () => this.engine?.getExampleData(),
+      fieldPaths: this.engine.getAvailableVariablesAt(this.selectedNodeId!),
+      getExampleData: () => this.engine?.getEvaluationContextAt(this.selectedNodeId!) ?? {},
       label: isLoopExpr ? 'Loop Expression' : isConditionalExpr ? 'Condition' : 'Expression',
       placeholder,
       fieldPathFilter: isLoopExpr ? (fp) => fp.type === 'array' : undefined,

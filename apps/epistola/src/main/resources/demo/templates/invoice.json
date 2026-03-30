@@ -646,168 +646,63 @@
         }
       },
 
-      "n-line-items-table": {
-        "id": "n-line-items-table",
-        "type": "table",
-        "slots": [
-          "s-lit-cell-0-0", "s-lit-cell-0-1", "s-lit-cell-0-2", "s-lit-cell-0-3"
-        ],
+      "n-line-items-datatable": {
+        "id": "n-line-items-datatable",
+        "type": "datatable",
+        "slots": ["s-dt-columns"],
         "styles": {
           "marginBottom": "4sp"
         },
         "props": {
-          "columnWidths": [50, 10, 15, 15],
-          "borderStyle": "all",
-          "rows": [
-            { "isHeader": true }
-          ]
-        }
-      },
-      "n-header-desc-text": {
-        "id": "n-header-desc-text",
-        "type": "text",
-        "slots": [],
-        "styles": {
-          "fontWeight": "bold",
-          "backgroundColor": "#2563eb",
-          "color": "#ffffff",
-          "padding": "1.5sp"
-        },
-        "props": {
-          "content": {
-            "type": "doc",
-            "content": [
-              {
-                "type": "paragraph",
-                "content": [
-                  {
-                    "type": "text",
-                    "text": "Description"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      },
-      "n-header-qty-text": {
-        "id": "n-header-qty-text",
-        "type": "text",
-        "slots": [],
-        "styles": {
-          "fontWeight": "bold",
-          "backgroundColor": "#2563eb",
-          "color": "#ffffff",
-          "padding": "1.5sp",
-          "textAlign": "right"
-        },
-        "props": {
-          "content": {
-            "type": "doc",
-            "content": [
-              {
-                "type": "paragraph",
-                "content": [
-                  {
-                    "type": "text",
-                    "text": "Qty"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      },
-      "n-header-unit-text": {
-        "id": "n-header-unit-text",
-        "type": "text",
-        "slots": [],
-        "styles": {
-          "fontWeight": "bold",
-          "backgroundColor": "#2563eb",
-          "color": "#ffffff",
-          "padding": "1.5sp",
-          "textAlign": "right"
-        },
-        "props": {
-          "content": {
-            "type": "doc",
-            "content": [
-              {
-                "type": "paragraph",
-                "content": [
-                  {
-                    "type": "text",
-                    "text": "Unit Price"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      },
-      "n-header-total-text": {
-        "id": "n-header-total-text",
-        "type": "text",
-        "slots": [],
-        "styles": {
-          "fontWeight": "bold",
-          "backgroundColor": "#2563eb",
-          "color": "#ffffff",
-          "padding": "1.5sp",
-          "textAlign": "right"
-        },
-        "props": {
-          "content": {
-            "type": "doc",
-            "content": [
-              {
-                "type": "paragraph",
-                "content": [
-                  {
-                    "type": "text",
-                    "text": "Total"
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      },
-
-      "n-items-loop": {
-        "id": "n-items-loop",
-        "type": "loop",
-        "slots": ["s-items-loop-children"],
-        "props": {
           "expression": {
-            "raw": "items"
+            "raw": "items",
+            "language": "jsonata"
           },
           "itemAlias": "item",
-          "indexAlias": "index"
+          "borderStyle": "all",
+          "headerEnabled": true
         }
       },
-      "n-item-row-table": {
-        "id": "n-item-row-table",
-        "type": "table",
-        "slots": [
-          "s-irt-cell-0-0", "s-irt-cell-0-1", "s-irt-cell-0-2", "s-irt-cell-0-3"
-        ],
+      "n-dt-col-desc": {
+        "id": "n-dt-col-desc",
+        "type": "datatable-column",
+        "slots": ["s-dt-col-desc-body"],
         "props": {
-          "columnWidths": [50, 10, 15, 15],
-          "borderStyle": "horizontal",
-          "rows": [
-            { "isHeader": false }
-          ]
+          "header": "Description",
+          "width": 50
         }
       },
-      "n-item-desc-text": {
-        "id": "n-item-desc-text",
+      "n-dt-col-qty": {
+        "id": "n-dt-col-qty",
+        "type": "datatable-column",
+        "slots": ["s-dt-col-qty-body"],
+        "props": {
+          "header": "Qty",
+          "width": 10
+        }
+      },
+      "n-dt-col-unit": {
+        "id": "n-dt-col-unit",
+        "type": "datatable-column",
+        "slots": ["s-dt-col-unit-body"],
+        "props": {
+          "header": "Unit Price",
+          "width": 20
+        }
+      },
+      "n-dt-col-total": {
+        "id": "n-dt-col-total",
+        "type": "datatable-column",
+        "slots": ["s-dt-col-total-body"],
+        "props": {
+          "header": "Total",
+          "width": 20
+        }
+      },
+      "n-dt-desc-text": {
+        "id": "n-dt-desc-text",
         "type": "text",
         "slots": [],
-        "styles": {
-          "padding": "1.5sp"
-        },
         "props": {
           "content": {
             "type": "doc",
@@ -828,12 +723,11 @@
           }
         }
       },
-      "n-item-qty-text": {
-        "id": "n-item-qty-text",
+      "n-dt-qty-text": {
+        "id": "n-dt-qty-text",
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -856,12 +750,11 @@
           }
         }
       },
-      "n-item-unit-text": {
-        "id": "n-item-unit-text",
+      "n-dt-unit-text": {
+        "id": "n-dt-unit-text",
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "1.5sp",
           "textAlign": "right"
         },
         "props": {
@@ -888,12 +781,11 @@
           }
         }
       },
-      "n-item-total-text": {
-        "id": "n-item-total-text",
+      "n-dt-total-text": {
+        "id": "n-dt-total-text",
         "type": "text",
         "slots": [],
         "styles": {
-          "padding": "1.5sp",
           "textAlign": "right",
           "fontWeight": "600"
         },
@@ -922,41 +814,34 @@
         }
       },
 
-      "n-totals-section": {
-        "id": "n-totals-section",
-        "type": "container",
-        "slots": ["s-totals-children"],
+      "n-totals-table": {
+        "id": "n-totals-table",
+        "type": "table",
+        "slots": [
+          "s-tt-cell-0-0", "s-tt-cell-0-1",
+          "s-tt-cell-1-0", "s-tt-cell-1-1",
+          "s-tt-cell-2-0", "s-tt-cell-2-1"
+        ],
         "styles": {
           "marginTop": "4sp",
           "marginBottom": "6sp"
-        }
-      },
-      "n-totals-columns": {
-        "id": "n-totals-columns",
-        "type": "columns",
-        "slots": ["s-totals-col-0", "s-totals-col-1"],
+        },
         "props": {
-          "columnSizes": [1, 1],
-          "gap": 20
+          "rows": 3,
+          "columns": 2,
+          "columnWidths": [50, 50],
+          "borderStyle": "horizontal",
+          "headerRows": 0,
+          "merges": []
         }
       },
-      "n-totals-box": {
-        "id": "n-totals-box",
-        "type": "container",
-        "slots": ["s-totals-box-children"],
-        "styles": {
-          "padding": "3sp",
-          "backgroundColor": "#f8fafc",
-          "borderRadius": "3pt"
-        }
-      },
-      "n-subtotal-line": {
-        "id": "n-subtotal-line",
+      "n-subtotal-label": {
+        "id": "n-subtotal-label",
         "type": "text",
         "slots": [],
         "styles": {
-          "marginBottom": "1.5sp",
-          "fontSize": "10pt"
+          "textAlign": "right",
+          "padding": "1.5sp"
         },
         "props": {
           "content": {
@@ -968,10 +853,28 @@
                   {
                     "type": "text",
                     "text": "Subtotal:"
-                  },
-                  {
-                    "type": "hard_break"
-                  },
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-subtotal-value": {
+        "id": "n-subtotal-value",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "textAlign": "right",
+          "padding": "1.5sp"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
                   {
                     "type": "text",
                     "text": "$"
@@ -989,15 +892,13 @@
           }
         }
       },
-      "n-tax-line": {
-        "id": "n-tax-line",
+      "n-tax-label": {
+        "id": "n-tax-label",
         "type": "text",
         "slots": [],
         "styles": {
-          "marginBottom": "3sp",
-          "paddingBottom": "3sp",
-          "borderBottom": "1pt solid #cbd5e1",
-          "fontSize": "10pt"
+          "textAlign": "right",
+          "padding": "1.5sp"
         },
         "props": {
           "content": {
@@ -1021,10 +922,28 @@
                   {
                     "type": "text",
                     "text": "%):"
-                  },
-                  {
-                    "type": "hard_break"
-                  },
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-tax-value": {
+        "id": "n-tax-value",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "textAlign": "right",
+          "padding": "1.5sp"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
                   {
                     "type": "text",
                     "text": "$"
@@ -1042,11 +961,13 @@
           }
         }
       },
-      "n-total-line": {
-        "id": "n-total-line",
+      "n-total-label": {
+        "id": "n-total-label",
         "type": "text",
         "slots": [],
         "styles": {
+          "textAlign": "right",
+          "padding": "1.5sp",
           "fontSize": "14pt",
           "fontWeight": "bold",
           "color": "#1e40af"
@@ -1061,10 +982,31 @@
                   {
                     "type": "text",
                     "text": "TOTAL:"
-                  },
-                  {
-                    "type": "hard_break"
-                  },
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "n-total-value": {
+        "id": "n-total-value",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "textAlign": "right",
+          "padding": "1.5sp",
+          "fontSize": "14pt",
+          "fontWeight": "bold",
+          "color": "#1e40af"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
                   {
                     "type": "text",
                     "text": "$"
@@ -1233,9 +1175,8 @@
         "children": [
           "n-header",
           "n-customer-section",
-          "n-line-items-table",
-          "n-items-loop",
-          "n-totals-section",
+          "n-line-items-datatable",
+          "n-totals-table",
           "n-notes-conditional",
           "n-footer"
         ]
@@ -1267,85 +1208,72 @@
         "children": ["n-bill-to-label", "n-customer-details"]
       },
 
-      "s-lit-cell-0-0": {
-        "id": "s-lit-cell-0-0",
-        "nodeId": "n-line-items-table",
-        "name": "cell-0-0",
-        "children": ["n-header-desc-text"]
+      "s-dt-columns": {
+        "id": "s-dt-columns",
+        "nodeId": "n-line-items-datatable",
+        "name": "columns",
+        "children": ["n-dt-col-desc", "n-dt-col-qty", "n-dt-col-unit", "n-dt-col-total"]
       },
-      "s-lit-cell-0-1": {
-        "id": "s-lit-cell-0-1",
-        "nodeId": "n-line-items-table",
-        "name": "cell-0-1",
-        "children": ["n-header-qty-text"]
+      "s-dt-col-desc-body": {
+        "id": "s-dt-col-desc-body",
+        "nodeId": "n-dt-col-desc",
+        "name": "body",
+        "children": ["n-dt-desc-text"]
       },
-      "s-lit-cell-0-2": {
-        "id": "s-lit-cell-0-2",
-        "nodeId": "n-line-items-table",
-        "name": "cell-0-2",
-        "children": ["n-header-unit-text"]
+      "s-dt-col-qty-body": {
+        "id": "s-dt-col-qty-body",
+        "nodeId": "n-dt-col-qty",
+        "name": "body",
+        "children": ["n-dt-qty-text"]
       },
-      "s-lit-cell-0-3": {
-        "id": "s-lit-cell-0-3",
-        "nodeId": "n-line-items-table",
-        "name": "cell-0-3",
-        "children": ["n-header-total-text"]
+      "s-dt-col-unit-body": {
+        "id": "s-dt-col-unit-body",
+        "nodeId": "n-dt-col-unit",
+        "name": "body",
+        "children": ["n-dt-unit-text"]
       },
-
-      "s-items-loop-children": {
-        "id": "s-items-loop-children",
-        "nodeId": "n-items-loop",
-        "name": "children",
-        "children": ["n-item-row-table"]
-      },
-      "s-irt-cell-0-0": {
-        "id": "s-irt-cell-0-0",
-        "nodeId": "n-item-row-table",
-        "name": "cell-0-0",
-        "children": ["n-item-desc-text"]
-      },
-      "s-irt-cell-0-1": {
-        "id": "s-irt-cell-0-1",
-        "nodeId": "n-item-row-table",
-        "name": "cell-0-1",
-        "children": ["n-item-qty-text"]
-      },
-      "s-irt-cell-0-2": {
-        "id": "s-irt-cell-0-2",
-        "nodeId": "n-item-row-table",
-        "name": "cell-0-2",
-        "children": ["n-item-unit-text"]
-      },
-      "s-irt-cell-0-3": {
-        "id": "s-irt-cell-0-3",
-        "nodeId": "n-item-row-table",
-        "name": "cell-0-3",
-        "children": ["n-item-total-text"]
+      "s-dt-col-total-body": {
+        "id": "s-dt-col-total-body",
+        "nodeId": "n-dt-col-total",
+        "name": "body",
+        "children": ["n-dt-total-text"]
       },
 
-      "s-totals-children": {
-        "id": "s-totals-children",
-        "nodeId": "n-totals-section",
-        "name": "children",
-        "children": ["n-totals-columns"]
+      "s-tt-cell-0-0": {
+        "id": "s-tt-cell-0-0",
+        "nodeId": "n-totals-table",
+        "name": "cell-0-0",
+        "children": ["n-subtotal-label"]
       },
-      "s-totals-col-0": {
-        "id": "s-totals-col-0",
-        "nodeId": "n-totals-columns",
-        "name": "column-0",
-        "children": []
+      "s-tt-cell-0-1": {
+        "id": "s-tt-cell-0-1",
+        "nodeId": "n-totals-table",
+        "name": "cell-0-1",
+        "children": ["n-subtotal-value"]
       },
-      "s-totals-col-1": {
-        "id": "s-totals-col-1",
-        "nodeId": "n-totals-columns",
-        "name": "column-1",
-        "children": ["n-totals-box"]
+      "s-tt-cell-1-0": {
+        "id": "s-tt-cell-1-0",
+        "nodeId": "n-totals-table",
+        "name": "cell-1-0",
+        "children": ["n-tax-label"]
       },
-      "s-totals-box-children": {
-        "id": "s-totals-box-children",
-        "nodeId": "n-totals-box",
-        "name": "children",
-        "children": ["n-subtotal-line", "n-tax-line", "n-total-line"]
+      "s-tt-cell-1-1": {
+        "id": "s-tt-cell-1-1",
+        "nodeId": "n-totals-table",
+        "name": "cell-1-1",
+        "children": ["n-tax-value"]
+      },
+      "s-tt-cell-2-0": {
+        "id": "s-tt-cell-2-0",
+        "nodeId": "n-totals-table",
+        "name": "cell-2-0",
+        "children": ["n-total-label"]
+      },
+      "s-tt-cell-2-1": {
+        "id": "s-tt-cell-2-1",
+        "nodeId": "n-totals-table",
+        "name": "cell-2-1",
+        "children": ["n-total-value"]
       },
 
       "s-notes-cond-children": {

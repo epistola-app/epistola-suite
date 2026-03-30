@@ -60,6 +60,9 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
+      - name: Test frontend
+        run: pnpm test
+
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v5
 
