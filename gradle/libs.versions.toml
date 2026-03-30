@@ -1,22 +1,20 @@
 [versions]
 kotlin = "2.3.10"
-spring-boot = "4.0.3"
+spring-boot = "4.0.5"
 spring-dependency-management = "1.1.7"
 graalvm-native = "1.0.0"
 ktlint = "14.2.0"
 htmx-spring-boot = "5.1.0"
 cyclonedx = "3.2.2"
 kover = "0.9.7"
-jdbi = "3.51.0"
+jdbi = "3.52.0"
 json-schema-validator = "3.0.1"
 uuid-creator = "6.1.1"
-openapi-generator = "7.20.0"
-jackson2 = "2.21.1"
 spring-web = "7.0.6"
 playwright = "1.58.0"
 epistola-contract = "0.1.19"
-epistola-editor-model = "0.1.18"
-aws-sdk = "2.42.13"
+epistola-editor-model = "0.1.19"
+aws-sdk = "2.42.23"
 
 [libraries]
 htmx-spring-boot-thymeleaf = { module = "io.github.wimdeblauwe:htmx-spring-boot-thymeleaf", version.ref = "htmx-spring-boot" }
@@ -28,9 +26,6 @@ jdbi-jackson3 = { module = "org.jdbi:jdbi3-jackson3", version.ref = "jdbi" }
 jdbi-spring = { module = "org.jdbi:jdbi3-spring", version.ref = "jdbi" }
 json-schema-validator = { module = "com.networknt:json-schema-validator", version.ref = "json-schema-validator" }
 uuid-creator = { module = "com.github.f4b6a3:uuid-creator", version.ref = "uuid-creator" }
-jackson2-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson2" }
-jackson2-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson2" }
-jackson2-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson2" }
 spring-web = { module = "org.springframework:spring-web", version.ref = "spring-web" }
 playwright = { module = "com.microsoft.playwright:playwright", version.ref = "playwright" }
 epistola-server-restapi = { module = "app.epistola.contract:server-kotlin-springboot4", version.ref = "epistola-contract" }
@@ -47,4 +42,3 @@ graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 cyclonedx = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
-openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
