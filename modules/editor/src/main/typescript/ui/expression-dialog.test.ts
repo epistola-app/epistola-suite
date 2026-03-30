@@ -4,6 +4,7 @@ import {
   wrapFormatDate,
   tryParseAsBuilderExpression,
   buildExpression,
+  isStaleFieldReference,
 } from './expression-dialog.js';
 import type { FieldPath } from '../engine/schema-paths.js';
 
@@ -121,6 +122,30 @@ describe('tryParseAsBuilderExpression', () => {
   it('returns null for whitespace-only expression', () => {
     expect(tryParseAsBuilderExpression('   ', testFieldPaths)).toBeNull();
   });
+
+  // --- scoped field paths ---
+
+  it('parses a scoped field path', () => {
+    const withScoped = [...testFieldPaths, { path: 'item.name', type: 'string', scope: 'item' }];
+    expect(tryParseAsBuilderExpression('item.name', withScoped)).toEqual({
+      fieldPath: 'item.name',
+      fieldType: 'string',
+      formatType: 'none',
+      formatPattern: '',
+    });
+  });
+
+  it('parses $formatDate on a scoped date field', () => {
+    const withScoped = [...testFieldPaths, { path: 'item.date', type: 'date', scope: 'item' }];
+    expect(tryParseAsBuilderExpression("$formatDate(item.date, 'dd-MM-yyyy')", withScoped)).toEqual(
+      {
+        fieldPath: 'item.date',
+        fieldType: 'date',
+        formatType: 'date',
+        formatPattern: 'dd-MM-yyyy',
+      },
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -159,5 +184,39 @@ describe('buildExpression', () => {
         formatPattern: '',
       }),
     ).toBe('invoiceDate');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isStaleFieldReference
+// ---------------------------------------------------------------------------
+
+describe('isStaleFieldReference', () => {
+  it('returns true for a simple path not in field paths', () => {
+    expect(isStaleFieldReference('item.name', testFieldPaths)).toBe(true);
+  });
+
+  it('returns true for a $formatDate with unknown field', () => {
+    expect(isStaleFieldReference("$formatDate(item.date, 'dd-MM-yyyy')", testFieldPaths)).toBe(
+      true,
+    );
+  });
+
+  it('returns false for a known field', () => {
+    expect(isStaleFieldReference('name', testFieldPaths)).toBe(false);
+  });
+
+  it('returns false for a complex expression', () => {
+    expect(isStaleFieldReference('name & " " & total', testFieldPaths)).toBe(false);
+  });
+
+  it('returns false for empty string', () => {
+    expect(isStaleFieldReference('', testFieldPaths)).toBe(false);
+  });
+
+  it('returns false for a $formatDate with known field', () => {
+    expect(isStaleFieldReference("$formatDate(invoiceDate, 'dd-MM-yyyy')", testFieldPaths)).toBe(
+      false,
+    );
   });
 });

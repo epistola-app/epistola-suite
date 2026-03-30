@@ -19,7 +19,7 @@ import { evaluateExpression, formatResolvedValue } from '../engine/resolve-expre
 import { openExpressionDialog } from '../ui/expression-dialog.js';
 
 export interface ExpressionNodeViewOptions {
-  fieldPaths: FieldPath[];
+  getFieldPaths: () => FieldPath[];
   getExampleData?: () => Record<string, unknown> | undefined;
 }
 
@@ -42,7 +42,7 @@ export class ExpressionNodeView implements NodeView {
   private _view: EditorView;
   private _getPos: () => number | undefined;
   private _dialogOpen = false;
-  private _fieldPaths: FieldPath[];
+  private _getFieldPaths: () => FieldPath[];
   private _getExampleData: (() => Record<string, unknown> | undefined) | undefined;
 
   /** Monotonic counter to discard stale async resolution results. */
@@ -57,7 +57,7 @@ export class ExpressionNodeView implements NodeView {
     this._node = node;
     this._view = view;
     this._getPos = getPos;
-    this._fieldPaths = options.fieldPaths;
+    this._getFieldPaths = options.getFieldPaths;
     this._getExampleData = options.getExampleData;
 
     // Create the chip element
@@ -185,7 +185,7 @@ export class ExpressionNodeView implements NodeView {
 
     openExpressionDialog({
       initialValue: expr,
-      fieldPaths: this._fieldPaths,
+      fieldPaths: this._getFieldPaths(),
       getExampleData: this._getExampleData,
       enableBuilderMode: true,
       label: 'Expression',

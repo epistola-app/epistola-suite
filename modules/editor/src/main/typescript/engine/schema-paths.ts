@@ -14,6 +14,8 @@ export interface FieldPath {
   system?: boolean;
   /** Human-readable description (used for system parameter tooltips). */
   description?: string;
+  /** Loop scope alias (e.g., "item") — marks this as an iteration-scoped variable. */
+  scope?: string;
 }
 
 const MAX_DEPTH = 5;
