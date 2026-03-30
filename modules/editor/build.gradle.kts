@@ -7,7 +7,7 @@ plugins {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.3")
+        mavenBom("org.springframework.boot:spring-boot-dependencies:4.0.5")
     }
 }
 
