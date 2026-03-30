@@ -1,97 +1,64 @@
 /**
- * Scoped field resolution for loop/datatable iteration variables.
+ * Scope helpers for iteration variables.
  *
- * When an expression chip is inside a loop or datatable, the builder should
- * show the scoped variables (e.g., `item.name`, `item_index`) in the field
- * dropdown. This module resolves those scoped fields by walking the document
- * tree to find ancestor loop/datatable nodes.
+ * Provides `buildIterationScope` — a reusable scope provider implementation
+ * for loop and datatable components. Components register this via the
+ * `scopeProvider` hook on their ComponentDefinition.
+ *
+ * The engine collects scopes generically by walking ancestors and calling
+ * each component's `scopeProvider` — no hard-coded component types here.
  */
 
 import type { FieldPath } from './schema-paths.js';
-import type { DocumentIndexes } from './indexes.js';
-import type { NodeId, TemplateDocument } from '../types/index.js';
-
-const LOOP_TYPES = new Set(['loop', 'datatable']);
-
-/** Describes one loop/datatable scope and its available field paths. */
-export interface ScopedFieldContext {
-  /** The loop/datatable node ID that introduces this scope. */
-  sourceNodeId: NodeId;
-  /** The item alias (e.g., 'item'). */
-  itemAlias: string;
-  /** The index alias if configured (e.g., 'idx'). */
-  indexAlias?: string;
-  /** The raw array expression (e.g., 'items', 'order.lineItems'). */
-  arrayExpression: string;
-  /** Scoped FieldPath entries (item properties + metadata). */
-  fieldPaths: FieldPath[];
-}
+import type { Node } from '../types/index.js';
+import type { ScopeDeclaration, ScopeProviderContext } from './registry.js';
 
 /**
- * Resolve scoped field paths for a node by walking its ancestors.
+ * Scope provider for iteration components (loop, datatable).
  *
- * For each ancestor loop/datatable, maps the array item schema paths
- * (e.g., `items[].name`) to aliased paths (e.g., `item.name`) and adds
- * loop metadata fields (`item_index`, `item_first`, `item_last`).
- *
- * Returns contexts ordered outer-to-inner.
+ * Reads `itemAlias`, `indexAlias`, and `expression.raw` from node props.
+ * Maps array item sub-paths to aliased paths and adds metadata fields.
+ * Returns null if the expression is empty (no scope to provide).
  */
-export function resolveScopedFieldPaths(
-  nodeId: NodeId,
-  doc: TemplateDocument,
-  indexes: DocumentIndexes,
-  schemaFieldPaths: FieldPath[],
-): ScopedFieldContext[] {
-  const contexts: ScopedFieldContext[] = [];
+export function buildIterationScope(
+  node: Node,
+  ctx: ScopeProviderContext,
+): ScopeDeclaration | null {
+  const props = node.props;
+  if (!props) return null;
 
-  // Walk up from nodeId to root
-  let current: NodeId | undefined = indexes.parentNodeByNodeId.get(nodeId);
-  const ancestors: NodeId[] = [];
-  while (current !== undefined) {
-    ancestors.unshift(current); // collect in root-to-node order
-    current = indexes.parentNodeByNodeId.get(current);
-  }
+  const expression = props.expression as { raw?: string } | undefined;
+  const arrayExpression = expression?.raw ?? '';
+  if (!arrayExpression) return null;
 
-  for (const ancestorId of ancestors) {
-    const node = doc.nodes[ancestorId];
-    if (!node || !LOOP_TYPES.has(node.type)) continue;
+  const itemAlias = (props.itemAlias as string) || 'item';
+  const indexAlias = props.indexAlias as string | undefined;
 
-    const props = node.props;
-    if (!props) continue;
+  const variables = buildAliasedFieldPaths(
+    itemAlias,
+    indexAlias,
+    arrayExpression,
+    ctx.schemaFieldPaths,
+  );
+  const evaluationData = buildLoopEvaluationData(
+    itemAlias,
+    indexAlias,
+    arrayExpression,
+    ctx.evaluationContext,
+  );
 
-    const expression = props.expression as { raw?: string } | undefined;
-    const arrayExpression = expression?.raw ?? '';
-    const itemAlias = (props.itemAlias as string) || 'item';
-    const indexAlias = props.indexAlias as string | undefined;
-
-    const fieldPaths = buildScopedFieldPaths(
-      arrayExpression,
-      itemAlias,
-      indexAlias,
-      schemaFieldPaths,
-    );
-
-    contexts.push({
-      sourceNodeId: ancestorId,
-      itemAlias,
-      indexAlias: indexAlias || undefined,
-      arrayExpression,
-      fieldPaths,
-    });
-  }
-
-  return contexts;
+  return { variables, evaluationData };
 }
 
 /**
- * Build scoped FieldPath entries for a single loop/datatable.
+ * Build scoped FieldPath entries for an iteration component.
  *
  * Maps array item sub-paths to aliased paths and adds metadata fields.
  */
-function buildScopedFieldPaths(
-  arrayExpression: string,
+function buildAliasedFieldPaths(
   itemAlias: string,
   indexAlias: string | undefined,
+  arrayExpression: string,
   schemaFieldPaths: FieldPath[],
 ): FieldPath[] {
   const paths: FieldPath[] = [];
@@ -144,6 +111,42 @@ function buildScopedFieldPaths(
 }
 
 /**
+ * Build evaluation data for an iteration component's scope.
+ *
+ * Resolves the array expression using simple path resolution, picks the first
+ * item, and returns the loop variables as key-value pairs. For complex
+ * expressions that can't be resolved, returns only metadata with defaults.
+ */
+function buildLoopEvaluationData(
+  itemAlias: string,
+  indexAlias: string | undefined,
+  arrayExpression: string,
+  evaluationContext?: Record<string, unknown>,
+): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+
+  if (evaluationContext) {
+    const array = resolveSimplePath(evaluationContext, arrayExpression);
+    const items = Array.isArray(array) ? array : [];
+    const firstItem = items[0] ?? undefined;
+
+    if (firstItem !== undefined) {
+      data[itemAlias] = firstItem;
+    }
+
+    data[`${itemAlias}_index`] = 0;
+    data[`${itemAlias}_first`] = true;
+    data[`${itemAlias}_last`] = items.length <= 1;
+
+    if (indexAlias) {
+      data[indexAlias] = 0;
+    }
+  }
+
+  return data;
+}
+
+/**
  * Resolve a simple dot-notation path against a data object.
  * Returns undefined if any segment is missing.
  */
@@ -152,39 +155,4 @@ export function resolveSimplePath(data: Record<string, unknown>, dotPath: string
     if (obj === null || obj === undefined || typeof obj !== 'object') return undefined;
     return (obj as Record<string, unknown>)[key];
   }, data);
-}
-
-/**
- * Augment example data with synthetic loop context for live preview.
- *
- * For each scoped context, resolves the array expression using simple path
- * resolution, picks the first item, and injects the loop variables into the
- * data object. For complex expressions that can't be resolved via simple path,
- * injects metadata fields with default values but skips item properties.
- */
-export function augmentWithLoopContext(
-  data: Record<string, unknown>,
-  scopedContexts: ScopedFieldContext[],
-): Record<string, unknown> {
-  const augmented = { ...data };
-
-  for (const ctx of scopedContexts) {
-    const array = resolveSimplePath(augmented, ctx.arrayExpression);
-    const items = Array.isArray(array) ? array : [];
-    const firstItem = items[0] ?? undefined;
-
-    if (firstItem !== undefined) {
-      augmented[ctx.itemAlias] = firstItem;
-    }
-
-    augmented[`${ctx.itemAlias}_index`] = 0;
-    augmented[`${ctx.itemAlias}_first`] = true;
-    augmented[`${ctx.itemAlias}_last`] = items.length <= 1;
-
-    if (ctx.indexAlias) {
-      augmented[ctx.indexAlias] = 0;
-    }
-  }
-
-  return augmented;
 }

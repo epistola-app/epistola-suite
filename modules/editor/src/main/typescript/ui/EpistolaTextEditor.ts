@@ -201,9 +201,9 @@ export class EpistolaTextEditor extends LitElement {
 
     // Getters that resolve fresh on each call — so alias changes take effect immediately
     const getFieldPaths = () =>
-      engine && nodeId ? engine.getFieldPathsAt(nodeId) : (engine?.fieldPaths ?? []);
+      engine && nodeId ? engine.getAvailableVariablesAt(nodeId) : (engine?.fieldPaths ?? []);
     const getExampleData = engine
-      ? () => (nodeId ? engine.getExampleDataAt(nodeId) : engine.getExampleData())
+      ? () => (nodeId ? engine.getEvaluationContextAt(nodeId) : engine.getExampleData())
       : undefined;
 
     const plugins = createPlugins(epistolaSchema, {

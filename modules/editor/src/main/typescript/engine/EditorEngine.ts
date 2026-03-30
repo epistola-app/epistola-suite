@@ -8,7 +8,6 @@
 import type { TemplateDocument, NodeId, SlotId, PageSettings } from '../types/index.js';
 import { type FieldPath, extractFieldPaths } from './schema-paths.js';
 import { SYSTEM_PARAMETER_PATHS, SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
-import { resolveScopedFieldPaths, augmentWithLoopContext } from './scoped-fields.js';
 import type { Theme } from '@epistola.app/editor-model/generated/theme';
 import type { StyleRegistry } from '@epistola.app/editor-model/generated/style-registry';
 import { type DocumentIndexes, buildIndexes } from './indexes.js';
@@ -192,41 +191,73 @@ export class EditorEngine {
   }
 
   /**
-   * Get all available field paths at a specific position in the document tree.
+   * Get all available variables at a specific position in the document tree.
    *
-   * Returns template variables, scoped iteration variables (from ancestor loops/datatables),
-   * and system parameters in one array. The `scope` and `system` flags on each FieldPath
-   * distinguish categories for UI grouping.
+   * Returns template variables, scoped variables (from ancestor components with
+   * scope providers), and system parameters in one array. The `scope` and `system`
+   * flags on each FieldPath distinguish categories for UI grouping.
    *
-   * Computed fresh on each call so alias changes take effect immediately.
+   * Computed fresh on each call so prop changes take effect immediately.
    */
-  getFieldPathsAt(nodeId: NodeId): FieldPath[] {
+  getAvailableVariablesAt(nodeId: NodeId): FieldPath[] {
     const dataFields = this._dataModel ? extractFieldPaths(this._dataModel) : [];
-    const scopedContexts = resolveScopedFieldPaths(
-      nodeId,
-      this._doc,
-      this._indexes,
-      this.fieldPaths,
-    );
-    const scopedFields = scopedContexts.flatMap((ctx) => ctx.fieldPaths);
+    const scopedFields = this._collectAncestorScopes(nodeId);
     return [...dataFields, ...scopedFields, ...SYSTEM_PARAMETER_PATHS];
   }
 
   /**
-   * Get example data augmented with synthetic loop context at a specific position.
+   * Get the evaluation context at a specific position in the document tree.
    *
-   * Resolves ancestor loop/datatable expressions against the example data and injects
-   * the first array item as the loop variable for live preview.
+   * Returns example data enriched with scoped variable values from ancestor
+   * scope providers. Each ancestor scope receives the accumulated context from
+   * its parents, enabling inner scopes to reference outer scope variables.
    */
-  getExampleDataAt(nodeId: NodeId): Record<string, unknown> {
-    const data = this.getExampleData();
-    const scopedContexts = resolveScopedFieldPaths(
-      nodeId,
-      this._doc,
-      this._indexes,
-      this.fieldPaths,
-    );
-    return scopedContexts.length > 0 ? augmentWithLoopContext(data, scopedContexts) : data;
+  getEvaluationContextAt(nodeId: NodeId): Record<string, unknown> {
+    let data = this.getExampleData();
+
+    // Walk ancestors root-to-node so inner scopes can reference outer values
+    const ancestors = this._getAncestorsRootToNode(nodeId);
+    for (const ancestorId of ancestors) {
+      const node = this._doc.nodes[ancestorId];
+      if (!node) continue;
+      const def = this.registry.get(node.type);
+      const scope = def?.scopeProvider?.(node, {
+        schemaFieldPaths: this.fieldPaths,
+        evaluationContext: data,
+      });
+      if (scope?.evaluationData) {
+        data = { ...data, ...scope.evaluationData };
+      }
+    }
+
+    return data;
+  }
+
+  /** Collect scoped variables from ancestor scope providers. */
+  private _collectAncestorScopes(nodeId: NodeId): FieldPath[] {
+    const fields: FieldPath[] = [];
+    let current: NodeId | undefined = this._indexes.parentNodeByNodeId.get(nodeId);
+    while (current !== undefined) {
+      const node = this._doc.nodes[current];
+      if (node) {
+        const def = this.registry.get(node.type);
+        const scope = def?.scopeProvider?.(node, { schemaFieldPaths: this.fieldPaths });
+        if (scope) fields.push(...scope.variables);
+      }
+      current = this._indexes.parentNodeByNodeId.get(current);
+    }
+    return fields;
+  }
+
+  /** Get ancestors of nodeId ordered root-to-node (excluding nodeId itself). */
+  private _getAncestorsRootToNode(nodeId: NodeId): NodeId[] {
+    const ancestors: NodeId[] = [];
+    let current: NodeId | undefined = this._indexes.parentNodeByNodeId.get(nodeId);
+    while (current !== undefined) {
+      ancestors.unshift(current);
+      current = this._indexes.parentNodeByNodeId.get(current);
+    }
+    return ancestors;
   }
 
   /** Switch the active data example by index. Notifies example listeners. */
