@@ -266,7 +266,7 @@ export function openExpressionDialog(
           enableBuilderMode
             ? `
         <div class="expression-dialog-header">
-          <label class="expression-dialog-label">${escapeHtml(label)}</label>
+          <label class="expression-dialog-label" for="expression-dialog-input">${escapeHtml(label)}</label>
           <div class="expression-dialog-mode-toggle">
             <button type="button" class="mode-btn${currentMode === 'builder' ? ' active' : ''}" data-mode="builder">Builder</button>
             <button type="button" class="mode-btn${currentMode === 'code' ? ' active' : ''}" data-mode="code">Code</button>
@@ -275,12 +275,12 @@ export function openExpressionDialog(
         <div class="expression-dialog-builder" data-mode-panel="builder"${currentMode !== 'builder' ? ' style="display:none"' : ''}>
           <div class="expression-dialog-builder-row">
             <div class="expression-dialog-builder-field">
-              <label>Field</label>
-              <select class="expression-dialog-field-select">${fieldOptionsHtml}</select>
+              <label for="expression-dialog-field">Field</label>
+              <select class="expression-dialog-field-select" id="expression-dialog-field">${fieldOptionsHtml}</select>
             </div>
             <div class="expression-dialog-builder-format" style="display:none">
-              <label>Format</label>
-              <select class="expression-dialog-builder-format-select">${formatOptionsHtml}</select>
+              <label for="expression-dialog-builder-format">Format</label>
+              <select class="expression-dialog-builder-format-select" id="expression-dialog-builder-format">${formatOptionsHtml}</select>
             </div>
           </div>
           <div class="expression-dialog-preview builder-preview" style="display:none"></div>
@@ -289,12 +289,13 @@ export function openExpressionDialog(
           This expression is too complex for Builder mode.
         </div>
         `
-            : `<label class="expression-dialog-label">${escapeHtml(label)}</label>`
+            : `<label class="expression-dialog-label" for="expression-dialog-input">${escapeHtml(label)}</label>`
         }
         <div class="expression-dialog-code" data-mode-panel="code"${enableBuilderMode && currentMode !== 'code' ? ' style="display:none"' : ''}>
           <input
             type="text"
             class="expression-dialog-input"
+            id="expression-dialog-input"
             value="${escapeAttr(initialValue)}"
             placeholder="${escapeAttr(placeholder)}"
             autocomplete="off"
@@ -302,8 +303,8 @@ export function openExpressionDialog(
           ${
             !enableBuilderMode
               ? `<div class="expression-dialog-format-row" style="display:none">
-            <label class="expression-dialog-format-label">Date format</label>
-            <select class="expression-dialog-format-select">${formatOptionsHtml}</select>
+            <label class="expression-dialog-format-label" for="expression-dialog-date-format">Date format</label>
+            <select class="expression-dialog-format-select" id="expression-dialog-date-format">${formatOptionsHtml}</select>
           </div>`
               : ''
           }

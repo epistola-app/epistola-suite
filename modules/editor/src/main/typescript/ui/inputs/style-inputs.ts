@@ -39,6 +39,7 @@ export function renderUnitInput(
   units: string[],
   onChange: (value: string) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
+  inputId?: string,
 ): unknown {
   const defaultUnit = units[0] ?? 'pt';
   const parsed = parseValueWithUnit(value, defaultUnit);
@@ -66,6 +67,7 @@ export function renderUnitInput(
       <input
         type="number"
         class="ep-input style-unit-number"
+        id=${inputId ?? nothing}
         step=${parsed.unit === 'sp' ? '0.5' : '1'}
         .value=${String(parsed.value)}
         @change=${handleNumberChange}
@@ -87,7 +89,11 @@ export function renderUnitInput(
 // Color input: native color picker + text input
 // ---------------------------------------------------------------------------
 
-export function renderColorInput(value: unknown, onChange: (value: string) => void): unknown {
+export function renderColorInput(
+  value: unknown,
+  onChange: (value: string) => void,
+  inputId?: string,
+): unknown {
   const colorValue = value != null ? String(value) : '';
   // Ensure the color picker gets a valid hex value
   const pickerValue = colorValue.startsWith('#') ? colorValue : '#000000';
@@ -103,6 +109,7 @@ export function renderColorInput(value: unknown, onChange: (value: string) => vo
       <input
         type="text"
         class="ep-input style-color-text"
+        id=${inputId ?? nothing}
         .value=${colorValue}
         @change=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
         placeholder="#000000"
@@ -261,11 +268,13 @@ export function renderSpacingInput(
   units: string[],
   onChange: (value: SpacingValue) => void,
   baseUnit: number = DEFAULT_SPACING_UNIT,
+  inputId?: string,
 ): unknown {
   const firstAbsUnit = units.find((u) => u !== 'sp') ?? 'pt';
   const parsed = parseSpacingValue(value, firstAbsUnit);
   const currentUnit = detectSpacingUnit(parsed, firstAbsUnit);
   const sides = ['top', 'right', 'bottom', 'left'] as const;
+  const topInputId = inputId ?? undefined;
 
   const handleSideChange = (side: string, newValue: string) => {
     onChange({ ...parsed, [side]: newValue });
@@ -294,6 +303,7 @@ export function renderSpacingInput(
             <input
               type="number"
               class="ep-input style-spacing-number"
+              id=${side === 'top' && topInputId ? topInputId : nothing}
               step=${currentUnit === 'sp' ? '0.5' : '1'}
               min="0"
               .value=${String(sideNumber(parsed[side]))}
@@ -412,12 +422,14 @@ export function renderSelectInput(
   value: unknown,
   options: { label: string; value: string }[],
   onChange: (value: string) => void,
+  selectId?: string,
 ): unknown {
   const currentValue = value != null ? String(value) : '';
 
   return html`
     <select
       class="ep-select"
+      id=${selectId ?? nothing}
       @change=${(e: Event) => onChange((e.target as HTMLSelectElement).value)}
     >
       <option value="" ?selected=${!currentValue}>—</option>

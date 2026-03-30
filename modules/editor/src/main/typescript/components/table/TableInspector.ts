@@ -83,7 +83,7 @@ export class TableInspector extends LitElement {
     const { rows } = this._props;
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">Rows</label>
+        <span class="inspector-field-label">Rows</span>
         <div class="inspector-column-count">
           <button
             class="inspector-column-btn"
@@ -125,7 +125,7 @@ export class TableInspector extends LitElement {
     const { columns } = this._props;
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">Columns</label>
+        <span class="inspector-field-label">Columns</span>
         <div class="inspector-column-count">
           <button
             class="inspector-column-btn"
@@ -174,7 +174,7 @@ export class TableInspector extends LitElement {
     const { columnWidths } = this._props;
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">Column Widths</label>
+        <span class="inspector-field-label">Column Widths</span>
         <div class="inspector-column-sizes">
           ${columnWidths.map(
             (width, i) => html`
@@ -184,6 +184,7 @@ export class TableInspector extends LitElement {
                   type="number"
                   class="ep-input inspector-column-size-input"
                   min="1"
+                  id=${`table-column-width-${i}`}
                   .value=${String(width)}
                   @change=${(e: Event) =>
                     this._handleColumnWidthChange(i, Number((e.target as HTMLInputElement).value))}
@@ -216,10 +217,11 @@ export class TableInspector extends LitElement {
     const { headerRows, rows } = this._props;
     return html`
       <div class="inspector-field">
-        <label class="inspector-field-label">Header Rows</label>
+        <label class="inspector-field-label" for="table-header-rows">Header Rows</label>
         <input
           type="number"
           class="ep-input"
+          id="table-header-rows"
           min="0"
           max=${rows}
           .value=${String(headerRows)}
@@ -257,8 +259,8 @@ export class TableInspector extends LitElement {
 
     return html`
       <div class="inspector-field table-merge-controls">
-        <label class="inspector-field-label"
-          >Selection (${sel.startRow},${sel.startCol}) - (${sel.endRow},${sel.endCol})</label
+        <span class="inspector-field-label"
+          >Selection (${sel.startRow},${sel.startCol}) - (${sel.endRow},${sel.endCol})</span
         >
         <div class="table-merge-buttons">
           ${canDoMerge

@@ -104,7 +104,7 @@ export function createColumnsDefinition(): ComponentDefinition {
 
           <!-- Column count -->
           <div class="inspector-field">
-            <label class="inspector-field-label">Columns</label>
+            <span class="inspector-field-label">Columns</span>
             <div class="inspector-column-count">
               <button
                 class="inspector-column-btn"
@@ -126,7 +126,7 @@ export function createColumnsDefinition(): ComponentDefinition {
 
           <!-- Per-column sizes -->
           <div class="inspector-field">
-            <label class="inspector-field-label">Column Sizes</label>
+            <span class="inspector-field-label">Column Sizes</span>
             <div class="inspector-column-sizes">
               ${columnSizes.map(
                 (size, i) => html`
@@ -136,6 +136,7 @@ export function createColumnsDefinition(): ComponentDefinition {
                       type="number"
                       class="ep-input inspector-column-size-input"
                       min="1"
+                      id=${`columns-size-${i}`}
                       .value=${String(size)}
                       @change=${(e: Event) =>
                         handleColumnSizeChange(i, Number((e.target as HTMLInputElement).value))}
@@ -148,11 +149,12 @@ export function createColumnsDefinition(): ComponentDefinition {
 
           <!-- Gap -->
           <div class="inspector-field">
-            <label class="inspector-field-label">Gap (pt)</label>
+            <label class="inspector-field-label" for="columns-gap">Gap (pt)</label>
             <input
               type="number"
               class="ep-input"
               min="0"
+              id="columns-gap"
               .value=${String(gap)}
               @change=${(e: Event) => handleGapChange(Number((e.target as HTMLInputElement).value))}
             />
