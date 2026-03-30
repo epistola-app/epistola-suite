@@ -37,7 +37,7 @@ import type { EditorEngine } from '../engine/EditorEngine.js';
 import { TextChange } from '../engine/text-change.js';
 import type { TextChangeOps } from '../engine/undo.js';
 import type { NodeId } from '../types/index.js';
-import { isAncestor } from '../engine/indexes.js';
+import { type DocumentIndexes, isAncestor } from '../engine/indexes.js';
 import { rewriteExpressionsInContent } from '../engine/alias-rewrite.js';
 
 const DEBOUNCE_MS = 300;
@@ -135,15 +135,19 @@ export class EpistolaTextEditor extends LitElement {
   // Alias rename handling
   // ---------------------------------------------------------------------------
 
+  /** Guard against re-entrant alias rewrites (our own dispatch triggers doc:change). */
+  private _isRewritingAlias = false;
+
   /**
    * Rewrite expression chips when a parent loop/datatable's itemAlias changes.
    * Triggered by doc:change events carrying aliasRename metadata.
+   *
+   * Determines rewrite direction from the actual document state: the metadata
+   * carries both alias values; the current alias on the loop node tells us
+   * which direction to rewrite.
    */
-  private _handleAliasRename(
-    command: unknown,
-    indexes: import('../engine/indexes.js').DocumentIndexes,
-  ): void {
-    if (!this.engine || !this.nodeId || !command) return;
+  private _handleAliasRename(command: unknown, indexes: DocumentIndexes): void {
+    if (this._isRewritingAlias || !this.engine || !this.nodeId || !command) return;
     const cmd = command as { type?: string; nodeId?: string; metadata?: Record<string, unknown> };
     if (cmd.type !== 'UpdateNodeProps' || !cmd.metadata?.aliasRename) return;
 
@@ -151,29 +155,38 @@ export class EpistolaTextEditor extends LitElement {
     if (!rename.oldAlias || !rename.newAlias) return;
 
     // Only rewrite if this text block is a descendant of the renamed loop
-    const sourceNodeId = cmd.nodeId as import('../types/index.js').NodeId;
+    const sourceNodeId = cmd.nodeId as NodeId;
     if (!isAncestor(this.nodeId, sourceNodeId, indexes)) return;
+
+    // Determine direction from actual document state
+    const loopNode = this.engine.doc.nodes[sourceNodeId];
+    const currentAlias = loopNode?.props?.itemAlias as string | undefined;
+    if (!currentAlias) return;
+
+    const from = currentAlias === rename.newAlias ? rename.oldAlias : rename.newAlias;
+    const to = currentAlias;
 
     // Rewrite ProseMirror content
     const node = this.engine.doc.nodes[this.nodeId];
     if (!node?.props?.content) return;
 
-    const newContent = rewriteExpressionsInContent(
-      node.props.content,
-      rename.oldAlias,
-      rename.newAlias,
-    );
+    const newContent = rewriteExpressionsInContent(node.props.content, from, to);
     if (newContent === node.props.content) return;
 
     // Dispatch with skipUndo — the alias change's undo will trigger reverse rewrite
-    this.engine.dispatch(
-      {
-        type: 'UpdateNodeProps',
-        nodeId: this.nodeId,
-        props: { ...node.props, content: newContent },
-      },
-      { skipUndo: true },
-    );
+    this._isRewritingAlias = true;
+    try {
+      this.engine.dispatch(
+        {
+          type: 'UpdateNodeProps',
+          nodeId: this.nodeId,
+          props: { ...node.props, content: newContent },
+        },
+        { skipUndo: true },
+      );
+    } finally {
+      this._isRewritingAlias = false;
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -531,21 +531,11 @@ function applyUpdateNodeProps(doc: TemplateDocument, cmd: UpdateNodeProps): Comm
 
   const oldProps = node.props ?? {};
 
-  // Reverse alias rename metadata for undo (so undo triggers the same rewrite in reverse)
-  const aliasRename = cmd.metadata?.aliasRename as
-    | { oldAlias: string; newAlias: string }
-    | undefined;
-  const inverseMetadata = aliasRename
-    ? { aliasRename: { oldAlias: aliasRename.newAlias, newAlias: aliasRename.oldAlias } }
-    : cmd.metadata
-      ? structuredClone(cmd.metadata)
-      : undefined;
-
   const inverse: UpdateNodeProps = {
     type: 'UpdateNodeProps',
     nodeId: cmd.nodeId,
     props: structuredClone(oldProps),
-    metadata: inverseMetadata,
+    metadata: cmd.metadata ? structuredClone(cmd.metadata) : undefined,
   };
 
   const newNode = { ...node, props: structuredClone(cmd.props) };
