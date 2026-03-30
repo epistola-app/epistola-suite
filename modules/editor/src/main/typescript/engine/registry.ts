@@ -7,11 +7,13 @@
 import type { TemplateDocument, NodeId, SlotId, Node, Slot } from '../types/index.js';
 import type { DocumentIndexes } from './indexes.js';
 import type { CommandResult } from './commands.js';
+import type { FieldPath } from './schema-paths.js';
 import { nanoid } from 'nanoid';
 import { createTableDefinition } from '../components/table/table-registration.js';
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';
 import { createDatatableDefinition } from '../components/datatable/datatable-registration.js';
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
+import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
 // Component type constants
@@ -50,6 +52,22 @@ export interface InspectorField {
   defaultValue?: unknown;
   /** Available units for type 'unit' (e.g., ['pt', 'sp', '%']). */
   units?: string[];
+}
+
+/** Context passed to a scope provider for resolving scoped variables. */
+export interface ScopeProviderContext {
+  /** Schema-derived field paths for resolving array item types. */
+  schemaFieldPaths: FieldPath[];
+  /** Accumulated evaluation context from parent scopes (for resolving preview values). */
+  evaluationContext?: Record<string, unknown>;
+}
+
+/** Variables and preview data a component introduces for its descendants. */
+export interface ScopeDeclaration {
+  /** Scoped FieldPath entries this component introduces. */
+  variables: FieldPath[];
+  /** Preview data to inject into the evaluation context (e.g., first array item). */
+  evaluationData?: Record<string, unknown>;
 }
 
 export interface ComponentDefinition {
@@ -137,6 +155,13 @@ export interface ComponentDefinition {
 
   /** Optional singleton-style guard (e.g. allow only one page header per document). */
   maxInstancesPerDocument?: number;
+
+  /**
+   * Declare scoped variables this component introduces for its descendants.
+   * Called with the node's current state and a context for resolving types/values.
+   * Returns null if the component doesn't introduce scope in its current state.
+   */
+  scopeProvider?: (node: Node, context: ScopeProviderContext) => ScopeDeclaration | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -410,6 +435,7 @@ export function createDefaultRegistry(): ComponentRegistry {
       itemAlias: 'item',
       indexAlias: undefined,
     },
+    scopeProvider: buildIterationScope,
   });
 
   registry.register({

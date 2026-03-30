@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { TemplateDocument, NodeId, Node, PageSettings } from '../types/index.js';
 import type { EditorEngine } from '../engine/EditorEngine.js';
-import type { ComponentDefinition, InspectorField } from '../engine/registry.js';
+import type { ComponentDefinition, InspectorField, ScopeDeclaration } from '../engine/registry.js';
 import type { StyleProperty } from '@epistola.app/editor-model/generated/style-registry';
 import type { BlockStylePreset } from '@epistola.app/editor-model/generated/theme';
 import { getNestedValue, setNestedValue } from '../engine/props.js';
@@ -500,6 +500,19 @@ export class EpistolaInspector extends LitElement {
       newProps = def.onPropChange(key, value, newProps);
     }
 
+    // Validate scope conflicts if this component provides scoped variables
+    if (def?.scopeProvider) {
+      const tempNode = { ...node, props: newProps };
+      const proposed = def.scopeProvider(tempNode, { schemaFieldPaths: this.engine.fieldPaths });
+      if (proposed) {
+        const conflict = this._findScopeConflict(node, def, proposed);
+        if (conflict) {
+          // TODO: show inline validation error in the inspector
+          return;
+        }
+      }
+    }
+
     // Detect alias rename for expression auto-rewrite
     const oldAlias = (node.props ?? {})[key];
     const metadata =
@@ -516,6 +529,32 @@ export class EpistolaInspector extends LitElement {
       props: newProps,
       metadata,
     });
+  }
+
+  /**
+   * Check if proposed scope variables conflict with any existing variable in scope.
+   * Returns the conflicting variable path, or null if no conflict.
+   */
+  private _findScopeConflict(
+    node: Node,
+    def: ComponentDefinition,
+    proposed: ScopeDeclaration,
+  ): string | null {
+    if (!this.engine || !this.selectedNodeId) return null;
+
+    // Get all visible variables at this position
+    const existing = this.engine.getAvailableVariablesAt(this.selectedNodeId);
+
+    // Exclude the current node's own scope (it's being replaced)
+    const currentScope = def.scopeProvider?.(node, { schemaFieldPaths: this.engine.fieldPaths });
+    const currentScopePaths = new Set(currentScope?.variables.map((v) => v.path) ?? []);
+    const existingWithoutSelf = existing.filter((f) => !currentScopePaths.has(f.path));
+
+    // Check for any proposed variable that collides with an existing one
+    const conflict = proposed.variables.find((v) =>
+      existingWithoutSelf.some((e) => e.path === v.path),
+    );
+    return conflict?.path ?? null;
   }
 
   private _handleStylePreset(value: string | undefined) {

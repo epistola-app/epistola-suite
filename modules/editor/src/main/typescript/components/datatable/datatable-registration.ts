@@ -11,6 +11,7 @@
 
 import type { NodeId, SlotId, Slot, Node } from '../../types/index.js';
 import type { ComponentDefinition } from '../../engine/registry.js';
+import { buildIterationScope } from '../../engine/scoped-fields.js';
 import type { EditorEngine } from '../../engine/EditorEngine.js';
 import { openDatatableDialog } from './datatable-dialog.js';
 import { nanoid } from 'nanoid';
@@ -64,6 +65,7 @@ export function createDatatableDefinition(): ComponentDefinition {
       borderStyle: 'all',
       headerEnabled: true,
     },
+    scopeProvider: buildIterationScope,
 
     // ----- Subtree creation -----
     createSubtree: (nodeId: NodeId, props?: Record<string, unknown>) => {
