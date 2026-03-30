@@ -24,6 +24,11 @@ describe('editor shortcut runtime registry', () => {
         (command) => command.id === EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview,
       ),
     ).toBe(true);
+    expect(
+      registry.commands.some(
+        (command) => command.id === EDITOR_SHORTCUT_COMMAND_IDS.toggleCleanMode,
+      ),
+    ).toBe(true);
   });
 
   it('uses editor context for core shortcuts and global context for leader chords', () => {
@@ -42,6 +47,13 @@ describe('editor shortcut runtime registry', () => {
     expect(previewBinding).toBeDefined();
     expect(previewBinding?.context).toBe('global');
     expect(previewBinding?.keys).toContain('mod+code:space p');
+
+    const cleanModeBinding = registry.keybindings.find(
+      (binding) => binding.commandId === EDITOR_SHORTCUT_COMMAND_IDS.toggleCleanMode,
+    );
+    expect(cleanModeBinding).toBeDefined();
+    expect(cleanModeBinding?.context).toBe('global');
+    expect(cleanModeBinding?.keys).toContain('mod+code:space c');
   });
 
   it('preserves leader alias keys for opening shortcuts help', () => {
@@ -60,9 +72,10 @@ describe('editor shortcut runtime registry', () => {
       EDITOR_SHORTCUT_COMMAND_IDS.togglePreview,
       EDITOR_SHORTCUT_COMMAND_IDS.openShortcutsHelp,
       EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview,
+      EDITOR_SHORTCUT_COMMAND_IDS.toggleCleanMode,
     ]);
 
-    expect(tokens).toEqual(['P', '?', 'E']);
+    expect(tokens).toEqual(['P', '?', 'E', 'C']);
   });
 
   it('returns toolbar display labels from runtime registry bindings', () => {
@@ -75,6 +88,9 @@ describe('editor shortcut runtime registry', () => {
     );
     expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.openDataPreview)).toBe(
       'Leader + E',
+    );
+    expect(getShortcutDisplayForCommandId(EDITOR_SHORTCUT_COMMAND_IDS.toggleCleanMode)).toBe(
+      'Leader + C',
     );
   });
 });

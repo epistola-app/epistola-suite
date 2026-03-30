@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Clean mode toggle**: New toolbar button and keyboard shortcut (Leader + C) to toggle between design mode (full block chrome) and clean mode (headers and borders hidden, shown on hover). Persists across sessions via localStorage.
+- **Collapsible containers**: Container blocks (sections, columns, loops, conditionals, etc.) can now be collapsed to a single header line showing the component label and child count. Click the chevron in the block header to toggle. Reduces vertical clutter when working on large templates.
+
 ### Fixed
 
 - **Table rendering broken in demo**: Fixed table nodes in the invoice demo template using an old `rows` array format instead of the current numeric `rows`/`columns`/`headerRows` props.

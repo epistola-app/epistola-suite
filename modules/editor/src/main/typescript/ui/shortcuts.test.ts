@@ -85,7 +85,7 @@ describe('shortcut helper projection', () => {
         {
           "fullWidth": false,
           "id": "leader-commands",
-          "itemCount": 11,
+          "itemCount": 12,
           "layout": "two-column",
           "title": "Leader Commands",
         },

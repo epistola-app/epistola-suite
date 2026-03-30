@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import {
   draggable,
@@ -16,6 +16,7 @@ import { isDragData, isBlockDrag, type DragData } from '../dnd/types.js';
 import { resolveDropOnBlockEdge, canDropHere, type Edge } from '../dnd/drop-logic.js';
 import { handleDrop } from '../dnd/drop-handler.js';
 import { icon } from './icons.js';
+import { isCollapsible, countChildren } from './collapse.js';
 import '../ui/EpistolaTextEditor.js';
 
 @customElement('epistola-canvas')
@@ -27,6 +28,9 @@ export class EpistolaCanvas extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine;
   @property({ attribute: false }) doc?: TemplateDocument;
   @property({ attribute: false }) selectedNodeId: NodeId | null = null;
+  @property({ type: Boolean }) cleanMode = false;
+
+  @state() private _collapsedNodes = new Set<NodeId>();
 
   private _dndCleanup: (() => void) | null = null;
   private _unsubComponentState?: () => void;
@@ -44,6 +48,11 @@ export class EpistolaCanvas extends LitElement {
 
   private _handleDeleteBlock(nodeId: NodeId) {
     if (!this.engine) return;
+    if (this._collapsedNodes.has(nodeId)) {
+      const next = new Set(this._collapsedNodes);
+      next.delete(nodeId);
+      this._collapsedNodes = next;
+    }
     this.engine.dispatch({ type: 'RemoveNode', nodeId });
     this.engine.selectNode(null);
   }
@@ -114,7 +123,9 @@ export class EpistolaCanvas extends LitElement {
         cleanups.push(
           draggable({
             element: blockEl,
-            dragHandle: blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl,
+            dragHandle: this.cleanMode
+              ? blockEl
+              : (blockEl.querySelector<HTMLElement>('.canvas-block-header') ?? blockEl),
             getInitialData: (): DragData => ({
               source: 'block',
               nodeId,
@@ -272,6 +283,29 @@ export class EpistolaCanvas extends LitElement {
   }
 
   // ---------------------------------------------------------------------------
+  // Collapse
+  // ---------------------------------------------------------------------------
+
+  private _handleToggleCollapse(e: Event, nodeId: NodeId) {
+    e.stopPropagation();
+    const next = new Set(this._collapsedNodes);
+    if (next.has(nodeId)) {
+      next.delete(nodeId);
+    } else {
+      next.add(nodeId);
+    }
+    this._collapsedNodes = next;
+  }
+
+  private _isCollapsible(nodeId: NodeId): boolean {
+    return this.doc ? isCollapsible(this.doc, nodeId) : false;
+  }
+
+  private _countChildren(nodeId: NodeId): number {
+    return this.doc ? countChildren(this.doc, nodeId) : 0;
+  }
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -287,7 +321,10 @@ export class EpistolaCanvas extends LitElement {
     }
 
     return html`
-      <div class="epistola-canvas" @click=${this._handleCanvasClick}>
+      <div
+        class="epistola-canvas ${this.cleanMode ? 'clean-mode' : ''}"
+        @click=${this._handleCanvasClick}
+      >
         <div class="canvas-page" style=${styleMap(pageStyle)}>
           ${this._renderNodeChildren(this.doc.root)}
         </div>
@@ -339,6 +376,8 @@ export class EpistolaCanvas extends LitElement {
     const isSelected = this.selectedNodeId === nodeId;
     const def = this.engine!.registry.get(node.type);
     const label = def?.label ?? node.type;
+    const collapsible = this._isCollapsible(nodeId);
+    const collapsed = collapsible && this._collapsedNodes.has(nodeId);
 
     // Resolve styles through the full cascade, filtered by component's applicable styles
     const resolvedStyles = this.engine!.getResolvedNodeStyles(nodeId);
@@ -348,16 +387,36 @@ export class EpistolaCanvas extends LitElement {
 
     return html`
       <div
-        class="canvas-block ${isSelected ? 'selected' : ''}"
+        class="canvas-block ${isSelected ? 'selected' : ''} ${collapsed ? 'collapsed' : ''}"
         data-testid="canvas-block"
         data-node-id=${nodeId}
+        data-block-label=${label}
         tabindex="0"
         @click=${(e: Event) => this._handleSelect(e, nodeId)}
         @focus=${() => this._handleFocus(nodeId)}
       >
         <!-- Block header -->
         <div class="canvas-block-header">
+          ${collapsible
+            ? html`
+                <button
+                  class="canvas-block-collapse"
+                  title="${collapsed ? 'Expand' : 'Collapse'}"
+                  @click=${(e: Event) => this._handleToggleCollapse(e, nodeId)}
+                >
+                  ${icon('chevron-right', 14)}
+                </button>
+              `
+            : nothing}
           <span class="canvas-block-label">${label}</span>
+          ${collapsed
+            ? html`<span class="canvas-block-child-count"
+                >${(() => {
+                  const count = this._countChildren(nodeId);
+                  return count === 0 ? 'empty' : `${count} blocks`;
+                })()}</span
+              >`
+            : nothing}
           <span class="canvas-block-id">${nodeId.slice(0, 6)}</span>
           ${isSelected
             ? html`
@@ -375,13 +434,17 @@ export class EpistolaCanvas extends LitElement {
             : nothing}
         </div>
 
-        <!-- Block content area -->
-        <div
-          class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
-          style=${styleMap(contentStyle)}
-        >
-          ${this._renderBlockContent(nodeId)}
-        </div>
+        <!-- Block content area (hidden when collapsed) -->
+        ${collapsed
+          ? nothing
+          : html`
+              <div
+                class="canvas-block-content ${node.type === 'text' ? 'text-type' : ''}"
+                style=${styleMap(contentStyle)}
+              >
+                ${this._renderBlockContent(nodeId)}
+              </div>
+            `}
       </div>
     `;
   }

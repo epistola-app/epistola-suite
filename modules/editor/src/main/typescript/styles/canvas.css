@@ -153,4 +153,41 @@
   .canvas-column {
     min-width: 0; /* prevent overflow from long content */
   }
+
+  /* Collapse toggle button */
+  .canvas-block-collapse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: var(--ep-radius-sm);
+    background: transparent;
+    color: var(--ep-gray-400);
+    cursor: pointer;
+    padding: 0;
+    transition:
+      transform var(--ep-transition-fast),
+      color var(--ep-transition-fast);
+  }
+
+  .canvas-block-collapse:hover {
+    color: var(--ep-gray-600);
+  }
+
+  /* Chevron rotates 90deg when expanded (not collapsed) */
+  .canvas-block:not(.collapsed) .canvas-block-collapse {
+    transform: rotate(90deg);
+  }
+
+  /* Child count badge */
+  .canvas-block-child-count {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ep-gray-400);
+    background: var(--ep-gray-100);
+    padding: 0 var(--ep-space-1);
+    border-radius: var(--ep-radius-sm);
+  }
 }
