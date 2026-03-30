@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-30
+
 ### Added
 
 - **Clean mode toggle**: New toolbar button and keyboard shortcut (Leader + C) to toggle between design mode (full block chrome) and clean mode (headers and borders hidden, shown on hover). Persists across sessions via localStorage.
