@@ -156,6 +156,12 @@ pnpm --filter @epistola/editor watch
 
 ## Code Style
 
+### Formatting (All Files)
+
+- **Formatter**: oxfmt via `pnpm format` (enforced in CI)
+- **Always run `pnpm format`** before committing to auto-fix formatting across all file types (JSON, TypeScript, etc.)
+- **Run `pnpm format:check`** to verify without modifying files
+
 ### Kotlin
 
 - **Linter**: ktlint (enforced in CI)
@@ -230,10 +236,11 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 1. **Read existing code first** - Understand patterns before modifying
 2. **Run tests** - `./gradlew test` before and after changes
-3. **Format code** - `./gradlew ktlintFormat` after making Kotlin changes
-4. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
-5. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
-6. **Small commits** - Commit logical units of work separately
+3. **Format all files** - `pnpm format` before committing (covers JSON, TypeScript, etc.)
+4. **Format Kotlin** - `./gradlew ktlintFormat` after making Kotlin changes
+5. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
+6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
+7. **Small commits** - Commit logical units of work separately
 
 ## Don'ts
 
