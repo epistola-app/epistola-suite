@@ -365,7 +365,7 @@ export function expandSpacingToStyles(
   };
   for (const [suffix, sideValue] of Object.entries(sides)) {
     const key = `${prefix}${suffix}`;
-    if (sideValue && sideValue !== '0pt' && sideValue !== '0sp') {
+    if (sideValue && !/^0(?:\.\d+)?[a-z]*$/.test(sideValue)) {
       styles[key] = sideValue;
     } else {
       delete styles[key];
