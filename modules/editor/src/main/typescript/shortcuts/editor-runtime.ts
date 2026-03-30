@@ -30,6 +30,7 @@ export const EDITOR_SHORTCUT_COMMAND_IDS = {
   focusResizeHandle: 'resize.handle.focus',
   moveSelectedBlockUp: 'editor.block.move-up',
   moveSelectedBlockDown: 'editor.block.move-down',
+  toggleCleanMode: 'editor.canvas.toggle-clean-mode',
 } as const;
 
 export type EditorShortcutCommandId =
@@ -58,6 +59,7 @@ export interface EditorShortcutRuntimeContext {
   focusResizeHandle: () => boolean;
   moveSelectedBlockUp: () => boolean;
   moveSelectedBlockDown: () => boolean;
+  toggleCleanMode: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +266,19 @@ const EDITOR_SHORTCUT_COMMANDS: readonly CommandDefinition<EditorShortcutRuntime
     ),
     metadata: { idleToken: '\u2193' },
   },
+  {
+    id: C.toggleCleanMode,
+    label: 'Clean mode',
+    category: 'Leader',
+    run: leaderRun(
+      (ctx) => {
+        ctx.toggleCleanMode();
+      },
+      'Clean mode toggled',
+      'Cannot toggle clean mode',
+    ),
+    metadata: { idleToken: 'C' },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -385,6 +400,13 @@ const EDITOR_SHORTCUT_KEYBINDINGS: readonly KeybindingDefinition<EditorShortcutR
     keys: leaderKeys('arrowdown'),
     preventDefault: true,
     display: 'Leader + \u2193',
+  },
+  {
+    commandId: C.toggleCleanMode,
+    context: 'global',
+    keys: leaderKeys('c'),
+    preventDefault: true,
+    display: 'Leader + C',
   },
 ];
 

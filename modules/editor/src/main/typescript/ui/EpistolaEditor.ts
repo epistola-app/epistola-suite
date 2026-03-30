@@ -119,6 +119,7 @@ export class EpistolaEditor extends LitElement {
   @state() private _doc?: TemplateDocument;
   @state() private _selectedNodeId: NodeId | null = null;
   @state() private _previewOpen = false;
+  @state() private _cleanMode = false;
   @state() private _saveState: SaveState = { status: 'idle' };
   @state() private _leaderVisible = false;
   @state() private _leaderStatus: 'idle' | 'success' | 'error' = 'idle';
@@ -134,6 +135,7 @@ export class EpistolaEditor extends LitElement {
   private _insertTarget: InsertTarget | null = null;
 
   private static readonly PREVIEW_OPEN_KEY = 'ep:preview-open';
+  private static readonly CLEAN_MODE_KEY = 'ep:clean-mode';
 
   get engine(): EditorEngine | undefined {
     return this._engine;
@@ -230,12 +232,14 @@ export class EpistolaEditor extends LitElement {
     validateCoreShortcutRegistriesOnStartup();
     window.addEventListener('keydown', this._onKeydown);
     this.addEventListener('toggle-preview', this._handleTogglePreview);
+    this.addEventListener('toggle-clean-mode', this._handleToggleCleanMode);
     this.addEventListener('force-save', this._handleForceSave);
     window.addEventListener('beforeunload', this._onBeforeUnload);
 
     // Restore preview open state from localStorage
     try {
       this._previewOpen = localStorage.getItem(EpistolaEditor.PREVIEW_OPEN_KEY) === 'true';
+      this._cleanMode = localStorage.getItem(EpistolaEditor.CLEAN_MODE_KEY) === 'true';
     } catch {
       // localStorage may be unavailable
     }
@@ -244,6 +248,7 @@ export class EpistolaEditor extends LitElement {
   override disconnectedCallback(): void {
     window.removeEventListener('keydown', this._onKeydown);
     this.removeEventListener('toggle-preview', this._handleTogglePreview);
+    this.removeEventListener('toggle-clean-mode', this._handleToggleCleanMode);
     this.removeEventListener('force-save', this._handleForceSave);
     window.removeEventListener('beforeunload', this._onBeforeUnload);
     super.disconnectedCallback();
@@ -323,6 +328,9 @@ export class EpistolaEditor extends LitElement {
       focusResizeHandle: () => this._focusResizeHandle(),
       moveSelectedBlockUp: () => this._moveSelectedNode(-1),
       moveSelectedBlockDown: () => this._moveSelectedNode(1),
+      toggleCleanMode: () => {
+        this._handleToggleCleanMode();
+      },
     };
   }
 
@@ -1088,6 +1096,15 @@ export class EpistolaEditor extends LitElement {
     }
   };
 
+  private _handleToggleCleanMode = () => {
+    this._cleanMode = !this._cleanMode;
+    try {
+      localStorage.setItem(EpistolaEditor.CLEAN_MODE_KEY, String(this._cleanMode));
+    } catch {
+      // localStorage may be unavailable
+    }
+  };
+
   private _handleForceSave = () => {
     if (this._saveService && this._doc) {
       this._saveService.forceSave(this._doc);
@@ -1141,6 +1158,7 @@ export class EpistolaEditor extends LitElement {
         <epistola-toolbar
           .engine=${this._engine}
           .previewOpen=${this._previewOpen}
+          .cleanMode=${this._cleanMode}
           .hasPreview=${hasPreview}
           .hasSave=${hasSave}
           .saveState=${this._saveState}
@@ -1164,6 +1182,7 @@ export class EpistolaEditor extends LitElement {
             .engine=${this._engine}
             .doc=${this._doc}
             .selectedNodeId=${this._selectedNodeId}
+            .cleanMode=${this._cleanMode}
           ></epistola-canvas>
 
           ${showPreview

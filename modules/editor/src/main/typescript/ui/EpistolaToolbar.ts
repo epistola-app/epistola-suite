@@ -49,6 +49,7 @@ export class EpistolaToolbar extends LitElement {
   @property({ attribute: false }) engine?: EditorEngine;
   @property({ type: Boolean }) previewOpen = false;
   @property({ type: Boolean }) hasPreview = false;
+  @property({ type: Boolean }) cleanMode = false;
   @property({ type: Boolean }) hasSave = false;
   @property({ attribute: false }) saveState?: SaveState;
   @property({ attribute: false }) pluginActions?: ToolbarAction[];
@@ -196,6 +197,10 @@ export class EpistolaToolbar extends LitElement {
 
   private _handleTogglePreview() {
     this.dispatchEvent(new CustomEvent('toggle-preview', { bubbles: true, composed: true }));
+  }
+
+  private _handleToggleCleanMode() {
+    this.dispatchEvent(new CustomEvent('toggle-clean-mode', { bubbles: true, composed: true }));
   }
 
   private _handleExampleChange(e: Event) {
@@ -691,6 +696,15 @@ export class EpistolaToolbar extends LitElement {
               </button>
             `
           : nothing}
+        <div class="toolbar-separator"></div>
+        <button
+          class="toolbar-btn ${this.cleanMode ? 'active' : ''}"
+          @click=${this._handleToggleCleanMode}
+          title="${this.cleanMode ? 'Show block chrome' : 'Hide block chrome'}"
+        >
+          ${this.cleanMode ? icon('eye') : icon('sparkles')} Clean
+        </button>
+
         ${hasExamples ? this._renderExampleSelector(examples!) : nothing}
         ${this._renderPluginActions()}
       </div>

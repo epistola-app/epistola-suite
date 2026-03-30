@@ -1,0 +1,72 @@
+/*
+ * Clean Mode
+ *
+ * Hides block chrome (headers, borders, margins) for a cleaner
+ * editing experience. Shows subtle feedback on hover and selection.
+ */
+
+@layer states {
+  /* Hide block headers */
+  .clean-mode .canvas-block-header {
+    display: none;
+  }
+
+  /* Remove block content borders and padding */
+  .clean-mode .canvas-block-content {
+    border: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  /* Remove block margin and default hover shadow */
+  .clean-mode .canvas-block {
+    margin-block: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  /* Hover: subtle outline + floating label */
+  .clean-mode .canvas-block:hover {
+    box-shadow: 0 0 0 1px var(--ep-blue-200);
+  }
+
+  .clean-mode .canvas-block:hover:not([data-drop-edge]):not(.dragging)::before {
+    content: attr(data-block-label);
+    position: absolute;
+    top: -1.25rem;
+    left: var(--ep-space-1);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ep-blue-500);
+    background: var(--ep-white);
+    padding: 0 var(--ep-space-1);
+    border-radius: var(--ep-radius-sm);
+    box-shadow: var(--ep-shadow-xs);
+    pointer-events: none;
+    z-index: 1;
+    white-space: nowrap;
+  }
+
+  /* Selected block: keep blue ring */
+  .clean-mode .canvas-block.selected {
+    box-shadow: 0 0 0 2px var(--ep-blue-500);
+  }
+
+  /* Subtle empty slots */
+  .clean-mode .canvas-slot.empty {
+    min-height: 1.5rem;
+    border-color: var(--ep-gray-200);
+  }
+
+  .clean-mode .canvas-slot-hint {
+    color: var(--ep-gray-300);
+  }
+
+  /* Collapsed blocks in clean mode still show their header */
+  .clean-mode .canvas-block.collapsed .canvas-block-header {
+    display: flex;
+    background: transparent;
+    border: 1px dashed var(--ep-gray-200);
+    padding: var(--ep-space-0-5) var(--ep-space-2);
+  }
+}
