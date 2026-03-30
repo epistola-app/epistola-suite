@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Renovate: separate toolchain from dependency updates**: Kotlin, Gradle, Kover, Node, and pnpm are now grouped into a dedicated "toolchain" PR. Epistola-contract packages (server SDK + editor model) are grouped together. Prevents toolchain incompatibilities from blocking dependency security patches.
+
 ## [0.8.0] - 2026-03-30
 
 ### Added
