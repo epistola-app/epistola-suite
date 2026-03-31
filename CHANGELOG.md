@@ -6,7 +6,8 @@
 
 - **JSON Schema view in contract editor**: Schema tab now has a Visual/JSON toggle to view the JSON Schema representation of the data contract. Includes copy-to-clipboard button.
 - **Import JSON Schema**: New "Import Schema" button opens a dialog to paste or upload a JSON Schema file. Imported schemas are checked for compatibility with the visual editor.
-- **Schema compatibility checking**: When an imported schema uses features not supported by the visual editor (enum, $ref, allOf/anyOf/oneOf, validation keywords, etc.), the visual editor is disabled and a read-only JSON view with a compatibility warning banner is shown instead.
+- **Schema compatibility checking**: When an imported schema uses features not supported by the visual editor (enum, $ref, allOf/anyOf/oneOf, etc.), the visual editor is disabled and a read-only JSON view with a compatibility warning banner is shown instead.
+- **Field constraints in visual editor**: Number/integer fields support `minimum` and `maximum` constraints. Array fields support `minItems`. String fields support `format: "email"`. Constraints appear as compact inputs below each field row.
 
 ## [0.9.0] - 2026-03-30
 

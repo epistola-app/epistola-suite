@@ -256,6 +256,49 @@
   }
 
   /* --------------------------------------------------------------------------
+   * Field constraints (min, max, format, minItems)
+   * ---------------------------------------------------------------------- */
+
+  .dc-field-constraints {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-3);
+    padding: 0 var(--ep-space-3) var(--ep-space-2)
+      calc(24px + var(--ep-space-2) + var(--ep-space-3));
+  }
+
+  .dc-field-constraints:empty {
+    display: none;
+  }
+
+  .dc-field-constraints.dc-field-nested {
+    padding-left: calc(var(--ep-space-8) * var(--nest-depth, 1) + 24px + var(--ep-space-2));
+  }
+
+  .dc-constraint-item {
+    display: flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+  }
+
+  .dc-constraint-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ep-gray-400);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .dc-constraint-input {
+    width: 80px;
+    min-width: 0;
+    height: var(--ep-h-7, 28px);
+    font-size: var(--ep-text-xs);
+    padding: var(--ep-space-0-5) var(--ep-space-1-5);
+  }
+
+  /* --------------------------------------------------------------------------
    * Nested fields
    * ---------------------------------------------------------------------- */
 

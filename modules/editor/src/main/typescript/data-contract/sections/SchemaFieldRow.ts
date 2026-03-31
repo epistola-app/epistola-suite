@@ -7,7 +7,14 @@
  */
 
 import { html, nothing } from 'lit';
-import type { SchemaField, SchemaFieldType, SchemaFieldUpdate } from '../types.js';
+import type {
+  ArrayField,
+  PrimitiveField,
+  SchemaField,
+  SchemaFieldType,
+  SchemaFieldUpdate,
+  StringFormat,
+} from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
 import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
 
@@ -172,6 +179,7 @@ export function renderSchemaFieldRow(
         </button>
       </div>
 
+      ${renderConstraints(field, onCommand, depth)}
       ${canExpand && isExpanded
         ? html`
             <div class="dc-field-nested-container">
@@ -192,5 +200,149 @@ export function renderSchemaFieldRow(
           `
         : nothing}
     </div>
+  `;
+}
+
+// =============================================================================
+// Constraint inputs (minimum, maximum, minItems, format)
+// =============================================================================
+
+/** Check if a field has editable constraints */
+function hasConstraints(field: SchemaField): boolean {
+  return (
+    field.type === 'number' ||
+    field.type === 'integer' ||
+    field.type === 'array' ||
+    field.type === 'string'
+  );
+}
+
+/** String format options */
+const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
+  { value: '', label: 'None' },
+  { value: 'email', label: 'Email' },
+];
+
+function renderConstraints(
+  field: SchemaField,
+  onCommand: (command: SchemaCommand) => void,
+  depth: number,
+): unknown {
+  if (!hasConstraints(field)) return nothing;
+
+  const nestStyle = depth > 0 ? `--nest-depth: ${depth}` : undefined;
+
+  const emitUpdate = (updates: SchemaFieldUpdate) => {
+    onCommand({ type: 'updateField', fieldId: field.id, updates });
+  };
+
+  return html`
+    <div
+      class="dc-field-constraints ${depth > 0 ? 'dc-field-nested' : ''}"
+      style=${nestStyle ?? nothing}
+    >
+      ${field.type === 'string'
+        ? renderFormatConstraint(field as PrimitiveField, emitUpdate)
+        : nothing}
+      ${field.type === 'number' || field.type === 'integer'
+        ? renderNumericConstraints(field as PrimitiveField, emitUpdate)
+        : nothing}
+      ${field.type === 'array' ? renderArrayConstraints(field as ArrayField, emitUpdate) : nothing}
+    </div>
+  `;
+}
+
+function renderFormatConstraint(
+  field: PrimitiveField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const currentFormat = 'format' in field ? (field.format ?? '') : '';
+  return html`
+    <label class="dc-constraint-item">
+      <span class="dc-constraint-label">Format</span>
+      <select
+        class="ep-select dc-constraint-input"
+        .value=${currentFormat}
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLSelectElement).value;
+          emitUpdate({ format: val ? (val as StringFormat) : undefined });
+        }}
+      >
+        ${STRING_FORMATS.map(
+          (f) =>
+            html`<option value=${f.value} ?selected=${currentFormat === f.value}>
+              ${f.label}
+            </option>`,
+        )}
+      </select>
+    </label>
+  `;
+}
+
+function renderNumericConstraints(
+  field: PrimitiveField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const min = 'minimum' in field ? field.minimum : undefined;
+  const max = 'maximum' in field ? field.maximum : undefined;
+  const step = field.type === 'integer' ? '1' : 'any';
+
+  return html`
+    <label class="dc-constraint-item">
+      <span class="dc-constraint-label">Min</span>
+      <input
+        type="number"
+        class="ep-input dc-constraint-input"
+        step=${step}
+        .value=${min !== undefined ? String(min) : ''}
+        placeholder="—"
+        aria-label="Minimum value"
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          emitUpdate({ minimum: val ? Number(val) : undefined });
+        }}
+      />
+    </label>
+    <label class="dc-constraint-item">
+      <span class="dc-constraint-label">Max</span>
+      <input
+        type="number"
+        class="ep-input dc-constraint-input"
+        step=${step}
+        .value=${max !== undefined ? String(max) : ''}
+        placeholder="—"
+        aria-label="Maximum value"
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          emitUpdate({ maximum: val ? Number(val) : undefined });
+        }}
+      />
+    </label>
+  `;
+}
+
+function renderArrayConstraints(
+  field: ArrayField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const minItems = 'minItems' in field ? field.minItems : undefined;
+
+  return html`
+    <label class="dc-constraint-item">
+      <span class="dc-constraint-label">Min items</span>
+      <input
+        type="number"
+        class="ep-input dc-constraint-input"
+        min="0"
+        step="1"
+        .value=${minItems !== undefined ? String(minItems) : ''}
+        placeholder="—"
+        aria-label="Minimum number of items"
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          emitUpdate({ minItems: val ? Number(val) : undefined });
+        }}
+      />
+    </label>
   `;
 }

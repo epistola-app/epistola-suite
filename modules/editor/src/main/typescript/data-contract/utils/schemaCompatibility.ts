@@ -51,6 +51,9 @@ const SUPPORTED_PROPERTY_KEYS = new Set([
   'required',
   'items',
   'additionalProperties',
+  'minimum',
+  'maximum',
+  'minItems',
 ]);
 
 /** Supported single-value types */
@@ -163,14 +166,15 @@ function checkProperty(
     }
   }
 
-  // Check format (only "date" on strings is supported)
+  // Check format (only "date" and "email" on strings are supported)
   if ('format' in prop && prop.format !== undefined) {
     const type = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-    if (prop.format !== 'date' || type !== 'string') {
+    const supportedFormats = new Set(['date', 'email']);
+    if (!supportedFormats.has(String(prop.format)) || type !== 'string') {
       issues.push({
         path: `${path}.format`,
         feature: `format-${String(prop.format)}`,
-        description: `Format "${String(prop.format)}" is not supported (only "date" on string type)`,
+        description: `Format "${String(prop.format)}" is not supported (only "date" and "email" on string type)`,
       });
     }
   }

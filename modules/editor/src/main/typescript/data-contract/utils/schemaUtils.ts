@@ -4,10 +4,12 @@ import type {
   JsonSchema,
   JsonSchemaProperty,
   JsonValue,
+  PrimitiveField,
   PrimitiveFieldType,
   SchemaField,
   SchemaFieldType,
   SchemaFieldUpdate,
+  StringFormat,
   VisualSchema,
 } from '../types.js';
 
@@ -47,8 +49,19 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
     prop.format = 'date';
   }
 
+  // String format (e.g. "email") — date format is handled above
+  if (field.type === 'string' && 'format' in field && field.format) {
+    prop.format = field.format;
+  }
+
   if (field.description) {
     prop.description = field.description;
+  }
+
+  // Numeric constraints
+  if ((field.type === 'number' || field.type === 'integer') && 'minimum' in field) {
+    if (field.minimum !== undefined) prop.minimum = field.minimum;
+    if (field.maximum !== undefined) prop.maximum = field.maximum;
   }
 
   if (field.type === 'array' && field.arrayItemType) {
@@ -64,6 +77,9 @@ function fieldToJsonSchemaProperty(field: SchemaField): JsonSchemaProperty {
       }
     } else {
       prop.items = { type: field.arrayItemType };
+    }
+    if (field.minItems !== undefined) {
+      prop.minItems = field.minItems;
     }
   }
 
@@ -158,6 +174,7 @@ function jsonSchemaPropertyToField(
       type: 'array' as const,
       arrayItemType: itemType as SchemaFieldType,
       nestedFields,
+      ...(prop.minItems !== undefined ? { minItems: prop.minItems } : {}),
     };
   }
 
@@ -175,11 +192,24 @@ function jsonSchemaPropertyToField(
     };
   }
 
-  // Primitive types
-  return {
+  // Primitive types — carry over format, minimum, maximum
+  const primitiveField: SchemaField = {
     ...baseField,
     type: type as PrimitiveFieldType,
   };
+
+  // String format (non-date, since date is already handled via type conversion)
+  if (type === 'string' && prop.format && prop.format !== 'date') {
+    (primitiveField as PrimitiveField).format = prop.format as StringFormat;
+  }
+
+  // Numeric constraints
+  if (type === 'number' || type === 'integer') {
+    if (prop.minimum !== undefined) (primitiveField as PrimitiveField).minimum = prop.minimum;
+    if (prop.maximum !== undefined) (primitiveField as PrimitiveField).maximum = prop.maximum;
+  }
+
+  return primitiveField;
 }
 
 /**
@@ -302,11 +332,18 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
         : field.type === 'array'
           ? field.nestedFields
           : undefined;
+    const minItems =
+      updates.minItems !== undefined
+        ? updates.minItems
+        : field.type === 'array'
+          ? field.minItems
+          : undefined;
     return {
       ...baseField,
       type: 'array' as const,
       arrayItemType,
       nestedFields,
+      ...(minItems !== undefined ? { minItems } : {}),
     };
   }
 
@@ -324,10 +361,24 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
     };
   }
 
-  // Primitive types
+  // Primitive types — carry over format, minimum, maximum
+  const existingFormat =
+    field.type !== 'array' && field.type !== 'object' ? field.format : undefined;
+  const existingMinimum =
+    field.type !== 'array' && field.type !== 'object' ? field.minimum : undefined;
+  const existingMaximum =
+    field.type !== 'array' && field.type !== 'object' ? field.maximum : undefined;
+
+  const format = updates.format !== undefined ? updates.format : existingFormat;
+  const minimum = updates.minimum !== undefined ? updates.minimum : existingMinimum;
+  const maximum = updates.maximum !== undefined ? updates.maximum : existingMaximum;
+
   return {
     ...baseField,
     type: type as PrimitiveFieldType,
+    ...(format !== undefined ? { format } : {}),
+    ...(minimum !== undefined ? { minimum } : {}),
+    ...(maximum !== undefined ? { maximum } : {}),
   };
 }
 
