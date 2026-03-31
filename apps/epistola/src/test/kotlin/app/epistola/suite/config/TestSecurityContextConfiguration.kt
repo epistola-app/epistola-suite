@@ -11,15 +11,21 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.core.annotation.Order
+import org.springframework.security.authentication.TestingAuthenticationToken
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.filter.OncePerRequestFilter
 
 /**
- * Test configuration that binds a fully-privileged test principal to every HTTP request.
+ * Test configuration that provides a fully-privileged test principal for every HTTP request.
  *
  * In the test profile, Spring Security permits all requests without authentication,
- * so the production [SecurityFilter] doesn't find an authenticated user.
- * This filter ensures the ScopedValue-based [SecurityContext] is always populated
- * for the mediator's authorization enforcement.
+ * so the production [SecurityFilter] doesn't find an authenticated user. This filter
+ * runs after SecurityFilter and does two things:
+ *
+ * 1. Populates [SecurityContextHolder] with a [TestingAuthenticationToken] so Thymeleaf's
+ *    `sec:authorize="isAuthenticated()"` evaluates correctly
+ * 2. Binds the [EpistolaPrincipal] to the ScopedValue-based [SecurityContext] for
+ *    business logic (mediator authorization)
  */
 @TestConfiguration
 class TestSecurityContextConfiguration {
@@ -43,13 +49,22 @@ class TestSecurityContextConfiguration {
             response: HttpServletResponse,
             filterChain: FilterChain,
         ) {
-            if (SecurityContext.isBound()) {
-                // Principal already bound (e.g., by production SecurityFilter) — pass through
-                filterChain.doFilter(request, response)
-            } else {
-                SecurityContext.runWithPrincipal(testPrincipal) {
+            // Populate Spring Security's SecurityContextHolder so Thymeleaf's
+            // sec:authorize="isAuthenticated()" evaluates to true
+            val secCtx = SecurityContextHolder.createEmptyContext()
+            secCtx.authentication = TestingAuthenticationToken(testPrincipal, "N/A", listOf())
+            SecurityContextHolder.setContext(secCtx)
+            try {
+                if (SecurityContext.isBound()) {
+                    // Principal already bound (e.g., by production SecurityFilter) — pass through
                     filterChain.doFilter(request, response)
+                } else {
+                    SecurityContext.runWithPrincipal(testPrincipal) {
+                        filterChain.doFilter(request, response)
+                    }
                 }
+            } finally {
+                SecurityContextHolder.clearContext()
             }
         }
     }
