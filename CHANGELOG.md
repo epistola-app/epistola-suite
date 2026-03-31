@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Feedback screenshot**: Replaced file upload (click, paste, drag-and-drop) with two in-browser capture modes — region selection (draw a rectangle on the page) and full page screenshot (captures entire scrollable page). Uses html-to-image (~5KB) loaded on demand.
+
 ## [0.9.0] - 2026-03-30
 
 ### Added

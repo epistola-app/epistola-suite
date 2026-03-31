@@ -56,23 +56,22 @@
 
                 <!-- Screenshot capture -->
                 <div class="form-group">
-                    <label class="ep-label" for="fb-screenshot-file">Screenshot (optional)</label>
-                    <div id="fb-screenshot-zone"
-                         style="border: 2px dashed var(--ep-border); border-radius: var(--ep-radius); padding: var(--ep-space-4); text-align: center; cursor: pointer; min-height: 80px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: var(--ep-space-2);"
-                         onclick="document.getElementById('fb-screenshot-file').click()">
-                        <div id="fb-screenshot-preview" style="display: none; width: 100%; max-height: 200px;">
-                            <img id="fb-screenshot-img" style="max-width: 100%; max-height: 180px; border-radius: var(--ep-radius);" alt="Screenshot preview">
-                            <button type="button" class="btn btn-ghost btn-sm" id="fb-screenshot-remove"
-                                    style="margin-top: var(--ep-space-1);">Remove</button>
-                        </div>
-                        <div id="fb-screenshot-placeholder">
-                            <th:block th:replace="~{fragments/icon :: icon(name='camera', class='ep-icon')}" />
-                            <div style="color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
-                                Click to upload or paste (Ctrl+V) a screenshot
-                            </div>
-                        </div>
+                    <label class="ep-label">Screenshot (optional)</label>
+                    <div id="fb-screenshot-actions" style="display: flex; gap: var(--ep-space-2);">
+                        <button type="button" id="fb-capture-region" class="btn btn-outline btn-sm">
+                            <th:block th:replace="~{fragments/icon :: icon(name='scan', class='ep-icon')}" />
+                            Capture Region
+                        </button>
+                        <button type="button" id="fb-capture-fullpage" class="btn btn-outline btn-sm">
+                            <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon')}" />
+                            Full Page
+                        </button>
                     </div>
-                    <input type="file" id="fb-screenshot-file" accept="image/png,image/jpeg,image/webp" style="display: none;">
+                    <div id="fb-screenshot-preview" style="display: none; margin-top: var(--ep-space-2); width: 100%; max-height: 200px;">
+                        <img id="fb-screenshot-img" style="max-width: 100%; max-height: 180px; border-radius: var(--ep-radius);" alt="Screenshot preview">
+                        <button type="button" class="btn btn-ghost btn-sm" id="fb-screenshot-remove"
+                                style="margin-top: var(--ep-space-1);">Remove</button>
+                    </div>
                 </div>
 
                 <!-- Auto-captured fields (hidden) -->
@@ -127,19 +126,17 @@
                 }
 
                 // Screenshot handling
-                const screenshotZone = document.getElementById('fb-screenshot-zone');
-                const screenshotFile = document.getElementById('fb-screenshot-file');
                 const screenshotData = document.getElementById('fb-screenshotData');
                 const screenshotPreview = document.getElementById('fb-screenshot-preview');
                 const screenshotImg = document.getElementById('fb-screenshot-img');
-                const screenshotPlaceholder = document.getElementById('fb-screenshot-placeholder');
+                const screenshotActions = document.getElementById('fb-screenshot-actions');
                 const screenshotRemove = document.getElementById('fb-screenshot-remove');
 
                 function setScreenshot(dataUrl) {
                     screenshotData.value = dataUrl;
                     screenshotImg.src = dataUrl;
                     screenshotPreview.style.display = 'block';
-                    screenshotPlaceholder.style.display = 'none';
+                    screenshotActions.style.display = 'none';
                 }
 
                 function clearScreenshot(e) {
@@ -147,50 +144,22 @@
                     screenshotData.value = '';
                     screenshotImg.src = '';
                     screenshotPreview.style.display = 'none';
-                    screenshotPlaceholder.style.display = 'block';
+                    screenshotActions.style.display = 'flex';
                 }
-
-                function readFileAsDataUrl(file) {
-                    if (!file || !file.type.startsWith('image/')) return;
-                    const reader = new FileReader();
-                    reader.onload = () => setScreenshot(reader.result);
-                    reader.readAsDataURL(file);
-                }
-
-                // File input
-                screenshotFile.addEventListener('change', () => {
-                    readFileAsDataUrl(screenshotFile.files?.[0]);
-                    screenshotFile.value = '';
-                });
 
                 // Remove button
                 screenshotRemove.addEventListener('click', clearScreenshot);
 
-                // Paste handler (Ctrl+V)
-                document.addEventListener('paste', (e) => {
-                    const items = e.clipboardData?.items;
-                    if (!items) return;
-                    for (const item of items) {
-                        if (item.type.startsWith('image/')) {
-                            e.preventDefault();
-                            readFileAsDataUrl(item.getAsFile());
-                            return;
-                        }
-                    }
-                });
-
-                // Drag and drop
-                screenshotZone.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    screenshotZone.style.borderColor = 'var(--ep-primary)';
-                });
-                screenshotZone.addEventListener('dragleave', () => {
-                    screenshotZone.style.borderColor = 'var(--ep-border)';
-                });
-                screenshotZone.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    screenshotZone.style.borderColor = 'var(--ep-border)';
-                    readFileAsDataUrl(e.dataTransfer?.files?.[0]);
+                // Capture buttons
+                import(/*[[@{/feedback/feedback-screenshot.js}]]*/ '/feedback/feedback-screenshot.js').then(({ captureRegion, captureFullPage }) => {
+                    document.getElementById('fb-capture-region')?.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        captureRegion(setScreenshot);
+                    });
+                    document.getElementById('fb-capture-fullpage')?.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        captureFullPage(setScreenshot);
+                    });
                 });
             })();
         </script>
