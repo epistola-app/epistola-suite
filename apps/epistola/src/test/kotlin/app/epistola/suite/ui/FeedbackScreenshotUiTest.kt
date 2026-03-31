@@ -15,12 +15,24 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
 
     @BeforeEach
     fun setUp() {
-        tenant = withMediator {
-            CreateTenant(
-                id = TenantKey.of("test-fb-${System.nanoTime()}"),
-                name = "Feedback Test Tenant",
-            ).execute()
-        }
+        tenant =
+            withMediator {
+                CreateTenant(
+                    id = TenantKey.of("test-fb-${System.nanoTime()}"),
+                    name = "Feedback Test Tenant",
+                ).execute()
+            }
+
+        // Mock getDisplayMedia before any page JS runs so isSupported evaluates to true.
+        // Headless Chromium doesn't expose getDisplayMedia.
+        page.addInitScript(
+            """
+            if (!navigator.mediaDevices) navigator.mediaDevices = {};
+            navigator.mediaDevices.getDisplayMedia = async () => {
+                throw new DOMException('Test environment', 'NotAllowedError');
+            };
+            """,
+        )
     }
 
     private fun openFeedbackDialog() {
@@ -60,18 +72,8 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         fun `capture region button shows selection overlay`() {
             openFeedbackDialog()
 
-            // Mock getDisplayMedia to avoid browser permission dialog
-            page.evaluate(
-                """
-                navigator.mediaDevices.getDisplayMedia = async () => {
-                    throw new DOMException('Test environment', 'NotAllowedError');
-                };
-            """,
-            )
-
             page.click("#fb-capture-region")
 
-            // Dialog should close and overlay should appear
             page.waitForSelector(".fb-capture-overlay")
             assertThat(page.locator(".fb-capture-overlay")).isVisible()
             assertThat(page.locator(".fb-capture-hint")).isVisible()
@@ -82,47 +84,26 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
         fun `escape key cancels region selection and restores dialog`() {
             openFeedbackDialog()
 
-            page.evaluate(
-                """
-                navigator.mediaDevices.getDisplayMedia = async () => {
-                    throw new DOMException('Test environment', 'NotAllowedError');
-                };
-            """,
-            )
-
             page.click("#fb-capture-region")
             page.waitForSelector(".fb-capture-overlay")
 
             page.keyboard().press("Escape")
 
-            // Overlay should be removed
             assertThat(page.locator(".fb-capture-overlay")).hasCount(0)
-            // Dialog should be restored
             page.waitForSelector("#feedback-fab-dialog[open]")
-            assertThat(page.locator("#feedback-fab-dialog")).hasAttribute("open", "")
         }
 
         @Test
         fun `small selection is treated as cancellation`() {
             openFeedbackDialog()
 
-            page.evaluate(
-                """
-                navigator.mediaDevices.getDisplayMedia = async () => {
-                    throw new DOMException('Test environment', 'NotAllowedError');
-                };
-            """,
-            )
-
             page.click("#fb-capture-region")
             page.waitForSelector(".fb-capture-overlay")
 
-            // Simulate a tiny drag (less than 10px)
             val overlay = page.locator(".fb-capture-overlay")
             overlay.dispatchEvent("mousedown", mapOf("clientX" to 100, "clientY" to 100))
             overlay.dispatchEvent("mouseup", mapOf("clientX" to 105, "clientY" to 105))
 
-            // Should cancel and restore dialog
             page.waitForSelector("#feedback-fab-dialog[open]")
         }
     }
@@ -141,7 +122,6 @@ class FeedbackScreenshotUiTest : BasePlaywrightTest() {
             assertThat(title).isVisible()
             assertThat(closeButton).isVisible()
 
-            // Verify close button is to the right by checking bounding boxes
             val titleBox = title.boundingBox()
             val buttonBox = closeButton.boundingBox()
             assert(buttonBox.x > titleBox.x + titleBox.width) {
