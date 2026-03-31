@@ -15,11 +15,11 @@ interface TenantProvisioningPort {
     /**
      * Provisions IDP resources for a new tenant.
      *
-     * For Keycloak, this creates groups following the `ep_{tenantKey}_{role}` convention:
-     * - `ep_{key}_reader`
-     * - `ep_{key}_editor`
-     * - `ep_{key}_generator`
-     * - `ep_{key}_manager`
+     * For Keycloak, this creates hierarchical groups under `/epistola/tenants/{key}/`:
+     * - `/epistola/tenants/{key}/reader`
+     * - `/epistola/tenants/{key}/editor`
+     * - `/epistola/tenants/{key}/generator`
+     * - `/epistola/tenants/{key}/manager`
      *
      * Implementations should not throw on failure — tenant creation should succeed
      * even if IDP provisioning fails. Failures should be logged as warnings.
