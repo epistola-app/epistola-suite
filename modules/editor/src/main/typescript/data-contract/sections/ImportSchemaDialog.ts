@@ -38,19 +38,6 @@ export function renderImportSchemaDialog(
           placeholder='{"type": "object", "properties": { ... }}'
           rows="10"
         ></textarea>
-        <button
-          class="ep-btn-primary btn-sm dc-import-paste-btn dc-btn-icon"
-          @click=${(e: Event) => {
-            const dialog = (e.target as HTMLElement).closest('.dc-import-dialog')!;
-            const textarea = dialog.querySelector<HTMLTextAreaElement>('#dc-import-textarea')!;
-            const text = textarea.value.trim();
-            if (text) {
-              callbacks.onImportFromText(text);
-            }
-          }}
-        >
-          ${icon('upload', 14)} Import
-        </button>
       </div>
 
       <div class="dc-import-divider">
@@ -78,6 +65,19 @@ export function renderImportSchemaDialog(
       <!-- Actions -->
       <div class="dc-dialog-actions">
         <button class="ep-btn-outline btn-sm" @click=${() => callbacks.onCancel()}>Cancel</button>
+        <button
+          class="ep-btn-primary btn-sm dc-btn-icon"
+          @click=${(e: Event) => {
+            const dialog = (e.target as HTMLElement).closest('.dc-import-dialog')!;
+            const textarea = dialog.querySelector<HTMLTextAreaElement>('#dc-import-textarea')!;
+            const text = textarea.value.trim();
+            if (text) {
+              callbacks.onImportFromText(text);
+            }
+          }}
+        >
+          ${icon('upload', 14)} Import
+        </button>
       </div>
     </div>
   `;
