@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- **JSON Schema view in contract editor**: Schema tab now has a Visual/JSON toggle to view the JSON Schema representation of the data contract. Includes copy-to-clipboard button.
+- **Import JSON Schema**: New "Import Schema" button opens a dialog to paste or upload a JSON Schema file. Imported schemas are checked for compatibility with the visual editor.
+- **Schema compatibility checking**: When an imported schema uses features not supported by the visual editor (enum, $ref, allOf/anyOf/oneOf, etc.), the visual editor is disabled and a read-only JSON view with a compatibility warning banner is shown instead.
+- **Field constraints in visual editor**: Number/integer fields support `minimum` and `maximum` constraints. Array fields support `minItems`. String fields support `format: "email"`.
+- **Two-panel schema editor**: The visual schema builder now uses a list + detail panel layout. A compact field list on the left shows field names, types, and required indicators. Clicking a field opens its full editing form in the detail panel on the right, including name, type, required, description, and type-specific constraints. The page is widened to `72rem` to accommodate the layout.
+
+### Fixed
+
+- **Schema import undo**: Importing a JSON Schema now snapshots the previous state so the import can be undone with Ctrl+Z.
+- **Schema import migration detection**: Importing a schema (including incompatible/json-only schemas) now properly detects breaking changes against existing data examples and shows the migration dialog.
+- **Live example validation on schema edits**: Renaming, deleting, or changing field types now immediately re-validates all data examples, showing validation errors in real time instead of only at save time. Also applies to undo/redo.
+- **"Save Anyway" on backend validation failure**: When the backend rejects a schema save due to example validation issues (e.g. making a field required when examples lack it), a "Save Anyway" button now appears alongside the error, allowing users to force-save with `forceUpdate=true`.
+- **Constraints dropped on type change**: Changing a field's type now properly drops inapplicable constraints (e.g. minimum/maximum are dropped when changing from number to string, format is dropped when changing from string to number).
+- **Migration detection for array item fields**: Renaming or removing required fields inside array-of-objects (e.g. `items[].total`) now correctly triggers the migration dialog instead of failing silently at save time.
+
 ## [0.9.0] - 2026-03-30
 
 ### Added

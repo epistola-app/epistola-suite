@@ -14,6 +14,7 @@ import type {
   SaveCallbacks,
   SaveExamplesResult,
   SaveSchemaResult,
+  SchemaEditMode,
   UpdateDataExampleResult,
 } from './types.js';
 
@@ -23,6 +24,10 @@ export class DataContractState extends EventTarget {
 
   private _draftSchema: JsonSchema | null;
   private _draftExamples: DataExample[];
+
+  private _schemaEditMode: SchemaEditMode = 'visual';
+  private _rawJsonSchema: object | null = null;
+  private _committedRawJsonSchema: object | null = null;
 
   private _callbacks: SaveCallbacks;
 
@@ -51,7 +56,18 @@ export class DataContractState extends EventTarget {
     return this._draftExamples;
   }
 
+  get schemaEditMode(): SchemaEditMode {
+    return this._schemaEditMode;
+  }
+
+  get rawJsonSchema(): object | null {
+    return this._rawJsonSchema;
+  }
+
   get isSchemaDirty(): boolean {
+    if (this._schemaEditMode === 'json-only') {
+      return JSON.stringify(this._rawJsonSchema) !== JSON.stringify(this._committedRawJsonSchema);
+    }
     return JSON.stringify(this._draftSchema) !== JSON.stringify(this._committedSchema);
   }
 
@@ -69,6 +85,14 @@ export class DataContractState extends EventTarget {
 
   setDraftSchema(schema: JsonSchema | null): void {
     this._draftSchema = schema;
+    this._fireChange();
+  }
+
+  setRawJsonSchema(schema: object | null, mode: SchemaEditMode): void {
+    this._rawJsonSchema = schema ? structuredClone(schema) : null;
+    this._schemaEditMode = mode;
+    // Also update the draft schema for validation purposes (cast through unknown)
+    this._draftSchema = schema as unknown as JsonSchema | null;
     this._fireChange();
   }
 
@@ -107,7 +131,11 @@ export class DataContractState extends EventTarget {
     }
 
     try {
-      const result = await this._callbacks.onSaveSchema(this._draftSchema, forceUpdate);
+      const schemaToSave =
+        this._schemaEditMode === 'json-only'
+          ? (this._rawJsonSchema as unknown as JsonSchema | null)
+          : this._draftSchema;
+      const result = await this._callbacks.onSaveSchema(schemaToSave, forceUpdate);
       if (result.success) {
         this._markSchemaCommitted();
       }
@@ -226,6 +254,9 @@ export class DataContractState extends EventTarget {
 
   private _markSchemaCommitted(): void {
     this._committedSchema = structuredClone(this._draftSchema);
+    if (this._schemaEditMode === 'json-only') {
+      this._committedRawJsonSchema = structuredClone(this._rawJsonSchema);
+    }
     this._fireChange();
   }
 

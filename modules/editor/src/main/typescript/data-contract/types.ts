@@ -57,9 +57,18 @@ interface BaseField {
   description?: string;
 }
 
+/** Supported string formats */
+export type StringFormat = 'date' | 'email';
+
 /** A primitive field (string, number, integer, boolean) */
 export interface PrimitiveField extends BaseField {
   type: PrimitiveFieldType;
+  /** Format constraint (e.g. "email") — only for string/date types */
+  format?: StringFormat;
+  /** Minimum value — only for number/integer types */
+  minimum?: number;
+  /** Maximum value — only for number/integer types */
+  maximum?: number;
 }
 
 /** An array field with a required item type */
@@ -67,6 +76,8 @@ export interface ArrayField extends BaseField {
   type: 'array';
   arrayItemType: SchemaFieldType;
   nestedFields?: SchemaField[];
+  /** Minimum number of items in the array */
+  minItems?: number;
 }
 
 /** An object field with optional nested fields */
@@ -90,6 +101,10 @@ export interface SchemaFieldUpdate {
   description?: string;
   arrayItemType?: SchemaFieldType;
   nestedFields?: SchemaField[];
+  format?: StringFormat | undefined;
+  minimum?: number | undefined;
+  maximum?: number | undefined;
+  minItems?: number | undefined;
 }
 
 // =============================================================================
@@ -113,6 +128,9 @@ export interface JsonSchemaProperty {
   items?: JsonSchemaProperty;
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
+  minimum?: number;
+  maximum?: number;
+  minItems?: number;
 }
 
 /** JSON Schema (subset supported by the visual editor) */
@@ -123,6 +141,13 @@ export interface JsonSchema {
   required?: string[];
   additionalProperties?: boolean;
 }
+
+// =============================================================================
+// Schema Edit Mode
+// =============================================================================
+
+/** Whether the visual editor can represent the current schema */
+export type SchemaEditMode = 'visual' | 'json-only';
 
 // =============================================================================
 // Validation & Save types

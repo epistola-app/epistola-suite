@@ -18,6 +18,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
+import { icon } from '../ui/icons.js';
 import { DataContractState } from './DataContractState.js';
 import type {
   DataExample,
@@ -25,6 +26,7 @@ import type {
   JsonSchema,
   JsonValue,
   SaveCallbacks,
+  SchemaField,
   VisualSchema,
 } from './types.js';
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
@@ -37,6 +39,7 @@ import {
   type MigrationSuggestion,
 } from './utils/schemaMigration.js';
 import { validateDataAgainstSchema, type SchemaValidationError } from './utils/schemaValidation.js';
+import { checkSchemaCompatibility, type CompatibilityIssue } from './utils/schemaCompatibility.js';
 import {
   renderSchemaSection,
   type SchemaUiState,
@@ -48,6 +51,8 @@ import {
   type ExamplesSectionCallbacks,
 } from './sections/ExamplesSection.js';
 import { renderMigrationDialog, migrationKey } from './sections/MigrationAssistant.js';
+import { renderJsonSchemaView } from './sections/JsonSchemaView.js';
+import { renderImportSchemaDialog } from './sections/ImportSchemaDialog.js';
 import { setNestedValue, buildFieldErrorMap } from './sections/ExampleForm.js';
 
 type TabId = 'schema' | 'examples';
@@ -80,6 +85,16 @@ export class EpistolaDataContractEditor extends LitElement {
   // Schema tab UI state
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
   @state() private _expandedFields = new Set<string>();
+  @state() private _selectedFieldId: string | null = null;
+  @state() private _schemaViewMode: 'visual' | 'json' = 'visual';
+  @state() private _compatibilityIssues: CompatibilityIssue[] = [];
+
+  // Import dialog state
+  @state() private _showImportDialog = false;
+  @state() private _importParseError: string | null = null;
+
+  // Copy feedback
+  @state() private _copySuccess = false;
 
   // Examples tab UI state
   @state() private _editingExampleId: string | null = null;
@@ -88,6 +103,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _saving = false;
   @state() private _saveSuccess = false;
   @state() private _saveError: string | null = null;
+  @state() private _canForceSave = false;
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
@@ -124,9 +140,24 @@ export class EpistolaDataContractEditor extends LitElement {
       this.requestUpdate();
     });
 
+    // Check compatibility and set editing mode
+    if (initialSchema) {
+      const compat = checkSchemaCompatibility(initialSchema);
+      this._compatibilityIssues = compat.issues;
+      if (!compat.compatible) {
+        this.contractState.setRawJsonSchema(initialSchema, 'json-only');
+        this._schemaViewMode = 'json';
+      }
+    }
+
     // Convert initial JSON Schema to VisualSchema once — this is now the primary editing state
     this._visualSchema = jsonSchemaToVisualSchema(initialSchema);
     this._commandHistory.clear();
+
+    // Pre-select first field if available
+    if (this._visualSchema.fields.length > 0) {
+      this._selectedFieldId = this._visualSchema.fields[0].id;
+    }
 
     // Pre-select first example if available
     if (initialExamples.length > 0) {
@@ -180,6 +211,15 @@ export class EpistolaDataContractEditor extends LitElement {
           ${this._saveError
             ? html`<span class="dc-status-error">${this._saveError}</span>`
             : nothing}
+          ${this._canForceSave
+            ? html`<button
+                class="ep-btn-outline btn-sm dc-force-save-btn"
+                ?disabled=${this._saving}
+                @click=${() => this._executeForceSave()}
+              >
+                Save Anyway
+              </button>`
+            : nothing}
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
             ?disabled=${this._saving || !state.isDirty}
@@ -210,6 +250,19 @@ export class EpistolaDataContractEditor extends LitElement {
             </dialog>
           `
         : nothing}
+
+      <!-- Import schema dialog -->
+      ${this._showImportDialog
+        ? html`
+            <dialog class="dc-dialog" open @close=${() => this._closeImportDialog()}>
+              ${renderImportSchemaDialog(this._importParseError, {
+                onImportFromText: (text) => this._handleImportFromText(text),
+                onImportFromFile: (file) => this._handleImportFromFile(file),
+                onCancel: () => this._closeImportDialog(),
+              })}
+            </dialog>
+          `
+        : nothing}
     `;
   }
 
@@ -234,15 +287,85 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _renderSchemaTab(): unknown {
+    const state = this.contractState!;
+    const isJsonOnly = state.schemaEditMode === 'json-only';
+
+    const jsonSchemaViewCallbacks = {
+      onCopyToClipboard: () => this._copyJsonSchemaToClipboard(),
+      onImportSchema: () => this._openImportDialog(),
+    };
+
+    // JSON-only mode: no visual editor, just JSON view
+    if (isJsonOnly) {
+      return renderJsonSchemaView(
+        state.rawJsonSchema,
+        this._compatibilityIssues,
+        this._copySuccess,
+        jsonSchemaViewCallbacks,
+      );
+    }
+
+    // Visual mode: show Visual/JSON sub-tab toggle
+    return html`
+      <!-- View toggle -->
+      <div class="dc-toolbar">
+        <div class="dc-schema-view-toggle">
+          <button
+            class="dc-schema-view-toggle-btn ${this._schemaViewMode === 'visual'
+              ? 'dc-schema-view-toggle-btn-active'
+              : ''}"
+            @click=${() => {
+              this._schemaViewMode = 'visual';
+            }}
+          >
+            Visual
+          </button>
+          <button
+            class="dc-schema-view-toggle-btn ${this._schemaViewMode === 'json'
+              ? 'dc-schema-view-toggle-btn-active'
+              : ''}"
+            @click=${() => {
+              this._schemaViewMode = 'json';
+            }}
+          >
+            JSON
+          </button>
+        </div>
+
+        <button
+          class="ep-btn-outline btn-sm dc-btn-icon"
+          @click=${() => this._openImportDialog()}
+          title="Import a JSON Schema"
+        >
+          ${icon('upload', 14)} Import
+        </button>
+      </div>
+
+      ${this._schemaViewMode === 'json'
+        ? renderJsonSchemaView(
+            this._visualSchema.fields.length > 0
+              ? visualSchemaToJsonSchema(this._visualSchema)
+              : null,
+            [],
+            this._copySuccess,
+            jsonSchemaViewCallbacks,
+          )
+        : this._renderVisualSchemaSection()}
+    `;
+  }
+
+  private _renderVisualSchemaSection(): unknown {
     const uiState: SchemaUiState = {
       warnings: this._schemaWarnings,
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
+      selectedFieldId: this._selectedFieldId,
     };
 
     const callbacks: SchemaSectionCallbacks = {
       onCommand: (command) => this._executeCommand(command),
       onToggleFieldExpand: (fieldId) => this._toggleFieldExpand(fieldId),
+      onSelectField: (fieldId) => this._selectField(fieldId),
       onUndo: () => this._undo(),
       onRedo: () => this._redo(),
     };
@@ -296,9 +419,58 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _executeCommand(command: SchemaCommand): void {
+    const prevSchema = this._visualSchema;
     this._visualSchema = this._commandHistory.execute(command, this._visualSchema);
     this._syncVisualSchemaToState();
     this._clearSaveStatus();
+
+    // Auto-select newly added fields
+    if (command.type === 'addField') {
+      const newFieldId = this._findNewFieldId(prevSchema.fields, this._visualSchema.fields);
+      if (newFieldId) this._selectedFieldId = newFieldId;
+    }
+
+    // Clear selection if deleted field was selected
+    if (command.type === 'deleteField' && this._selectedFieldId === command.fieldId) {
+      this._selectedFieldId =
+        this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
+    }
+
+    // Re-validate examples against the updated schema
+    this._validateAllExamples();
+  }
+
+  private _selectField(fieldId: string): void {
+    this._selectedFieldId = fieldId;
+  }
+
+  /** Find a field ID that exists in newFields but not in oldFields (top-level or nested). */
+  private _findNewFieldId(
+    oldFields: readonly SchemaField[],
+    newFields: readonly SchemaField[],
+  ): string | null {
+    const oldIds = new Set<string>();
+    const collectIds = (fields: readonly SchemaField[]) => {
+      for (const f of fields) {
+        oldIds.add(f.id);
+        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
+          collectIds(f.nestedFields);
+        }
+      }
+    };
+    collectIds(oldFields);
+
+    const findNew = (fields: readonly SchemaField[]): string | null => {
+      for (const f of fields) {
+        if (!oldIds.has(f.id)) return f.id;
+        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
+          const found = findNew(f.nestedFields);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return findNew(newFields);
   }
 
   private _undo(): void {
@@ -307,6 +479,7 @@ export class EpistolaDataContractEditor extends LitElement {
       this._visualSchema = prev;
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
+      this._validateAllExamples();
     }
   }
 
@@ -316,14 +489,18 @@ export class EpistolaDataContractEditor extends LitElement {
       this._visualSchema = next;
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
+      this._validateAllExamples();
     }
   }
 
   /**
    * Sync the current VisualSchema to DataContractState for dirty tracking and persistence.
+   * Skipped when in json-only mode (raw schema is managed separately).
    */
   private _syncVisualSchemaToState(): void {
     const state = this.contractState!;
+    if (state.schemaEditMode === 'json-only') return;
+
     if (this._visualSchema.fields.length > 0) {
       state.setDraftSchema(visualSchemaToJsonSchema(this._visualSchema));
     } else {
@@ -347,7 +524,11 @@ export class EpistolaDataContractEditor extends LitElement {
 
     // Check for pending migrations before saving
     if (state.isSchemaDirty) {
-      const migrations = detectMigrations(state.schema, state.dataExamples);
+      const schemaForMigration =
+        state.schemaEditMode === 'json-only'
+          ? (state.rawJsonSchema as unknown as JsonSchema | null)
+          : state.schema;
+      const migrations = detectMigrations(schemaForMigration, state.dataExamples);
       if (!migrations.compatible) {
         this._pendingMigrations = migrations.migrations;
         this._selectedMigrations = new Set(
@@ -366,11 +547,17 @@ export class EpistolaDataContractEditor extends LitElement {
     await this._executeSave(true);
   }
 
+  private async _executeForceSave(): Promise<void> {
+    this._canForceSave = false;
+    await this._executeSave(true);
+  }
+
   private async _executeSave(forceUpdate: boolean): Promise<void> {
     const state = this.contractState!;
     this._saving = true;
     this._saveSuccess = false;
     this._saveError = null;
+    this._canForceSave = false;
 
     try {
       // Save schema if dirty
@@ -380,6 +567,8 @@ export class EpistolaDataContractEditor extends LitElement {
           this._saveError = schemaResult.error ?? 'Failed to save schema';
           if (schemaResult.warnings) {
             this._schemaWarnings = Object.values(schemaResult.warnings).flat();
+            // Offer force save when backend rejects with warnings
+            this._canForceSave = true;
           }
           return;
         }
@@ -419,6 +608,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private _clearSaveStatus(): void {
     this._saveSuccess = false;
     this._saveError = null;
+    this._canForceSave = false;
   }
 
   // ---------------------------------------------------------------------------
@@ -637,7 +827,7 @@ export class EpistolaDataContractEditor extends LitElement {
     const isMod = e.metaKey || e.ctrlKey;
     if (!isMod) return;
 
-    if (this._activeTab === 'schema') {
+    if (this._activeTab === 'schema' && this.contractState?.schemaEditMode !== 'json-only') {
       if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
         this._undo();
@@ -653,6 +843,96 @@ export class EpistolaDataContractEditor extends LitElement {
         e.preventDefault();
         this._redoExampleData();
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Import schema operations
+  // ---------------------------------------------------------------------------
+
+  private _openImportDialog(): void {
+    this._showImportDialog = true;
+    this._importParseError = null;
+  }
+
+  private _closeImportDialog(): void {
+    this._showImportDialog = false;
+    this._importParseError = null;
+  }
+
+  private _handleImportFromText(jsonText: string): void {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      this._importParseError = 'Invalid JSON syntax';
+      return;
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      this._importParseError = 'JSON Schema must be a JSON object';
+      return;
+    }
+
+    this._importSchema(parsed as Record<string, unknown>);
+  }
+
+  private async _handleImportFromFile(file: File): Promise<void> {
+    try {
+      const text = await file.text();
+      this._handleImportFromText(text);
+    } catch {
+      this._importParseError = 'Failed to read file';
+    }
+  }
+
+  private _importSchema(schema: Record<string, unknown>): void {
+    const result = checkSchemaCompatibility(schema);
+    this._compatibilityIssues = result.issues;
+
+    const state = this.contractState!;
+
+    // Snapshot current state for undo before applying import
+    this._commandHistory.snapshotForImport(this._visualSchema);
+
+    if (result.compatible) {
+      // Convert to VisualSchema and load into visual editor
+      const visualSchema = jsonSchemaToVisualSchema(schema as unknown as JsonSchema);
+      this._visualSchema = visualSchema;
+      state.setRawJsonSchema(null, 'visual');
+      this._syncVisualSchemaToState();
+      this._schemaViewMode = 'visual';
+      this._selectedFieldId = visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
+    } else {
+      // Store raw schema, disable visual editor
+      state.setRawJsonSchema(schema, 'json-only');
+      this._schemaViewMode = 'json';
+    }
+
+    this._closeImportDialog();
+    this._clearSaveStatus();
+    this._validateAllExamples();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Copy to clipboard
+  // ---------------------------------------------------------------------------
+
+  private async _copyJsonSchemaToClipboard(): Promise<void> {
+    const state = this.contractState!;
+    const schema =
+      state.schemaEditMode === 'json-only'
+        ? state.rawJsonSchema
+        : this._visualSchema.fields.length > 0
+          ? visualSchemaToJsonSchema(this._visualSchema)
+          : null;
+
+    if (schema) {
+      await navigator.clipboard.writeText(JSON.stringify(schema, null, 2));
+      this._copySuccess = true;
+      this._scheduleSuccessClear(() => {
+        this._copySuccess = false;
+      });
     }
   }
 
