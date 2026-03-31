@@ -8,7 +8,7 @@ import {
   jsonSchemaToVisualSchema,
   visualSchemaToJsonSchema,
 } from './schemaUtils.js';
-import type { JsonSchema, SchemaField, VisualSchema } from '../types.js';
+import type { JsonSchema, PrimitiveField, SchemaField, VisualSchema } from '../types.js';
 
 describe('visualSchemaToJsonSchema', () => {
   it('converts empty visual schema', () => {
@@ -563,5 +563,370 @@ describe('FIELD_TYPE_LABELS', () => {
     expect(FIELD_TYPE_LABELS.date).toBe('Date');
     expect(FIELD_TYPE_LABELS.array).toBe('List');
     expect(FIELD_TYPE_LABELS.object).toBe('Object');
+  });
+});
+
+// =============================================================================
+// Constraint round-trip tests (minimum, maximum, minItems, format)
+// =============================================================================
+
+describe('constraint round-trips', () => {
+  describe('visualSchemaToJsonSchema with constraints', () => {
+    it('emits minimum and maximum for number fields', () => {
+      const visual: VisualSchema = {
+        fields: [
+          { id: '1', name: 'score', type: 'number', required: false, minimum: 0, maximum: 100 },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.score).toEqual({ type: 'number', minimum: 0, maximum: 100 });
+    });
+
+    it('emits minimum and maximum for integer fields', () => {
+      const visual: VisualSchema = {
+        fields: [
+          { id: '1', name: 'age', type: 'integer', required: false, minimum: 0, maximum: 150 },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.age).toEqual({ type: 'integer', minimum: 0, maximum: 150 });
+    });
+
+    it('emits only minimum when maximum is undefined', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'price', type: 'number', required: false, minimum: 0 }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.price?.minimum).toBe(0);
+      expect(result.properties?.price?.maximum).toBeUndefined();
+    });
+
+    it('emits minItems for array fields', () => {
+      const visual: VisualSchema = {
+        fields: [
+          {
+            id: '1',
+            name: 'items',
+            type: 'array',
+            arrayItemType: 'string',
+            required: false,
+            minItems: 1,
+          },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.items?.minItems).toBe(1);
+    });
+
+    it('does not emit minItems when undefined', () => {
+      const visual: VisualSchema = {
+        fields: [
+          { id: '1', name: 'items', type: 'array', arrayItemType: 'string', required: false },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.items?.minItems).toBeUndefined();
+    });
+
+    it('emits format:email for string fields', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'email', type: 'string', required: false, format: 'email' }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.email).toEqual({ type: 'string', format: 'email' });
+    });
+
+    it('emits format:date for date fields (not email)', () => {
+      const visual: VisualSchema = {
+        fields: [{ id: '1', name: 'created', type: 'date', required: false }],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.created).toEqual({ type: 'string', format: 'date' });
+    });
+
+    it('does not emit constraints for non-applicable types', () => {
+      const visual: VisualSchema = {
+        fields: [
+          { id: '1', name: 'flag', type: 'boolean', required: false },
+          { id: '2', name: 'obj', type: 'object', required: false },
+        ],
+      };
+      const result = visualSchemaToJsonSchema(visual);
+      expect(result.properties?.flag).toEqual({ type: 'boolean' });
+      expect(result.properties?.obj).toEqual({ type: 'object' });
+    });
+  });
+
+  describe('jsonSchemaToVisualSchema with constraints', () => {
+    it('reads minimum and maximum from number property', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          score: { type: 'number', minimum: 0, maximum: 100 },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      const field = result.fields[0] as PrimitiveField;
+      expect(field.minimum).toBe(0);
+      expect(field.maximum).toBe(100);
+    });
+
+    it('reads minimum from integer property', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          quantity: { type: 'integer', minimum: 1 },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      const field = result.fields[0] as PrimitiveField;
+      expect(field.minimum).toBe(1);
+      expect(field.maximum).toBeUndefined();
+    });
+
+    it('reads minItems from array property', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          items: { type: 'array', items: { type: 'string' }, minItems: 1 },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      const field = result.fields[0];
+      expect(field.type).toBe('array');
+      if (field.type === 'array') {
+        expect(field.minItems).toBe(1);
+      }
+    });
+
+    it('reads format:email from string property', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          email: { type: 'string', format: 'email' },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      const field = result.fields[0] as PrimitiveField;
+      expect(field.type).toBe('string');
+      expect(field.format).toBe('email');
+    });
+
+    it('converts string+format:date to date type (not string+format)', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          birthDate: { type: 'string', format: 'date' },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      expect(result.fields[0].type).toBe('date');
+    });
+
+    it('does not set constraints on types that do not support them', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          active: { type: 'boolean' },
+        },
+      };
+      const result = jsonSchemaToVisualSchema(schema);
+      const nameField = result.fields[0] as PrimitiveField;
+      const boolField = result.fields[1] as PrimitiveField;
+      expect(nameField.minimum).toBeUndefined();
+      expect(nameField.maximum).toBeUndefined();
+      expect(boolField.minimum).toBeUndefined();
+    });
+  });
+
+  describe('full round-trip: visual → JSON → visual', () => {
+    it('preserves numeric constraints through round-trip', () => {
+      const original: VisualSchema = {
+        fields: [
+          { id: '1', name: 'price', type: 'number', required: true, minimum: 0, maximum: 9999.99 },
+        ],
+      };
+      const json = visualSchemaToJsonSchema(original);
+      const restored = jsonSchemaToVisualSchema(json);
+
+      const field = restored.fields[0] as PrimitiveField;
+      expect(field.name).toBe('price');
+      expect(field.type).toBe('number');
+      expect(field.required).toBe(true);
+      expect(field.minimum).toBe(0);
+      expect(field.maximum).toBe(9999.99);
+    });
+
+    it('preserves minItems through round-trip', () => {
+      const original: VisualSchema = {
+        fields: [
+          {
+            id: '1',
+            name: 'tags',
+            type: 'array',
+            arrayItemType: 'string',
+            required: false,
+            minItems: 1,
+          },
+        ],
+      };
+      const json = visualSchemaToJsonSchema(original);
+      const restored = jsonSchemaToVisualSchema(json);
+
+      const field = restored.fields[0];
+      expect(field.type).toBe('array');
+      if (field.type === 'array') {
+        expect(field.minItems).toBe(1);
+      }
+    });
+
+    it('preserves email format through round-trip', () => {
+      const original: VisualSchema = {
+        fields: [{ id: '1', name: 'email', type: 'string', required: false, format: 'email' }],
+      };
+      const json = visualSchemaToJsonSchema(original);
+      const restored = jsonSchemaToVisualSchema(json);
+
+      const field = restored.fields[0] as PrimitiveField;
+      expect(field.type).toBe('string');
+      expect(field.format).toBe('email');
+    });
+  });
+});
+
+// =============================================================================
+// applyFieldUpdate with constraints
+// =============================================================================
+
+describe('applyFieldUpdate with constraints', () => {
+  it('sets minimum on a number field', () => {
+    const field: SchemaField = { id: '1', name: 'score', type: 'number', required: false };
+    const result = applyFieldUpdate(field, { minimum: 0 });
+    expect(result.type).toBe('number');
+    expect((result as PrimitiveField).minimum).toBe(0);
+  });
+
+  it('sets maximum on a number field', () => {
+    const field: SchemaField = { id: '1', name: 'score', type: 'number', required: false };
+    const result = applyFieldUpdate(field, { maximum: 100 });
+    expect((result as PrimitiveField).maximum).toBe(100);
+  });
+
+  it('clears minimum by setting undefined', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'score',
+      type: 'number',
+      required: false,
+      minimum: 0,
+    };
+    const result = applyFieldUpdate(field, { minimum: undefined });
+    expect((result as PrimitiveField).minimum).toBeUndefined();
+  });
+
+  it('preserves existing constraints when updating other properties', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'score',
+      type: 'number',
+      required: false,
+      minimum: 0,
+      maximum: 100,
+    };
+    const result = applyFieldUpdate(field, { name: 'newScore' });
+    expect(result.name).toBe('newScore');
+    expect((result as PrimitiveField).minimum).toBe(0);
+    expect((result as PrimitiveField).maximum).toBe(100);
+  });
+
+  it('sets format on a string field', () => {
+    const field: SchemaField = { id: '1', name: 'email', type: 'string', required: false };
+    const result = applyFieldUpdate(field, { format: 'email' });
+    expect((result as PrimitiveField).format).toBe('email');
+  });
+
+  it('clears format by setting undefined', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'email',
+      type: 'string',
+      required: false,
+      format: 'email',
+    };
+    const result = applyFieldUpdate(field, { format: undefined });
+    expect((result as PrimitiveField).format).toBeUndefined();
+  });
+
+  it('sets minItems on an array field', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'tags',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+    };
+    const result = applyFieldUpdate(field, { minItems: 1 });
+    if (result.type === 'array') {
+      expect(result.minItems).toBe(1);
+    }
+  });
+
+  it('clears minItems by setting undefined', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'tags',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+      minItems: 1,
+    };
+    const result = applyFieldUpdate(field, { minItems: undefined });
+    if (result.type === 'array') {
+      expect(result.minItems).toBeUndefined();
+    }
+  });
+
+  it('drops constraints when changing type from number to string', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'value',
+      type: 'number',
+      required: false,
+      minimum: 0,
+      maximum: 100,
+    };
+    const result = applyFieldUpdate(field, { type: 'string' });
+    expect(result.type).toBe('string');
+    // numeric constraints should not carry over
+    expect((result as PrimitiveField).minimum).toBeUndefined();
+    expect((result as PrimitiveField).maximum).toBeUndefined();
+  });
+
+  it('drops format when changing type from string to number', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'value',
+      type: 'string',
+      required: false,
+      format: 'email',
+    };
+    const result = applyFieldUpdate(field, { type: 'number' });
+    expect(result.type).toBe('number');
+    expect((result as PrimitiveField).format).toBeUndefined();
+  });
+
+  it('drops minItems when changing type from array to string', () => {
+    const field: SchemaField = {
+      id: '1',
+      name: 'value',
+      type: 'array',
+      arrayItemType: 'string',
+      required: false,
+      minItems: 1,
+    };
+    const result = applyFieldUpdate(field, { type: 'string' });
+    expect(result.type).toBe('string');
+    expect('minItems' in result).toBe(false);
   });
 });

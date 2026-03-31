@@ -147,6 +147,43 @@ describe('SchemaCommandHistory', () => {
     expect(history.canRedo).toBe(false);
   });
 
+  it('snapshotForImport enables undo to pre-import state', () => {
+    const history = new SchemaCommandHistory();
+    const initial = makeSchema();
+
+    // Snapshot before import
+    history.snapshotForImport(initial);
+    expect(history.canUndo).toBe(true);
+
+    // Simulate import: replace the entire schema
+    const imported: VisualSchema = {
+      fields: [{ id: 'field:email', name: 'email', type: 'string', required: true }],
+    };
+
+    // Undo should restore to pre-import state
+    const undone = history.undo(imported);
+    expect(undone).not.toBeNull();
+    expect(undone!.fields).toHaveLength(2);
+    expect(undone!.fields[0].name).toBe('name');
+  });
+
+  it('snapshotForImport followed by redo restores imported state', () => {
+    const history = new SchemaCommandHistory();
+    const initial = makeSchema();
+
+    history.snapshotForImport(initial);
+
+    const imported: VisualSchema = {
+      fields: [{ id: 'field:email', name: 'email', type: 'string', required: true }],
+    };
+
+    const undone = history.undo(imported)!;
+    const redone = history.redo(undone);
+    expect(redone).not.toBeNull();
+    expect(redone!.fields).toHaveLength(1);
+    expect(redone!.fields[0].name).toBe('email');
+  });
+
   it('snapshots are independent (no shared references)', () => {
     const history = new SchemaCommandHistory();
     const initial = makeSchema();

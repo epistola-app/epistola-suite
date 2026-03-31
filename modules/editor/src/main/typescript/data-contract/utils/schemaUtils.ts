@@ -333,7 +333,7 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
           ? field.nestedFields
           : undefined;
     const minItems =
-      updates.minItems !== undefined
+      'minItems' in updates
         ? updates.minItems
         : field.type === 'array'
           ? field.minItems
@@ -361,17 +361,25 @@ export function applyFieldUpdate(field: SchemaField, updates: SchemaFieldUpdate)
     };
   }
 
-  // Primitive types — carry over format, minimum, maximum
-  const existingFormat =
-    field.type !== 'array' && field.type !== 'object' ? field.format : undefined;
-  const existingMinimum =
-    field.type !== 'array' && field.type !== 'object' ? field.minimum : undefined;
-  const existingMaximum =
-    field.type !== 'array' && field.type !== 'object' ? field.maximum : undefined;
+  // Primitive types — only carry over constraints that are relevant to the new type.
+  // When the type changes, constraints from the old type are dropped.
+  const sameType = type === field.type;
+  const oldIsPrimitive = field.type !== 'array' && field.type !== 'object';
+  const isNumeric = type === 'number' || type === 'integer';
+  const isString = type === 'string' || type === 'date';
 
-  const format = updates.format !== undefined ? updates.format : existingFormat;
-  const minimum = updates.minimum !== undefined ? updates.minimum : existingMinimum;
-  const maximum = updates.maximum !== undefined ? updates.maximum : existingMaximum;
+  // Format: only relevant for string types, carry over only if type didn't change
+  const existingFormat =
+    sameType && isString && oldIsPrimitive ? (field as PrimitiveField).format : undefined;
+  const format = 'format' in updates ? updates.format : existingFormat;
+
+  // Minimum/maximum: only relevant for numeric types, carry over only if type didn't change
+  const existingMinimum =
+    sameType && isNumeric && oldIsPrimitive ? (field as PrimitiveField).minimum : undefined;
+  const existingMaximum =
+    sameType && isNumeric && oldIsPrimitive ? (field as PrimitiveField).maximum : undefined;
+  const minimum = 'minimum' in updates ? updates.minimum : existingMinimum;
+  const maximum = 'maximum' in updates ? updates.maximum : existingMaximum;
 
   return {
     ...baseField,
