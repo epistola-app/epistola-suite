@@ -240,7 +240,8 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 4. **Format Kotlin** - `./gradlew ktlintFormat` after making Kotlin changes
 5. **Check style** - `./gradlew ktlintCheck` before committing (must pass)
 6. **Update CHANGELOG.md** - For notable changes under `[Unreleased]`
-7. **Small commits** - Commit logical units of work separately
+7. **Update documentation** - Check if changes require updates to docs in `docs/`, KDoc comments, or CLAUDE.md. Search for references to changed conventions, APIs, or patterns.
+8. **Small commits** - Commit logical units of work separately
 
 ## Don'ts
 
