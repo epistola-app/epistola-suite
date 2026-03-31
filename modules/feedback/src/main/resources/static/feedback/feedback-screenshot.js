@@ -2,17 +2,56 @@
  * Screenshot capture module for feedback submissions.
  *
  * Provides two capture modes:
- * - Region selection: user draws a rectangle on the page
- * - Full page: captures the entire scrollable page
+ * - Region selection: user draws a rectangle on the page, captures that region
+ * - Viewport: captures the entire visible viewport
  *
- * Uses html-to-image (lazy-loaded from CDN) for DOM-to-image conversion.
+ * Uses the Screen Capture API (getDisplayMedia) — zero dependencies,
+ * captures actual rendered pixels from the browser tab.
+ *
+ * This module is intentionally decoupled from dialog/FAB management.
+ * Callers provide onStart/onEnd callbacks to handle their own UI lifecycle.
  */
 
-async function getHtmlToImage() {
-  if (!window.__htmlToImage) {
-    window.__htmlToImage = await import('https://esm.sh/html-to-image@1.11.13');
+/** Whether the Screen Capture API is available in this browser. */
+export const isSupported = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+
+/**
+ * Capture a single frame from the current browser tab via getDisplayMedia.
+ * Returns a canvas with the captured frame. Caller must crop as needed.
+ * The media stream is always stopped, even on error.
+ */
+async function captureTabFrame() {
+  const stream = await navigator.mediaDevices.getDisplayMedia({
+    video: { displaySurface: 'browser' },
+    preferCurrentTab: true,
+  });
+
+  try {
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+
+    await new Promise((resolve) => {
+      video.onloadedmetadata = () => {
+        video.play();
+        resolve();
+      };
+    });
+
+    // Wait one frame so the video has actual pixel data
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    video.srcObject = null;
+
+    return canvas;
+  } finally {
+    stream.getTracks().forEach((t) => t.stop());
   }
-  return window.__htmlToImage;
 }
 
 function injectStyles() {
@@ -53,34 +92,15 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
-function hideEpistolaChromeForCapture() {
-  const fab = document.getElementById('feedback-fab');
-  const popover = document.getElementById('feedback-popover');
-  if (fab) fab.style.display = 'none';
-  if (popover) popover.classList.remove('feedback-popover--open');
-}
-
-function showEpistolaChromeAfterCapture() {
-  const fab = document.getElementById('feedback-fab');
-  if (fab) fab.style.display = '';
-}
-
-function getDialog() {
-  return document.getElementById('feedback-fab-dialog');
-}
-
 /**
  * Capture a user-selected region of the page.
- * Closes the dialog, shows a selection overlay, captures the region, then reopens the dialog.
+ * Shows a selection overlay, lets the user draw a rectangle, then captures that region.
  *
- * @param {(dataUrl: string) => void} onCapture - called with the PNG data URL of the captured region
+ * @param {{ onCapture: (dataUrl: string) => void, onStart: () => void, onEnd: () => void }} opts
  */
-export function captureRegion(onCapture) {
+export function captureRegion({ onCapture, onStart, onEnd }) {
   injectStyles();
-
-  const dialog = getDialog();
-  if (dialog) dialog.close();
-  hideEpistolaChromeForCapture();
+  onStart();
 
   requestAnimationFrame(() => {
     const overlay = document.createElement('div');
@@ -104,8 +124,7 @@ export function captureRegion(onCapture) {
 
     function cleanup() {
       overlay.remove();
-      showEpistolaChromeAfterCapture();
-      if (dialog) dialog.showModal();
+      onEnd();
     }
 
     function onKeyDown(e) {
@@ -152,7 +171,7 @@ export function captureRegion(onCapture) {
       const w = Math.abs(e.clientX - startX);
       const h = Math.abs(e.clientY - startY);
 
-      // Minimum selection size
+      // Minimum selection size — treat tiny selections as cancellation
       if (w < 10 || h < 10) {
         cleanup();
         return;
@@ -161,73 +180,59 @@ export function captureRegion(onCapture) {
       overlay.remove();
 
       try {
-        hint.remove();
-        const { toCanvas } = await getHtmlToImage();
+        const fullCanvas = await captureTabFrame();
 
-        // Capture the visible viewport as a canvas
-        const fullCanvas = await toCanvas(document.documentElement, {
-          width: window.innerWidth,
-          height: window.innerHeight,
-          canvasWidth: window.innerWidth,
-          canvasHeight: window.innerHeight,
-          pixelRatio: window.devicePixelRatio,
-        });
+        // Map viewport coords to capture coords (capture may differ due to DPR/scaling)
+        const scaleX = fullCanvas.width / window.innerWidth;
+        const scaleY = fullCanvas.height / window.innerHeight;
 
-        // Crop to the selected region
-        const dpr = window.devicePixelRatio;
         const cropCanvas = document.createElement('canvas');
-        cropCanvas.width = w * dpr;
-        cropCanvas.height = h * dpr;
+        cropCanvas.width = Math.round(w * scaleX);
+        cropCanvas.height = Math.round(h * scaleY);
         const ctx = cropCanvas.getContext('2d');
-        ctx.drawImage(fullCanvas, x * dpr, y * dpr, w * dpr, h * dpr, 0, 0, w * dpr, h * dpr);
+        ctx.drawImage(
+          fullCanvas,
+          Math.round(x * scaleX),
+          Math.round(y * scaleY),
+          cropCanvas.width,
+          cropCanvas.height,
+          0,
+          0,
+          cropCanvas.width,
+          cropCanvas.height,
+        );
 
-        const dataUrl = cropCanvas.toDataURL('image/png');
-        showEpistolaChromeAfterCapture();
-        if (dialog) dialog.showModal();
-        onCapture(dataUrl);
+        onCapture(cropCanvas.toDataURL('image/png'));
       } catch (err) {
-        console.error('Screenshot capture failed:', err);
-        showEpistolaChromeAfterCapture();
-        if (dialog) dialog.showModal();
+        if (err.name !== 'NotAllowedError') {
+          console.error('Screenshot capture failed:', err);
+        }
+      } finally {
+        onEnd();
       }
     });
   });
 }
 
 /**
- * Capture the full scrollable page.
+ * Capture the visible viewport.
  *
- * @param {(dataUrl: string) => void} onCapture - called with the JPEG data URL of the captured page
+ * @param {{ onCapture: (dataUrl: string) => void, onStart: () => void, onEnd: () => void }} opts
  */
-export async function captureFullPage(onCapture) {
-  const dialog = getDialog();
-  if (dialog) dialog.close();
-  hideEpistolaChromeForCapture();
+export async function captureViewport({ onCapture, onStart, onEnd }) {
+  onStart();
 
-  // Allow dialog/FAB to be hidden before capturing
+  // Allow caller's onStart UI changes to render
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
   try {
-    const { toCanvas } = await getHtmlToImage();
-
-    const scrollHeight = document.documentElement.scrollHeight;
-    const scrollWidth = document.documentElement.scrollWidth;
-
-    const canvas = await toCanvas(document.documentElement, {
-      width: scrollWidth,
-      height: scrollHeight,
-      canvasWidth: scrollWidth,
-      canvasHeight: scrollHeight,
-      pixelRatio: window.devicePixelRatio,
-    });
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    showEpistolaChromeAfterCapture();
-    if (dialog) dialog.showModal();
-    onCapture(dataUrl);
+    const canvas = await captureTabFrame();
+    onCapture(canvas.toDataURL('image/png'));
   } catch (err) {
-    console.error('Full page capture failed:', err);
-    showEpistolaChromeAfterCapture();
-    if (dialog) dialog.showModal();
+    if (err.name !== 'NotAllowedError') {
+      console.error('Viewport capture failed:', err);
+    }
+  } finally {
+    onEnd();
   }
 }

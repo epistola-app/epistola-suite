@@ -4,7 +4,11 @@
 
 ### Changed
 
-- **Feedback screenshot**: Replaced file upload (click, paste, drag-and-drop) with two in-browser capture modes — region selection (draw a rectangle on the page) and full page screenshot (captures entire scrollable page). Uses html-to-image (~5KB) loaded on demand.
+- **Feedback screenshot**: Replaced file upload (click, paste, drag-and-drop) with two in-browser capture modes — region selection (draw a rectangle on the page) and viewport capture. Uses the native Screen Capture API (zero dependencies). Buttons are hidden in unsupported browsers.
+
+### Fixed
+
+- **Dialog header layout**: Close button now correctly positions to the right of the title in `ep-dialog-header` (added flexbox).
 
 ## [0.9.0] - 2026-03-30
 

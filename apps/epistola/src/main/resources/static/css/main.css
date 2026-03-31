@@ -1001,10 +1001,14 @@ a.stat-card:hover {
 }
 
 .ep-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: var(--ep-space-4) var(--ep-space-6);
   border-bottom: 1px solid var(--ep-border-color);
 }
 
+.ep-dialog-header h2,
 .ep-dialog-header h3 {
   margin: 0;
   font-size: var(--ep-text-base);

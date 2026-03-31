@@ -62,10 +62,13 @@
                             <th:block th:replace="~{fragments/icon :: icon(name='scan', class='ep-icon')}" />
                             Capture Region
                         </button>
-                        <button type="button" id="fb-capture-fullpage" class="btn btn-outline btn-sm">
+                        <button type="button" id="fb-capture-viewport" class="btn btn-outline btn-sm">
                             <th:block th:replace="~{fragments/icon :: icon(name='monitor', class='ep-icon')}" />
-                            Full Page
+                            Capture Visible
                         </button>
+                    </div>
+                    <div id="fb-screenshot-unsupported" style="display: none; color: var(--ep-muted-foreground); font-size: var(--ep-text-sm);">
+                        Screenshot capture is not supported in this browser.
                     </div>
                     <div id="fb-screenshot-preview" style="display: none; margin-top: var(--ep-space-2); width: 100%; max-height: 200px;">
                         <img id="fb-screenshot-img" style="max-width: 100%; max-height: 180px; border-radius: var(--ep-radius);" alt="Screenshot preview">
@@ -150,15 +153,42 @@
                 // Remove button
                 screenshotRemove.addEventListener('click', clearScreenshot);
 
-                // Capture buttons
-                import(/*[[@{/feedback/feedback-screenshot.js}]]*/ '/feedback/feedback-screenshot.js').then(({ captureRegion, captureFullPage }) => {
+                // Capture buttons — dialog lifecycle managed here, screenshot module is decoupled
+                const dialog = document.getElementById('feedback-fab-dialog');
+                const fab = document.getElementById('feedback-fab');
+                const popover = document.getElementById('feedback-popover');
+
+                function onCaptureStart() {
+                    if (dialog) dialog.close();
+                    if (fab) fab.style.display = 'none';
+                    if (popover) popover.classList.remove('feedback-popover--open');
+                }
+
+                function onCaptureEnd() {
+                    if (fab) fab.style.display = '';
+                    if (dialog) dialog.showModal();
+                }
+
+                import(/*[[@{/feedback/feedback-screenshot.js}]]*/ '/feedback/feedback-screenshot.js').then(({ captureRegion, captureViewport, isSupported }) => {
+                    if (!isSupported) {
+                        screenshotActions.style.display = 'none';
+                        document.getElementById('fb-screenshot-unsupported').style.display = 'block';
+                        return;
+                    }
+
+                    const captureOpts = (fn) => ({
+                        onCapture: setScreenshot,
+                        onStart: onCaptureStart,
+                        onEnd: onCaptureEnd,
+                    });
+
                     document.getElementById('fb-capture-region')?.addEventListener('click', (e) => {
                         e.preventDefault();
-                        captureRegion(setScreenshot);
+                        captureRegion(captureOpts());
                     });
-                    document.getElementById('fb-capture-fullpage')?.addEventListener('click', (e) => {
+                    document.getElementById('fb-capture-viewport')?.addEventListener('click', (e) => {
                         e.preventDefault();
-                        captureFullPage(setScreenshot);
+                        captureViewport(captureOpts());
                     });
                 });
             })();
