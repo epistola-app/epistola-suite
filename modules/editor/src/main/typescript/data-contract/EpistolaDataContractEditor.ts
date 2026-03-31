@@ -25,6 +25,7 @@ import type {
   JsonSchema,
   JsonValue,
   SaveCallbacks,
+  SchemaField,
   VisualSchema,
 } from './types.js';
 import { jsonSchemaToVisualSchema, visualSchemaToJsonSchema } from './utils/schemaUtils.js';
@@ -83,6 +84,7 @@ export class EpistolaDataContractEditor extends LitElement {
   // Schema tab UI state
   @state() private _schemaWarnings: Array<{ path: string; message: string }> = [];
   @state() private _expandedFields = new Set<string>();
+  @state() private _selectedFieldId: string | null = null;
   @state() private _schemaViewMode: 'visual' | 'json' = 'visual';
   @state() private _compatibilityIssues: CompatibilityIssue[] = [];
 
@@ -149,6 +151,11 @@ export class EpistolaDataContractEditor extends LitElement {
     // Convert initial JSON Schema to VisualSchema once — this is now the primary editing state
     this._visualSchema = jsonSchemaToVisualSchema(initialSchema);
     this._commandHistory.clear();
+
+    // Pre-select first field if available
+    if (this._visualSchema.fields.length > 0) {
+      this._selectedFieldId = this._visualSchema.fields[0].id;
+    }
 
     // Pre-select first example if available
     if (initialExamples.length > 0) {
@@ -341,11 +348,13 @@ export class EpistolaDataContractEditor extends LitElement {
       warnings: this._schemaWarnings,
       canUndo: this._commandHistory.canUndo,
       canRedo: this._commandHistory.canRedo,
+      selectedFieldId: this._selectedFieldId,
     };
 
     const callbacks: SchemaSectionCallbacks = {
       onCommand: (command) => this._executeCommand(command),
       onToggleFieldExpand: (fieldId) => this._toggleFieldExpand(fieldId),
+      onSelectField: (fieldId) => this._selectField(fieldId),
       onUndo: () => this._undo(),
       onRedo: () => this._redo(),
     };
@@ -399,9 +408,55 @@ export class EpistolaDataContractEditor extends LitElement {
   // ---------------------------------------------------------------------------
 
   private _executeCommand(command: SchemaCommand): void {
+    const prevSchema = this._visualSchema;
     this._visualSchema = this._commandHistory.execute(command, this._visualSchema);
     this._syncVisualSchemaToState();
     this._clearSaveStatus();
+
+    // Auto-select newly added fields
+    if (command.type === 'addField') {
+      const newFieldId = this._findNewFieldId(prevSchema.fields, this._visualSchema.fields);
+      if (newFieldId) this._selectedFieldId = newFieldId;
+    }
+
+    // Clear selection if deleted field was selected
+    if (command.type === 'deleteField' && this._selectedFieldId === command.fieldId) {
+      this._selectedFieldId =
+        this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
+    }
+  }
+
+  private _selectField(fieldId: string): void {
+    this._selectedFieldId = fieldId;
+  }
+
+  /** Find a field ID that exists in newFields but not in oldFields (top-level or nested). */
+  private _findNewFieldId(
+    oldFields: readonly SchemaField[],
+    newFields: readonly SchemaField[],
+  ): string | null {
+    const oldIds = new Set<string>();
+    const collectIds = (fields: readonly SchemaField[]) => {
+      for (const f of fields) {
+        oldIds.add(f.id);
+        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
+          collectIds(f.nestedFields);
+        }
+      }
+    };
+    collectIds(oldFields);
+
+    const findNew = (fields: readonly SchemaField[]): string | null => {
+      for (const f of fields) {
+        if (!oldIds.has(f.id)) return f.id;
+        if ((f.type === 'object' || f.type === 'array') && f.nestedFields) {
+          const found = findNew(f.nestedFields);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return findNew(newFields);
   }
 
   private _undo(): void {
@@ -816,6 +871,7 @@ export class EpistolaDataContractEditor extends LitElement {
       state.setRawJsonSchema(null, 'visual');
       this._syncVisualSchemaToState();
       this._schemaViewMode = 'visual';
+      this._selectedFieldId = visualSchema.fields.length > 0 ? visualSchema.fields[0].id : null;
     } else {
       // Store raw schema, disable visual editor
       state.setRawJsonSchema(schema, 'json-only');

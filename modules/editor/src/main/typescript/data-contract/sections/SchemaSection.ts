@@ -1,29 +1,45 @@
 /**
- * SchemaSection — Visual schema builder with field management.
+ * SchemaSection — Two-panel visual schema builder.
  *
- * Renders a list of schema fields with add/delete/update controls,
- * undo/redo, and validation warnings.
+ * Left panel: compact field list with expand/collapse for nested fields.
+ * Right panel: detail form for the selected field (name, type, constraints).
+ *
  * Accepts VisualSchema directly — no conversion in the render path.
  */
 
-import { html } from 'lit';
-import type { VisualSchema } from '../types.js';
+import { html, nothing } from 'lit';
+import type {
+  ArrayField,
+  PrimitiveField,
+  SchemaField,
+  SchemaFieldType,
+  SchemaFieldUpdate,
+  StringFormat,
+  VisualSchema,
+} from '../types.js';
 import type { SchemaCommand } from '../utils/schemaCommands.js';
-import { renderSchemaFieldRow } from './SchemaFieldRow.js';
+import { FIELD_TYPE_LABELS } from '../utils/schemaUtils.js';
+import { renderSchemaFieldListItem } from './SchemaFieldRow.js';
 import { renderValidationMessages } from './ValidationMessages.js';
 
 export interface SchemaUiState {
   warnings: Array<{ path: string; message: string }>;
   canUndo: boolean;
   canRedo: boolean;
+  selectedFieldId: string | null;
 }
 
 export interface SchemaSectionCallbacks {
   onCommand: (command: SchemaCommand) => void;
   onToggleFieldExpand: (fieldId: string) => void;
+  onSelectField: (fieldId: string) => void;
   onUndo: () => void;
   onRedo: () => void;
 }
+
+// =============================================================================
+// Main render
+// =============================================================================
 
 export function renderSchemaSection(
   visualSchema: VisualSchema,
@@ -33,6 +49,9 @@ export function renderSchemaSection(
 ): unknown {
   const fields = visualSchema.fields;
   const hasFields = fields.length > 0;
+  const selectedField = uiState.selectedFieldId
+    ? findFieldById(fields, uiState.selectedFieldId)
+    : null;
 
   return html`
     <section class="dc-section">
@@ -70,31 +89,15 @@ export function renderSchemaSection(
       <!-- Validation warnings -->
       ${renderValidationMessages(uiState.warnings)}
 
-      <!-- Field list -->
+      <!-- Two-panel layout -->
       ${hasFields
         ? html`
-            <div class="dc-field-list">
-              <div class="dc-field-list-header">
-                <span></span>
-                <span>Name</span>
-                <span>Type</span>
-                <span>Items</span>
-                <span>Req</span>
-                <span></span>
-                <span></span>
-              </div>
-              ${fields.map((field) =>
-                renderSchemaFieldRow(
-                  field,
-                  callbacks.onCommand,
-                  0,
-                  expandedFields,
-                  callbacks.onToggleFieldExpand,
-                ),
-              )}
+            <div class="dc-schema-layout">
+              ${renderFieldList(fields, uiState, callbacks, expandedFields)}
+              ${renderDetailPanel(selectedField, callbacks)}
             </div>
           `
-        : html` <div class="dc-empty-state">No fields defined yet. Add a field below.</div> `}
+        : html`<div class="dc-empty-state">No fields defined yet. Add a field below.</div>`}
 
       <!-- Add field button -->
       <button
@@ -105,4 +108,351 @@ export function renderSchemaSection(
       </button>
     </section>
   `;
+}
+
+// =============================================================================
+// Left panel: field list
+// =============================================================================
+
+function renderFieldList(
+  fields: SchemaField[],
+  uiState: SchemaUiState,
+  callbacks: SchemaSectionCallbacks,
+  expandedFields: Set<string>,
+): unknown {
+  return html`
+    <div class="dc-field-list">
+      <div class="dc-field-list-header">
+        <span>Fields</span>
+      </div>
+      <div class="dc-field-list-items">
+        ${fields.map((field) =>
+          renderSchemaFieldListItem(
+            field,
+            0,
+            expandedFields,
+            uiState.selectedFieldId,
+            callbacks.onToggleFieldExpand,
+            callbacks.onSelectField,
+          ),
+        )}
+      </div>
+    </div>
+  `;
+}
+
+// =============================================================================
+// Right panel: detail form
+// =============================================================================
+
+/** All field types available in the type dropdown */
+const FIELD_TYPES: SchemaFieldType[] = [
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'date',
+  'array',
+  'object',
+];
+
+/** Item types available for arrays */
+const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
+  'string',
+  'number',
+  'integer',
+  'boolean',
+  'date',
+  'object',
+];
+
+/** String format options */
+const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
+  { value: '', label: 'None' },
+  { value: 'email', label: 'Email' },
+];
+
+function renderDetailPanel(field: SchemaField | null, callbacks: SchemaSectionCallbacks): unknown {
+  if (!field) {
+    return html`
+      <div class="dc-detail-panel">
+        <div class="dc-detail-empty">Select a field to edit its properties</div>
+      </div>
+    `;
+  }
+
+  const emitUpdate = (updates: SchemaFieldUpdate) => {
+    callbacks.onCommand({ type: 'updateField', fieldId: field.id, updates });
+  };
+
+  const canHaveNested =
+    field.type === 'object' || (field.type === 'array' && field.arrayItemType === 'object');
+
+  return html`
+    <div class="dc-detail-panel">
+      <h4 class="dc-detail-title">${field.name}</h4>
+
+      <div class="dc-detail-form">
+        <!-- Name -->
+        <div class="dc-detail-row">
+          <label class="dc-detail-label">Name</label>
+          <input
+            type="text"
+            class="ep-input dc-detail-input"
+            .value=${field.name}
+            placeholder="Field name"
+            @change=${(e: Event) => {
+              const value = (e.target as HTMLInputElement).value.trim();
+              if (value && value !== field.name) {
+                emitUpdate({ name: value });
+              }
+            }}
+          />
+        </div>
+
+        <!-- Type -->
+        <div class="dc-detail-row">
+          <label class="dc-detail-label">Type</label>
+          <select
+            class="ep-select dc-detail-select"
+            .value=${field.type}
+            @change=${(e: Event) => {
+              const newType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+              const updates: SchemaFieldUpdate = { type: newType };
+              if (newType === 'array') {
+                updates.arrayItemType = 'string';
+              }
+              emitUpdate(updates);
+            }}
+          >
+            ${FIELD_TYPES.map(
+              (t) =>
+                html`<option value=${t} ?selected=${field.type === t}>
+                  ${FIELD_TYPE_LABELS[t]}
+                </option>`,
+            )}
+          </select>
+        </div>
+
+        <!-- Array item type -->
+        ${field.type === 'array'
+          ? html`
+              <div class="dc-detail-row">
+                <label class="dc-detail-label">Item type</label>
+                <select
+                  class="ep-select dc-detail-select"
+                  .value=${field.arrayItemType}
+                  @change=${(e: Event) => {
+                    const newItemType = (e.target as HTMLSelectElement).value as SchemaFieldType;
+                    emitUpdate({ arrayItemType: newItemType });
+                  }}
+                >
+                  ${ARRAY_ITEM_TYPES.map(
+                    (t) => html`
+                      <option value=${t} ?selected=${field.arrayItemType === t}>
+                        ${FIELD_TYPE_LABELS[t]}
+                      </option>
+                    `,
+                  )}
+                </select>
+              </div>
+            `
+          : nothing}
+
+        <!-- Required -->
+        <div class="dc-detail-row dc-detail-row-inline">
+          <input
+            type="checkbox"
+            class="ep-checkbox"
+            id="dc-detail-required"
+            .checked=${field.required}
+            @change=${(e: Event) => {
+              emitUpdate({ required: (e.target as HTMLInputElement).checked });
+            }}
+          />
+          <label class="dc-detail-label" for="dc-detail-required">Required</label>
+        </div>
+
+        <!-- Description -->
+        <div class="dc-detail-row">
+          <label class="dc-detail-label">Description</label>
+          <textarea
+            class="ep-input dc-detail-textarea"
+            .value=${field.description ?? ''}
+            placeholder="Optional description"
+            @change=${(e: Event) => {
+              const value = (e.target as HTMLTextAreaElement).value;
+              emitUpdate({ description: value || undefined });
+            }}
+          ></textarea>
+        </div>
+
+        <!-- Type-specific constraints -->
+        ${renderTypeConstraints(field, emitUpdate)}
+
+        <!-- Actions -->
+        <div class="dc-detail-actions">
+          ${canHaveNested
+            ? html`
+                <button
+                  class="ep-btn-outline btn-sm"
+                  @click=${() => {
+                    callbacks.onCommand({ type: 'addField', parentFieldId: field.id });
+                    callbacks.onToggleFieldExpand(field.id);
+                  }}
+                >
+                  + Add Nested Field
+                </button>
+              `
+            : nothing}
+
+          <div class="dc-toolbar-spacer"></div>
+
+          <button
+            class="dc-detail-delete-btn"
+            @click=${() => callbacks.onCommand({ type: 'deleteField', fieldId: field.id })}
+          >
+            Delete Field
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// =============================================================================
+// Type-specific constraints
+// =============================================================================
+
+function renderTypeConstraints(
+  field: SchemaField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  if (field.type === 'string') {
+    return renderStringConstraints(field as PrimitiveField, emitUpdate);
+  }
+  if (field.type === 'number' || field.type === 'integer') {
+    return renderNumericConstraints(field as PrimitiveField, emitUpdate);
+  }
+  if (field.type === 'array') {
+    return renderArrayConstraints(field as ArrayField, emitUpdate);
+  }
+  return nothing;
+}
+
+function renderStringConstraints(
+  field: PrimitiveField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const currentFormat = field.format ?? '';
+  return html`
+    <div class="dc-detail-section-label">Constraints</div>
+    <div class="dc-detail-row">
+      <label class="dc-detail-label">Format</label>
+      <select
+        class="ep-select dc-detail-select"
+        .value=${currentFormat}
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLSelectElement).value;
+          emitUpdate({ format: val ? (val as StringFormat) : undefined });
+        }}
+      >
+        ${STRING_FORMATS.map(
+          (f) =>
+            html`<option value=${f.value} ?selected=${currentFormat === f.value}>
+              ${f.label}
+            </option>`,
+        )}
+      </select>
+    </div>
+  `;
+}
+
+function renderNumericConstraints(
+  field: PrimitiveField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const min = field.minimum;
+  const max = field.maximum;
+  const step = field.type === 'integer' ? '1' : 'any';
+
+  return html`
+    <div class="dc-detail-section-label">Constraints</div>
+    <div class="dc-detail-constraints">
+      <div class="dc-detail-row">
+        <label class="dc-detail-label">Minimum</label>
+        <input
+          type="number"
+          class="ep-input dc-detail-input"
+          step=${step}
+          .value=${min !== undefined ? String(min) : ''}
+          placeholder="—"
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            emitUpdate({ minimum: val ? Number(val) : undefined });
+          }}
+        />
+      </div>
+      <div class="dc-detail-row">
+        <label class="dc-detail-label">Maximum</label>
+        <input
+          type="number"
+          class="ep-input dc-detail-input"
+          step=${step}
+          .value=${max !== undefined ? String(max) : ''}
+          placeholder="—"
+          @change=${(e: Event) => {
+            const val = (e.target as HTMLInputElement).value;
+            emitUpdate({ maximum: val ? Number(val) : undefined });
+          }}
+        />
+      </div>
+    </div>
+  `;
+}
+
+function renderArrayConstraints(
+  field: ArrayField,
+  emitUpdate: (updates: SchemaFieldUpdate) => void,
+): unknown {
+  const minItems = field.minItems;
+
+  return html`
+    <div class="dc-detail-section-label">Constraints</div>
+    <div class="dc-detail-row">
+      <label class="dc-detail-label">Min items</label>
+      <input
+        type="number"
+        class="ep-input dc-detail-input"
+        min="0"
+        step="1"
+        .value=${minItems !== undefined ? String(minItems) : ''}
+        placeholder="—"
+        @change=${(e: Event) => {
+          const val = (e.target as HTMLInputElement).value;
+          emitUpdate({ minItems: val ? Number(val) : undefined });
+        }}
+      />
+    </div>
+  `;
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/** Find a field by ID in a nested field tree. */
+function findFieldById(fields: SchemaField[], id: string): SchemaField | null {
+  for (const field of fields) {
+    if (field.id === id) return field;
+    if (field.type === 'object' && field.nestedFields) {
+      const found = findFieldById(field.nestedFields, id);
+      if (found) return found;
+    }
+    if (field.type === 'array' && field.nestedFields) {
+      const found = findFieldById(field.nestedFields, id);
+      if (found) return found;
+    }
+  }
+  return null;
 }

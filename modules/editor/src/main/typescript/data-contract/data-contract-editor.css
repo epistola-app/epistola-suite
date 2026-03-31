@@ -36,6 +36,11 @@
  * ========================================================================== */
 
 @layer components {
+  /* Override shell.css main-content max-width for two-panel layout */
+  .main-content {
+    max-width: var(--ep-max-width-lg);
+  }
+
   /* --------------------------------------------------------------------------
    * Tabs
    * ---------------------------------------------------------------------- */
@@ -120,22 +125,32 @@
   }
 
   /* --------------------------------------------------------------------------
-   * Field list (schema builder)
+   * Schema two-panel layout
+   * ---------------------------------------------------------------------- */
+
+  .dc-schema-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: var(--ep-space-4);
+    min-height: 300px;
+  }
+
+  /* --------------------------------------------------------------------------
+   * Field list (left panel)
    * ---------------------------------------------------------------------- */
 
   .dc-field-list {
     border: 1px solid var(--ep-gray-200);
     border-radius: var(--ep-radius-md);
-    margin-bottom: var(--ep-space-3);
     overflow: hidden;
+    align-self: start;
   }
 
   .dc-field-list-header {
-    display: grid;
-    grid-template-columns: 24px 2fr 1fr 100px 50px 24px 24px;
+    display: flex;
     align-items: center;
-    gap: var(--ep-space-2);
-    padding: var(--ep-space-1-5) var(--ep-space-3);
+    justify-content: space-between;
+    padding: var(--ep-space-2) var(--ep-space-3);
     background: var(--ep-gray-50);
     border-bottom: 1px solid var(--ep-gray-200);
     font-size: 11px;
@@ -145,29 +160,70 @@
     letter-spacing: 0.05em;
   }
 
-  /* --------------------------------------------------------------------------
-   * Field row
-   * ---------------------------------------------------------------------- */
-
-  .dc-field-row {
-    border-bottom: 1px solid var(--ep-gray-100);
+  .dc-field-list-items {
+    max-height: 480px;
+    overflow-y: auto;
   }
 
-  .dc-field-row:last-child {
-    border-bottom: none;
-  }
-
-  .dc-field-controls {
-    display: grid;
-    grid-template-columns: 24px 2fr 1fr 100px 50px 24px 24px;
+  .dc-field-list-item {
+    display: flex;
     align-items: center;
     gap: var(--ep-space-2);
     padding: var(--ep-space-2) var(--ep-space-3);
+    cursor: pointer;
+    border-bottom: 1px solid var(--ep-gray-100);
+    transition: background var(--ep-transition-base);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: var(--ep-gray-50);
+    }
+  }
+
+  .dc-field-list-item-selected {
+    background: var(--ep-blue-50);
+
+    &:hover {
+      background: var(--ep-blue-50);
+    }
+  }
+
+  .dc-field-list-item-name {
+    flex: 1;
+    font-size: var(--ep-text-sm);
+    font-weight: 500;
+    color: var(--ep-gray-700);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dc-field-type-badge {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ep-gray-400);
+    background: var(--ep-gray-100);
+    padding: 1px var(--ep-space-1-5);
+    border-radius: var(--ep-radius-sm);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .dc-field-required-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--ep-radius-full);
+    background: var(--ep-red-400);
+    flex-shrink: 0;
   }
 
   .dc-field-expand-btn {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -175,147 +231,150 @@
     border: none;
     color: var(--ep-gray-400);
     cursor: pointer;
-    font-size: 10px;
+    font-size: 9px;
     border-radius: var(--ep-radius-sm);
+    flex-shrink: 0;
     transition: all var(--ep-transition-base);
 
     &:hover {
       background: var(--ep-gray-100);
       color: var(--ep-gray-600);
     }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ep-ring);
-    }
   }
 
   .dc-field-expand-spacer {
-    width: 24px;
+    width: 20px;
+    flex-shrink: 0;
   }
 
-  .dc-field-name-input {
-    min-width: 0;
-    height: var(--ep-h-8);
-    font-size: var(--ep-text-xs);
-    padding: var(--ep-space-1) var(--ep-space-2);
+  .dc-field-nested-items {
+    background: var(--ep-gray-50);
   }
 
-  .dc-field-type-select {
-    min-width: 0;
-    height: var(--ep-h-8);
-    font-size: var(--ep-text-xs);
-    padding: var(--ep-space-1) var(--ep-space-2);
+  .dc-field-nested-items .dc-field-list-item {
+    padding-left: calc(var(--ep-space-3) + var(--ep-space-5) * var(--nest-depth, 1));
   }
 
-  .dc-field-array-type-select {
-    height: var(--ep-h-8);
-    font-size: var(--ep-text-xs);
-    padding: var(--ep-space-1) var(--ep-space-2);
+  /* --------------------------------------------------------------------------
+   * Detail panel (right panel)
+   * ---------------------------------------------------------------------- */
+
+  .dc-detail-panel {
+    border: 1px solid var(--ep-gray-200);
+    border-radius: var(--ep-radius-md);
+    padding: var(--ep-space-4);
+    align-self: start;
   }
 
-  .dc-field-required-label {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-1);
-    cursor: pointer;
-  }
-
-  /* .dc-field-required-text removed — Req text is now only in the header */
-
-  .dc-field-add-nested-btn {
-    font-size: var(--ep-text-xs);
-    padding: var(--ep-space-0-5) var(--ep-space-2);
-    height: auto;
-  }
-
-  .dc-field-delete-btn {
-    width: 24px;
-    height: 24px;
+  .dc-detail-empty {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: none;
-    border: none;
+    padding: var(--ep-space-10) var(--ep-space-4);
     color: var(--ep-gray-400);
+    font-size: var(--ep-text-sm);
+  }
+
+  .dc-detail-title {
+    font-size: var(--ep-text-base);
+    font-weight: 600;
+    color: var(--ep-gray-800);
+    margin: 0 0 var(--ep-space-4) 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dc-detail-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-3);
+  }
+
+  .dc-detail-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ep-space-1);
+  }
+
+  .dc-detail-row-inline {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--ep-space-2);
+  }
+
+  .dc-detail-label {
+    font-size: var(--ep-text-xs);
+    font-weight: 600;
+    color: var(--ep-gray-500);
+  }
+
+  .dc-detail-input {
+    min-width: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-sm);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .dc-detail-select {
+    min-width: 0;
+    height: var(--ep-h-8);
+    font-size: var(--ep-text-sm);
+    padding: var(--ep-space-1) var(--ep-space-2);
+  }
+
+  .dc-detail-textarea {
+    min-width: 0;
+    font-size: var(--ep-text-sm);
+    padding: var(--ep-space-2);
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  .dc-detail-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ep-gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: var(--ep-space-2);
+    padding-top: var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-100);
+  }
+
+  .dc-detail-constraints {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--ep-space-3);
+  }
+
+  .dc-detail-actions {
+    display: flex;
+    gap: var(--ep-space-2);
+    margin-top: var(--ep-space-2);
+    padding-top: var(--ep-space-3);
+    border-top: 1px solid var(--ep-gray-100);
+  }
+
+  .dc-detail-delete-btn {
+    font-size: var(--ep-text-xs);
+    color: var(--ep-red-500);
+    background: none;
+    border: 1px solid var(--ep-red-200);
+    border-radius: var(--ep-radius-md);
+    padding: var(--ep-space-1) var(--ep-space-3);
     cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    border-radius: var(--ep-radius-sm);
     transition: all var(--ep-transition-base);
 
     &:hover {
-      color: var(--ep-red-500);
       background: var(--ep-red-50);
+      border-color: var(--ep-red-400);
     }
 
     &:focus-visible {
       outline: none;
       box-shadow: var(--ep-ring);
     }
-  }
-
-  /* --------------------------------------------------------------------------
-   * Field constraints (min, max, format, minItems)
-   * ---------------------------------------------------------------------- */
-
-  .dc-field-constraints {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-3);
-    padding: 0 var(--ep-space-3) var(--ep-space-2)
-      calc(24px + var(--ep-space-2) + var(--ep-space-3));
-  }
-
-  .dc-field-constraints:empty {
-    display: none;
-  }
-
-  .dc-field-constraints.dc-field-nested {
-    padding-left: calc(var(--ep-space-8) * var(--nest-depth, 1) + 24px + var(--ep-space-2));
-  }
-
-  .dc-constraint-item {
-    display: flex;
-    align-items: center;
-    gap: var(--ep-space-1);
-  }
-
-  .dc-constraint-label {
-    font-size: 10px;
-    font-weight: 500;
-    color: var(--ep-gray-400);
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-
-  .dc-constraint-input {
-    width: 80px;
-    min-width: 0;
-    height: var(--ep-h-7, 28px);
-    font-size: var(--ep-text-xs);
-    padding: var(--ep-space-0-5) var(--ep-space-1-5);
-  }
-
-  /* --------------------------------------------------------------------------
-   * Nested fields
-   * ---------------------------------------------------------------------- */
-
-  .dc-field-nested .dc-field-controls {
-    padding-left: calc(var(--ep-space-8) * var(--nest-depth, 1));
-  }
-
-  .dc-field-nested-container {
-    border-top: 1px solid var(--ep-gray-100);
-    background: var(--ep-gray-50);
-  }
-
-  .dc-field-nested-empty {
-    padding: var(--ep-space-2);
-    padding-left: calc(var(--ep-space-8) * (var(--nest-depth, 0) + 1));
-    font-size: var(--ep-text-xs);
-    color: var(--ep-gray-400);
   }
 
   /* --------------------------------------------------------------------------
