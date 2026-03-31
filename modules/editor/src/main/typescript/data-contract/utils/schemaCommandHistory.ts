@@ -47,6 +47,14 @@ export class SchemaCommandHistory {
   }
 
   /**
+   * Snapshot the current state for undo without executing a command.
+   * Used when an external operation (like schema import) replaces the entire schema.
+   */
+  snapshotForImport(current: VisualSchema): void {
+    this._history.push(current);
+  }
+
+  /**
    * Clear all history. Call on save or discard.
    */
   clear(): void {

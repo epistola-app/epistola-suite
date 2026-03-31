@@ -10,6 +10,11 @@
 - **Field constraints in visual editor**: Number/integer fields support `minimum` and `maximum` constraints. Array fields support `minItems`. String fields support `format: "email"`.
 - **Two-panel schema editor**: The visual schema builder now uses a list + detail panel layout. A compact field list on the left shows field names, types, and required indicators. Clicking a field opens its full editing form in the detail panel on the right, including name, type, required, description, and type-specific constraints. The page is widened to `72rem` to accommodate the layout.
 
+### Fixed
+
+- **Schema import undo**: Importing a JSON Schema now snapshots the previous state so the import can be undone with Ctrl+Z.
+- **Schema import migration detection**: Importing a schema (including incompatible/json-only schemas) now properly detects breaking changes against existing data examples and shows the migration dialog.
+
 ## [0.9.0] - 2026-03-30
 
 ### Added

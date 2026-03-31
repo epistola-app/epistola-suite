@@ -506,9 +506,13 @@ export class EpistolaDataContractEditor extends LitElement {
     const state = this.contractState!;
     if (this._saving) return;
 
-    // Check for pending migrations before saving (skip in json-only mode)
-    if (state.isSchemaDirty && state.schemaEditMode !== 'json-only') {
-      const migrations = detectMigrations(state.schema, state.dataExamples);
+    // Check for pending migrations before saving
+    if (state.isSchemaDirty) {
+      const schemaForMigration =
+        state.schemaEditMode === 'json-only'
+          ? (state.rawJsonSchema as unknown as JsonSchema | null)
+          : state.schema;
+      const migrations = detectMigrations(schemaForMigration, state.dataExamples);
       if (!migrations.compatible) {
         this._pendingMigrations = migrations.migrations;
         this._selectedMigrations = new Set(
@@ -863,11 +867,13 @@ export class EpistolaDataContractEditor extends LitElement {
 
     const state = this.contractState!;
 
+    // Snapshot current state for undo before applying import
+    this._commandHistory.snapshotForImport(this._visualSchema);
+
     if (result.compatible) {
       // Convert to VisualSchema and load into visual editor
       const visualSchema = jsonSchemaToVisualSchema(schema as unknown as JsonSchema);
       this._visualSchema = visualSchema;
-      this._commandHistory.clear();
       state.setRawJsonSchema(null, 'visual');
       this._syncVisualSchemaToState();
       this._schemaViewMode = 'visual';
