@@ -102,6 +102,7 @@ export class EpistolaDataContractEditor extends LitElement {
   @state() private _saving = false;
   @state() private _saveSuccess = false;
   @state() private _saveError: string | null = null;
+  @state() private _canForceSave = false;
 
   // Per-example undo/redo stacks
   private _exampleHistories = new Map<string, SnapshotHistory<JsonObject>>();
@@ -208,6 +209,15 @@ export class EpistolaDataContractEditor extends LitElement {
             : nothing}
           ${this._saveError
             ? html`<span class="dc-status-error">${this._saveError}</span>`
+            : nothing}
+          ${this._canForceSave
+            ? html`<button
+                class="ep-btn-outline btn-sm dc-force-save-btn"
+                ?disabled=${this._saving}
+                @click=${() => this._executeForceSave()}
+              >
+                Save Anyway
+              </button>`
             : nothing}
           <button
             class="ep-btn-primary btn-sm dc-save-btn"
@@ -536,11 +546,17 @@ export class EpistolaDataContractEditor extends LitElement {
     await this._executeSave(true);
   }
 
+  private async _executeForceSave(): Promise<void> {
+    this._canForceSave = false;
+    await this._executeSave(true);
+  }
+
   private async _executeSave(forceUpdate: boolean): Promise<void> {
     const state = this.contractState!;
     this._saving = true;
     this._saveSuccess = false;
     this._saveError = null;
+    this._canForceSave = false;
 
     try {
       // Save schema if dirty
@@ -550,6 +566,8 @@ export class EpistolaDataContractEditor extends LitElement {
           this._saveError = schemaResult.error ?? 'Failed to save schema';
           if (schemaResult.warnings) {
             this._schemaWarnings = Object.values(schemaResult.warnings).flat();
+            // Offer force save when backend rejects with warnings
+            this._canForceSave = true;
           }
           return;
         }
@@ -589,6 +607,7 @@ export class EpistolaDataContractEditor extends LitElement {
   private _clearSaveStatus(): void {
     this._saveSuccess = false;
     this._saveError = null;
+    this._canForceSave = false;
   }
 
   // ---------------------------------------------------------------------------

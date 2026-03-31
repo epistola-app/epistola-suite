@@ -415,6 +415,17 @@
     flex-shrink: 0;
   }
 
+  .dc-force-save-btn {
+    flex-shrink: 0;
+    color: var(--ep-amber-700);
+    border-color: var(--ep-amber-300);
+
+    &:hover:not(:disabled) {
+      background: var(--ep-amber-50);
+      border-color: var(--ep-amber-500);
+    }
+  }
+
   /* --------------------------------------------------------------------------
    * Empty state
    * ---------------------------------------------------------------------- */

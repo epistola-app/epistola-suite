@@ -15,6 +15,7 @@
 - **Schema import undo**: Importing a JSON Schema now snapshots the previous state so the import can be undone with Ctrl+Z.
 - **Schema import migration detection**: Importing a schema (including incompatible/json-only schemas) now properly detects breaking changes against existing data examples and shows the migration dialog.
 - **Live example validation on schema edits**: Renaming, deleting, or changing field types now immediately re-validates all data examples, showing validation errors in real time instead of only at save time. Also applies to undo/redo.
+- **"Save Anyway" on backend validation failure**: When the backend rejects a schema save due to example validation issues (e.g. making a field required when examples lack it), a "Save Anyway" button now appears alongside the error, allowing users to force-save with `forceUpdate=true`.
 
 ## [0.9.0] - 2026-03-30
 
