@@ -17,6 +17,7 @@
 - **Live example validation on schema edits**: Renaming, deleting, or changing field types now immediately re-validates all data examples, showing validation errors in real time instead of only at save time. Also applies to undo/redo.
 - **"Save Anyway" on backend validation failure**: When the backend rejects a schema save due to example validation issues (e.g. making a field required when examples lack it), a "Save Anyway" button now appears alongside the error, allowing users to force-save with `forceUpdate=true`.
 - **Constraints dropped on type change**: Changing a field's type now properly drops inapplicable constraints (e.g. minimum/maximum are dropped when changing from number to string, format is dropped when changing from string to number).
+- **Migration detection for array item fields**: Renaming or removing required fields inside array-of-objects (e.g. `items[].total`) now correctly triggers the migration dialog instead of failing silently at save time.
 
 ## [0.9.0] - 2026-03-30
 

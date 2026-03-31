@@ -127,15 +127,36 @@ function detectExampleMigrations(
     // Check array items
     if (propSchema.type === 'array' && propSchema.items && Array.isArray(value)) {
       for (let i = 0; i < value.length; i++) {
-        const itemMigration = detectTypeMismatch(
-          exampleId,
-          exampleName,
-          `${path}[${i}]`,
-          value[i],
-          propSchema.items,
-        );
-        if (itemMigration) {
-          migrations.push(itemMigration);
+        const item = value[i];
+        const itemPath = `${path}[${i}]`;
+
+        // For object items, recurse to check required fields and nested types
+        if (
+          propSchema.items.type === 'object' &&
+          propSchema.items.properties &&
+          typeof item === 'object' &&
+          item !== null &&
+          !Array.isArray(item)
+        ) {
+          const nested = detectExampleMigrations(
+            exampleId,
+            exampleName,
+            item as JsonObject,
+            propSchema.items as JsonSchema,
+            itemPath,
+          );
+          migrations.push(...nested);
+        } else {
+          const itemMigration = detectTypeMismatch(
+            exampleId,
+            exampleName,
+            itemPath,
+            item,
+            propSchema.items,
+          );
+          if (itemMigration) {
+            migrations.push(itemMigration);
+          }
         }
       }
     }

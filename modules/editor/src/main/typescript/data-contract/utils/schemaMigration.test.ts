@@ -506,6 +506,123 @@ describe('detectMigrations', () => {
     });
   });
 
+  describe('array item field rename scenario', () => {
+    it('detects missing required when array item field is renamed', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                total1: { type: 'number' },
+              },
+              required: ['name', 'total1'],
+            },
+          },
+        },
+      };
+      // Example still has 'total' (old name), not 'total1'
+      const examples: DataExample[] = [
+        { id: '1', name: 'Test', data: { items: [{ name: 'Item A', total: 100 }] } },
+      ];
+
+      const result = detectMigrations(schema, examples);
+
+      expect(result.compatible).toBe(false);
+      expect(result.migrations).toHaveLength(1);
+      expect(result.migrations[0].issue).toBe('MISSING_REQUIRED');
+      expect(result.migrations[0].path).toBe('$.items[0].total1');
+    });
+
+    it('detects missing required across multiple array items', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                price: { type: 'number' },
+              },
+              required: ['price'],
+            },
+          },
+        },
+      };
+      const examples: DataExample[] = [
+        {
+          id: '1',
+          name: 'Test',
+          data: { items: [{ cost: 10 }, { cost: 20 }, { price: 30 }] },
+        },
+      ];
+
+      const result = detectMigrations(schema, examples);
+
+      expect(result.compatible).toBe(false);
+      // Items 0 and 1 are missing 'price', item 2 has it
+      expect(result.migrations).toHaveLength(2);
+      expect(result.migrations[0].path).toBe('$.items[0].price');
+      expect(result.migrations[1].path).toBe('$.items[1].price');
+    });
+
+    it('detects type mismatch in array item object fields', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                quantity: { type: 'integer' },
+              },
+            },
+          },
+        },
+      };
+      const examples: DataExample[] = [
+        { id: '1', name: 'Test', data: { items: [{ quantity: 'five' }] } },
+      ];
+
+      const result = detectMigrations(schema, examples);
+
+      expect(result.compatible).toBe(false);
+      expect(result.migrations[0].issue).toBe('TYPE_MISMATCH');
+      expect(result.migrations[0].path).toBe('$.items[0].quantity');
+    });
+
+    it('compatible when array item objects match schema', () => {
+      const schema: JsonSchema = {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                total: { type: 'number' },
+              },
+              required: ['name', 'total'],
+            },
+          },
+        },
+      };
+      const examples: DataExample[] = [
+        { id: '1', name: 'Test', data: { items: [{ name: 'A', total: 100 }] } },
+      ];
+
+      const result = detectMigrations(schema, examples);
+
+      expect(result.compatible).toBe(true);
+    });
+  });
+
   describe('nested required field scenarios', () => {
     it('detects missing required in nested object', () => {
       const schema: JsonSchema = {
