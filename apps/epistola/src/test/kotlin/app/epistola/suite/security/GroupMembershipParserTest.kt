@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test
 class GroupMembershipParserTest {
 
     @Test
-    fun `parses per-tenant roles from ep-prefixed groups`() {
+    fun `parses per-tenant roles from hierarchical groups`() {
         val result = parseGroupMemberships(
-            listOf("ep_acme-corp_reader", "ep_acme-corp_editor"),
+            listOf("/epistola/tenants/acme-corp/reader", "/epistola/tenants/acme-corp/editor"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
@@ -22,7 +22,7 @@ class GroupMembershipParserTest {
     @Test
     fun `parses multiple tenants`() {
         val result = parseGroupMemberships(
-            listOf("ep_acme-corp_reader", "ep_beta-org_manager"),
+            listOf("/epistola/tenants/acme-corp/reader", "/epistola/tenants/beta-org/manager"),
         )
 
         assertThat(result.tenantRoles).hasSize(2)
@@ -31,8 +31,8 @@ class GroupMembershipParserTest {
     }
 
     @Test
-    fun `parses global roles (no tenant prefix)`() {
-        val result = parseGroupMemberships(listOf("ep_reader", "ep_editor"))
+    fun `parses global roles`() {
+        val result = parseGroupMemberships(listOf("/epistola/global/reader", "/epistola/global/editor"))
 
         assertThat(result.globalRoles).containsExactlyInAnyOrder(TenantRole.READER, TenantRole.EDITOR)
         assertThat(result.tenantRoles).isEmpty()
@@ -40,7 +40,7 @@ class GroupMembershipParserTest {
 
     @Test
     fun `parses platform roles`() {
-        val result = parseGroupMemberships(listOf("ep_tenant-manager"))
+        val result = parseGroupMemberships(listOf("/epistola/platform/tenant-manager"))
 
         assertThat(result.platformRoles).containsExactly(PlatformRole.TENANT_MANAGER)
         assertThat(result.globalRoles).isEmpty()
@@ -50,7 +50,7 @@ class GroupMembershipParserTest {
     @Test
     fun `ignores non-ep groups`() {
         val result = parseGroupMemberships(
-            listOf("other-app-group", "admin", "ep_acme-corp_reader"),
+            listOf("/other-app/group", "admin", "/epistola/tenants/acme-corp/reader"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
@@ -60,7 +60,7 @@ class GroupMembershipParserTest {
     @Test
     fun `ignores unknown roles`() {
         val result = parseGroupMemberships(
-            listOf("ep_acme-corp_superadmin", "ep_acme-corp_reader"),
+            listOf("/epistola/tenants/acme-corp/superadmin", "/epistola/tenants/acme-corp/reader"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
@@ -70,7 +70,7 @@ class GroupMembershipParserTest {
     @Test
     fun `ignores groups with invalid tenant keys`() {
         val result = parseGroupMemberships(
-            listOf("ep_INVALID_reader", "ep_acme-corp_reader"),
+            listOf("/epistola/tenants/INVALID/reader", "/epistola/tenants/acme-corp/reader"),
         )
 
         assertThat(result.tenantRoles).hasSize(1)
@@ -99,10 +99,10 @@ class GroupMembershipParserTest {
     fun `handles all four tenant roles`() {
         val result = parseGroupMemberships(
             listOf(
-                "ep_acme-corp_reader",
-                "ep_acme-corp_editor",
-                "ep_acme-corp_generator",
-                "ep_acme-corp_manager",
+                "/epistola/tenants/acme-corp/reader",
+                "/epistola/tenants/acme-corp/editor",
+                "/epistola/tenants/acme-corp/generator",
+                "/epistola/tenants/acme-corp/manager",
             ),
         )
 
@@ -116,21 +116,21 @@ class GroupMembershipParserTest {
     }
 
     @Test
-    fun `splits on last underscore for tenant keys with hyphens`() {
-        val result = parseGroupMemberships(listOf("ep_my-company_reader"))
+    fun `parses tenant keys with hyphens`() {
+        val result = parseGroupMemberships(listOf("/epistola/tenants/my-company/reader"))
 
         assertThat(result.tenantRoles[TenantKey.of("my-company")]).containsExactly(TenantRole.READER)
     }
 
     @Test
-    fun `full example from plan`() {
+    fun `full example with all group types`() {
         val result = parseGroupMemberships(
             listOf(
-                "ep_acme-corp_reader",
-                "ep_acme-corp_editor",
-                "ep_reader",
-                "ep_tenant-manager",
-                "other-app-group",
+                "/epistola/tenants/acme-corp/reader",
+                "/epistola/tenants/acme-corp/editor",
+                "/epistola/global/reader",
+                "/epistola/platform/tenant-manager",
+                "/other-app/group",
             ),
         )
 
@@ -142,8 +142,17 @@ class GroupMembershipParserTest {
     }
 
     @Test
-    fun `ignores ep_ with empty remainder`() {
-        val result = parseGroupMemberships(listOf("ep_"))
+    fun `ignores intermediate path groups`() {
+        val result = parseGroupMemberships(listOf("/epistola", "/epistola/tenants", "/epistola/tenants/demo"))
+
+        assertThat(result.tenantRoles).isEmpty()
+        assertThat(result.globalRoles).isEmpty()
+        assertThat(result.platformRoles).isEmpty()
+    }
+
+    @Test
+    fun `ignores unknown category`() {
+        val result = parseGroupMemberships(listOf("/epistola/unknown/something"))
 
         assertThat(result.tenantRoles).isEmpty()
         assertThat(result.globalRoles).isEmpty()
@@ -152,9 +161,16 @@ class GroupMembershipParserTest {
 
     @Test
     fun `ignores unknown global role`() {
-        val result = parseGroupMemberships(listOf("ep_unknown"))
+        val result = parseGroupMemberships(listOf("/epistola/global/unknown"))
 
         assertThat(result.globalRoles).isEmpty()
+        assertThat(result.platformRoles).isEmpty()
+    }
+
+    @Test
+    fun `ignores unknown platform role`() {
+        val result = parseGroupMemberships(listOf("/epistola/platform/unknown"))
+
         assertThat(result.platformRoles).isEmpty()
     }
 }

@@ -29,4 +29,7 @@ data class KeycloakAdminProperties(
      * Client secret used for client credentials authentication.
      */
     val clientSecret: String = "",
+
+    /** When true, ensures the base Keycloak group hierarchy exists on startup. Disabled by default. */
+    val ensureGroups: Boolean = false,
 )
