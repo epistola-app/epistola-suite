@@ -424,6 +424,9 @@ export class EpistolaDataContractEditor extends LitElement {
       this._selectedFieldId =
         this._visualSchema.fields.length > 0 ? this._visualSchema.fields[0].id : null;
     }
+
+    // Re-validate examples against the updated schema
+    this._validateAllExamples();
   }
 
   private _selectField(fieldId: string): void {
@@ -465,6 +468,7 @@ export class EpistolaDataContractEditor extends LitElement {
       this._visualSchema = prev;
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
+      this._validateAllExamples();
     }
   }
 
@@ -474,6 +478,7 @@ export class EpistolaDataContractEditor extends LitElement {
       this._visualSchema = next;
       this._syncVisualSchemaToState();
       this._clearSaveStatus();
+      this._validateAllExamples();
     }
   }
 
