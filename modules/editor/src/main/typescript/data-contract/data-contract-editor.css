@@ -115,6 +115,12 @@
     margin-bottom: var(--ep-space-3);
   }
 
+  .dc-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ep-space-1);
+  }
+
   .dc-toolbar-spacer {
     flex: 1;
   }

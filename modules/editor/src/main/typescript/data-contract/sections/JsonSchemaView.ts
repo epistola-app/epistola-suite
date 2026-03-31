@@ -7,6 +7,7 @@
  */
 
 import { html, nothing } from 'lit';
+import { icon } from '../../ui/icons.js';
 import type { CompatibilityIssue } from '../utils/schemaCompatibility.js';
 
 export interface JsonSchemaViewCallbacks {
@@ -32,11 +33,11 @@ export function renderJsonSchemaView(
       <!-- Toolbar -->
       <div class="dc-toolbar">
         <button
-          class="ep-btn-outline btn-sm"
+          class="ep-btn-outline btn-sm dc-btn-icon"
           @click=${() => callbacks.onImportSchema()}
           title="Import a JSON Schema"
         >
-          Import Schema
+          ${icon('upload', 14)} Import
         </button>
 
         <div class="dc-toolbar-spacer"></div>

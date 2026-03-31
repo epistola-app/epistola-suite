@@ -18,6 +18,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { nanoid } from 'nanoid';
+import { icon } from '../ui/icons.js';
 import { DataContractState } from './DataContractState.js';
 import type {
   DataExample,
@@ -332,11 +333,11 @@ export class EpistolaDataContractEditor extends LitElement {
         </div>
 
         <button
-          class="ep-btn-outline btn-sm"
+          class="ep-btn-outline btn-sm dc-btn-icon"
           @click=${() => this._openImportDialog()}
           title="Import a JSON Schema"
         >
-          Import Schema
+          ${icon('upload', 14)} Import
         </button>
       </div>
 

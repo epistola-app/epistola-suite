@@ -6,6 +6,7 @@
  */
 
 import { html, nothing } from 'lit';
+import { icon } from '../../ui/icons.js';
 
 export interface ImportSchemaDialogCallbacks {
   onImportFromText: (jsonText: string) => void;
@@ -38,7 +39,7 @@ export function renderImportSchemaDialog(
           rows="10"
         ></textarea>
         <button
-          class="ep-btn-primary btn-sm dc-import-paste-btn"
+          class="ep-btn-primary btn-sm dc-import-paste-btn dc-btn-icon"
           @click=${(e: Event) => {
             const dialog = (e.target as HTMLElement).closest('.dc-import-dialog')!;
             const textarea = dialog.querySelector<HTMLTextAreaElement>('#dc-import-textarea')!;
@@ -48,7 +49,7 @@ export function renderImportSchemaDialog(
             }
           }}
         >
-          Import
+          ${icon('upload', 14)} Import
         </button>
       </div>
 
