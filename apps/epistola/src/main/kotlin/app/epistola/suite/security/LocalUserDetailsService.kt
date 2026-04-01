@@ -37,6 +37,7 @@ class LocalUserDetailsService : UserDetailsService {
             tenantMemberships = mapOf(
                 TenantKey.of("demo") to setOf(TenantRole.READER, TenantRole.EDITOR, TenantRole.GENERATOR, TenantRole.MANAGER),
             ),
+            globalRoles = TenantRole.entries.toSet(),
             platformRoles = setOf(PlatformRole.TENANT_MANAGER),
         ),
         "user@local" to LocalUser(
@@ -60,6 +61,7 @@ class LocalUserDetailsService : UserDetailsService {
             email = localUser.email,
             displayName = localUser.displayName,
             tenantMemberships = localUser.tenantMemberships,
+            globalRoles = localUser.globalRoles,
             platformRoles = localUser.platformRoles,
             currentTenantId = localUser.tenantMemberships.keys.firstOrNull(),
         )
@@ -80,6 +82,7 @@ class LocalUserDetailsService : UserDetailsService {
         val displayName: String,
         val password: String,
         val tenantMemberships: Map<TenantKey, Set<TenantRole>>,
+        val globalRoles: Set<TenantRole> = emptySet(),
         val platformRoles: Set<PlatformRole> = emptySet(),
     )
 
