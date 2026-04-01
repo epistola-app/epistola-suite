@@ -4,7 +4,7 @@
 
 ### Added
 
-- **QR code block**: Templates can now include a `QR Code` component that generates a code from an expression. The editor shows a live preview using example data, and PDF generation renders the same QR code in output documents.
+- **QR code block**: Templates can now include a `QR Code` component that generates a code from an expression. The editor shows a live preview using example data, and PDF generation renders the same QR code in output documents. Values are limited to 2,500 bytes (UTF-8) due to QR specification constraints; the editor preview shows a clear error when this limit is exceeded.
 - **QR code in demo invoice**: The demo invoice template now includes a "Scan to pay" QR code in the footer, linked to a `paymentLink` data field.
 - **JSON Schema view in contract editor**: Schema tab now has a Visual/JSON toggle to view the JSON Schema representation of the data contract. Includes copy-to-clipboard button.
 - **Import JSON Schema**: New "Import Schema" button opens a dialog to paste or upload a JSON Schema file. Imported schemas are checked for compatibility with the visual editor.

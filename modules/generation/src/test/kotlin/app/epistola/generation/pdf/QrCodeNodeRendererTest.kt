@@ -115,7 +115,7 @@ class QrCodeNodeRendererTest {
     }
 
     @Test
-    fun `skips gracefully when value exceeds QR capacity`() {
+    fun `skips gracefully when value exceeds max length`() {
         val document = documentWithQrCodeNode(
             mapOf(
                 "value" to mapOf("raw" to "huge", "language" to "jsonata"),
@@ -123,7 +123,23 @@ class QrCodeNodeRendererTest {
         )
 
         val output = ByteArrayOutputStream()
-        renderer.render(document, mapOf("huge" to "x".repeat(5000)), output)
+        renderer.render(document, mapOf("huge" to "x".repeat(2501)), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `renders value at max length boundary`() {
+        val document = documentWithQrCodeNode(
+            mapOf(
+                "value" to mapOf("raw" to "long", "language" to "jsonata"),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("long" to "x".repeat(2500)), output)
 
         val pdfBytes = output.toByteArray()
         assertTrue(pdfBytes.isNotEmpty())

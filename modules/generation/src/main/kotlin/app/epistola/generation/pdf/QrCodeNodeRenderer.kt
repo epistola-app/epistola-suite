@@ -18,6 +18,10 @@ import kotlin.math.roundToInt
 
 /**
  * Renders a "qrcode" node by evaluating its value expression and embedding the generated symbol.
+ *
+ * QR codes have a maximum data capacity that depends on the encoding mode and error correction level.
+ * This renderer enforces a limit of [MAX_VALUE_BYTES] bytes (UTF-8 encoded) to stay safely within
+ * the QR specification. Values exceeding this limit are skipped with a warning.
  */
 class QrCodeNodeRenderer : NodeRenderer {
 
@@ -33,6 +37,17 @@ class QrCodeNodeRenderer : NodeRenderer {
             ?: return emptyList()
 
         val value = resolveQrValue(expression, context, node) ?: return emptyList()
+
+        if (value.toByteArray(Charsets.UTF_8).size > MAX_VALUE_BYTES) {
+            logger.warn(
+                "QR code node {} value is {} bytes, exceeding limit of {} bytes, skipping",
+                node.id,
+                value.toByteArray(Charsets.UTF_8).size,
+                MAX_VALUE_BYTES,
+            )
+            return emptyList()
+        }
+
         val sizePt = parseSizePt(node.props?.get("size"), context) ?: DEFAULT_SIZE_PT
 
         val pngBytes = try {
@@ -124,6 +139,7 @@ class QrCodeNodeRenderer : NodeRenderer {
     private companion object {
         private const val DEFAULT_SIZE_PT = 120f
         private const val MIN_PIXEL_SIZE = 128
+        private const val MAX_VALUE_BYTES = 2500
         private const val BLACK = -0x1000000
         private const val WHITE = -0x1
     }

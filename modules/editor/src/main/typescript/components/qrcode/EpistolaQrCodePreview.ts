@@ -9,6 +9,7 @@ import { evaluateExpression } from '../../engine/resolve-expression.js';
 const DEFAULT_SIZE_PT = 120;
 const PX_PER_PT = 96 / 72;
 const SPACING_UNIT_PT = 4;
+const MAX_VALUE_BYTES = 2500;
 
 function parseSizeToPt(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -69,7 +70,8 @@ export class EpistolaQrCodePreview extends LitElement {
   @property() size = `${DEFAULT_SIZE_PT}pt`;
 
   @state() private _svgMarkup: string | null = null;
-  @state() private _status: 'idle' | 'loading' | 'ready' | 'empty' | 'invalid' = 'idle';
+  @state() private _status: 'idle' | 'loading' | 'ready' | 'empty' | 'invalid' | 'too-long' =
+    'idle';
 
   private _refreshToken = 0;
   private _unsubExample?: () => void;
@@ -118,9 +120,11 @@ export class EpistolaQrCodePreview extends LitElement {
     const message =
       this._status === 'loading'
         ? 'Generating QR code...'
-        : this._status === 'invalid'
-          ? 'Expression must resolve to text, number, or boolean'
-          : 'Add an expression and example data to preview';
+        : this._status === 'too-long'
+          ? `Value too long for QR code (max ${MAX_VALUE_BYTES.toLocaleString()} characters)`
+          : this._status === 'invalid'
+            ? 'Expression must resolve to text, number, or boolean'
+            : 'Add an expression and example data to preview';
 
     return html`
       <div
@@ -163,6 +167,12 @@ export class EpistolaQrCodePreview extends LitElement {
     if (!qrValue) {
       this._svgMarkup = null;
       this._status = 'invalid';
+      return;
+    }
+
+    if (new TextEncoder().encode(qrValue).byteLength > MAX_VALUE_BYTES) {
+      this._svgMarkup = null;
+      this._status = 'too-long';
       return;
     }
 
