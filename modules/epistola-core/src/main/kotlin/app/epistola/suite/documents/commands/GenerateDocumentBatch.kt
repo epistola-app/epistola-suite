@@ -7,6 +7,10 @@ import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.common.ids.VersionKey
+import app.epistola.suite.documents.DefaultVariantNotFoundException
+import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.TemplateVariantNotFoundException
+import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
@@ -138,8 +142,8 @@ class GenerateDocumentBatchHandler(
                     .mapTo<Boolean>()
                     .one()
 
-                require(templateExists) {
-                    "Item $index: Template ${item.templateId} variant $resolvedVariantId not found for tenant ${command.tenantId}"
+                if (!templateExists) {
+                    throw TemplateVariantNotFoundException(command.tenantId, item.templateId, resolvedVariantId)
                 }
 
                 if (item.versionId != null) {
@@ -158,8 +162,8 @@ class GenerateDocumentBatchHandler(
                         .mapTo<Boolean>()
                         .one()
 
-                    require(versionExists) {
-                        "Item $index: Version ${item.versionId} not found for template ${item.templateId} variant $resolvedVariantId"
+                    if (!versionExists) {
+                        throw VersionNotFoundException(command.tenantId, item.templateId, resolvedVariantId, item.versionId!!)
                     }
                 } else {
                     val environmentExists = handle.createQuery(
@@ -177,8 +181,8 @@ class GenerateDocumentBatchHandler(
                         .mapTo<Boolean>()
                         .one()
 
-                    require(environmentExists) {
-                        "Item $index: Environment ${item.environmentId} not found for tenant ${command.tenantId}"
+                    if (!environmentExists) {
+                        throw EnvironmentNotFoundException(command.tenantId, item.environmentId!!)
                     }
                 }
             }
@@ -250,9 +254,8 @@ class GenerateDocumentBatchHandler(
                 .findOne()
                 .orElse(null)
         }
-        requireNotNull(variantId) {
-            "No default variant found for template $templateId in tenant $tenantId"
-        }
-        return VariantKey.of(variantId)
+        return VariantKey.of(
+            variantId ?: throw DefaultVariantNotFoundException(tenantId, templateId),
+        )
     }
 }

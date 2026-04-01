@@ -35,6 +35,10 @@ CREATE TABLE template_variants (
 CREATE UNIQUE INDEX idx_one_default_variant_per_template
     ON template_variants (tenant_key, template_key) WHERE is_default = TRUE;
 
+-- GIN index for attribute filtering queries (e.g. checking attribute values in use)
+CREATE INDEX idx_template_variants_attributes_gin
+    ON template_variants USING GIN (attributes);
+
 COMMENT ON TABLE template_variants IS 'Variations of a template (e.g., by language, brand, audience). Each variant has its own version history.';
 COMMENT ON COLUMN template_variants.id IS 'URL-safe slug identifier unique within the tenant';
 COMMENT ON COLUMN template_variants.tenant_key IS 'Owning tenant';
@@ -72,6 +76,10 @@ CREATE TABLE template_versions (
 );
 
 CREATE INDEX idx_template_versions_status ON template_versions(status);
+
+-- GIN index for JSON traversal queries on template model (e.g. asset usage search)
+CREATE INDEX idx_template_versions_template_model_gin
+    ON template_versions USING GIN (template_model);
 
 -- Enforce at most one draft per variant
 CREATE UNIQUE INDEX idx_one_draft_per_variant
