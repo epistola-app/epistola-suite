@@ -19,6 +19,9 @@ dependencies {
     implementation("org.graalvm.polyglot:polyglot:25.0.2")
     implementation("org.graalvm.polyglot:js:25.0.2")
 
+    // QR code generation
+    implementation("com.google.zxing:core:3.5.3")
+
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

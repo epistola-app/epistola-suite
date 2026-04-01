@@ -221,6 +221,7 @@ class DirectPdfRenderer(
                 "datatable" to DatatableNodeRenderer(),
                 "datatable-column" to DatatableColumnNodeRenderer(),
                 "image" to ImageNodeRenderer(),
+                "qrcode" to QrCodeNodeRenderer(),
                 "pagebreak" to PageBreakNodeRenderer(),
                 "pageheader" to PageHeaderNodeRenderer(),
                 "pagefooter" to PageFooterNodeRenderer(),

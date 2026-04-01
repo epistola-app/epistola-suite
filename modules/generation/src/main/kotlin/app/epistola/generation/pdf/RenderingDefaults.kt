@@ -91,6 +91,7 @@ data class RenderingDefaults(
                 "table" to mapOf("marginBottom" to "1.5sp"),
                 "datatable" to mapOf("marginBottom" to "1.5sp"),
                 "image" to mapOf("marginBottom" to "1.5sp"),
+                "qrcode" to mapOf("marginBottom" to "1.5sp"),
             ),
             headingSizes = mapOf(
                 1 to 24f,

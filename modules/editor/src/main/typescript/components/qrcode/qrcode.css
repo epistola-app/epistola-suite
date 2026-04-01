@@ -1,0 +1,44 @@
+.qrcode-canvas {
+  display: flex;
+  flex-direction: column;
+}
+
+.qrcode-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--ep-white);
+}
+
+.qrcode-preview svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qrcode-preview-placeholder {
+  border: 2px dashed var(--ep-border-color);
+  background:
+    linear-gradient(45deg, var(--ep-gray-50) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--ep-gray-50) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--ep-gray-50) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--ep-gray-50) 75%);
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size: 16px 16px;
+}
+
+.qrcode-preview-placeholder-text {
+  max-width: 12rem;
+  padding: var(--ep-space-3);
+  color: var(--ep-muted-foreground);
+  font-size: var(--ep-text-xs);
+  line-height: 1.4;
+  text-align: center;
+  background: rgb(255 255 255 / 0.9);
+  border-radius: var(--ep-radius-sm);
+}

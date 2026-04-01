@@ -52,7 +52,7 @@ class RenderingDefaultsTest {
 
     @Test
     fun `V1 component spacing contains entries for all block types`() {
-        val expectedTypes = setOf("text", "container", "columns", "table", "datatable", "image")
+        val expectedTypes = setOf("text", "container", "columns", "table", "datatable", "image", "qrcode")
         assertEquals(expectedTypes, RenderingDefaults.V1.componentSpacing.keys)
     }
 
