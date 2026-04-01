@@ -138,6 +138,11 @@
       "notes": {
         "type": "string",
         "description": "Additional notes or payment terms"
+      },
+      "paymentLink": {
+        "type": "string",
+        "format": "uri",
+        "description": "URL for online payment (encoded as QR code)"
       }
     },
     "required": [
@@ -203,7 +208,8 @@
         "taxRate": 0.21,
         "taxAmount": 209.58,
         "total": 1207.58,
-        "notes": "Payment terms: Net 30 days. Please reference invoice number on payment."
+        "notes": "Payment terms: Net 30 days. Please reference invoice number on payment.",
+        "paymentLink": "https://pay.epistola.app/inv/INV-2024-001"
       }
     },
     {
@@ -242,7 +248,8 @@
         "subtotal": 49.0,
         "taxRate": 0.19,
         "taxAmount": 9.31,
-        "total": 58.31
+        "total": 58.31,
+        "paymentLink": "https://pay.epistola.app/inv/INV-2024-002"
       }
     },
     {
@@ -306,7 +313,8 @@
         "taxRate": 0.2,
         "taxAmount": 4999.8,
         "total": 29998.8,
-        "notes": "Enterprise annual contract. Includes 24/7 support and quarterly business reviews. Payment terms: Net 60 days."
+        "notes": "Enterprise annual contract. Includes 24/7 support and quarterly business reviews. Payment terms: Net 60 days.",
+        "paymentLink": "https://pay.epistola.app/inv/INV-2024-003"
       }
     }
   ],
@@ -1113,6 +1121,46 @@
           "textAlign": "center"
         }
       },
+      "n-payment-qr": {
+        "id": "n-payment-qr",
+        "type": "qrcode",
+        "slots": [],
+        "props": {
+          "value": {
+            "raw": "paymentLink",
+            "language": "jsonata"
+          },
+          "size": "80pt"
+        }
+      },
+      "n-payment-qr-label": {
+        "id": "n-payment-qr-label",
+        "type": "text",
+        "slots": [],
+        "styles": {
+          "fontSize": "8pt",
+          "color": "#9ca3af",
+          "textAlign": "center",
+          "marginBottom": "3sp"
+        },
+        "props": {
+          "content": {
+            "type": "doc",
+            "content": [
+              {
+                "type": "paragraph",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Scan to pay"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+
       "n-footer-contact": {
         "id": "n-footer-contact",
         "type": "text",
@@ -1293,7 +1341,7 @@
         "id": "s-footer-children",
         "nodeId": "n-footer",
         "name": "children",
-        "children": ["n-footer-contact"]
+        "children": ["n-payment-qr", "n-payment-qr-label", "n-footer-contact"]
       }
     }
   }

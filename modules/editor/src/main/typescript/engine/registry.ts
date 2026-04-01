@@ -13,6 +13,7 @@ import { createTableDefinition } from '../components/table/table-registration.js
 import { createColumnsDefinition } from '../components/columns/columns-registration.js';
 import { createDatatableDefinition } from '../components/datatable/datatable-registration.js';
 import { createDatatableColumnDefinition } from '../components/datatable/datatable-column-registration.js';
+import { createQrCodeDefinition } from '../components/qrcode/qrcode-registration.js';
 import { buildIterationScope } from './scoped-fields.js';
 
 // ---------------------------------------------------------------------------
@@ -398,6 +399,7 @@ export function createDefaultRegistry(): ComponentRegistry {
   registry.register(createTableDefinition());
   registry.register(createDatatableDefinition());
   registry.register(createDatatableColumnDefinition());
+  registry.register(createQrCodeDefinition());
 
   registry.register({
     type: 'conditional',

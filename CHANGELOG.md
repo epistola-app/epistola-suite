@@ -4,6 +4,8 @@
 
 ### Added
 
+- **QR code block**: Templates can now include a `QR Code` component that generates a code from an expression. The editor shows a live preview using example data, and PDF generation renders the same QR code in output documents. Values are limited to 2,500 bytes (UTF-8) due to QR specification constraints; the editor preview shows a clear error when this limit is exceeded.
+- **QR code in demo invoice**: The demo invoice template now includes a "Scan to pay" QR code in the footer, linked to a `paymentLink` data field.
 - **JSON Schema view in contract editor**: Schema tab now has a Visual/JSON toggle to view the JSON Schema representation of the data contract. Includes copy-to-clipboard button.
 - **Import JSON Schema**: New "Import Schema" button opens a dialog to paste or upload a JSON Schema file. Imported schemas are checked for compatibility with the visual editor.
 - **Schema compatibility checking**: When an imported schema uses features not supported by the visual editor (enum, $ref, allOf/anyOf/oneOf, etc.), the visual editor is disabled and a read-only JSON view with a compatibility warning banner is shown instead.
@@ -17,6 +19,7 @@
 
 ### Fixed
 
+- **QR code PDF generation**: Handle encoding failures (e.g., input exceeding QR capacity) gracefully instead of crashing the entire PDF render.
 - **Dialog header layout**: Close button now correctly positions to the right of the title in `ep-dialog-header` (added flexbox).
 - **Schema import undo**: Importing a JSON Schema now snapshots the previous state so the import can be undone with Ctrl+Z.
 - **Schema import migration detection**: Importing a schema (including incompatible/json-only schemas) now properly detects breaking changes against existing data examples and shows the migration dialog.

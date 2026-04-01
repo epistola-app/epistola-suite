@@ -64,6 +64,8 @@ const ICONS = {
     '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
   upload:
     '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  'qr-code':
+    '<path d="M3 3h8v8H3z"/><path d="M13 3h8v8h-8z"/><path d="M3 13h8v8H3z"/><path d="M5 5h4v4H5z"/><path d="M15 5h4v4h-4z"/><path d="M5 15h4v4H5z"/><path d="M13 13h2v2h-2z"/><path d="M17 13h2v2h-2z"/><path d="M15 15h2v2h-2z"/><path d="M19 15h2v2h-2z"/><path d="M13 17h2v2h-2z"/><path d="M17 17h4v4h-4z"/>',
 } as const satisfies Record<string, string>;
 
 /**
