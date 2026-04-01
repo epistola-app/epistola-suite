@@ -5,6 +5,7 @@ import app.epistola.template.model.Slot
 import app.epistola.template.model.TemplateDocument
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class QrCodeNodeRendererTest {
@@ -115,7 +116,7 @@ class QrCodeNodeRendererTest {
     }
 
     @Test
-    fun `skips gracefully when value exceeds max length`() {
+    fun `fails when value exceeds max length`() {
         val document = documentWithQrCodeNode(
             mapOf(
                 "value" to mapOf("raw" to "huge", "language" to "jsonata"),
@@ -123,11 +124,9 @@ class QrCodeNodeRendererTest {
         )
 
         val output = ByteArrayOutputStream()
-        renderer.render(document, mapOf("huge" to "x".repeat(2501)), output)
-
-        val pdfBytes = output.toByteArray()
-        assertTrue(pdfBytes.isNotEmpty())
-        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+        assertFailsWith<IllegalArgumentException> {
+            renderer.render(document, mapOf("huge" to "x".repeat(2501)), output)
+        }
     }
 
     @Test

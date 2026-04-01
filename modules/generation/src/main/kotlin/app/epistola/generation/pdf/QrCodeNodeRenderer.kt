@@ -21,7 +21,8 @@ import kotlin.math.roundToInt
  *
  * QR codes have a maximum data capacity that depends on the encoding mode and error correction level.
  * This renderer enforces a limit of [MAX_VALUE_BYTES] bytes (UTF-8 encoded) to stay safely within
- * the QR specification. Values exceeding this limit are skipped with a warning.
+ * the QR specification. Values exceeding this limit cause document generation to fail with an
+ * [IllegalArgumentException].
  */
 class QrCodeNodeRenderer : NodeRenderer {
 
@@ -38,24 +39,13 @@ class QrCodeNodeRenderer : NodeRenderer {
 
         val value = resolveQrValue(expression, context, node) ?: return emptyList()
 
-        if (value.toByteArray(Charsets.UTF_8).size > MAX_VALUE_BYTES) {
-            logger.warn(
-                "QR code node {} value is {} bytes, exceeding limit of {} bytes, skipping",
-                node.id,
-                value.toByteArray(Charsets.UTF_8).size,
-                MAX_VALUE_BYTES,
-            )
-            return emptyList()
+        val valueBytes = value.toByteArray(Charsets.UTF_8).size
+        require(valueBytes <= MAX_VALUE_BYTES) {
+            "QR code node ${node.id} value is $valueBytes bytes, exceeding limit of $MAX_VALUE_BYTES bytes"
         }
 
         val sizePt = parseSizePt(node.props?.get("size"), context) ?: DEFAULT_SIZE_PT
-
-        val pngBytes = try {
-            generateQrCodePng(value, sizePt)
-        } catch (e: Exception) {
-            logger.warn("QR code node {} failed to encode: {}", node.id, e.message)
-            return emptyList()
-        }
+        val pngBytes = generateQrCodePng(value, sizePt)
 
         val image = Image(ImageDataFactory.create(pngBytes))
         image.setWidth(sizePt)
