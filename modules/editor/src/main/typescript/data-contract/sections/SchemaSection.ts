@@ -169,7 +169,9 @@ const ARRAY_ITEM_TYPES: SchemaFieldType[] = [
 /** String format options */
 const STRING_FORMATS: Array<{ value: StringFormat | ''; label: string }> = [
   { value: '', label: 'None' },
+  { value: 'date-time', label: 'Date-Time' },
   { value: 'email', label: 'Email' },
+  { value: 'uri', label: 'URI' },
 ];
 
 function renderDetailPanel(field: SchemaField | null, callbacks: SchemaSectionCallbacks): unknown {

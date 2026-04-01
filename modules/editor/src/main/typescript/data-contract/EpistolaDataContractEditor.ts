@@ -145,7 +145,7 @@ export class EpistolaDataContractEditor extends LitElement {
       const compat = checkSchemaCompatibility(initialSchema);
       this._compatibilityIssues = compat.issues;
       if (!compat.compatible) {
-        this.contractState.setRawJsonSchema(initialSchema, 'json-only');
+        this.contractState.setRawJsonSchema(initialSchema, 'json-only', true);
         this._schemaViewMode = 'json';
       }
     }

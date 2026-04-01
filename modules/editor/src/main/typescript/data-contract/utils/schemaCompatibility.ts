@@ -166,15 +166,15 @@ function checkProperty(
     }
   }
 
-  // Check format (only "date" and "email" on strings are supported)
+  // Check format (only supported formats on strings)
   if ('format' in prop && prop.format !== undefined) {
     const type = Array.isArray(prop.type) ? prop.type[0] : prop.type;
-    const supportedFormats = new Set(['date', 'email']);
+    const supportedFormats = new Set(['date', 'date-time', 'email', 'uri']);
     if (!supportedFormats.has(String(prop.format)) || type !== 'string') {
       issues.push({
         path: `${path}.format`,
         feature: `format-${String(prop.format)}`,
-        description: `Format "${String(prop.format)}" is not supported (only "date" and "email" on string type)`,
+        description: `Format "${String(prop.format)}" is not supported (only "date", "date-time", "email", and "uri" on string type)`,
       });
     }
   }

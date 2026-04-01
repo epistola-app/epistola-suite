@@ -88,11 +88,15 @@ export class DataContractState extends EventTarget {
     this._fireChange();
   }
 
-  setRawJsonSchema(schema: object | null, mode: SchemaEditMode): void {
+  setRawJsonSchema(schema: object | null, mode: SchemaEditMode, asCommitted = false): void {
     this._rawJsonSchema = schema ? structuredClone(schema) : null;
     this._schemaEditMode = mode;
     // Also update the draft schema for validation purposes (cast through unknown)
     this._draftSchema = schema as unknown as JsonSchema | null;
+    if (asCommitted) {
+      this._committedRawJsonSchema = schema ? structuredClone(schema) : null;
+      this._committedSchema = structuredClone(this._draftSchema);
+    }
     this._fireChange();
   }
 

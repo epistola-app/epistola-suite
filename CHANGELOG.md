@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Additional string formats in schema editor**: Added support for `date-time` (ISO 8601) and `uri` formats on string fields. These formats are now available in the visual editor dropdown, pass compatibility checks, and have validation for test data.
+
+### Fixed
+
+- **False unsaved changes warning on load**: Fixed a bug where the data contract editor showed an "unsaved changes" prompt when navigating away without making any changes. This occurred when the schema used features that triggered json-only mode, because the committed baseline was not set for the raw JSON schema.
+
 ## [0.10.0] - 2026-04-01
 
 ### Added

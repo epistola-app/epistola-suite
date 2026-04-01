@@ -3,6 +3,12 @@ import type { JsonObject, JsonSchema, JsonSchemaProperty, JsonValue } from '../t
 /** ISO date pattern: YYYY-MM-DD */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** ISO date-time pattern: YYYY-MM-DDThh:mm:ss with optional fractional seconds and timezone */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+
+/** URI pattern: scheme://... */
+const URI_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.+$/;
+
 /**
  * Validation error for a specific path.
  */
@@ -108,13 +114,16 @@ function validateProperty(
   // Use the first matching type for further validation
   const expectedType = expectedTypes.find((t) => typeMatches(actualType, t)) || expectedTypes[0];
 
-  // Validate date format (JSON Schema: type="string", format="date")
-  if (expectedType === 'string' && schema.format === 'date' && typeof value === 'string') {
-    if (!ISO_DATE_RE.test(value)) {
-      errors.push({
-        path,
-        message: 'must be a valid date (YYYY-MM-DD)',
-      });
+  // Validate string formats
+  if (expectedType === 'string' && typeof value === 'string' && schema.format) {
+    if (schema.format === 'date' && !ISO_DATE_RE.test(value)) {
+      errors.push({ path, message: 'must be a valid date (YYYY-MM-DD)' });
+    }
+    if (schema.format === 'date-time' && !ISO_DATETIME_RE.test(value)) {
+      errors.push({ path, message: 'must be a valid date-time (ISO 8601)' });
+    }
+    if (schema.format === 'uri' && !URI_RE.test(value)) {
+      errors.push({ path, message: 'must be a valid URI' });
     }
   }
 

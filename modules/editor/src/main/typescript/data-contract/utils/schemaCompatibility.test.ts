@@ -355,11 +355,11 @@ describe('checkSchemaCompatibility', () => {
       const result = checkSchemaCompatibility({
         type: 'object',
         properties: {
-          uri: { type: 'string', format: 'uri' },
+          hostname: { type: 'string', format: 'hostname' },
         },
       });
       expect(result.compatible).toBe(false);
-      expect(result.issues.some((i) => i.feature === 'format-uri')).toBe(true);
+      expect(result.issues.some((i) => i.feature === 'format-hostname')).toBe(true);
     });
 
     it('flags format on non-string type', () => {

@@ -58,7 +58,7 @@ interface BaseField {
 }
 
 /** Supported string formats */
-export type StringFormat = 'date' | 'email';
+export type StringFormat = 'date' | 'date-time' | 'email' | 'uri';
 
 /** A primitive field (string, number, integer, boolean) */
 export interface PrimitiveField extends BaseField {
