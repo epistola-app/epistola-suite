@@ -4,7 +4,6 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.documents.queries.GetGenerationStats
 import app.epistola.suite.documents.queries.GetTemplateUsage
 import app.epistola.suite.documents.queries.ListGenerationJobs
-import app.epistola.suite.documents.queries.ListRecentFailedJobs
 import app.epistola.suite.htmx.htmx
 import app.epistola.suite.htmx.page
 import app.epistola.suite.htmx.queryParam
@@ -23,7 +22,6 @@ class GenerationHistoryHandler {
         val stats = GetGenerationStats(tenantId.key).query()
         val templateUsage = GetTemplateUsage(tenantId.key).query()
         val recentJobs = ListGenerationJobs(tenantId.key, limit = 20).query()
-        val recentFailures = ListRecentFailedJobs(tenantId.key, limit = 10).query()
 
         return ServerResponse.ok().page("generation-history/dashboard") {
             "pageTitle" to "Generation History - Epistola"
@@ -31,7 +29,6 @@ class GenerationHistoryHandler {
             "stats" to stats
             "templateUsage" to templateUsage
             "recentJobs" to recentJobs
-            "recentFailures" to recentFailures
             "statuses" to RequestStatus.entries
         }
     }
