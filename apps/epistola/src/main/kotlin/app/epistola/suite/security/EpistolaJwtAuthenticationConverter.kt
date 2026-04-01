@@ -20,10 +20,10 @@ import org.springframework.stereotype.Component
  * - `preferred_username` or `name`: display name
  * - `groups`: Keycloak group memberships (parsed via [parseGroupMemberships])
  *
- * The `groups` claim contains Keycloak group names with the `ep_` prefix convention:
- * - `ep_{tenant}_{role}` → per-tenant role (e.g., `ep_acme-corp_reader`)
- * - `ep_{role}` → global role for all tenants (e.g., `ep_reader`)
- * - `ep_tenant-manager` → platform role
+ * The `groups` claim contains hierarchical Keycloak group paths:
+ * - `/epistola/tenants/{tenant}/{role}` → per-tenant role (e.g., `/epistola/tenants/acme-corp/reader`)
+ * - `/epistola/global/{role}` → global role for all tenants (e.g., `/epistola/global/reader`)
+ * - `/epistola/platform/{role}` → platform role (e.g., `/epistola/platform/tenant-manager`)
  *
  * Only active when an OAuth2 ClientRegistrationRepository is present.
  */

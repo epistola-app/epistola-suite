@@ -30,10 +30,10 @@ class EpistolaJwtAuthenticationConverterTest {
             jwt(
                 mapOf(
                     "groups" to listOf(
-                        "ep_acme-corp_reader",
-                        "ep_acme-corp_editor",
-                        "ep_beta-org_reader",
-                        "ep_beta-org_generator",
+                        "/epistola/tenants/acme-corp/reader",
+                        "/epistola/tenants/acme-corp/editor",
+                        "/epistola/tenants/beta-org/reader",
+                        "/epistola/tenants/beta-org/generator",
                     ),
                 ),
             ),
@@ -50,7 +50,7 @@ class EpistolaJwtAuthenticationConverterTest {
     @Test
     fun `extracts global roles from groups claim`() {
         val token = converter.convert(
-            jwt(mapOf("groups" to listOf("ep_reader", "ep_editor"))),
+            jwt(mapOf("groups" to listOf("/epistola/global/reader", "/epistola/global/editor"))),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
@@ -60,7 +60,7 @@ class EpistolaJwtAuthenticationConverterTest {
     @Test
     fun `extracts platform roles from groups claim`() {
         val token = converter.convert(
-            jwt(mapOf("groups" to listOf("ep_tenant-manager"))),
+            jwt(mapOf("groups" to listOf("/epistola/platform/tenant-manager"))),
         )
 
         val principal = (token as JwtAuthenticationToken).details as EpistolaPrincipal
@@ -70,7 +70,7 @@ class EpistolaJwtAuthenticationConverterTest {
     @Test
     fun `platform roles added as Spring Security authorities`() {
         val token = converter.convert(
-            jwt(mapOf("groups" to listOf("ep_tenant-manager"))),
+            jwt(mapOf("groups" to listOf("/epistola/platform/tenant-manager"))),
         )
 
         val authorityNames = token.authorities.map { it.authority }
@@ -88,11 +88,11 @@ class EpistolaJwtAuthenticationConverterTest {
     }
 
     @Test
-    fun `ignores non-ep groups`() {
+    fun `ignores non-epistola groups`() {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "groups" to listOf("other-app-group", "admin", "ep_acme-corp_reader"),
+                    "groups" to listOf("/other-app/group", "admin", "/epistola/tenants/acme-corp/reader"),
                 ),
             ),
         )
@@ -108,7 +108,7 @@ class EpistolaJwtAuthenticationConverterTest {
         val token = converter.convert(
             jwt(
                 mapOf(
-                    "groups" to listOf("ep_acme-corp_reader", "ep_acme-corp_superadmin"),
+                    "groups" to listOf("/epistola/tenants/acme-corp/reader", "/epistola/tenants/acme-corp/superadmin"),
                 ),
             ),
         )
@@ -124,11 +124,11 @@ class EpistolaJwtAuthenticationConverterTest {
             jwt(
                 mapOf(
                     "groups" to listOf(
-                        "ep_acme-corp_reader",
-                        "ep_acme-corp_editor",
-                        "ep_reader",
-                        "ep_tenant-manager",
-                        "other-app-group",
+                        "/epistola/tenants/acme-corp/reader",
+                        "/epistola/tenants/acme-corp/editor",
+                        "/epistola/global/reader",
+                        "/epistola/platform/tenant-manager",
+                        "/other-app/group",
                     ),
                 ),
             ),

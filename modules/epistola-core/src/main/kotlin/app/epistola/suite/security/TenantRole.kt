@@ -4,15 +4,15 @@ package app.epistola.suite.security
  * Composable roles a user can hold within a specific tenant.
  *
  * Roles are sourced from the IDP (Keycloak/OIDC) via the `groups` JWT claim
- * using prefixed group names (`ep_{tenant}_{role}` or `ep_{role}` for global).
+ * using hierarchical group paths.
  *
  * A user can hold multiple roles per tenant (e.g., `[reader, editor]`).
  * Each role grants a specific set of [Permission]s; the effective permissions
  * are the union of all role grants.
  *
- * Group naming convention:
- * - `ep_acme-corp_reader` → per-tenant reader role in acme-corp
- * - `ep_reader` → global reader role (applies to all tenants)
+ * Group path convention:
+ * - `/epistola/tenants/acme-corp/reader` → per-tenant reader role in acme-corp
+ * - `/epistola/global/reader` → global reader role (applies to all tenants)
  */
 enum class TenantRole {
     /** Read-only access: view templates, themes, and documents. */

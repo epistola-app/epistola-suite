@@ -3,8 +3,8 @@ package app.epistola.suite.security
 /**
  * Platform-scoped roles that apply across all tenants.
  *
- * These are sourced from Keycloak **groups** with the `ep_` prefix convention.
- * For example, `ep_tenant-manager` in the `groups` JWT claim maps to [TENANT_MANAGER].
+ * These are sourced from Keycloak **groups** using hierarchical group paths.
+ * For example, `/epistola/platform/tenant-manager` in the `groups` JWT claim maps to [TENANT_MANAGER].
  */
 enum class PlatformRole {
     /**

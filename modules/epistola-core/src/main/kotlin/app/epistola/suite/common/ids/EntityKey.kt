@@ -55,6 +55,9 @@ value class TenantKey(@JsonValue override val value: String) : SlugKey<TenantKey
             "internal",
             "null",
             "undefined",
+            "tenants",
+            "global",
+            "platform",
         )
 
         fun of(value: String): TenantKey = TenantKey(value)

@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration
 /**
  * Keycloak implementation of [TenantProvisioningPort].
  *
- * Creates groups following the `ep_{tenantKey}_{role}` naming convention
+ * Creates hierarchical groups under `/epistola/tenants/{tenantKey}/{role}`
  * for each of the four tenant roles (reader, editor, generator, manager).
  */
 class KeycloakTenantProvisioner(
@@ -26,27 +26,34 @@ class KeycloakTenantProvisioner(
         log.info("Provisioning Keycloak groups for tenant: {}", tenantKey.value)
 
         for (role in TenantRole.entries) {
-            val groupName = groupNameFor(tenantKey, role)
+            val groupPath = groupPathFor(tenantKey, role)
             try {
-                keycloakAdminClient.createGroup(groupName)
-                log.info("Created Keycloak group: {}", groupName)
+                keycloakAdminClient.ensureGroupPath(groupPath)
+                log.info("Ensured Keycloak group path: {}", groupPath)
             } catch (e: Exception) {
-                log.warn("Failed to create Keycloak group '{}': {}", groupName, e.message)
+                log.warn("Failed to create Keycloak group path '{}': {}", groupPath, e.message)
             }
         }
     }
 
     override fun deprovisionTenant(tenantKey: TenantKey) {
-        val prefix = "ep_${tenantKey.value}_"
+        val tenantGroupPath = "/epistola/tenants/${tenantKey.value}"
         try {
-            keycloakAdminClient.deleteGroupsByPrefix(prefix)
+            val group = keycloakAdminClient.findGroupByPath(tenantGroupPath)
+            if (group != null) {
+                val groupId = java.util.UUID.fromString(group["id"].toString())
+                keycloakAdminClient.deleteGroup(groupId)
+                log.info("Deleted Keycloak tenant group: {}", tenantGroupPath)
+            } else {
+                log.info("Keycloak tenant group not found (already removed?): {}", tenantGroupPath)
+            }
         } catch (e: Exception) {
             log.warn("Failed to delete Keycloak groups for tenant '{}': {}", tenantKey.value, e.message)
         }
     }
 
     companion object {
-        fun groupNameFor(tenantKey: TenantKey, role: TenantRole): String = "ep_${tenantKey.value}_${role.name.lowercase()}"
+        fun groupPathFor(tenantKey: TenantKey, role: TenantRole): String = "/epistola/tenants/${tenantKey.value}/${role.name.lowercase()}"
     }
 }
 

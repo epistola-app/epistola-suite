@@ -100,7 +100,7 @@ No configuration property is needed — the registration ID from the OAuth2 logi
 
 ### Keycloak Setup
 
-See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configuration including group-based authorization, the `ep_` prefix convention, and automatic tenant provisioning.
+See [docs/keycloak-setup.md](keycloak-setup.md) for detailed Keycloak configuration including group-based authorization, the hierarchical group path convention, and automatic tenant provisioning.
 
 ### Auto-Provisioning
 

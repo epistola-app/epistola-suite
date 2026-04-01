@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component
 /**
  * Demo-only: resolves tenant memberships from the user's email domain.
  *
- * When a user logs in without any `ep_` group memberships, their email domain
+ * When a user logs in without any `/epistola/` group memberships, their email domain
  * is converted to a tenant key (e.g., `user@acme.io` → `acme-io`). If the
  * tenant doesn't exist, it's auto-created. The user gets all roles.
  *

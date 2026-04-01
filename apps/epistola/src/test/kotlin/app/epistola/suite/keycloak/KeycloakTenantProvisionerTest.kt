@@ -10,36 +10,36 @@ import org.junit.jupiter.api.Test
 class KeycloakTenantProvisionerTest {
 
     @Test
-    fun `generates correct group names for all roles`() {
+    fun `generates correct group paths for all roles`() {
         val tenantKey = TenantKey.of("acme-corp")
 
-        assertThat(KeycloakTenantProvisioner.groupNameFor(tenantKey, TenantRole.READER))
-            .isEqualTo("ep_acme-corp_reader")
-        assertThat(KeycloakTenantProvisioner.groupNameFor(tenantKey, TenantRole.EDITOR))
-            .isEqualTo("ep_acme-corp_editor")
-        assertThat(KeycloakTenantProvisioner.groupNameFor(tenantKey, TenantRole.GENERATOR))
-            .isEqualTo("ep_acme-corp_generator")
-        assertThat(KeycloakTenantProvisioner.groupNameFor(tenantKey, TenantRole.MANAGER))
-            .isEqualTo("ep_acme-corp_manager")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.READER))
+            .isEqualTo("/epistola/tenants/acme-corp/reader")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.EDITOR))
+            .isEqualTo("/epistola/tenants/acme-corp/editor")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.GENERATOR))
+            .isEqualTo("/epistola/tenants/acme-corp/generator")
+        assertThat(KeycloakTenantProvisioner.groupPathFor(tenantKey, TenantRole.MANAGER))
+            .isEqualTo("/epistola/tenants/acme-corp/manager")
     }
 
     @Test
-    fun `group names use lowercase role names`() {
+    fun `group paths use lowercase role names`() {
         val tenantKey = TenantKey.of("beta")
 
         TenantRole.entries.forEach { role ->
-            val groupName = KeycloakTenantProvisioner.groupNameFor(tenantKey, role)
-            assertThat(groupName).isEqualTo("ep_beta_${role.name.lowercase()}")
+            val groupPath = KeycloakTenantProvisioner.groupPathFor(tenantKey, role)
+            assertThat(groupPath).isEqualTo("/epistola/tenants/beta/${role.name.lowercase()}")
         }
     }
 
     @Test
-    fun `group names follow ep prefix convention`() {
+    fun `group paths follow hierarchical convention`() {
         val tenantKey = TenantKey.of("my-tenant")
 
         TenantRole.entries.forEach { role ->
-            val groupName = KeycloakTenantProvisioner.groupNameFor(tenantKey, role)
-            assertThat(groupName).startsWith("ep_")
+            val groupPath = KeycloakTenantProvisioner.groupPathFor(tenantKey, role)
+            assertThat(groupPath).startsWith("/epistola/tenants/")
         }
     }
 }

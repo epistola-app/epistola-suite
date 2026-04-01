@@ -4,7 +4,7 @@ This document explains how to configure Keycloak for use with Epistola Suite.
 
 ## Overview
 
-Epistola uses Keycloak's **Group Membership Mapper** to derive tenant roles, global roles, and platform roles from JWT group names. All Epistola groups use the `ep_` prefix.
+Epistola uses Keycloak's **Group Membership Mapper** to derive tenant roles, global roles, and platform roles from hierarchical group paths in the JWT `groups` claim. All Epistola groups live under the `/epistola` root group.
 
 ## Keycloak Roles vs Groups
 
@@ -15,22 +15,43 @@ Keycloak has two user assignment mechanisms. Epistola uses **groups**, not realm
 | **Realm roles** | Flat labels (e.g., `ROLE_USER`, `ROLE_ADMIN`). Spring Security auto-maps them to `GrantedAuthority`.                           | Valtimo (for its own authorization) |
 | **Groups**      | Organizational containers for users. No built-in Spring Security meaning — require a **protocol mapper** to appear in the JWT. | Epistola (via `groups` claim)       |
 
-**Why groups instead of roles?** Groups support the `ep_{tenant}_{role}` naming convention. With flat realm roles, you'd need a separate role per tenant per permission, which doesn't scale. Groups allow tenant-scoped authorization by convention.
+**Why groups instead of roles?** Groups support hierarchical tenant-scoped authorization. With flat realm roles, you'd need a separate role per tenant per permission, which doesn't scale. Hierarchical groups make the tenant/role structure explicit and navigable in the Keycloak admin UI.
 
 **How it works:**
 
-1. Admin assigns users to Keycloak groups (e.g., `ep_acme_reader`)
-2. The `oidc-group-membership-mapper` puts group names into the JWT `groups` claim
+1. Admin assigns users to Keycloak groups (e.g., `/epistola/tenants/acme-corp/reader`)
+2. The `oidc-group-membership-mapper` (with `full.path=true`) puts full group paths into the JWT `groups` claim
 3. Epistola's `parseGroupMemberships()` extracts tenant roles, global roles, and platform roles
 4. The `EpistolaPrincipal` is constructed with the parsed memberships
 
-## Group Naming Convention
+## Group Hierarchy
 
-| Pattern              | Example               | Meaning                          |
-| -------------------- | --------------------- | -------------------------------- |
-| `ep_{tenant}_{role}` | `ep_acme-corp_reader` | `reader` role in `acme-corp`     |
-| `ep_{role}`          | `ep_reader`           | `reader` role in **all** tenants |
-| `ep_tenant-manager`  | `ep_tenant-manager`   | Platform role: manage tenants    |
+All Epistola groups live under a single root group:
+
+```
+/epistola
+  /epistola/tenants                          <- tenant container
+    /epistola/tenants/{tenant}               <- one per tenant
+      /epistola/tenants/{tenant}/reader
+      /epistola/tenants/{tenant}/editor
+      /epistola/tenants/{tenant}/generator
+      /epistola/tenants/{tenant}/manager
+  /epistola/global                           <- global roles (all tenants)
+    /epistola/global/reader
+    /epistola/global/editor
+    /epistola/global/generator
+    /epistola/global/manager
+  /epistola/platform                         <- platform roles
+    /epistola/platform/tenant-manager
+```
+
+### Group Path Convention
+
+| Pattern                              | Example                              | Meaning                          |
+| ------------------------------------ | ------------------------------------ | -------------------------------- |
+| `/epistola/tenants/{tenant}/{role}`  | `/epistola/tenants/acme-corp/reader` | `reader` role in `acme-corp`     |
+| `/epistola/global/{role}`            | `/epistola/global/reader`            | `reader` role in **all** tenants |
+| `/epistola/platform/{platform-role}` | `/epistola/platform/tenant-manager`  | Platform role: manage tenants    |
 
 ### Known Roles
 
@@ -60,19 +81,21 @@ Roles are **composable** — a user's effective permissions are the union of all
 
 ### How Parsing Works
 
-After stripping the `ep_` prefix:
+The JWT `groups` claim contains full paths (e.g., `/epistola/tenants/demo/reader`). The parser splits on `/` and routes based on the category segment:
 
-- Contains `_` → split on **last** `_` → left = tenant key, right = role
-- No `_` → global tenant role or platform role
+- `/epistola/tenants/{tenant}/{role}` → per-tenant role
+- `/epistola/global/{role}` → global tenant role
+- `/epistola/platform/{role}` → platform role
+- Anything else → ignored
 
-This is unambiguous because tenant keys match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no underscores).
+This is unambiguous because the path structure encodes the category explicitly. Tenant keys cannot use the reserved names `tenants`, `global`, or `platform`.
 
 ### Global Roles
 
-A global role like `ep_reader` grants read access to **all** tenants. Global roles are merged with per-tenant roles. Example:
+A global role like `/epistola/global/reader` grants read access to **all** tenants. Global roles are merged with per-tenant roles. Example:
 
 ```
-User groups: ["ep_acme-corp_editor", "ep_reader"]
+User groups: ["/epistola/tenants/acme-corp/editor", "/epistola/global/reader"]
 
 Effective roles:
   acme-corp: {READER, EDITOR}   (per-tenant EDITOR + global READER)
@@ -99,35 +122,52 @@ Add a protocol mapper to the `epistola-suite` client:
 | Name                | `group-membership-mapper` |
 | Mapper type         | `Group Membership`        |
 | Token claim name    | `groups`                  |
-| Full group path     | OFF                       |
+| Full group path     | **ON**                    |
 | Add to ID token     | ON                        |
 | Add to access token | ON                        |
 | Add to userinfo     | ON                        |
 
+**Important:** `Full group path` must be ON so the JWT contains full paths like `/epistola/tenants/demo/reader`.
+
 ### 3. Create Groups
 
-For each tenant, create groups:
+Create the hierarchical group structure:
 
-- `ep_{tenant-key}_reader`
-- `ep_{tenant-key}_editor`
-- `ep_{tenant-key}_generator`
-- `ep_{tenant-key}_manager`
+1. Create root group `epistola`
+2. Under `epistola`, create `tenants`, `global`, and `platform`
+3. Under `tenants`, create a sub-group for each tenant (e.g., `demo`)
+4. Under each tenant, create role groups: `reader`, `editor`, `generator`, `manager`
+5. Under `global`, create: `reader`, `editor`, `generator`, `manager`
+6. Under `platform`, create: `tenant-manager`
 
-For platform roles:
-
-- `ep_tenant-manager`
-
-For global roles (optional):
-
-- `ep_reader`, `ep_editor`, etc.
+Alternatively, enable `epistola.keycloak.ensure-groups=true` to have the app create the base structure automatically on startup (see below).
 
 ### 4. Assign Users to Groups
 
-Assign users to the appropriate groups based on their roles.
+Assign users to the leaf groups (e.g., `/epistola/tenants/demo/reader`). Assigning to intermediate groups (e.g., `/epistola/tenants/demo`) has no effect on authorization.
 
 ## Automatic Tenant Provisioning
 
-When `epistola.keycloak.client-secret` is configured, Epistola automatically creates Keycloak groups when a new tenant is created via the UI. The four standard groups (`ep_{key}_reader`, `ep_{key}_editor`, `ep_{key}_generator`, `ep_{key}_manager`) are created automatically.
+When `epistola.keycloak.client-secret` is configured, Epistola automatically creates hierarchical Keycloak groups when a new tenant is created via the UI. The four role groups are created under `/epistola/tenants/{key}/`:
+
+- `/epistola/tenants/{key}/reader`
+- `/epistola/tenants/{key}/editor`
+- `/epistola/tenants/{key}/generator`
+- `/epistola/tenants/{key}/manager`
+
+When a tenant is deleted, the entire `/epistola/tenants/{key}` group is removed (Keycloak cascades to sub-groups).
+
+### Base Group Initialization
+
+For environments without a realm import (e.g., production with an externally managed Keycloak), enable automatic creation of the base group hierarchy on startup:
+
+```yaml
+epistola:
+  keycloak:
+    ensure-groups: true # disabled by default
+```
+
+This creates `/epistola/tenants`, `/epistola/global/*`, and `/epistola/platform/*` if they don't exist. The operation is idempotent.
 
 ### Configuration
 
@@ -138,6 +178,7 @@ epistola:
     realm: epistola # Realm name
     client-id: epistola-suite # Client with service account
     client-secret: ${KEYCLOAK_CLIENT_SECRET} # Client secret
+    ensure-groups: false # Create base group hierarchy on startup
 ```
 
 The `epistola-suite` client's service account needs `realm-management` client roles:
@@ -185,11 +226,11 @@ After login, the JWT will contain:
 ```json
 {
   "groups": [
-    "ep_demo_reader",
-    "ep_demo_editor",
-    "ep_demo_generator",
-    "ep_demo_manager",
-    "ep_tenant-manager"
+    "/epistola/tenants/demo/reader",
+    "/epistola/tenants/demo/editor",
+    "/epistola/tenants/demo/generator",
+    "/epistola/tenants/demo/manager",
+    "/epistola/platform/tenant-manager"
   ]
 }
 ```

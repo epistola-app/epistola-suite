@@ -12,31 +12,36 @@
   "organizationsEnabled": true,
   "groups": [
     {
-      "name": "ep_demo_reader"
-    },
-    {
-      "name": "ep_demo_editor"
-    },
-    {
-      "name": "ep_demo_generator"
-    },
-    {
-      "name": "ep_demo_manager"
-    },
-    {
-      "name": "ep_tenant-manager"
-    },
-    {
-      "name": "ep_reader"
-    },
-    {
-      "name": "ep_editor"
-    },
-    {
-      "name": "ep_generator"
-    },
-    {
-      "name": "ep_manager"
+      "name": "epistola",
+      "subGroups": [
+        {
+          "name": "tenants",
+          "subGroups": [
+            {
+              "name": "demo",
+              "subGroups": [
+                { "name": "reader" },
+                { "name": "editor" },
+                { "name": "generator" },
+                { "name": "manager" }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "global",
+          "subGroups": [
+            { "name": "reader" },
+            { "name": "editor" },
+            { "name": "generator" },
+            { "name": "manager" }
+          ]
+        },
+        {
+          "name": "platform",
+          "subGroups": [{ "name": "tenant-manager" }]
+        }
+      ]
     }
   ],
   "clients": [
@@ -64,7 +69,7 @@
           "protocolMapper": "oidc-group-membership-mapper",
           "consentRequired": false,
           "config": {
-            "full.path": "false",
+            "full.path": "true",
             "id.token.claim": "true",
             "access.token.claim": "true",
             "claim.name": "groups",
@@ -91,15 +96,15 @@
       ],
       "realmRoles": ["default-roles-epistola"],
       "groups": [
-        "ep_demo_reader",
-        "ep_demo_editor",
-        "ep_demo_generator",
-        "ep_demo_manager",
-        "ep_tenant-manager",
-        "ep_reader",
-        "ep_editor",
-        "ep_generator",
-        "ep_manager"
+        "/epistola/tenants/demo/reader",
+        "/epistola/tenants/demo/editor",
+        "/epistola/tenants/demo/generator",
+        "/epistola/tenants/demo/manager",
+        "/epistola/platform/tenant-manager",
+        "/epistola/global/reader",
+        "/epistola/global/editor",
+        "/epistola/global/generator",
+        "/epistola/global/manager"
       ]
     },
     {
@@ -117,7 +122,7 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": ["ep_demo_reader"]
+      "groups": ["/epistola/tenants/demo/reader"]
     },
     {
       "username": "editor@demo",
@@ -134,7 +139,7 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": ["ep_demo_reader", "ep_demo_editor"]
+      "groups": ["/epistola/tenants/demo/reader", "/epistola/tenants/demo/editor"]
     },
     {
       "username": "generator@demo",
@@ -151,7 +156,7 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": ["ep_demo_reader", "ep_demo_generator"]
+      "groups": ["/epistola/tenants/demo/reader", "/epistola/tenants/demo/generator"]
     },
     {
       "username": "manager@demo",
@@ -168,7 +173,12 @@
         }
       ],
       "realmRoles": ["default-roles-epistola"],
-      "groups": ["ep_demo_reader", "ep_demo_editor", "ep_demo_generator", "ep_demo_manager"]
+      "groups": [
+        "/epistola/tenants/demo/reader",
+        "/epistola/tenants/demo/editor",
+        "/epistola/tenants/demo/generator",
+        "/epistola/tenants/demo/manager"
+      ]
     },
     {
       "username": "service-account-epistola-suite",

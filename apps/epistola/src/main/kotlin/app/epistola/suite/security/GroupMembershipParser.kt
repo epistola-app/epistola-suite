@@ -5,7 +5,10 @@ import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger(GroupMembershipParser::class.java)
 
-private const val EP_PREFIX = "ep_"
+private const val ROOT_SEGMENT = "epistola"
+private const val TENANTS_SEGMENT = "tenants"
+private const val GLOBAL_SEGMENT = "global"
+private const val PLATFORM_SEGMENT = "platform"
 
 /** All known tenant role names (lowercase with hyphens, matching group convention). */
 private val KNOWN_TENANT_ROLES = mapOf(
@@ -23,12 +26,12 @@ private val KNOWN_PLATFORM_ROLES = mapOf(
 /**
  * Result of parsing Keycloak group memberships from a JWT `groups` claim.
  *
- * All Epistola groups use the `ep_` prefix. The naming convention:
- * - `ep_{tenant}_{role}` → per-tenant role (e.g., `ep_acme-corp_reader`)
- * - `ep_{role}` → global role applying to all tenants (e.g., `ep_reader`)
- * - `ep_{platform-role}` → platform role (e.g., `ep_tenant-manager`)
+ * All Epistola groups live under the `/epistola` root group in Keycloak. The path convention:
+ * - `/epistola/tenants/{tenant}/{role}` → per-tenant role (e.g., `/epistola/tenants/acme-corp/reader`)
+ * - `/epistola/global/{role}` → global role applying to all tenants (e.g., `/epistola/global/reader`)
+ * - `/epistola/platform/{role}` → platform role (e.g., `/epistola/platform/tenant-manager`)
  *
- * Groups not starting with `ep_` or with unrecognized roles are silently ignored.
+ * Groups not matching these patterns are silently ignored.
  */
 data class ParsedGroupMemberships(
     val tenantRoles: Map<TenantKey, Set<TenantRole>>,
@@ -44,14 +47,16 @@ data class ParsedGroupMemberships(
 fun parseGroupMemberships(groups: List<String>): ParsedGroupMemberships = GroupMembershipParser.parse(groups)
 
 /**
- * Parser for Keycloak group memberships using the `ep_` prefix convention.
+ * Parser for Keycloak hierarchical group memberships using path-based convention.
  *
- * Parsing rules (after stripping the `ep_` prefix):
- * - Contains `_` → split on **last** `_` → left = tenant key, right = role
- * - No `_` → either a global tenant role or a platform role
+ * Parsing rules (splitting the group path on `/`):
+ * - `/epistola/tenants/{tenant}/{role}` → per-tenant role
+ * - `/epistola/global/{role}` → global tenant role (applies to all tenants)
+ * - `/epistola/platform/{role}` → platform role
  *
- * This is unambiguous because tenant keys match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
- * (no underscores allowed), and roles use hyphens only.
+ * This is unambiguous because the path structure encodes the category explicitly.
+ * Tenant keys match `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` and cannot collide with
+ * the reserved segments `tenants`, `global`, or `platform`.
  */
 object GroupMembershipParser {
 
@@ -61,47 +66,71 @@ object GroupMembershipParser {
         val platformRoles = mutableSetOf<PlatformRole>()
 
         for (group in groups) {
-            if (!group.startsWith(EP_PREFIX)) continue
+            // Split "/epistola/tenants/demo/reader" → ["", "epistola", "tenants", "demo", "reader"]
+            val segments = group.split('/')
 
-            val remainder = group.removePrefix(EP_PREFIX)
-            if (remainder.isEmpty()) continue
+            // Must start with "/" (empty first segment) and have "epistola" as root
+            if (segments.size < 3 || segments[0].isNotEmpty() || segments[1] != ROOT_SEGMENT) continue
 
-            val lastUnderscore = remainder.lastIndexOf('_')
+            when (segments[2]) {
+                TENANTS_SEGMENT -> {
+                    // /epistola/tenants/{tenant}/{role} → 5 segments
+                    if (segments.size != 5) {
+                        log.debug("Ignoring group '{}': expected /epistola/tenants/{{tenant}}/{{role}}", group)
+                        continue
+                    }
+                    val tenantPart = segments[3]
+                    val rolePart = segments[4]
 
-            if (lastUnderscore > 0) {
-                // Pattern: {tenant}_{role}
-                val tenantPart = remainder.substring(0, lastUnderscore)
-                val rolePart = remainder.substring(lastUnderscore + 1)
+                    val role = KNOWN_TENANT_ROLES[rolePart]
+                    if (role == null) {
+                        log.debug("Ignoring group '{}': unrecognized role '{}'", group, rolePart)
+                        continue
+                    }
 
-                val role = KNOWN_TENANT_ROLES[rolePart]
-                if (role == null) {
-                    log.debug("Ignoring group '{}': unrecognized role '{}'", group, rolePart)
-                    continue
+                    val tenantKey = try {
+                        TenantKey.of(tenantPart)
+                    } catch (e: IllegalArgumentException) {
+                        log.debug("Ignoring group '{}': invalid tenant key '{}'", group, tenantPart)
+                        continue
+                    }
+
+                    tenantRoles.getOrPut(tenantKey) { mutableSetOf() }.add(role)
                 }
 
-                val tenantKey = try {
-                    TenantKey.of(tenantPart)
-                } catch (e: IllegalArgumentException) {
-                    log.debug("Ignoring group '{}': invalid tenant key '{}'", group, tenantPart)
-                    continue
+                GLOBAL_SEGMENT -> {
+                    // /epistola/global/{role} → 4 segments
+                    if (segments.size != 4) {
+                        log.debug("Ignoring group '{}': expected /epistola/global/{{role}}", group)
+                        continue
+                    }
+                    val rolePart = segments[3]
+
+                    val tenantRole = KNOWN_TENANT_ROLES[rolePart]
+                    if (tenantRole != null) {
+                        globalRoles.add(tenantRole)
+                    } else {
+                        log.debug("Ignoring group '{}': unrecognized global role '{}'", group, rolePart)
+                    }
                 }
 
-                tenantRoles.getOrPut(tenantKey) { mutableSetOf() }.add(role)
-            } else {
-                // Pattern: {role} (no underscore) → global tenant role or platform role
-                val tenantRole = KNOWN_TENANT_ROLES[remainder]
-                if (tenantRole != null) {
-                    globalRoles.add(tenantRole)
-                    continue
+                PLATFORM_SEGMENT -> {
+                    // /epistola/platform/{role} → 4 segments
+                    if (segments.size != 4) {
+                        log.debug("Ignoring group '{}': expected /epistola/platform/{{role}}", group)
+                        continue
+                    }
+                    val rolePart = segments[3]
+
+                    val platformRole = KNOWN_PLATFORM_ROLES[rolePart]
+                    if (platformRole != null) {
+                        platformRoles.add(platformRole)
+                    } else {
+                        log.debug("Ignoring group '{}': unrecognized platform role '{}'", group, rolePart)
+                    }
                 }
 
-                val platformRole = KNOWN_PLATFORM_ROLES[remainder]
-                if (platformRole != null) {
-                    platformRoles.add(platformRole)
-                    continue
-                }
-
-                log.debug("Ignoring group '{}': unrecognized role '{}'", group, remainder)
+                else -> log.debug("Ignoring group '{}': unrecognized category '{}'", group, segments[2])
             }
         }
 

@@ -12,6 +12,7 @@
 
 ### Changed
 
+- **Hierarchical Keycloak groups**: Replaced flat `ep_{tenant}_{role}` group naming convention with hierarchical Keycloak groups under `/epistola/tenants/{tenant}/{role}`, `/epistola/global/{role}`, and `/epistola/platform/{role}`. Group membership mapper now uses full paths. `KeycloakAdminClient` supports hierarchical group operations (`findGroupByPath`, `createSubGroup`, `ensureGroupPath`). Reserved words `tenants`, `global`, `platform` added to `TenantKey`. Optional startup initializer (`epistola.keycloak.ensure-groups=true`) creates the base group hierarchy in Keycloak for environments without a realm import.
 - **Feedback screenshot**: Replaced file upload (click, paste, drag-and-drop) with two in-browser capture modes — region selection (draw a rectangle on the page) and viewport capture. Uses the native Screen Capture API (zero dependencies). Buttons are hidden in unsupported browsers.
 
 ### Fixed
