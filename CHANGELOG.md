@@ -4,6 +4,17 @@
 
 ### Added
 
+- **Typed document generation exceptions**: Replaced generic `require()` / `IllegalArgumentException` in `GenerateDocument` and `GenerateDocumentBatch` handlers with typed exceptions (`TemplateVariantNotFoundException`, `VersionNotFoundException`, `EnvironmentNotFoundException`, `DefaultVariantNotFoundException`). Each maps to a specific HTTP status code and structured error response in the API.
+- **Complete API exception handling**: Added missing exception handlers for `AssetNotFoundException` (404), `AssetTooLargeException` (413), `UnsupportedAssetTypeException` (400), `AssetInUseException` (409), `EnvironmentInUseException` (409), and `FeedbackAccessDeniedException` (403).
+- **JSONB GIN indexes**: Added GIN indexes on `template_versions.template_model` and `template_variants.attributes` for faster JSON traversal queries.
+
+### Fixed
+
+- **Local admin tenant access**: The `admin@local` user now has global roles, granting access to all tenants. Previously, it only had platform role (TENANT_MANAGER) which allowed creating tenants but not accessing them.
+- **Authorization error page**: Authorization errors (403) now render the styled error page for full-page navigations instead of returning raw JSON. HTMX requests continue to receive JSON for the client-side error banner.
+
+### Previously Added
+
 - **QR code block**: Templates can now include a `QR Code` component that generates a code from an expression. The editor shows a live preview using example data, and PDF generation renders the same QR code in output documents. Values are limited to 2,500 bytes (UTF-8) due to QR specification constraints; the editor preview shows a clear error when this limit is exceeded.
 - **QR code in demo invoice**: The demo invoice template now includes a "Scan to pay" QR code in the footer, linked to a `paymentLink` data field.
 - **JSON Schema view in contract editor**: Schema tab now has a Visual/JSON toggle to view the JSON Schema representation of the data contract. Includes copy-to-clipboard button.

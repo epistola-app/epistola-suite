@@ -55,9 +55,18 @@ class AuthorizationExceptionFilter : OncePerRequestFilter() {
                 else -> throw ex
             }
 
-            response.status = HttpServletResponse.SC_FORBIDDEN
-            response.contentType = MediaType.APPLICATION_JSON_VALUE
-            response.writer.write("""{"error":"$message"}""")
+            val acceptsJson = request.getHeader("Accept")?.contains(MediaType.APPLICATION_JSON_VALUE) == true
+            val isHtmx = request.getHeader("HX-Request") == "true"
+
+            if (acceptsJson || isHtmx) {
+                // JSON for API-like clients and HTMX (client-side error banner handler expects JSON)
+                response.status = HttpServletResponse.SC_FORBIDDEN
+                response.contentType = MediaType.APPLICATION_JSON_VALUE
+                response.writer.write("""{"error":"$message"}""")
+            } else {
+                // Full page load: render 403 error template via Spring Boot error page resolution
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, message)
+            }
         }
     }
 

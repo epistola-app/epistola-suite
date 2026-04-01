@@ -2,9 +2,18 @@ package app.epistola.suite.api.v1
 
 import app.epistola.api.model.FieldError
 import app.epistola.api.model.ValidationErrorResponse
+import app.epistola.suite.assets.AssetInUseException
+import app.epistola.suite.assets.AssetNotFoundException
+import app.epistola.suite.assets.AssetTooLargeException
+import app.epistola.suite.assets.UnsupportedAssetTypeException
 import app.epistola.suite.attributes.commands.AllowedValuesInUseException
 import app.epistola.suite.attributes.commands.AttributeInUseException
+import app.epistola.suite.documents.DefaultVariantNotFoundException
+import app.epistola.suite.documents.EnvironmentNotFoundException
+import app.epistola.suite.documents.TemplateVariantNotFoundException
+import app.epistola.suite.documents.VersionNotFoundException
 import app.epistola.suite.documents.commands.BatchValidationException
+import app.epistola.suite.environments.EnvironmentInUseException
 import app.epistola.suite.security.PermissionDeniedException
 import app.epistola.suite.security.PlatformAccessDeniedException
 import app.epistola.suite.security.TenantAccessDeniedException
@@ -257,6 +266,176 @@ class ApiExceptionHandler {
                 details = mapOf(
                     "attributeId" to ex.attributeId.key,
                     "valuesInUse" to ex.removedValues,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles template/variant not found during document generation.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(TemplateVariantNotFoundException::class)
+    fun handleTemplateVariantNotFoundException(ex: TemplateVariantNotFoundException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Template variant not found: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "TEMPLATE_VARIANT_NOT_FOUND",
+                message = ex.message ?: "Template variant not found",
+                details = mapOf(
+                    "tenantId" to ex.tenantId.value,
+                    "templateId" to ex.templateId.value,
+                    "variantId" to ex.variantId.value,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles version not found during document generation.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(VersionNotFoundException::class)
+    fun handleVersionNotFoundException(ex: VersionNotFoundException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Version not found: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "VERSION_NOT_FOUND",
+                message = ex.message ?: "Version not found",
+                details = mapOf(
+                    "templateId" to ex.templateId.value,
+                    "variantId" to ex.variantId.value,
+                    "versionId" to ex.versionId.value,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles environment not found during document generation.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(EnvironmentNotFoundException::class)
+    fun handleEnvironmentNotFoundException(ex: EnvironmentNotFoundException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Environment not found: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "ENVIRONMENT_NOT_FOUND",
+                message = ex.message ?: "Environment not found",
+                details = mapOf(
+                    "tenantId" to ex.tenantId.value,
+                    "environmentId" to ex.environmentId.value,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles missing default variant during document generation.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(DefaultVariantNotFoundException::class)
+    fun handleDefaultVariantNotFoundException(ex: DefaultVariantNotFoundException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Default variant not found: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "DEFAULT_VARIANT_NOT_FOUND",
+                message = ex.message ?: "No default variant found",
+                details = mapOf(
+                    "tenantId" to ex.tenantId.value,
+                    "templateId" to ex.templateId.value,
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles asset not found errors.
+     * Returns 404 Not Found.
+     */
+    @ExceptionHandler(AssetNotFoundException::class)
+    fun handleAssetNotFoundException(ex: AssetNotFoundException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Asset not found: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            ApiErrorResponse(
+                code = "ASSET_NOT_FOUND",
+                message = ex.message ?: "Asset not found",
+            ),
+        )
+    }
+
+    /**
+     * Handles asset too large errors.
+     * Returns 413 Payload Too Large.
+     */
+    @ExceptionHandler(AssetTooLargeException::class)
+    fun handleAssetTooLargeException(ex: AssetTooLargeException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Asset too large: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(
+            ApiErrorResponse(
+                code = "ASSET_TOO_LARGE",
+                message = ex.message ?: "Asset exceeds maximum size",
+            ),
+        )
+    }
+
+    /**
+     * Handles unsupported asset type errors.
+     * Returns 400 Bad Request.
+     */
+    @ExceptionHandler(UnsupportedAssetTypeException::class)
+    fun handleUnsupportedAssetTypeException(ex: UnsupportedAssetTypeException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Unsupported asset type: {}", ex.message)
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+            ApiErrorResponse(
+                code = "UNSUPPORTED_ASSET_TYPE",
+                message = ex.message ?: "Unsupported asset media type",
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to delete an asset that is referenced by template versions.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(AssetInUseException::class)
+    fun handleAssetInUseException(ex: AssetInUseException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot delete asset {}: in use by {} template(s)", ex.assetId, ex.usages.size)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "ASSET_IN_USE",
+                message = ex.message ?: "Asset is in use and cannot be deleted",
+                details = mapOf(
+                    "assetId" to ex.assetId.value,
+                    "usages" to ex.usages.map { mapOf("templateName" to it.templateName, "variantTitle" to it.variantTitle) },
+                ),
+            ),
+        )
+    }
+
+    /**
+     * Handles attempts to delete an environment that has active version activations.
+     * Returns 409 Conflict.
+     */
+    @ExceptionHandler(EnvironmentInUseException::class)
+    fun handleEnvironmentInUseException(ex: EnvironmentInUseException): ResponseEntity<ApiErrorResponse> {
+        logger.warn("Cannot delete environment {}: {} active activation(s)", ex.environmentId, ex.activationCount)
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+            ApiErrorResponse(
+                code = "ENVIRONMENT_IN_USE",
+                message = ex.message ?: "Environment is in use and cannot be deleted",
+                details = mapOf(
+                    "environmentId" to ex.environmentId.value,
+                    "activationCount" to ex.activationCount,
                 ),
             ),
         )
