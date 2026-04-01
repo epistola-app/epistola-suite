@@ -99,9 +99,12 @@
                             </td>
                             <td th:text="${job.variantKey}">variant</td>
                             <td>
-                                <span class="status-badge"
-                                      th:classappend="'status-' + ${job.status.name().toLowerCase()}"
-                                      th:text="${job.status.name()}">STATUS</span>
+                                <span class="badge"
+                                      th:classappend="${job.status.name() == 'COMPLETED' ? 'badge-success' :
+                                                        job.status.name() == 'IN_PROGRESS' ? 'badge-primary' :
+                                                        job.status.name() == 'FAILED' ? 'badge-destructive' :
+                                                        job.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
+                                      th:text="${job.status}">STATUS</span>
                             </td>
                             <td>
                                 <span th:if="${job.errorMessage != null}"
@@ -118,21 +121,6 @@
                 </tbody>
             </table>
         </section>
-
-        <style>
-            .status-badge {
-                display: inline-block;
-                padding: 2px 8px;
-                border-radius: var(--ep-radius-md);
-                font-size: var(--ep-text-sm);
-                font-weight: 500;
-            }
-            .status-pending { background: var(--ep-muted); color: var(--ep-muted-foreground); }
-            .status-in_progress { background: #dbeafe; color: #1d4ed8; }
-            .status-completed { background: #dcfce7; color: #166534; }
-            .status-failed { background: #fee2e2; color: #991b1b; }
-            .status-cancelled { background: var(--ep-muted); color: var(--ep-muted-foreground); }
-        </style>
     </th:block>
 </body>
 </html>

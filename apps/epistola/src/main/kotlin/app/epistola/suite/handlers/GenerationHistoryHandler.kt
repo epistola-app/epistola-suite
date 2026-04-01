@@ -16,12 +16,16 @@ import org.springframework.web.servlet.function.ServerResponse
 @Component
 class GenerationHistoryHandler {
 
+    private companion object {
+        const val RECENT_JOBS_LIMIT = 20
+    }
+
     fun dashboard(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
 
         val stats = GetGenerationStats(tenantId.key).query()
         val templateUsage = GetTemplateUsage(tenantId.key).query()
-        val recentJobs = ListGenerationJobs(tenantId.key, limit = 20).query()
+        val recentJobs = ListGenerationJobs(tenantId.key, limit = RECENT_JOBS_LIMIT).query()
 
         return ServerResponse.ok().page("generation-history/dashboard") {
             "pageTitle" to "Generation History - Epistola"
@@ -42,7 +46,7 @@ class GenerationHistoryHandler {
         val jobs = ListGenerationJobs(
             tenantId = tenantId.key,
             status = statusFilter,
-            limit = 20,
+            limit = RECENT_JOBS_LIMIT,
         ).query()
 
         return request.htmx {
