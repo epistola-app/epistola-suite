@@ -26,7 +26,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro,z
     command:
       - start-dev
       - --import-realm
