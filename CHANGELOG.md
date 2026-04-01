@@ -2,19 +2,13 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-01
+
 ### Added
 
 - **Typed document generation exceptions**: Replaced generic `require()` / `IllegalArgumentException` in `GenerateDocument` and `GenerateDocumentBatch` handlers with typed exceptions (`TemplateVariantNotFoundException`, `VersionNotFoundException`, `EnvironmentNotFoundException`, `DefaultVariantNotFoundException`). Each maps to a specific HTTP status code and structured error response in the API.
 - **Complete API exception handling**: Added missing exception handlers for `AssetNotFoundException` (404), `AssetTooLargeException` (413), `UnsupportedAssetTypeException` (400), `AssetInUseException` (409), `EnvironmentInUseException` (409), and `FeedbackAccessDeniedException` (403).
 - **JSONB GIN indexes**: Added GIN indexes on `template_versions.template_model` and `template_variants.attributes` for faster JSON traversal queries.
-
-### Fixed
-
-- **Local admin tenant access**: The `admin@local` user now has global roles, granting access to all tenants. Previously, it only had platform role (TENANT_MANAGER) which allowed creating tenants but not accessing them.
-- **Authorization error page**: Authorization errors (403) now render the styled error page for full-page navigations instead of returning raw JSON. HTMX requests continue to receive JSON for the client-side error banner.
-
-### Previously Added
-
 - **QR code block**: Templates can now include a `QR Code` component that generates a code from an expression. The editor shows a live preview using example data, and PDF generation renders the same QR code in output documents. Values are limited to 2,500 bytes (UTF-8) due to QR specification constraints; the editor preview shows a clear error when this limit is exceeded.
 - **QR code in demo invoice**: The demo invoice template now includes a "Scan to pay" QR code in the footer, linked to a `paymentLink` data field.
 - **JSON Schema view in contract editor**: Schema tab now has a Visual/JSON toggle to view the JSON Schema representation of the data contract. Includes copy-to-clipboard button.
@@ -22,14 +16,17 @@
 - **Schema compatibility checking**: When an imported schema uses features not supported by the visual editor (enum, $ref, allOf/anyOf/oneOf, etc.), the visual editor is disabled and a read-only JSON view with a compatibility warning banner is shown instead.
 - **Field constraints in visual editor**: Number/integer fields support `minimum` and `maximum` constraints. Array fields support `minItems`. String fields support `format: "email"`.
 - **Two-panel schema editor**: The visual schema builder now uses a list + detail panel layout. A compact field list on the left shows field names, types, and required indicators. Clicking a field opens its full editing form in the detail panel on the right, including name, type, required, description, and type-specific constraints. The page is widened to `72rem` to accommodate the layout.
+- **Feedback screenshot**: Replaced file upload (click, paste, drag-and-drop) with two in-browser capture modes — region selection (draw a rectangle on the page) and viewport capture. Uses the native Screen Capture API (zero dependencies). Buttons are hidden in unsupported browsers.
 
 ### Changed
 
 - **Hierarchical Keycloak groups**: Replaced flat `ep_{tenant}_{role}` group naming convention with hierarchical Keycloak groups under `/epistola/tenants/{tenant}/{role}`, `/epistola/global/{role}`, and `/epistola/platform/{role}`. Group membership mapper now uses full paths. `KeycloakAdminClient` supports hierarchical group operations (`findGroupByPath`, `createSubGroup`, `ensureGroupPath`). Reserved words `tenants`, `global`, `platform` added to `TenantKey`. Optional startup initializer (`epistola.keycloak.ensure-groups=true`) creates the base group hierarchy in Keycloak for environments without a realm import.
-- **Feedback screenshot**: Replaced file upload (click, paste, drag-and-drop) with two in-browser capture modes — region selection (draw a rectangle on the page) and viewport capture. Uses the native Screen Capture API (zero dependencies). Buttons are hidden in unsupported browsers.
 
 ### Fixed
 
+- **Local admin tenant access**: The `admin@local` user now has global roles, granting access to all tenants. Previously, it only had platform role (TENANT_MANAGER) which allowed creating tenants but not accessing them.
+- **Authorization error page**: Authorization errors (403) now render the styled error page for full-page navigations instead of returning raw JSON. HTMX requests continue to receive JSON for the client-side error banner.
+- **Docker Compose SELinux compatibility**: Fixed volume mounts for SELinux-enforcing hosts.
 - **QR code PDF generation**: Handle encoding failures (e.g., input exceeding QR capacity) gracefully instead of crashing the entire PDF render.
 - **Dialog header layout**: Close button now correctly positions to the right of the title in `ep-dialog-header` (added flexbox).
 - **Schema import undo**: Importing a JSON Schema now snapshots the previous state so the import can be undone with Ctrl+Z.
