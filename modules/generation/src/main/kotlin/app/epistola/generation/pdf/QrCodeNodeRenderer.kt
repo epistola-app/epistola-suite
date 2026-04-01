@@ -10,11 +10,11 @@ import com.itextpdf.io.image.ImageDataFactory
 import com.itextpdf.layout.element.Div
 import com.itextpdf.layout.element.IElement
 import com.itextpdf.layout.element.Image
+import org.slf4j.LoggerFactory
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import javax.imageio.ImageIO
 import kotlin.math.roundToInt
-import org.slf4j.LoggerFactory
 
 /**
  * Renders a "qrcode" node by evaluating its value expression and embedding the generated symbol.
