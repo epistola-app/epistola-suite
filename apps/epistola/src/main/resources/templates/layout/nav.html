@@ -34,6 +34,12 @@
                    th:classappend="${activeNavSection == 'attributes'} ? ' active' : ''">
                     Attributes
                 </a>
+                <a th:if="${auth.has('DOCUMENT_VIEW')}"
+                   th:href="@{/tenants/{id}/generation-history(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'generation-history'} ? ' active' : ''">
+                    Generation
+                </a>
                 <a th:if="${auth.has('DOCUMENT_GENERATE')}"
                    th:href="@{/tenants/{id}/load-tests(id=${tenantId})}"
                    class="app-nav-link"

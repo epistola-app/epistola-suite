@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Generation history dashboard**: New "Generation" page in the tenant navigation showing document generation statistics (total generated, in queue, completed, failed), most used templates, recent jobs with status filter, and recent failures with error messages.
 - **Additional string formats in schema editor**: Added support for `date-time` (ISO 8601) and `uri` formats on string fields. These formats are now available in the visual editor dropdown, pass compatibility checks, and have validation for test data.
 
 ### Fixed
