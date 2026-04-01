@@ -18,6 +18,7 @@
 
 ### Fixed
 
+- **QR code PDF generation**: Handle encoding failures (e.g., input exceeding QR capacity) gracefully instead of crashing the entire PDF render.
 - **Dialog header layout**: Close button now correctly positions to the right of the title in `ep-dialog-header` (added flexbox).
 - **Schema import undo**: Importing a JSON Schema now snapshots the previous state so the import can be undone with Ctrl+Z.
 - **Schema import migration detection**: Importing a schema (including incompatible/json-only schemas) now properly detects breaking changes against existing data examples and shows the migration dialog.

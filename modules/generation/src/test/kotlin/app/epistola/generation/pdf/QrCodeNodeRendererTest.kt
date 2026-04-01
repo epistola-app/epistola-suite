@@ -83,6 +83,71 @@ class QrCodeNodeRendererTest {
     }
 
     @Test
+    fun `renders QR code node from boolean expression`() {
+        val document = documentWithQrCodeNode(
+            mapOf(
+                "value" to mapOf("raw" to "verified", "language" to "jsonata"),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("verified" to true), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `skips gracefully when expression resolves to whitespace-only string`() {
+        val document = documentWithQrCodeNode(
+            mapOf(
+                "value" to mapOf("raw" to "blank", "language" to "jsonata"),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("blank" to "   "), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `skips gracefully when value exceeds QR capacity`() {
+        val document = documentWithQrCodeNode(
+            mapOf(
+                "value" to mapOf("raw" to "huge", "language" to "jsonata"),
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("huge" to "x".repeat(5000)), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
+    fun `renders with custom size in sp units`() {
+        val document = documentWithQrCodeNode(
+            mapOf(
+                "value" to mapOf("raw" to "url", "language" to "jsonata"),
+                "size" to "20sp",
+            ),
+        )
+
+        val output = ByteArrayOutputStream()
+        renderer.render(document, mapOf("url" to "https://example.com"), output)
+
+        val pdfBytes = output.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+        assertTrue(pdfBytes.decodeToString(0, 5).startsWith("%PDF"))
+    }
+
+    @Test
     fun `skips gracefully when expression resolves to object`() {
         val document = documentWithQrCodeNode(
             mapOf(

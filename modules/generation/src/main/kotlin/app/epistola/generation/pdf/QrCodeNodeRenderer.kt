@@ -35,7 +35,14 @@ class QrCodeNodeRenderer : NodeRenderer {
         val value = resolveQrValue(expression, context, node) ?: return emptyList()
         val sizePt = parseSizePt(node.props?.get("size"), context) ?: DEFAULT_SIZE_PT
 
-        val image = Image(ImageDataFactory.create(generateQrCodePng(value, sizePt)))
+        val pngBytes = try {
+            generateQrCodePng(value, sizePt)
+        } catch (e: Exception) {
+            logger.warn("QR code node {} failed to encode: {}", node.id, e.message)
+            return emptyList()
+        }
+
+        val image = Image(ImageDataFactory.create(pngBytes))
         image.setWidth(sizePt)
         image.setHeight(sizePt)
 
