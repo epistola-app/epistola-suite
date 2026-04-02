@@ -2,11 +2,14 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-04-02
+
 ### Added
 
 - **Version comparison**: Side-by-side PDF comparison of two template versions. Accessible from the deployment matrix via a "Compare" button per variant. Opens a fullscreen overlay where you can select two versions and a data example, then view both rendered PDFs side by side.
 - **Generation history dashboard**: New "Generation" page in the tenant navigation showing document generation statistics (total generated, in queue, completed, failed), most used templates, recent jobs with status filter, and recent failures with error messages.
 - **Additional string formats in schema editor**: Added support for `date-time` (ISO 8601) and `uri` formats on string fields. These formats are now available in the visual editor dropdown, pass compatibility checks, and have validation for test data.
+- **Attribute definitions REST endpoints**: Wired up REST API endpoints for managing attribute definitions.
 
 ### Fixed
 
