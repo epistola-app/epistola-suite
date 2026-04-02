@@ -1,6 +1,7 @@
 package app.epistola.suite.api.v1.shared
 
 import app.epistola.api.model.ActivationDto
+import app.epistola.api.model.AttributeDto
 import app.epistola.api.model.DataExampleDto
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.TemplateDto
@@ -10,6 +11,7 @@ import app.epistola.api.model.VariantDto
 import app.epistola.api.model.VariantSummaryDto
 import app.epistola.api.model.VersionDto
 import app.epistola.api.model.VersionSummaryDto
+import app.epistola.suite.attributes.model.VariantAttributeDefinition
 import app.epistola.suite.environments.Environment
 import app.epistola.suite.templates.DocumentTemplate
 import app.epistola.suite.templates.model.ActivationDetails
@@ -23,6 +25,13 @@ import tools.jackson.databind.ObjectMapper
 internal fun Tenant.toDto() = TenantDto(
     id = id.value,
     name = name,
+    createdAt = createdAt,
+)
+
+internal fun VariantAttributeDefinition.toDto() = AttributeDto(
+    key = id.value,
+    tenantId = tenantKey.value,
+    description = displayName,
     createdAt = createdAt,
 )
 

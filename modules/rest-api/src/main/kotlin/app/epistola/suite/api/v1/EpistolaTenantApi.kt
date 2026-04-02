@@ -1,16 +1,28 @@
 package app.epistola.suite.api.v1
 
+import app.epistola.api.AttributesApi
 import app.epistola.api.EnvironmentsApi
 import app.epistola.api.TenantsApi
+import app.epistola.api.model.AttributeDto
+import app.epistola.api.model.AttributeListResponse
+import app.epistola.api.model.CreateAttributeRequest
 import app.epistola.api.model.CreateEnvironmentRequest
 import app.epistola.api.model.CreateTenantRequest
 import app.epistola.api.model.EnvironmentDto
 import app.epistola.api.model.EnvironmentListResponse
 import app.epistola.api.model.TenantDto
 import app.epistola.api.model.TenantListResponse
+import app.epistola.api.model.UpdateAttributeRequest
 import app.epistola.api.model.UpdateEnvironmentRequest
 import app.epistola.api.model.UpdateTenantRequest
 import app.epistola.suite.api.v1.shared.toDto
+import app.epistola.suite.attributes.commands.CreateAttributeDefinition
+import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
+import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
+import app.epistola.suite.attributes.queries.GetAttributeDefinition
+import app.epistola.suite.attributes.queries.ListAttributeDefinitions
+import app.epistola.suite.common.ids.AttributeId
+import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TenantId
@@ -35,6 +47,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api")
 class EpistolaTenantApi :
     TenantsApi,
+    AttributesApi,
     EnvironmentsApi {
 
     // ================== Tenant operations ==================
@@ -90,6 +103,70 @@ class EpistolaTenantApi :
         tenantId: String,
     ): ResponseEntity<Unit> {
         val deleted = DeleteTenant(id = TenantKey.of(tenantId)).execute()
+        return if (deleted) {
+            ResponseEntity.noContent().build()
+        } else {
+            ResponseEntity.notFound().build()
+        }
+    }
+
+    // ================== Attribute operations ==================
+
+    override fun listAttributes(
+        tenantId: String,
+    ): ResponseEntity<AttributeListResponse> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val attributes = ListAttributeDefinitions(tenantId = tenantIdComposite).query()
+        return ResponseEntity.ok(AttributeListResponse(items = attributes.map { it.toDto() }))
+    }
+
+    override fun createAttribute(
+        tenantId: String,
+        createAttributeRequest: CreateAttributeRequest,
+    ): ResponseEntity<AttributeDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val attributeIdComposite = AttributeId(AttributeKey.of(createAttributeRequest.key), tenantIdComposite)
+        val attribute = CreateAttributeDefinition(
+            id = attributeIdComposite,
+            displayName = createAttributeRequest.description ?: createAttributeRequest.key,
+        ).execute()
+        return ResponseEntity.status(HttpStatus.CREATED).body(attribute.toDto())
+    }
+
+    override fun getAttribute(
+        tenantId: String,
+        attributeKey: String,
+    ): ResponseEntity<AttributeDto> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attribute = GetAttributeDefinition(id = attributeIdComposite).query()
+            ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(attribute.toDto())
+    }
+
+    override fun updateAttribute(
+        tenantId: String,
+        attributeKey: String,
+        updateAttributeRequest: UpdateAttributeRequest,
+    ): ResponseEntity<AttributeDto> {
+        val description = updateAttributeRequest.description
+            ?: return ResponseEntity.badRequest().build()
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val attribute = UpdateAttributeDefinition(
+            id = attributeIdComposite,
+            displayName = description,
+        ).execute() ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(attribute.toDto())
+    }
+
+    override fun deleteAttribute(
+        tenantId: String,
+        attributeKey: String,
+    ): ResponseEntity<Unit> {
+        val tenantIdComposite = TenantId(TenantKey.of(tenantId))
+        val attributeIdComposite = AttributeId(AttributeKey.of(attributeKey), tenantIdComposite)
+        val deleted = DeleteAttributeDefinition(id = attributeIdComposite).execute()
         return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
