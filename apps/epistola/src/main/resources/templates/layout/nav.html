@@ -52,6 +52,12 @@
                     Feedback
                 </a>
                 <a th:if="${auth.has('TENANT_SETTINGS')}"
+                   th:href="@{/tenants/{id}/catalogs(id=${tenantId})}"
+                   class="app-nav-link"
+                   th:classappend="${activeNavSection == 'catalogs'} ? ' active' : ''">
+                    Catalogs
+                </a>
+                <a th:if="${auth.has('TENANT_SETTINGS')}"
                    th:href="@{/tenants/{id}/settings/feedback-sync(id=${tenantId})}"
                    class="app-nav-link"
                    th:classappend="${activeNavSection == 'settings'} ? ' active' : ''">
