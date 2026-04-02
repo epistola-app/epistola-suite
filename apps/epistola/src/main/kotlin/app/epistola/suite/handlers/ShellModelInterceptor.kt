@@ -67,6 +67,7 @@ class ShellModelInterceptor : HandlerInterceptor {
         "/themes" in path -> "themes"
         "/environments" in path -> "environments"
         "/attributes" in path -> "attributes"
+        "/generation-history" in path -> "generation-history"
         "/load-tests" in path -> "load-tests"
         "/assets" in path -> "assets"
         "/settings" in path -> "settings"

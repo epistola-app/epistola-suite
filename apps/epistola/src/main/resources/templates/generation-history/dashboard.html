@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="page-header">
+            <h1>Generation History</h1>
+        </div>
+
+        <!-- Statistics -->
+        <div class="dashboard-stats" style="margin-bottom: var(--ep-space-6);">
+            <div class="stat-card">
+                <div class="stat-card-value" th:text="${stats.totalGenerated}">0</div>
+                <div class="stat-card-label">Total Generated</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value" th:text="${stats.inQueue}">0</div>
+                <div class="stat-card-label">In Queue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value" th:text="${stats.completed}">0</div>
+                <div class="stat-card-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-value" th:text="${stats.failed}">0</div>
+                <div class="stat-card-label">Failed</div>
+            </div>
+        </div>
+
+        <!-- Most Used Templates -->
+        <section style="margin-bottom: var(--ep-space-6);">
+            <h2>Most Used Templates</h2>
+            <div th:if="${#lists.isEmpty(templateUsage)}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{fragments/icon :: icon(name='file-text', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No template usage data</div>
+                <div class="empty-state-description">Generate some documents to see template usage statistics.</div>
+            </div>
+            <table th:if="${!#lists.isEmpty(templateUsage)}" class="ep-table">
+                <thead>
+                    <tr>
+                        <th>Template</th>
+                        <th>Variant</th>
+                        <th>Generations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="usage : ${templateUsage}">
+                        <td>
+                            <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${usage.templateKey})}"
+                               style="font-weight: 500;"
+                               th:text="${usage.templateKey}">template</a>
+                        </td>
+                        <td th:text="${usage.variantKey}">variant</td>
+                        <td th:text="${usage.count}">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Recent Jobs -->
+        <section>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--ep-space-3);">
+                <h2 style="margin: 0;">Recent Jobs</h2>
+                <select class="ep-input ep-input-sm" style="width: auto;"
+                        hx-get th:hx-get="@{/tenants/{tenantId}/generation-history/search(tenantId=${tenantId})}"
+                        hx-target="#job-rows"
+                        hx-swap="innerHTML"
+                        name="status">
+                    <option value="">All Statuses</option>
+                    <option th:each="s : ${statuses}" th:value="${s.name()}" th:text="${s.name()}">STATUS</option>
+                </select>
+            </div>
+            <div th:if="${#lists.isEmpty(recentJobs)}" class="empty-state">
+                <div class="empty-state-icon">
+                    <th:block th:replace="~{fragments/icon :: icon(name='zap', class='ep-icon ep-icon-xl')}" />
+                </div>
+                <div class="empty-state-title">No generation jobs yet</div>
+                <div class="empty-state-description">Generate documents to see job history here.</div>
+            </div>
+            <table th:if="${!#lists.isEmpty(recentJobs)}" class="ep-table">
+                <thead>
+                    <tr>
+                        <th>Template</th>
+                        <th>Variant</th>
+                        <th>Status</th>
+                        <th>Error</th>
+                        <th>Created</th>
+                        <th>Completed</th>
+                    </tr>
+                </thead>
+                <tbody id="job-rows">
+                    <th:block th:fragment="job-rows">
+                        <tr th:each="job : ${recentJobs}">
+                            <td>
+                                <a th:href="@{/tenants/{tenantId}/templates/{templateKey}(tenantId=${tenantId},templateKey=${job.templateKey})}"
+                                   style="font-weight: 500;"
+                                   th:text="${job.templateKey}">template</a>
+                            </td>
+                            <td th:text="${job.variantKey}">variant</td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${job.status.name() == 'COMPLETED' ? 'badge-success' :
+                                                        job.status.name() == 'IN_PROGRESS' ? 'badge-primary' :
+                                                        job.status.name() == 'FAILED' ? 'badge-destructive' :
+                                                        job.status.name() == 'CANCELLED' ? 'badge-warning' : 'badge-outline'}"
+                                      th:text="${job.status}">STATUS</span>
+                            </td>
+                            <td>
+                                <span th:if="${job.errorMessage != null}"
+                                      class="ep-text-sm ep-text-muted"
+                                      style="max-width: 300px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                      th:title="${job.errorMessage}"
+                                      th:text="${job.errorMessage}">Error</span>
+                                <span th:if="${job.errorMessage == null}" class="ep-text-muted">—</span>
+                            </td>
+                            <td th:text="${#temporals.format(job.createdAt, 'yyyy-MM-dd HH:mm')}">2026-01-01</td>
+                            <td th:text="${job.completedAt != null ? #temporals.format(job.completedAt, 'yyyy-MM-dd HH:mm') : '—'}">—</td>
+                        </tr>
+                    </th:block>
+                </tbody>
+            </table>
+        </section>
+    </th:block>
+</body>
+</html>
