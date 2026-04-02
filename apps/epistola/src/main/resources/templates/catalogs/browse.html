@@ -10,11 +10,9 @@
         <h1 th:text="${catalog.name}"></h1>
         <p class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
 
-        <div class="alert alert-success" th:if="${param.installed}">
+        <div class="alert alert-success" th:if="${installed}">
             Templates installed successfully.
         </div>
-
-        <div class="alert alert-danger" th:if="${param.error}" th:text="${param.error[0]}"></div>
 
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">

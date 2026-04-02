@@ -26,7 +26,6 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogs = ListCatalogs(tenantId.key).query()
         val saved = request.param("saved").isPresent
-        val error = request.param("error").orElse(null)
 
         return ServerResponse.ok().page("catalogs/list") {
             "pageTitle" to "Catalogs - Epistola"
@@ -34,7 +33,6 @@ class CatalogHandler {
             "activeNavSection" to "catalogs"
             "catalogs" to catalogs
             if (saved) "saved" to true
-            if (error != null) "error" to error
         }
     }
 
@@ -49,9 +47,7 @@ class CatalogHandler {
         }
 
         if (form.hasErrors()) {
-            return ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?error=URL is required")
-                .build()
+            return listWithError(request, "Catalog URL is required.")
         }
 
         val sourceUrl = form.formData["sourceUrl"]!!
@@ -76,9 +72,7 @@ class CatalogHandler {
                 .build()
         } catch (e: Exception) {
             logger.warn("Failed to register catalog: ${e.message}", e)
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?error=${e.message}")
-                .build()
+            listWithError(request, "Failed to register catalog. Check that the URL points to a valid catalog manifest.")
         }
     }
 
@@ -86,11 +80,16 @@ class CatalogHandler {
         val tenantId = request.tenantId()
         val catalogKey = CatalogKey.of(request.pathVariable("catalogId"))
 
-        UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).execute()
+        return try {
+            UnregisterCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).execute()
 
-        return ServerResponse.status(303)
-            .header("Location", "/tenants/${tenantId.key}/catalogs?saved=true")
-            .build()
+            ServerResponse.status(303)
+                .header("Location", "/tenants/${tenantId.key}/catalogs?saved=true")
+                .build()
+        } catch (e: Exception) {
+            logger.warn("Failed to unregister catalog: ${e.message}", e)
+            listWithError(request, "Failed to remove catalog.")
+        }
     }
 
     fun browse(request: ServerRequest): ServerResponse {
@@ -106,12 +105,11 @@ class CatalogHandler {
                 "activeNavSection" to "catalogs"
                 "catalog" to result.catalog
                 "resources" to result.resources
+                if (request.param("installed").isPresent) "installed" to true
             }
         } catch (e: Exception) {
             logger.warn("Failed to browse catalog: ${e.message}", e)
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs?error=${e.message}")
-                .build()
+            listWithError(request, "Failed to fetch catalog. The remote server may be unavailable or the URL may be incorrect.")
         }
     }
 
@@ -134,9 +132,20 @@ class CatalogHandler {
                 .build()
         } catch (e: Exception) {
             logger.warn("Failed to install from catalog: ${e.message}", e)
-            ServerResponse.status(303)
-                .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse?error=${e.message}")
-                .build()
+            listWithError(request, "Failed to install templates from catalog.")
+        }
+    }
+
+    private fun listWithError(request: ServerRequest, error: String): ServerResponse {
+        val tenantId = request.tenantId()
+        val catalogs = ListCatalogs(tenantId.key).query()
+
+        return ServerResponse.ok().page("catalogs/list") {
+            "pageTitle" to "Catalogs - Epistola"
+            "tenantId" to tenantId.key
+            "activeNavSection" to "catalogs"
+            "catalogs" to catalogs
+            "error" to error
         }
     }
 }
