@@ -168,7 +168,7 @@ epistola:
         interval-ms: 300000 # Poll interval (default 5 min)
 ```
 
-Per-tenant GitHub settings (PAT, repo owner/name, label) are configured via the Settings UI at `/tenants/{id}/settings/feedback-sync`.
+Per-tenant GitHub settings (PAT, repo owner/name, label) are configured via the Feedback Sync UI at `/tenants/{id}/feedback/sync`.
 
 ## Future Improvements
 
