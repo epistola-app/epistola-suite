@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Resource exchange design**: Design document for exchanging templates between Epistola instances via externally hosted catalogs. Defines the catalog protocol (manifest + detail URL format), content hashing for version detection, and upgrade strategy with local change protection.
+
 ## [0.11.0] - 2026-04-02
 
 ### Added
