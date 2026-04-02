@@ -1036,6 +1036,77 @@ a.stat-card:hover {
   max-width: 40rem;
 }
 
+/* ── Fullscreen dialog variant ───────────────────────────────────────── */
+
+.ep-dialog-fullscreen {
+  max-width: 95vw;
+  width: 95vw;
+  max-height: 90vh;
+  height: 90vh;
+  background: var(--ep-card, #fff);
+}
+
+/* ── Version comparison ──────────────────────────────────────────────── */
+
+.version-comparison-controls {
+  display: flex;
+  gap: var(--ep-space-4);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--ep-space-4);
+  flex-shrink: 0;
+}
+
+.version-comparison-controls .form-group {
+  min-width: 10rem;
+}
+
+.version-comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ep-space-4);
+  flex: 1;
+  min-height: 0;
+}
+
+.version-comparison-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.version-comparison-label {
+  font-size: var(--ep-text-sm);
+  font-weight: 600;
+  padding: var(--ep-space-2) 0;
+  flex-shrink: 0;
+}
+
+.version-comparison-frame-container {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  border: 1px solid var(--ep-border-color);
+  border-radius: var(--ep-radius-md);
+  overflow: hidden;
+}
+
+.version-comparison-frame-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.version-comparison-empty,
+.version-comparison-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--ep-text-muted);
+  font-size: var(--ep-text-sm);
+}
+
 /* ── Deployment matrix ───────────────────────────────────────────────── */
 
 .deployment-matrix-table th {

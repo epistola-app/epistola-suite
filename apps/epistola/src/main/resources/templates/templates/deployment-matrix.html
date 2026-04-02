@@ -48,9 +48,19 @@
                                 <tbody>
                                     <tr th:each="variant : ${variants}">
                                         <td class="deployment-matrix-variant">
-                                            <code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code>
-                                            <span th:if="${variant.title != null}" class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
-                                                  th:text="${variant.title}"></span>
+                                            <div style="display: flex; align-items: center; gap: var(--ep-space-2);">
+                                                <div>
+                                                    <code th:text="${variant.id}" style="font-size: var(--ep-text-xs);"></code>
+                                                    <span th:if="${variant.title != null}" class="text-muted" style="font-size: var(--ep-text-xs); margin-left: var(--ep-space-1);"
+                                                          th:text="${variant.title}"></span>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                                                        th:data-compare-url="@{/tenants/{tenantId}/templates/{id}/variants/{variantId}/compare(tenantId=${tenantId},id=${templateId},variantId=${variant.id})}"
+                                                        onclick="openVersionComparison(this)"
+                                                        title="Compare versions">
+                                                    <th:block th:replace="~{fragments/icon :: icon(name='columns-2', class='ep-icon ep-icon-sm')}" />
+                                                </button>
+                                            </div>
                                         </td>
                                         <td th:each="env : ${environments}" class="deployment-matrix-cell">
                                             <th:block th:with="

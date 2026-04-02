@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+        Reusable version comparison dialog.
+        Include once per page, then trigger with a button that has data-compare-url.
+
+        Usage:
+            1. Include the dialog:
+                <th:block th:replace="~{fragments/version-comparison :: version-comparison}" />
+
+            2. Add a compare button (builds URL from tenantId, templateId, variantId):
+                <button type="button"
+                        th:data-compare-url="@{/tenants/{t}/templates/{id}/variants/{v}/compare(t=${tenantId},id=${templateId},v=${variantId})}"
+                        onclick="openVersionComparison(this)">
+                    Compare
+                </button>
+    -->
+    <th:block th:fragment="version-comparison">
+        <dialog id="version-comparison-dialog" class="ep-dialog ep-dialog-fullscreen">
+            <div id="version-comparison-dialog-body">
+                <!-- Content loaded via HTMX -->
+            </div>
+        </dialog>
+        <script>
+            (function() {
+                var comparisonBlobUrls = [];
+
+                window.openVersionComparison = function(button) {
+                    var compareUrl = button.dataset.compareUrl;
+                    var container = document.getElementById('version-comparison-dialog-body');
+                    htmx.ajax('GET', compareUrl, { target: container, swap: 'innerHTML' });
+                    document.getElementById('version-comparison-dialog').showModal();
+                };
+
+                window.compareVersions = async function() {
+                    var config = JSON.parse(document.getElementById('comparison-config').textContent);
+                    var versionA = document.getElementById('compare-version-a').value;
+                    var versionB = document.getElementById('compare-version-b').value;
+
+                    var exampleSelect = document.getElementById('compare-example');
+                    var exampleData = {};
+                    if (exampleSelect) {
+                        var exampleId = exampleSelect.value;
+                        var dataScript = document.querySelector('.comparison-example-data[data-example-id="' + exampleId + '"]');
+                        if (dataScript) {
+                            try { exampleData = JSON.parse(dataScript.textContent); } catch (_) { exampleData = {}; }
+                        }
+                    }
+
+                    cleanupBlobUrls();
+
+                    ['a', 'b'].forEach(function(side) {
+                        document.getElementById('comparison-empty-' + side).style.display = 'none';
+                        document.getElementById('comparison-loading-' + side).style.display = 'flex';
+                        document.getElementById('comparison-frame-' + side).style.display = 'none';
+                    });
+
+                    document.getElementById('comparison-label-a').textContent = 'v' + versionA;
+                    document.getElementById('comparison-label-b').textContent = 'v' + versionB;
+
+                    var csrfToken = typeof window.getCsrfToken === 'function' ? window.getCsrfToken() : '';
+                    var baseUrl = '/tenants/' + config.tenantId + '/templates/' + config.templateId + '/variants/' + config.variantId + '/versions';
+                    var requestBody = JSON.stringify(exampleData);
+
+                    try {
+                        var results = await Promise.all([
+                            fetch(baseUrl + '/' + versionA + '/preview', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
+                                body: requestBody,
+                            }),
+                            fetch(baseUrl + '/' + versionB + '/preview', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrfToken },
+                                body: requestBody,
+                            }),
+                        ]);
+
+                        if (!results[0].ok || !results[1].ok) {
+                            var errorSide = !results[0].ok ? 'A' : 'B';
+                            var errorResponse = !results[0].ok ? results[0] : results[1];
+                            var errorText = await errorResponse.text();
+                            throw new Error('Failed to generate Version ' + errorSide + ': ' + (errorText || 'HTTP ' + errorResponse.status));
+                        }
+
+                        var blobs = await Promise.all([results[0].blob(), results[1].blob()]);
+                        var urlA = URL.createObjectURL(blobs[0]);
+                        var urlB = URL.createObjectURL(blobs[1]);
+                        comparisonBlobUrls.push(urlA, urlB);
+
+                        document.getElementById('comparison-frame-a').src = urlA;
+                        document.getElementById('comparison-frame-b').src = urlB;
+
+                        ['a', 'b'].forEach(function(side) {
+                            document.getElementById('comparison-loading-' + side).style.display = 'none';
+                            document.getElementById('comparison-frame-' + side).style.display = 'block';
+                        });
+                    } catch (error) {
+                        console.error('Version comparison failed:', error);
+                        alert('Failed to compare versions: ' + error.message);
+                        ['a', 'b'].forEach(function(side) {
+                            document.getElementById('comparison-loading-' + side).style.display = 'none';
+                            document.getElementById('comparison-empty-' + side).style.display = 'flex';
+                        });
+                    }
+                };
+
+                function cleanupBlobUrls() {
+                    comparisonBlobUrls.forEach(function(url) { URL.revokeObjectURL(url); });
+                    comparisonBlobUrls = [];
+                }
+
+                var dialog = document.getElementById('version-comparison-dialog');
+                if (dialog) { dialog.addEventListener('close', cleanupBlobUrls); }
+            })();
+        </script>
+    </th:block>
+</body>
+</html>
