@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <div class="ep-dialog-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Compare Versions: <code th:text="${variantId}"></code></h3>
+            <button type="button" class="btn btn-sm btn-icon btn-ghost"
+                    onclick="document.getElementById('version-comparison-dialog').close()"
+                    title="Close">&times;</button>
+        </div>
+        <div class="ep-dialog-body" style="display: flex; flex-direction: column; height: calc(90vh - 5rem); padding: var(--ep-space-4);">
+
+            <!-- Empty state: no versions -->
+            <th:block th:if="${#lists.isEmpty(versions)}">
+                <div class="empty-state" style="padding: var(--ep-space-8);">
+                    <div class="empty-state-title">No versions available</div>
+                    <div class="empty-state-description">Publish at least one version to compare.</div>
+                </div>
+            </th:block>
+
+            <!-- Comparison controls and grid -->
+            <th:block th:unless="${#lists.isEmpty(versions)}">
+                <!-- Controls row -->
+                <div class="version-comparison-controls">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="ep-label" for="compare-version-a">Version A</label>
+                        <select id="compare-version-a" class="ep-select">
+                            <th:block th:each="ver : ${versions}">
+                                <option th:value="${ver.versionKey}"
+                                        th:text="${'v' + ver.versionKey + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
+                            </th:block>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="ep-label" for="compare-version-b">Version B</label>
+                        <select id="compare-version-b" class="ep-select">
+                            <th:block th:each="ver, iterStat : ${versions}">
+                                <option th:value="${ver.versionKey}"
+                                        th:selected="${iterStat.index == 1 or (#lists.size(versions) == 1 and iterStat.index == 0)}"
+                                        th:text="${'v' + ver.versionKey + (ver.status.name() == 'DRAFT' ? ' (draft)' : '')}"></option>
+                            </th:block>
+                        </select>
+                    </div>
+                    <div th:if="${!#lists.isEmpty(dataExamples)}" class="form-group" style="margin-bottom: 0;">
+                        <label class="ep-label" for="compare-example">Example Data</label>
+                        <select id="compare-example" class="ep-select">
+                            <th:block th:each="example : ${dataExamples}">
+                                <option th:value="${example.id}" th:text="${example.name}"></option>
+                            </th:block>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; align-self: flex-end;">
+                        <button type="button" class="btn btn-primary" onclick="compareVersions()">Compare</button>
+                    </div>
+                </div>
+
+                <!-- Side-by-side PDF grid -->
+                <div class="version-comparison-grid" id="comparison-grid">
+                    <div class="version-comparison-column">
+                        <div class="version-comparison-label" id="comparison-label-a">Version A</div>
+                        <div class="version-comparison-frame-container">
+                            <div class="version-comparison-empty" id="comparison-empty-a">
+                                Select versions and click Compare
+                            </div>
+                            <div class="version-comparison-loading" id="comparison-loading-a" style="display: none;">
+                                Generating PDF...
+                            </div>
+                            <iframe id="comparison-frame-a" style="display: none;"></iframe>
+                        </div>
+                    </div>
+                    <div class="version-comparison-column">
+                        <div class="version-comparison-label" id="comparison-label-b">Version B</div>
+                        <div class="version-comparison-frame-container">
+                            <div class="version-comparison-empty" id="comparison-empty-b">
+                                Select versions and click Compare
+                            </div>
+                            <div class="version-comparison-loading" id="comparison-loading-b" style="display: none;">
+                                Generating PDF...
+                            </div>
+                            <iframe id="comparison-frame-b" style="display: none;"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+
+            <!-- Store example data as hidden JSON for JS access -->
+            <th:block th:each="example : ${dataExamples}">
+                <script type="application/json" th:attr="data-example-id=${example.id}" class="comparison-example-data"
+                        th:inline="javascript">/*[[${example.data}]]*/</script>
+            </th:block>
+
+            <!-- Store route info for JS -->
+            <script type="application/json" id="comparison-config" th:inline="javascript">
+                {
+                    "tenantId": [[${tenantId}]],
+                    "templateId": [[${templateId}]],
+                    "variantId": [[${variantId}]]
+                }
+            </script>
+        </div>
+    </th:block>
+</body>
+</html>

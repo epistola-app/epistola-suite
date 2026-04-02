@@ -205,6 +205,7 @@
                     <!-- Content loaded via HTMX -->
                 </div>
             </dialog>
+
         </div>
 
         <!-- Tab Panel: Deployments -->
@@ -304,6 +305,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- Version comparison (reusable component) -->
+        <th:block th:replace="~{fragments/version-comparison :: version-comparison}" />
 
         <!-- Scripts -->
         <script th:inline="javascript">

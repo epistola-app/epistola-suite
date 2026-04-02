@@ -13,6 +13,7 @@ class DocumentTemplateRoutes(
     private val versionHandler: VersionRouteHandler,
     private val previewHandler: TemplatePreviewHandler,
     private val deploymentMatrixHandler: DeploymentMatrixHandler,
+    private val versionComparisonHandler: VersionComparisonHandler,
 ) {
     @Bean
     fun templateRoutes(): RouterFunction<ServerResponse> = router {
@@ -44,6 +45,10 @@ class DocumentTemplateRoutes(
             PATCH("/{id}/variants/{variantId}", variantHandler::updateVariant)
             POST("/{id}/variants/{variantId}/delete", variantHandler::deleteVariant)
             POST("/{id}/variants/{variantId}/set-default", variantHandler::setDefaultVariant)
+
+            // Version comparison
+            GET("/{id}/variants/{variantId}/compare", versionComparisonHandler::compareDialog)
+            POST("/{id}/variants/{variantId}/versions/{versionId}/preview", versionComparisonHandler::previewVersion)
 
             // Variant version history (loaded into dialog)
             GET("/{id}/variants/{variantId}/versions", versionHandler::listVersions)
