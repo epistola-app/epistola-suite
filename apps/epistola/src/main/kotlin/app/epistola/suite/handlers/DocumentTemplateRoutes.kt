@@ -48,7 +48,6 @@ class DocumentTemplateRoutes(
 
             // Version comparison
             GET("/{id}/variants/{variantId}/compare", versionComparisonHandler::compareDialog)
-            POST("/{id}/variants/{variantId}/versions/{versionId}/preview", versionComparisonHandler::previewVersion)
 
             // Variant version history (loaded into dialog)
             GET("/{id}/variants/{variantId}/versions", versionHandler::listVersions)
@@ -58,6 +57,7 @@ class DocumentTemplateRoutes(
 
             // PDF preview (delegated to TemplatePreviewHandler)
             POST("/{id}/variants/{variantId}/preview", previewHandler::preview)
+            POST("/{id}/variants/{variantId}/versions/{versionId}/preview", previewHandler::previewVersion)
 
             // Draft creation and updates (delegated to VersionRouteHandler)
             POST("/{id}/variants/{variantId}/draft", versionHandler::createDraft)
