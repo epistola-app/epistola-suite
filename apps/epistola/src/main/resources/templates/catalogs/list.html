@@ -22,10 +22,16 @@
                 <form th:action="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}" method="post">
                     <div class="form-group">
                         <label class="ep-label" for="sourceUrl">Catalog URL</label>
-                        <input type="url" id="sourceUrl" name="sourceUrl" class="ep-input"
-                               placeholder="https://example.com/.well-known/epistola/v1/catalog.json"
+                        <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
+                               value="classpath:demo/catalog/catalog.json"
                                required>
-                        <span class="form-hint">URL to a catalog manifest JSON file.</span>
+                        <span class="form-hint">
+                            Supported URL schemes:
+                            <code>https://</code> or <code>http://</code> for remote catalogs,
+                            <code>classpath:</code> for bundled catalogs,
+                            <code>file:///</code> for local files.
+                            Must point to a <code>.json</code> file.
+                        </span>
                     </div>
 
                     <div class="form-group">
