@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 
 @Import(TestcontainersConfiguration::class)
-@SpringBootTest
+@SpringBootTest(classes = [EpistolaSuiteApplication::class])
 @ActiveProfiles("test")
 @Tag("integration")
 class EpistolaSuiteApplicationTests {

@@ -1,5 +1,6 @@
 package app.epistola.suite.templates
 
+import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
@@ -10,12 +11,11 @@ import app.epistola.suite.templates.queries.GetDocumentTemplate
 import app.epistola.suite.templates.queries.GetDocumentTemplateHandler
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.tenants.Tenant
-import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-class TenantIsolationTest : IntegrationTestBase() {
+class TenantIsolationTest : CoreIntegrationTest() {
     @Autowired
     private lateinit var getTemplateHandler: GetDocumentTemplateHandler
 

@@ -31,6 +31,7 @@ import java.time.OffsetDateTime
     app.epistola.suite.config.TestSecurityContextConfiguration::class,
 )
 @SpringBootTest(
+    classes = [app.epistola.suite.EpistolaSuiteApplication::class],
     properties = [
         "epistola.demo.enabled=true",
     ],

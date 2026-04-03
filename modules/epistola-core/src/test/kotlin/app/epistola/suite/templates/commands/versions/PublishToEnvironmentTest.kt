@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands.versions
 
+import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.EnvironmentKey
 import app.epistola.suite.common.ids.TemplateId
@@ -15,13 +16,12 @@ import app.epistola.suite.templates.model.VersionStatus
 import app.epistola.suite.templates.queries.activations.ListActivations
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.ListVersions
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class PublishToEnvironmentTest : IntegrationTestBase() {
+class PublishToEnvironmentTest : CoreIntegrationTest() {
 
     @Test
     fun `publish draft to environment marks it published and creates activation`(): Unit = withMediator {

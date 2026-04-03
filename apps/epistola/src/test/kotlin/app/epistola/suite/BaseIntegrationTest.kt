@@ -33,6 +33,7 @@ import org.springframework.test.context.ActiveProfiles
     app.epistola.suite.config.TestSecurityContextConfiguration::class,
 )
 @SpringBootTest(
+    classes = [EpistolaSuiteApplication::class],
     properties = [
         "epistola.demo.enabled=false",
     ],

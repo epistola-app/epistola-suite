@@ -1,6 +1,7 @@
 package app.epistola.suite.loadtest
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -26,7 +27,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import tools.jackson.databind.ObjectMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 class LoadTestHandlerTest : BaseIntegrationTest() {
     @Autowired

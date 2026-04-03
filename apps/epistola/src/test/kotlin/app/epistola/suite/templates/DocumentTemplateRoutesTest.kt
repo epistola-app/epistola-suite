@@ -1,6 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantKey
@@ -24,7 +25,7 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 import tools.jackson.databind.ObjectMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 class DocumentTemplateRoutesTest : BaseIntegrationTest() {
     @Autowired

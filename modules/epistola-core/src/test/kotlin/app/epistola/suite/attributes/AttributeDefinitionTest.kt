@@ -1,5 +1,6 @@
 package app.epistola.suite.attributes
 
+import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -10,13 +11,12 @@ import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.validation.ValidationException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class AttributeDefinitionTest : IntegrationTestBase() {
+class AttributeDefinitionTest : CoreIntegrationTest() {
 
     @Test
     fun `create attribute definition with allowed values`() {

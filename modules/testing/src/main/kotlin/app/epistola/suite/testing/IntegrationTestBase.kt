@@ -15,17 +15,9 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
-import org.springframework.test.context.ActiveProfiles
 
 @Import(TestcontainersConfiguration::class, FakeExecutorTestConfiguration::class, UnloggedTablesTestConfiguration::class)
-@SpringBootTest(
-    properties = [
-        "epistola.demo.enabled=false",
-    ],
-)
-@ActiveProfiles("test")
 @Tag("integration")
 abstract class IntegrationTestBase {
     @Autowired

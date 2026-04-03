@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles
 
 @Import(TestcontainersConfiguration::class, UnloggedTablesTestConfiguration::class)
 @SpringBootTest(
+    classes = [app.epistola.suite.EpistolaSuiteApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "epistola.demo.enabled=false",

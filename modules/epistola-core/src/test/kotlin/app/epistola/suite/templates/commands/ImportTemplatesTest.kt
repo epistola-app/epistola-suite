@@ -1,5 +1,6 @@
 package app.epistola.suite.templates.commands
 
+import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.documents.TestTemplateBuilder
@@ -7,12 +8,11 @@ import app.epistola.suite.environments.commands.CreateEnvironment
 import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.variants.ListVariants
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class ImportTemplatesTest : IntegrationTestBase() {
+class ImportTemplatesTest : CoreIntegrationTest() {
 
     private val templateModel = TestTemplateBuilder.buildMinimal()
 

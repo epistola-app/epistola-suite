@@ -123,7 +123,7 @@ class TestFixture(private val namespace: String) {
             title: String? = null,
             attributes: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
-            id = VariantId(TestIdHelpers.nextVariantId(), template.id as TemplateId),
+            id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, TenantId(tenant.id))),
             title = title,
             description = null,
             attributes = attributes,

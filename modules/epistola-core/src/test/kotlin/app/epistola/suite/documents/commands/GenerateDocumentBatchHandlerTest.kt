@@ -1,5 +1,6 @@
 package app.epistola.suite.documents.commands
 
+import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -10,7 +11,6 @@ import app.epistola.suite.documents.model.RequestStatus
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
-import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 
-class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
+class GenerateDocumentBatchHandlerTest : CoreIntegrationTest() {
     @Autowired
     private lateinit var jdbi: Jdbi
 

@@ -1,6 +1,7 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.EpistolaSuiteApplication
 import com.microsoft.playwright.Browser
 import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Page
@@ -15,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
 
 @SpringBootTest(
+    classes = [EpistolaSuiteApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "epistola.demo.enabled=false",
