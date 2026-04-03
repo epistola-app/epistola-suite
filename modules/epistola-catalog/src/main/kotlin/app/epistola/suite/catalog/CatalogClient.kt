@@ -83,8 +83,9 @@ class CatalogClient(
                 "Unsupported URL scheme: $scheme. Allowed: $ALLOWED_SCHEMES"
             }
             if (url.startsWith("file:")) {
-                val path = Path.of(URI.create(url)).normalize().toString()
-                require(!path.contains("..")) { "Path traversal not allowed" }
+                val uri = URI.create(url)
+                val rawPath = uri.path ?: ""
+                require(!rawPath.contains("..")) { "Path traversal not allowed" }
             }
         }
 

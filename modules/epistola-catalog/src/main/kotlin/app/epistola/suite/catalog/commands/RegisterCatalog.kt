@@ -60,7 +60,7 @@ class RegisterCatalogHandler(
 
             handle.createQuery(
                 """
-                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, installed_release_version, installed_at, created_at, last_modified
+                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
                 FROM catalogs
                 WHERE tenant_key = :tenantKey AND id = :id
                 """,

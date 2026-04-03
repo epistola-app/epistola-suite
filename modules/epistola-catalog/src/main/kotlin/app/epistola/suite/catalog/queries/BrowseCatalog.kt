@@ -48,7 +48,7 @@ class BrowseCatalogHandler(
         val catalog = jdbi.withHandle<Catalog, Exception> { handle ->
             handle.createQuery(
                 """
-                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, installed_release_version, installed_at, created_at, last_modified
+                SELECT id, tenant_key, name, description, type, source_url, source_auth_type, source_auth_credential, installed_release_version, installed_at, created_at, last_modified
                 FROM catalogs
                 WHERE tenant_key = :tenantKey AND id = :catalogKey
                 """,
@@ -77,7 +77,7 @@ class BrowseCatalogHandler(
         val manifest = catalogClient.fetchManifest(
             catalog.sourceUrl ?: throw IllegalStateException("Catalog has no source URL"),
             catalog.sourceAuthType,
-            null,
+            catalog.sourceAuthCredential,
         )
 
         val resources = manifest.resources.map { entry ->

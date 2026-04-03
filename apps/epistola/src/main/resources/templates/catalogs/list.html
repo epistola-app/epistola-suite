@@ -83,9 +83,9 @@
                                 <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
                                    class="btn btn-sm">Browse</a>
                                 <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
-                                      method="post" style="display: inline;"
-                                      onsubmit="return confirm('Remove this catalog registration? Installed templates will not be deleted.')">
-                                    <button type="submit" class="btn btn-sm btn-danger">Remove</button>
+                                      method="post" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Remove this catalog registration? Installed templates will not be deleted.')">Remove</button>
                                 </form>
                             </td>
                         </tr>

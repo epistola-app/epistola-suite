@@ -11,6 +11,7 @@ data class Catalog(
     val type: CatalogType,
     val sourceUrl: String? = null,
     val sourceAuthType: AuthType = AuthType.NONE,
+    val sourceAuthCredential: String? = null,
     val installedReleaseVersion: String? = null,
     val installedAt: OffsetDateTime? = null,
     val createdAt: OffsetDateTime,

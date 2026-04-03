@@ -3,6 +3,7 @@ package app.epistola.suite.handlers
 import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogKey
 import app.epistola.suite.catalog.commands.InstallFromCatalog
+import app.epistola.suite.catalog.commands.InstallStatus
 import app.epistola.suite.catalog.commands.RegisterCatalog
 import app.epistola.suite.catalog.commands.UnregisterCatalog
 import app.epistola.suite.catalog.queries.BrowseCatalog
@@ -127,7 +128,7 @@ class CatalogHandler {
                 resourceSlugs = resourceSlugs,
             ).execute()
 
-            val failed = results.filter { it.status == app.epistola.suite.catalog.commands.InstallStatus.FAILED }
+            val failed = results.filter { it.status == InstallStatus.FAILED }
             if (failed.isNotEmpty()) {
                 val slugs = failed.joinToString(", ") { it.slug }
                 return browseWithError(request, catalogKey, "Failed to install: $slugs")

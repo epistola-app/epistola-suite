@@ -1,18 +1,18 @@
 package app.epistola.suite.catalog.commands
 
-import app.epistola.suite.catalog.AuthType
 import app.epistola.suite.catalog.CatalogClient
 import app.epistola.suite.catalog.CatalogKey
-import app.epistola.suite.catalog.protocol.ResourceDetail
-import app.epistola.suite.catalog.protocol.TemplateResource
+import app.epistola.suite.catalog.queries.GetCatalog
 import app.epistola.suite.common.ids.TemplateKey
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.mediator.Command
 import app.epistola.suite.mediator.CommandHandler
 import app.epistola.suite.mediator.execute
+import app.epistola.suite.mediator.query
 import app.epistola.suite.security.Permission
 import app.epistola.suite.security.RequiresPermission
+import app.epistola.suite.templates.commands.ImportStatus
 import app.epistola.suite.templates.commands.ImportTemplateInput
 import app.epistola.suite.templates.commands.ImportTemplateResult
 import app.epistola.suite.templates.commands.ImportTemplates
@@ -52,26 +52,13 @@ class InstallFromCatalogHandler(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun handle(command: InstallFromCatalog): List<InstallResult> {
-        val catalog = jdbi.withHandle<Map<String, Any?>, Exception> { handle ->
-            handle.createQuery(
-                """
-                SELECT source_url, source_auth_type, source_auth_credential
-                FROM catalogs
-                WHERE tenant_key = :tenantKey AND id = :catalogKey
-                """,
-            )
-                .bind("tenantKey", command.tenantKey)
-                .bind("catalogKey", command.catalogKey)
-                .mapToMap()
-                .findOne()
-                .orElseThrow { IllegalArgumentException("Catalog not found: ${command.catalogKey}") }
-        }
+        val catalog = GetCatalog(command.tenantKey, command.catalogKey).query()
+            ?: throw IllegalArgumentException("Catalog not found: ${command.catalogKey}")
 
-        val sourceUrl = catalog["source_url"] as String
-        val authType = AuthType.valueOf(catalog["source_auth_type"] as? String ?: "NONE")
-        val authCredential = catalog["source_auth_credential"] as? String
+        val sourceUrl = catalog.sourceUrl
+            ?: throw IllegalStateException("Catalog has no source URL: ${command.catalogKey}")
 
-        val manifest = catalogClient.fetchManifest(sourceUrl, authType, authCredential)
+        val manifest = catalogClient.fetchManifest(sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
 
         val resourcesToInstall = if (command.resourceSlugs != null) {
             manifest.resources.filter { it.slug in command.resourceSlugs }
@@ -81,13 +68,13 @@ class InstallFromCatalogHandler(
 
         return resourcesToInstall.map { resource ->
             try {
-                val detail = catalogClient.fetchResourceDetail(resource.detailUrl, sourceUrl, authType, authCredential)
-                val importResult = importTemplate(command, detail, manifest.release.version)
+                val detail = catalogClient.fetchResourceDetail(resource.detailUrl, sourceUrl, catalog.sourceAuthType, catalog.sourceAuthCredential)
+                val importResult = importTemplate(command, detail.resource, manifest.release.version)
                 registerCatalogTemplate(command, resource.slug)
 
                 InstallResult(
                     slug = resource.slug,
-                    status = if (importResult.status.name == "CREATED") InstallStatus.INSTALLED else InstallStatus.UPDATED,
+                    status = if (importResult.status == ImportStatus.CREATED) InstallStatus.INSTALLED else InstallStatus.UPDATED,
                 )
             } catch (e: Exception) {
                 logger.error("Failed to install resource '${resource.slug}' from catalog '${command.catalogKey}': ${e.message}", e)
@@ -100,9 +87,31 @@ class InstallFromCatalogHandler(
         }
     }
 
-    private fun importTemplate(command: InstallFromCatalog, detail: ResourceDetail, releaseVersion: String): ImportTemplateResult {
-        val resource = detail.resource
-        val input = toImportTemplateInput(resource, releaseVersion)
+    private fun importTemplate(
+        command: InstallFromCatalog,
+        resource: app.epistola.suite.catalog.protocol.TemplateResource,
+        releaseVersion: String,
+    ): ImportTemplateResult {
+        val input = ImportTemplateInput(
+            slug = resource.slug,
+            name = resource.name,
+            version = releaseVersion,
+            dataModel = resource.dataModel,
+            dataExamples = resource.dataExamples?.map {
+                DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = it.data)
+            } ?: emptyList(),
+            templateModel = resource.templateModel,
+            variants = resource.variants.map { variant ->
+                ImportVariantInput(
+                    id = variant.id,
+                    title = variant.title,
+                    attributes = variant.attributes ?: emptyMap(),
+                    templateModel = variant.templateModel,
+                    isDefault = variant.isDefault,
+                )
+            },
+            publishTo = emptyList(),
+        )
 
         val results = ImportTemplates(
             tenantId = TenantId(command.tenantKey),
@@ -110,30 +119,11 @@ class InstallFromCatalogHandler(
         ).execute()
 
         val result = results.first()
-        if (result.status == app.epistola.suite.templates.commands.ImportStatus.FAILED) {
+        if (result.status == ImportStatus.FAILED) {
             throw RuntimeException("Import failed for '${resource.slug}': ${result.errorMessage}")
         }
         return result
     }
-
-    private fun toImportTemplateInput(resource: TemplateResource, releaseVersion: String): ImportTemplateInput = ImportTemplateInput(
-        slug = resource.slug,
-        name = resource.name,
-        version = releaseVersion,
-        dataModel = resource.dataModel,
-        dataExamples = resource.dataExamples?.map { DataExample(id = java.util.UUID.randomUUID().toString(), name = it.name, data = it.data) } ?: emptyList(),
-        templateModel = resource.templateModel,
-        variants = resource.variants.map { variant ->
-            ImportVariantInput(
-                id = variant.id,
-                title = variant.title,
-                attributes = variant.attributes ?: emptyMap(),
-                templateModel = variant.templateModel,
-                isDefault = variant.isDefault,
-            )
-        },
-        publishTo = emptyList(),
-    )
 
     private fun registerCatalogTemplate(command: InstallFromCatalog, resourceSlug: String) {
         jdbi.useHandle<Exception> { handle ->
