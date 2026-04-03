@@ -15,9 +15,29 @@ import app.epistola.suite.tenants.commands.CreateTenant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.test.context.ActiveProfiles
 
+/**
+ * Base class for integration tests across all modules.
+ *
+ * Provides:
+ * - Spring Boot test context with [TestApplication] (modules can override with their own app class)
+ * - Testcontainers PostgreSQL, unlogged tables, fake document generation
+ * - Mediator + security context binding via [withMediator]
+ * - Test fixture and scenario DSLs
+ * - Tenant creation helpers
+ *
+ * Module tests extend this directly. App tests extend [this class] with their own
+ * `@SpringBootTest(classes = [EpistolaSuiteApplication::class])` which overrides the default.
+ */
+@SpringBootTest(
+    classes = [TestApplication::class],
+    properties = ["epistola.demo.enabled=false"],
+)
 @Import(TestcontainersConfiguration::class, FakeExecutorTestConfiguration::class, UnloggedTablesTestConfiguration::class)
+@ActiveProfiles("test")
 @Tag("integration")
 abstract class IntegrationTestBase {
     @Autowired
@@ -41,10 +61,6 @@ abstract class IntegrationTestBase {
 
     private fun nextTenantSlug(): String = "$classNamespace-${TestTenantCounter.next(classNamespace)}"
 
-    /**
-     * Test user for authenticated operations.
-     * Has access to all test tenants created during tests.
-     */
     protected val testUser = EpistolaPrincipal(
         userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
         externalId = "test-user",
@@ -58,69 +74,17 @@ abstract class IntegrationTestBase {
 
     protected fun <T> fixture(block: TestFixture.() -> T): T = testFixtureFactory.fixture(classNamespace, block)
 
-    /**
-     * Runs the given block with both mediator and authenticated user context.
-     *
-     * This is the primary method for tests that need to perform authenticated operations.
-     *
-     * Usage:
-     * ```kotlin
-     * withAuthentication {
-     *     val tenant = CreateTenant("name").execute()
-     * }
-     * ```
-     */
-    protected fun <T> withAuthentication(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
-        SecurityContext.runWithPrincipal(testUser) {
-            block()
-        }
-    }
+    protected fun <T> withAuthentication(block: () -> T): T = withMediator(block)
 
-    /**
-     * Runs the given block with the mediator bound to the current scope.
-     * This enables use of Command.execute() and Query.query() extension functions.
-     *
-     * Note: For most tests, use `withAuthentication` instead to also bind the security context.
-     *
-     * Usage:
-     * ```kotlin
-     * withMediator {
-     *     val tenant = CreateTenant("name").execute()
-     *     val tenants = ListTenants().query()
-     * }
-     * ```
-     */
     protected fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
         SecurityContext.runWithPrincipal(testUser) {
             block()
         }
     }
 
-    /**
-     * Creates a test scenario with type-safe Given-When-Then DSL.
-     *
-     * Example:
-     * ```kotlin
-     * @Test
-     * fun `generate document successfully`() = scenario {
-     *     given {
-     *         val tenant = tenant("Test Tenant")
-     *         val template = template(tenant.id, "Invoice")
-     *         val variant = variant(tenant.id, template.id)
-     *         val version = version(tenant.id, template.id, variant.id, templateModel)
-     *         DocumentSetup(tenant, template, variant, version)
-     *     }.whenever { setup ->
-     *         execute(GenerateDocument(setup.tenant.id, ...))
-     *     }.then { setup, result ->
-     *         assertThat(result.id).isNotNull()
-     *     }
-     * }
-     * ```
-     */
     protected fun <T> scenario(block: ScenarioBuilder.() -> T): T = scenarioFactory.scenario(classNamespace, block)
 
     protected fun createTenant(name: String): Tenant = withMediator {
-        val tenant = CreateTenant(id = TenantKey.of(nextTenantSlug()), name = name).execute()
-        tenant
+        CreateTenant(id = TenantKey.of(nextTenantSlug()), name = name).execute()
     }
 }

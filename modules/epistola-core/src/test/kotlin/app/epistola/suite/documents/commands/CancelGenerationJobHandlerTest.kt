@@ -1,6 +1,5 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -11,6 +10,7 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
-class CancelGenerationJobHandlerTest : CoreIntegrationTest() {
+class CancelGenerationJobHandlerTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test

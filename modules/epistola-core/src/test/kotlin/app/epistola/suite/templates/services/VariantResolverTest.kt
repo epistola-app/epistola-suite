@@ -1,6 +1,5 @@
 package app.epistola.suite.templates.services
 
-import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
@@ -11,6 +10,7 @@ import app.epistola.suite.common.ids.VariantKey
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.variants.SetDefaultVariant
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-class VariantResolverTest : CoreIntegrationTest() {
+class VariantResolverTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var variantResolver: VariantResolver

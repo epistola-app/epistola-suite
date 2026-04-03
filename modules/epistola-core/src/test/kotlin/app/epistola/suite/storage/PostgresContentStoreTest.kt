@@ -1,6 +1,6 @@
 package app.epistola.suite.storage
 
-import app.epistola.suite.CoreIntegrationTest
+import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -11,7 +11,7 @@ import java.io.ByteArrayInputStream
  *
  * Runs the full contract test plus PostgreSQL-specific tests.
  */
-class PostgresContentStoreTest : CoreIntegrationTest() {
+class PostgresContentStoreTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var contentStore: ContentStore

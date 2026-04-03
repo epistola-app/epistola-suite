@@ -1,6 +1,5 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
@@ -15,6 +14,7 @@ import app.epistola.suite.storage.ContentStore
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.UpdateDraft
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
-class DocumentQueriesTest : CoreIntegrationTest() {
+class DocumentQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Autowired

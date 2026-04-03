@@ -1,11 +1,11 @@
 package app.epistola.suite.tenants
 
-import app.epistola.suite.CoreIntegrationTest
 import app.epistola.suite.common.ids.TenantKey
+import app.epistola.suite.testing.IntegrationTestBase
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class TenantCommandsTest : CoreIntegrationTest() {
+class TenantCommandsTest : IntegrationTestBase() {
     @Test
     fun `CreateTenant creates tenant with name`() = fixture {
         whenever {

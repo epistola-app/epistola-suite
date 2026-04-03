@@ -12,19 +12,11 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.queries.ListDocumentTemplates
 import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.TestApplication
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.context.ActiveProfiles
 
 private const val DEMO_CATALOG_URL = "classpath:demo/catalog/catalog.json"
 
-@SpringBootTest(
-    classes = [TestApplication::class],
-    properties = ["epistola.demo.enabled=false"],
-)
-@ActiveProfiles("test")
 class CatalogIntegrationTest : IntegrationTestBase() {
 
     @Test
