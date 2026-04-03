@@ -121,18 +121,41 @@ class CatalogHandler {
         val resourceSlugs = slugParam?.let { listOf(it) }
 
         return try {
-            InstallFromCatalog(
+            val results = InstallFromCatalog(
                 tenantKey = tenantId.key,
                 catalogKey = catalogKey,
                 resourceSlugs = resourceSlugs,
             ).execute()
+
+            val failed = results.filter { it.status == app.epistola.suite.catalog.commands.InstallStatus.FAILED }
+            if (failed.isNotEmpty()) {
+                val slugs = failed.joinToString(", ") { it.slug }
+                return browseWithError(request, catalogKey, "Failed to install: $slugs")
+            }
 
             ServerResponse.status(303)
                 .header("Location", "/tenants/${tenantId.key}/catalogs/${catalogKey.value}/browse?installed=true")
                 .build()
         } catch (e: Exception) {
             logger.warn("Failed to install from catalog: ${e.message}", e)
-            listWithError(request, "Failed to install templates from catalog.")
+            browseWithError(request, catalogKey, "Failed to install templates from catalog.")
+        }
+    }
+
+    private fun browseWithError(request: ServerRequest, catalogKey: CatalogKey, error: String): ServerResponse {
+        val tenantId = request.tenantId()
+        return try {
+            val result = BrowseCatalog(tenantKey = tenantId.key, catalogKey = catalogKey).query()
+            ServerResponse.ok().page("catalogs/browse") {
+                "pageTitle" to "${result.catalog.name} - Catalog - Epistola"
+                "tenantId" to tenantId.key
+                "activeNavSection" to "catalogs"
+                "catalog" to result.catalog
+                "resources" to result.resources
+                "error" to error
+            }
+        } catch (_: Exception) {
+            listWithError(request, error)
         }
     }
 

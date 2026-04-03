@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "catalog": {
+    "slug": "epistola-demo",
+    "name": "Epistola Demo Catalog",
+    "description": "Sample templates for getting started with Epistola."
+  },
+  "publisher": {
+    "name": "Epistola",
+    "url": "https://github.com/epistola-app"
+  },
+  "release": {
+    "version": "1.0",
+    "releasedAt": "2026-04-03T00:00:00Z"
+  },
+  "resources": [
+    {
+      "type": "template",
+      "slug": "hello-world",
+      "name": "Hello World",
+      "description": "A minimal template to get started. Contains a heading and a paragraph with data binding.",
+      "updatedAt": "2026-04-03T00:00:00Z",
+      "detailUrl": "./resources/templates/hello-world.json"
+    },
+    {
+      "type": "template",
+      "slug": "simple-letter",
+      "name": "Simple Letter",
+      "description": "A basic letter template with sender, recipient, subject, and body.",
+      "updatedAt": "2026-04-03T00:00:00Z",
+      "detailUrl": "./resources/templates/simple-letter.json"
+    }
+  ]
+}

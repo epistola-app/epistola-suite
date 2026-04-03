@@ -14,6 +14,8 @@
             Templates installed successfully.
         </div>
 
+        <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
         <div class="card" th:if="${!resources.isEmpty()}">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Templates</h2>
