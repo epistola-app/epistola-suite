@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Page total in PDF header and footer**: New system parameters `sys.page.total` (total pages) and `sys.page.pageOfTotal` ("1 of 5" format) for PDF header and footer.
+
 ### Changed
 
 - **Navigation: grouped dropdowns**: Replaced 12 flat header links with 4 grouped dropdown menus (Authoring, Resources, Operations, Settings). Includes keyboard navigation (arrow keys, Escape), ARIA attributes, and responsive mobile overlay menu with hamburger toggle.

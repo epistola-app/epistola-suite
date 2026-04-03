@@ -16,6 +16,7 @@ import {
   resetCounter,
 } from './test-helpers.js';
 import type { NodeId, SlotId, TemplateDocument, Node, Slot } from '../types/index.js';
+import { SYSTEM_PARAM_MOCK_DATA } from './system-params.js';
 
 beforeEach(() => {
   resetCounter();
@@ -2082,14 +2083,14 @@ describe('fieldPaths', () => {
 // ---------------------------------------------------------------------------
 
 describe('getExampleData', () => {
-  const systemMockData = { sys: { page: { number: 1 } } };
+  // const systemMockData = { sys: { page: { number: 1, total: 1, pageOfTotal: '1 of 1' } } };
 
   it('returns system mock data when no examples are set', () => {
     const registry = testRegistry();
     const doc = createTestDocument();
     const engine = new EditorEngine(doc, registry);
 
-    expect(engine.getExampleData()).toEqual(systemMockData);
+    expect(engine.getExampleData()).toEqual(SYSTEM_PARAM_MOCK_DATA);
   });
 
   it('unwraps backend DataExample format and merges system mock data', () => {
@@ -2098,7 +2099,9 @@ describe('getExampleData', () => {
     const examples = [{ id: 'ex1', name: 'Test', data: { customer: 'John' } }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
-    expect(engine.getExampleData()).toEqual({ customer: 'John', ...systemMockData });
+    expect(engine.getExampleData()).toEqual(
+      Object.assign({ customer: 'John' }, SYSTEM_PARAM_MOCK_DATA),
+    );
   });
 
   it('returns flat format with system mock data merged', () => {
@@ -2107,7 +2110,9 @@ describe('getExampleData', () => {
     const examples = [{ customer: 'John', age: 30 }];
     const engine = new EditorEngine(doc, registry, { dataExamples: examples });
 
-    expect(engine.getExampleData()).toEqual({ customer: 'John', age: 30, ...systemMockData });
+    expect(engine.getExampleData()).toEqual(
+      Object.assign({ customer: 'John', age: 30 }, SYSTEM_PARAM_MOCK_DATA),
+    );
   });
 
   it('system params do not overwrite user example data', () => {
@@ -2119,7 +2124,7 @@ describe('getExampleData', () => {
     const result = engine.getExampleData();
     expect(result.name).toBe('Test');
     expect(result.amount).toBe(42);
-    expect(result.sys).toEqual({ page: { number: 1 } });
+    expect(result.sys).toEqual({ page: { number: 1, total: 1, pageOfTotal: '1 of 1' } });
   });
 });
 

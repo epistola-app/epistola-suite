@@ -2,6 +2,7 @@ package app.epistola.generation.pdf
 
 import app.epistola.template.model.TemplateDocument
 import com.itextpdf.kernel.geom.Rectangle
+import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEvent
 import com.itextpdf.kernel.pdf.event.AbstractPdfDocumentEventHandler
@@ -10,6 +11,13 @@ import com.itextpdf.layout.Canvas
 import com.itextpdf.layout.element.AreaBreak
 import com.itextpdf.layout.element.IBlockElement
 import com.itextpdf.layout.element.Image
+
+private fun getTotalPages(context: RenderContext, pdfDoc: PdfDocument): Int {
+    @Suppress("UNCHECKED_CAST")
+    val pageParams = context.systemParams["page"] as? Map<String, Any?>
+    val totalFromContext = pageParams?.get("total") as? Int
+    return totalFromContext ?: pdfDoc.numberOfPages
+}
 
 /**
  * Event handler that renders a page footer on every page.
@@ -51,7 +59,8 @@ class PageFooterEventHandler(
         // Render the footer node's slots with page-scoped system parameters
         if (footerNode != null) {
             val pageNumber = pdfDoc.getPageNumber(page)
-            val pageContext = context.withPageParams(pageNumber)
+            val totalPages = getTotalPages(context, pdfDoc)
+            val pageContext = context.withPageParams(pageNumber, totalPages)
             val elements = registry.renderSlots(footerNode, document, pageContext)
             for (element in elements) {
                 when (element) {

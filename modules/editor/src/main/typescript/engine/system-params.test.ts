@@ -10,6 +10,22 @@ describe('SYSTEM_PARAMETER_PATHS', () => {
     expect(pageNumber!.description).toBeTruthy();
   });
 
+  it('contains sys.page.total', () => {
+    const pageTotal = SYSTEM_PARAMETER_PATHS.find((fp) => fp.path === 'sys.page.total');
+    expect(pageTotal).toBeDefined();
+    expect(pageTotal!.type).toBe('integer');
+    expect(pageTotal!.system).toBe(true);
+    expect(pageTotal!.description).toBeTruthy();
+  });
+
+  it('contains sys.page.pageOfTotal', () => {
+    const pageOfTotal = SYSTEM_PARAMETER_PATHS.find((fp) => fp.path === 'sys.page.pageOfTotal');
+    expect(pageOfTotal).toBeDefined();
+    expect(pageOfTotal!.type).toBe('string');
+    expect(pageOfTotal!.system).toBe(true);
+    expect(pageOfTotal!.description).toBeTruthy();
+  });
+
   it('all entries are marked as system parameters', () => {
     for (const fp of SYSTEM_PARAMETER_PATHS) {
       expect(fp.system).toBe(true);
@@ -30,5 +46,17 @@ describe('SYSTEM_PARAM_MOCK_DATA', () => {
     const page = sys.page as Record<string, unknown>;
     expect(page).toBeDefined();
     expect(page.number).toBe(1);
+  });
+
+  it('contains sys.page.total mock value', () => {
+    const sys = SYSTEM_PARAM_MOCK_DATA.sys as Record<string, unknown>;
+    const page = sys.page as Record<string, unknown>;
+    expect(page.total).toBe(1);
+  });
+
+  it('contains sys.page.pageOfTotal mock value', () => {
+    const sys = SYSTEM_PARAM_MOCK_DATA.sys as Record<string, unknown>;
+    const page = sys.page as Record<string, unknown>;
+    expect(page.pageOfTotal).toBe('1 of 1');
   });
 });

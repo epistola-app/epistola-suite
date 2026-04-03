@@ -19,6 +19,30 @@ class SystemParameterRegistryTest {
     }
 
     @Test
+    fun `registry contains page total descriptor`() {
+        val descriptors = SystemParameterRegistry.all()
+
+        val pageTotal = descriptors.find { it.path == "page.total" }
+        assertTrue(pageTotal != null, "page.total descriptor should be registered")
+        assertEquals("integer", pageTotal.type)
+        assertEquals(SystemParamScope.PAGE_SCOPED, pageTotal.scope)
+        assertEquals("sys.page.total", pageTotal.fullPath)
+        assertEquals(1, pageTotal.mockValue)
+    }
+
+    @Test
+    fun `registry contains pageOfTotal descriptor`() {
+        val descriptors = SystemParameterRegistry.all()
+
+        val pageOfTotal = descriptors.find { it.path == "page.pageOfTotal" }
+        assertTrue(pageOfTotal != null, "page.pageOfTotal descriptor should be registered")
+        assertEquals("string", pageOfTotal.type)
+        assertEquals(SystemParamScope.PAGE_SCOPED, pageOfTotal.scope)
+        assertEquals("sys.page.pageOfTotal", pageOfTotal.fullPath)
+        assertEquals("1 of 1", pageOfTotal.mockValue)
+    }
+
+    @Test
     fun `fullPath includes sys prefix`() {
         val descriptor = SystemParameterDescriptor(
             path = "page.total",
@@ -69,12 +93,14 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildPageParams creates page number structure`() {
-        val result = SystemParameterRegistry.buildPageParams(5)
+    fun `buildPageParams creates page number and total structure`() {
+        val result = SystemParameterRegistry.buildPageParams(5, 10)
 
         @Suppress("UNCHECKED_CAST")
         val page = result["page"] as Map<String, Any?>
         assertEquals(5, page["number"])
+        assertEquals(10, page["total"])
+        assertEquals("5 of 10", page["pageOfTotal"])
     }
 
     @Test

@@ -47,7 +47,15 @@ data class RenderContext(
     /**
      * Returns a copy of this context with page-scoped system parameters injected.
      */
-    fun withPageParams(pageNumber: Int): RenderContext = copy(
-        systemParams = systemParams + SystemParameterRegistry.buildPageParams(pageNumber),
+    fun withPageParams(pageNumber: Int, totalPages: Int): RenderContext = copy(
+        systemParams = systemParams + SystemParameterRegistry.buildPageParams(pageNumber, totalPages),
+    )
+
+    /**
+     * Returns a copy of this context with a pre-calculated total pages value.
+     * Used for two-pass rendering where the total is determined in the first pass.
+     */
+    fun withTotalPages(totalPages: Int): RenderContext = copy(
+        systemParams = systemParams + SystemParameterRegistry.buildPageParams(1, totalPages),
     )
 }

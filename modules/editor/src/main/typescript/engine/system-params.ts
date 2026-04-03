@@ -19,16 +19,34 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     system: true,
     description: 'Current page number. Available in page headers/footers only.',
   },
+  {
+    path: 'sys.page.total',
+    type: 'integer',
+    system: true,
+    description: 'Total number of pages. Available in page headers/footers only.',
+  },
+  {
+    path: 'sys.page.pageOfTotal',
+    type: 'string',
+    system: true,
+    description:
+      "Page number and total in format '1 of 5'. Available in page headers/footers only.",
+  },
 ];
 
 /**
  * Mock values for system parameters, used in expression preview
  * within the editor. Structured to match the nested `sys.*` namespace.
  */
+
+const TOTAL_PAGES = 1;
+
 export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
   sys: {
     page: {
       number: 1,
+      total: TOTAL_PAGES,
+      pageOfTotal: `1 of ${TOTAL_PAGES}`,
     },
   },
 };
