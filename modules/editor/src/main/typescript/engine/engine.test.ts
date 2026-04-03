@@ -2124,7 +2124,7 @@ describe('getExampleData', () => {
     const result = engine.getExampleData();
     expect(result.name).toBe('Test');
     expect(result.amount).toBe(42);
-    expect(result.sys).toEqual({ page: { number: 1, total: 1, pageOfTotal: '1 of 1' } });
+    expect(result.sys).toEqual(SYSTEM_PARAM_MOCK_DATA.sys);
   });
 });
 
