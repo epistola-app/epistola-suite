@@ -19,6 +19,13 @@ export const SYSTEM_PARAMETER_PATHS: FieldPath[] = [
     system: true,
     description: 'Current page number. Available in page headers/footers only.',
   },
+  {
+    path: 'sys.today',
+    type: 'date',
+    system: true,
+    description:
+      "Today's date in ISO format (YYYY-MM-DD). Use $formatDate() for locale-specific formatting.",
+  },
 ];
 
 /**
@@ -30,5 +37,6 @@ export const SYSTEM_PARAM_MOCK_DATA: Record<string, unknown> = {
     page: {
       number: 1,
     },
+    today: '2026-04-03',
   },
 };

@@ -1,5 +1,6 @@
 package app.epistola.generation
 
+import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -8,7 +9,7 @@ class SystemParameterRegistryTest {
     @Test
     fun `registry contains page number descriptor`() {
         val descriptors = SystemParameterRegistry.all()
-        assertTrue(descriptors.isNotEmpty(), "Registry should have at least one descriptor")
+        assertTrue(descriptors.size >= 2, "Registry should have at least two descriptors")
 
         val pageNumber = descriptors.find { it.path == "page.number" }
         assertTrue(pageNumber != null, "page.number descriptor should be registered")
@@ -16,6 +17,18 @@ class SystemParameterRegistryTest {
         assertEquals(SystemParamScope.PAGE_SCOPED, pageNumber.scope)
         assertEquals("sys.page.number", pageNumber.fullPath)
         assertEquals(1, pageNumber.mockValue)
+    }
+
+    @Test
+    fun `registry contains today descriptor`() {
+        val descriptors = SystemParameterRegistry.all()
+
+        val today = descriptors.find { it.path == "today" }
+        assertTrue(today != null, "today descriptor should be registered")
+        assertEquals("date", today.type)
+        assertEquals(SystemParamScope.GLOBAL, today.scope)
+        assertEquals("sys.today", today.fullPath)
+        assertEquals("2026-04-03", today.mockValue)
     }
 
     @Test
@@ -78,8 +91,8 @@ class SystemParameterRegistryTest {
     }
 
     @Test
-    fun `buildGlobalParams returns empty map`() {
+    fun `buildGlobalParams returns today's date`() {
         val result = SystemParameterRegistry.buildGlobalParams()
-        assertTrue(result.isEmpty())
+        assertEquals(LocalDate.now().toString(), result["today"])
     }
 }

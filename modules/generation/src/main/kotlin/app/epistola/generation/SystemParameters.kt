@@ -1,5 +1,7 @@
 package app.epistola.generation
 
+import java.time.LocalDate
+
 /**
  * Scope at which a system parameter is available.
  */
@@ -50,6 +52,15 @@ object SystemParameterRegistry {
                 mockValue = 1,
             ),
         )
+        register(
+            SystemParameterDescriptor(
+                path = "today",
+                description = "Today's date in ISO format (YYYY-MM-DD). Use \$formatDate() for locale-specific formatting.",
+                type = "date",
+                scope = SystemParamScope.GLOBAL,
+                mockValue = "2026-04-03",
+            ),
+        )
     }
 
     fun register(descriptor: SystemParameterDescriptor) {
@@ -76,6 +87,6 @@ object SystemParameterRegistry {
     /** Build page-scoped system parameters (for headers/footers). */
     fun buildPageParams(pageNumber: Int): Map<String, Any?> = buildNestedMap(mapOf("page.number" to pageNumber))
 
-    /** Build global system parameters (currently empty, but extensible). */
-    fun buildGlobalParams(): Map<String, Any?> = emptyMap()
+    /** Build global system parameters (e.g., today's date). */
+    fun buildGlobalParams(): Map<String, Any?> = buildNestedMap(mapOf("today" to LocalDate.now().toString()))
 }

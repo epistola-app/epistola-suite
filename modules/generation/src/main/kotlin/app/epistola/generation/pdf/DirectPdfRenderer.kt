@@ -98,7 +98,7 @@ class DirectPdfRenderer(
             assetResolver = assetResolver,
             renderingDefaults = renderingDefaults,
             spacingUnit = spacingUnit,
-        )
+        ).withGlobalParams()
 
         // Set default font on the document so all text uses embedded Liberation Sans
         iTextDocument.setFont(fontCache.regular)
