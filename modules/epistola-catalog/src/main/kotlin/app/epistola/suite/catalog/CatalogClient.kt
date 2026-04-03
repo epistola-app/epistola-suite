@@ -96,6 +96,12 @@ class CatalogClient(
             ) {
                 return detailUrl
             }
+            // For classpath: URLs, resolve relative paths by replacing the last segment
+            if (manifestUrl.startsWith("classpath:")) {
+                val basePath = manifestUrl.substringAfter("classpath:").substringBeforeLast("/")
+                val resolved = "$basePath/$detailUrl".replace("/./", "/")
+                return "classpath:$resolved"
+            }
             val manifestUri = URI.create(manifestUrl)
             return manifestUri.resolve(detailUrl).toString()
         }
