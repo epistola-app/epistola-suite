@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+epistola:
+  generation:
+    polling:
+      enabled: false
