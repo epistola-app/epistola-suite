@@ -11,7 +11,7 @@ import tools.jackson.module.kotlin.kotlinModule
  * This is a minimal Spring Boot application configuration that enables
  * component scanning and autoconfiguration for the core module's test suite.
  */
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = ["app.epistola.suite"])
 class TestApplication {
     @Bean
     fun objectMapper() = jsonMapper {
