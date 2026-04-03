@@ -95,9 +95,19 @@ class TestFixture(private val namespace: String) {
         ThenContext().block()
     }
 
+    fun deleteAllTenants() {
+        ListTenants().query().forEach { tenant ->
+            DeleteTenant(tenant.id).execute()
+        }
+    }
+
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+
+        fun noTenants() {
+            this@TestFixture.deleteAllTenants()
+        }
 
         fun template(
             tenant: Tenant,

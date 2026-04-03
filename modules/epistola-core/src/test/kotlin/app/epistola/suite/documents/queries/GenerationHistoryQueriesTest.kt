@@ -1,7 +1,5 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -15,6 +13,8 @@ import app.epistola.suite.templates.commands.versions.UpdateDraft
 import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test

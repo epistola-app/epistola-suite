@@ -1,7 +1,6 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.TemplateId
@@ -14,6 +13,7 @@ import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
+import app.epistola.suite.testing.TestIdHelpers
 import com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat
 import org.junit.jupiter.api.Test
 import java.util.regex.Pattern

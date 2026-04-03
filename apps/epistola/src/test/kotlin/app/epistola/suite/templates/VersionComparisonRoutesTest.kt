@@ -1,7 +1,6 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -14,6 +13,7 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

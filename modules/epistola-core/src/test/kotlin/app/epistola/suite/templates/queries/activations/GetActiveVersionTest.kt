@@ -1,7 +1,5 @@
 package app.epistola.suite.templates.queries.activations
 
-import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TemplateKey
@@ -16,6 +14,8 @@ import app.epistola.suite.templates.commands.ImportStatus
 import app.epistola.suite.templates.commands.ImportTemplateInput
 import app.epistola.suite.templates.commands.ImportTemplates
 import app.epistola.suite.templates.commands.ImportVariantInput
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 

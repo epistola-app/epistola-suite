@@ -21,6 +21,16 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
+    // JDBI (needed by FakeDocumentGenerationExecutor)
+    implementation(libs.jdbi.core)
+    implementation(libs.jdbi.kotlin)
+
+    // Jackson (needed by FakeDocumentGenerationExecutor)
+    implementation("tools.jackson.module:jackson-module-kotlin")
+
+    // Micrometer (needed by FakeExecutorTestConfiguration)
+    implementation("io.micrometer:micrometer-core")
+
     runtimeOnly("org.junit.platform:junit-platform-launcher")
     runtimeOnly("org.postgresql:postgresql")
 }

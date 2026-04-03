@@ -1,7 +1,5 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.testing.IntegrationTestBase
-import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -18,6 +16,8 @@ import app.epistola.suite.templates.commands.variants.CreateVariant
 import app.epistola.suite.templates.commands.versions.PublishToEnvironment
 import app.epistola.suite.templates.queries.variants.ListVariants
 import app.epistola.suite.templates.queries.versions.ListVersions
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 

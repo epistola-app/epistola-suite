@@ -38,8 +38,6 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
 
     // Testing
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(project(":modules:testing"))
     testImplementation("org.springframework.boot:spring-boot-starter-restclient-test")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
