@@ -1,6 +1,6 @@
 package app.epistola.suite.attributes
 
-import app.epistola.suite.CoreIntegrationTestBase
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
 import app.epistola.suite.attributes.commands.DeleteAttributeDefinition
 import app.epistola.suite.attributes.commands.UpdateAttributeDefinition
@@ -16,7 +16,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class AttributeDefinitionTest : CoreIntegrationTestBase() {
+class AttributeDefinitionTest : IntegrationTestBase() {
 
     @Test
     fun `create attribute definition with allowed values`() {

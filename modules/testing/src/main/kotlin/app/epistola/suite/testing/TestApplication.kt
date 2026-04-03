@@ -1,4 +1,4 @@
-package app.epistola.suite
+package app.epistola.suite.testing
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.context.annotation.Bean
@@ -12,7 +12,7 @@ import tools.jackson.module.kotlin.kotlinModule
  * component scanning and autoconfiguration for the core module's test suite.
  */
 @SpringBootApplication
-class CoreTestApplication {
+class TestApplication {
     @Bean
     fun objectMapper() = jsonMapper {
         addModule(kotlinModule())

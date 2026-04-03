@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
-class CancelGenerationJobHandlerTest : CoreIntegrationTestBase() {
+class CancelGenerationJobHandlerTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Test

@@ -1,13 +1,13 @@
 package app.epistola.suite.assets
 
-import app.epistola.suite.CoreIntegrationTestBase
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.assets.commands.DeleteAsset
 import app.epistola.suite.assets.commands.UploadAsset
 import app.epistola.suite.assets.queries.FindAssetUsages
 import app.epistola.suite.assets.queries.GetAsset
 import app.epistola.suite.assets.queries.GetAssetContent
 import app.epistola.suite.assets.queries.ListAssets
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.AssetKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -25,7 +25,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class AssetIntegrationTest : CoreIntegrationTestBase() {
+class AssetIntegrationTest : IntegrationTestBase() {
 
     private val testPngBytes = createMinimalPng()
 

@@ -1,8 +1,8 @@
 package app.epistola.suite.templates.services
 
-import app.epistola.suite.CoreIntegrationTestBase
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.TemplateId
@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 
-class VariantResolverTest : CoreIntegrationTestBase() {
+class VariantResolverTest : IntegrationTestBase() {
 
     @Autowired
     private lateinit var variantResolver: VariantResolver

@@ -1,7 +1,7 @@
 package app.epistola.suite.ui
 
 import app.epistola.suite.attributes.commands.CreateAttributeDefinition
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.AttributeId
 import app.epistola.suite.common.ids.AttributeKey
 import app.epistola.suite.common.ids.TemplateId

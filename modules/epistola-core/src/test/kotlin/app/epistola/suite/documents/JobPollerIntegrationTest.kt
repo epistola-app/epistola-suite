@@ -1,7 +1,7 @@
 package app.epistola.suite.documents
 
-import app.epistola.suite.CoreTestcontainersConfiguration
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.TestcontainersConfiguration
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -47,7 +47,7 @@ import java.util.concurrent.TimeUnit
         "epistola.demo.enabled=false",
     ],
 )
-@Import(CoreTestcontainersConfiguration::class, app.epistola.suite.testing.UnloggedTablesTestConfiguration::class)
+@Import(TestcontainersConfiguration::class, app.epistola.suite.testing.UnloggedTablesTestConfiguration::class)
 @TestPropertySource(
     properties = [
         "epistola.generation.polling.enabled=true",

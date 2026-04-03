@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.DocumentKey
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
-class DocumentQueriesTest : CoreIntegrationTestBase() {
+class DocumentQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @Autowired

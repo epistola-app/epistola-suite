@@ -1,6 +1,6 @@
 package app.epistola.suite.ui
 
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey

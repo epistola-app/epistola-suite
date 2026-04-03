@@ -1,5 +1,6 @@
 package app.epistola.suite
 
+import app.epistola.suite.testing.TestcontainersConfiguration
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest

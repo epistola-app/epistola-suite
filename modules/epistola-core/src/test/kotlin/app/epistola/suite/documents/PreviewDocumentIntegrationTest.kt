@@ -1,6 +1,6 @@
 package app.epistola.suite.documents
 
-import app.epistola.suite.CoreIntegrationTestBase
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.node.ObjectNode
 
 @Timeout(30)
-class PreviewDocumentIntegrationTest : CoreIntegrationTestBase() {
+class PreviewDocumentIntegrationTest : IntegrationTestBase() {
 
     private val objectMapper = ObjectMapper()
 

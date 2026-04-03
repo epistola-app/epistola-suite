@@ -18,6 +18,7 @@ import app.epistola.suite.testing.ScenarioBuilder
 import app.epistola.suite.testing.ScenarioFactory
 import app.epistola.suite.testing.TestFixture
 import app.epistola.suite.testing.TestFixtureFactory
+import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag

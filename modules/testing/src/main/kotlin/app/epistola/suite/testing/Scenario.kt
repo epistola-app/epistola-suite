@@ -1,6 +1,5 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -23,7 +22,6 @@ import app.epistola.suite.templates.model.TemplateVariant
 import app.epistola.suite.templates.model.TemplateVersion
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
-import app.epistola.suite.tenants.commands.DeleteTenant
 import org.springframework.stereotype.Component
 
 /**
@@ -33,7 +31,7 @@ import org.springframework.stereotype.Component
 annotation class ScenarioDsl
 
 /**
- * Factory component for creating scenarios with automatic cleanup.
+ * Factory component for creating scenarios with Given-When-Then DSL.
  *
  * Usage:
  * ```kotlin
@@ -54,6 +52,9 @@ annotation class ScenarioDsl
 class ScenarioFactory(
     private val mediator: Mediator,
 ) {
+    /**
+     * Test user for authenticated operations.
+     */
     private val testUser = EpistolaPrincipal(
         userId = UserKey.of("00000000-0000-0000-0000-000000000099"),
         externalId = "test-user",
@@ -66,22 +67,21 @@ class ScenarioFactory(
     )
 
     /**
-     * Creates and executes a scenario with automatic resource cleanup.
+     * Creates and executes a scenario.
+     * Binds both mediator and authenticated user context.
      */
     fun <T> scenario(
         namespace: String,
         block: ScenarioBuilder.() -> T,
     ): T = MediatorContext.runWithMediator(mediator) {
         SecurityContext.runWithPrincipal(testUser) {
-            val builder = ScenarioBuilder(namespace)
-            try {
-                builder.block()
-            } finally {
-                builder.cleanup()
-            }
+            ScenarioBuilder(namespace).block()
         }
     }
 
+    /**
+     * Runs the given block with the mediator and security context bound.
+     */
     fun <T> withMediator(block: () -> T): T = MediatorContext.runWithMediator(mediator) {
         SecurityContext.runWithPrincipal(testUser) {
             block()
@@ -94,10 +94,7 @@ class ScenarioFactory(
  */
 @ScenarioDsl
 class ScenarioBuilder(private val namespace: String) {
-    private val cleanupActions = mutableListOf<() -> Unit>()
-    private var tenantCounter = 0
-
-    private fun nextTenantSlug(): String = "$namespace-s${++tenantCounter}"
+    private fun nextTenantSlug(): String = "$namespace-s${TestTenantCounter.next(namespace)}"
 
     /**
      * Define the test setup in the given block.
@@ -114,31 +111,13 @@ class ScenarioBuilder(private val namespace: String) {
     }
 
     /**
-     * Registers a cleanup action to be executed when the scenario completes.
-     * Actions are executed in reverse order (LIFO).
-     */
-    internal fun registerCleanup(action: () -> Unit) {
-        cleanupActions.add(action)
-    }
-
-    /**
-     * Executes all registered cleanup actions in reverse order.
-     */
-    internal fun cleanup() {
-        cleanupActions.asReversed().forEach { action ->
-            runCatching { action() }
-        }
-    }
-
-    /**
      * Scope for the "given" block providing test data setup methods.
      *
-     * Note: The mediator is captured at construction time to support cleanup
-     * actions that run outside the MediatorContext scope.
+     * Note: The mediator is captured at construction time to support usage
+     * in callbacks that may run on different threads.
      */
     @ScenarioDsl
     inner class GivenScope {
-        // Capture mediator reference for cleanup actions and DSL methods
         private val capturedMediator = MediatorContext.current()
 
         /**
@@ -152,18 +131,12 @@ class ScenarioBuilder(private val namespace: String) {
         fun <R> query(query: Query<R>): R = capturedMediator.query(query)
 
         /**
-         * Creates a tenant with automatic cleanup when the scenario ends.
+         * Creates a tenant with a unique ID within the namespace.
          *
          * @param name the name of the tenant to create
          * @return the created [Tenant]
          */
-        fun tenant(name: String): Tenant {
-            val tenant = capturedMediator.send(CreateTenant(id = TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
-            this@ScenarioBuilder.registerCleanup {
-                capturedMediator.send(DeleteTenant(tenant.id))
-            }
-            return tenant
-        }
+        fun tenant(name: String): Tenant = capturedMediator.send(CreateTenant(id = TenantKey.of(this@ScenarioBuilder.nextTenantSlug()), name = name))
 
         /**
          * Creates a document template.
@@ -296,11 +269,15 @@ class WhenResult<G, W>(
 }
 
 /**
- * Scope for the "then" block. Currently a marker class for DSL consistency.
- * Assertions are made using the parameters passed to the block.
+ * Scope for the "then" block.
+ * Provides [query] and [execute] helpers so assertions can invoke additional
+ * commands/queries (e.g. to verify side-effects or test error paths).
  */
 @ScenarioDsl
-class ThenScope
+class ThenScope {
+    fun <R> execute(command: Command<R>): R = MediatorContext.current().send(command)
+    fun <R> query(query: Query<R>): R = MediatorContext.current().query(query)
+}
 
 // ============================================================================
 // Reusable setup data classes

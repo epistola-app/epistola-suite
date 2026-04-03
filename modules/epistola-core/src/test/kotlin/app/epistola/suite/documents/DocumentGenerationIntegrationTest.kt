@@ -1,7 +1,7 @@
 package app.epistola.suite.documents
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.GenerationRequestKey
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -37,7 +37,7 @@ import tools.jackson.databind.node.ObjectNode
 import java.util.concurrent.TimeUnit
 
 @Timeout(30) // All tests must complete within 30 seconds
-class DocumentGenerationIntegrationTest : CoreIntegrationTestBase() {
+class DocumentGenerationIntegrationTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 

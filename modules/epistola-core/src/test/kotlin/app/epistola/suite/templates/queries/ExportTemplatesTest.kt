@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.queries
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -21,7 +21,7 @@ import app.epistola.suite.templates.queries.versions.ListVersions
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-class ExportTemplatesTest : CoreIntegrationTestBase() {
+class ExportTemplatesTest : IntegrationTestBase() {
 
     @Test
     fun `export returns empty list for tenant with no templates`(): Unit = withMediator {

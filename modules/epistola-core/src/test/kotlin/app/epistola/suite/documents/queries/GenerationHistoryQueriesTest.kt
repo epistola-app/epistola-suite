@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.queries
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 import java.util.concurrent.TimeUnit
 
-class GenerationHistoryQueriesTest : CoreIntegrationTestBase() {
+class GenerationHistoryQueriesTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     private data class TemplateSetup(

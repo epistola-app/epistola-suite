@@ -1,7 +1,7 @@
 package app.epistola.suite.templates
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId

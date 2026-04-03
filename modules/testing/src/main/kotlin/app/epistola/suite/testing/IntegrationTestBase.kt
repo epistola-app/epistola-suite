@@ -1,4 +1,4 @@
-package app.epistola.suite
+package app.epistola.suite.testing
 
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
@@ -12,13 +12,6 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.Tenant
 import app.epistola.suite.tenants.commands.CreateTenant
-import app.epistola.suite.testing.FakeExecutorTestConfiguration
-import app.epistola.suite.testing.ScenarioBuilder
-import app.epistola.suite.testing.ScenarioFactory
-import app.epistola.suite.testing.TestFixture
-import app.epistola.suite.testing.TestFixtureFactory
-import app.epistola.suite.testing.TestTenantCounter
-import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.springframework.beans.factory.annotation.Autowired
@@ -26,7 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 
-@Import(CoreTestcontainersConfiguration::class, FakeExecutorTestConfiguration::class, UnloggedTablesTestConfiguration::class)
+@Import(TestcontainersConfiguration::class, FakeExecutorTestConfiguration::class, UnloggedTablesTestConfiguration::class)
 @SpringBootTest(
     properties = [
         "epistola.demo.enabled=false",
@@ -34,7 +27,7 @@ import org.springframework.test.context.ActiveProfiles
 )
 @ActiveProfiles("test")
 @Tag("integration")
-abstract class CoreIntegrationTestBase {
+abstract class IntegrationTestBase {
     @Autowired
     protected lateinit var mediator: Mediator
 

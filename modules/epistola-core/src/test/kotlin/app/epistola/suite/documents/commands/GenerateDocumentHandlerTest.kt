@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -17,7 +17,7 @@ import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.ObjectMapper
 
-class GenerateDocumentHandlerTest : CoreIntegrationTestBase() {
+class GenerateDocumentHandlerTest : IntegrationTestBase() {
     private val objectMapper = ObjectMapper()
 
     @org.springframework.beans.factory.annotation.Autowired

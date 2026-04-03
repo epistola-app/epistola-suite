@@ -1,6 +1,6 @@
 package app.epistola.suite.demo
 
-import app.epistola.suite.TestcontainersConfiguration
+import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Mediator

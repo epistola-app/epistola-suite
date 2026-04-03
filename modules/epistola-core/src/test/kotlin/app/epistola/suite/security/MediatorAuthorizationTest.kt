@@ -1,6 +1,6 @@
 package app.epistola.suite.security
 
-import app.epistola.suite.CoreIntegrationTestBase
+import app.epistola.suite.testing.IntegrationTestBase
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Command
@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test
  * Integration test verifying that [SpringMediator] correctly enforces
  * authorization declared via [Authorized] marker interfaces.
  */
-class MediatorAuthorizationTest : CoreIntegrationTestBase() {
+class MediatorAuthorizationTest : IntegrationTestBase() {
 
     @Test
     fun `RequiresPermission command succeeds with correct permission`() = withAuthentication {

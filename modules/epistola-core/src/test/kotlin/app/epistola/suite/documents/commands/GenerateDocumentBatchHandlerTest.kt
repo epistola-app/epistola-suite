@@ -1,7 +1,7 @@
 package app.epistola.suite.documents.commands
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import tools.jackson.databind.ObjectMapper
 
-class GenerateDocumentBatchHandlerTest : CoreIntegrationTestBase() {
+class GenerateDocumentBatchHandlerTest : IntegrationTestBase() {
     @Autowired
     private lateinit var jdbi: Jdbi
 

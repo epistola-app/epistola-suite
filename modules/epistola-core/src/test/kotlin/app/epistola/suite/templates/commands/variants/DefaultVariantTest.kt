@@ -1,7 +1,7 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -13,7 +13,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class DefaultVariantTest : CoreIntegrationTestBase() {
+class DefaultVariantTest : IntegrationTestBase() {
 
     @Test
     fun `first variant created with template is automatically the default`() {

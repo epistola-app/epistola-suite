@@ -1,6 +1,6 @@
 package app.epistola.suite.observability
 
-import app.epistola.suite.TestcontainersConfiguration
+import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
