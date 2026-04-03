@@ -75,6 +75,7 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
     // Testing
+    testImplementation(project(":modules:testing"))
     testImplementation("org.springframework.boot:spring-boot-micrometer-tracing-test")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
     testImplementation("org.springframework.boot:spring-boot-starter-flyway-test")

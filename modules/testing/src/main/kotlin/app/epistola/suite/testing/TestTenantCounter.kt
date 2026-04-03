@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * This eliminates the need to delete tenants between tests, avoiding deadlocks
  * with in-flight job poller transactions.
  *
- * Follows the same pattern as [app.epistola.suite.common.TestIdHelpers].
+ * Follows the same pattern as [app.epistola.suite.testing.TestIdHelpers].
  */
 object TestTenantCounter {
     private val counters = ConcurrentHashMap<String, AtomicInteger>()

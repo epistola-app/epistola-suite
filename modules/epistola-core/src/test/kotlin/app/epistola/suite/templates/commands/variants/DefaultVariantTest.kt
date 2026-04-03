@@ -1,7 +1,5 @@
 package app.epistola.suite.templates.commands.variants
 
-import app.epistola.suite.CoreIntegrationTestBase
-import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.VariantId
@@ -9,11 +7,13 @@ import app.epistola.suite.mediator.execute
 import app.epistola.suite.mediator.query
 import app.epistola.suite.templates.commands.CreateDocumentTemplate
 import app.epistola.suite.templates.queries.variants.ListVariants
+import app.epistola.suite.testing.IntegrationTestBase
+import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
-class DefaultVariantTest : CoreIntegrationTestBase() {
+class DefaultVariantTest : IntegrationTestBase() {
 
     @Test
     fun `first variant created with template is automatically the default`() {

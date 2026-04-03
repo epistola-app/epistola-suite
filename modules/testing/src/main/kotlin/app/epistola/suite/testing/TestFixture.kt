@@ -1,6 +1,5 @@
 package app.epistola.suite.testing
 
-import app.epistola.suite.common.TestIdHelpers
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
 import app.epistola.suite.common.ids.TenantKey
@@ -96,9 +95,19 @@ class TestFixture(private val namespace: String) {
         ThenContext().block()
     }
 
+    fun deleteAllTenants() {
+        ListTenants().query().forEach { tenant ->
+            DeleteTenant(tenant.id).execute()
+        }
+    }
+
     @TestFixtureDsl
     inner class GivenContext {
         fun tenant(name: String): Tenant = CreateTenant(id = TenantKey.of(this@TestFixture.nextTenantSlug()), name = name).execute()
+
+        fun noTenants() {
+            this@TestFixture.deleteAllTenants()
+        }
 
         fun template(
             tenant: Tenant,
@@ -114,7 +123,7 @@ class TestFixture(private val namespace: String) {
             title: String? = null,
             attributes: Map<String, String> = emptyMap(),
         ): TemplateVariant = CreateVariant(
-            id = VariantId(TestIdHelpers.nextVariantId(), template.id as TemplateId),
+            id = VariantId(TestIdHelpers.nextVariantId(), TemplateId(template.id, TenantId(tenant.id))),
             title = title,
             description = null,
             attributes = attributes,

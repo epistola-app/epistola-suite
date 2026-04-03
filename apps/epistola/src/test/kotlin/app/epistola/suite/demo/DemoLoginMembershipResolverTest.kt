@@ -1,6 +1,5 @@
 package app.epistola.suite.demo
 
-import app.epistola.suite.TestcontainersConfiguration
 import app.epistola.suite.common.ids.TenantKey
 import app.epistola.suite.common.ids.UserKey
 import app.epistola.suite.mediator.Mediator
@@ -12,6 +11,7 @@ import app.epistola.suite.security.SecurityContext
 import app.epistola.suite.security.TenantRole
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.GetTenant
+import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import app.epistola.suite.users.AuthProvider
 import app.epistola.suite.users.User
@@ -31,6 +31,7 @@ import java.time.OffsetDateTime
     app.epistola.suite.config.TestSecurityContextConfiguration::class,
 )
 @SpringBootTest(
+    classes = [app.epistola.suite.EpistolaSuiteApplication::class],
     properties = [
         "epistola.demo.enabled=true",
     ],

@@ -1,6 +1,6 @@
 package app.epistola.suite.observability
 
-import app.epistola.suite.TestcontainersConfiguration
+import app.epistola.suite.testing.TestcontainersConfiguration
 import app.epistola.suite.testing.UnloggedTablesTestConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Tag
@@ -15,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles
 
 @Import(TestcontainersConfiguration::class, UnloggedTablesTestConfiguration::class)
 @SpringBootTest(
+    classes = [app.epistola.suite.EpistolaSuiteApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = [
         "epistola.demo.enabled=false",

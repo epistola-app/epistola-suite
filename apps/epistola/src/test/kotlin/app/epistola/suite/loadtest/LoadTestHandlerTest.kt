@@ -1,7 +1,7 @@
 package app.epistola.suite.loadtest
 
 import app.epistola.suite.BaseIntegrationTest
-import app.epistola.suite.common.TestIdHelpers
+import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.common.ids.EnvironmentId
 import app.epistola.suite.common.ids.TemplateId
 import app.epistola.suite.common.ids.TenantId
@@ -13,6 +13,7 @@ import app.epistola.suite.templates.commands.UpdateDocumentTemplate
 import app.epistola.suite.templates.commands.versions.CreateVersion
 import app.epistola.suite.templates.model.DataExample
 import app.epistola.suite.tenants.Tenant
+import app.epistola.suite.testing.TestIdHelpers
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -26,7 +27,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import tools.jackson.databind.ObjectMapper
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 class LoadTestHandlerTest : BaseIntegrationTest() {
     @Autowired

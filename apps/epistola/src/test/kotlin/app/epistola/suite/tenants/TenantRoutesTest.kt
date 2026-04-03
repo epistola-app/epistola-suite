@@ -1,6 +1,7 @@
 package app.epistola.suite.tenants
 
 import app.epistola.suite.BaseIntegrationTest
+import app.epistola.suite.EpistolaSuiteApplication
 import app.epistola.suite.tenants.commands.DeleteTenant
 import app.epistola.suite.tenants.queries.ListTenants
 import org.assertj.core.api.Assertions.assertThat
@@ -17,7 +18,7 @@ import org.springframework.http.MediaType
 import org.springframework.util.LinkedMultiValueMap
 
 @Isolated("Tests in this class require exclusive database access (e.g. asserting empty tenant list)")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = [EpistolaSuiteApplication::class], webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
 class TenantRoutesTest : BaseIntegrationTest() {
     @Autowired
