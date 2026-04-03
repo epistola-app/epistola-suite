@@ -20,6 +20,7 @@ dependencies {
     kover(project(":modules:rest-api"))
     kover(project(":modules:loadtest"))
     kover(project(":modules:feedback"))
+    kover(project(":modules:epistola-catalog"))
 }
 
 kover {

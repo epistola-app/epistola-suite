@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <a th:href="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}">Catalogs</a>
+            &raquo; <span th:text="${catalog.name}"></span>
+        </nav>
+
+        <h1 th:text="${catalog.name}"></h1>
+        <p class="text-muted text-sm" th:text="${catalog.sourceUrl}"></p>
+
+        <div class="alert alert-success" th:if="${installed}">
+            Templates installed successfully.
+        </div>
+
+        <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
+        <div class="card" th:if="${!resources.isEmpty()}">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Templates</h2>
+                <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id})}"
+                      method="post" style="margin: 0;">
+                    <button type="submit" class="btn btn-sm btn-primary">Install All</button>
+                </form>
+            </div>
+            <div class="card-content">
+                <table class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Slug</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="resource : ${resources}">
+                            <td th:text="${resource.name}"></td>
+                            <td><code th:text="${resource.slug}"></code></td>
+                            <td>
+                                <span th:if="${resource.description}" th:text="${resource.description}"></span>
+                                <span th:unless="${resource.description}" class="text-muted">-</span>
+                            </td>
+                            <td>
+                                <span th:if="${resource.status.name() == 'INSTALLED'}" class="badge badge-success">Installed</span>
+                                <span th:if="${resource.status.name() == 'AVAILABLE'}" class="badge">Available</span>
+                            </td>
+                            <td>
+                                <form th:if="${resource.status.name() == 'AVAILABLE'}"
+                                      th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/install(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                      method="post" style="display: inline;">
+                                    <input type="hidden" name="slug" th:value="${resource.slug}">
+                                    <button type="submit" class="btn btn-sm btn-primary">Install</button>
+                                </form>
+                                <span th:if="${resource.status.name() == 'INSTALLED'}" class="text-muted">-</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" th:if="${resources.isEmpty()}">
+            <div class="card-content">
+                <p class="text-muted">This catalog has no resources.</p>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

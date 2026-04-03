@@ -11,15 +11,19 @@ import app.epistola.suite.feedback.FeedbackAccessDeniedException
 import app.epistola.suite.feedback.FeedbackCategory
 import app.epistola.suite.feedback.FeedbackPriority
 import app.epistola.suite.feedback.FeedbackStatus
+import app.epistola.suite.feedback.SyncProviderType
 import app.epistola.suite.feedback.commands.AddFeedbackAsset
 import app.epistola.suite.feedback.commands.AddFeedbackComment
 import app.epistola.suite.feedback.commands.CreateFeedback
+import app.epistola.suite.feedback.commands.SaveFeedbackSyncConfig
 import app.epistola.suite.feedback.commands.UpdateFeedbackStatus
 import app.epistola.suite.feedback.queries.GetFeedback
 import app.epistola.suite.feedback.queries.GetFeedbackAssetContent
 import app.epistola.suite.feedback.queries.GetFeedbackComments
+import app.epistola.suite.feedback.queries.GetFeedbackSyncConfig
 import app.epistola.suite.feedback.queries.ListFeedback
 import app.epistola.suite.feedback.queries.ListFeedbackAssets
+import app.epistola.suite.feedback.sync.github.GitHubSyncSettings
 import app.epistola.suite.htmx.feedbackId
 import app.epistola.suite.htmx.form
 import app.epistola.suite.htmx.htmx
@@ -41,6 +45,7 @@ import java.util.concurrent.TimeUnit
 @Component
 class FeedbackHandler(
     private val buildProperties: BuildProperties?,
+    private val objectMapper: tools.jackson.databind.ObjectMapper,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -291,6 +296,106 @@ class FeedbackHandler(
         }
     }
 
+    fun feedbackSync(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val config = GetFeedbackSyncConfig(tenantId.key).query()
+
+        val formData = mutableMapOf<String, String>()
+        if (config != null) {
+            formData["enabled"] = if (config.enabled) "on" else ""
+            formData["providerType"] = config.providerType.name
+            if (config.enabled && config.providerType == SyncProviderType.GITHUB) {
+                val github = objectMapper.readValue(config.settings, GitHubSyncSettings::class.java)
+                formData["personalAccessToken"] = maskToken(github.personalAccessToken)
+                formData["repoOwner"] = github.repoOwner
+                formData["repoName"] = github.repoName
+                formData["label"] = github.label
+            }
+            config.lastPolledAt?.let { formData["lastPolledAt"] = it.toString() }
+        }
+
+        return ServerResponse.ok().page("feedback/sync") {
+            "pageTitle" to "Feedback Sync - Epistola"
+            "tenantId" to tenantId.key
+            "activeNavSection" to "feedback"
+            "formData" to formData
+        }
+    }
+
+    fun saveFeedbackSync(request: ServerRequest): ServerResponse {
+        val tenantId = request.tenantId()
+        val enabled = request.param("enabled").isPresent
+
+        val form = request.form {
+            field("providerType") { required() }
+            if (enabled) {
+                field("repoOwner") {
+                    required()
+                    maxLength(100)
+                }
+                field("repoName") {
+                    required()
+                    maxLength(100)
+                }
+                field("personalAccessToken") {
+                    required()
+                    maxLength(500)
+                }
+                field("label") { maxLength(100) }
+            }
+        }
+
+        if (form.hasErrors()) {
+            val combinedFormData = form.formData + Pair("enabled", if (enabled) "on" else "")
+            return ServerResponse.ok().page("feedback/sync") {
+                "pageTitle" to "Feedback Sync - Epistola"
+                "tenantId" to tenantId.key
+                "activeNavSection" to "feedback"
+                "formData" to combinedFormData
+                "errors" to form.errors
+            }
+        }
+
+        val providerType = SyncProviderType.valueOf(form["providerType"])
+
+        val submittedToken = form["personalAccessToken"]
+        val resolvedToken = if (enabled && isMaskedToken(submittedToken)) {
+            val existing = GetFeedbackSyncConfig(tenantId.key).query()
+            if (existing != null && existing.providerType == SyncProviderType.GITHUB) {
+                val existingSettings = objectMapper.readValue(existing.settings, GitHubSyncSettings::class.java)
+                existingSettings.personalAccessToken
+            } else {
+                submittedToken
+            }
+        } else {
+            submittedToken
+        }
+
+        val settingsJson = if (enabled) {
+            objectMapper.writeValueAsString(
+                GitHubSyncSettings(
+                    personalAccessToken = resolvedToken,
+                    repoOwner = form["repoOwner"],
+                    repoName = form["repoName"],
+                    label = form["label"].ifBlank { "etk-${tenantId.key}" },
+                ),
+            )
+        } else {
+            "{}"
+        }
+
+        SaveFeedbackSyncConfig(
+            tenantKey = tenantId.key,
+            enabled = enabled,
+            providerType = providerType,
+            settings = settingsJson,
+        ).execute()
+
+        return ServerResponse.status(303)
+            .header("Location", "/tenants/${tenantId.key}/feedback/sync?saved=true")
+            .build()
+    }
+
     fun assetContent(request: ServerRequest): ServerResponse {
         val tenantId = request.tenantId()
         val feedbackId = request.feedbackId(tenantId) ?: return ServerResponse.badRequest().build()
@@ -314,5 +419,22 @@ class FeedbackHandler(
             .contentType(MediaType.parseMediaType(content.contentType))
             .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().immutable())
             .body(content.content)
+    }
+
+    companion object {
+        fun maskToken(token: String): String {
+            val underscoreIdx = token.indexOf('_')
+            return if (underscoreIdx > 0 && token.length > underscoreIdx + 5) {
+                val prefix = token.substring(0, underscoreIdx + 1)
+                val lastFour = token.takeLast(4)
+                "$prefix****$lastFour"
+            } else if (token.length > 8) {
+                "${token.take(4)}****${token.takeLast(4)}"
+            } else {
+                "****"
+            }
+        }
+
+        fun isMaskedToken(value: String): Boolean = "****" in value
     }
 }

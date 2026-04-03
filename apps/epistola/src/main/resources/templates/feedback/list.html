@@ -5,6 +5,10 @@
         <div class="page-header">
             <h1>Feedback</h1>
             <div class="page-actions">
+                <a th:href="@{/tenants/{tenantId}/feedback/sync(tenantId=${tenantId})}"
+                   class="btn btn-outline btn-sm">
+                    Sync Settings
+                </a>
                 <button type="button" class="btn btn-primary"
                         hx-get th:hx-get="@{/tenants/{tenantId}/feedback/submit-form(tenantId=${tenantId})}"
                         hx-target="#feedback-dialog-content"

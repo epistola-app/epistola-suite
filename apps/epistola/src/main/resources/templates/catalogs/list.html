@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+    <th:block th:fragment="content">
+        <nav class="breadcrumb">
+            <span>Catalogs</span>
+        </nav>
+
+        <h1>Catalogs</h1>
+
+        <div class="alert alert-success" th:if="${saved}">
+            Catalog settings updated successfully.
+        </div>
+
+        <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
+        <div class="card create-form-card">
+            <div class="card-header">
+                <h2>Register Catalog</h2>
+            </div>
+            <div class="card-content">
+                <form th:action="@{/tenants/{tenantId}/catalogs(tenantId=${tenantId})}" method="post">
+                    <div class="form-group">
+                        <label class="ep-label" for="sourceUrl">Catalog URL</label>
+                        <input type="text" id="sourceUrl" name="sourceUrl" class="ep-input"
+                               value="classpath:demo/catalog/catalog.json"
+                               required>
+                        <span class="form-hint">
+                            Supported URL schemes:
+                            <code>https://</code> or <code>http://</code> for remote catalogs,
+                            <code>classpath:</code> for bundled catalogs,
+                            <code>file:///</code> for local files.
+                            Must point to a <code>.json</code> file.
+                        </span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="ep-label" for="authType">Authentication</label>
+                        <select id="authType" name="authType" class="ep-input">
+                            <option value="NONE">None (public catalog)</option>
+                            <option value="BEARER">Bearer Token</option>
+                            <option value="API_KEY">API Key</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="credential-group" style="display: none;">
+                        <label class="ep-label" for="authCredential">Credential</label>
+                        <input type="password" id="authCredential" name="authCredential" class="ep-input"
+                               placeholder="Token or API key">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Register Catalog</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card" th:if="${!catalogs.isEmpty()}">
+            <div class="card-header">
+                <h2>Registered Catalogs</h2>
+            </div>
+            <div class="card-content">
+                <table class="ep-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Source URL</th>
+                            <th>Version</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="catalog : ${catalogs}">
+                            <td th:text="${catalog.name}"></td>
+                            <td>
+                                <span class="text-muted text-sm" th:text="${catalog.sourceUrl}"></span>
+                            </td>
+                            <td>
+                                <span th:if="${catalog.installedReleaseVersion}"
+                                      th:text="${catalog.installedReleaseVersion}"></span>
+                                <span th:unless="${catalog.installedReleaseVersion}" class="text-muted">-</span>
+                            </td>
+                            <td>
+                                <a th:href="@{/tenants/{tenantId}/catalogs/{catalogId}/browse(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                   class="btn btn-sm">Browse</a>
+                                <form th:action="@{/tenants/{tenantId}/catalogs/{catalogId}/delete(tenantId=${tenantId},catalogId=${catalog.id})}"
+                                      method="post" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger"
+                                            onclick="return confirm('Remove this catalog registration? Installed templates will not be deleted.')">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" th:if="${catalogs.isEmpty()}">
+            <div class="card-content">
+                <p class="text-muted">No catalogs registered. Add a catalog URL above to get started.</p>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById('authType').addEventListener('change', function() {
+                document.getElementById('credential-group').style.display =
+                    this.value === 'NONE' ? 'none' : 'block';
+            });
+        </script>
+    </th:block>
+</body>
+</html>
