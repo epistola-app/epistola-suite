@@ -1,400 +1,277 @@
 # Testing Guide
 
-This document describes the testing infrastructure, patterns, and best practices for Epistola Suite.
-
 ## Prerequisites
 
-- **Docker** - Required for running integration tests (Testcontainers)
-- **JDK 25** - Required for running tests
+- **Docker** — required for integration tests (Testcontainers)
+- **JDK 25** — required for running tests
 
 ## Running Tests
 
 ```bash
-# Run all tests
-gradle test
+# Unit tests only (no Docker needed)
+./gradlew unitTest
 
-# Run tests with coverage report
-gradle koverHtmlReport
+# Integration tests (requires Docker)
+./gradlew integrationTest
 
-# Run a specific test class
-gradle test --tests "app.epistola.suite.tenants.TenantCommandsTest"
+# UI tests (requires Docker + Playwright)
+./gradlew uiTest
 
-# Run tests in a specific package
-gradle test --tests "app.epistola.suite.tenants.*"
-```
+# All tests
+./gradlew test
 
-## Test Frameworks
+# Specific test class
+./gradlew test --tests "app.epistola.suite.tenants.TenantCommandsTest"
 
-| Framework        | Purpose                                 |
-| ---------------- | --------------------------------------- |
-| JUnit 5          | Core testing framework                  |
-| Testcontainers   | Docker containers for integration tests |
-| Spring Boot Test | Spring context and web testing          |
-| AssertJ          | Fluent assertion library                |
-| Kover            | Code coverage for Kotlin                |
-
-## Test Directory Structure
-
-```
-apps/epistola/src/test/kotlin/app/epistola/suite/
-├── BaseIntegrationTest.kt           # Base class for integration tests
-├── TestcontainersConfiguration.kt   # Testcontainers setup
-├── TestEpistolaSuiteApplication.kt  # Test app entry point
-├── testing/
-│   └── TestFixture.kt               # Test fixture DSL
-├── htmx/                            # Unit tests for HTMX utilities
-├── tenants/                         # Tenant feature tests
-└── templates/                       # Template feature tests
+# Coverage report
+./gradlew koverHtmlReport
+# Report: build/reports/kover/html/index.html
 ```
 
 ## Test Types
 
-### Unit Tests
+| Type        | Tag           | Docker | What it tests                                   |
+| ----------- | ------------- | ------ | ----------------------------------------------- |
+| Unit        | —             | No     | Utilities, pure functions, validation           |
+| Integration | `integration` | Yes    | Business logic, DB operations, commands/queries |
+| UI          | `ui`          | Yes    | Browser interactions, HTMX, page rendering      |
 
-Unit tests run without Spring context and test isolated components:
+## Module Structure
 
-```kotlin
-class HtmxRequestTest {
-    @Test
-    fun `should detect HTMX request`() {
-        val request = MockHttpServletRequest()
-        request.addHeader("HX-Request", "true")
+Shared test infrastructure lives in `modules/testing/` and is used by all modules:
 
-        assertThat(request.isHtmx()).isTrue()
-    }
-}
+```
+modules/testing/src/main/kotlin/app/epistola/suite/testing/
+├── IntegrationTestBase.kt          # Base class for all integration tests
+├── TestApplication.kt              # Minimal Spring Boot app for module tests
+├── TestcontainersConfiguration.kt  # PostgreSQL container setup
+├── UnloggedTablesTestConfiguration.kt  # Performance: WAL-free tables
+├── FakeExecutorTestConfiguration.kt    # Skips real PDF generation
+├── Scenario.kt                     # Scenario DSL (preferred)
+├── TestFixture.kt                  # TestFixture DSL (legacy)
+├── TestIdHelpers.kt                # Unique sequential ID generation
+└── TestTenantCounter.kt            # Namespace-based tenant slugs
 ```
 
-**Characteristics:**
+## Test Hierarchy
 
-- No `@SpringBootTest` annotation
-- No database or Docker required
-- Fast execution
-- Test utilities, helpers, and pure functions
+There are three test contexts, each booting a different Spring application:
 
-### Integration Tests
+```
+IntegrationTestBase (modules/testing)
+│  @SpringBootTest(classes = [TestApplication])
+│  Provides: withMediator(), fixture(), scenario(), createTenant()
+│
+├── Module integration tests (epistola-core, epistola-catalog, etc.)
+│     Extend IntegrationTestBase directly
+│     Boot TestApplication (minimal, no web layer)
+│
+├── BaseIntegrationTest (apps/epistola)
+│     @SpringBootTest(classes = [EpistolaSuiteApplication])  ← overrides
+│     Adds: TestSecurityContextConfiguration, per-class DB cleanup
+│     │
+│     └── BasePlaywrightTest (apps/epistola)
+│           @SpringBootTest(..., webEnvironment = RANDOM_PORT)
+│           Adds: Playwright browser lifecycle, baseUrl()
+```
 
-Integration tests use the full Spring context with a real PostgreSQL database:
+**Key rule:** The closest `@SpringBootTest` annotation wins. `IntegrationTestBase` defaults to `TestApplication`. App tests override it with `EpistolaSuiteApplication`.
+
+## Writing Tests
+
+### Unit Tests
+
+No Spring context, no Docker. Test pure logic:
 
 ```kotlin
-class TenantCommandsTest : BaseIntegrationTest() {
+class CatalogKeyTest {
     @Test
-    fun `should create tenant`() {
-        fixture {
-            whenever {
-                createTenant("Acme Corp")
-            }
-            then {
-                val tenant = result<Tenant>()
-                assertThat(tenant.name).isEqualTo("Acme Corp")
-            }
+    fun `valid slug is accepted`() {
+        val key = CatalogKey.of("my-catalog")
+        assertEquals("my-catalog", key.value)
+    }
+
+    @Test
+    fun `too short slug is rejected`() {
+        assertThrows<IllegalArgumentException> {
+            CatalogKey.of("ab")
         }
     }
 }
 ```
 
-**Characteristics:**
+### Module Integration Tests
 
-- Extend `BaseIntegrationTest`
-- Full Spring context loaded
-- PostgreSQL container started automatically
-- Automatic cleanup after each test
-
-## BaseIntegrationTest
-
-All integration tests should extend `BaseIntegrationTest`:
+Extend `IntegrationTestBase`. Boots `TestApplication` (minimal context):
 
 ```kotlin
-@Import(TestcontainersConfiguration::class)
-@SpringBootTest
-abstract class BaseIntegrationTest {
-    @Autowired
-    protected lateinit var mediator: Mediator
+class ImportTemplatesTest : IntegrationTestBase() {
+    @Test
+    fun `import creates template`() {
+        val tenant = createTenant("Test Tenant")
 
-    @Autowired
-    protected lateinit var testFixtureFactory: TestFixtureFactory
+        withMediator {
+            val results = ImportTemplates(
+                tenantId = TenantId(tenant.id),
+                templates = listOf(/* ... */),
+            ).execute()
 
-    protected fun <T> fixture(block: TestFixture.() -> T): T
-    protected fun createTenant(name: String): Tenant
-    protected fun deleteAllTenants()
-}
-```
-
-**Provides:**
-
-- Testcontainers configuration (PostgreSQL)
-- `Mediator` for executing commands and queries
-- `TestFixtureFactory` for building test scenarios
-- Helper methods for common operations
-- Automatic cleanup after each test
-
-## Test Fixture DSL
-
-The `TestFixture` DSL provides a fluent, readable way to write tests using the Given-When-Then pattern:
-
-```kotlin
-fixture {
-    given {
-        // Setup: create prerequisites
-        tenant("Existing Corp")
-    }
-    whenever {
-        // Action: execute the operation under test
-        createTenant("New Corp")
-    }
-    then {
-        // Assert: verify the results
-        val tenant = result<Tenant>()
-        assertThat(tenant.name).isEqualTo("New Corp")
+            assertThat(results).hasSize(1)
+            assertThat(results[0].status).isEqualTo(ImportStatus.CREATED)
+        }
     }
 }
 ```
 
-### Available Operations
+### App Integration Tests
 
-#### Given Context (Setup)
-
-```kotlin
-given {
-    tenant("Acme Corp")                      // Create a tenant
-    template(tenant, "Invoice Template")      // Create a document template
-    noTenants()                              // Ensure no tenants exist
-}
-```
-
-#### When Context (Action)
+Extend `BaseIntegrationTest`. Boots the full app with security:
 
 ```kotlin
-whenever {
-    createTenant("New Corp")                 // Create a tenant
-    deleteTenant(id)                         // Delete a tenant
-    listTenants(searchTerm)                  // List tenants
-    listTemplates(tenant)                    // List templates for a tenant
-}
-```
-
-#### Then Context (Assert)
-
-```kotlin
-then {
-    val result = result<Tenant>()            // Get result from when block
-    assertThat(result.name).isEqualTo("Expected")
-}
-```
-
-### Automatic Cleanup
-
-The fixture automatically cleans up all created resources after the test:
-
-```kotlin
-fixture {
-    given {
-        tenant("Test Corp")  // Will be deleted after test
-    }
-    // ...
-}
-// Cleanup happens automatically, even if test fails
-```
-
-## HTTP/Route Testing
-
-For testing HTTP endpoints, add the web environment configuration:
-
-```kotlin
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    classes = [EpistolaSuiteApplication::class],
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+)
 @AutoConfigureTestRestTemplate
 class TenantRoutesTest : BaseIntegrationTest() {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
     @Test
-    fun `should return tenant list`() {
-        fixture {
-            given { tenant("Acme Corp") }
-            then {
-                val response = restTemplate.getForEntity("/tenants", String::class.java)
-                assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-                assertThat(response.body).contains("Acme Corp")
-            }
-        }
-    }
-}
-```
-
-### Testing HTMX Endpoints
-
-When testing HTMX-specific behavior, set the appropriate headers:
-
-```kotlin
-@Test
-fun `should return fragment for HTMX request`() {
-    val headers = HttpHeaders()
-    headers.set("HX-Request", "true")
-    headers.set("HX-Target", "tenant-list")
-
-    val request = HttpEntity<Void>(headers)
-    val response = restTemplate.exchange(
-        "/tenants",
-        HttpMethod.GET,
-        request,
-        String::class.java
-    )
-
-    // Verify HTMX response headers
-    assertThat(response.headers["HX-Push-Url"]).isNotNull()
-}
-```
-
-### Testing Form Submissions
-
-```kotlin
-@Test
-fun `should create tenant via form`() {
-    val headers = HttpHeaders()
-    headers.contentType = MediaType.APPLICATION_FORM_URLENCODED
-    headers.set("HX-Request", "true")
-
-    val body = LinkedMultiValueMap<String, String>()
-    body.add("name", "New Corp")
-
-    val request = HttpEntity(body, headers)
-    val response = restTemplate.postForEntity("/tenants", request, String::class.java)
-
-    assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
-}
-```
-
-## Testcontainers Configuration
-
-Testcontainers is configured in `TestcontainersConfiguration.kt`:
-
-```kotlin
-@TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
-    @Bean
-    @ServiceConnection
-    fun postgresContainer(): PostgreSQLContainer<*> =
-        PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
-}
-```
-
-**Features:**
-
-- Uses `@ServiceConnection` for automatic connection property configuration
-- PostgreSQL container starts automatically when tests run
-- Container is shared across all tests in the same test run
-- No manual database cleanup required between tests (use fixtures instead)
-
-## Running Application with Testcontainers
-
-For local development, you can run the application with Testcontainers:
-
-```bash
-gradle :apps:epistola:bootTestRun
-```
-
-This uses `TestEpistolaSuiteApplication.kt` which starts the app with a containerized database.
-
-## Code Coverage
-
-Coverage is tracked using Kover (Kotlin coverage tool):
-
-```bash
-# Generate HTML coverage report
-gradle koverHtmlReport
-
-# Report location: build/reports/kover/html/index.html
-```
-
-**Excluded from coverage:**
-
-- Spring framework code
-- AOT-generated classes
-- Test configuration classes
-
-## Best Practices
-
-### 1. Use the Fixture DSL
-
-Always use the fixture DSL for integration tests - it ensures proper cleanup:
-
-```kotlin
-// Good
-fixture {
-    given { tenant("Test") }
-    whenever { /* ... */ }
-    then { /* ... */ }
-}
-
-// Avoid - manual setup without cleanup
-val tenant = mediator.execute(CreateTenantCommand("Test"))
-// May leave data in database
-```
-
-### 2. Test at the Right Level
-
-- **Unit tests**: Utilities, helpers, pure functions
-- **Integration tests**: Business logic, database operations
-- **Route tests**: HTTP endpoints, form handling, HTMX behavior
-
-### 3. Use Meaningful Test Names
-
-```kotlin
-// Good
-@Test
-fun `should reject duplicate tenant names`() { }
-
-// Avoid
-@Test
-fun testTenant() { }
-```
-
-### 4. One Assertion Focus Per Test
-
-```kotlin
-// Good - focused test
-@Test
-fun `should set tenant name correctly`() {
-    fixture {
-        whenever { createTenant("Acme") }
-        then {
-            assertThat(result<Tenant>().name).isEqualTo("Acme")
-        }
-    }
-}
-
-// Separate test for another aspect
-@Test
-fun `should generate unique tenant id`() {
-    fixture {
-        whenever { createTenant("Acme") }
-        then {
-            assertThat(result<Tenant>().id).isNotNull()
-        }
-    }
-}
-```
-
-### 5. Test Multi-Tenancy Isolation
-
-When working with multi-tenant features, verify data isolation:
-
-```kotlin
-@Test
-fun `should not access other tenant data`() {
-    fixture {
-        given {
-            val tenant1 = tenant("Corp A")
-            val tenant2 = tenant("Corp B")
-            template(tenant1, "Private Template")
-        }
+    fun `GET homepage returns tenant list`() = fixture {
+        given { tenant("Acme Corp") }
         whenever {
-            // Try to list templates for tenant2
-            listTemplates(tenant2)
+            restTemplate.getForEntity("/", String::class.java)
         }
         then {
-            // Should not see tenant1's template
-            assertThat(result<List<DocumentTemplate>>()).isEmpty()
+            val response = result<ResponseEntity<String>>()
+            assertThat(response.statusCode).isEqualTo(HttpStatus.OK)
+            assertThat(response.body).contains("Acme Corp")
+        }
+    }
+}
+```
+
+### UI Tests (Playwright)
+
+Extend `BasePlaywrightTest`. Full app with a real browser:
+
+```kotlin
+class VariantCardUiTest : BasePlaywrightTest() {
+    @Test
+    fun `variant card shows attributes`() = fixture {
+        given {
+            val tenant = tenant("UI Test")
+            template(tenant, "Invoice")
+        }
+        then {
+            page.navigate("${baseUrl()}/tenants/${tenant.id}/templates")
+            assertThat(page.title()).contains("Templates")
+        }
+    }
+}
+```
+
+## Test DSLs
+
+### withMediator / withAuthentication
+
+Binds the mediator and security context so you can call `.execute()` and `.query()`:
+
+```kotlin
+withMediator {
+    val tenant = CreateTenant(id = TenantKey.of("test"), name = "Test").execute()
+    val tenants = ListTenants().query()
+}
+```
+
+`withAuthentication` is an alias for `withMediator` — they do the same thing.
+
+### TestFixture DSL
+
+Given-When-Then pattern with automatic cleanup:
+
+```kotlin
+fixture {
+    given {
+        val tenant = tenant("Acme Corp")
+        template(tenant, "Invoice")
+        noTenants()  // delete all tenants
+    }
+    whenever {
+        createTenant("New Corp")
+    }
+    then {
+        val tenant = result<Tenant>()
+        assertThat(tenant.name).isEqualTo("New Corp")
+    }
+}
+```
+
+### Scenario DSL (preferred for complex tests)
+
+Type-safe setup with automatic LIFO cleanup and data passing between phases:
+
+```kotlin
+scenario {
+    given {
+        val tenant = tenant("Test")
+        val template = template(tenant.id, "Invoice")
+        val variant = variant(tenant.id, template.id)
+        val version = version(tenant.id, template.id, variant.id, templateModel)
+        DocumentSetup(tenant, template, variant, version)
+    }.whenever { setup ->
+        GenerateDocument(setup.tenant.id, /* ... */).execute()
+    }.then { setup, result ->
+        assertThat(result.id).isNotNull()
+    }
+}
+```
+
+## Test Helpers
+
+### createTenant()
+
+Creates a tenant with a unique namespace-scoped slug:
+
+```kotlin
+val tenant = createTenant("My Tenant")
+// slug: "tenantcommandstest-1" (derived from test class name)
+```
+
+### TestIdHelpers
+
+Generates unique sequential IDs to avoid collisions across parallel tests:
+
+```kotlin
+val templateId = TestIdHelpers.nextTemplateId()   // tpl-001, tpl-002, ...
+val variantId = TestIdHelpers.nextVariantId()     // var-001, var-002, ...
+val environmentId = TestIdHelpers.nextEnvironmentId()
+```
+
+## Performance Optimizations
+
+- **Testcontainers reuse** — containers persist across test runs (`withReuse(true)`)
+- **UNLOGGED tables** — `UnloggedTablesTestConfiguration` converts all tables to UNLOGGED after migrations, eliminating WAL writes
+- **tmpfs** — PostgreSQL data directory is on tmpfs (in-memory)
+- **Fake PDF generation** — `FakeDocumentGenerationExecutor` creates minimal valid PDFs instantly
+- **Parallel execution** — test classes run concurrently, methods within a class run sequentially
+- **Namespace isolation** — each test class uses a unique slug prefix, no cross-class interference
+
+## Adding Tests to a New Module
+
+1. Add `testImplementation(project(":modules:testing"))` to your `build.gradle.kts`
+2. Extend `IntegrationTestBase` for integration tests
+3. Tests automatically get: Testcontainers, mediator context, fixture DSL, test user
+
+```kotlin
+// That's it — no other setup needed
+class MyFeatureTest : IntegrationTestBase() {
+    @Test
+    fun `my feature works`() {
+        val tenant = createTenant("Test")
+        withMediator {
+            // test your feature
         }
     }
 }
@@ -408,29 +285,14 @@ fun `should not access other tenant data`() {
 Could not find a valid Docker environment
 ```
 
-**Solution:** Start Docker Desktop or Docker daemon.
-
-### Port Already in Use
-
-```
-Port 5432 is already in use
-```
-
-**Solution:** Testcontainers uses random ports. Check if another PostgreSQL is running and stop it, or let Testcontainers manage ports automatically.
+Start Docker Desktop or the Docker daemon.
 
 ### Tests Hanging
 
-If tests hang, check:
-
-1. Docker has enough resources (memory/CPU)
-2. No zombie containers: `docker ps -a`
+1. Check Docker has enough resources
+2. Look for zombie containers: `docker ps -a`
 3. Clean up: `docker system prune`
 
-### Flaky Tests
+### Two @SpringBootApplication Conflict
 
-If tests pass locally but fail in CI:
-
-1. Ensure tests don't depend on execution order
-2. Use `@Order` annotation if order matters
-3. Check for race conditions in async code
-4. Verify fixtures clean up properly
+If you see `Found multiple @SpringBootConfiguration` errors, ensure your test specifies `classes = [...]` in its `@SpringBootTest` annotation. The testing module's `TestApplication` and the app's `EpistolaSuiteApplication` both exist on the test classpath.
