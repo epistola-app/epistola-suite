@@ -43,9 +43,11 @@ epistola-suite-modules/
 │   │   ├── metadata/      # App metadata service
 │   │   ├── config/        # JDBI, Jackson config
 │   │   └── api/           # REST API controllers
+│   ├── epistola-catalog/  # Catalog exchange (import/export templates)
 │   ├── generation/        # Pure PDF rendering
 │   ├── rest-api/          # OpenAPI specs
-│   └── editor/            # Lit + ProseMirror editors (template, theme, data contract)
+│   ├── editor/            # Lit + ProseMirror editors (template, theme, data contract)
+│   └── testing/           # Shared test infrastructure (IntegrationTestBase, fixtures, Testcontainers)
 ├── docs/                  # Documentation
 ├── scripts/               # Setup scripts
 └── build.gradle.kts       # Root build configuration
@@ -55,9 +57,11 @@ epistola-suite-modules/
 
 - **apps/epistola**: UI layer only (Thymeleaf, HTMX, routes, handlers)
 - **modules/epistola-core**: All business logic (domains, commands, queries, REST API, JDBI config)
+- **modules/epistola-catalog**: Catalog exchange — importing templates from remote catalogs (independent of core)
 - **modules/generation**: Pure PDF rendering (no business logic)
 - **modules/rest-api**: OpenAPI specifications
 - **modules/editor**: Lit + ProseMirror editors — template editor, theme editor, data contract editor (web components, no React)
+- **modules/testing**: Shared test infrastructure — `IntegrationTestBase`, Testcontainers, fixture/scenario DSLs (not production code)
 
 ## Frontend Architecture
 
@@ -205,10 +209,21 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Testing
 
-- **Requires Docker** - Tests use Testcontainers
+- **Requires Docker** - Integration and UI tests use Testcontainers
 - Backend: JUnit 5 + Testcontainers
-- Always run `gradle test` before committing
+- Always run `./gradlew unitTest integrationTest` before committing
 - All PRs must pass CI checks
+- See `docs/testing.md` for the full testing guide
+
+### Shared Testing Module
+
+Shared test infrastructure lives in `modules/testing/` (not duplicated across modules):
+
+- **`IntegrationTestBase`** — base class for all integration tests. Provides mediator context, test user, fixture/scenario DSLs, `createTenant()`. Boots `TestApplication` by default.
+- **`BaseIntegrationTest`** (in `apps/epistola`) — extends `IntegrationTestBase`, overrides with `EpistolaSuiteApplication` for app-level tests.
+- **`BasePlaywrightTest`** (in `apps/epistola`) — extends `BaseIntegrationTest` with Playwright browser lifecycle for UI tests.
+
+To add tests to a new module: `testImplementation(project(":modules:testing"))` and extend `IntegrationTestBase`.
 
 ### When to Run Which Tests
 
